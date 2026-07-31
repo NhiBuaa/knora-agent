@@ -1,9 +1,7 @@
 from knora.application.ports import AnswerGenerator, Retriever
 from knora.domain.models import Citation, QuestionAnswer
 
-REFUSAL_MESSAGE = (
-    "Tôi không tìm thấy đủ thông tin trong knowledge base để trả lời câu hỏi này."
-)
+REFUSAL_MESSAGE = "Tôi không tìm thấy đủ thông tin trong knowledge base để trả lời câu hỏi này."
 
 
 class AnswerQuestion:
@@ -29,4 +27,3 @@ class AnswerQuestion:
             for chunk in evidence
         ]
         return QuestionAnswer(answer=generated.text, citations=citations)
-

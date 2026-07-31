@@ -15,9 +15,7 @@ class StubRetriever:
 
 
 class StubGenerator:
-    async def generate(
-        self, *, question: str, evidence: list[RetrievedChunk]
-    ) -> GeneratedAnswer:
+    async def generate(self, *, question: str, evidence: list[RetrievedChunk]) -> GeneratedAnswer:
         return GeneratedAnswer(text="Khách hàng có thể yêu cầu hoàn tiền trong 30 ngày.")
 
 
@@ -34,9 +32,7 @@ async def test_answer_uses_retrieved_evidence_as_citations() -> None:
     ]
     service = AnswerQuestion(retriever=StubRetriever(evidence), generator=StubGenerator())
 
-    result = await service.execute(
-        question="Chính sách hoàn tiền là gì?", workspace_id="demo"
-    )
+    result = await service.execute(question="Chính sách hoàn tiền là gì?", workspace_id="demo")
 
     assert result.answer == "Khách hàng có thể yêu cầu hoàn tiền trong 30 ngày."
     assert result.refused is False
@@ -54,4 +50,3 @@ async def test_answer_refuses_when_no_evidence_is_available() -> None:
     assert result.answer == (
         "Tôi không tìm thấy đủ thông tin trong knowledge base để trả lời câu hỏi này."
     )
-

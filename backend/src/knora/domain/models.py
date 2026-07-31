@@ -27,4 +27,3 @@ class QuestionAnswer:
     answer: str
     citations: list[Citation] = field(default_factory=list)
     refused: bool = False
-

@@ -29,4 +29,3 @@ class QuestionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     service: str
-

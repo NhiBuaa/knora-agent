@@ -27,4 +27,3 @@ async def answer_question(
         workspace_id=payload.workspace_id,
     )
     return QuestionResponse.model_validate(result, from_attributes=True)
-
