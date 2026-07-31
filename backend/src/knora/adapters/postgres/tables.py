@@ -3,7 +3,9 @@ from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -132,3 +134,31 @@ class ChunkEmbeddingTable(Base):
     )
     chunk_id: Mapped[str] = mapped_column(ForeignKey("chunks.id", ondelete="RESTRICT"), index=True)
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+
+
+class QuestionTraceTable(Base):
+    __tablename__ = "question_traces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    trace_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    retrieval_configuration_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    embedding_configuration_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    embedding_set_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    chunk_set_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    retrieved_chunk_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    candidate_decisions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    refused: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    refusal_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    generation_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    alias_mapping: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    parsed_markers: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    validation_outcome: Mapped[str] = mapped_column(String(30), nullable=False)
+    provider_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
