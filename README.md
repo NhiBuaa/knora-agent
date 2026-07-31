@@ -40,6 +40,32 @@ Gửi raw key qua header `X-API-Key`; không commit key này hoặc ghi nó vào
 `multipart/form-data` tại `POST /v1/workspaces/{workspace_id}/documents` với fields `source_key`
 và `file`.
 
+### OpenAI-compatible provider mode
+
+Mặc định Knora dùng `deterministic-local` để test lặp lại được. Để chạy cả ingestion và cited
+answers qua một endpoint OpenAI-compatible, đặt các biến sau trước khi khởi động API hoặc chạy
+`knora-ingest`:
+
+```powershell
+$env:KNORA_PROVIDER_MODE = "openai-compatible"
+$env:KNORA_OPENAI_BASE_URL = "https://provider.example/v1"
+$env:KNORA_OPENAI_API_KEY = "<runtime-only-key>"
+$env:KNORA_OPENAI_GENERATION_MODEL = "<compatible-chat-model>"
+$env:KNORA_OPENAI_PRICING_VERSION = "<provider-pricing-version>"
+$env:KNORA_OPENAI_EMBEDDING_INPUT_COST_PER_MILLION_TOKENS = "<usd-rate>"
+$env:KNORA_OPENAI_GENERATION_INPUT_COST_PER_MILLION_TOKENS = "<usd-rate>"
+$env:KNORA_OPENAI_GENERATION_OUTPUT_COST_PER_MILLION_TOKENS = "<usd-rate>"
+```
+
+Embedding Configuration của Milestone 1 vẫn khóa ở `text-embedding-3-small`, 1536 dimensions và
+cosine distance. Prompt content và version `m1-cited-answer-v1` được khóa cùng nhau trong code để
+Question Trace luôn có provenance chính xác. Có thể pin thêm
+`KNORA_OPENAI_EMBEDDING_CONFIGURATION_ID` và `KNORA_OPENAI_TIMEOUT_SECONDS`; xem
+[`.env.example`](.env.example) để biết toàn bộ tên biến. OpenAI-compatible mode fail khi startup
+nếu cấu hình thiếu hoặc embedding space không đúng; Knora không tự động fallback sang local
+provider. API key chỉ được đọc từ runtime configuration và được redacted trong representation của
+settings.
+
 ## Kiểm tra
 
 Từ repository root:
@@ -61,7 +87,5 @@ Sau khi API đang chạy:
 
 ## Bước implementation tiếp theo
 
-1. Implement exact PostgreSQL/pgvector retrieval trên active Embedding Sets.
-2. Thêm evidence selection, deterministic refusal và Question Trace.
-3. Kết nối OpenAI-compatible providers cho demo/evaluation model-backed.
-4. Mở rộng evaluation dataset trước khi tối ưu retrieval.
+1. Hoàn thiện concurrency và Workspace isolation failure semantics.
+2. Mở rộng evaluation dataset trước khi tối ưu retrieval.

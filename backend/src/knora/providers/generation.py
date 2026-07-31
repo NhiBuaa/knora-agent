@@ -20,6 +20,7 @@ class GenerationResult:
     finish_reason: str | None = None
     provider_request_id: str | None = None
     usage: dict[str, int] = field(default_factory=dict)
+    cost: dict[str, str] = field(default_factory=dict)
 
 
 class GenerationProvider(Protocol):

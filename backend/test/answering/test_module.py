@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 
 import pytest
@@ -28,12 +29,68 @@ class QueryEmbeddingProvider:
             vectors=(tuple([0.0] * configuration.dimensions),),
             provider=configuration.provider,
             model=configuration.model,
+            provider_request_id="embedding-request-1",
+            usage={"prompt_tokens": 4, "total_tokens": 4},
+            cost={
+                "amount_usd": "0.00000008",
+                "currency": "USD",
+                "pricing_version": "test-pricing-v1",
+            },
         )
+
+
+class MismatchedQueryEmbeddingProvider:
+    def embed(self, texts, configuration):
+        return EmbeddingBatch(
+            vectors=(tuple([0.0] * configuration.dimensions),),
+            provider="unexpected-provider",
+            model=configuration.model,
+        )
+
+
+class WorkerThreadQueryEmbeddingProvider(QueryEmbeddingProvider):
+    def embed(self, texts, configuration):
+        with pytest.raises(RuntimeError, match="no running event loop"):
+            asyncio.get_running_loop()
+        return super().embed(texts, configuration)
 
 
 class GeneratorThatMustNotRun:
     async def generate(self, **kwargs):
         raise AssertionError("generation must not run without qualified evidence")
+
+
+@pytest.mark.asyncio
+async def test_query_embedding_configuration_mismatch_fails_before_retrieval() -> None:
+    service = AnswerQuestion(
+        embedding_provider=MismatchedQueryEmbeddingProvider(),
+        generation_provider=GeneratorThatMustNotRun(),
+        store=EmptyStore(),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    with pytest.raises(Exception, match="EMBEDDING_CONFIGURATION_MISMATCH"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="What is the refund policy?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_query_embedding_does_not_block_the_async_application_path() -> None:
+    service = AnswerQuestion(
+        embedding_provider=WorkerThreadQueryEmbeddingProvider(),
+        generation_provider=GeneratorThatMustNotRun(),
+        store=EmptyStore(),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question="What is the refund policy?"),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+
+    assert result.decision == "REFUSAL"
 
 
 def retrieval_candidate(
@@ -81,6 +138,14 @@ class ReorderedGenerator:
             provider="deterministic-local",
             model="controlled-test",
             prompt_version="test-v1",
+            finish_reason="stop",
+            provider_request_id="generation-request-1",
+            usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            cost={
+                "amount_usd": "0.00002",
+                "currency": "USD",
+                "pricing_version": "test-pricing-v1",
+            },
         )
 
 
@@ -187,6 +252,32 @@ async def test_answer_projects_citations_in_first_marker_order() -> None:
     ]
     assert store.traces[0].alias_mapping == {"E1": "chunk-1", "E2": "chunk-2"}
     assert store.traces[0].validation_outcome == "valid"
+    assert store.traces[0].provider_metadata == {
+        "embedding": {
+            "provider": "deterministic-local",
+            "model": "text-embedding-3-small",
+            "provider_request_id": "embedding-request-1",
+            "usage": {"prompt_tokens": 4, "total_tokens": 4},
+            "cost": {
+                "amount_usd": "0.00000008",
+                "currency": "USD",
+                "pricing_version": "test-pricing-v1",
+            },
+        },
+        "generation": {
+            "provider": "deterministic-local",
+            "model": "controlled-test",
+            "prompt_version": "test-v1",
+            "finish_reason": "stop",
+            "provider_request_id": "generation-request-1",
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            "cost": {
+                "amount_usd": "0.00002",
+                "currency": "USD",
+                "pricing_version": "test-pricing-v1",
+            },
+        },
+    }
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+import asyncio
 from time import perf_counter
 
 from knora.answering.evidence import EvidenceSelection, select_evidence
@@ -10,7 +11,7 @@ from knora.answering.stores import (
 )
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
-from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
+from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration, EmbeddingProvider
 from knora.providers.generation import GenerationEvidence, GenerationProvider, GenerationResult
 
 REFUSAL_MESSAGE = "Tôi không tìm thấy đủ thông tin trong knowledge base để trả lời câu hỏi này."
@@ -43,14 +44,21 @@ class AnswerQuestion:
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
 
-        query_batch = self._embedding_provider.embed(
-            [command.question], self._embedding_configuration
+        query_batch = await asyncio.to_thread(
+            self._embedding_provider.embed,
+            [command.question],
+            self._embedding_configuration,
         )
         if len(query_batch.vectors) != 1 or any(
             len(vector) != self._embedding_configuration.dimensions
             for vector in query_batch.vectors
         ):
             raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+        if (
+            query_batch.provider != self._embedding_configuration.provider
+            or query_batch.model != self._embedding_configuration.model
+        ):
+            raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
 
         candidates = self._store.retrieve_candidates(
             workspace_id=command.workspace_id,
@@ -68,6 +76,7 @@ class AnswerQuestion:
                     answer=None,
                     refusal_reason="INSUFFICIENT_EVIDENCE",
                     generation_status="not_called",
+                    embedding=query_batch,
                     started=started,
                 )
             )
@@ -104,6 +113,7 @@ class AnswerQuestion:
                     answer=generation.answer,
                     refusal_reason=generation.refusal_reason,
                     generation_status="completed",
+                    embedding=query_batch,
                     alias_mapping={
                         alias: candidate.chunk_id
                         for alias, candidate in alias_to_candidate.items()
@@ -140,6 +150,7 @@ class AnswerQuestion:
                 answer=answer if decision == "ANSWER" else None,
                 refusal_reason=refusal_reason,
                 generation_status="completed",
+                embedding=query_batch,
                 alias_mapping={
                     alias: candidate.chunk_id for alias, candidate in alias_to_candidate.items()
                 },
@@ -181,6 +192,7 @@ class AnswerQuestion:
         answer: str | None,
         refusal_reason: str | None,
         generation_status: str,
+        embedding: EmbeddingBatch,
         started: float,
         alias_mapping: dict[str, str] | None = None,
         parsed_markers: tuple[str, ...] = (),
@@ -188,15 +200,24 @@ class AnswerQuestion:
         generation: GenerationResult | None = None,
     ) -> QuestionTraceRecord:
         retrieved = tuple(item.candidate for item in selection.decisions)
-        provider_metadata: dict[str, object] = {}
+        provider_metadata: dict[str, object] = {
+            "embedding": {
+                "provider": embedding.provider,
+                "model": embedding.model,
+                "provider_request_id": embedding.provider_request_id,
+                "usage": embedding.usage,
+                "cost": embedding.cost,
+            }
+        }
         if generation is not None:
-            provider_metadata = {
+            provider_metadata["generation"] = {
                 "provider": generation.provider,
                 "model": generation.model,
                 "prompt_version": generation.prompt_version,
                 "finish_reason": generation.finish_reason,
                 "provider_request_id": generation.provider_request_id,
                 "usage": generation.usage,
+                "cost": generation.cost,
             }
         return QuestionTraceRecord(
             workspace_id=command.workspace_id,
