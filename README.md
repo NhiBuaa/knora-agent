@@ -19,7 +19,26 @@ Set-Location backend
 
 Mở API docs tại `http://localhost:8000/docs`.
 
-Scaffold sử dụng deterministic demo adapters nên chạy được mà không cần API key. Milestone 1 tiếp theo sẽ thay chúng bằng PostgreSQL/pgvector retriever và provider thật qua các contracts hiện có.
+`/health` là public. Các Workspace endpoint yêu cầu `X-API-Key`; runtime chỉ nhận hash của key,
+không nhận hoặc lưu raw key. Ví dụ tạo một credential local:
+
+```powershell
+$rawKey = "local-demo-key"
+$keyHash = .\.venv\Scripts\python -c `
+  "from knora.access.api_keys import hash_api_key; print(hash_api_key('local-demo-key'))"
+$env:KNORA_API_CREDENTIALS_JSON = ConvertTo-Json -Compress -InputObject @(
+  @{
+    key_id = "local-demo"
+    key_hash = $keyHash
+    workspace_id = "demo"
+    enabled = $true
+  }
+)
+```
+
+Gửi raw key qua header `X-API-Key`; không commit key này hoặc ghi nó vào log. Ingestion HTTP dùng
+`multipart/form-data` tại `POST /v1/workspaces/{workspace_id}/documents` với fields `source_key`
+và `file`.
 
 ## Kiểm tra
 
@@ -42,10 +61,7 @@ Sau khi API đang chạy:
 
 ## Bước implementation tiếp theo
 
-1. Viết ingestion command cho `sample_data/*.md`.
-2. Tạo chunks có version và checksum.
-3. Thêm embedding provider.
-4. Implement PostgreSQL/pgvector retriever sau `Retriever` port.
-5. Persist question traces.
-6. Mở rộng eval dataset lên 15–20 cases trước khi tối ưu retrieval.
-
+1. Implement exact PostgreSQL/pgvector retrieval trên active Embedding Sets.
+2. Thêm evidence selection, deterministic refusal và Question Trace.
+3. Kết nối OpenAI-compatible providers cho demo/evaluation model-backed.
+4. Mở rộng evaluation dataset trước khi tối ưu retrieval.

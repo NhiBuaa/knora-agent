@@ -49,11 +49,14 @@ class IngestDocument:
             workspace_id=command.workspace_id,
             source_key=command.source_key,
         )
-        processed = self._processor.process(
-            raw_content=command.raw_content,
-            media_type=command.media_type,
-            configuration=command.chunking_configuration,
-        )
+        try:
+            processed = self._processor.process(
+                raw_content=command.raw_content,
+                media_type=command.media_type,
+                configuration=command.chunking_configuration,
+            )
+        except UnicodeDecodeError as error:
+            raise KnoraError("INVALID_DOCUMENT_ENCODING") from error
         if (
             processed.normalized_token_count > MAX_NORMALIZED_TOKENS
             or len(processed.chunks) > MAX_CHUNKS
