@@ -7,13 +7,13 @@ from pathlib import Path
 
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
+from knora.bootstrap import build_provider_selection
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.infrastructure.settings import settings
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import ChunkingConfiguration, DocumentProcessor
-from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
-from knora.providers.embedding import EmbeddingConfiguration
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,23 +40,29 @@ def run_ingestion(args: argparse.Namespace) -> dict:
     path: Path = args.path
     media_type = media_type_for_path(path)
     source_name = args.source_name or path.name
+    providers = build_provider_selection(settings)
     use_case = IngestDocument(
         processor=DocumentProcessor(),
-        embedding_provider=DeterministicEmbeddingProvider(),
+        embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
     )
-    result = use_case.execute(
-        IngestDocumentCommand(
-            workspace_id=args.workspace,
-            source_key=args.source_key,
-            source_name=source_name,
-            media_type=media_type,
-            raw_content=path.read_bytes(),
-            chunking_configuration=ChunkingConfiguration.milestone_one(),
-            embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
-        ),
-        WorkspacePrincipal(workspace_id=args.workspace, key_id="cli"),
-    )
+    try:
+        result = use_case.execute(
+            IngestDocumentCommand(
+                workspace_id=args.workspace,
+                source_key=args.source_key,
+                source_name=source_name,
+                media_type=media_type,
+                raw_content=path.read_bytes(),
+                chunking_configuration=ChunkingConfiguration.milestone_one(),
+                embedding_configuration=providers.embedding_configuration,
+            ),
+            WorkspacePrincipal(workspace_id=args.workspace, key_id="cli"),
+        )
+    finally:
+        close_embedding = getattr(providers.embedding_provider, "close", None)
+        if close_embedding is not None:
+            close_embedding()
     return {
         "outcome": result.outcome,
         "activation_changed": result.activation_changed,

@@ -1,6 +1,8 @@
+import asyncio
 from dataclasses import dataclass, field, replace
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import (
@@ -49,6 +51,13 @@ class RecordingIngestDocument:
         return self.result
 
 
+class WorkerThreadIngestDocument(RecordingIngestDocument):
+    def execute(self, command, principal):
+        with pytest.raises(RuntimeError, match="no running event loop"):
+            asyncio.get_running_loop()
+        return super().execute(command, principal)
+
+
 def created_result() -> IngestionResult:
     return IngestionResult(
         outcome="created",
@@ -63,8 +72,18 @@ def created_result() -> IngestionResult:
     )
 
 
-def client_with(service) -> TestClient:
-    return TestClient(create_app(ingest_document=service, api_key_authenticator=authenticator()))
+def client_with(
+    service,
+    *,
+    embedding_configuration: EmbeddingConfiguration | None = None,
+) -> TestClient:
+    return TestClient(
+        create_app(
+            ingest_document=service,
+            api_key_authenticator=authenticator(),
+            embedding_configuration=embedding_configuration,
+        )
+    )
 
 
 def valid_upload(client: TestClient, *, key: str | None, workspace_id: str = "workspace-a"):
@@ -140,6 +159,32 @@ def test_created_and_reused_results_use_distinct_http_statuses() -> None:
     assert reused.status_code == 200
     assert reused.json()["outcome"] == "reused"
     assert reused.json()["activation_changed"] is False
+
+
+def test_http_ingestion_uses_the_runtime_embedding_configuration() -> None:
+    service = RecordingIngestDocument(created_result())
+    configuration = EmbeddingConfiguration.openai_compatible(
+        configuration_id="embedding-openai-m1-v1",
+        model="text-embedding-3-small",
+    )
+
+    response = valid_upload(
+        client_with(service, embedding_configuration=configuration),
+        key=RAW_KEY_A,
+    )
+
+    assert response.status_code == 201
+    command, _ = service.calls[0]
+    assert command.embedding_configuration == configuration
+
+
+def test_http_ingestion_does_not_block_the_async_route() -> None:
+    response = valid_upload(
+        client_with(WorkerThreadIngestDocument(created_result())),
+        key=RAW_KEY_A,
+    )
+
+    assert response.status_code == 201
 
 
 @dataclass
