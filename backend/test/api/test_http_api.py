@@ -27,19 +27,6 @@ def test_health_reports_service_is_ready() -> None:
     assert response.json() == {"status": "ok", "service": "knora-agent"}
 
 
-def test_question_endpoint_returns_a_cited_answer_for_demo_corpus() -> None:
-    response = client.post(
-        "/v1/questions",
-        headers={"X-API-Key": RAW_KEY},
-        json={"workspace_id": "demo", "question": "Chính sách hoàn tiền là gì?"},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["refused"] is False
-    assert payload["citations"][0]["source"] == "refund-policy.md"
-
-
 def test_question_endpoint_rejects_blank_questions() -> None:
     response = client.post(
         "/v1/questions",

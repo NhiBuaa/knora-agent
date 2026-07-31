@@ -15,15 +15,24 @@ class QuestionRequest(BaseModel):
 
 
 class CitationResponse(BaseModel):
+    evidence_id: str
     document_id: str
-    chunk_id: str
-    source: str
+    document_version_id: str
+    source_key: str
+    source_name: str
+    heading_path: list[str]
+    start_line: int
+    end_line: int
+    excerpt: str
+    content_checksum: str
 
 
 class QuestionResponse(BaseModel):
+    decision: str
     answer: str
     citations: list[CitationResponse]
-    refused: bool
+    refusal_reason: str | None
+    trace_id: str
 
 
 class HealthResponse(BaseModel):

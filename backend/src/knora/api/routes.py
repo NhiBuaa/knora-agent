@@ -3,8 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 
 from knora.adapters.http.routes import authenticate_principal
+from knora.answering.interface import QuestionCommand
+from knora.answering.module import AnswerQuestion
 from knora.api.schemas import QuestionRequest, QuestionResponse
-from knora.application.answer_question import AnswerQuestion
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 
@@ -24,7 +25,7 @@ async def answer_question(
     if principal.workspace_id != payload.workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
     result = await service.execute(
-        question=payload.question,
-        workspace_id=payload.workspace_id,
+        QuestionCommand(workspace_id=payload.workspace_id, question=payload.question),
+        principal,
     )
     return QuestionResponse.model_validate(result, from_attributes=True)

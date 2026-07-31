@@ -3,37 +3,32 @@ from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.adapters.http.routes import router as http_router
+from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
+from knora.answering.module import AnswerQuestion
 from knora.api.routes import router
-from knora.application.answer_question import AnswerQuestion
 from knora.domain.errors import KnoraError
-from knora.domain.models import RetrievedChunk
 from knora.infrastructure.settings import settings
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import DocumentProcessor
-from knora.providers.demo import DemoAnswerGenerator, DemoRetriever
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
+from knora.providers.deterministic.generation import DeterministicGenerationProvider
+from knora.providers.embedding import EmbeddingConfiguration
 
 
 def create_app(
     *,
     ingest_document: IngestDocument | None = None,
+    answer_question: AnswerQuestion | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Knora Agent", version="0.1.0")
-    demo_chunks = [
-        RetrievedChunk(
-            document_id="refund-policy",
-            chunk_id="refund-policy:0",
-            source="refund-policy.md",
-            content="Khách hàng có thể yêu cầu hoàn tiền trong vòng 30 ngày kể từ ngày mua.",
-            score=1.0,
-        )
-    ]
-    application.state.answer_question = AnswerQuestion(
-        retriever=DemoRetriever(demo_chunks),
-        generator=DemoAnswerGenerator(),
+    application.state.answer_question = answer_question or AnswerQuestion(
+        embedding_provider=DeterministicEmbeddingProvider(),
+        generation_provider=DeterministicGenerationProvider(),
+        store=PostgresAnsweringStore(SessionFactory),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
     )
     application.state.ingest_document = ingest_document or IngestDocument(
         processor=DocumentProcessor(),
@@ -56,6 +51,7 @@ def create_app(
             "DOCUMENT_CONCURRENTLY_UPDATED": 409,
             "EMBEDDING_DIMENSION_MISMATCH": 502,
             "EMBEDDING_CONFIGURATION_MISMATCH": 502,
+            "GENERATION_OUTPUT_INVALID": 502,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
