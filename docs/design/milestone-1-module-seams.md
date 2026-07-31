@@ -127,3 +127,69 @@ expand the two external application interfaces.
 Tests assert observable outcomes through these interfaces and avoid testing ORM rows as a proxy
 for application behavior except in focused persistence-adapter integration tests.
 
+## Target directory ownership
+
+Milestone 1 evolves toward this capability-first structure. Directories are created only when a
+ticket needs them; empty placeholders are not required.
+
+```text
+backend/
+├── migrations/
+├── src/knora/
+│   ├── main.py
+│   ├── bootstrap.py
+│   ├── config.py
+│   ├── domain/
+│   │   ├── access.py
+│   │   ├── documents.py
+│   │   ├── retrieval.py
+│   │   ├── answering.py
+│   │   └── errors.py
+│   ├── access/
+│   │   ├── api_keys.py
+│   │   └── policy.py
+│   ├── ingestion/
+│   │   ├── interface.py
+│   │   ├── module.py
+│   │   ├── processing.py
+│   │   └── store.py
+│   ├── answering/
+│   │   ├── interface.py
+│   │   ├── module.py
+│   │   ├── evidence.py
+│   │   ├── generation_validation.py
+│   │   └── stores.py
+│   ├── providers/
+│   │   ├── embedding.py
+│   │   ├── generation.py
+│   │   ├── deterministic/
+│   │   └── openai_compatible/
+│   └── adapters/
+│       ├── http/
+│       ├── cli/
+│       └── postgres/
+└── test/
+    ├── access/
+    ├── ingestion/
+    ├── answering/
+    ├── providers/
+    ├── adapters/http/
+    ├── adapters/postgres/
+    └── fixtures/
+
+evals/
+├── corpora/milestone_1/
+├── datasets/
+├── runners/
+├── scorers/
+├── reports/
+└── test/
+```
+
+`domain` contains pure canonical types and invariants and imports no FastAPI, SQLAlchemy or model
+SDK. `ingestion` and `answering` own their application interfaces and implementations.
+`adapters` contains transport and persistence implementations without application rules.
+
+Avoid generic `services`, `repositories`, `utils`, `helpers` and `common` directories. Persistence
+interfaces stay beside the application module that consumes them; PostgreSQL adapters stay under
+`adapters/postgres`. Tests remain outside production source and mirror the owning module.
