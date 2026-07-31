@@ -1,0 +1,3 @@
+{"id":"refund-window","workspace_id":"demo","question":"Tôi có thể yêu cầu hoàn tiền trong bao lâu?","expected_sources":["refund-policy.md"],"expected_refused":false}
+{"id":"unsupported-world-cup","workspace_id":"demo","question":"Đội nào vô địch World Cup gần nhất?","expected_sources":[],"expected_refused":true}
+

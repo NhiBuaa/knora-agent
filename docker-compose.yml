@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: knora
+      POSTGRES_USER: knora
+      POSTGRES_PASSWORD: knora
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knora -d knora"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@postgres:5432/knora
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  knora_postgres_data:
+
