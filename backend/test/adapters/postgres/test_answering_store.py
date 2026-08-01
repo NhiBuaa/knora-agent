@@ -1,3 +1,4 @@
+from dataclasses import replace
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -7,7 +8,6 @@ from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
-    DocumentTable,
     EmbeddingSetTable,
     WorkspaceTable,
 )
@@ -73,7 +73,7 @@ def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
             distance_metric="cosine",
         ),
     )
-    ingest(workspace_b, "support/refunds-b")
+    forbidden = ingest(workspace_b, "support/refunds-b")
 
     with SessionFactory() as session:
         query_vector = tuple(
@@ -83,14 +83,7 @@ def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
                     EmbeddingSetTable,
                     EmbeddingSetTable.id == ChunkEmbeddingTable.embedding_set_id,
                 )
-                .join(
-                    DocumentTable,
-                    DocumentTable.active_embedding_set_id == EmbeddingSetTable.id,
-                )
-                .where(
-                    DocumentTable.workspace_id == workspace_a,
-                    DocumentTable.source_key == "support/refunds-a",
-                )
+                .where(EmbeddingSetTable.id == forbidden.embedding_set_id)
             ).first()
         )
 
@@ -98,15 +91,14 @@ def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
         workspace_id=workspace_a,
         query_vector=query_vector,
         embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
-        retrieval_configuration=RetrievalConfiguration.milestone_one(),
+        retrieval_configuration=replace(
+            RetrievalConfiguration.milestone_one(), candidate_k=1
+        ),
     )
 
-    assert candidates
-    assert {candidate.source_key for candidate in candidates} == {
-        "support/refunds-a",
-        "support/refunds-a-2",
-    }
-    assert candidates[0].similarity == 1.0
+    assert len(candidates) == 1
+    assert candidates[0].source_key in {"support/refunds-a", "support/refunds-a-2"}
+    assert candidates[0].similarity < 1.0
     assert all(candidate.embedding_set_id != original.embedding_set_id for candidate in candidates)
     assert all(
         candidate.embedding_set_id == active.embedding_set_id

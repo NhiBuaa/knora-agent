@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from knora.adapters.postgres.tables import (
@@ -164,6 +164,7 @@ class PostgresIngestionStore(IngestionStore):
                     )
                     .values(
                         active_embedding_set_id=embedding_set.id,
+                        active_embedding_configuration_id=embedding_config.id,
                         revision=DocumentTable.revision + 1,
                     )
                 )
@@ -184,7 +185,9 @@ class PostgresIngestionStore(IngestionStore):
         except IntegrityError as error:
             if "documents_workspace_id_source_key" in str(error.orig):
                 raise KnoraError("DOCUMENT_CONCURRENTLY_UPDATED") from error
-            raise
+            raise KnoraError("PERSISTENCE_OPERATION_FAILED") from None
+        except SQLAlchemyError:
+            raise KnoraError("PERSISTENCE_OPERATION_FAILED") from None
 
     @staticmethod
     def _get_or_create_chunking(session, prepared: PreparedDerivation):
