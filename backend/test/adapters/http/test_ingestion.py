@@ -20,6 +20,7 @@ from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 
 RAW_KEY_A = "test-http-key-a"
 RAW_KEY_B = "test-http-key-b"
+RAW_KEY_DISABLED = "test-http-key-disabled"
 
 
 def authenticator() -> ApiKeyAuthenticator:
@@ -36,6 +37,12 @@ def authenticator() -> ApiKeyAuthenticator:
                 key_hash=hash_api_key(RAW_KEY_B),
                 workspace_id="workspace-b",
                 enabled=True,
+            ),
+            ApiCredential(
+                key_id="test-disabled",
+                key_hash=hash_api_key(RAW_KEY_DISABLED),
+                workspace_id="workspace-a",
+                enabled=False,
             ),
         )
     )
@@ -110,11 +117,14 @@ def test_missing_and_invalid_keys_are_rejected_before_ingestion() -> None:
 
     missing = valid_upload(client, key=None)
     invalid = valid_upload(client, key="unknown-key")
+    disabled = valid_upload(client, key=RAW_KEY_DISABLED)
 
     assert missing.status_code == 401
     assert missing.json() == {"error": {"code": "UNAUTHENTICATED"}}
     assert invalid.status_code == 401
     assert invalid.json() == missing.json()
+    assert disabled.status_code == 401
+    assert disabled.json() == missing.json()
     assert service.calls == []
 
 
@@ -294,3 +304,33 @@ def test_http_ingestion_creates_then_reuses_postgres_derivation() -> None:
         "embedding_configuration_id",
     ):
         assert reused.json()[resource_id] == created.json()[resource_id]
+
+
+def test_http_persistence_failure_returns_only_a_stable_error_code() -> None:
+    workspace_id = f"test-http-{uuid4()}"
+    raw_key = f"key-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="HTTP persistence failure"))
+    auth = ApiKeyAuthenticator(
+        (
+            ApiCredential(
+                key_id="integration",
+                key_hash=hash_api_key(raw_key),
+                workspace_id=workspace_id,
+                enabled=True,
+            ),
+        )
+    )
+    client = TestClient(create_app(api_key_authenticator=auth))
+    canary = "database-canary"
+
+    response = client.post(
+        f"/v1/workspaces/{workspace_id}/documents",
+        headers={"X-API-Key": raw_key},
+        data={"source_key": "support/persistence-failure"},
+        files={"file": (f"{canary}-{'x' * 300}.md", b"# Refunds\n\nThirty days.\n")},
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"error": {"code": "PERSISTENCE_OPERATION_FAILED"}}
+    assert canary not in response.text

@@ -152,6 +152,27 @@ def test_question_workspace_mismatch_is_rejected_before_application_call() -> No
     assert service.calls == []
 
 
+def test_missing_and_invalid_keys_are_rejected_before_question_application_call() -> None:
+    service = RecordingAnswerQuestion()
+    client = client_with(service)
+
+    missing = client.post(
+        "/v1/questions",
+        json={"workspace_id": "workspace-a", "question": "What is the refund policy?"},
+    )
+    invalid = client.post(
+        "/v1/questions",
+        headers={"X-API-Key": "unknown-key"},
+        json={"workspace_id": "workspace-a", "question": "What is the refund policy?"},
+    )
+
+    assert missing.status_code == 401
+    assert missing.json() == {"error": {"code": "UNAUTHENTICATED"}}
+    assert invalid.status_code == 401
+    assert invalid.json() == missing.json()
+    assert service.calls == []
+
+
 def test_invalid_generation_maps_to_explicit_http_502() -> None:
     response = client_with(InvalidGenerationService()).post(
         "/v1/questions",

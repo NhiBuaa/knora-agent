@@ -75,6 +75,7 @@ def create_app(
             "GENERATION_OUTPUT_INVALID": 502,
             "PROVIDER_REQUEST_FAILED": 502,
             "PROVIDER_RESPONSE_INVALID": 502,
+            "PERSISTENCE_OPERATION_FAILED": 500,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 

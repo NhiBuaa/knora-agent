@@ -142,6 +142,23 @@ def test_ingest_document_authorizes_workspace_before_lookup_or_provider() -> Non
     assert provider.calls == 0
 
 
+def test_ingest_document_rejects_principal_command_workspace_mismatch() -> None:
+    provider = RecordingEmbeddingProvider()
+    store = RecordingIngestionStore(result=expected_result())
+    use_case = IngestDocument(
+        processor=DocumentProcessor(), embedding_provider=provider, store=store
+    )
+
+    with pytest.raises(KnoraError, match="WORKSPACE_ACCESS_DENIED"):
+        use_case.execute(
+            command_for(b"# Refund\n\nRefunds are available for 30 days.\n"),
+            WorkspacePrincipal(workspace_id="other-workspace", key_id="cli"),
+        )
+
+    assert provider.calls == 0
+    assert store.commits == []
+
+
 @pytest.mark.parametrize(
     ("raw_content", "configuration"),
     [
