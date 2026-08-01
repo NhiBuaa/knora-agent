@@ -60,12 +60,14 @@ class AnswerQuestion:
         ):
             raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
 
+        retrieval_started = perf_counter()
         candidates = self._store.retrieve_candidates(
             workspace_id=command.workspace_id,
             query_vector=query_batch.vectors[0],
             embedding_configuration=self._embedding_configuration,
             retrieval_configuration=self._retrieval_configuration,
         )
+        retrieval_latency_ms = (perf_counter() - retrieval_started) * 1000
         selection = select_evidence(candidates, self._retrieval_configuration)
         if not selection.selected:
             trace_id = self._store.persist_trace(
@@ -77,6 +79,7 @@ class AnswerQuestion:
                     refusal_reason="INSUFFICIENT_EVIDENCE",
                     generation_status="not_called",
                     embedding=query_batch,
+                    retrieval_latency_ms=retrieval_latency_ms,
                     started=started,
                 )
             )
@@ -114,6 +117,7 @@ class AnswerQuestion:
                     refusal_reason=generation.refusal_reason,
                     generation_status="completed",
                     embedding=query_batch,
+                    retrieval_latency_ms=retrieval_latency_ms,
                     alias_mapping={
                         alias: candidate.chunk_id
                         for alias, candidate in alias_to_candidate.items()
@@ -151,6 +155,7 @@ class AnswerQuestion:
                 refusal_reason=refusal_reason,
                 generation_status="completed",
                 embedding=query_batch,
+                retrieval_latency_ms=retrieval_latency_ms,
                 alias_mapping={
                     alias: candidate.chunk_id for alias, candidate in alias_to_candidate.items()
                 },
@@ -193,6 +198,7 @@ class AnswerQuestion:
         refusal_reason: str | None,
         generation_status: str,
         embedding: EmbeddingBatch,
+        retrieval_latency_ms: float,
         started: float,
         alias_mapping: dict[str, str] | None = None,
         parsed_markers: tuple[str, ...] = (),
@@ -201,6 +207,7 @@ class AnswerQuestion:
     ) -> QuestionTraceRecord:
         retrieved = tuple(item.candidate for item in selection.decisions)
         provider_metadata: dict[str, object] = {
+            "retrieval": {"latency_ms": retrieval_latency_ms},
             "embedding": {
                 "provider": embedding.provider,
                 "model": embedding.model,

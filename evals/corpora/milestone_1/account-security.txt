@@ -1,0 +1,1 @@
+Use Forgot password on the sign-in page to reset an account password. Never send a password to support by email.

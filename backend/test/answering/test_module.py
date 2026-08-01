@@ -253,6 +253,7 @@ async def test_answer_projects_citations_in_first_marker_order() -> None:
     assert store.traces[0].alias_mapping == {"E1": "chunk-1", "E2": "chunk-2"}
     assert store.traces[0].validation_outcome == "valid"
     assert store.traces[0].provider_metadata == {
+        "retrieval": {"latency_ms": pytest.approx(0.0, abs=1000.0)},
         "embedding": {
             "provider": "deterministic-local",
             "model": "text-embedding-3-small",
