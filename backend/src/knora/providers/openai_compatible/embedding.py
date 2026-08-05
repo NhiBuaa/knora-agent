@@ -44,9 +44,20 @@ class OpenAICompatibleEmbeddingProvider:
             )
             response.raise_for_status()
             payload = response.json()
-            items = sorted(payload["data"], key=lambda item: item["index"])
-            if [item["index"] for item in items] != list(range(len(items))):
+            raw_items = payload["data"]
+            if not isinstance(raw_items, list) or len(raw_items) != len(texts):
                 raise ValueError
+            indexed = ["index" in item for item in raw_items]
+            if any(indexed) and not all(indexed):
+                raise ValueError
+            if all(indexed):
+                items = sorted(raw_items, key=lambda item: item["index"])
+                if [item["index"] for item in items] != list(range(len(items))):
+                    raise ValueError
+            else:
+                # Gemini's OpenAI-compatible embedding endpoint omits index and
+                # returns embeddings in the same order as the input list.
+                items = raw_items
             vectors = tuple(tuple(float(value) for value in item["embedding"]) for item in items)
             usage = {
                 key: int(value)

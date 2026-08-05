@@ -26,6 +26,9 @@ from evals.runners.evaluation import (
 
 DATASET = Path(__file__).parents[1] / "datasets" / "milestone_1.jsonl"
 CORPUS_MANIFEST = Path(__file__).parents[1] / "corpora" / "milestone_1" / "manifest.json"
+OPENAI_CORPUS_MANIFEST = (
+    Path(__file__).parents[1] / "corpora" / "milestone_1" / "manifest.openai-compatible.json"
+)
 DATASET_MANIFEST = Path(__file__).parents[1] / "datasets" / "milestone_1.manifest.json"
 
 
@@ -262,7 +265,14 @@ def test_model_backed_mode_requires_explicit_provider_and_scorer() -> None:
             scorer_version=None,
         )
 
-    with pytest.raises(ValueError, match="deferred to Issue #7"):
+    validate_mode(
+        "model-backed",
+        provider_mode="openai-compatible",
+        scorer_version="semantic-scorer-v1",
+        scorer_method="llm-judge-v1",
+    )
+
+    with pytest.raises(ValueError, match="scorer measurement method"):
         validate_mode(
             "model-backed",
             provider_mode="openai-compatible",
@@ -314,6 +324,19 @@ def test_corpus_manifest_pins_every_document_checksum(tmp_path: Path) -> None:
         load_corpus_manifest(invalid)
 
 
+def test_model_backed_corpus_manifest_pins_the_openai_embedding_configuration() -> None:
+    manifest = load_corpus_manifest(OPENAI_CORPUS_MANIFEST)
+
+    assert manifest.version == "m1-corpus-openai-v1"
+    assert manifest.workspace_id == "evaluation-m1-r2"
+    assert manifest.embedding_configuration_id == "embedding-openai-m1-v1"
+    assert tuple(document.source_key for document in manifest.documents) == (
+        "support/account-security",
+        "support/refund-policy",
+        "support/shipping-policy",
+    )
+
+
 def test_dataset_manifest_binds_version_to_content_checksum(tmp_path: Path) -> None:
     identity = load_dataset_manifest(DATASET_MANIFEST, DATASET)
     assert identity.version == "m1-dataset-v1"
@@ -338,6 +361,25 @@ def test_normalized_report_excludes_only_wall_clock_observations() -> None:
 
     assert normalize_report(first) == normalize_report(second)
     assert first["retrieval"]["latency_ms"]["mean"] == 10.0
+
+
+def test_normalized_model_report_excludes_scorer_wall_clock_observations() -> None:
+    first = {
+        "mode": "model-backed",
+        "semantic": {"metrics": {"faithfulness": {"mean": 0.8}}},
+        "system": {
+            "semantic_scorer": {"latency_ms": {"mean": 10.0}, "provider_errors": 0}
+        },
+    }
+    second = {
+        "mode": "model-backed",
+        "semantic": {"metrics": {"faithfulness": {"mean": 0.8}}},
+        "system": {
+            "semantic_scorer": {"latency_ms": {"mean": 99.0}, "provider_errors": 0}
+        },
+    }
+
+    assert normalize_report(first) == normalize_report(second)
 
 
 def test_any_structural_violation_fails_the_hard_gate() -> None:

@@ -45,7 +45,11 @@ def test_bootstrap_selects_one_complete_provider_mode() -> None:
     "runtime_settings",
     [
         Settings(_env_file=None, embedding_dimension=1535),
-        compatible_settings(openai_embedding_model="another-embedding-model"),
+        Settings(
+            _env_file=None,
+            provider_mode="deterministic-local",
+            openai_embedding_model="gemini-embedding-001",
+        ),
     ],
 )
 def test_bootstrap_rejects_an_unapproved_embedding_space(
@@ -53,6 +57,16 @@ def test_bootstrap_rejects_an_unapproved_embedding_space(
 ) -> None:
     with pytest.raises(ValueError, match="Milestone 1 embedding configuration"):
         build_provider_selection(runtime_settings)
+
+
+def test_bootstrap_accepts_a_compatible_embedding_model_with_fixed_dimension() -> None:
+    compatible = build_provider_selection(
+        compatible_settings(openai_embedding_model="gemini-embedding-001")
+    )
+
+    assert compatible.embedding_configuration.provider == "openai-compatible"
+    assert compatible.embedding_configuration.model == "gemini-embedding-001"
+    assert compatible.embedding_configuration.dimensions == 1536
 
 
 @pytest.mark.parametrize("provider_mode", ["unknown", "openai-compatible"])
