@@ -47,8 +47,12 @@ These rules are normative for Knora unless superseded by an approved Standard or
   Question Trace persistence. Their output must not be used to claim semantic-quality metrics.
 - Milestone 1 does not add provider fallback, multi-provider routing or a more general provider
   abstraction.
-- Milestone 1 uses `text-embedding-3-small`, `1536` dimensions, PostgreSQL `vector(1536)` and
-  cosine distance as one immutable Embedding Configuration.
+- Milestone 1 uses `1536` dimensions, PostgreSQL `vector(1536)` and cosine distance. Approved
+  immutable Embedding Configurations are `embedding-local-m1-v2` for deterministic-local
+  structural tests (`text-embedding-3-small` as a model label), `embedding-openai-m1-v1` for
+  OpenAI-compatible `text-embedding-3-small`, and the separately versioned
+  `embedding-gemini-m1-v1` for OpenAI-compatible Gemini `gemini-embedding-001` semantic-baseline
+  runs.
 - An Embedding Configuration contains `provider`, `model`, `dimensions` and `distance_metric`.
   Embedding Sets reference it by `embedding_configuration_id`.
 - Immediately after an Embedding Provider response, the adapter must validate
@@ -59,6 +63,9 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Changing the embedding model or dimensions creates a new embedding space, requires compatible
   migration/storage and a full re-ingestion of affected Chunks. Environment-only changes are not
   valid migrations.
+- `embedding-gemini-m1-v1` is a distinct migration/storage identity. Its corpus must be re-embedded
+  and activated as a new Embedding Set before retrieval; it must never reuse or mix vectors from
+  another Embedding Configuration, even when dimensions match.
 - The deterministic local Embedding Provider must emit 1536-dimensional vectors so integration
   tests exercise the production database schema.
 - Prompt, model, chunking and retrieval configurations must be versioned when they can affect an

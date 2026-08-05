@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "version": "m1-corpus-gemini-v1",
+  "workspace_id": "evaluation-m1-r2",
+  "chunking_configuration_id": "chunking-m1-v1",
+  "embedding_configuration_id": "embedding-gemini-m1-v1",
+  "documents": [
+    {
+      "path": "account-security.txt",
+      "source_key": "support/account-security",
+      "normalized_content_sha256": "2bcf81ec6e24fbbade1f5386bdb3ff14c687392ea91a24b63c3a0f426f5bd3e8",
+      "expected_chunk_references": ["support/account-security#0"]
+    },
+    {
+      "path": "refund-policy.txt",
+      "source_key": "support/refund-policy",
+      "normalized_content_sha256": "6ecb38b22abb666e31a2396ce3ff26f4297e63e0c959b1d240fb733462a1986e",
+      "expected_chunk_references": ["support/refund-policy#0"]
+    },
+    {
+      "path": "shipping-policy.txt",
+      "source_key": "support/shipping-policy",
+      "normalized_content_sha256": "49191ef264ecb387a7abb5643d53ec8bfc2872f50003ba1c5a8241fc19b29415",
+      "expected_chunk_references": ["support/shipping-policy#0"]
+    }
+  ]
+}

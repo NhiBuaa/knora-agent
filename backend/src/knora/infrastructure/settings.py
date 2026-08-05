@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     openai_generation_input_cost_per_million_tokens: Decimal | None = None
     openai_generation_output_cost_per_million_tokens: Decimal | None = None
     openai_timeout_seconds: float = 60.0
+    semantic_scorer_base_url: str | None = None
+    semantic_scorer_api_key: SecretStr | None = None
+    semantic_scorer_model: str | None = None
+    semantic_scorer_timeout_seconds: float = 60.0
+    semantic_scorer_pricing_version: str | None = None
+    semantic_scorer_input_cost_per_million_tokens: Decimal | None = None
+    semantic_scorer_output_cost_per_million_tokens: Decimal | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="KNORA_")
 

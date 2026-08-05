@@ -181,17 +181,24 @@ contract riêng và được xem xét ở UI/observability milestone, không m�
   reference answer khi phù hợp.
 - `evaluation_reports`: structural, retrieval, generation semantic và system metrics cùng provenance.
 
-Embedding Configuration của Milestone 1 được khóa ở:
+Milestone 1 khóa embedding storage ở `1536` dimensions, PostgreSQL `vector(1536)` và cosine
+distance. Mỗi lần chạy chọn đúng một Embedding Configuration bất biến. Các configuration đã được
+phê duyệt cho Milestone 1 là:
 
-- model: `text-embedding-3-small`;
-- dimensions: `1536`;
-- database type: `vector(1536)`;
-- distance metric: cosine.
+- `embedding-local-m1-v2`: `deterministic-local`, model label `text-embedding-3-small`,
+  `1536` dimensions, cosine; dùng cho test repeatable và structural evaluation.
+- `embedding-openai-m1-v1`: `openai-compatible`, model `text-embedding-3-small`, `1536`
+  dimensions, cosine; dùng cho OpenAI-compatible model-backed evaluation.
+- `embedding-gemini-m1-v1`: `openai-compatible`, model `gemini-embedding-001`, `1536`
+  dimensions, cosine; embedding space versioned riêng được phê duyệt cho semantic baseline Issue
+  #7 qua Gemini OpenAI-compatible endpoint.
 
-Đổi model hoặc dimension tạo Embedding Configuration và Embedding Set mới, yêu cầu
-migration/storage tương thích và re-embed toàn bộ Chunks bị ảnh hưởng. Không được chỉ đổi
-environment variable và không được trộn embeddings từ các Embedding Configuration khác nhau, kể
-cả khi cùng dimension.
+`embedding-gemini-m1-v1` là migration/storage identity riêng: corpus phải được re-embed thành
+Embedding Set mới dưới configuration này trước khi activation, không được chỉ đổi environment
+variable, không được dùng lại Embedding Set của configuration khác và không được trộn embeddings
+giữa các configuration dù cùng dimension. Mọi model hoặc dimension mới ngoài danh sách trên phải
+được version hóa thành Embedding Configuration/Embedding Set mới với migration/storage tương thích
+trước khi sử dụng.
 
 ### Chunking baseline
 

@@ -21,6 +21,7 @@ class EvaluationCandidateProjection:
     source_key: str
     chunk_ordinal: int
     workspace_id: str
+    content: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,15 +78,22 @@ class PostgresEvaluationReader:
                     DocumentVersionTable.id == ChunkSetTable.document_version_id,
                 )
                 .join(DocumentTable, DocumentTable.id == DocumentVersionTable.document_id)
-                .where(ChunkTable.id.in_(chunk_ids))
+                .where(
+                    ChunkTable.id.in_(chunk_ids),
+                    DocumentTable.workspace_id == workspace_id,
+                )
             ).all()
         by_chunk = {chunk.id: (chunk, document) for chunk, document in rows}
+        missing_chunk_ids = [chunk_id for chunk_id in chunk_ids if chunk_id not in by_chunk]
+        if missing_chunk_ids:
+            raise LookupError("evaluation candidate not found")
         candidates = tuple(
             EvaluationCandidateProjection(
                 chunk_id=chunk_id,
                 source_key=by_chunk[chunk_id][1].source_key,
                 chunk_ordinal=by_chunk[chunk_id][0].ordinal,
                 workspace_id=by_chunk[chunk_id][1].workspace_id,
+                content=by_chunk[chunk_id][0].content,
             )
             for chunk_id in chunk_ids
         )

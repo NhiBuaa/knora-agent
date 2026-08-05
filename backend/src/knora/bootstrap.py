@@ -17,13 +17,18 @@ class ProviderSelection:
 
 
 def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
-    if (
-        runtime_settings.embedding_dimension != 1536
-        or runtime_settings.openai_embedding_model != "text-embedding-3-small"
-    ):
+    if runtime_settings.embedding_dimension != 1536:
         raise ValueError(
             "invalid provider configuration: Milestone 1 embedding configuration expected "
-            "text-embedding-3-small with 1536 dimensions"
+            "1536 dimensions"
+        )
+    if (
+        runtime_settings.provider_mode == "deterministic-local"
+        and runtime_settings.openai_embedding_model != "text-embedding-3-small"
+    ):
+        raise ValueError(
+            "invalid provider configuration: Milestone 1 embedding configuration for "
+            "deterministic-local expected text-embedding-3-small"
         )
     if runtime_settings.provider_mode == "deterministic-local":
         return ProviderSelection(

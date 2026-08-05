@@ -29,6 +29,12 @@ REQUIRED_CASE_FIELDS = (
     "acceptable_relevant_chunks",
 )
 REFUSAL_MESSAGE = "Tôi không tìm thấy đủ thông tin trong knowledge base để trả lời câu hỏi này."
+SEMANTIC_METRICS = (
+    "citation_entailment",
+    "faithfulness",
+    "answer_relevance",
+    "refusal_correctness",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +78,25 @@ class EvaluationObservation:
     generation_provider: str = ""
     generation_model: str = ""
     generation_prompt_version: str = ""
+    evidence: tuple[tuple[str, str, str], ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticEvaluation:
+    case_id: str
+    scores: dict[str, float] = field(default_factory=dict)
+    rationales: dict[str, str] = field(default_factory=dict)
+    provider: str = ""
+    model: str = ""
+    scorer_version: str = ""
+    measurement_method: str = ""
+    prompt_version: str = ""
+    pricing_version: str | None = None
+    provider_request_id: str | None = None
+    token_usage: dict[str, int] = field(default_factory=dict)
+    cost_usd: str | None = None
+    latency_ms: float = 0.0
+    error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +110,7 @@ class EvaluationProvenance:
     retrieval_version: str
     generation_version: str
     scorer_version: str
+    scorer_method: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -351,12 +377,98 @@ def _structural_checks(
     }
 
 
+def _build_semantic_report(
+    dataset: EvaluationDataset,
+    evaluations: tuple[SemanticEvaluation, ...],
+    *,
+    provenance: EvaluationProvenance,
+    measurement_method: str,
+) -> dict[str, object]:
+    by_case = {evaluation.case_id: evaluation for evaluation in evaluations}
+    if len(by_case) != len(evaluations) or set(by_case) != {
+        case.id for case in dataset.cases
+    }:
+        raise ValueError("semantic evaluations must contain exactly one result for every case")
+    case_results: list[dict[str, object]] = []
+    metric_cases: dict[str, list[dict[str, object]]] = {metric: [] for metric in SEMANTIC_METRICS}
+    providers: set[str] = set()
+    models: set[str] = set()
+    prompt_versions: set[str] = set()
+    errors = 0
+    for case in sorted(dataset.cases, key=lambda item: item.id):
+        evaluation = by_case[case.id]
+        if evaluation.provider:
+            providers.add(evaluation.provider)
+        if evaluation.model:
+            models.add(evaluation.model)
+        if evaluation.prompt_version:
+            prompt_versions.add(evaluation.prompt_version)
+        if evaluation.error is not None:
+            errors += 1
+        missing_metrics = set(SEMANTIC_METRICS) - set(evaluation.scores)
+        if evaluation.error is None and missing_metrics:
+            raise ValueError(
+                f"semantic evaluation missing metrics: {case.id}/"
+                + ",".join(sorted(missing_metrics))
+            )
+        for metric in SEMANTIC_METRICS:
+            score = evaluation.scores.get(metric)
+            if score is not None:
+                if isinstance(score, bool) or not isinstance(score, (int, float)):
+                    raise ValueError(f"semantic score must be numeric: {case.id}/{metric}")
+                if not 0.0 <= float(score) <= 1.0:
+                    raise ValueError(f"semantic score must be between 0 and 1: {case.id}/{metric}")
+                metric_cases[metric].append({"id": case.id, "score": float(score)})
+        case_results.append(
+            {
+                "id": case.id,
+                "scores": {
+                    metric: float(evaluation.scores[metric])
+                    for metric in SEMANTIC_METRICS
+                    if metric in evaluation.scores
+                },
+                "rationales": dict(sorted(evaluation.rationales.items())),
+                "provider_request_id": evaluation.provider_request_id,
+                "error": evaluation.error,
+            }
+        )
+    metrics: dict[str, object] = {}
+    for metric, cases in metric_cases.items():
+        metrics[metric] = {
+            "denominator": len(cases),
+            "mean": sum(item["score"] for item in cases) / len(cases) if cases else None,
+            "cases": cases,
+        }
+    return {
+        "status": "completed" if errors == 0 else "completed_with_errors",
+        "scorer": {
+            "provider": next(iter(providers)) if len(providers) == 1 else "mixed",
+            "model": next(iter(models)) if len(models) == 1 else "mixed",
+            "version": provenance.scorer_version,
+            "measurement_method": measurement_method,
+            "prompt_versions": sorted(prompt_versions),
+            "pricing_versions": sorted(
+                {
+                    evaluation.pricing_version
+                    for evaluation in evaluations
+                    if evaluation.pricing_version
+                }
+            ),
+        },
+        "metrics": metrics,
+        "cases": case_results,
+        "errors": errors,
+    }
+
+
 def build_report(
     dataset: EvaluationDataset,
     observations: tuple[EvaluationObservation, ...],
     *,
     provenance: EvaluationProvenance,
     mode: str,
+    semantic_evaluations: tuple[SemanticEvaluation, ...] = (),
+    scorer_method: str | None = None,
 ) -> dict[str, object]:
     by_case = {observation.case_id: observation for observation in observations}
     if len(by_case) != len(observations) or set(by_case) != {
@@ -390,6 +502,35 @@ def build_report(
             cost_observed = True
         provider_errors += int(observation.provider_error is not None)
         end_to_end_latencies.append(observation.end_to_end_latency_ms)
+    scorer_usage: dict[str, int] = {}
+    scorer_total_cost = Decimal("0")
+    scorer_cost_observed = False
+    scorer_latencies: list[float] = []
+    scorer_errors = 0
+    for evaluation in semantic_evaluations:
+        for name, value in evaluation.token_usage.items():
+            scorer_usage[name] = scorer_usage.get(name, 0) + value
+        if evaluation.cost_usd is not None:
+            scorer_total_cost += Decimal(evaluation.cost_usd)
+            scorer_cost_observed = True
+        scorer_latencies.append(evaluation.latency_ms)
+        scorer_errors += int(evaluation.error is not None)
+    if mode == "model-backed":
+        if not scorer_method:
+            raise ValueError("model-backed report requires scorer measurement method")
+        semantic = _build_semantic_report(
+            dataset,
+            semantic_evaluations,
+            provenance=provenance,
+            measurement_method=scorer_method,
+        )
+    else:
+        if semantic_evaluations:
+            raise ValueError("deterministic-local report cannot contain semantic evaluations")
+        semantic = {
+            "status": "not_run",
+            "reason": "model_backed_required",
+        }
     return {
         "schema_version": 1,
         "mode": mode,
@@ -404,10 +545,7 @@ def build_report(
         "retrieval": score_retrieval(
             dataset.cases, observations, candidate_k=8
         ),
-        "semantic": {
-            "status": "not_run",
-            "reason": "model_backed_required",
-        },
+        "semantic": semantic,
         "system": {
             "end_to_end_latency_ms": {
                 "mean": sum(end_to_end_latencies) / len(end_to_end_latencies),
@@ -422,7 +560,7 @@ def build_report(
                 if mode == "deterministic-local"
                 else "unavailable"
             ),
-            "cost_usd": format(total_cost, "f"),
+            "cost_usd": format(total_cost, "f") if cost_observed else None,
             "cost_status": (
                 "observed"
                 if cost_observed
@@ -431,12 +569,44 @@ def build_report(
                 else "unavailable"
             ),
             "provider_errors": provider_errors,
+            "semantic_scorer": {
+                "latency_ms": {
+                    "mean": sum(scorer_latencies) / len(scorer_latencies)
+                    if scorer_latencies
+                    else None,
+                    "min": min(scorer_latencies) if scorer_latencies else None,
+                    "max": max(scorer_latencies) if scorer_latencies else None,
+                },
+                "token_usage": dict(sorted(scorer_usage.items())),
+                "usage_status": (
+                    "observed"
+                    if scorer_usage
+                    else "unavailable"
+                    if mode == "model-backed"
+                    else "not_applicable"
+                ),
+                "cost_usd": (
+                    format(scorer_total_cost, "f") if scorer_cost_observed else None
+                ),
+                "cost_status": (
+                    "observed"
+                    if scorer_cost_observed
+                    else "unavailable"
+                    if mode == "model-backed"
+                    else "not_applicable"
+                ),
+                "provider_errors": scorer_errors,
+            },
         },
     }
 
 
 def validate_mode(
-    mode: str, *, provider_mode: str, scorer_version: str | None
+    mode: str,
+    *,
+    provider_mode: str,
+    scorer_version: str | None,
+    scorer_method: str | None = None,
 ) -> None:
     if mode == "deterministic-local":
         if provider_mode != "deterministic-local":
@@ -451,9 +621,10 @@ def validate_mode(
         missing.append("openai-compatible provider")
     if not scorer_version:
         missing.append("scorer version")
+    if not scorer_method:
+        missing.append("scorer measurement method")
     if missing:
         raise ValueError("model-backed mode requires " + " and ".join(missing))
-    raise ValueError("model-backed semantic evaluation is deferred to Issue #7")
 
 
 def write_report_atomic(path: Path, report: dict[str, object]) -> None:
@@ -480,4 +651,5 @@ def normalize_report(report: dict[str, object]) -> dict[str, object]:
     normalized = json.loads(json.dumps(report))
     normalized.get("retrieval", {}).pop("latency_ms", None)
     normalized.get("system", {}).pop("end_to_end_latency_ms", None)
+    normalized.get("system", {}).get("semantic_scorer", {}).pop("latency_ms", None)
     return normalized

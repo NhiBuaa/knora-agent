@@ -65,6 +65,41 @@ def test_openai_compatible_embedding_returns_ordered_vectors_and_safe_metadata()
     }
 
 
+def test_openai_compatible_embedding_accepts_unindexed_wire_order() -> None:
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "object": "list",
+                "model": "gemini-embedding-001",
+                "data": [
+                    {"object": "embedding", "embedding": [1.0] * 1536},
+                    {"object": "embedding", "embedding": [0.0] * 1536},
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        api_key="runtime-secret",
+        client=httpx.Client(transport=httpx.MockTransport(endpoint)),
+        input_cost_per_million_tokens=Decimal("0"),
+        pricing_version="gemini-free-tier-2026-08-05",
+    )
+
+    result = provider.embed(
+        ["first", "second"],
+        EmbeddingConfiguration.openai_compatible(
+            configuration_id="embedding-openai-m1-v1",
+            model="gemini-embedding-001",
+        ),
+    )
+
+    assert result.vectors[0] == tuple([1.0] * 1536)
+    assert result.vectors[1] == tuple([0.0] * 1536)
+    assert result.model == "gemini-embedding-001"
+
+
 @pytest.mark.parametrize("failure", ["http", "timeout"])
 def test_openai_compatible_embedding_sanitizes_transport_failures(failure: str) -> None:
     calls = 0
