@@ -83,6 +83,11 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Document Version idempotency is `(document_id, normalized_content_checksum)`.
 - Chunk Set idempotency is `(document_version_id, chunking_configuration_id)`.
 - Embedding Set idempotency is `(chunk_set_id, embedding_configuration_id)`.
+- The Milestone 1 text identities above remain unchanged. For Milestone 2 PDF, Document Version
+  idempotency is `(document_id, raw_sha256)` and the immutable Original Source Object belongs to
+  that version. Parser, normalizer, chunking and embedding version changes do not create another
+  PDF Document Version; they create a distinct derivation target whose Chunk Set identity includes
+  immutable parser, normalizer and chunking configuration version IDs.
 - A Chunking Configuration is immutable and includes `parser_version`, `chunker_version`,
   `tokenizer_name`, `tokenizer_version`, `target_tokens`, `overlap_tokens` and `max_tokens`.
 - The Milestone 1 baseline is heading/paragraph-aware chunking with `target_tokens = 500`,
@@ -134,6 +139,175 @@ These rules are normative for Knora unless superseded by an approved Standard or
   `retrieved_chunk_ids`.
 - Historical Document Versions, Chunk Sets and Embedding Sets remain immutable for traceability
   but are excluded from search unless activated.
+
+## Asynchronous PDF ingestion
+
+- Milestone 2 accepts one text-based, non-encrypted PDF through the authenticated document-upload
+  seam and acknowledges durable accepted work with HTTP `202` and an Ingestion Job ID. Existing
+  synchronous Markdown/plain-text behavior remains compatible.
+- Job status lookup must authenticate and authorize the Workspace before looking up the job. Job
+  records and all job-store predicates are Workspace-scoped; an authorized unknown job returns a
+  safe not-found code and never reveals another Workspace's resource.
+- PostgreSQL is the durable Ingestion Job store for Milestone 2. A worker claims an eligible job
+  atomically (including `FOR UPDATE SKIP LOCKED` where appropriate), writes an expiring lease and
+  increments a fencing/lease version. A worker whose lease is expired or fenced out must not
+  publish a result. Another worker may reclaim an expired job.
+- The claim transaction ends before PDF parsing, normalization, chunking or Embedding Provider
+  calls begin. Provider and parsing latency must never hold the job-claim or derivation
+  transaction open.
+- Delivery is at-least-once. Processing must be idempotent; job, Document Version, Chunk Set and
+  Embedding Set database constraints remain the final deduplication and version-integrity guards,
+  independent of queue behavior.
+- Each job records attempt count, bounded retry policy, exponential backoff, `next_attempt_at`,
+  lease metadata and a stable terminal failure code. Only classified transient storage, database
+  or provider failures are retried; invalid input, configuration/vector mismatches and stale
+  activation compare-and-swap failures are terminal unless a later approved policy changes this.
+- Milestone 2 uses four attempts total (one initial plus three retries). Backoff is a versioned
+  full-jitter policy with windows of 5 seconds, 30 seconds and 2 minutes, capped at 5 minutes;
+  the windows are not described as exponential without an explicit formula. Lease duration is 2
+  minutes, heartbeat is every 30 seconds and extends to `now + 2 minutes`, and maximum attempt
+  runtime is separately bounded at 15 minutes. Every heartbeat and commit checks `worker_id` and
+  `lease_version`.
+- Retryable failures are provider timeout/429/5xx, transient database deadlock/serialization/
+  connectivity, worker crash, extractor eviction and other explicitly transient infrastructure
+  failures. Invalid/encrypted/unsupported input, resource limits, deterministic parser failure,
+  invalid pinned configuration and embedding/vector mismatch are non-retryable for the job.
+- A stale activation CAS is not a terminal failure and does not consume retry budget. The job
+  becomes `superseded`, cleans staging output, and a manual reprocess creates a new job generation.
+  Exhausted attempts remain public state `failed` with safe `failure_reason = retry_exhausted`; a
+  new manual reprocess never mutates the old attempt counter.
+- `Document.current_document_version_id` is an explicit source pointer and is never inferred from
+  timestamps, UUIDs or `MAX(id)`. After Original Source Object durability and checksum confirmation,
+  the version record and current pointer are committed atomically before chunking/embedding; the
+  pointer does not wait for activation. `Document.version_number` is allocated sequentially while
+  concurrent source uploads serialize on the Document row/CAS.
+- `current_document_version_id` and `active_embedding_set_id` may temporarily refer to different
+  source versions. Retrieval reads only the active Embedding Set, so a failed or in-progress newer
+  source version does not interrupt answers from the older served derivation. Activation requires
+  a valid worker lease/fencing token, target equality with the current pointer, a complete set and
+  same Document/Workspace ownership. A newer source version causes an older job to finish
+  `superseded`.
+- Foreign keys and ownership constraints must prevent current or active pointers from referencing
+  another Document or Workspace, and hard deletion is forbidden while either pointer references a
+  version/set. Reprocess accepts only the current version; historical versions return
+  `409 DOCUMENT_VERSION_NOT_CURRENT`.
+- PDF request idempotency is scoped by `(workspace_id, operation, idempotency_key)` with a baseline
+  24-hour retention. The same key with the same immutable request fingerprint returns the same job
+  response; the same key with a different fingerprint returns `IDEMPOTENCY_KEY_CONFLICT`. Atomic
+  insert or a unique database constraint protects concurrent requests.
+- The content fingerprint is exactly `(workspace_id, canonical_source_key, raw_sha256,
+  parser_config_version_id, normalizer_config_version_id, chunking_config_version_id,
+  embedding_config_version_id)`. Filename, upload timestamp and object key are excluded. Immutable
+  configuration version IDs are mandatory; mutable configuration blobs and model names alone are
+  not valid identities.
+- Document Version deduplication is distinct from request idempotency and processing generation:
+  equal `source_key + raw_sha256` reuses the Document Version target; changed raw checksum creates
+  a new Document Version. A retry-exhausted job can be explicitly reprocessed as a new generation
+  linked by `reprocess_of`, with a fresh attempt budget and no mutation of the old job. Reprocessing
+  an older version is explicit and must not automatically replace a newer current version.
+- Manual reprocess targets a current `Document Version` through
+  `POST /v1/workspaces/{workspace_id}/document-versions/{document_version_id}/reprocess`. It
+  requires Workspace reprocess authorization, a new `Idempotency-Key`, an audit record and
+  `config_mode` of `same_as_job` or `current`. The handler checks Original Source Object
+  availability, snapshots immutable config version IDs and enqueues; it never reads or parses the
+  object. The worker reads the object and never resolves mutable/current configuration.
+- Reprocess creates a new job generation with `reprocess_of_job_id` and a reset attempt budget;
+  the old job is immutable. Equal Document Version plus equal config versions already processing
+  or succeeded is deduplicated/reused. A non-current target returns `409 DOCUMENT_VERSION_NOT_CURRENT`.
+  If the target becomes stale during processing, activation CAS ends the generation as
+  `superseded`. Historical-version reprocessing is out of scope for Milestone 2.
+- A job is terminally successful only after the complete derivation chain and active-pointer
+  compare-and-swap commit. A failed job must not change the previously Active Embedding Set or
+  leave a partial Chunk Set or Embedding Set.
+- Accepted raw PDFs are staged in Workspace-isolated object storage under server-generated opaque
+  keys. The staging object must be durable before `202`; database records must not store raw PDF
+  contents or credentials. Once a Document Version is committed, its immutable original PDF object
+  belongs to that Document Version and is not deleted at job terminal state. Superseded originals
+  follow retention required by citations, traces and evaluations; failed uploads follow bounded
+  diagnostic retention. Staging, temporary and partial derivation artifacts are cleaned
+  asynchronously after terminal state.
+- The minimum `ObjectStore` interface is streaming `put_stream`, streaming `open_read`, `head`,
+  and idempotent `delete`. Objects carry Workspace identity, a server-generated opaque key,
+  SHA-256 content hash, byte size and media type. ETag is not a content hash, and callers must not
+  create storage paths or call a whole-object `read()` API.
+- Database and object storage do not share an atomic transaction. An orphan sweeper/reconciler
+  must find and clean unreferenced staging/temporary objects, retry cleanup failures, expose
+  cleanup/orphan metrics and alert without reversing a committed ingestion success. Contract tests
+  must run against MinIO and the configured production S3-compatible provider.
+- The PDF upload response is `202 Accepted` when a created or reused job is non-terminal and
+  `200 OK` for a terminal idempotency replay or fingerprint deduplication. Every response includes
+  `ingestion_job_id`, `submission_outcome` (`created`, `idempotency_replay` or `deduplicated`) and
+  `status`.
+- Public states are `queued`, `processing`, `retry_scheduled`, `succeeded`, `superseded` and
+  `failed`. `attempt_count` counts attempts started, including the initial attempt; `max_attempts`
+  is the total budget. `failed` exposes only safe `failure_reason` (`retry_exhausted`,
+  `terminal_input`, `terminal_config` or `resource_limit`) plus a safe error code.
+- Polling returns `200 OK` with status, attempt counts, `next_attempt_at` only when retry is
+  scheduled, UTC RFC 3339 created/started/updated/terminal timestamps, terminal result or safe
+  error, and `poll_after_seconds` or `Retry-After`. Responses use `Cache-Control: no-store`.
+  `superseded` may include replacement Document Version and Ingestion Job IDs; `reprocess_of` is
+  only on a newly created processing generation. Missing or cross-Workspace jobs return the same
+  `404 INGESTION_JOB_NOT_FOUND` response.
+- Job status exposes `target_document_version_id`, `current_document_version_id` and nullable
+  `served_document_version_id` resolved from `active_embedding_set_id` in one consistent database
+  snapshot. It also exposes server-computed `serving_state`: `unavailable` when no active set
+  exists, `current` when served equals current source, or `previous` otherwise. This state never
+  replaces `job.status`; a later Document detail/status projection should expose the same serving
+  projection.
+- PDF citation provenance is pinned to `document_version_id` plus the persisted `chunk_id` (or a
+  versioned Chunk identity), `page_start`, `page_end`, and stable offsets within normalized page
+  text. `page_start` and `page_end` are 1-based physical PDF page indexes. `page_label` is
+  display-only metadata and must not determine identity or retrieval provenance.
+- `start_line` and `end_line` may remain in the Citation Projection for compatibility, but they
+  are derived metadata and must not be the sole PDF provenance because parser, OCR or normalization
+  changes can shift line boundaries. The schema must leave room for future bounding-box metadata;
+  bounding boxes are out of scope for Milestone 2.
+- Queue observability records queue depth, oldest-job age, claim latency, retry rate and
+  lease-expiry recovery. Polling clients should use jitter and must not rely on synchronized tight
+  loops.
+
+### PDF extraction safety and versioning
+
+- `PdfTextExtractor` is the only application-facing PDF extraction interface. It wraps the pinned
+  `pypdf` baseline and owns extraction mode/options, deterministic Unicode/whitespace/newline/
+  control-character/line-joining normalization, and page-order preservation. Library behavior is
+  not treated as a determinism guarantee.
+- Every extraction records immutable `parser_version`, extraction-options identity,
+  `normalizer_version` and `chunking_config_version`. A parser, option, normalizer or chunker
+  change creates a new derivation identity and never mutates historical Document Versions, Chunk
+  Sets or Embedding Sets.
+- Encrypted/password-protected, malformed, unsupported and textless PDFs fail with distinct safe
+  terminal domain codes. A file must not succeed with an empty extracted corpus.
+- Upload and worker processing enforce configured raw file-size, page-count, content-stream-size,
+  timeout and memory limits before activation. Limit failures do not create a successful
+  derivation. Multi-column reading order, table reconstruction, OCR and perfect layout fidelity
+  are not promised by the baseline parser.
+- The extractor runs in an isolated child process. The parent enforces a hard RSS/container/process
+  ceiling and can kill the child. The inspection/extraction timeout covers only PDF inspection and
+  extraction; object storage, chunking and embedding have separate timing behavior.
+- Milestone 2's initial budget is `25 MiB` raw upload, `500` physical pages, `4 MiB` decompressed
+  content stream per page, `64 MiB` aggregate decompressed content streams, `30 seconds` for
+  inspection plus extraction, and `256 MiB` hard extractor RSS/container/process memory ceiling.
+  The complete budget is part of the versioned ingestion configuration.
+- A file that exceeds a budget is terminal `PDF_RESOURCE_LIMIT_EXCEEDED` with an internal reason
+  from `RAW_FILE_SIZE`, `PAGE_COUNT`, `PAGE_STREAM_SIZE`, `TOTAL_STREAM_SIZE`,
+  `EXTRACTION_TIMEOUT` or `EXTRACTOR_MEMORY`. Infrastructure failure, worker crash or extractor
+  eviction is retryable under the bounded job policy.
+- Failure preserves the original staged object and terminal Ingestion Job/failure record for
+  diagnosis and cleanup, leaves existing Document Versions unchanged, does not activate a Chunk
+  Set or Embedding Set, and never exposes partial derivation to retrieval. Budget changes apply
+  only to new ingestion or reprocessing and never mutate historical derivations.
+- PDF Chunk Sets do not cross physical page boundaries in Milestone 2. The normalized page text is
+  split into deterministic paragraph/block units and packed toward `target_tokens = 500` with at
+  most `overlap_tokens = 75`, preferring complete blocks. Only a block exceeding `max_tokens =
+  650` may be hard-split with deterministic token windows, and overlap must not cause a Chunk to
+  exceed `max_tokens`.
+- PDF chunk token counts use normalized text and record the tokenizer name and exact version in
+  the immutable Chunking Configuration. Every PDF Chunk records `page_number`, `chunk_ordinal`,
+  content checksum and character offsets with `start` inclusive and `end` exclusive. Empty or
+  whitespace-only pages produce no Chunk. Each Milestone 2 PDF Chunk has `page_start = page_end`;
+  both fields remain in the projection for citation compatibility. Changing tokenizer, normalizer
+  or chunking policy creates a new Chunk Set/version and never mutates historical chunks.
 
 ## Retrieval and evidence selection
 

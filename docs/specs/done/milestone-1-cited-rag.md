@@ -1,6 +1,6 @@
 # Specification — Milestone 1: Cited RAG Tracer Bullet
 
-Status: Approved for implementation
+Status: Done
 Date: 2026-07-31
 
 ## 1. Mục tiêu
