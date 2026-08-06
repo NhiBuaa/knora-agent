@@ -1,7 +1,7 @@
 # Milestone 1 Module Seams
 
 Status: Approved  
-Source: [Milestone 1 specification](../specs/milestone-1-cited-rag.md)
+Source: [Milestone 1 specification](../specs/done/milestone-1-cited-rag.md)
 
 This design places complex orchestration behind two deep application interfaces. HTTP, CLI,
 evaluation and tests cross the same seams; ORM, provider payloads and transaction mechanics remain

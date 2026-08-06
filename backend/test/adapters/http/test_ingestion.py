@@ -10,9 +10,16 @@ from knora.access.api_keys import (
     ApiKeyAuthenticator,
     hash_api_key,
 )
+from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.postgres.database import SessionFactory
-from knora.adapters.postgres.tables import WorkspaceTable
+from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
+from knora.adapters.postgres.tables import (
+    IngestionJobTable,
+    OriginalSourceObjectTable,
+    WorkspaceTable,
+)
 from knora.ingestion.interface import IngestionResult
+from knora.ingestion.jobs import IngestionJobs, PdfSubmissionResult
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import DocumentProcessor
 from knora.main import create_app
@@ -65,6 +72,18 @@ class WorkerThreadIngestDocument(RecordingIngestDocument):
         return super().execute(command, principal)
 
 
+@dataclass
+class RecordingIngestionJobs:
+    result: PdfSubmissionResult
+    calls: list[tuple] = field(default_factory=list)
+    streamed_bytes: list[bytes] = field(default_factory=list)
+
+    def submit_pdf(self, command, principal):
+        self.calls.append((command, principal))
+        self.streamed_bytes.append(command.stream.read())
+        return self.result
+
+
 def created_result() -> IngestionResult:
     return IngestionResult(
         outcome="created",
@@ -83,10 +102,12 @@ def client_with(
     service,
     *,
     embedding_configuration: EmbeddingConfiguration | None = None,
+    ingestion_jobs=None,
 ) -> TestClient:
     return TestClient(
         create_app(
             ingest_document=service,
+            ingestion_jobs=ingestion_jobs,
             api_key_authenticator=authenticator(),
             embedding_configuration=embedding_configuration,
         )
@@ -100,6 +121,24 @@ def valid_upload(client: TestClient, *, key: str | None, workspace_id: str = "wo
         headers=headers,
         data={"source_key": "support/refund-policy"},
         files={"file": ("refund-policy.md", b"# Refunds\n\nRefunds last 30 days.\n")},
+    )
+
+
+def valid_pdf_upload(
+    client: TestClient,
+    *,
+    key: str | None,
+    workspace_id: str = "workspace-a",
+    idempotency_key: str = "pdf-request-1",
+):
+    headers = {"Idempotency-Key": idempotency_key}
+    if key is not None:
+        headers["X-API-Key"] = key
+    return client.post(
+        f"/v1/workspaces/{workspace_id}/documents",
+        headers=headers,
+        data={"source_key": "support/refund-policy"},
+        files={"file": ("refund-policy.pdf", b"%PDF-1.7\nsmall fixture")},
     )
 
 
@@ -195,6 +234,167 @@ def test_http_ingestion_does_not_block_the_async_route() -> None:
     )
 
     assert response.status_code == 201
+
+
+def test_pdf_upload_returns_durable_job_response_without_reading_into_application_memory() -> None:
+    jobs = RecordingIngestionJobs(
+        PdfSubmissionResult(
+            ingestion_job_id="job-1",
+            submission_outcome="created",
+            status="queued",
+            document_id="document-1",
+            document_version_id="version-1",
+            retained_object_key="opaque/source-1",
+        )
+    )
+    client = client_with(RecordingIngestDocument(created_result()), ingestion_jobs=jobs)
+
+    response = valid_pdf_upload(client, key=RAW_KEY_A)
+
+    assert response.status_code == 202
+    assert response.json() == {
+        "ingestion_job_id": "job-1",
+        "submission_outcome": "created",
+        "status": "queued",
+        "document_id": "document-1",
+        "document_version_id": "version-1",
+    }
+    command, principal = jobs.calls[0]
+    assert command.source_name == "refund-policy.pdf"
+    assert command.media_type == "application/pdf"
+    assert command.idempotency_key == "pdf-request-1"
+    assert jobs.streamed_bytes == [b"%PDF-1.7\nsmall fixture"]
+    assert principal.workspace_id == "workspace-a"
+
+
+def test_pdf_upload_authentication_and_workspace_mismatch_precede_job_submission() -> None:
+    jobs = RecordingIngestionJobs(
+        PdfSubmissionResult(
+            ingestion_job_id="job-1",
+            submission_outcome="created",
+            status="queued",
+            document_id="document-1",
+            document_version_id="version-1",
+            retained_object_key="opaque/source-1",
+        )
+    )
+    client = client_with(RecordingIngestDocument(created_result()), ingestion_jobs=jobs)
+
+    missing = valid_pdf_upload(client, key=None)
+    mismatch = valid_pdf_upload(client, key=RAW_KEY_A, workspace_id="workspace-b")
+
+    assert missing.status_code == 401
+    assert mismatch.status_code == 403
+    assert jobs.calls == []
+
+
+def test_pdf_upload_uses_terminal_replay_http_status() -> None:
+    jobs = RecordingIngestionJobs(
+        PdfSubmissionResult(
+            ingestion_job_id="job-1",
+            submission_outcome="idempotency_replay",
+            status="succeeded",
+            document_id="document-1",
+            document_version_id="version-1",
+            retained_object_key="opaque/source-1",
+        )
+    )
+
+    response = valid_pdf_upload(
+        client_with(RecordingIngestDocument(created_result()), ingestion_jobs=jobs),
+        key=RAW_KEY_A,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["submission_outcome"] == "idempotency_replay"
+    assert response.json()["status"] == "succeeded"
+
+
+def test_pdf_upload_rejects_a_mismatched_declared_media_type() -> None:
+    jobs = RecordingIngestionJobs(created_result())
+    client = client_with(RecordingIngestDocument(created_result()), ingestion_jobs=jobs)
+
+    response = client.post(
+        "/v1/workspaces/workspace-a/documents",
+        headers={"X-API-Key": RAW_KEY_A, "Idempotency-Key": "pdf-request-1"},
+        data={"source_key": "support/refund-policy"},
+        files={
+            "file": (
+                "refund-policy.pdf",
+                b"%PDF-1.7\nsmall fixture",
+                "text/plain",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"error": {"code": "UNSUPPORTED_DOCUMENT_TYPE"}}
+    assert jobs.calls == []
+
+
+def test_pdf_declared_media_type_cannot_bypass_the_filename_contract() -> None:
+    jobs = RecordingIngestionJobs(created_result())
+    client = client_with(RecordingIngestDocument(created_result()), ingestion_jobs=jobs)
+
+    response = client.post(
+        "/v1/workspaces/workspace-a/documents",
+        headers={"X-API-Key": RAW_KEY_A, "Idempotency-Key": "pdf-request-1"},
+        data={"source_key": "support/refund-policy"},
+        files={
+            "file": (
+                "refund-policy.txt",
+                b"%PDF-1.7\nsmall fixture",
+                "application/pdf; charset=binary",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"error": {"code": "UNSUPPORTED_DOCUMENT_TYPE"}}
+    assert jobs.calls == []
+
+
+def test_http_pdf_submission_persists_source_object_and_queued_job(tmp_path) -> None:
+    workspace_id = f"test-http-pdf-{uuid4()}"
+    raw_key = f"key-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="HTTP PDF submission"))
+    auth = ApiKeyAuthenticator(
+        (
+            ApiCredential(
+                key_id="integration",
+                key_hash=hash_api_key(raw_key),
+                workspace_id=workspace_id,
+                enabled=True,
+            ),
+        )
+    )
+    object_store = FileSystemObjectStore(tmp_path)
+    jobs = IngestionJobs(
+        object_store=object_store,
+        store=PostgresIngestionJobStore(SessionFactory),
+    )
+    client = TestClient(
+        create_app(api_key_authenticator=auth, ingestion_jobs=jobs)
+    )
+
+    response = valid_pdf_upload(client, key=raw_key, workspace_id=workspace_id)
+
+    assert response.status_code == 202
+    payload = response.json()
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, payload["ingestion_job_id"])
+        source_object = session.get(OriginalSourceObjectTable, job.source_object_id)
+        assert job.status == "queued"
+        assert job.target_document_version_id == payload["document_version_id"]
+        assert source_object.workspace_id == workspace_id
+        assert source_object.raw_sha256 == (
+            "79c6a101650ef352a7dacc99e21965cc204e80717683d4216a21b7af7798c0d9"
+        )
+        assert object_store.head(
+            workspace_id=workspace_id,
+            object_key=source_object.object_key,
+        ).byte_size == len(b"%PDF-1.7\nsmall fixture")
 
 
 @dataclass

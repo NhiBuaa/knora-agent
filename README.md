@@ -1,6 +1,9 @@
 # Knora Agent
 
-Knora là AI support và knowledge agent trả lời dựa trên tài liệu có citation. Repo hiện chứa scaffold cho [Milestone 1](docs/specs/milestone-1-cited-rag.md); đây chưa phải implementation RAG production hoàn chỉnh.
+Knora là AI support và knowledge agent trả lời dựa trên tài liệu có citation.
+[Milestone 1](docs/specs/done/milestone-1-cited-rag.md) đã hoàn tất. Milestone 2 đang bổ sung
+production-shaped PDF ingestion; durable PDF submission đã được triển khai, còn PDF extraction
+trong Issue #16 chưa bắt đầu.
 
 Đọc [bức tranh tổng quan](docs/PROJECT_OVERVIEW.md) trước để hiểu product boundary và roadmap.
 
@@ -17,6 +20,7 @@ Knora là AI support và knowledge agent trả lời dựa trên tài liệu có
 - [Kiểm tra](#kiểm-tra)
 - [Chạy evaluation](#chạy-evaluation)
 - [Tài liệu liên quan](#tài-liệu-liên-quan)
+- [Trạng thái phát triển](#trạng-thái-phát-triển)
 
 ## Chạy local
 
@@ -41,6 +45,7 @@ Mở `.env` và điền các biến theo chế độ bạn muốn chạy:
 |---|---|---|
 | `KNORA_PROVIDER_MODE` | Luôn cần | `deterministic-local` hoặc `openai-compatible` |
 | `KNORA_API_CREDENTIALS_JSON` | Giữ mặc định | `[]`; bootstrap mỗi phiên sẽ ghi đè trong process |
+| `KNORA_OBJECT_STORE_ROOT` | PDF ingestion local | Thư mục lưu source object; mặc định `.knora-objects` |
 | `KNORA_OPENAI_API_KEY` | `openai-compatible` | OpenAI API key, chỉ giữ trong runtime/local `.env` |
 | `KNORA_OPENAI_GENERATION_MODEL` | `openai-compatible` | Model chat tương thích, ví dụ `gpt-4o-mini` |
 | `KNORA_OPENAI_PRICING_VERSION` và các biến cost | `openai-compatible` | Giá USD trên 1 triệu token của bảng giá đã chọn |
@@ -192,6 +197,11 @@ header này.
 Ingestion HTTP dùng `multipart/form-data` tại `POST /v1/workspaces/{workspace_id}/documents` với
 fields `source_key` và `file`.
 
+- Markdown và plain text vẫn chạy đồng bộ theo Milestone 1.
+- PDF yêu cầu header `Idempotency-Key`. Một submission mới trả `202` với
+  `ingestion_job_id`, `submission_outcome` và `status=queued` sau khi source object và job đã bền
+  vững. PDF extraction và background processing chưa có trong Issue #15.
+
 ### OpenAI-compatible provider
 
 Mặc định Knora dùng `deterministic-local` để test lặp lại được. Để chạy ingestion và cited answers
@@ -228,6 +238,7 @@ Từ repository root:
 ```powershell
 .\.venv\Scripts\python -m pytest
 .\.venv\Scripts\ruff check .
+docker compose config --quiet
 ```
 
 ## Chạy evaluation
@@ -269,11 +280,19 @@ repeatability and report boundaries.
 ## Tài liệu liên quan
 
 - [Biến môi trường mẫu](.env.example)
+- [Current World Model](CONTEXT.md)
+- [Architecture Standard](docs/standards/architecture.md)
 - [Hướng dẫn evaluation Milestone 1](docs/evaluation.md)
-- [Spec Milestone 1 — Cited RAG](docs/specs/milestone-1-cited-rag.md)
+- [Spec Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - [Module seams Milestone 1](docs/design/milestone-1-module-seams.md)
+- [Module seams Milestone 2](docs/design/milestone-2-module-seams.md)
+- [Milestone 2 specification và design ledger](https://github.com/NhiBuaa/knora-agent/issues/14)
+- [Hướng dẫn làm việc trong repository](AGENTS.md)
 
-## Bước implementation tiếp theo
+## Trạng thái phát triển
 
-1. Run and human-accept the first model-backed semantic baseline.
-2. Continue milestone work only from the recomputed issue frontier.
+- Issue #15 đã triển khai durable PDF submission, ObjectStore persistence, source-version commit,
+  request idempotency và queued Ingestion Job.
+- Issue #16 là frontier tiếp theo nhưng chưa bắt đầu. Nó sẽ thêm `PdfTextExtractor` và
+  page-bounded chunking theo [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md).
+- Manual acceptance, commit, push và các ticket sau vẫn tuân theo feature-delivery workflow.
