@@ -7,13 +7,17 @@ Before changing the repository, read:
 - [GitHub issue tracker guide](docs/agents/issue-tracker.md) before reading or publishing work items.
 - [Architecture Standard](docs/standards/architecture.md) for normative system boundaries and safety rules.
 - [Milestone 1 Module Seams](docs/design/milestone-1-module-seams.md) for approved interfaces and
-  target directory ownership.
+  legacy directory ownership.
+- [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md) for production-ingestion
+  interfaces and target directory ownership.
 
-The approved product slice is [Milestone 1 — Cited RAG](docs/specs/milestone-1-cited-rag.md).
+The completed product slice is
+[Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md). The active Milestone 2
+specification and design ledger is [GitHub Issue #14](https://github.com/NhiBuaa/knora-agent/issues/14).
 
 ## Governed workflows
 
-The following workflows are Active for Milestone 1: `feature-delivery`, `grill-with-docs`,
+The following workflows are active for governed delivery: `feature-delivery`, `grill-with-docs`,
 `grilling`, `domain-modeling`, `handoff`, `codebase-design`, `to-tickets`,
 `manual-acceptance`, `implement`, `code-review`, and `session-continuity`.
 

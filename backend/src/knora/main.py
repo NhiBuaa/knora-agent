@@ -5,14 +5,17 @@ from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.adapters.http.routes import router as http_router
+from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
+from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.answering.module import AnswerQuestion
 from knora.api.routes import router
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import settings
+from knora.ingestion.jobs import IngestionJobs
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
@@ -21,6 +24,7 @@ from knora.providers.embedding import EmbeddingConfiguration
 def create_app(
     *,
     ingest_document: IngestDocument | None = None,
+    ingestion_jobs: IngestionJobs | None = None,
     answer_question: AnswerQuestion | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
@@ -55,6 +59,10 @@ def create_app(
         embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
     )
+    application.state.ingestion_jobs = ingestion_jobs or IngestionJobs(
+        object_store=FileSystemObjectStore(settings.object_store_root),
+        store=PostgresIngestionJobStore(SessionFactory),
+    )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
     )
@@ -66,6 +74,7 @@ def create_app(
             "UNAUTHENTICATED": 401,
             "WORKSPACE_ACCESS_DENIED": 403,
             "INVALID_SOURCE_KEY": 400,
+            "INVALID_SOURCE_NAME": 400,
             "UNSUPPORTED_DOCUMENT_TYPE": 400,
             "INVALID_DOCUMENT_ENCODING": 400,
             "DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION": 413,
@@ -76,6 +85,14 @@ def create_app(
             "PROVIDER_REQUEST_FAILED": 502,
             "PROVIDER_RESPONSE_INVALID": 502,
             "PERSISTENCE_OPERATION_FAILED": 500,
+            "INVALID_IDEMPOTENCY_KEY": 400,
+            "MISSING_IDEMPOTENCY_KEY": 400,
+            "INVALID_PDF_SIGNATURE": 400,
+            "PDF_STREAM_NOT_SEEKABLE": 400,
+            "OBJECT_STORE_METADATA_INVALID": 500,
+            "OBJECT_NOT_FOUND": 404,
+            "PDF_RESOURCE_LIMIT_EXCEEDED": 413,
+            "PDF_INGESTION_NOT_CONFIGURED": 503,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 

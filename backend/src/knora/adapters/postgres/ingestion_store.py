@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
@@ -57,7 +57,7 @@ class PostgresIngestionStore(IngestionStore):
                     select(DocumentTable).where(
                         DocumentTable.workspace_id == prepared.workspace_id,
                         DocumentTable.source_key == prepared.source_key,
-                    )
+                    ).with_for_update()
                 )
                 if document is None:
                     document = DocumentTable(
@@ -83,11 +83,17 @@ class PostgresIngestionStore(IngestionStore):
                 )
                 created = False
                 if version is None:
+                    next_version_number = session.scalar(
+                        select(func.coalesce(func.max(DocumentVersionTable.version_number), 0) + 1)
+                        .where(DocumentVersionTable.document_id == document.id)
+                    )
                     version = DocumentVersionTable(
                         id=str(uuid4()),
                         document_id=document.id,
                         normalized_content=prepared.processed.normalized_content,
                         normalized_content_checksum=prepared.processed.normalized_content_checksum,
+                        media_type=None,
+                        version_number=next_version_number,
                     )
                     session.add(version)
                     session.flush()
@@ -165,6 +171,7 @@ class PostgresIngestionStore(IngestionStore):
                     .values(
                         active_embedding_set_id=embedding_set.id,
                         active_embedding_configuration_id=embedding_config.id,
+                        current_document_version_id=version.id,
                         revision=DocumentTable.revision + 1,
                     )
                 )

@@ -4,14 +4,17 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,20 +45,123 @@ class DocumentTable(Base):
     active_embedding_configuration_id: Mapped[str | None] = mapped_column(
         ForeignKey("embedding_configurations.id", ondelete="RESTRICT"), nullable=True
     )
+    current_document_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "document_versions.id",
+            ondelete="RESTRICT",
+            use_alter=True,
+            name="fk_documents_current_document_version",
+        ),
+        nullable=True,
+    )
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class DocumentVersionTable(Base):
     __tablename__ = "document_versions"
-    __table_args__ = (UniqueConstraint("document_id", "normalized_content_checksum"),)
+    __table_args__ = (
+        UniqueConstraint("document_id", "raw_sha256"),
+        UniqueConstraint("document_id", "version_number"),
+        Index(
+            "uq_document_versions_document_normalized_checksum_m1",
+            "document_id",
+            "normalized_content_checksum",
+            unique=True,
+            postgresql_where=text(
+                "raw_sha256 IS NULL AND normalized_content_checksum IS NOT NULL"
+            ),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     document_id: Mapped[str] = mapped_column(
         ForeignKey("documents.id", ondelete="RESTRICT"), index=True
     )
-    normalized_content: Mapped[str] = mapped_column(Text, nullable=False)
-    normalized_content_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    normalized_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    normalized_content_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    raw_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    media_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OriginalSourceObjectTable(Base):
+    __tablename__ = "original_source_objects"
+    __table_args__ = (UniqueConstraint("document_version_id"), UniqueConstraint("object_key"))
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    document_version_id: Mapped[str] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="RESTRICT"), index=True
+    )
+    object_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    raw_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class IngestionJobTable(Base):
+    __tablename__ = "ingestion_jobs"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "operation", "content_fingerprint"),
+        CheckConstraint(
+            "status IN ('queued', 'processing', 'retry_scheduled', "
+            "'succeeded', 'superseded', 'failed')",
+            name="ck_ingestion_jobs_public_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    operation: Mapped[str] = mapped_column(String(50), nullable=False)
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), index=True
+    )
+    target_document_version_id: Mapped[str] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="RESTRICT"), index=True
+    )
+    source_object_id: Mapped[str] = mapped_column(
+        ForeignKey("original_source_objects.id", ondelete="RESTRICT"), index=True
+    )
+    content_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    parser_configuration_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    normalizer_configuration_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    chunking_configuration_id: Mapped[str] = mapped_column(
+        ForeignKey("chunking_configurations.id", ondelete="RESTRICT"), index=True
+    )
+    embedding_configuration_id: Mapped[str] = mapped_column(
+        ForeignKey("embedding_configurations.id", ondelete="RESTRICT"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IdempotencyRecordTable(Base):
+    __tablename__ = "idempotency_records"
+    __table_args__ = (UniqueConstraint("workspace_id", "operation", "key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    operation: Mapped[str] = mapped_column(String(50), nullable=False)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    ingestion_job_id: Mapped[str] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

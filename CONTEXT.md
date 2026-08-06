@@ -202,7 +202,8 @@ proposals.
 
 - Normative rules: [Architecture Standard](docs/standards/architecture.md)
 - Product direction: [Project Overview](docs/PROJECT_OVERVIEW.md)
-- Approved slice: [Milestone 1 — Cited RAG](docs/specs/milestone-1-cited-rag.md)
+- Completed slice: [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
+- Milestone 2 module ownership: [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md)
 - Milestone 2 job-store rationale: [ADR 0001](docs/adr/0001-postgresql-ingestion-job-store.md)
 - PDF citation provenance rationale: [ADR 0002](docs/adr/0002-pdf-citation-provenance.md)
 - PDF extraction/versioning rationale: [ADR 0003](docs/adr/0003-versioned-pdf-extraction-adapter.md)

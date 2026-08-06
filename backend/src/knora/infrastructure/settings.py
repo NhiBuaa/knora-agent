@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://knora:knora@localhost:5432/knora"
+    object_store_root: str = ".knora-objects"
     embedding_dimension: int = 1536
     api_credentials_json: str = "[]"
     provider_mode: str = "deterministic-local"
