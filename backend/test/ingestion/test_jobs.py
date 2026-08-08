@@ -15,6 +15,7 @@ from knora.ingestion.jobs import (
     PreparedPdfSubmission,
 )
 from knora.ingestion.object_store import ObjectMetadata
+from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
 
@@ -85,6 +86,23 @@ def configuration() -> PdfSubmissionConfiguration:
         ),
         embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
     )
+
+
+def test_milestone_two_submission_snapshots_the_pinned_pdf_configuration() -> None:
+    submission = PdfSubmissionConfiguration.milestone_two(
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local()
+    )
+    extraction = PdfExtractionConfiguration.milestone_two()
+
+    assert submission.parser_configuration_id == (
+        "pdf-parser-pypdf-6-14-2-plain-layout-v1"
+    )
+    assert submission.chunking_configuration.id == "chunking-m2-pdf-pypdf-6-14-2-v1"
+    assert submission.normalizer_configuration_id == extraction.normalizer_version
+    assert submission.chunking_configuration.parser_version == extraction.parser_version
+    assert submission.chunking_configuration.chunker_version == extraction.chunking_policy_version
+    assert submission.chunking_configuration.tokenizer_name == extraction.tokenizer_name
+    assert submission.chunking_configuration.tokenizer_version == extraction.tokenizer_version
 
 
 def created_result() -> PdfSubmissionResult:

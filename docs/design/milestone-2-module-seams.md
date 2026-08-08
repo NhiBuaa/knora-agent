@@ -49,7 +49,7 @@ needs it.
 
 ## PDF extraction seam
 
-Issue #16 will place the `PdfTextExtractor` interface and PDF result/configuration types in
+Issue #16 places the `PdfTextExtractor` interface and PDF result/configuration types in
 `knora/ingestion/pdf.py`. The pinned `pypdf` implementation will be an adapter in
 `knora/adapters/pdf/pypdf.py`.
 
@@ -108,7 +108,7 @@ backend/
 │   │   ├── jobs.py
 │   │   ├── job_processing.py        # create when Issues #17/#18 need it
 │   │   ├── object_store.py
-│   │   └── pdf.py                   # create when Issue #16 starts
+│   │   └── pdf.py
 │   └── adapters/
 │       ├── http/
 │       │   ├── routes.py
@@ -121,7 +121,7 @@ backend/
 │       │   ├── filesystem.py
 │       │   └── s3.py                # create when Issue #20 starts
 │       └── pdf/
-│           └── pypdf.py             # create when Issue #16 starts
+│           └── pypdf.py
 └── test/
     ├── ingestion/
     └── adapters/

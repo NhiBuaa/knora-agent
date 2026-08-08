@@ -9,6 +9,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.module import _validate_source_key
 from knora.ingestion.object_store import ObjectMetadata, ObjectStore
+from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
 
@@ -28,18 +29,19 @@ class PdfSubmissionConfiguration:
         *,
         embedding_configuration: EmbeddingConfiguration,
     ) -> PdfSubmissionConfiguration:
+        pdf = PdfExtractionConfiguration.milestone_two()
         return cls(
-            parser_configuration_id="pdf-parser-pypdf-m2-v1",
-            normalizer_configuration_id="pdf-normalizer-m2-v1",
+            parser_configuration_id="pdf-parser-pypdf-6-14-2-plain-layout-v1",
+            normalizer_configuration_id=pdf.normalizer_version,
             chunking_configuration=ChunkingConfiguration(
-                id="chunking-m2-pdf-v1",
-                parser_version="pypdf-baseline-v1",
-                chunker_version="page-block-v1",
-                tokenizer_name="cl100k_base",
-                tokenizer_version="tiktoken-0.12.0",
-                target_tokens=500,
-                overlap_tokens=75,
-                max_tokens=650,
+                id="chunking-m2-pdf-pypdf-6-14-2-v1",
+                parser_version=pdf.parser_version,
+                chunker_version=pdf.chunking_policy_version,
+                tokenizer_name=pdf.tokenizer_name,
+                tokenizer_version=pdf.tokenizer_version,
+                target_tokens=pdf.target_tokens,
+                overlap_tokens=pdf.overlap_tokens,
+                max_tokens=pdf.max_tokens,
             ),
             embedding_configuration=embedding_configuration,
         )
