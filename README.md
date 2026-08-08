@@ -2,8 +2,8 @@
 
 Knora là AI support và knowledge agent trả lời dựa trên tài liệu có citation.
 [Milestone 1](docs/specs/done/milestone-1-cited-rag.md) đã hoàn tất. Milestone 2 đang bổ sung
-production-shaped PDF ingestion; durable PDF submission đã được triển khai, còn PDF extraction
-trong Issue #16 chưa bắt đầu.
+production-shaped PDF ingestion; durable PDF submission và deterministic PDF extraction đã được
+triển khai, còn background worker chưa được nối vào upload flow.
 
 Đọc [bức tranh tổng quan](docs/PROJECT_OVERVIEW.md) trước để hiểu product boundary và roadmap.
 
@@ -200,7 +200,12 @@ fields `source_key` và `file`.
 - Markdown và plain text vẫn chạy đồng bộ theo Milestone 1.
 - PDF yêu cầu header `Idempotency-Key`. Một submission mới trả `202` với
   `ingestion_job_id`, `submission_outcome` và `status=queued` sau khi source object và job đã bền
-  vững. PDF extraction và background processing chưa có trong Issue #15.
+  vững.
+- `PdfTextExtractor` dùng `pypdf==6.14.2` trong child process cô lập, chuẩn hóa text theo physical
+  page và tạo page-bounded chunks. Baseline giới hạn 25 MiB raw, 500 pages, 4 MiB stream mỗi page,
+  64 MiB tổng stream, 30 giây extraction và 256 MiB RSS.
+- Upload route chưa gọi extractor. Background worker, embedding persistence và activation thuộc
+  các ticket sau.
 
 ### OpenAI-compatible provider
 
@@ -293,6 +298,9 @@ repeatability and report boundaries.
 
 - Issue #15 đã triển khai durable PDF submission, ObjectStore persistence, source-version commit,
   request idempotency và queued Ingestion Job.
-- Issue #16 là frontier tiếp theo nhưng chưa bắt đầu. Nó sẽ thêm `PdfTextExtractor` và
-  page-bounded chunking theo [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md).
+- Issue #16 đã triển khai trên nhánh hiện tại `PdfTextExtractor` deterministic, normalized physical pages,
+  page-bounded chunking và resource isolation theo
+  [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md). Guide `m2-issue-16-r1` và
+  remediation run đều đã passed với explicit human approval; checkpoint đang chờ code review.
+- Issue #17 chưa bắt đầu; background worker vẫn chưa xử lý queued PDF jobs.
 - Manual acceptance, commit, push và các ticket sau vẫn tuân theo feature-delivery workflow.
