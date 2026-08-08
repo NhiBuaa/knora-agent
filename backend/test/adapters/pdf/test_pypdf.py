@@ -21,7 +21,8 @@ from pypdf.generic import (
     NumberObject,
 )
 
-from knora.adapters.pdf import pypdf as pypdf_adapter
+from knora.adapters.pdf import _pypdf_chunking as pypdf_chunking
+from knora.adapters.pdf import _pypdf_process as pypdf_process
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.ingestion.pdf import (
     NormalizedPdfPage,
@@ -614,7 +615,7 @@ def test_hard_split_keeps_supplementary_unicode_under_the_token_cap() -> None:
         content_checksum=hashlib.sha256(text.encode()).hexdigest(),
     )
 
-    chunks = PypdfTextExtractor._chunk_pages(
+    chunks = pypdf_chunking._chunk_pages(
         (page,),
         PdfExtractionConfiguration.milestone_two(),
     )
@@ -635,7 +636,7 @@ def test_hard_split_preserves_all_supplementary_unicode_text() -> None:
         content_checksum=hashlib.sha256(text.encode()).hexdigest(),
     )
 
-    chunks = PypdfTextExtractor._chunk_pages(
+    chunks = pypdf_chunking._chunk_pages(
         (page,),
         PdfExtractionConfiguration.milestone_two(),
     )
@@ -656,7 +657,7 @@ def test_chunking_accepts_literal_tokenizer_special_tokens() -> None:
         content_checksum=hashlib.sha256(text.encode()).hexdigest(),
     )
 
-    chunks = PypdfTextExtractor._chunk_pages(
+    chunks = pypdf_chunking._chunk_pages(
         (page,),
         PdfExtractionConfiguration.milestone_two(),
     )
@@ -740,19 +741,19 @@ def test_windows_job_object_peak_memory_is_classified_as_extractor_memory(
         def query_information(_handle, _info_class, buffer, _size, returned) -> int:
             information = ctypes.cast(
                 buffer,
-                ctypes.POINTER(pypdf_adapter._JobObjectExtendedLimitInformation),
+                ctypes.POINTER(pypdf_process._JobObjectExtendedLimitInformation),
             ).contents
             information.peak_process_memory_used = 128
             returned._obj.value = ctypes.sizeof(information)
             return 1
 
     monkeypatch.setattr(
-        pypdf_adapter.ctypes,
+        pypdf_process.ctypes,
         "WinDLL",
         lambda *_args, **_kwargs: FakeKernel32(),
     )
 
-    assert pypdf_adapter._hard_memory_limit_triggered(123, 128)
+    assert pypdf_process._hard_memory_limit_triggered(123, 128)
 
 
 def test_child_eof_is_classified_as_retryable_extractor_failure() -> None:
@@ -767,7 +768,7 @@ def test_child_eof_is_classified_as_retryable_extractor_failure() -> None:
     process.join(timeout=5)
     try:
         with pytest.raises(PdfExtractionError) as raised:
-            PypdfTextExtractor._receive_message(parent)
+            pypdf_process._receive_message(parent)
     finally:
         parent.close()
 
@@ -788,12 +789,12 @@ def test_receive_message_rejects_ready_message_after_deadline(
 
     monotonic_values = iter((0.0, 2.0))
     monkeypatch.setattr(
-        "knora.adapters.pdf.pypdf.time.monotonic",
+        "knora.adapters.pdf._pypdf_process.time.monotonic",
         lambda: next(monotonic_values),
     )
 
     with pytest.raises(PdfExtractionError) as raised:
-        PypdfTextExtractor._receive_message(ReadyConnection(), deadline=1.0)
+        pypdf_process._receive_message(ReadyConnection(), deadline=1.0)
 
     assert raised.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
     assert raised.value.reason == "EXTRACTION_TIMEOUT"
