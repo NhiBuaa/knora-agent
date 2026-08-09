@@ -150,8 +150,10 @@ These rules are normative for Knora unless superseded by an approved Standard or
   safe not-found code and never reveals another Workspace's resource.
 - PostgreSQL is the durable Ingestion Job store for Milestone 2. A worker claims an eligible job
   atomically (including `FOR UPDATE SKIP LOCKED` where appropriate), writes an expiring lease and
-  increments a fencing/lease version. A worker whose lease is expired or fenced out must not
-  publish a result. Another worker may reclaim an expired job.
+  increments both attempt count and a fencing/lease version in the same transaction. Candidate
+  selection and claim must not be separate operations. A worker whose lease is expired or fenced
+  out must not publish a result. Expiry recovery first schedules a bounded retry or records
+  exhaustion; another worker may claim only when that retry is due.
 - The claim transaction ends before PDF parsing, normalization, chunking or Embedding Provider
   calls begin. Provider and parsing latency must never hold the job-claim or derivation
   transaction open.
@@ -162,20 +164,209 @@ These rules are normative for Knora unless superseded by an approved Standard or
   lease metadata and a stable terminal failure code. Only classified transient storage, database
   or provider failures are retried; invalid input, configuration/vector mismatches and stale
   activation compare-and-swap failures are terminal unless a later approved policy changes this.
+- Each started attempt has one durable history row whose number equals the atomically incremented
+  job `attempt_count`. A partial unique constraint permits at most one row with `closed_at IS NULL`
+  per job. Claim inserts an open row; one transaction closes it exactly once and applies the
+  corresponding job projection transition. Closed rows reject all later updates. Heartbeats update
+  only the current lease on the job projection, while attempt history snapshots its lease version
+  and retains retry policy version, scheduled-next-attempt time and safe outcome/failure metadata.
+- Any current-attempt timing duplicated on the job projection is explicitly named
+  `current_attempt_number`, `current_attempt_started_at` and `current_attempt_deadline_at`. While
+  processing these exactly match the one open attempt; the transaction leaving processing clears
+  them. Attempt history names its claim-time lease snapshot `initial_lease_expires_at`; only
+  `ingestion_jobs.lease_expires_at` reflects heartbeat renewal.
+- The only durable job transitions are `queued -> processing`, `retry_scheduled -> processing`,
+  and `processing -> retry_scheduled | succeeded | superseded | failed`. Terminal states have no
+  outgoing edge. Queued requires `attempt_count = 0`; processing requires
+  `1 <= attempt_count <= max_attempts`; retry-scheduled requires
+  `1 <= attempt_count < max_attempts`; terminal states require
+  `1 <= attempt_count <= max_attempts`. Processing has exactly one open attempt and its number
+  equals job `attempt_count`.
+- Lease version has one canonical initial value and increments exactly once on each successful
+  transition into processing. Heartbeat and every transition out of processing preserve it. Exit
+  clears active worker and lease expiry while retaining the final generation for fencing history.
+- Entering processing and inserting its open attempt are one transaction. Leaving processing,
+  closing that attempt and updating the job projection are one transaction. Database constraints,
+  deferrable commit-time constraint triggers or an equivalent mechanism enforce the cross-table
+  rule that processing is equivalent to exactly one open attempt while allowing valid intermediate
+  statement order inside the transaction; a partial unique index alone proves only at-most-one.
+  Retry schedule on the job matches the latest closed attempt's retry snapshot, and terminal job
+  state matches the latest attempt disposition.
+- Job `terminal_at` is null in non-terminal states and required in terminal states; attempt
+  `closed_at` records durable attempt closure. Succeeded and superseded jobs have no failure
+  reason; failed jobs require one canonical safe failure reason. Retry and terminal states have no
+  active lease.
+- For operations requiring a fencing token, ownership is checked before requested-transition
+  legality: stale or non-current ownership returns `FENCED`; current valid ownership requesting an
+  illegal transition returns `INVALID_TRANSITION`. A duplicate outcome call after ownership was
+  cleared is fenced, not a second terminalization.
 - Milestone 2 uses four attempts total (one initial plus three retries). Backoff is a versioned
   full-jitter policy with windows of 5 seconds, 30 seconds and 2 minutes, capped at 5 minutes;
   the windows are not described as exponential without an explicit formula. Lease duration is 2
   minutes, heartbeat is every 30 seconds and extends to `now + 2 minutes`, and maximum attempt
-  runtime is separately bounded at 15 minutes. Every heartbeat and commit checks `worker_id` and
-  `lease_version`.
-- Retryable failures are provider timeout/429/5xx, transient database deadlock/serialization/
-  connectivity, worker crash, extractor eviction and other explicitly transient infrastructure
-  failures. Invalid/encrypted/unsupported input, resource limits, deterministic parser failure,
-  invalid pinned configuration and embedding/vector mismatch are non-retryable for the job.
-- A stale activation CAS is not a terminal failure and does not consume retry budget. The job
-  becomes `superseded`, cleans staging output, and a manual reprocess creates a new job generation.
-  Exhausted attempts remain public state `failed` with safe `failure_reason = retry_exhausted`; a
-  new manual reprocess never mutates the old attempt counter.
+  runtime is separately bounded at 15 minutes. Every heartbeat and commit checks `worker_id`,
+  `lease_version`, an unexpired lease and the required job state. Expiry loses ownership even if
+  no other worker has reclaimed the job; an expired worker cannot revive its old lease.
+- PostgreSQL wall clock is authoritative for persisted attempt start, lease expiry, deadline,
+  closure and retry timestamps and for claim/retry eligibility and lease fencing. Every
+  lease-sensitive transition samples fresh database time at its linearization point after all
+  potentially blocking lock acquisition, then reuses that sample for predicates and written
+  timestamps. Transaction-start time (`now()`, `CURRENT_TIMESTAMP` or equivalent) must not let a
+  transaction that waited on a lock revive expired ownership. Failure to obtain authoritative
+  database time is an infrastructure failure; application wall clock is never a fallback.
+- An injected monotonic clock separately owns local 30-second heartbeat cadence and 15-minute
+  elapsed-runtime scheduling. It is never compared with persisted database timestamps. Supervisor
+  monotonic state decides handler completion versus timeout; persisted `deadline_at` records the
+  intended deadline for audit and is not a second success-finalization predicate in Issue #17.
+  PostgreSQL remains the final arbiter of lease ownership.
+- Retry policy returns a typed relative delay and policy metadata. Persistence anchors
+  `next_attempt_at` to fresh database time without rerolling jitter, choosing a window, clamping,
+  classifying retryability or deciding exhaustion.
+- Retry Policy V1 uses exact non-floating durations and the same closed coordinator-level cause
+  taxonomy for handler/provider/database failures, unexpected worker exceptions, attempt timeout
+  and lease-expiry recovery. Retryable causes after attempts 1, 2 and 3 consume exactly one random
+  sample from inclusive full-jitter ranges `[0, 5s]`, `[0, 30s]` and `[0, 2m]`; zero delay is
+  valid. Retryable failure at attempt 4 is exhaustion. Non-retryable failure is terminal at every
+  attempt, including attempt 4, and neither terminal nor exhausted decisions consume randomness.
+  A future nominal window above 5 minutes is clamped before sampling; no artificial 5-minute V1
+  retry is introduced. Production randomness is process-local decorrelation, not a security
+  boundary or a fixed/shared replica seed.
+- Every scheduled attempt closure records retry policy version, jitter algorithm/version, selected
+  upper bound, chosen exact delay and database-anchored `next_attempt_at`. Persisting PRNG state is
+  unnecessary.
+- Failure Cause V1 is a single closed/versioned coordinator-level taxonomy of observed facts. It
+  includes provider/database/storage transient observations, unexpected ordinary worker exception,
+  attempt timeout, lease expiry, invalid/unsupported input, invalid configuration, deterministic
+  per-input configured processing-limit breach and vector mismatch. Cause does not encode
+  retryability; Retry Policy V1 alone maps it to schedule, terminal failure or exhaustion.
+- `WORKER_CRASH` is not a V1 cause. Crash, partition, process pause, machine loss and heartbeat
+  failure are indistinguishable to durable coordination and are recorded as `LEASE_EXPIRED` only
+  when recovery proves expiry. Attempt timeout remains distinct because supervisor monotonic time
+  observes it directly.
+- A pure/versioned cause mapper translates handler-specific `WorkFailed.failure_kind` into Failure
+  Cause V1. Raw provider, SQL or exception text is never persisted; known categories map to bounded
+  allowlisted safe codes and unknown ordinary exceptions map to `WORKER_UNEXPECTED`, with raw
+  diagnostics restricted to internal telemetry.
+- Coordination-store database/network failure—including ambiguous commit—is not
+  `DATABASE_TRANSIENT`; it follows persistence/indeterminate semantics. That cause is available
+  only when the business-work layer legitimately observes a transient database dependency.
+- Lease-expiry recovery closes the expired attempt and atomically moves
+  the job to `retry_scheduled`, or to `failed/retry_exhausted` when the final counted attempt has
+  expired. It never directly creates a replacement attempt or exceeds `max_attempts`.
+- Policy treats known provider/storage/database transients, unexpected worker exceptions, attempt
+  timeout and lease expiry as retryable in V1. Invalid/unsupported input, invalid pinned
+  configuration, deterministic per-input processing-limit breach, deterministic parser failure and
+  vector mismatch are terminal. Temporary provider throttling/quota/capacity remains a provider
+  transient rather than deterministic resource-limit cause.
+- Expired-attempt observation is an immutable optimistic snapshot, not a fencing token, lock or
+  mutation capability. It contains job/attempt identity, worker, lease version, exact observed
+  lease expiry, attempt count and maximum attempts. Conditional recovery revalidates every field;
+  an expiry changed by heartbeat makes the observation stale even when lease version is unchanged.
+- Expiry recovery results are disjoint: `STALE_OBSERVATION` means the observed snapshot is no
+  longer current, while `NOT_EXPIRED` means it remains exactly current but fresh database time is
+  before its lease expiry. A matching snapshot paired with a policy decision inconsistent with
+  remaining capacity is `INVALID_DECISION` or an explicit invariant error, never a race or
+  infrastructure failure.
+- Attempt history records observed closure cause, canonical failure cause/version, policy version and
+  policy result separately. An abandoned final attempt therefore retains `lease_expired` and
+  `LEASE_EXPIRED` alongside `RetryExhausted`, while the job projection records
+  `failed/retry_exhausted`.
+- Normal claim never selects a processing row, even when its lease is expired. Canonical recovery
+  is `processing(expired) -> retry_scheduled | failed`; when retry is scheduled, only a later due
+  claim creates the new attempt. Zero delay does not collapse these transactions.
+- `ProcessIngestionJob.run_once` has deterministic recovery-first precedence. It observes at most
+  one expired attempt; a durably applied recovery returns immediately, including at zero delay.
+  No observation or a stale/not-expired recovery falls through exactly once to an atomic claim of
+  at most one queued or due retry-scheduled job. It does not loop recovery observation in the same
+  invocation. This is per-invocation behavior, not a fleet fairness guarantee.
+- `RunOnceResult` is a tagged value with exactly six lifecycle variants:
+  `NO_ELIGIBLE_JOB`, `SUCCEEDED`, `SUPERSEDED`, `RETRY_SCHEDULED`, `FAILED_TERMINAL` and
+  `LEASE_LOST`. It may carry typed job/attempt and safe diagnostic metadata without expanding the
+  lifecycle state space. Recovery race results remain internal control flow; invalid decisions are
+  invariant failures; infrastructure failures are not lifecycle results.
+- A lifecycle result is emitted only when the durable outcome is known. A connection failure after
+  possible commit must be reconciled through authoritative idempotent read-back when supported or
+  propagated as an explicit indeterminate infrastructure failure. The coordinator must not guess
+  that the transition committed or rolled back.
+- An operation ID identifies one logical mutation and is generated once before its first transport
+  call. Every retry/read-back reuses it. Durable records bind operation kind, job/attempt identity,
+  decision/disposition and any deterministic payload fingerprint; incompatible reuse is an
+  invariant failure rather than replay.
+- Attempt history retains claim and transition operation IDs with their durable result. Replaying a
+  committed claim additionally uses fresh database time to prove its job/attempt/token is still
+  current, processing and unexpired before returning an executable Claimed Attempt. Historical
+  commit without current ownership returns claim/lease loss and never claims another job with the
+  same operation ID.
+- Replaying a committed outcome or expiry recovery returns the recorded disposition, policy audit
+  and database-anchored timestamps. It never reruns policy, consumes randomness, re-anchors delay
+  or repeats business work.
+- Exactly one logical heartbeat may be in flight per supervisor. The job projection retains its
+  latest heartbeat operation ID and resulting lease expiry. A new heartbeat ID is forbidden until
+  the prior heartbeat is authoritatively applied, fenced or reconciled. Because older heartbeat
+  IDs are overwritten, database-global historical uniqueness is not claimed without a future
+  operations ledger.
+- Definite heartbeat fencing is lease loss. An unreconciled ambiguous heartbeat closes future
+  scheduling, signals best-effort cancellation, prevents durable handler outcome commit and raises
+  `CoordinationOutcomeIndeterminate`; it is not a retry cause, worker exception or run-once result.
+  The exception carries only non-secret operation kind/ID and known job/attempt identity.
+- A no-op claim has no durable operation record. The guarantee is at most one durable claim per
+  claim operation ID: an existing attempt record replays/reconciles, while absence permits retrying
+  claim against current eligibility. Exact historical replay of no eligible job and arbitrary old
+  heartbeat replay are out of scope and do not justify a generic operations ledger in Issue #17.
+- Claim, transition and heartbeat operation IDs use distinct code types. The coordinator generates
+  globally unique values; PostgreSQL enforces uniqueness and immutable request binding within each
+  retained operation kind. Separate columns do not claim cross-kind database-global uniqueness,
+  and incompatible cross-kind reuse remains a programming invariant failure.
+- Attempt history permits one mutation from open to closed. After `closed_at`, normal application
+  role cannot update or delete the row. Any future retention/admin deletion path is separate from
+  the worker-coordination API.
+- Claim/recovery indexes contain stable candidate predicates only: queued status, retry-scheduled
+  status ordered by retry time, and processing status ordered by non-null lease expiry. Dynamic
+  database time is applied by queries after locking, never embedded in index predicates. Indexes
+  are performance aids; row locks, fresh-time revalidation, fencing and transactional constraints
+  provide correctness.
+- Issue #17 migration adds coordination/history schema in add/backfill/validate/tighten order. Since
+  pre-Issue-17 production code only creates queued jobs with zero attempts, migration asserts that
+  fact and aborts on any other legacy state rather than inventing worker, lease or attempt history.
+- Issue #17 defines generic typed fenced success finalization and tests it with fake payload/store,
+  but its PostgreSQL migration adds no generic JSON/opaque success payload and no production
+  success transition lacking activation. Issue #18 supplies the concrete data-only value/schema
+  and PostgreSQL transaction that atomically commits derivation/activation with `status=succeeded`
+  before production handler wiring.
+- `AttemptRunner` owns only execution mechanics: start, single-assignment completion, cooperative
+  cancellation and logical detachment. It has no store, fencing, retry policy, transition API or
+  run-once result. Handler completion captures immutable `completed_at` from the injected monotonic
+  clock at the execution boundary when the invocation returns or raises; handler and supervisor
+  wall clocks are not used.
+- Detachment is not termination. Completion versus detach resolves exactly once: orchestration
+  accepts the completion, or permanently discards every later outcome/exception. Late completion
+  is consumed into internal telemetry without finalization, retry scheduling, disposition change,
+  operation-ID reuse or run-once result. Cancellation and detach are idempotent.
+- Normal completion is single-assignment and consumed at most once; OS thread join is not a
+  correctness primitive. Supervisor still quiesces in-flight heartbeat before durable
+  finalization. Timeout/lease loss requests cancellation, detaches, quiesces heartbeat and
+  proceeds without waiting for handler termination.
+- Fencing protects coordination/activation commits, not arbitrary external side effects. A
+  detached handler may continue provider, storage or other I/O; those effects require their own
+  idempotency/deduplication. Attempt Runner is not process isolation.
+- The Issue #17 thread-backed runner has fixed bounded execution capacity. `run_once` reserves a
+  live single-use execution permit after recovery fallback and before normal claim. No permit
+  raises an explicit operational capacity error and performs no claim. Claim-none/error releases
+  the permit; accepted execution holds it until the handler actually exits, including after
+  detach. This prevents unbounded stuck threads but may exhaust capacity when handlers never exit;
+  Issue #18 production wiring may use a stronger bounded process-isolated runner.
+- A reserved permit guarantees start acceptance and serializes runner shutdown/capacity races, so
+  normal capacity refusal cannot occur after claim. Process death remains recoverable through
+  lease expiry. Deterministic fake runner tests completion before observation, exact deadline,
+  indefinite hold, cancellation, post-detach completion and completion/lease-loss races without
+  real threads or sleeps.
+- A stale activation CAS is not a terminal failure. It atomically changes `processing` to terminal
+  `superseded` under the same lease/fencing predicates as other outcomes, records a terminal time
+  and allowlisted outcome code, clears retry scheduling, and leaves failure reason null. The
+  already-started attempt remains counted; `superseded` schedules no additional retry and unused
+  attempt capacity becomes irrelevant. A fenced finalization returns lease loss instead of
+  `superseded`. Exhausted attempts remain public state `failed` with safe
+  `failure_reason = retry_exhausted`; a new manual reprocess never mutates the old attempt counter.
 - `Document.current_document_version_id` is an explicit source pointer and is never inferred from
   timestamps, UUIDs or `MAX(id)`. After Original Source Object durability and checksum confirmation,
   the version record and current pointer are committed atomically before chunking/embedding; the
@@ -291,8 +482,9 @@ These rules are normative for Knora unless superseded by an approved Standard or
   The complete budget is part of the versioned ingestion configuration.
 - A file that exceeds a budget is terminal `PDF_RESOURCE_LIMIT_EXCEEDED` with an internal reason
   from `RAW_FILE_SIZE`, `PAGE_COUNT`, `PAGE_STREAM_SIZE`, `TOTAL_STREAM_SIZE`,
-  `EXTRACTION_TIMEOUT` or `EXTRACTOR_MEMORY`. Infrastructure failure, worker crash or extractor
-  eviction is retryable under the bounded job policy.
+  `EXTRACTION_TIMEOUT` or `EXTRACTOR_MEMORY`. Infrastructure failure or extractor eviction is a
+  policy input; loss of the worker is recorded through lease-expiry recovery rather than an
+  unverifiable crash cause.
 - Failure preserves the original staged object and terminal Ingestion Job/failure record for
   diagnosis and cleanup, leaves existing Document Versions unchanged, does not activate a Chunk
   Set or Embedding Set, and never exposes partial derivation to retrieval. Budget changes apply

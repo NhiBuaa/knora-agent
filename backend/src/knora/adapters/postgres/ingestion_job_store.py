@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -15,17 +15,39 @@ from knora.adapters.postgres.tables import (
     DocumentVersionTable,
     EmbeddingConfigurationTable,
     IdempotencyRecordTable,
+    IngestionJobAttemptTable,
     IngestionJobTable,
     OriginalSourceObjectTable,
     WorkspaceTable,
 )
 from knora.domain.errors import KnoraError
+from knora.ingestion.job_processing import (
+    AttemptRef,
+    AttemptTimingV1,
+    CanonicalFailureV1,
+    ClaimedAttempt,
+    ClaimOperationId,
+    ClaimResult,
+    CoordinationInvariantError,
+    Fenced,
+    FencingToken,
+    FinalizationApplied,
+    FinalizationResult,
+    IngestionWork,
+    InvalidTransition,
+    NoEligibleClaim,
+    TransitionOperationId,
+)
 from knora.ingestion.jobs import (
     PdfSubmissionResult,
     PdfSubmissionStore,
     PreparedPdfSubmission,
 )
 from knora.ingestion.object_store import ObjectMetadata
+
+
+def _duration_microseconds(value: timedelta) -> int:
+    return value.days * 86_400_000_000 + value.seconds * 1_000_000 + value.microseconds
 
 
 class PostgresIngestionJobStore(PdfSubmissionStore):
@@ -52,6 +74,245 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 )
         except SQLAlchemyError:
             return True
+
+    def claim_next_attempt(
+        self,
+        *,
+        operation_id: ClaimOperationId,
+        worker_id: str,
+        timing: AttemptTimingV1,
+    ) -> ClaimResult:
+        """Atomically claim at most one queued job and insert its first open attempt."""
+
+        claim_operation_id = str(operation_id)
+        claim_fingerprint = self._claim_fingerprint(worker_id=worker_id, timing=timing)
+        with self._session_factory.begin() as session:
+            existing = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.claim_operation_id == claim_operation_id
+                )
+            )
+            if existing is not None:
+                if existing.claim_request_fingerprint != claim_fingerprint:
+                    raise CoordinationInvariantError("claim operation ID was reused incompatibly")
+                raise CoordinationInvariantError("claim operation ID was already applied")
+
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(
+                    IngestionJobTable.status == "queued",
+                    IngestionJobTable.attempt_count < IngestionJobTable.max_attempts,
+                )
+                .order_by(IngestionJobTable.created_at, IngestionJobTable.id)
+                .with_for_update(skip_locked=True)
+                .limit(1)
+            )
+            if job is None:
+                return NoEligibleClaim()
+
+            database_now = self._database_now(session)
+            if job.status != "queued" or job.attempt_count >= job.max_attempts:
+                return NoEligibleClaim()
+
+            attempt_number = job.attempt_count + 1
+            lease_version = job.lease_version + 1
+            lease_expires_at = database_now + timing.lease_duration
+            deadline_at = database_now + timing.max_attempt_runtime
+            source_object = session.get(OriginalSourceObjectTable, job.source_object_id)
+            if source_object is None:
+                raise CoordinationInvariantError("claimed job has no Original Source Object")
+
+            job.status = "processing"
+            job.attempt_count = attempt_number
+            job.lease_version = lease_version
+            job.worker_id = worker_id
+            job.lease_expires_at = lease_expires_at
+            job.current_attempt_number = attempt_number
+            job.current_attempt_started_at = database_now
+            job.current_attempt_deadline_at = deadline_at
+            session.add(
+                IngestionJobAttemptTable(
+                    ingestion_job_id=job.id,
+                    attempt_number=attempt_number,
+                    worker_id=worker_id,
+                    lease_version=lease_version,
+                    attempt_started_at=database_now,
+                    deadline_at=deadline_at,
+                    initial_lease_expires_at=lease_expires_at,
+                    claim_operation_id=claim_operation_id,
+                    claim_request_fingerprint=claim_fingerprint,
+                )
+            )
+            session.flush()
+            return ClaimedAttempt(
+                token=self._token(
+                    job_id=job.id,
+                    attempt_number=attempt_number,
+                    worker_id=worker_id,
+                    lease_version=lease_version,
+                ),
+                work=IngestionWork(
+                    workspace_id=job.workspace_id,
+                    document_id=job.document_id,
+                    document_version_id=job.target_document_version_id,
+                    source_object_id=source_object.id,
+                    source_object_key=source_object.object_key,
+                    source_media_type=source_object.media_type,
+                    parser_configuration_id=job.parser_configuration_id,
+                    normalizer_configuration_id=job.normalizer_configuration_id,
+                    chunking_configuration_id=job.chunking_configuration_id,
+                    embedding_configuration_id=job.embedding_configuration_id,
+                ),
+                attempt_count=attempt_number,
+                max_attempts=job.max_attempts,
+                attempt_started_at=database_now,
+                initial_lease_expires_at=lease_expires_at,
+                deadline_at=deadline_at,
+            )
+
+    def finalize_terminal_failure(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+    ) -> FinalizationResult:
+        """Fenced `processing -> failed` plus matching immutable attempt closure."""
+
+        with self._session_factory.begin() as session:
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(IngestionJobTable.id == claim.token.job_id)
+                .with_for_update()
+            )
+            if job is None:
+                return Fenced()
+
+            database_now = self._database_now(session)
+            if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                return Fenced()
+
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable)
+                .where(
+                    IngestionJobAttemptTable.ingestion_job_id == claim.token.job_id,
+                    IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+                )
+                .with_for_update()
+            )
+            if attempt is None or attempt.closed_at is not None:
+                return InvalidTransition()
+
+            database_now = self._database_now(session)
+            if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                return Fenced()
+            if (
+                attempt.worker_id != claim.token.worker_id
+                or attempt.lease_version != claim.token.lease_version
+                or attempt.attempt_number != job.current_attempt_number
+            ):
+                return InvalidTransition()
+
+            transition_operation_id = str(operation_id)
+            transition_fingerprint = self._transition_fingerprint(claim=claim, failure=failure)
+            existing = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.transition_operation_id == transition_operation_id
+                )
+            )
+            if existing is not None:
+                if existing.transition_request_fingerprint != transition_fingerprint:
+                    raise CoordinationInvariantError(
+                        "transition operation ID was reused incompatibly"
+                    )
+                raise CoordinationInvariantError("transition operation ID was already applied")
+
+            attempt.closed_at = database_now
+            attempt.disposition = "failed"
+            attempt.closure_cause = failure.cause.value
+            attempt.failure_cause = failure.cause.value
+            attempt.failure_cause_version = failure.cause_version
+            attempt.cause_mapping_version = failure.mapping_version
+            attempt.safe_failure_code = failure.safe_code
+            attempt.failure_reason = failure.failure_reason
+            attempt.transition_operation_id = transition_operation_id
+            attempt.transition_request_fingerprint = transition_fingerprint
+
+            job.status = "failed"
+            job.worker_id = None
+            job.lease_expires_at = None
+            job.current_attempt_number = None
+            job.current_attempt_started_at = None
+            job.current_attempt_deadline_at = None
+            job.terminal_at = database_now
+            job.failure_reason = failure.failure_reason
+            job.safe_failure_code = failure.safe_code
+            session.flush()
+            return FinalizationApplied(
+                attempt=AttemptRef(
+                    job_id=claim.token.job_id,
+                    attempt_number=claim.token.attempt_number,
+                )
+            )
+
+    @staticmethod
+    def _database_now(session: Session) -> datetime:
+        database_now = session.scalar(select(func.clock_timestamp()))
+        if not isinstance(database_now, datetime):
+            raise CoordinationInvariantError("PostgreSQL did not return an authoritative timestamp")
+        return database_now
+
+    @staticmethod
+    def _claim_fingerprint(*, worker_id: str, timing: AttemptTimingV1) -> str:
+        return "\n".join(
+            (
+                worker_id,
+                str(_duration_microseconds(timing.lease_duration)),
+                str(_duration_microseconds(timing.max_attempt_runtime)),
+            )
+        )
+
+    @staticmethod
+    def _transition_fingerprint(*, claim: ClaimedAttempt, failure: CanonicalFailureV1) -> str:
+        return "\n".join(
+            (
+                claim.token.job_id,
+                str(claim.token.attempt_number),
+                claim.token.worker_id,
+                str(claim.token.lease_version),
+                failure.cause.value,
+                failure.safe_code,
+                failure.failure_reason,
+                failure.cause_version,
+                failure.mapping_version,
+            )
+        )
+
+    @staticmethod
+    def _owns_current_unexpired_attempt(
+        job: IngestionJobTable,
+        claim: ClaimedAttempt,
+        database_now: datetime,
+    ) -> bool:
+        return (
+            job.status == "processing"
+            and job.worker_id == claim.token.worker_id
+            and job.lease_version == claim.token.lease_version
+            and job.current_attempt_number == claim.token.attempt_number
+            and job.lease_expires_at is not None
+            and database_now < job.lease_expires_at
+        )
+
+    @staticmethod
+    def _token(
+        *, job_id: str, attempt_number: int, worker_id: str, lease_version: int
+    ) -> FencingToken:
+        return FencingToken(
+            job_id=job_id,
+            attempt_number=attempt_number,
+            worker_id=worker_id,
+            lease_version=lease_version,
+        )
 
     def commit_pdf_submission(
         self,

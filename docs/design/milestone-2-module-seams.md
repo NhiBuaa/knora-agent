@@ -44,6 +44,13 @@ object keys.
 coordinate claims, fenced leases, ObjectStore reads, extraction, chunking, embedding, persistence,
 activation, retries, and cleanup outcomes.
 
+The Issue #17 orchestration contract remains strongly typed without knowing the Issue #18 success
+schema: one immutable data-only type parameter flows through `WorkHandler[SuccessT]`,
+`ProcessIngestionJob[SuccessT]`, `WorkSucceeded[SuccessT]` and
+`IngestionJobCoordinationStore[SuccessT]`. `Any`, untyped mappings, callbacks and persistence
+handles are not valid success payloads. Issue #18 supplies the concrete value object and its
+fenced atomic derivation/activation persistence.
+
 Its target location is `knora/ingestion/job_processing.py`. Do not create the file before a ticket
 needs it.
 
@@ -71,6 +78,79 @@ derivations. Its PostgreSQL adapter remains
 The PostgreSQL adapter for durable Ingestion Jobs is
 `knora/adapters/postgres/ingestion_job_store.py`. It owns submission transactions now and will
 gain claim, lease, retry, and status projections only through their approved tickets.
+
+Worker coordination depends on a consumer-owned `IngestionJobCoordinationStore` application port,
+initially beside `ProcessIngestionJob` in `knora/ingestion/job_processing.py`. The existing
+PostgreSQL adapter implements this port as well as `PdfSubmissionStore`; a separate concrete store
+is not required. Each typed operation owns one complete transaction. Atomic claim returns an
+immutable Claimed Attempt/fencing capability, while heartbeat and outcome operations return typed
+transition results. The port exposes no ORM row, session, connection, transaction, generic status
+update or commit operation. Moving the port later to avoid a demonstrated dependency cycle does
+not change this seam.
+
+Issue #17 adds durable `ingestion_job_attempts` history beside the mutable `ingestion_jobs`
+scheduling/current-owner projection. Attempt number equals the job counter after atomic increment,
+a partial unique constraint permits one open attempt per job, and a closed attempt is immutable.
+Lease-expiry recovery is a coordinator-policy transition: the port may observe an expired attempt,
+then conditionally apply the coordinator's retry/exhaustion decision against the unchanged job,
+lease generation and open attempt. This optimistic two-step recovery is not a split claim; actual
+claim remains one atomic operation and occurs only after a scheduled retry becomes due.
+
+The immutable expiry observation is not a capability. Conditional apply revalidates job and open
+attempt identity, worker, lease version, counters and exact observed lease expiry using fresh
+database time after locks. It returns disjoint typed stale, not-expired and applied outcomes;
+policy/capacity mismatch is an invariant error. Multiple coordinators may evaluate different
+jitter samples, but exactly one decision can be persisted. Normal claim never direct-reclaims an
+expired processing row, including for zero-delay recovery.
+
+Current-attempt fields on `ingestion_jobs` are explicitly named and exist only while processing;
+they exactly match the open history row and clear on closure. Attempt history stores immutable
+`initial_lease_expires_at`, not heartbeat-renewed expiry. Stable partial indexes accelerate queued,
+due-retry and expired-processing candidate scans without embedding clock expressions. Deferrable
+commit-time validation (or equivalent) enforces cross-table correspondence while allowing valid
+multi-statement transactions.
+
+The migration asserts all pre-existing jobs are queued with zero attempts, the only state the
+pre-#17 production application can create, and fails rather than synthesizing unknown history.
+Issue #17 adds no generic success JSON or production-only success transition; Issue #18 specializes
+the typed success port and adds concrete activation persistence before wiring its handler.
+
+Job projection and attempt history enter and leave processing atomically. PostgreSQL must enforce
+the cross-table correspondence—processing if and only if exactly one current-numbered attempt is
+open—through transaction design plus constraint triggers or an equivalent mechanism; application
+assertions and a partial unique index alone are insufficient. Fenced operations check current
+ownership before transition legality so stale calls return `FENCED`.
+
+The port preserves separate time domains. PostgreSQL supplies fresh authoritative wall time for
+durable timestamps, eligibility and fencing; coordinator APIs do not pass authoritative wall-clock
+`now`. `AttemptSupervisor` uses an injected monotonic clock only for elapsed scheduling. Retry
+policy supplies a relative typed delay which persistence anchors to fresh database time.
+
+`ProcessIngestionJob.run_once` uses recovery-first precedence: one successful recovery returns, a
+stale/not-expired recovery may fall through once, and normal claim starts at most one handler
+attempt. Its tagged result has six variants—no eligible job, succeeded, superseded, retry
+scheduled, terminal failure and lease lost. Persistence exceptions with an ambiguous commit are
+reconciled authoritatively or remain explicit indeterminate infrastructure failures; they are not
+invented lifecycle outcomes.
+
+Every mutating port call accepts one logical operation ID whose immutable request binding and
+durable result are retained with attempt history for claim/outcome/recovery reconciliation. Claim
+replay revalidates current unexpired ownership before exposing a capability. Heartbeat keeps only
+the latest ID/result under a single-heartbeat-in-flight invariant. No generic operations ledger is
+introduced for no-op claim replay or historical heartbeat replay.
+
+Worker failure facts converge on one closed `FailureCauseV1` coordinator taxonomy before retry
+policy. A pure versioned mapping converts handler-specific failure kinds; supervisor timeout and
+lease-expiry recovery produce canonical causes directly. Coordination-port failures never enter
+that taxonomy. Attempt history persists canonical cause and version alongside the later policy
+decision.
+
+`AttemptRunner` is a narrow execution port used by `AttemptSupervisor`. It captures a
+single-assignment completion at the handler-return boundary with the injected monotonic clock and
+supports idempotent cancellation plus logical detach. The Issue #17 thread adapter uses fixed
+bounded capacity reserved before claim; a detached handler retains its slot until physical exit.
+The port carries no coordination persistence or policy. Issue #18 may replace the bounded thread
+adapter with stronger process isolation without changing supervisor semantics.
 
 `knora/adapters/postgres/tables.py` remains the shared SQLAlchemy table registry. Split it only
 when a later ticket demonstrates that one file obscures ownership or migration safety.
