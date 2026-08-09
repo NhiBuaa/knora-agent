@@ -11,12 +11,14 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from threading import Event
 from typing import NewType, Protocol, TypeVar
 from uuid import uuid4
 
 SuccessT = TypeVar("SuccessT")
 
 ClaimOperationId = NewType("ClaimOperationId", str)
+HeartbeatOperationId = NewType("HeartbeatOperationId", str)
 TransitionOperationId = NewType("TransitionOperationId", str)
 
 
@@ -310,6 +312,11 @@ class Fenced:
 
 
 @dataclass(frozen=True, slots=True)
+class HeartbeatApplied:
+    lease_expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class InvalidTransition:
     pass
 
@@ -317,6 +324,7 @@ class InvalidTransition:
 ClaimResult = ClaimedAttempt | NoEligibleClaim
 FinalizationResult = FinalizationApplied | Fenced | InvalidTransition
 RetryScheduleResult = RetryScheduleApplied | Fenced | InvalidTransition
+HeartbeatResult = HeartbeatApplied | Fenced
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,8 +353,162 @@ class RetryScheduled:
 RunOnceResult = NoEligibleJob | RetryScheduled | FailedTerminal | LeaseLost
 
 
+class CancellationToken(Protocol):
+    def cancel(self) -> None: ...
+
+    def is_cancelled(self) -> bool: ...
+
+
+class Cancellation:
+    def __init__(self) -> None:
+        self._event = Event()
+
+    def cancel(self) -> None:
+        self._event.set()
+
+    def is_cancelled(self) -> bool:
+        return self._event.is_set()
+
+
 class WorkHandler(Protocol[SuccessT]):
-    def execute(self, work: IngestionWork) -> WorkOutcome[SuccessT]: ...
+    def execute(
+        self, work: IngestionWork, cancellation: CancellationToken
+    ) -> WorkOutcome[SuccessT]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class HandlerRaised:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class AttemptCompletion[SuccessT]:
+    completed_at: float
+    result: WorkOutcome[SuccessT] | HandlerRaised
+
+
+class RunningAttempt(Protocol[SuccessT]):
+    def completion(self) -> AttemptCompletion[SuccessT] | None: ...
+
+    def wait_until(self, deadline: float) -> None: ...
+
+    def detach(self) -> None: ...
+
+
+class RunnerCapacityUnavailable(RuntimeError):
+    """Signals that execution admission failed before any durable claim."""
+
+
+class ExecutionPermit(Protocol):
+    def start(
+        self,
+        handler: WorkHandler[SuccessT],
+        work: IngestionWork,
+        cancellation: CancellationToken,
+        monotonic_clock: MonotonicClock,
+    ) -> RunningAttempt[SuccessT]: ...
+
+    def release(self) -> None: ...
+
+
+class AttemptRunner(Protocol):
+    def try_reserve(self) -> ExecutionPermit | None: ...
+
+
+class MonotonicClock(Protocol):
+    def now(self) -> float: ...
+
+
+class AttemptScheduler(Protocol):
+    def wait_until(self, attempt: RunningAttempt[SuccessT], deadline: float) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class AttemptRuntime:
+    """One coherent local runtime for bounded attempt supervision."""
+
+    runner: AttemptRunner
+    monotonic_clock: MonotonicClock
+    scheduler: AttemptScheduler
+
+
+@dataclass(frozen=True, slots=True)
+class AttemptTimedOut:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class SupervisorLeaseLost:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class HandlerCompleted[SuccessT]:
+    completion: AttemptCompletion[SuccessT]
+
+
+class AttemptSupervisor:
+    """Owns local deadline precedence for one bounded attempt."""
+
+    def __init__(
+        self,
+        runtime: AttemptRuntime,
+        store: IngestionJobCoordinationStore,
+        operation_ids: OperationIdFactory,
+        timing: AttemptTimingV1,
+    ) -> None:
+        self._runtime = runtime
+        self._store = store
+        self._operation_ids = operation_ids
+        self._timing = timing
+
+    def resolve_completion(
+        self, *, completed_at: float, deadline_at: float
+    ) -> AttemptTimedOut | None:
+        if completed_at >= deadline_at:
+            return AttemptTimedOut()
+        return None
+
+    @staticmethod
+    def resolve_heartbeat(result: HeartbeatResult) -> SupervisorLeaseLost | None:
+        if isinstance(result, Fenced):
+            return SupervisorLeaseLost()
+        return None
+
+    def supervise(
+        self,
+        *,
+        claim: ClaimedAttempt,
+        attempt: RunningAttempt[SuccessT],
+        cancellation: CancellationToken,
+    ) -> HandlerCompleted[SuccessT] | AttemptTimedOut | SupervisorLeaseLost:
+        started_at = self._runtime.monotonic_clock.now()
+        deadline_at = started_at + self._timing.max_attempt_runtime.total_seconds()
+        next_heartbeat_at = started_at + 30.0
+        while True:
+            completion = attempt.completion()
+            now = self._runtime.monotonic_clock.now()
+            if now >= next_heartbeat_at and now < deadline_at:
+                heartbeat = self._store.heartbeat(
+                    operation_id=self._operation_ids.new_heartbeat_id(),
+                    token=claim.token,
+                    lease_duration=self._timing.lease_duration,
+                )
+                if self.resolve_heartbeat(heartbeat) is not None:
+                    cancellation.cancel()
+                    attempt.detach()
+                    return SupervisorLeaseLost()
+                next_heartbeat_at += 30.0
+                continue
+            if completion is not None and self.resolve_completion(
+                completed_at=completion.completed_at, deadline_at=deadline_at
+            ) is None:
+                return HandlerCompleted(completion)
+            if now >= deadline_at or completion is not None:
+                cancellation.cancel()
+                attempt.detach()
+                return AttemptTimedOut()
+            self._runtime.scheduler.wait_until(attempt, min(next_heartbeat_at, deadline_at))
 
 
 class IngestionJobCoordinationStore(Protocol):
@@ -357,6 +519,14 @@ class IngestionJobCoordinationStore(Protocol):
         worker_id: str,
         timing: AttemptTimingV1,
     ) -> ClaimResult: ...
+
+    def heartbeat(
+        self,
+        *,
+        operation_id: HeartbeatOperationId,
+        token: FencingToken,
+        lease_duration: timedelta,
+    ) -> HeartbeatResult: ...
 
     def finalize_terminal_failure(
         self,
@@ -380,12 +550,17 @@ class IngestionJobCoordinationStore(Protocol):
 class OperationIdFactory(Protocol):
     def new_claim_id(self) -> ClaimOperationId: ...
 
+    def new_heartbeat_id(self) -> HeartbeatOperationId: ...
+
     def new_transition_id(self) -> TransitionOperationId: ...
 
 
 class UuidOperationIds:
     def new_claim_id(self) -> ClaimOperationId:
         return ClaimOperationId(str(uuid4()))
+
+    def new_heartbeat_id(self) -> HeartbeatOperationId:
+        return HeartbeatOperationId(str(uuid4()))
 
     def new_transition_id(self) -> TransitionOperationId:
         return TransitionOperationId(str(uuid4()))
@@ -402,30 +577,87 @@ class ProcessIngestionJob[SuccessT]:
         operation_ids: OperationIdFactory,
         timing: AttemptTimingV1,
         retry_policy: RetryPolicyV1,
+        runtime: AttemptRuntime | None = None,
+        runner: AttemptRunner | None = None,
     ) -> None:
         self._store = store
         self._handler = handler
         self._operation_ids = operation_ids
         self._timing = timing
         self._retry_policy = retry_policy
+        self._runtime = runtime
+        if runtime is None and runner is None:
+            raise ValueError("ProcessIngestionJob needs a runner or AttemptRuntime")
+        self._runner = runtime.runner if runtime is not None else runner
 
     def run_once(self, worker_id: str) -> RunOnceResult:
-        claim = self._store.claim_next_attempt(
-            operation_id=self._operation_ids.new_claim_id(),
-            worker_id=worker_id,
-            timing=self._timing,
-        )
-        if isinstance(claim, NoEligibleClaim):
-            return NoEligibleJob()
-        if claim.token.worker_id != worker_id:
-            raise CoordinationInvariantError("claim worker does not match run_once worker")
+        permit = self._runner.try_reserve()
+        if permit is None:
+            raise RunnerCapacityUnavailable("no bounded execution capacity is available")
+        retain_permit = False
+        try:
+            claim = self._store.claim_next_attempt(
+                operation_id=self._operation_ids.new_claim_id(),
+                worker_id=worker_id,
+                timing=self._timing,
+            )
+            if isinstance(claim, NoEligibleClaim):
+                return NoEligibleJob()
+            if claim.token.worker_id != worker_id:
+                raise CoordinationInvariantError("claim worker does not match run_once worker")
 
-        outcome = self._handler.execute(claim.work)
+            timed_out = False
+            if self._runtime is None:
+                outcome = self._handler.execute(claim.work, Cancellation())
+            else:
+                cancellation = Cancellation()
+                try:
+                    running = permit.start(
+                        self._handler,
+                        claim.work,
+                        cancellation,
+                        self._runtime.monotonic_clock,
+                    )
+                except BaseException:
+                    outcome = WorkFailed(
+                        HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected"
+                    )
+                else:
+                    supervised = AttemptSupervisor(
+                        self._runtime, self._store, self._operation_ids, self._timing
+                    ).supervise(claim=claim, attempt=running, cancellation=cancellation)
+                    if isinstance(supervised, SupervisorLeaseLost):
+                        retain_permit = True
+                        return LeaseLost(
+                            attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number)
+                        )
+                    if isinstance(supervised, AttemptTimedOut) or isinstance(
+                        supervised.completion.result, HandlerRaised
+                    ):
+                        retain_permit = isinstance(supervised, AttemptTimedOut)
+                        timed_out = isinstance(supervised, AttemptTimedOut)
+                        outcome = WorkFailed(
+                            HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected"
+                        )
+                    else:
+                        outcome = supervised.completion.result
+        finally:
+            if not retain_permit:
+                permit.release()
         if not isinstance(outcome, WorkFailed):
             raise CoordinationInvariantError(
                 "Ticket #26 only finalizes deterministic WorkFailed outcomes"
             )
-        observed_failure = CauseMappingV1.map(outcome)
+        if timed_out:
+            observed_failure = CanonicalFailureV1(
+                cause=FailureCauseV1.ATTEMPT_TIMEOUT,
+                safe_code="attempt_timeout",
+                failure_reason=None,
+                cause_version="failure-causes-v1",
+                mapping_version="supervisor-v1",
+            )
+        else:
+            observed_failure = CauseMappingV1.map(outcome)
         decision = self._retry_policy.decide(
             observed_failure.cause,
             attempt_count=claim.attempt_count,
