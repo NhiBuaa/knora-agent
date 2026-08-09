@@ -108,6 +108,17 @@ class ScheduleRetry:
     policy_version: str = "retry-policy-v1"
     jitter_version: str = "full-jitter-v1"
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.delay_microseconds, bool)
+            or isinstance(self.window_upper_bound_microseconds, bool)
+            or not isinstance(self.delay_microseconds, int)
+            or not isinstance(self.window_upper_bound_microseconds, int)
+            or self.delay_microseconds < 0
+            or self.window_upper_bound_microseconds < self.delay_microseconds
+        ):
+            raise ValueError("retry delay must be an integer within its inclusive jitter window")
+
 
 @dataclass(frozen=True, slots=True)
 class RetryExhausted:
@@ -226,7 +237,7 @@ WorkOutcome = WorkSucceeded[SuccessT] | WorkSuperseded | WorkFailed
 class CanonicalFailureV1:
     cause: FailureCauseV1
     safe_code: str
-    failure_reason: str
+    failure_reason: str | None
     cause_version: str
     mapping_version: str
 
@@ -247,17 +258,33 @@ class CauseMappingV1:
     }
 
     @classmethod
-    def map_terminal(cls, failed: WorkFailed) -> CanonicalFailureV1:
-        cause = cls._causes[failed.failure_kind]
-        failure_reason = _TERMINAL_REASONS.get(cause)
-        if failure_reason is None:
-            raise CoordinationInvariantError("retry scheduling is not delivered by Ticket #26")
+    def map(cls, failed: WorkFailed) -> CanonicalFailureV1:
         return CanonicalFailureV1(
-            cause=cause,
+            cause=cls._causes[failed.failure_kind],
             safe_code=failed.safe_code,
-            failure_reason=failure_reason,
+            failure_reason=None,
             cause_version="failure-causes-v1",
             mapping_version="cause-mapping-v1",
+        )
+
+    @classmethod
+    def map_terminal(cls, failed: WorkFailed) -> CanonicalFailureV1:
+        return cls.terminalize(cls.map(failed))
+
+    @classmethod
+    def terminalize(cls, observed: CanonicalFailureV1) -> CanonicalFailureV1:
+        cause = observed.cause
+        failure_reason = _TERMINAL_REASONS.get(cause)
+        if failure_reason is None:
+            raise CoordinationInvariantError(
+                "retryable cause cannot be terminalized without exhaustion"
+            )
+        return CanonicalFailureV1(
+            cause=cause,
+            safe_code=observed.safe_code,
+            failure_reason=failure_reason,
+            cause_version=observed.cause_version,
+            mapping_version=observed.mapping_version,
         )
 
 
@@ -272,6 +299,12 @@ class FinalizationApplied:
 
 
 @dataclass(frozen=True, slots=True)
+class RetryScheduleApplied:
+    attempt: AttemptRef
+    next_attempt_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class Fenced:
     pass
 
@@ -283,6 +316,7 @@ class InvalidTransition:
 
 ClaimResult = ClaimedAttempt | NoEligibleClaim
 FinalizationResult = FinalizationApplied | Fenced | InvalidTransition
+RetryScheduleResult = RetryScheduleApplied | Fenced | InvalidTransition
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,7 +336,13 @@ class LeaseLost:
     attempt: AttemptRef
 
 
-RunOnceResult = NoEligibleJob | FailedTerminal | LeaseLost
+@dataclass(frozen=True, slots=True)
+class RetryScheduled:
+    attempt: AttemptRef
+    safe_code: str
+
+
+RunOnceResult = NoEligibleJob | RetryScheduled | FailedTerminal | LeaseLost
 
 
 class WorkHandler(Protocol[SuccessT]):
@@ -324,7 +364,17 @@ class IngestionJobCoordinationStore(Protocol):
         operation_id: TransitionOperationId,
         claim: ClaimedAttempt,
         failure: CanonicalFailureV1,
+        decision: RetryExhausted | FailTerminal | None = None,
     ) -> FinalizationResult: ...
+
+    def schedule_retry(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry,
+    ) -> RetryScheduleResult: ...
 
 
 class OperationIdFactory(Protocol):
@@ -351,11 +401,13 @@ class ProcessIngestionJob[SuccessT]:
         handler: WorkHandler[SuccessT],
         operation_ids: OperationIdFactory,
         timing: AttemptTimingV1,
+        retry_policy: RetryPolicyV1,
     ) -> None:
         self._store = store
         self._handler = handler
         self._operation_ids = operation_ids
         self._timing = timing
+        self._retry_policy = retry_policy
 
     def run_once(self, worker_id: str) -> RunOnceResult:
         claim = self._store.claim_next_attempt(
@@ -373,13 +425,51 @@ class ProcessIngestionJob[SuccessT]:
             raise CoordinationInvariantError(
                 "Ticket #26 only finalizes deterministic WorkFailed outcomes"
             )
-        failure = CauseMappingV1.map_terminal(outcome)
+        observed_failure = CauseMappingV1.map(outcome)
+        decision = self._retry_policy.decide(
+            observed_failure.cause,
+            attempt_count=claim.attempt_count,
+            max_attempts=claim.max_attempts,
+        )
+        operation_id = self._operation_ids.new_transition_id()
+        if isinstance(decision, ScheduleRetry):
+            scheduled = self._store.schedule_retry(
+                operation_id=operation_id,
+                claim=claim,
+                failure=observed_failure,
+                decision=decision,
+            )
+            if isinstance(scheduled, RetryScheduleApplied):
+                return RetryScheduled(
+                    attempt=scheduled.attempt,
+                    safe_code=observed_failure.safe_code,
+                )
+            if isinstance(scheduled, Fenced):
+                return LeaseLost(attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number))
+            raise CoordinationInvariantError("retry scheduling was not applicable")
+
+        if isinstance(decision, RetryExhausted):
+            failure = CanonicalFailureV1(
+                cause=observed_failure.cause,
+                safe_code=observed_failure.safe_code,
+                failure_reason="retry_exhausted",
+                cause_version=observed_failure.cause_version,
+                mapping_version=observed_failure.mapping_version,
+            )
+        else:
+            failure = CauseMappingV1.terminalize(observed_failure)
+
         finalization = self._store.finalize_terminal_failure(
-            operation_id=self._operation_ids.new_transition_id(),
+            operation_id=operation_id,
             claim=claim,
             failure=failure,
+            decision=decision,
         )
         if isinstance(finalization, FinalizationApplied):
+            if failure.failure_reason is None:
+                raise CoordinationInvariantError(
+                    "terminal finalization did not have a failure reason"
+                )
             return FailedTerminal(
                 attempt=finalization.attempt,
                 failure_reason=failure.failure_reason,

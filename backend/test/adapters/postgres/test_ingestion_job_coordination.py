@@ -26,7 +26,12 @@ from knora.ingestion.job_processing import (
     Fenced,
     FinalizationApplied,
     HandlerFailureKindV1,
+    NoEligibleClaim,
     ProcessIngestionJob,
+    RetryExhausted,
+    RetryPolicyV1,
+    RetryScheduleApplied,
+    ScheduleRetry,
     TransitionOperationId,
     WorkFailed,
 )
@@ -34,6 +39,13 @@ from knora.ingestion.jobs import PdfSubmissionConfiguration, PreparedPdfSubmissi
 from knora.ingestion.object_store import ObjectMetadata
 from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
+
+
+def clear_coordination_jobs() -> None:
+    with SessionFactory.begin() as session:
+        session.execute(
+            text("TRUNCATE TABLE idempotency_records, ingestion_job_attempts, ingestion_jobs")
+        )
 
 
 def submit_queued_job() -> tuple[PostgresIngestionJobStore, str]:
@@ -106,6 +118,26 @@ def terminal_failure() -> CanonicalFailureV1:
     )
 
 
+def retryable_failure() -> CanonicalFailureV1:
+    return CanonicalFailureV1(
+        cause=FailureCauseV1.PROVIDER_TRANSIENT,
+        safe_code="provider_transient",
+        failure_reason=None,
+        cause_version="failure-causes-v1",
+        mapping_version="cause-mapping-v1",
+    )
+
+
+def exhausted_retryable_failure() -> CanonicalFailureV1:
+    return CanonicalFailureV1(
+        cause=FailureCauseV1.PROVIDER_TRANSIENT,
+        safe_code="provider_transient",
+        failure_reason="retry_exhausted",
+        cause_version="failure-causes-v1",
+        mapping_version="cause-mapping-v1",
+    )
+
+
 @dataclass
 class DatabaseLockProbeHandler:
     job_id: str
@@ -131,6 +163,15 @@ class FixedOperationIds:
 
     def new_transition_id(self) -> TransitionOperationId:
         return TransitionOperationId(uuid4().hex)
+
+
+@dataclass
+class ZeroRandom:
+    bounds: list[int]
+
+    def next_int_inclusive(self, upper_bound_microseconds: int) -> int:
+        self.bounds.append(upper_bound_microseconds)
+        return 0
 
 
 def test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically() -> None:
@@ -188,6 +229,210 @@ def test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically()
         )
 
 
+def test_schedule_retry_closes_current_attempt_with_one_database_time_anchor() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+
+    assert isinstance(claim, ClaimedAttempt)
+    transition_id = TransitionOperationId(uuid4().hex)
+    result = store.schedule_retry(
+        operation_id=transition_id,
+        claim=claim,
+        failure=retryable_failure(),
+        decision=ScheduleRetry(
+            delay_microseconds=5_000_000,
+            window_upper_bound_microseconds=5_000_000,
+        ),
+    )
+
+    assert isinstance(result, RetryScheduleApplied)
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "retry_scheduled"
+        assert job.worker_id is None
+        assert job.lease_expires_at is None
+        assert job.current_attempt_number is None
+        assert job.current_attempt_started_at is None
+        assert job.current_attempt_deadline_at is None
+        assert job.next_attempt_at is not None
+        assert attempt.closed_at is not None
+        assert attempt.disposition == "retry_scheduled"
+        assert attempt.failure_cause == "provider_transient"
+        assert attempt.failure_reason is None
+        assert attempt.retry_policy_version == "retry-policy-v1"
+        assert attempt.retry_policy_result == "schedule_retry"
+        assert attempt.retry_jitter_version == "full-jitter-v1"
+        assert attempt.retry_window_upper_bound_microseconds == 5_000_000
+        assert attempt.retry_delay_microseconds == 5_000_000
+        assert attempt.retry_next_attempt_at == job.next_attempt_at
+        assert attempt.transition_operation_id == transition_id
+        assert attempt.transition_request_fingerprint is not None
+        assert job.next_attempt_at - attempt.closed_at == timedelta(seconds=5)
+
+
+def test_claim_accepts_only_due_retry_schedules_in_a_subsequent_transaction() -> None:
+    clear_coordination_jobs()
+    positive_store, _ = submit_queued_job()
+    positive_claim = positive_store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-positive",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(positive_claim, ClaimedAttempt)
+    positive_schedule = positive_store.schedule_retry(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=positive_claim,
+        failure=retryable_failure(),
+        decision=ScheduleRetry(
+            delay_microseconds=5_000_000,
+            window_upper_bound_microseconds=5_000_000,
+        ),
+    )
+    assert isinstance(positive_schedule, RetryScheduleApplied)
+    with SessionFactory() as session:
+        assert positive_schedule.next_attempt_at > session.scalar(select(func.clock_timestamp()))
+
+    immediate_positive_claim = positive_store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-positive",
+        timing=AttemptTimingV1.standard(),
+    )
+
+    assert isinstance(immediate_positive_claim, NoEligibleClaim)
+
+    zero_store, zero_job_id = submit_queued_job()
+    zero_claim = zero_store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-zero",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(zero_claim, ClaimedAttempt)
+    assert isinstance(
+        zero_store.schedule_retry(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=zero_claim,
+            failure=retryable_failure(),
+            decision=ScheduleRetry(
+                delay_microseconds=0,
+                window_upper_bound_microseconds=5_000_000,
+            ),
+        ),
+        RetryScheduleApplied,
+    )
+
+    next_claim = zero_store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-zero",
+        timing=AttemptTimingV1.standard(),
+    )
+
+    assert isinstance(next_claim, ClaimedAttempt)
+    assert next_claim.token.attempt_number == 2
+    assert next_claim.token.lease_version == 2
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, zero_job_id)
+        attempts = session.scalars(
+            select(IngestionJobAttemptTable)
+            .where(IngestionJobAttemptTable.ingestion_job_id == zero_job_id)
+            .order_by(IngestionJobAttemptTable.attempt_number)
+        ).all()
+        assert job.status == "processing"
+        assert job.attempt_count == 2
+        assert job.next_attempt_at is None
+        assert [attempt.attempt_number for attempt in attempts] == [1, 2]
+        assert attempts[0].closed_at is not None
+        assert attempts[1].closed_at is None
+
+
+def test_fourth_retryable_attempt_finalizes_exhausted_without_attempt_five() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-exhaustion",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    random = ZeroRandom(bounds=[])
+    policy = RetryPolicyV1(random)
+
+    for attempt_number in (1, 2, 3):
+        assert claim.token.attempt_number == attempt_number
+        decision = policy.decide(
+            FailureCauseV1.PROVIDER_TRANSIENT,
+            attempt_count=attempt_number,
+            max_attempts=4,
+        )
+        assert isinstance(decision, ScheduleRetry)
+        assert isinstance(
+            store.schedule_retry(
+                operation_id=TransitionOperationId(uuid4().hex),
+                claim=claim,
+                failure=retryable_failure(),
+                decision=decision,
+            ),
+            RetryScheduleApplied,
+        )
+        claim = store.claim_next_attempt(
+            operation_id=ClaimOperationId(uuid4().hex),
+            worker_id="worker-exhaustion",
+            timing=AttemptTimingV1.standard(),
+        )
+        assert isinstance(claim, ClaimedAttempt)
+
+    exhausted = policy.decide(
+        FailureCauseV1.PROVIDER_TRANSIENT,
+        attempt_count=4,
+        max_attempts=4,
+    )
+    assert exhausted == RetryExhausted()
+
+    terminal = store.finalize_terminal_failure(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=claim,
+        failure=exhausted_retryable_failure(),
+        decision=exhausted,
+    )
+
+    assert isinstance(terminal, FinalizationApplied)
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempts = session.scalars(
+            select(IngestionJobAttemptTable)
+            .where(IngestionJobAttemptTable.ingestion_job_id == job_id)
+            .order_by(IngestionJobAttemptTable.attempt_number)
+        ).all()
+        assert job.status == "failed"
+        assert job.attempt_count == 4
+        assert job.failure_reason == "retry_exhausted"
+        assert job.next_attempt_at is None
+        assert [attempt.attempt_number for attempt in attempts] == [1, 2, 3, 4]
+        assert [attempt.retry_policy_result for attempt in attempts] == [
+            "schedule_retry",
+            "schedule_retry",
+            "schedule_retry",
+            "retry_exhausted",
+        ]
+        assert attempts[3].closure_cause == "provider_transient"
+        assert attempts[3].failure_reason == "retry_exhausted"
+    assert random.bounds == [5_000_000, 30_000_000, 120_000_000]
+
+    assert isinstance(
+        store.claim_next_attempt(
+            operation_id=ClaimOperationId(uuid4().hex),
+            worker_id="worker-exhaustion",
+            timing=AttemptTimingV1.standard(),
+        ),
+        NoEligibleClaim,
+    )
+
+
 def test_run_once_releases_claim_transaction_before_handler_work() -> None:
     store, job_id = submit_queued_job()
     processor = ProcessIngestionJob(
@@ -195,6 +440,7 @@ def test_run_once_releases_claim_transaction_before_handler_work() -> None:
         handler=DatabaseLockProbeHandler(job_id=job_id),
         operation_ids=FixedOperationIds(),
         timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(ZeroRandom(bounds=[])),
     )
 
     result = processor.run_once("worker-a")

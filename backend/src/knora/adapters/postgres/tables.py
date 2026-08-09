@@ -153,6 +153,7 @@ class IngestionJobTable(Base):
     current_attempt_deadline_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -201,6 +202,16 @@ class IngestionJobAttemptTable(Base):
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     transition_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     transition_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_policy_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_policy_result: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_jitter_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_window_upper_bound_microseconds: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    retry_delay_microseconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retry_next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class IdempotencyRecordTable(Base):

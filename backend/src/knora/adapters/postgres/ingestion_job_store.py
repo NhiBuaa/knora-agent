@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -29,6 +29,7 @@ from knora.ingestion.job_processing import (
     ClaimOperationId,
     ClaimResult,
     CoordinationInvariantError,
+    FailTerminal,
     Fenced,
     FencingToken,
     FinalizationApplied,
@@ -36,6 +37,10 @@ from knora.ingestion.job_processing import (
     IngestionWork,
     InvalidTransition,
     NoEligibleClaim,
+    RetryExhausted,
+    RetryScheduleApplied,
+    RetryScheduleResult,
+    ScheduleRetry,
     TransitionOperationId,
 )
 from knora.ingestion.jobs import (
@@ -82,7 +87,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         worker_id: str,
         timing: AttemptTimingV1,
     ) -> ClaimResult:
-        """Atomically claim at most one queued job and insert its first open attempt."""
+        """Atomically claim at most one queued or due-retry job and insert one attempt."""
 
         claim_operation_id = str(operation_id)
         claim_fingerprint = self._claim_fingerprint(worker_id=worker_id, timing=timing)
@@ -100,10 +105,20 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             job = session.scalar(
                 select(IngestionJobTable)
                 .where(
-                    IngestionJobTable.status == "queued",
+                    or_(
+                        IngestionJobTable.status == "queued",
+                        and_(
+                            IngestionJobTable.status == "retry_scheduled",
+                            IngestionJobTable.next_attempt_at <= func.clock_timestamp(),
+                        ),
+                    ),
                     IngestionJobTable.attempt_count < IngestionJobTable.max_attempts,
                 )
-                .order_by(IngestionJobTable.created_at, IngestionJobTable.id)
+                .order_by(
+                    IngestionJobTable.next_attempt_at.nullsfirst(),
+                    IngestionJobTable.created_at,
+                    IngestionJobTable.id,
+                )
                 .with_for_update(skip_locked=True)
                 .limit(1)
             )
@@ -111,7 +126,9 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 return NoEligibleClaim()
 
             database_now = self._database_now(session)
-            if job.status != "queued" or job.attempt_count >= job.max_attempts:
+            if job.attempt_count >= job.max_attempts or not self._is_claim_eligible(
+                job, database_now
+            ):
                 return NoEligibleClaim()
 
             attempt_number = job.attempt_count + 1
@@ -130,6 +147,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             job.current_attempt_number = attempt_number
             job.current_attempt_started_at = database_now
             job.current_attempt_deadline_at = deadline_at
+            job.next_attempt_at = None
             session.add(
                 IngestionJobAttemptTable(
                     ingestion_job_id=job.id,
@@ -170,12 +188,113 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 deadline_at=deadline_at,
             )
 
+    def schedule_retry(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry,
+    ) -> RetryScheduleResult:
+        """Fenced `processing -> retry_scheduled` with one durable DB-time anchor."""
+
+        if failure.failure_reason is not None:
+            raise CoordinationInvariantError(
+                "retry scheduling cannot carry a terminal failure reason"
+            )
+        if claim.attempt_count >= claim.max_attempts:
+            raise CoordinationInvariantError("retry scheduling exceeds the claimed attempt budget")
+
+        with self._session_factory.begin() as session:
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(IngestionJobTable.id == claim.token.job_id)
+                .with_for_update()
+            )
+            if job is None:
+                return Fenced()
+
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable)
+                .where(
+                    IngestionJobAttemptTable.ingestion_job_id == claim.token.job_id,
+                    IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+                )
+                .with_for_update()
+            )
+            if attempt is None or attempt.closed_at is not None:
+                return InvalidTransition()
+
+            database_now = self._database_now(session)
+            if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                return Fenced()
+            if job.attempt_count >= job.max_attempts:
+                raise CoordinationInvariantError(
+                    "retry scheduling exceeds the current attempt budget"
+                )
+            if (
+                attempt.worker_id != claim.token.worker_id
+                or attempt.lease_version != claim.token.lease_version
+                or attempt.attempt_number != job.current_attempt_number
+            ):
+                return InvalidTransition()
+
+            transition_operation_id = str(operation_id)
+            transition_fingerprint = self._transition_fingerprint(
+                claim=claim,
+                failure=failure,
+                disposition="retry_scheduled",
+                decision=decision,
+            )
+            self._assert_new_transition_operation(
+                session=session,
+                operation_id=transition_operation_id,
+                request_fingerprint=transition_fingerprint,
+            )
+            next_attempt_at = database_now + timedelta(microseconds=decision.delay_microseconds)
+
+            attempt.closed_at = database_now
+            attempt.disposition = "retry_scheduled"
+            attempt.closure_cause = failure.cause.value
+            attempt.failure_cause = failure.cause.value
+            attempt.failure_cause_version = failure.cause_version
+            attempt.cause_mapping_version = failure.mapping_version
+            attempt.safe_failure_code = failure.safe_code
+            attempt.transition_operation_id = transition_operation_id
+            attempt.transition_request_fingerprint = transition_fingerprint
+            attempt.retry_policy_version = decision.policy_version
+            attempt.retry_policy_result = "schedule_retry"
+            attempt.retry_jitter_version = decision.jitter_version
+            attempt.retry_window_upper_bound_microseconds = decision.window_upper_bound_microseconds
+            attempt.retry_delay_microseconds = decision.delay_microseconds
+            attempt.retry_next_attempt_at = next_attempt_at
+
+            job.status = "retry_scheduled"
+            job.worker_id = None
+            job.lease_expires_at = None
+            job.current_attempt_number = None
+            job.current_attempt_started_at = None
+            job.current_attempt_deadline_at = None
+            job.next_attempt_at = next_attempt_at
+            job.terminal_at = None
+            job.failure_reason = None
+            job.safe_failure_code = None
+            session.flush()
+            return RetryScheduleApplied(
+                attempt=AttemptRef(
+                    job_id=claim.token.job_id,
+                    attempt_number=claim.token.attempt_number,
+                ),
+                next_attempt_at=next_attempt_at,
+            )
+
     def finalize_terminal_failure(
         self,
         *,
         operation_id: TransitionOperationId,
         claim: ClaimedAttempt,
         failure: CanonicalFailureV1,
+        decision: RetryExhausted | FailTerminal | None = None,
     ) -> FinalizationResult:
         """Fenced `processing -> failed` plus matching immutable attempt closure."""
 
@@ -214,18 +333,17 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 return InvalidTransition()
 
             transition_operation_id = str(operation_id)
-            transition_fingerprint = self._transition_fingerprint(claim=claim, failure=failure)
-            existing = session.scalar(
-                select(IngestionJobAttemptTable).where(
-                    IngestionJobAttemptTable.transition_operation_id == transition_operation_id
-                )
+            transition_fingerprint = self._transition_fingerprint(
+                claim=claim,
+                failure=failure,
+                disposition="failed",
+                terminal_decision=decision,
             )
-            if existing is not None:
-                if existing.transition_request_fingerprint != transition_fingerprint:
-                    raise CoordinationInvariantError(
-                        "transition operation ID was reused incompatibly"
-                    )
-                raise CoordinationInvariantError("transition operation ID was already applied")
+            self._assert_new_transition_operation(
+                session=session,
+                operation_id=transition_operation_id,
+                request_fingerprint=transition_fingerprint,
+            )
 
             attempt.closed_at = database_now
             attempt.disposition = "failed"
@@ -237,6 +355,9 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt.failure_reason = failure.failure_reason
             attempt.transition_operation_id = transition_operation_id
             attempt.transition_request_fingerprint = transition_fingerprint
+            if decision is not None:
+                attempt.retry_policy_version = decision.policy_version
+                attempt.retry_policy_result = self._terminal_policy_result(decision)
 
             job.status = "failed"
             job.worker_id = None
@@ -244,6 +365,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             job.current_attempt_number = None
             job.current_attempt_started_at = None
             job.current_attempt_deadline_at = None
+            job.next_attempt_at = None
             job.terminal_at = database_now
             job.failure_reason = failure.failure_reason
             job.safe_failure_code = failure.safe_code
@@ -273,19 +395,73 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         )
 
     @staticmethod
-    def _transition_fingerprint(*, claim: ClaimedAttempt, failure: CanonicalFailureV1) -> str:
-        return "\n".join(
-            (
-                claim.token.job_id,
-                str(claim.token.attempt_number),
-                claim.token.worker_id,
-                str(claim.token.lease_version),
-                failure.cause.value,
-                failure.safe_code,
-                failure.failure_reason,
-                failure.cause_version,
-                failure.mapping_version,
+    def _transition_fingerprint(
+        *,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+        disposition: str,
+        decision: ScheduleRetry | None = None,
+        terminal_decision: RetryExhausted | FailTerminal | None = None,
+    ) -> str:
+        values = [
+            claim.token.job_id,
+            str(claim.token.attempt_number),
+            claim.token.worker_id,
+            str(claim.token.lease_version),
+            disposition,
+            failure.cause.value,
+            failure.safe_code,
+            failure.failure_reason or "",
+            failure.cause_version,
+            failure.mapping_version,
+        ]
+        if decision is not None:
+            values.extend(
+                (
+                    decision.policy_version,
+                    decision.jitter_version,
+                    str(decision.window_upper_bound_microseconds),
+                    str(decision.delay_microseconds),
+                )
             )
+        if terminal_decision is not None:
+            values.extend(
+                (
+                    terminal_decision.policy_version,
+                    PostgresIngestionJobStore._terminal_policy_result(terminal_decision),
+                )
+            )
+        return "\n".join(values)
+
+    @staticmethod
+    def _terminal_policy_result(decision: RetryExhausted | FailTerminal) -> str:
+        if isinstance(decision, RetryExhausted):
+            return "retry_exhausted"
+        return "fail_terminal"
+
+    @staticmethod
+    def _assert_new_transition_operation(
+        *,
+        session: Session,
+        operation_id: str,
+        request_fingerprint: str,
+    ) -> None:
+        existing = session.scalar(
+            select(IngestionJobAttemptTable).where(
+                IngestionJobAttemptTable.transition_operation_id == operation_id
+            )
+        )
+        if existing is not None:
+            if existing.transition_request_fingerprint != request_fingerprint:
+                raise CoordinationInvariantError("transition operation ID was reused incompatibly")
+            raise CoordinationInvariantError("transition operation ID was already applied")
+
+    @staticmethod
+    def _is_claim_eligible(job: IngestionJobTable, database_now: datetime) -> bool:
+        return job.status == "queued" or (
+            job.status == "retry_scheduled"
+            and job.next_attempt_at is not None
+            and job.next_attempt_at <= database_now
         )
 
     @staticmethod

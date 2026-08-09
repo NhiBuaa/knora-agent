@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from knora.ingestion.job_processing import (
@@ -9,11 +9,19 @@ from knora.ingestion.job_processing import (
     ClaimOperationId,
     FailedTerminal,
     FailureCauseV1,
+    Fenced,
     FencingToken,
     FinalizationApplied,
     HandlerFailureKindV1,
     IngestionWork,
+    LeaseLost,
     ProcessIngestionJob,
+    RetryExhausted,
+    RetryPolicyV1,
+    RetryScheduleApplied,
+    RetryScheduled,
+    RetryScheduleResult,
+    ScheduleRetry,
     TransitionOperationId,
     WorkFailed,
 )
@@ -26,6 +34,11 @@ class RecordingStore:
     finalizations: list[tuple[TransitionOperationId, ClaimedAttempt, CanonicalFailureV1]] = (
         field(default_factory=list)
     )
+    retry_schedules: list[
+        tuple[TransitionOperationId, ClaimedAttempt, CanonicalFailureV1, ScheduleRetry]
+    ] = field(default_factory=list)
+    terminal_decisions: list[object] = field(default_factory=list)
+    retry_schedule_result: RetryScheduleResult | None = None
 
     def claim_next_attempt(
         self,
@@ -43,9 +56,32 @@ class RecordingStore:
         operation_id: TransitionOperationId,
         claim: ClaimedAttempt,
         failure: CanonicalFailureV1,
+        decision=None,
     ) -> FinalizationApplied:
         self.finalizations.append((operation_id, claim, failure))
-        return FinalizationApplied(attempt=AttemptRef(job_id=claim.token.job_id, attempt_number=1))
+        self.terminal_decisions.append(decision)
+        return FinalizationApplied(
+            attempt=AttemptRef(
+                job_id=claim.token.job_id,
+                attempt_number=claim.token.attempt_number,
+            )
+        )
+
+    def schedule_retry(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry,
+    ) -> RetryScheduleApplied:
+        self.retry_schedules.append((operation_id, claim, failure, decision))
+        if self.retry_schedule_result is not None:
+            return self.retry_schedule_result
+        return RetryScheduleApplied(
+            attempt=AttemptRef(job_id=claim.token.job_id, attempt_number=claim.attempt_count),
+            next_attempt_at=claim.attempt_started_at,
+        )
 
 
 @dataclass
@@ -58,6 +94,29 @@ class FailingHandler:
             failure_kind=HandlerFailureKindV1.INVALID_INPUT,
             safe_code="invalid_input",
         )
+
+
+@dataclass
+class RetryableFailingHandler:
+    def execute(self, work: IngestionWork) -> WorkFailed:
+        return WorkFailed(
+            failure_kind=HandlerFailureKindV1.PROVIDER_TRANSIENT,
+            safe_code="provider_transient",
+        )
+
+
+@dataclass
+class FixedRandom:
+    delay_microseconds: int
+
+    def next_int_inclusive(self, upper_bound_microseconds: int) -> int:
+        assert upper_bound_microseconds == 5_000_000
+        return self.delay_microseconds
+
+
+class NoRandom:
+    def next_int_inclusive(self, upper_bound_microseconds: int) -> int:
+        raise AssertionError(f"unexpected jitter sample for {upper_bound_microseconds}")
 
 
 @dataclass
@@ -110,6 +169,7 @@ def test_run_once_claims_then_fenced_finalizes_non_retryable_failure() -> None:
         handler=handler,
         operation_ids=FixedOperationIds(),
         timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=0)),
     )
 
     result = processor.run_once("worker-a")
@@ -136,3 +196,86 @@ def test_run_once_claims_then_fenced_finalizes_non_retryable_failure() -> None:
             ),
         )
     ]
+
+
+def test_run_once_maps_handler_failure_then_reports_scheduled_retry() -> None:
+    claim = claimed_attempt()
+    store = RecordingStore(claim=claim)
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=RetryableFailingHandler(),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=5_000_000)),
+    )
+
+    result = processor.run_once("worker-a")
+
+    assert result == RetryScheduled(
+        attempt=AttemptRef(job_id="job-1", attempt_number=1),
+        safe_code="provider_transient",
+    )
+    assert store.retry_schedules == [
+        (
+            TransitionOperationId("terminal-op-1"),
+            claim,
+            CanonicalFailureV1(
+                cause=FailureCauseV1.PROVIDER_TRANSIENT,
+                safe_code="provider_transient",
+                failure_reason=None,
+                cause_version="failure-causes-v1",
+                mapping_version="cause-mapping-v1",
+            ),
+            ScheduleRetry(
+                delay_microseconds=5_000_000,
+                window_upper_bound_microseconds=5_000_000,
+            ),
+        )
+    ]
+    assert len(store.claims) == 1
+    assert store.finalizations == []
+
+
+def test_run_once_exhausts_the_fourth_retryable_attempt_without_sampling() -> None:
+    initial_claim = claimed_attempt()
+    claim = replace(
+        initial_claim,
+        token=replace(initial_claim.token, attempt_number=4),
+        attempt_count=4,
+    )
+    store = RecordingStore(claim=claim)
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=RetryableFailingHandler(),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+    )
+
+    result = processor.run_once("worker-a")
+
+    assert result == FailedTerminal(
+        attempt=AttemptRef(job_id="job-1", attempt_number=4),
+        failure_reason="retry_exhausted",
+        safe_code="provider_transient",
+    )
+    assert store.terminal_decisions == [RetryExhausted()]
+    assert store.retry_schedules == []
+
+
+def test_run_once_reports_lease_loss_when_fenced_while_scheduling_retry() -> None:
+    claim = claimed_attempt()
+    store = RecordingStore(claim=claim, retry_schedule_result=Fenced())
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=RetryableFailingHandler(),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=0)),
+    )
+
+    result = processor.run_once("worker-a")
+
+    assert result == LeaseLost(attempt=AttemptRef(job_id="job-1", attempt_number=1))
+    assert len(store.claims) == 1
+    assert len(store.retry_schedules) == 1
