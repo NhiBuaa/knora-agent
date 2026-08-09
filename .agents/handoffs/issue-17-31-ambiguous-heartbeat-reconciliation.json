@@ -1,0 +1,32 @@
+{
+  "attempted_steps": [
+    {
+      "result": "GitHub Issue #31 is OPEN with #29 closed, so it is ready for an isolated implementation worktree.",
+      "step": "verify_frontier"
+    }
+  ],
+  "authoritative_artifacts": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs/agents/issue-tracker.md",
+    "docs/standards/architecture.md",
+    "docs/design/milestone-2-module-seams.md",
+    "docs/design/issue-17-worker-coordination.md",
+    "https://github.com/NhiBuaa/knora-agent/issues/31",
+    "https://github.com/NhiBuaa/knora-agent/issues/29",
+    ".agents/manual-tests/issue-17-worker-coordination/29-attempt-supervision-v1.md",
+    ".agents/manual-tests/issue-17-worker-coordination/29-attempt-supervision-v1.evaluations.jsonl",
+    "backend/migrations/versions/20260809_0011_attempt_heartbeat.py"
+  ],
+  "completed_transitions": [
+    "Issue #29 completed, human-accepted, and closed on GitHub",
+    "Issue #29 merged to main at 8e6bdcc",
+    "Issue #31 dependency status verified: its only blocker #29 is closed"
+  ],
+  "current_state": "Issue #31 is open, unblocked, and ready for implementation preflight from main commit 8e6bdcc.",
+  "next_valid_transition": "Create an isolated worktree from main commit 8e6bdcc on branch codex/issue-31-heartbeat-reconciliation, then perform Issue #31 implementation preflight and TDD starting with same-operation-ID heartbeat replay/read-back.",
+  "outstanding_blockers": [],
+  "reason": "User will open a new isolated worktree/session to implement GitHub Issue #31 after its only blocker, Issue #29, completed and merged.",
+  "schema_version": 1,
+  "workflow_identity": "issue-17-ticket-31-ambiguous-heartbeat-reconciliation"
+}

@@ -1,0 +1,32 @@
+{
+  "attempted_steps": [
+    {
+      "result": "GitHub Issue #30 is OPEN with #28 closed, so it is ready for an isolated implementation worktree.",
+      "step": "verify_frontier"
+    }
+  ],
+  "authoritative_artifacts": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs/agents/issue-tracker.md",
+    "docs/standards/architecture.md",
+    "docs/design/milestone-2-module-seams.md",
+    "docs/design/issue-17-worker-coordination.md",
+    "https://github.com/NhiBuaa/knora-agent/issues/30",
+    "https://github.com/NhiBuaa/knora-agent/issues/28",
+    ".agents/manual-tests/issue-17-worker-coordination/28-expired-attempt-recovery-v2.md",
+    ".agents/manual-tests/issue-17-worker-coordination/28-expired-attempt-recovery-v2.evaluations.jsonl",
+    "backend/migrations/versions/20260809_0011_attempt_heartbeat.py"
+  ],
+  "completed_transitions": [
+    "Issue #28 completed, human-accepted, and closed on GitHub",
+    "Issue #28 merged to origin/main at b4f352a",
+    "Issue #30 dependency status verified: its only blocker #28 is closed"
+  ],
+  "current_state": "Issue #30 is open, unblocked, and ready for implementation preflight from origin/main commit b4f352a.",
+  "next_valid_transition": "Create an isolated worktree from origin/main commit b4f352a on branch codex/issue-30-attempt-mutation-reconciliation, then perform Issue #30 implementation preflight and TDD starting with typed operation binding and current-claim read-back.",
+  "outstanding_blockers": [],
+  "reason": "User will open a new isolated worktree/session to implement GitHub Issue #30 after its only blocker, Issue #28, completed and merged.",
+  "schema_version": 1,
+  "workflow_identity": "issue-17-ticket-30-attempt-backed-ambiguous-mutation-reconciliation"
+}
