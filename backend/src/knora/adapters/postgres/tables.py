@@ -141,9 +141,76 @@ class IngestionJobTable(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    worker_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    lease_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    current_attempt_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_attempt_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    current_attempt_deadline_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IngestionJobAttemptTable(Base):
+    __tablename__ = "ingestion_job_attempts"
+    __table_args__ = (
+        Index(
+            "uq_ingestion_job_attempts_one_open",
+            "ingestion_job_id",
+            unique=True,
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+        UniqueConstraint("claim_operation_id", name="uq_ingestion_job_attempts_claim_operation"),
+        UniqueConstraint(
+            "transition_operation_id",
+            name="uq_ingestion_job_attempts_transition_operation",
+        ),
+    )
+
+    ingestion_job_id: Mapped[str] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), primary_key=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    worker_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lease_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    attempt_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    initial_lease_expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    claim_operation_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    claim_request_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disposition: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    closure_cause: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    failure_cause: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    failure_cause_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    cause_mapping_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    transition_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    transition_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_policy_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_policy_result: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_jitter_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_window_upper_bound_microseconds: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    retry_delay_microseconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retry_next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 

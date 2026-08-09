@@ -7,6 +7,6 @@ ceiling, kill a timed-out or over-budget process, and keep the worker parent hea
 starts with 25 MiB raw input, 500 pages, 4 MiB per-page and 64 MiB aggregate decompressed content
 streams, and 30 seconds for inspection/extraction under a 256 MiB hard memory ceiling. These
 limits are versioned ingestion configuration. Budget violations are terminal with an internal
-reason; infrastructure failure, worker crash and process eviction remain bounded retryable
-failures. Failed jobs retain source and failure evidence but cannot activate or expose partial
+reason; infrastructure failure and process eviction remain bounded policy inputs, while loss of a
+worker is durably observed only as lease expiry. Failed jobs retain source and failure evidence but cannot activate or expose partial
 derivations.

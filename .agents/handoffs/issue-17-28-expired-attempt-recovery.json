@@ -1,0 +1,31 @@
+{
+  "attempted_steps": [
+    {
+      "result": "GitHub Issue #28 is OPEN after #27 closed; no Issue #28 implementation has started.",
+      "step": "verify_frontier"
+    }
+  ],
+  "authoritative_artifacts": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs/agents/issue-tracker.md",
+    "docs/standards/architecture.md",
+    "docs/design/milestone-2-module-seams.md",
+    "docs/design/issue-17-worker-coordination.md",
+    "https://github.com/NhiBuaa/knora-agent/issues/28",
+    ".agents/manual-tests/issue-17-worker-coordination/27-retry-schedule-reclaim-exhaustion.evaluations.jsonl",
+    "backend/migrations/versions/20260809_0010_retry_schedule_reclaim.py"
+  ],
+  "completed_transitions": [
+    "Issue #27 implementation checkpointed at 06ec3b4",
+    "Issue #27 locked manual acceptance passed and its evaluation was recorded",
+    "Issue #27 was closed on GitHub",
+    "Issue #28 frontier status verified as OPEN with only #27 listed as its blocker"
+  ],
+  "current_state": "Issue #28 is open, unblocked by closed Issue #27, and ready for its implementation preflight.",
+  "next_valid_transition": "Create an isolated worktree from commit 06ec3b4 on branch codex/issue-28-expired-recovery, then perform the approved implementation preflight and TDD tracer bullet for optimistic expired-attempt observation/recovery.",
+  "outstanding_blockers": [],
+  "reason": "User will open an independent worktree/session to implement GitHub Issue #28 in parallel with Issue #29.",
+  "schema_version": 1,
+  "workflow_identity": "issue-17-ticket-28-expired-attempt-recovery"
+}

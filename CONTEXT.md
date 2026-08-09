@@ -71,15 +71,39 @@ proposals.
   publish a stale result. Processing is idempotent; database constraints protect job and
   derivation deduplication independently of queue delivery. Its terminal states include success,
   retry exhaustion and `superseded` when a stale CAS target has already been replaced.
+- A **Claimed Attempt** is an immutable application capability for one Ingestion Job attempt. It
+  binds the job and worker to one lease version, attempt number, start time, deadline and lease
+  expiry; it is not an ORM snapshot. Heartbeats and outcome transitions consume this capability
+  but still prove ownership against the current, unexpired database lease.
+- An **Ingestion Job Attempt** is the durable history of one started attempt. Its attempt number is
+  the parent job's incremented `attempt_count`; at most one attempt per job is open. Claim inserts
+  it, closure records one durable disposition and retry decision, and a closed attempt is
+  immutable. Current lease expiry remains on the job projection because heartbeats do not rewrite
+  attempt history.
+- While processing, explicitly named current-attempt fields on the job projection exactly mirror
+  its one open attempt and are cleared atomically on exit; they are never pseudo-history. Attempt
+  history calls the claim-time expiry `initial_lease_expires_at`, while heartbeat-renewed expiry
+  exists only on the job projection.
 - Public job states are `queued`, `processing`, `retry_scheduled`, `succeeded`, `superseded` and
   `failed`. Upload responses always include `ingestion_job_id`, `submission_outcome` and `status`;
   non-terminal create/reuse returns `202`, while terminal idempotency replay or fingerprint
   deduplication returns `200`. Submission outcomes are `created`, `idempotency_replay` and
   `deduplicated`.
+- Durable job transitions are only `queued -> processing`, `retry_scheduled -> processing`, and
+  `processing -> retry_scheduled | succeeded | superseded | failed`. Processing corresponds to
+  exactly one open attempt whose number equals `attempt_count`; entering processing increments
+  both attempt count and lease version once, while heartbeat and exit keep the lease version.
+  Terminal states have no outgoing transition.
 - `attempt_count` counts attempts started, including the initial attempt; `max_attempts` is the
   total budget. Failed jobs expose safe `failure_reason` values `retry_exhausted`,
   `terminal_input`, `terminal_config` or `resource_limit`. Polling returns UTC RFC 3339 timestamps,
   retry scheduling hints, terminal result/error metadata and no-store caching; clients add jitter.
+- Counter constraints are state-specific: queued jobs have zero attempts; processing and terminal
+  jobs have between one and `max_attempts`; retry-scheduled jobs have at least one but fewer than
+  `max_attempts`. A final counted attempt cannot schedule another retry.
+- A `superseded` outcome does not schedule or consume an additional retry attempt. The
+  already-started attempt remains counted in `attempt_count`; because the job becomes terminal,
+  any remaining attempt capacity is irrelevant.
 - Job status may expose `target_document_version_id`, `current_document_version_id` and nullable
   `served_document_version_id` resolved from the active Embedding Set in one database snapshot.
   Server-computed `serving_state` is `unavailable`, `current` or `previous`; it describes retrieval
@@ -89,11 +113,53 @@ proposals.
   (including `FOR UPDATE SKIP LOCKED` where appropriate), do not hold a database transaction
   during parsing, chunking or embedding, and record bounded retries with exponential backoff,
   `next_attempt_at`, attempt count and terminal failure.
+- Lease expiry is a retryable worker failure, not an immediate direct reclaim. Recovery
+  conditionally closes the expired attempt and atomically changes the job to `retry_scheduled`, or
+  to exhausted terminal failure when the counted attempt already equals `max_attempts`. A later
+  invocation may claim the next attempt only after `next_attempt_at` is due.
+- Expiry recovery uses an immutable optimistic observation, not an ownership capability. The
+  conditional transition revalidates attempt, worker, lease generation, counters and the exact
+  observed lease expiry before closing history. It preserves `lease_expired` as the observed cause
+  separately from the policy result. Even zero-delay recovery must commit `retry_scheduled` before
+  a separate claim can start the next attempt.
+- `ProcessIngestionJob.run_once` deterministically tries at most one expired-attempt recovery before
+  one normal claim. A successful recovery returns immediately; a stale/not-expired observation may
+  fall through once to claim. Each invocation therefore durably applies at most one recovery or
+  processes at most one newly claimed handler attempt. Its six outcomes are no eligible job,
+  succeeded, superseded, retry scheduled, terminal failure and lease lost.
+- Each worker-coordination mutation has one logical operation ID reused across transport retries
+  and authoritative read-back. Attempt history binds claim and closure IDs to immutable request
+  identity and durable results. A historical claim is executable only while its attempt remains
+  current and leased; indeterminate persistence never becomes a lifecycle result or permission to
+  run business work.
+- An **Attempt Runner** owns only bounded execution mechanics for one Work Handler invocation. It
+  publishes a single immutable monotonic-timestamped completion, supports idempotent cancellation
+  and logical detachment, and never owns persistence or lifecycle policy. Detachment discards late
+  results without terminating the handler. A bounded permit is reserved before claim so capacity
+  failure cannot strand a newly claimed job; detached work retains its permit until it actually
+  exits.
 - Retry policy is four attempts total (one initial plus three retries) with versioned full-jitter
   windows of 5 seconds, 30 seconds and 2 minutes, capped at 5 minutes. Lease duration is 2
   minutes with a 30-second heartbeat extending to `now + 2 minutes`; maximum attempt runtime is
-  separately bounded at 15 minutes. Every heartbeat and commit checks `worker_id` and
-  `lease_version`.
+  separately bounded at 15 minutes. Every heartbeat and commit checks `worker_id`,
+  `lease_version` and an unexpired lease. Expiry loses ownership even when no other worker has
+  reclaimed the job.
+- Retry Policy V1 applies one coordinator-level cause taxonomy to handler/provider/database
+  failures, unexpected worker exceptions, attempt timeout and lease-expiry recovery. A retryable
+  cause after attempts 1, 2 or 3 samples exactly once from full-jitter windows `[0, 5s]`,
+  `[0, 30s]` or `[0, 2m]`; zero is valid. A retryable cause at attempt 4 is exhausted, while a
+  non-retryable cause is terminal at any attempt, and neither consumes randomness. Windows are
+  exact durations and any future nominal window above 5 minutes is clamped before sampling.
+- **Failure Cause V1** is the single closed taxonomy of facts observed by worker coordination;
+  causes do not encode retryability. A pure versioned mapping translates handler-specific failure
+  kinds into it, while supervisor timeout and database-observed lease expiry originate directly.
+  `LEASE_EXPIRED`, not an unverifiable worker-crash claim, records abandoned ownership. Attempt
+  history persists canonical cause and version before Retry Policy V1 chooses the disposition.
+- Worker timing has two independent clock domains. Fresh PostgreSQL wall-clock samples own durable
+  timestamps, eligibility and lease fencing; transaction-start timestamps cannot revive an
+  expired lease. An injected monotonic clock owns only local heartbeat cadence and attempt-runtime
+  scheduling. The persisted deadline is audit evidence of the intended runtime, while supervisor
+  disposition decides handler completion versus timeout.
 - A Document Version becomes current only after its Original Source Object is durable, checksums
   are confirmed and the version record plus `current_document_version_id` are committed in one
   database transaction; chunking, embedding and activation do not delay source-version identity.
