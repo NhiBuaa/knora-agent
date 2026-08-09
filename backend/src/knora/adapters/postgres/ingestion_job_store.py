@@ -34,6 +34,9 @@ from knora.ingestion.job_processing import (
     FencingToken,
     FinalizationApplied,
     FinalizationResult,
+    HeartbeatApplied,
+    HeartbeatOperationId,
+    HeartbeatResult,
     IngestionWork,
     InvalidTransition,
     NoEligibleClaim,
@@ -148,6 +151,9 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             job.current_attempt_started_at = database_now
             job.current_attempt_deadline_at = deadline_at
             job.next_attempt_at = None
+            job.last_heartbeat_operation_id = None
+            job.last_heartbeat_request_fingerprint = None
+            job.last_heartbeat_resulting_lease_expires_at = None
             session.add(
                 IngestionJobAttemptTable(
                     ingestion_job_id=job.id,
@@ -187,6 +193,36 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 initial_lease_expires_at=lease_expires_at,
                 deadline_at=deadline_at,
             )
+
+    def heartbeat(
+        self,
+        *,
+        operation_id: HeartbeatOperationId,
+        token: FencingToken,
+        lease_duration: timedelta,
+    ) -> HeartbeatResult:
+        """Renew one owned lease using fresh database time and no attempt-history rewrite."""
+
+        with self._session_factory.begin() as session:
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(IngestionJobTable.id == token.job_id)
+                .with_for_update()
+            )
+            if job is None:
+                return Fenced()
+            database_now = self._database_now(session)
+            if not self._owns_current_unexpired_token(job, token, database_now):
+                return Fenced()
+            lease_expires_at = database_now + lease_duration
+            job.lease_expires_at = lease_expires_at
+            job.last_heartbeat_operation_id = str(operation_id)
+            job.last_heartbeat_request_fingerprint = "\n".join(
+                (token.job_id, str(token.attempt_number), token.worker_id, str(token.lease_version))
+            )
+            job.last_heartbeat_resulting_lease_expires_at = lease_expires_at
+            session.flush()
+            return HeartbeatApplied(lease_expires_at=lease_expires_at)
 
     def schedule_retry(
         self,
@@ -470,11 +506,21 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         claim: ClaimedAttempt,
         database_now: datetime,
     ) -> bool:
+        return PostgresIngestionJobStore._owns_current_unexpired_token(
+            job, claim.token, database_now
+        )
+
+    @staticmethod
+    def _owns_current_unexpired_token(
+        job: IngestionJobTable,
+        token: FencingToken,
+        database_now: datetime,
+    ) -> bool:
         return (
             job.status == "processing"
-            and job.worker_id == claim.token.worker_id
-            and job.lease_version == claim.token.lease_version
-            and job.current_attempt_number == claim.token.attempt_number
+            and job.worker_id == token.worker_id
+            and job.lease_version == token.lease_version
+            and job.current_attempt_number == token.attempt_number
             and job.lease_expires_at is not None
             and database_now < job.lease_expires_at
         )

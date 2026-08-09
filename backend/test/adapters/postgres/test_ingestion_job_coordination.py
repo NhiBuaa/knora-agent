@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 
+from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.tables import (
@@ -26,6 +27,8 @@ from knora.ingestion.job_processing import (
     Fenced,
     FinalizationApplied,
     HandlerFailureKindV1,
+    HeartbeatApplied,
+    HeartbeatOperationId,
     NoEligibleClaim,
     ProcessIngestionJob,
     RetryExhausted,
@@ -142,7 +145,7 @@ def exhausted_retryable_failure() -> CanonicalFailureV1:
 class DatabaseLockProbeHandler:
     job_id: str
 
-    def execute(self, work) -> WorkFailed:
+    def execute(self, work, cancellation) -> WorkFailed:
         with SessionFactory.begin() as session:
             session.execute(text("SET LOCAL lock_timeout = '250ms'"))
             session.scalar(
@@ -228,6 +231,31 @@ def test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically()
             .values(safe_failure_code="changed")
         )
 
+
+def test_heartbeat_renews_the_current_lease_without_rewriting_attempt_history() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+
+    assert isinstance(claim, ClaimedAttempt)
+    renewed = store.heartbeat(
+        operation_id=HeartbeatOperationId(uuid4().hex),
+        token=claim.token,
+        lease_duration=timedelta(minutes=2),
+    )
+
+    assert isinstance(renewed, HeartbeatApplied)
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.lease_version == claim.token.lease_version
+        assert job.lease_expires_at == renewed.lease_expires_at
+        assert job.last_heartbeat_operation_id is not None
+        assert job.last_heartbeat_request_fingerprint is not None
+        assert attempt.initial_lease_expires_at == claim.initial_lease_expires_at
 
 def test_schedule_retry_closes_current_attempt_with_one_database_time_anchor() -> None:
     clear_coordination_jobs()
@@ -441,6 +469,7 @@ def test_run_once_releases_claim_transaction_before_handler_work() -> None:
         operation_ids=FixedOperationIds(),
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(ZeroRandom(bounds=[])),
+        runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
     )
 
     result = processor.run_once("worker-a")

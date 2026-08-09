@@ -157,6 +157,11 @@ class IngestionJobTable(Base):
     terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_heartbeat_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    last_heartbeat_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_heartbeat_resulting_lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
