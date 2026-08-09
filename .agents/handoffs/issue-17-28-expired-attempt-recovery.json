@@ -1,7 +1,7 @@
 {
   "attempted_steps": [
     {
-      "result": "GitHub Issue #28 is OPEN after #27 closed; no Issue #28 implementation has started.",
+      "result": "Issue #28 is blocked until Issue #29 completes and its shared schema migration is available on main.",
       "step": "verify_frontier"
     }
   ],
@@ -13,19 +13,22 @@
     "docs/design/milestone-2-module-seams.md",
     "docs/design/issue-17-worker-coordination.md",
     "https://github.com/NhiBuaa/knora-agent/issues/28",
-    ".agents/manual-tests/issue-17-worker-coordination/27-retry-schedule-reclaim-exhaustion.evaluations.jsonl",
-    "backend/migrations/versions/20260809_0010_retry_schedule_reclaim.py"
+    "https://github.com/NhiBuaa/knora-agent/issues/29",
+    ".agents/manual-tests/issue-17-worker-coordination/27-retry-schedule-reclaim-exhaustion.evaluations.jsonl"
   ],
   "completed_transitions": [
     "Issue #27 implementation checkpointed at 06ec3b4",
     "Issue #27 locked manual acceptance passed and its evaluation was recorded",
     "Issue #27 was closed on GitHub",
-    "Issue #28 frontier status verified as OPEN with only #27 listed as its blocker"
+    "User explicitly sequenced Issue #28 after Issue #29",
+    "GitHub native dependency #28 blocked by #29 was published"
   ],
-  "current_state": "Issue #28 is open, unblocked by closed Issue #27, and ready for its implementation preflight.",
-  "next_valid_transition": "Create an isolated worktree from commit 06ec3b4 on branch codex/issue-28-expired-recovery, then perform the approved implementation preflight and TDD tracer bullet for optimistic expired-attempt observation/recovery.",
-  "outstanding_blockers": [],
-  "reason": "User will open an independent worktree/session to implement GitHub Issue #28 in parallel with Issue #29.",
+  "current_state": "Issue #28 is open but blocked by GitHub Issues #27 and #29; #27 is closed and #29 remains open.",
+  "next_valid_transition": "Wait for Issue #29 to close and its merge commit to reach main; then rebase the Issue #28 worktree onto main, validate the lease-snapshot schema correction, and resume the expired-attempt recovery implementation preflight.",
+  "outstanding_blockers": [
+    "GitHub Issue #29 must complete and merge before Issue #28 resumes."
+  ],
+  "reason": "The user has sequenced Issue #28 after Issue #29 because #29 owns the active shared schema correction needed for heartbeat renewal to mutate only the job lease projection.",
   "schema_version": 1,
   "workflow_identity": "issue-17-ticket-28-expired-attempt-recovery"
 }

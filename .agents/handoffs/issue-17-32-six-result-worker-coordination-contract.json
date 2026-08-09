@@ -1,0 +1,34 @@
+{
+  "attempted_steps": [
+    {
+      "result": "GitHub Issue #32 is OPEN with all recorded blockers closed, so it is ready for an isolated implementation worktree.",
+      "step": "verify_frontier"
+    }
+  ],
+  "authoritative_artifacts": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs/agents/issue-tracker.md",
+    "docs/standards/architecture.md",
+    "docs/design/milestone-2-module-seams.md",
+    "docs/design/issue-17-worker-coordination.md",
+    "https://github.com/NhiBuaa/knora-agent/issues/32",
+    "https://github.com/NhiBuaa/knora-agent/issues/30",
+    "https://github.com/NhiBuaa/knora-agent/issues/31",
+    ".agents/manual-tests/issue-17-worker-coordination/31-ambiguous-heartbeat-reconciliation-v2.md",
+    ".agents/manual-tests/issue-17-worker-coordination/31-ambiguous-heartbeat-reconciliation-v2.evaluations.jsonl",
+    "backend/migrations/versions/20260809_0011_attempt_heartbeat.py"
+  ],
+  "completed_transitions": [
+    "Issue #30 completed and closed on GitHub",
+    "Issue #31 completed and closed on GitHub",
+    "Origin main contains the #30 and #31 coordination reconciliation commits through 8ea0535",
+    "Issue #32 dependency status verified: blockers #30 and #31 are closed"
+  ],
+  "current_state": "Issue #32 is open, unblocked, and ready for implementation preflight from origin/main commit 8ea0535.",
+  "next_valid_transition": "Create an isolated worktree from origin/main commit 8ea0535 on branch codex/issue-32-six-result-contract, then perform Issue #32 implementation preflight and TDD beginning with the generic fake-success path and complete tagged run_once result mapping.",
+  "outstanding_blockers": [],
+  "reason": "User will open a new isolated worktree/session to implement GitHub Issue #32 after its blockers, Issues #30 and #31, completed and closed.",
+  "schema_version": 1,
+  "workflow_identity": "issue-17-ticket-32-six-result-worker-coordination-contract"
+}
