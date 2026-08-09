@@ -22,7 +22,9 @@ from knora.ingestion.job_processing import (
     ClaimedAttempt,
     ClaimOperationId,
     CoordinationInvariantError,
+    ExpiredAttemptObservation,
     FailedTerminal,
+    FailTerminal,
     FailureCauseV1,
     Fenced,
     FinalizationApplied,
@@ -30,11 +32,15 @@ from knora.ingestion.job_processing import (
     HeartbeatApplied,
     HeartbeatOperationId,
     NoEligibleClaim,
+    NotExpired,
     ProcessIngestionJob,
+    RecoveryFailedExhausted,
+    RecoveryRetryScheduled,
     RetryExhausted,
     RetryPolicyV1,
     RetryScheduleApplied,
     ScheduleRetry,
+    StaleObservation,
     TransitionOperationId,
     WorkFailed,
 )
@@ -136,6 +142,16 @@ def exhausted_retryable_failure() -> CanonicalFailureV1:
         cause=FailureCauseV1.PROVIDER_TRANSIENT,
         safe_code="provider_transient",
         failure_reason="retry_exhausted",
+        cause_version="failure-causes-v1",
+        mapping_version="cause-mapping-v1",
+    )
+
+
+def expired_lease_failure() -> CanonicalFailureV1:
+    return CanonicalFailureV1(
+        cause=FailureCauseV1.LEASE_EXPIRED,
+        safe_code="lease_expired",
+        failure_reason=None,
         cause_version="failure-causes-v1",
         mapping_version="cause-mapping-v1",
     )
@@ -595,6 +611,316 @@ def test_expired_lease_fences_terminal_finalization() -> None:
         attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
         assert job.status == "processing"
         assert attempt.closed_at is None
+
+
+def test_expired_observation_applies_scheduled_recovery_before_a_separate_claim() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-expired",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+
+    with SessionFactory.begin() as session:
+        expired_at = session.scalar(select(func.clock_timestamp() - text("interval '1 second'")))
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=expired_at)
+        )
+        session.execute(
+            update(IngestionJobAttemptTable)
+            .where(
+                IngestionJobAttemptTable.ingestion_job_id == job_id,
+                IngestionJobAttemptTable.attempt_number == 1,
+            )
+            .values(initial_lease_expires_at=expired_at)
+        )
+
+    observation = store.observe_expired_attempt()
+
+    assert observation is not None
+    assert observation.job_id == job_id
+    assert observation.attempt_number == 1
+    assert observation.worker_id == "worker-expired"
+    assert observation.lease_version == 1
+    assert observation.attempt_count == 1
+    assert observation.max_attempts == 4
+
+    recovery = store.apply_expired_recovery(
+        operation_id=TransitionOperationId(uuid4().hex),
+        observation=observation,
+        failure=expired_lease_failure(),
+        decision=ScheduleRetry(
+            delay_microseconds=0,
+            window_upper_bound_microseconds=5_000_000,
+        ),
+    )
+
+    assert isinstance(recovery, RecoveryRetryScheduled)
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "retry_scheduled"
+        assert job.worker_id is None
+        assert job.lease_expires_at is None
+        assert job.next_attempt_at == recovery.next_attempt_at
+        assert attempt.closed_at is not None
+        assert attempt.disposition == "retry_scheduled"
+        assert attempt.closure_cause == "lease_expired"
+        assert attempt.failure_cause == "lease_expired"
+        assert attempt.retry_policy_result == "schedule_retry"
+
+    replacement = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-replacement",
+        timing=AttemptTimingV1.standard(),
+    )
+
+    assert isinstance(replacement, ClaimedAttempt)
+    assert replacement.token.attempt_number == 2
+
+
+def test_expired_recovery_rejects_a_non_recovery_policy_decision() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-expired",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    with SessionFactory.begin() as session:
+        expired_at = session.scalar(select(func.clock_timestamp() - text("interval '1 second'")))
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=expired_at)
+        )
+        session.execute(
+            update(IngestionJobAttemptTable)
+            .where(
+                IngestionJobAttemptTable.ingestion_job_id == job_id,
+                IngestionJobAttemptTable.attempt_number == 1,
+            )
+            .values(initial_lease_expires_at=expired_at)
+        )
+    observation = store.observe_expired_attempt()
+    assert observation is not None
+
+    with pytest.raises(CoordinationInvariantError, match="ScheduleRetry or RetryExhausted"):
+        store.apply_expired_recovery(
+            operation_id=TransitionOperationId(uuid4().hex),
+            observation=observation,
+            failure=expired_lease_failure(),
+            decision=FailTerminal(),  # type: ignore[arg-type]
+        )
+
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "processing"
+        assert attempt.closed_at is None
+
+
+def test_expired_recovery_revalidates_the_exact_observed_lease_expiry() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-expired",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    with SessionFactory.begin() as session:
+        expired_at = session.scalar(select(func.clock_timestamp() - text("interval '1 second'")))
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=expired_at)
+        )
+        session.execute(
+            update(IngestionJobAttemptTable)
+            .where(
+                IngestionJobAttemptTable.ingestion_job_id == job_id,
+                IngestionJobAttemptTable.attempt_number == 1,
+            )
+            .values(initial_lease_expires_at=expired_at)
+        )
+    observation = store.observe_expired_attempt()
+    assert observation is not None
+
+    with SessionFactory.begin() as session:
+        renewed_at = session.scalar(select(func.clock_timestamp() + text("interval '2 minutes'")))
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=renewed_at)
+        )
+
+    recovery = store.apply_expired_recovery(
+        operation_id=TransitionOperationId(uuid4().hex),
+        observation=observation,
+        failure=expired_lease_failure(),
+        decision=ScheduleRetry(
+            delay_microseconds=0,
+            window_upper_bound_microseconds=5_000_000,
+        ),
+    )
+
+    assert recovery == StaleObservation()
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "processing"
+        assert attempt.closed_at is None
+
+
+def test_recovery_reports_not_expired_for_a_current_observation() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-current",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    current_observation = claim
+    recovery = store.apply_expired_recovery(
+        operation_id=TransitionOperationId(uuid4().hex),
+        observation=ExpiredAttemptObservation(
+            job_id=job_id,
+            attempt_number=current_observation.token.attempt_number,
+            worker_id=current_observation.token.worker_id,
+            lease_version=current_observation.token.lease_version,
+            attempt_count=current_observation.attempt_count,
+            max_attempts=current_observation.max_attempts,
+            lease_expires_at=current_observation.initial_lease_expires_at,
+        ),
+        failure=expired_lease_failure(),
+        decision=ScheduleRetry(
+            delay_microseconds=0,
+            window_upper_bound_microseconds=5_000_000,
+        ),
+    )
+
+    assert recovery == NotExpired()
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "processing"
+        assert attempt.closed_at is None
+
+
+def test_expired_final_attempt_recovers_to_retry_exhausted_without_attempt_two() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-expired",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    with SessionFactory.begin() as session:
+        expired_at = session.scalar(select(func.clock_timestamp() - text("interval '1 second'")))
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(max_attempts=1, lease_expires_at=expired_at)
+        )
+        session.execute(
+            update(IngestionJobAttemptTable)
+            .where(
+                IngestionJobAttemptTable.ingestion_job_id == job_id,
+                IngestionJobAttemptTable.attempt_number == 1,
+            )
+            .values(initial_lease_expires_at=expired_at)
+        )
+    observation = store.observe_expired_attempt()
+    assert observation is not None
+
+    recovery = store.apply_expired_recovery(
+        operation_id=TransitionOperationId(uuid4().hex),
+        observation=observation,
+        failure=expired_lease_failure(),
+        decision=RetryExhausted(),
+    )
+
+    assert isinstance(recovery, RecoveryFailedExhausted)
+    assert isinstance(
+        store.claim_next_attempt(
+            operation_id=ClaimOperationId(uuid4().hex),
+            worker_id="worker-replacement",
+            timing=AttemptTimingV1.standard(),
+        ),
+        NoEligibleClaim,
+    )
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "failed"
+        assert job.attempt_count == 1
+        assert job.failure_reason == "retry_exhausted"
+        assert attempt.disposition == "failed"
+        assert attempt.closure_cause == "lease_expired"
+        assert attempt.failure_cause == "lease_expired"
+        assert attempt.retry_policy_result == "retry_exhausted"
+
+
+def test_simultaneous_recovery_has_one_winner_and_one_stale_observation() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-expired",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    with SessionFactory.begin() as session:
+        expired_at = session.scalar(select(func.clock_timestamp() - text("interval '1 second'")))
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=expired_at)
+        )
+        session.execute(
+            update(IngestionJobAttemptTable)
+            .where(
+                IngestionJobAttemptTable.ingestion_job_id == job_id,
+                IngestionJobAttemptTable.attempt_number == 1,
+            )
+            .values(initial_lease_expires_at=expired_at)
+        )
+    observation = store.observe_expired_attempt()
+    assert observation is not None
+
+    def recover() -> object:
+        return store.apply_expired_recovery(
+            operation_id=TransitionOperationId(uuid4().hex),
+            observation=observation,
+            failure=expired_lease_failure(),
+            decision=ScheduleRetry(
+                delay_microseconds=0,
+                window_upper_bound_microseconds=5_000_000,
+            ),
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first, second = list(executor.map(lambda _: recover(), range(2)))
+
+    assert sum(isinstance(result, RecoveryRetryScheduled) for result in (first, second)) == 1
+    assert sum(isinstance(result, StaleObservation) for result in (first, second)) == 1
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempts = session.scalars(
+            select(IngestionJobAttemptTable)
+            .where(IngestionJobAttemptTable.ingestion_job_id == job_id)
+            .order_by(IngestionJobAttemptTable.attempt_number)
+        ).all()
+        assert job.status == "retry_scheduled"
+        assert [attempt.closed_at is not None for attempt in attempts] == [True]
 
 
 def test_commit_rejects_current_projection_that_does_not_match_open_attempt() -> None:
