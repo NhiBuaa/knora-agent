@@ -179,8 +179,9 @@ class IngestionJobAttemptTable(Base):
         ),
         UniqueConstraint("claim_operation_id", name="uq_ingestion_job_attempts_claim_operation"),
         UniqueConstraint(
+            "transition_operation_kind",
             "transition_operation_id",
-            name="uq_ingestion_job_attempts_transition_operation",
+            name="uq_ingestion_job_attempts_transition_operation_kind",
         ),
     )
 
@@ -206,6 +207,7 @@ class IngestionJobAttemptTable(Base):
     safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     transition_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    transition_operation_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     transition_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_policy_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     retry_policy_result: Mapped[str | None] = mapped_column(String(50), nullable=True)

@@ -178,12 +178,32 @@ class FencingToken:
 
 
 class CoordinationOutcomeIndeterminate(RuntimeError):
-    """A heartbeat outcome could not be authoritatively reconciled."""
+    """A mutation's durable outcome could not be authoritatively reconciled."""
 
-    def __init__(self, *, operation_id: HeartbeatOperationId, token: FencingToken) -> None:
+    def __init__(
+        self,
+        *,
+        operation_id: str,
+        operation_kind: str = "heartbeat",
+        token: FencingToken | None = None,
+        job_id: str | None = None,
+        attempt_number: int | None = None,
+    ) -> None:
+        if token is not None:
+            job_id = token.job_id
+            attempt_number = token.attempt_number
+        self.operation_kind = operation_kind
         self.operation_id = operation_id
-        self.attempt = AttemptRef(token.job_id, token.attempt_number)
-        super().__init__("heartbeat coordination outcome is indeterminate")
+        self.job_id = job_id
+        self.attempt_number = attempt_number
+        self.attempt = (
+            AttemptRef(job_id, attempt_number)
+            if job_id is not None and attempt_number is not None
+            else None
+        )
+        super().__init__(
+            f"coordination outcome is indeterminate for {operation_kind} operation {operation_id}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,6 +338,11 @@ class NoEligibleClaim:
 
 
 @dataclass(frozen=True, slots=True)
+class ClaimLeaseLost:
+    attempt: AttemptRef
+
+
+@dataclass(frozen=True, slots=True)
 class FinalizationApplied:
     attempt: AttemptRef
 
@@ -364,7 +389,7 @@ class InvalidTransition:
     pass
 
 
-ClaimResult = ClaimedAttempt | NoEligibleClaim
+ClaimResult = ClaimedAttempt | NoEligibleClaim | ClaimLeaseLost
 FinalizationResult = FinalizationApplied | Fenced | InvalidTransition
 RetryScheduleResult = RetryScheduleApplied | Fenced | InvalidTransition
 HeartbeatResult = HeartbeatApplied | Fenced
@@ -668,6 +693,8 @@ class ProcessIngestionJob[SuccessT]:
             )
             if isinstance(claim, NoEligibleClaim):
                 return NoEligibleJob()
+            if isinstance(claim, ClaimLeaseLost):
+                return LeaseLost(attempt=claim.attempt)
             if claim.token.worker_id != worker_id:
                 raise CoordinationInvariantError("claim worker does not match run_once worker")
 
