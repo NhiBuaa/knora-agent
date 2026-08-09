@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import TypeVar
 from uuid import uuid4
 
 from sqlalchemy import and_, func, or_, select
@@ -26,6 +28,7 @@ from knora.ingestion.job_processing import (
     AttemptTimingV1,
     CanonicalFailureV1,
     ClaimedAttempt,
+    ClaimLeaseLost,
     ClaimOperationId,
     ClaimResult,
     CoordinationInvariantError,
@@ -60,6 +63,8 @@ from knora.ingestion.jobs import (
     PreparedPdfSubmission,
 )
 from knora.ingestion.object_store import ObjectMetadata
+
+MutationResultT = TypeVar("MutationResultT")
 
 
 def _duration_microseconds(value: timedelta) -> int:
@@ -136,11 +141,63 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         failure: CanonicalFailureV1,
         decision: ScheduleRetry | RetryExhausted,
     ) -> RecoveryResult:
+        self._validate_expired_recovery_input(
+            observation=observation,
+            failure=failure,
+            decision=decision,
+        )
+        disposition = "retry_scheduled" if isinstance(decision, ScheduleRetry) else "failed"
+        transition_fingerprint = self._expired_recovery_fingerprint(
+            observation=observation,
+            failure=failure,
+            disposition=disposition,
+            decision=decision,
+        )
+        replay = self._read_expired_recovery_replay(
+            operation_id=str(operation_id),
+            request_fingerprint=transition_fingerprint,
+            operation_kind="expired_recovery",
+        )
+        if replay is not None:
+            return replay
+        return self._reconcile_database_error(
+            operation_kind="expired_recovery",
+            operation_id=str(operation_id),
+            job_id=observation.job_id,
+            attempt_number=observation.attempt_number,
+            apply=lambda: self._apply_expired_recovery_once(
+                operation_id=operation_id,
+                observation=observation,
+                failure=failure,
+                decision=decision,
+            ),
+            read_back=lambda: self._read_expired_recovery_replay(
+                operation_id=str(operation_id),
+                request_fingerprint=transition_fingerprint,
+                operation_kind="expired_recovery",
+            ),
+        )
+
+    def _apply_expired_recovery_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        observation: ExpiredAttemptObservation,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry | RetryExhausted,
+    ) -> RecoveryResult:
         """Conditionally close an observed expired attempt without claiming its replacement."""
 
         self._validate_expired_recovery_input(
             observation=observation,
             failure=failure,
+            decision=decision,
+        )
+        disposition = "retry_scheduled" if isinstance(decision, ScheduleRetry) else "failed"
+        transition_fingerprint = self._expired_recovery_fingerprint(
+            observation=observation,
+            failure=failure,
+            disposition=disposition,
             decision=decision,
         )
         with self._session_factory.begin() as session:
@@ -169,17 +226,11 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 return NotExpired()
 
             transition_operation_id = str(operation_id)
-            disposition = "retry_scheduled" if isinstance(decision, ScheduleRetry) else "failed"
-            transition_fingerprint = self._expired_recovery_fingerprint(
-                observation=observation,
-                failure=failure,
-                disposition=disposition,
-                decision=decision,
-            )
             self._assert_new_transition_operation(
                 session=session,
                 operation_id=transition_operation_id,
                 request_fingerprint=transition_fingerprint,
+                operation_kind="expired_recovery",
             )
 
             attempt.closed_at = database_now
@@ -190,6 +241,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt.cause_mapping_version = failure.mapping_version
             attempt.safe_failure_code = failure.safe_code
             attempt.transition_operation_id = transition_operation_id
+            attempt.transition_operation_kind = "expired_recovery"
             attempt.transition_request_fingerprint = transition_fingerprint
             attempt.retry_policy_version = decision.policy_version
 
@@ -238,6 +290,29 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         worker_id: str,
         timing: AttemptTimingV1,
     ) -> ClaimResult:
+        claim_fingerprint = self._claim_fingerprint(worker_id=worker_id, timing=timing)
+        return self._reconcile_database_error(
+            operation_kind="claim",
+            operation_id=str(operation_id),
+            job_id=None,
+            attempt_number=None,
+            apply=lambda: self._claim_next_attempt_once(
+                operation_id=operation_id,
+                worker_id=worker_id,
+                timing=timing,
+            ),
+            read_back=lambda: self._read_claim_replay(
+                operation_id=str(operation_id), request_fingerprint=claim_fingerprint
+            ),
+        )
+
+    def _claim_next_attempt_once(
+        self,
+        *,
+        operation_id: ClaimOperationId,
+        worker_id: str,
+        timing: AttemptTimingV1,
+    ) -> ClaimResult:
         """Atomically claim at most one queued or due-retry job and insert one attempt."""
 
         claim_operation_id = str(operation_id)
@@ -251,7 +326,58 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             if existing is not None:
                 if existing.claim_request_fingerprint != claim_fingerprint:
                     raise CoordinationInvariantError("claim operation ID was reused incompatibly")
-                raise CoordinationInvariantError("claim operation ID was already applied")
+                job = session.scalar(
+                    select(IngestionJobTable)
+                    .where(IngestionJobTable.id == existing.ingestion_job_id)
+                    .with_for_update()
+                )
+                if job is None:
+                    raise CoordinationInvariantError("claim operation refers to a missing job")
+                database_now = self._database_now(session)
+                if not self._owns_current_unexpired_token(
+                    job,
+                    self._token(
+                        job_id=existing.ingestion_job_id,
+                        attempt_number=existing.attempt_number,
+                        worker_id=existing.worker_id,
+                        lease_version=existing.lease_version,
+                    ),
+                    database_now,
+                ):
+                    return ClaimLeaseLost(
+                        attempt=AttemptRef(
+                            job_id=existing.ingestion_job_id,
+                            attempt_number=existing.attempt_number,
+                        )
+                    )
+                source_object = session.get(OriginalSourceObjectTable, job.source_object_id)
+                if source_object is None:
+                    raise CoordinationInvariantError("claimed job has no Original Source Object")
+                return ClaimedAttempt(
+                    token=self._token(
+                        job_id=job.id,
+                        attempt_number=existing.attempt_number,
+                        worker_id=existing.worker_id,
+                        lease_version=existing.lease_version,
+                    ),
+                    work=IngestionWork(
+                        workspace_id=job.workspace_id,
+                        document_id=job.document_id,
+                        document_version_id=job.target_document_version_id,
+                        source_object_id=source_object.id,
+                        source_object_key=source_object.object_key,
+                        source_media_type=source_object.media_type,
+                        parser_configuration_id=job.parser_configuration_id,
+                        normalizer_configuration_id=job.normalizer_configuration_id,
+                        chunking_configuration_id=job.chunking_configuration_id,
+                        embedding_configuration_id=job.embedding_configuration_id,
+                    ),
+                    attempt_count=existing.attempt_number,
+                    max_attempts=job.max_attempts,
+                    attempt_started_at=existing.attempt_started_at,
+                    initial_lease_expires_at=existing.initial_lease_expires_at,
+                    deadline_at=existing.deadline_at,
+                )
 
             job = session.scalar(
                 select(IngestionJobTable)
@@ -414,6 +540,45 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         failure: CanonicalFailureV1,
         decision: ScheduleRetry,
     ) -> RetryScheduleResult:
+        transition_fingerprint = self._transition_fingerprint(
+            claim=claim,
+            failure=failure,
+            disposition="retry_scheduled",
+            decision=decision,
+        )
+        replay = self._read_retry_schedule_replay(
+            operation_id=str(operation_id),
+            request_fingerprint=transition_fingerprint,
+            operation_kind="schedule_retry",
+        )
+        if replay is not None:
+            return replay
+        return self._reconcile_database_error(
+            operation_kind="schedule_retry",
+            operation_id=str(operation_id),
+            job_id=claim.token.job_id,
+            attempt_number=claim.token.attempt_number,
+            apply=lambda: self._schedule_retry_once(
+                operation_id=operation_id,
+                claim=claim,
+                failure=failure,
+                decision=decision,
+            ),
+            read_back=lambda: self._read_retry_schedule_replay(
+                operation_id=str(operation_id),
+                request_fingerprint=transition_fingerprint,
+                operation_kind="schedule_retry",
+            ),
+        )
+
+    def _schedule_retry_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry,
+    ) -> RetryScheduleResult:
         """Fenced `processing -> retry_scheduled` with one durable DB-time anchor."""
 
         if failure.failure_reason is not None:
@@ -422,6 +587,13 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             )
         if claim.attempt_count >= claim.max_attempts:
             raise CoordinationInvariantError("retry scheduling exceeds the claimed attempt budget")
+
+        transition_fingerprint = self._transition_fingerprint(
+            claim=claim,
+            failure=failure,
+            disposition="retry_scheduled",
+            decision=decision,
+        )
 
         with self._session_factory.begin() as session:
             job = session.scalar(
@@ -458,16 +630,11 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 return InvalidTransition()
 
             transition_operation_id = str(operation_id)
-            transition_fingerprint = self._transition_fingerprint(
-                claim=claim,
-                failure=failure,
-                disposition="retry_scheduled",
-                decision=decision,
-            )
             self._assert_new_transition_operation(
                 session=session,
                 operation_id=transition_operation_id,
                 request_fingerprint=transition_fingerprint,
+                operation_kind="schedule_retry",
             )
             next_attempt_at = database_now + timedelta(microseconds=decision.delay_microseconds)
 
@@ -479,6 +646,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt.cause_mapping_version = failure.mapping_version
             attempt.safe_failure_code = failure.safe_code
             attempt.transition_operation_id = transition_operation_id
+            attempt.transition_operation_kind = "schedule_retry"
             attempt.transition_request_fingerprint = transition_fingerprint
             attempt.retry_policy_version = decision.policy_version
             attempt.retry_policy_result = "schedule_retry"
@@ -514,7 +682,53 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         failure: CanonicalFailureV1,
         decision: RetryExhausted | FailTerminal | None = None,
     ) -> FinalizationResult:
+        transition_fingerprint = self._transition_fingerprint(
+            claim=claim,
+            failure=failure,
+            disposition="failed",
+            terminal_decision=decision,
+        )
+        replay = self._read_finalization_replay(
+            operation_id=str(operation_id),
+            request_fingerprint=transition_fingerprint,
+            operation_kind="terminal_failure",
+        )
+        if replay is not None:
+            return replay
+        return self._reconcile_database_error(
+            operation_kind="terminal_failure",
+            operation_id=str(operation_id),
+            job_id=claim.token.job_id,
+            attempt_number=claim.token.attempt_number,
+            apply=lambda: self._finalize_terminal_failure_once(
+                operation_id=operation_id,
+                claim=claim,
+                failure=failure,
+                decision=decision,
+            ),
+            read_back=lambda: self._read_finalization_replay(
+                operation_id=str(operation_id),
+                request_fingerprint=transition_fingerprint,
+                operation_kind="terminal_failure",
+            ),
+        )
+
+    def _finalize_terminal_failure_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        failure: CanonicalFailureV1,
+        decision: RetryExhausted | FailTerminal | None = None,
+    ) -> FinalizationResult:
         """Fenced `processing -> failed` plus matching immutable attempt closure."""
+
+        transition_fingerprint = self._transition_fingerprint(
+            claim=claim,
+            failure=failure,
+            disposition="failed",
+            terminal_decision=decision,
+        )
 
         with self._session_factory.begin() as session:
             job = session.scalar(
@@ -551,16 +765,11 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 return InvalidTransition()
 
             transition_operation_id = str(operation_id)
-            transition_fingerprint = self._transition_fingerprint(
-                claim=claim,
-                failure=failure,
-                disposition="failed",
-                terminal_decision=decision,
-            )
             self._assert_new_transition_operation(
                 session=session,
                 operation_id=transition_operation_id,
                 request_fingerprint=transition_fingerprint,
+                operation_kind="terminal_failure",
             )
 
             attempt.closed_at = database_now
@@ -572,6 +781,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt.safe_failure_code = failure.safe_code
             attempt.failure_reason = failure.failure_reason
             attempt.transition_operation_id = transition_operation_id
+            attempt.transition_operation_kind = "terminal_failure"
             attempt.transition_request_fingerprint = transition_fingerprint
             if decision is not None:
                 attempt.retry_policy_version = decision.policy_version
@@ -760,16 +970,188 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         session: Session,
         operation_id: str,
         request_fingerprint: str,
+        operation_kind: str,
     ) -> None:
         existing = session.scalar(
             select(IngestionJobAttemptTable).where(
-                IngestionJobAttemptTable.transition_operation_id == operation_id
+                IngestionJobAttemptTable.transition_operation_kind == operation_kind,
+                IngestionJobAttemptTable.transition_operation_id == operation_id,
             )
         )
         if existing is not None:
             if existing.transition_request_fingerprint != request_fingerprint:
                 raise CoordinationInvariantError("transition operation ID was reused incompatibly")
             raise CoordinationInvariantError("transition operation ID was already applied")
+
+    def _reconcile_database_error(
+        self,
+        *,
+        operation_kind: str,
+        operation_id: str,
+        job_id: str | None,
+        attempt_number: int | None,
+        apply: Callable[[], MutationResultT],
+        read_back: Callable[[], MutationResultT | None],
+    ) -> MutationResultT:
+        """Retry a proven no-commit write once; otherwise expose an indeterminate outcome."""
+
+        for retry in range(2):
+            try:
+                return apply()
+            except SQLAlchemyError as write_error:
+                try:
+                    durable_result = read_back()
+                except SQLAlchemyError as read_error:
+                    raise CoordinationOutcomeIndeterminate(
+                        operation_kind=operation_kind,
+                        operation_id=operation_id,
+                        job_id=job_id,
+                        attempt_number=attempt_number,
+                    ) from read_error
+                if durable_result is not None:
+                    return durable_result
+                if retry == 1:
+                    raise CoordinationOutcomeIndeterminate(
+                        operation_kind=operation_kind,
+                        operation_id=operation_id,
+                        job_id=job_id,
+                        attempt_number=attempt_number,
+                    ) from write_error
+        raise AssertionError("unreachable reconciliation loop")
+
+    def _read_claim_replay(
+        self, *, operation_id: str, request_fingerprint: str
+    ) -> ClaimedAttempt | ClaimLeaseLost | None:
+        with self._session_factory.begin() as session:
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.claim_operation_id == operation_id
+                )
+            )
+            if attempt is None:
+                return None
+            if attempt.claim_request_fingerprint != request_fingerprint:
+                raise CoordinationInvariantError("claim operation ID was reused incompatibly")
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(IngestionJobTable.id == attempt.ingestion_job_id)
+                .with_for_update()
+            )
+            if job is None:
+                raise CoordinationInvariantError("claim operation refers to a missing job")
+            token = self._token(
+                job_id=attempt.ingestion_job_id,
+                attempt_number=attempt.attempt_number,
+                worker_id=attempt.worker_id,
+                lease_version=attempt.lease_version,
+            )
+            if not self._owns_current_unexpired_token(job, token, self._database_now(session)):
+                return ClaimLeaseLost(
+                    attempt=AttemptRef(
+                        job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
+                    )
+                )
+            source_object = session.get(OriginalSourceObjectTable, job.source_object_id)
+            if source_object is None:
+                raise CoordinationInvariantError("claimed job has no Original Source Object")
+            return ClaimedAttempt(
+                token=token,
+                work=IngestionWork(
+                    workspace_id=job.workspace_id,
+                    document_id=job.document_id,
+                    document_version_id=job.target_document_version_id,
+                    source_object_id=source_object.id,
+                    source_object_key=source_object.object_key,
+                    source_media_type=source_object.media_type,
+                    parser_configuration_id=job.parser_configuration_id,
+                    normalizer_configuration_id=job.normalizer_configuration_id,
+                    chunking_configuration_id=job.chunking_configuration_id,
+                    embedding_configuration_id=job.embedding_configuration_id,
+                ),
+                attempt_count=attempt.attempt_number,
+                max_attempts=job.max_attempts,
+                attempt_started_at=attempt.attempt_started_at,
+                initial_lease_expires_at=attempt.initial_lease_expires_at,
+                deadline_at=attempt.deadline_at,
+            )
+
+    def _read_retry_schedule_replay(
+        self, *, operation_id: str, request_fingerprint: str, operation_kind: str
+    ) -> RetryScheduleApplied | None:
+        with self._session_factory() as session:
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.transition_operation_kind == operation_kind,
+                    IngestionJobAttemptTable.transition_operation_id == operation_id
+                )
+            )
+            if attempt is None:
+                return None
+            if attempt.transition_request_fingerprint != request_fingerprint:
+                raise CoordinationInvariantError("transition operation ID was reused incompatibly")
+            if attempt.disposition != "retry_scheduled" or attempt.retry_next_attempt_at is None:
+                raise CoordinationInvariantError("transition replay has no scheduled-retry result")
+            return RetryScheduleApplied(
+                attempt=AttemptRef(
+                    job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
+                ),
+                next_attempt_at=attempt.retry_next_attempt_at,
+            )
+
+    def _read_finalization_replay(
+        self, *, operation_id: str, request_fingerprint: str, operation_kind: str
+    ) -> FinalizationApplied | None:
+        with self._session_factory() as session:
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.transition_operation_kind == operation_kind,
+                    IngestionJobAttemptTable.transition_operation_id == operation_id
+                )
+            )
+            if attempt is None:
+                return None
+            if attempt.transition_request_fingerprint != request_fingerprint:
+                raise CoordinationInvariantError("transition operation ID was reused incompatibly")
+            if attempt.disposition != "failed":
+                raise CoordinationInvariantError("transition replay has no terminal-failure result")
+            return FinalizationApplied(
+                attempt=AttemptRef(
+                    job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
+                )
+            )
+
+    def _read_expired_recovery_replay(
+        self, *, operation_id: str, request_fingerprint: str, operation_kind: str
+    ) -> RecoveryRetryScheduled | RecoveryFailedExhausted | None:
+        with self._session_factory() as session:
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.transition_operation_kind == operation_kind,
+                    IngestionJobAttemptTable.transition_operation_id == operation_id
+                )
+            )
+            if attempt is None:
+                return None
+            if attempt.transition_request_fingerprint != request_fingerprint:
+                raise CoordinationInvariantError("transition operation ID was reused incompatibly")
+            attempt_ref = AttemptRef(
+                job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
+            )
+            if (
+                attempt.closure_cause != FailureCauseV1.LEASE_EXPIRED.value
+                or attempt.failure_cause != FailureCauseV1.LEASE_EXPIRED.value
+            ):
+                raise CoordinationInvariantError("transition replay has no expired-recovery result")
+            if (
+                attempt.disposition == "retry_scheduled"
+                and attempt.retry_next_attempt_at is not None
+            ):
+                return RecoveryRetryScheduled(
+                    attempt=attempt_ref, next_attempt_at=attempt.retry_next_attempt_at
+                )
+            if attempt.disposition == "failed" and attempt.failure_reason == "retry_exhausted":
+                return RecoveryFailedExhausted(attempt=attempt_ref)
+            raise CoordinationInvariantError("expired-recovery replay has no persisted disposition")
 
     @staticmethod
     def _is_claim_eligible(job: IngestionJobTable, database_now: datetime) -> bool:
@@ -897,8 +1279,9 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             )
             if version is None:
                 next_version_number = session.scalar(
-                    select(func.coalesce(func.max(DocumentVersionTable.version_number), 0) + 1)
-                    .where(DocumentVersionTable.document_id == document.id)
+                    select(
+                        func.coalesce(func.max(DocumentVersionTable.version_number), 0) + 1
+                    ).where(DocumentVersionTable.document_id == document.id)
                 )
                 version = DocumentVersionTable(
                     id=str(uuid4()),

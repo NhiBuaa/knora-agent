@@ -14,6 +14,7 @@ from knora.ingestion.job_processing import (
     Cancellation,
     CanonicalFailureV1,
     ClaimedAttempt,
+    ClaimLeaseLost,
     ClaimOperationId,
     CoordinationOutcomeIndeterminate,
     ExpiredAttemptObservation,
@@ -61,6 +62,7 @@ class RecordingStore:
     heartbeats: list[object] = field(default_factory=list)
     heartbeat_result: object | None = None
     heartbeat_callback: Callable[[], None] | None = None
+    claim_result: object | None = None
 
     expired_observation: ExpiredAttemptObservation | None = None
     recovery_result: RecoveryResult | None = None
@@ -86,6 +88,8 @@ class RecordingStore:
         timing: AttemptTimingV1,
     ) -> ClaimedAttempt:
         self.claims.append((operation_id, worker_id, timing))
+        if self.claim_result is not None:
+            return self.claim_result
         return self.claim
 
     def finalize_terminal_failure(
@@ -578,6 +582,26 @@ def test_run_once_claims_then_fenced_finalizes_non_retryable_failure() -> None:
             ),
         )
     ]
+
+
+def test_run_once_reports_claim_replay_lease_loss_without_executing_work() -> None:
+    claim = claimed_attempt()
+    store = RecordingStore(
+        claim=claim,
+        claim_result=ClaimLeaseLost(AttemptRef(job_id="job-1", attempt_number=1)),
+    )
+    handler = FailingHandler()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=handler,
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=0)),
+        runner=AvailableRunner(),
+    )
+
+    assert processor.run_once("worker-a") == LeaseLost(AttemptRef("job-1", 1))
+    assert handler.received == []
 
 
 def test_run_once_supervises_a_completed_attempt_before_finalization() -> None:
