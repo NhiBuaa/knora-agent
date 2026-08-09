@@ -177,6 +177,15 @@ class FencingToken:
     lease_version: int
 
 
+class CoordinationOutcomeIndeterminate(RuntimeError):
+    """A heartbeat outcome could not be authoritatively reconciled."""
+
+    def __init__(self, *, operation_id: HeartbeatOperationId, token: FencingToken) -> None:
+        self.operation_id = operation_id
+        self.attempt = AttemptRef(token.job_id, token.attempt_number)
+        super().__init__("heartbeat coordination outcome is indeterminate")
+
+
 @dataclass(frozen=True, slots=True)
 class IngestionWork:
     workspace_id: str
@@ -524,11 +533,17 @@ class AttemptSupervisor:
             completion = attempt.completion()
             now = self._runtime.monotonic_clock.now()
             if now >= next_heartbeat_at and now < deadline_at:
-                heartbeat = self._store.heartbeat(
-                    operation_id=self._operation_ids.new_heartbeat_id(),
-                    token=claim.token,
-                    lease_duration=self._timing.lease_duration,
-                )
+                operation_id = self._operation_ids.new_heartbeat_id()
+                try:
+                    heartbeat = self._store.heartbeat(
+                        operation_id=operation_id,
+                        token=claim.token,
+                        lease_duration=self._timing.lease_duration,
+                    )
+                except CoordinationOutcomeIndeterminate:
+                    cancellation.cancel()
+                    attempt.detach()
+                    raise
                 if self.resolve_heartbeat(heartbeat) is not None:
                     cancellation.cancel()
                     attempt.detach()
@@ -673,9 +688,13 @@ class ProcessIngestionJob[SuccessT]:
                         HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected"
                     )
                 else:
-                    supervised = AttemptSupervisor(
-                        self._runtime, self._store, self._operation_ids, self._timing
-                    ).supervise(claim=claim, attempt=running, cancellation=cancellation)
+                    try:
+                        supervised = AttemptSupervisor(
+                            self._runtime, self._store, self._operation_ids, self._timing
+                        ).supervise(claim=claim, attempt=running, cancellation=cancellation)
+                    except CoordinationOutcomeIndeterminate:
+                        retain_permit = True
+                        raise
                     if isinstance(supervised, SupervisorLeaseLost):
                         retain_permit = True
                         return LeaseLost(

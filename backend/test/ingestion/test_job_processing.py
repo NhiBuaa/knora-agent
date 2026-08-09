@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
@@ -14,6 +15,7 @@ from knora.ingestion.job_processing import (
     CanonicalFailureV1,
     ClaimedAttempt,
     ClaimOperationId,
+    CoordinationOutcomeIndeterminate,
     ExpiredAttemptObservation,
     FailedTerminal,
     FailureCauseV1,
@@ -58,6 +60,7 @@ class RecordingStore:
     retry_schedule_result: RetryScheduleResult | None = None
     heartbeats: list[object] = field(default_factory=list)
     heartbeat_result: object | None = None
+    heartbeat_callback: Callable[[], None] | None = None
 
     expired_observation: ExpiredAttemptObservation | None = None
     recovery_result: RecoveryResult | None = None
@@ -67,6 +70,10 @@ class RecordingStore:
 
     def heartbeat(self, *, operation_id, token, lease_duration):
         self.heartbeats.append((operation_id, token, lease_duration))
+        if self.heartbeat_callback is not None:
+            self.heartbeat_callback()
+        if isinstance(self.heartbeat_result, BaseException):
+            raise self.heartbeat_result
         if self.heartbeat_result is not None:
             return self.heartbeat_result
         return HeartbeatApplied(lease_expires_at=datetime(2026, 8, 9, tzinfo=UTC))
@@ -346,6 +353,32 @@ def test_supervisor_heartbeats_before_accepting_a_later_completion() -> None:
     assert len(store.heartbeats) == 1
 
 
+def test_supervisor_accepts_completion_only_after_heartbeat_readback_returns() -> None:
+    clock = FixedMonotonicClock()
+    attempt = CompletedAttempt()
+
+    def complete_during_heartbeat() -> None:
+        attempt.completion_value = AttemptCompletion(
+            completed_at=clock.now(),
+            result=WorkFailed(HandlerFailureKindV1.INVALID_INPUT, "invalid_input"),
+        )
+
+    store = RecordingStore(claimed_attempt(), heartbeat_callback=complete_during_heartbeat)
+    supervisor = AttemptSupervisor(
+        AttemptRuntime(AvailableRunner(), clock, ClockScheduler(clock)),
+        store,
+        FixedOperationIds(),
+        AttemptTimingV1.standard(),
+    )
+
+    result = supervisor.supervise(
+        claim=claimed_attempt(), attempt=attempt, cancellation=Cancellation()
+    )
+
+    assert isinstance(result, HandlerCompleted)
+    assert len(store.heartbeats) == 1
+
+
 def test_supervisor_timeout_cancels_and_detaches_without_waiting_for_exit() -> None:
     clock = FixedMonotonicClock()
     attempt = PendingAttempt()
@@ -387,6 +420,81 @@ def test_supervisor_fencing_cancels_and_detaches_before_finalization() -> None:
     assert result == SupervisorLeaseLost()
     assert cancellation.is_cancelled()
     assert attempt.detached
+
+
+def test_supervisor_cancels_detaches_and_reraises_an_indeterminate_heartbeat() -> None:
+    clock = FixedMonotonicClock()
+    attempt = PendingAttempt()
+    cancellation = Cancellation()
+    claim = claimed_attempt()
+    store = RecordingStore(
+        claim,
+        heartbeat_result=CoordinationOutcomeIndeterminate(
+            operation_id=HeartbeatOperationId("heartbeat-op-1"), token=claim.token
+        ),
+    )
+    supervisor = AttemptSupervisor(
+        AttemptRuntime(AvailableRunner(), clock, ClockScheduler(clock)),
+        store,
+        FixedOperationIds(),
+        AttemptTimingV1.standard(),
+    )
+
+    with pytest.raises(CoordinationOutcomeIndeterminate) as error:
+        supervisor.supervise(claim=claim, attempt=attempt, cancellation=cancellation)
+
+    assert error.value.operation_id == HeartbeatOperationId("heartbeat-op-1")
+    assert error.value.attempt == AttemptRef("job-1", 1)
+    assert cancellation.is_cancelled()
+    assert attempt.detached
+    assert len(store.heartbeats) == 1
+
+
+def test_run_once_propagates_indeterminate_heartbeat_without_finalizing_or_releasing() -> None:
+    clock = FixedMonotonicClock()
+    claim = claimed_attempt()
+    store = RecordingStore(
+        claim,
+        heartbeat_result=CoordinationOutcomeIndeterminate(
+            operation_id=HeartbeatOperationId("heartbeat-op-1"), token=claim.token
+        ),
+    )
+    runner = PendingRunner()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=FailingHandler(),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+        runtime=AttemptRuntime(runner, clock, ClockScheduler(clock)),
+    )
+
+    with pytest.raises(CoordinationOutcomeIndeterminate):
+        processor.run_once("worker-a")
+
+    assert store.finalizations == []
+    assert store.retry_schedules == []
+    assert not runner.permit.released
+
+
+def test_run_once_maps_a_definite_heartbeat_fence_to_lease_lost() -> None:
+    clock = FixedMonotonicClock()
+    claim = claimed_attempt()
+    store = RecordingStore(claim, heartbeat_result=Fenced())
+    runner = PendingRunner()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=FailingHandler(),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+        runtime=AttemptRuntime(runner, clock, ClockScheduler(clock)),
+    )
+
+    assert processor.run_once("worker-a") == LeaseLost(AttemptRef("job-1", 1))
+    assert store.finalizations == []
+    assert store.retry_schedules == []
+    assert not runner.permit.released
 
 
 @dataclass
