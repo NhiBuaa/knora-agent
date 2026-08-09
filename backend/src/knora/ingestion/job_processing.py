@@ -261,7 +261,18 @@ class WorkSucceeded[SuccessT]:
 
 @dataclass(frozen=True, slots=True)
 class WorkSuperseded:
-    safe_code: str
+    """A handler-established stale-version condition, never a zero-row inference."""
+
+    replacement_document_version_id: str | None = None
+    replacement_ingestion_job_id: str | None = None
+
+    def __post_init__(self) -> None:
+        for identifier in (
+            self.replacement_document_version_id,
+            self.replacement_ingestion_job_id,
+        ):
+            if identifier is not None and not identifier:
+                raise ValueError("replacement identifiers must be non-empty when supplied")
 
 
 @dataclass(frozen=True, slots=True)
@@ -402,6 +413,18 @@ class NoEligibleJob:
 
 
 @dataclass(frozen=True, slots=True)
+class Succeeded:
+    attempt: AttemptRef
+
+
+@dataclass(frozen=True, slots=True)
+class Superseded:
+    attempt: AttemptRef
+    replacement_document_version_id: str | None = None
+    replacement_ingestion_job_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class FailedTerminal:
     attempt: AttemptRef
     failure_reason: str
@@ -417,9 +440,10 @@ class LeaseLost:
 class RetryScheduled:
     attempt: AttemptRef
     safe_code: str
+    next_attempt_at: datetime
 
 
-RunOnceResult = NoEligibleJob | RetryScheduled | FailedTerminal | LeaseLost
+RunOnceResult = NoEligibleJob | Succeeded | Superseded | RetryScheduled | FailedTerminal | LeaseLost
 
 
 class CancellationToken(Protocol):
@@ -586,7 +610,7 @@ class AttemptSupervisor:
             self._runtime.scheduler.wait_until(attempt, min(next_heartbeat_at, deadline_at))
 
 
-class IngestionJobCoordinationStore(Protocol):
+class IngestionJobCoordinationStore(Protocol[SuccessT]):
     def observe_expired_attempt(self) -> ExpiredAttemptObservation | None: ...
 
     def apply_expired_recovery(
@@ -613,6 +637,22 @@ class IngestionJobCoordinationStore(Protocol):
         token: FencingToken,
         lease_duration: timedelta,
     ) -> HeartbeatResult: ...
+
+    def finalize_success(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        success: SuccessT,
+    ) -> FinalizationResult: ...
+
+    def finalize_superseded(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        outcome: WorkSuperseded,
+    ) -> FinalizationResult: ...
 
     def finalize_terminal_failure(
         self,
@@ -658,7 +698,7 @@ class ProcessIngestionJob[SuccessT]:
     def __init__(
         self,
         *,
-        store: IngestionJobCoordinationStore,
+        store: IngestionJobCoordinationStore[SuccessT],
         handler: WorkHandler[SuccessT],
         operation_ids: OperationIdFactory,
         timing: AttemptTimingV1,
@@ -740,9 +780,38 @@ class ProcessIngestionJob[SuccessT]:
         finally:
             if not retain_permit:
                 permit.release()
+        operation_id = self._operation_ids.new_transition_id()
+        if isinstance(outcome, WorkSucceeded):
+            finalization = self._store.finalize_success(
+                operation_id=operation_id,
+                claim=claim,
+                success=outcome.payload,
+            )
+            if isinstance(finalization, FinalizationApplied):
+                return Succeeded(attempt=finalization.attempt)
+            if isinstance(finalization, Fenced):
+                return LeaseLost(attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number))
+            raise CoordinationInvariantError("success finalization was not applicable")
+
+        if isinstance(outcome, WorkSuperseded):
+            finalization = self._store.finalize_superseded(
+                operation_id=operation_id,
+                claim=claim,
+                outcome=outcome,
+            )
+            if isinstance(finalization, FinalizationApplied):
+                return Superseded(
+                    attempt=finalization.attempt,
+                    replacement_document_version_id=outcome.replacement_document_version_id,
+                    replacement_ingestion_job_id=outcome.replacement_ingestion_job_id,
+                )
+            if isinstance(finalization, Fenced):
+                return LeaseLost(attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number))
+            raise CoordinationInvariantError("superseded finalization was not applicable")
+
         if not isinstance(outcome, WorkFailed):
             raise CoordinationInvariantError(
-                "Ticket #26 only finalizes deterministic WorkFailed outcomes"
+                "work handler returned an unsupported outcome"
             )
         if timed_out:
             observed_failure = CanonicalFailureV1(
@@ -759,7 +828,6 @@ class ProcessIngestionJob[SuccessT]:
             attempt_count=claim.attempt_count,
             max_attempts=claim.max_attempts,
         )
-        operation_id = self._operation_ids.new_transition_id()
         if isinstance(decision, ScheduleRetry):
             scheduled = self._store.schedule_retry(
                 operation_id=operation_id,
@@ -771,6 +839,7 @@ class ProcessIngestionJob[SuccessT]:
                 return RetryScheduled(
                     attempt=scheduled.attempt,
                     safe_code=observed_failure.safe_code,
+                    next_attempt_at=scheduled.next_attempt_at,
                 )
             if isinstance(scheduled, Fenced):
                 return LeaseLost(attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number))
@@ -836,7 +905,11 @@ class ProcessIngestionJob[SuccessT]:
             decision=decision,
         )
         if isinstance(recovery, RecoveryRetryScheduled):
-            return RetryScheduled(attempt=recovery.attempt, safe_code=failure.safe_code)
+            return RetryScheduled(
+                attempt=recovery.attempt,
+                safe_code=failure.safe_code,
+                next_attempt_at=recovery.next_attempt_at,
+            )
         if isinstance(recovery, RecoveryFailedExhausted):
             return FailedTerminal(
                 attempt=recovery.attempt,

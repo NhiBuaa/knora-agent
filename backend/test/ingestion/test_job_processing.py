@@ -29,6 +29,8 @@ from knora.ingestion.job_processing import (
     HeartbeatOperationId,
     IngestionWork,
     LeaseLost,
+    NoEligibleClaim,
+    NoEligibleJob,
     ProcessIngestionJob,
     RecoveryFailedExhausted,
     RecoveryResult,
@@ -41,9 +43,13 @@ from knora.ingestion.job_processing import (
     RunnerCapacityUnavailable,
     ScheduleRetry,
     StaleObservation,
+    Succeeded,
+    Superseded,
     SupervisorLeaseLost,
     TransitionOperationId,
     WorkFailed,
+    WorkSucceeded,
+    WorkSuperseded,
 )
 
 
@@ -53,6 +59,12 @@ class RecordingStore:
     claims: list[tuple[ClaimOperationId, str, AttemptTimingV1]] = field(default_factory=list)
     finalizations: list[tuple[TransitionOperationId, ClaimedAttempt, CanonicalFailureV1]] = (
         field(default_factory=list)
+    )
+    successes: list[tuple[TransitionOperationId, ClaimedAttempt, object]] = field(
+        default_factory=list
+    )
+    superseded: list[tuple[TransitionOperationId, ClaimedAttempt, WorkSuperseded]] = field(
+        default_factory=list
     )
     retry_schedules: list[
         tuple[TransitionOperationId, ClaimedAttempt, CanonicalFailureV1, ScheduleRetry]
@@ -102,6 +114,36 @@ class RecordingStore:
     ) -> FinalizationApplied:
         self.finalizations.append((operation_id, claim, failure))
         self.terminal_decisions.append(decision)
+        return FinalizationApplied(
+            attempt=AttemptRef(
+                job_id=claim.token.job_id,
+                attempt_number=claim.token.attempt_number,
+            )
+        )
+
+    def finalize_success(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        success: object,
+    ) -> FinalizationApplied:
+        self.successes.append((operation_id, claim, success))
+        return FinalizationApplied(
+            attempt=AttemptRef(
+                job_id=claim.token.job_id,
+                attempt_number=claim.token.attempt_number,
+            )
+        )
+
+    def finalize_superseded(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        outcome: WorkSuperseded,
+    ) -> FinalizationApplied:
+        self.superseded.append((operation_id, claim, outcome))
         return FinalizationApplied(
             attempt=AttemptRef(
                 job_id=claim.token.job_id,
@@ -167,6 +209,27 @@ class RetryableFailingHandler:
             failure_kind=HandlerFailureKindV1.PROVIDER_TRANSIENT,
             safe_code="provider_transient",
         )
+
+
+@dataclass(frozen=True)
+class FakeSuccess:
+    completed_derivation_id: str
+
+
+@dataclass
+class SucceedingHandler:
+    success: FakeSuccess
+
+    def execute(self, work: IngestionWork, cancellation) -> WorkSucceeded[FakeSuccess]:
+        return WorkSucceeded(self.success)
+
+
+@dataclass
+class SupersedingHandler:
+    outcome: WorkSuperseded
+
+    def execute(self, work: IngestionWork, cancellation) -> WorkSuperseded:
+        return self.outcome
 
 
 @dataclass
@@ -584,6 +647,69 @@ def test_run_once_claims_then_fenced_finalizes_non_retryable_failure() -> None:
     ]
 
 
+def test_run_once_finalizes_a_frozen_fake_success_value() -> None:
+    claim = claimed_attempt()
+    store = RecordingStore(claim=claim)
+    success = FakeSuccess(completed_derivation_id="derivation-1")
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=SucceedingHandler(success),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+        runner=AvailableRunner(),
+    )
+
+    assert processor.run_once("worker-a") == Succeeded(AttemptRef("job-1", 1))
+    assert store.successes == [(TransitionOperationId("terminal-op-1"), claim, success)]
+    assert store.finalizations == []
+    assert store.retry_schedules == []
+
+
+def test_run_once_reports_no_eligible_job_without_executing_work() -> None:
+    store = RecordingStore(claim=claimed_attempt(), claim_result=NoEligibleClaim())
+    handler = FailingHandler()
+    runner = AvailableRunner()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=handler,
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+        runner=runner,
+    )
+
+    assert processor.run_once("worker-a") == NoEligibleJob()
+    assert handler.received == []
+    assert runner.permits[0].released
+
+
+def test_run_once_finalizes_typed_supersession() -> None:
+    claim = claimed_attempt()
+    store = RecordingStore(claim=claim)
+    outcome = WorkSuperseded(
+        replacement_document_version_id="version-2",
+        replacement_ingestion_job_id="job-2",
+    )
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=SupersedingHandler(outcome),
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+        runner=AvailableRunner(),
+    )
+
+    assert processor.run_once("worker-a") == Superseded(
+        attempt=AttemptRef("job-1", 1),
+        replacement_document_version_id="version-2",
+        replacement_ingestion_job_id="job-2",
+    )
+    assert store.superseded == [(TransitionOperationId("terminal-op-1"), claim, outcome)]
+    assert store.finalizations == []
+    assert store.retry_schedules == []
+
+
 def test_run_once_reports_claim_replay_lease_loss_without_executing_work() -> None:
     claim = claimed_attempt()
     store = RecordingStore(
@@ -699,6 +825,7 @@ def test_run_once_maps_handler_failure_then_reports_scheduled_retry() -> None:
     assert result == RetryScheduled(
         attempt=AttemptRef(job_id="job-1", attempt_number=1),
         safe_code="provider_transient",
+        next_attempt_at=claim.attempt_started_at,
     )
     assert store.retry_schedules == [
         (
@@ -795,6 +922,7 @@ def test_run_once_recovers_an_expired_attempt_before_claiming_or_executing_work(
     assert result == RetryScheduled(
         attempt=AttemptRef(job_id="job-1", attempt_number=1),
         safe_code="lease_expired",
+        next_attempt_at=observation.lease_expires_at,
     )
     assert handler.received == []
     assert store.claims == []

@@ -157,6 +157,13 @@ class IngestionJobTable(Base):
     terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    terminal_outcome_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    replacement_document_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=True
+    )
+    replacement_ingestion_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True
+    )
     last_heartbeat_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_heartbeat_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_heartbeat_resulting_lease_expires_at: Mapped[datetime | None] = mapped_column(
@@ -206,6 +213,7 @@ class IngestionJobAttemptTable(Base):
     cause_mapping_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    terminal_outcome_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     transition_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     transition_operation_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     transition_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -218,6 +226,12 @@ class IngestionJobAttemptTable(Base):
     retry_delay_microseconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retry_next_attempt_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    replacement_document_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=True
+    )
+    replacement_ingestion_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True
     )
 
 
