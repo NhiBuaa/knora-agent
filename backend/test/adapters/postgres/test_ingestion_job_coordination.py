@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import delete, func, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.postgres.database import SessionFactory
@@ -22,6 +22,7 @@ from knora.ingestion.job_processing import (
     ClaimedAttempt,
     ClaimOperationId,
     CoordinationInvariantError,
+    CoordinationOutcomeIndeterminate,
     ExpiredAttemptObservation,
     FailedTerminal,
     FailTerminal,
@@ -272,6 +273,163 @@ def test_heartbeat_renews_the_current_lease_without_rewriting_attempt_history() 
         assert job.last_heartbeat_operation_id is not None
         assert job.last_heartbeat_request_fingerprint is not None
         assert attempt.initial_lease_expires_at == claim.initial_lease_expires_at
+
+
+def test_heartbeat_replay_returns_the_recorded_expiry_without_renewing_again() -> None:
+    store, _ = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    operation_id = HeartbeatOperationId(uuid4().hex)
+
+    assert isinstance(claim, ClaimedAttempt)
+    first = store.heartbeat(
+        operation_id=operation_id,
+        token=claim.token,
+        lease_duration=timedelta(minutes=2),
+    )
+    replay = store.heartbeat(
+        operation_id=operation_id,
+        token=claim.token,
+        lease_duration=timedelta(minutes=2),
+    )
+
+    assert isinstance(first, HeartbeatApplied)
+    assert replay == first
+
+
+def test_heartbeat_reconciles_an_acknowledgement_loss_with_the_same_operation_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, _ = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    operation_id = HeartbeatOperationId(uuid4().hex)
+    heartbeat_once = store._heartbeat_once
+    operation_ids: list[HeartbeatOperationId] = []
+
+    assert isinstance(claim, ClaimedAttempt)
+
+    def lose_first_acknowledgement(**kwargs: object):
+        operation_ids.append(kwargs["operation_id"])
+        result = heartbeat_once(**kwargs)
+        if len(operation_ids) == 1:
+            raise OperationalError("heartbeat", {}, OSError("acknowledgement lost"))
+        return result
+
+    monkeypatch.setattr(store, "_heartbeat_once", lose_first_acknowledgement)
+
+    reconciled = store.heartbeat(
+        operation_id=operation_id,
+        token=claim.token,
+        lease_duration=timedelta(minutes=2),
+    )
+
+    assert isinstance(reconciled, HeartbeatApplied)
+    assert operation_ids == [operation_id, operation_id]
+
+
+def test_heartbeat_raises_indeterminate_after_an_unresolved_acknowledgement_loss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, _ = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    operation_id = HeartbeatOperationId(uuid4().hex)
+
+    assert isinstance(claim, ClaimedAttempt)
+
+    def lose_acknowledgement(**kwargs: object):
+        raise OperationalError("heartbeat", {}, OSError("acknowledgement lost"))
+
+    monkeypatch.setattr(store, "_heartbeat_once", lose_acknowledgement)
+
+    with pytest.raises(CoordinationOutcomeIndeterminate) as error:
+        store.heartbeat(
+            operation_id=operation_id,
+            token=claim.token,
+            lease_duration=timedelta(minutes=2),
+        )
+
+    assert error.value.operation_id == operation_id
+    assert error.value.attempt.job_id == claim.token.job_id
+    assert error.value.attempt.attempt_number == claim.token.attempt_number
+
+
+def test_heartbeat_replay_rejects_an_incompatible_operation_binding() -> None:
+    store, _ = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    operation_id = HeartbeatOperationId(uuid4().hex)
+
+    assert isinstance(claim, ClaimedAttempt)
+    store.heartbeat(
+        operation_id=operation_id,
+        token=claim.token,
+        lease_duration=timedelta(minutes=2),
+    )
+
+    with pytest.raises(
+        CoordinationInvariantError, match="heartbeat operation ID was reused incompatibly"
+    ):
+        store.heartbeat(
+            operation_id=operation_id,
+            token=replace(claim.token, worker_id="other-worker"),
+            lease_duration=timedelta(minutes=2),
+        )
+
+
+def test_heartbeat_replay_rejects_a_different_lease_duration() -> None:
+    store, _ = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    operation_id = HeartbeatOperationId(uuid4().hex)
+
+    assert isinstance(claim, ClaimedAttempt)
+    store.heartbeat(
+        operation_id=operation_id,
+        token=claim.token,
+        lease_duration=timedelta(minutes=2),
+    )
+
+    with pytest.raises(
+        CoordinationInvariantError, match="heartbeat operation ID was reused incompatibly"
+    ):
+        store.heartbeat(
+            operation_id=operation_id,
+            token=claim.token,
+            lease_duration=timedelta(minutes=1),
+        )
+
+
+def test_heartbeat_returns_fenced_for_a_definitely_stale_token() -> None:
+    store, _ = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+
+    assert isinstance(claim, ClaimedAttempt)
+    assert store.heartbeat(
+        operation_id=HeartbeatOperationId(uuid4().hex),
+        token=replace(claim.token, worker_id="other-worker"),
+        lease_duration=timedelta(minutes=2),
+    ) == Fenced()
 
 def test_schedule_retry_closes_current_attempt_with_one_database_time_anchor() -> None:
     clear_coordination_jobs()

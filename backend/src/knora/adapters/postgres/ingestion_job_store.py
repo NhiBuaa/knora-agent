@@ -29,6 +29,7 @@ from knora.ingestion.job_processing import (
     ClaimOperationId,
     ClaimResult,
     CoordinationInvariantError,
+    CoordinationOutcomeIndeterminate,
     ExpiredAttemptObservation,
     FailTerminal,
     FailureCauseV1,
@@ -348,8 +349,29 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         token: FencingToken,
         lease_duration: timedelta,
     ) -> HeartbeatResult:
-        """Renew one owned lease using fresh database time and no attempt-history rewrite."""
+        """Renew one owned lease, reconciling an ambiguous acknowledgement by operation ID."""
 
+        for attempt in range(2):
+            try:
+                return self._heartbeat_once(
+                    operation_id=operation_id,
+                    token=token,
+                    lease_duration=lease_duration,
+                )
+            except SQLAlchemyError:
+                if attempt == 1:
+                    raise CoordinationOutcomeIndeterminate(
+                        operation_id=operation_id, token=token
+                    ) from None
+        raise AssertionError("unreachable")
+
+    def _heartbeat_once(
+        self,
+        *,
+        operation_id: HeartbeatOperationId,
+        token: FencingToken,
+        lease_duration: timedelta,
+    ) -> HeartbeatResult:
         with self._session_factory.begin() as session:
             job = session.scalar(
                 select(IngestionJobTable)
@@ -359,14 +381,27 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             if job is None:
                 return Fenced()
             database_now = self._database_now(session)
+            request_fingerprint = self._heartbeat_fingerprint(token, lease_duration)
+            if job.last_heartbeat_operation_id == str(operation_id):
+                if job.last_heartbeat_request_fingerprint != request_fingerprint:
+                    raise CoordinationInvariantError(
+                        "heartbeat operation ID was reused incompatibly"
+                    )
+                if not self._owns_current_unexpired_token(job, token, database_now):
+                    return Fenced()
+                if job.last_heartbeat_resulting_lease_expires_at is None:
+                    raise CoordinationInvariantError(
+                        "heartbeat replay has no recorded lease expiry"
+                    )
+                return HeartbeatApplied(
+                    lease_expires_at=job.last_heartbeat_resulting_lease_expires_at
+                )
             if not self._owns_current_unexpired_token(job, token, database_now):
                 return Fenced()
             lease_expires_at = database_now + lease_duration
             job.lease_expires_at = lease_expires_at
             job.last_heartbeat_operation_id = str(operation_id)
-            job.last_heartbeat_request_fingerprint = "\n".join(
-                (token.job_id, str(token.attempt_number), token.worker_id, str(token.lease_version))
-            )
+            job.last_heartbeat_request_fingerprint = request_fingerprint
             job.last_heartbeat_resulting_lease_expires_at = lease_expires_at
             session.flush()
             return HeartbeatApplied(lease_expires_at=lease_expires_at)
@@ -574,6 +609,18 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 worker_id,
                 str(_duration_microseconds(timing.lease_duration)),
                 str(_duration_microseconds(timing.max_attempt_runtime)),
+            )
+        )
+
+    @staticmethod
+    def _heartbeat_fingerprint(token: FencingToken, lease_duration: timedelta) -> str:
+        return "\n".join(
+            (
+                token.job_id,
+                str(token.attempt_number),
+                token.worker_id,
+                str(token.lease_version),
+                str(_duration_microseconds(lease_duration)),
             )
         )
 
