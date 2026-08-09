@@ -29,7 +29,9 @@ from knora.ingestion.job_processing import (
     ClaimOperationId,
     ClaimResult,
     CoordinationInvariantError,
+    ExpiredAttemptObservation,
     FailTerminal,
+    FailureCauseV1,
     Fenced,
     FencingToken,
     FinalizationApplied,
@@ -40,10 +42,15 @@ from knora.ingestion.job_processing import (
     IngestionWork,
     InvalidTransition,
     NoEligibleClaim,
+    NotExpired,
+    RecoveryFailedExhausted,
+    RecoveryResult,
+    RecoveryRetryScheduled,
     RetryExhausted,
     RetryScheduleApplied,
     RetryScheduleResult,
     ScheduleRetry,
+    StaleObservation,
     TransitionOperationId,
 )
 from knora.ingestion.jobs import (
@@ -82,6 +89,146 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 )
         except SQLAlchemyError:
             return True
+
+    def observe_expired_attempt(self) -> ExpiredAttemptObservation | None:
+        """Return one unlocked, database-time observation of an ownerless attempt."""
+
+        with self._session_factory() as session:
+            database_now = self._database_now(session)
+            row = session.execute(
+                select(IngestionJobTable, IngestionJobAttemptTable)
+                .join(
+                    IngestionJobAttemptTable,
+                    IngestionJobAttemptTable.ingestion_job_id == IngestionJobTable.id,
+                )
+                .where(
+                    IngestionJobTable.status == "processing",
+                    IngestionJobTable.lease_expires_at.is_not(None),
+                    IngestionJobTable.lease_expires_at <= database_now,
+                    IngestionJobAttemptTable.closed_at.is_(None),
+                    IngestionJobAttemptTable.attempt_number
+                    == IngestionJobTable.current_attempt_number,
+                )
+                .order_by(IngestionJobTable.lease_expires_at, IngestionJobTable.id)
+                .limit(1)
+            ).first()
+            if row is None:
+                return None
+            job, attempt = row
+            if job.lease_expires_at is None:
+                raise CoordinationInvariantError("expired processing job had no lease expiry")
+            return ExpiredAttemptObservation(
+                job_id=job.id,
+                attempt_number=attempt.attempt_number,
+                worker_id=job.worker_id,
+                lease_version=job.lease_version,
+                attempt_count=job.attempt_count,
+                max_attempts=job.max_attempts,
+                lease_expires_at=job.lease_expires_at,
+            )
+
+    def apply_expired_recovery(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        observation: ExpiredAttemptObservation,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry | RetryExhausted,
+    ) -> RecoveryResult:
+        """Conditionally close an observed expired attempt without claiming its replacement."""
+
+        self._validate_expired_recovery_input(
+            observation=observation,
+            failure=failure,
+            decision=decision,
+        )
+        with self._session_factory.begin() as session:
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(IngestionJobTable.id == observation.job_id)
+                .with_for_update()
+            )
+            if job is None:
+                return StaleObservation()
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable)
+                .where(
+                    IngestionJobAttemptTable.ingestion_job_id == observation.job_id,
+                    IngestionJobAttemptTable.attempt_number == observation.attempt_number,
+                )
+                .with_for_update()
+            )
+            if attempt is None:
+                return StaleObservation()
+
+            database_now = self._database_now(session)
+            if not self._matches_expired_observation(job, attempt, observation):
+                return StaleObservation()
+            if database_now < observation.lease_expires_at:
+                return NotExpired()
+
+            transition_operation_id = str(operation_id)
+            disposition = "retry_scheduled" if isinstance(decision, ScheduleRetry) else "failed"
+            transition_fingerprint = self._expired_recovery_fingerprint(
+                observation=observation,
+                failure=failure,
+                disposition=disposition,
+                decision=decision,
+            )
+            self._assert_new_transition_operation(
+                session=session,
+                operation_id=transition_operation_id,
+                request_fingerprint=transition_fingerprint,
+            )
+
+            attempt.closed_at = database_now
+            attempt.disposition = disposition
+            attempt.closure_cause = FailureCauseV1.LEASE_EXPIRED.value
+            attempt.failure_cause = failure.cause.value
+            attempt.failure_cause_version = failure.cause_version
+            attempt.cause_mapping_version = failure.mapping_version
+            attempt.safe_failure_code = failure.safe_code
+            attempt.transition_operation_id = transition_operation_id
+            attempt.transition_request_fingerprint = transition_fingerprint
+            attempt.retry_policy_version = decision.policy_version
+
+            job.worker_id = None
+            job.lease_expires_at = None
+            job.current_attempt_number = None
+            job.current_attempt_started_at = None
+            job.current_attempt_deadline_at = None
+
+            if isinstance(decision, ScheduleRetry):
+                next_attempt_at = database_now + timedelta(microseconds=decision.delay_microseconds)
+                attempt.retry_policy_result = "schedule_retry"
+                attempt.retry_jitter_version = decision.jitter_version
+                attempt.retry_window_upper_bound_microseconds = (
+                    decision.window_upper_bound_microseconds
+                )
+                attempt.retry_delay_microseconds = decision.delay_microseconds
+                attempt.retry_next_attempt_at = next_attempt_at
+                job.status = "retry_scheduled"
+                job.next_attempt_at = next_attempt_at
+                job.terminal_at = None
+                job.failure_reason = None
+                job.safe_failure_code = None
+                session.flush()
+                return RecoveryRetryScheduled(
+                    attempt=AttemptRef(job_id=job.id, attempt_number=attempt.attempt_number),
+                    next_attempt_at=next_attempt_at,
+                )
+
+            attempt.failure_reason = "retry_exhausted"
+            attempt.retry_policy_result = "retry_exhausted"
+            job.status = "failed"
+            job.next_attempt_at = None
+            job.terminal_at = database_now
+            job.failure_reason = "retry_exhausted"
+            job.safe_failure_code = failure.safe_code
+            session.flush()
+            return RecoveryFailedExhausted(
+                attempt=AttemptRef(job_id=job.id, attempt_number=attempt.attempt_number)
+            )
 
     def claim_next_attempt(
         self,
@@ -474,6 +621,91 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         if isinstance(decision, RetryExhausted):
             return "retry_exhausted"
         return "fail_terminal"
+
+    @staticmethod
+    def _validate_expired_recovery_input(
+        *,
+        observation: ExpiredAttemptObservation,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry | RetryExhausted,
+    ) -> None:
+        if not isinstance(decision, (ScheduleRetry, RetryExhausted)):
+            raise CoordinationInvariantError(
+                "expired recovery requires ScheduleRetry or RetryExhausted"
+            )
+        if (
+            failure.cause != FailureCauseV1.LEASE_EXPIRED
+            or failure.safe_code != "lease_expired"
+            or failure.failure_reason is not None
+        ):
+            raise CoordinationInvariantError("expired recovery requires the lease-expired fact")
+        if observation.attempt_count > observation.max_attempts:
+            raise CoordinationInvariantError("expired observation exceeds the attempt budget")
+        if (
+            isinstance(decision, ScheduleRetry)
+            and observation.attempt_count >= observation.max_attempts
+        ):
+            raise CoordinationInvariantError("expired final attempt cannot schedule another retry")
+        if (
+            isinstance(decision, RetryExhausted)
+            and observation.attempt_count < observation.max_attempts
+        ):
+            raise CoordinationInvariantError("non-final expired attempt cannot be exhausted")
+
+    @staticmethod
+    def _matches_expired_observation(
+        job: IngestionJobTable,
+        attempt: IngestionJobAttemptTable,
+        observation: ExpiredAttemptObservation,
+    ) -> bool:
+        return (
+            job.status == "processing"
+            and job.worker_id == observation.worker_id
+            and job.lease_version == observation.lease_version
+            and job.current_attempt_number == observation.attempt_number
+            and job.attempt_count == observation.attempt_count
+            and job.max_attempts == observation.max_attempts
+            and job.lease_expires_at == observation.lease_expires_at
+            and attempt.closed_at is None
+            and attempt.worker_id == observation.worker_id
+            and attempt.lease_version == observation.lease_version
+            and attempt.attempt_number == observation.attempt_number
+        )
+
+    @staticmethod
+    def _expired_recovery_fingerprint(
+        *,
+        observation: ExpiredAttemptObservation,
+        failure: CanonicalFailureV1,
+        disposition: str,
+        decision: ScheduleRetry | RetryExhausted,
+    ) -> str:
+        values = [
+            observation.job_id,
+            str(observation.attempt_number),
+            observation.worker_id,
+            str(observation.lease_version),
+            str(observation.attempt_count),
+            str(observation.max_attempts),
+            observation.lease_expires_at.isoformat(),
+            disposition,
+            failure.cause.value,
+            failure.safe_code,
+            failure.cause_version,
+            failure.mapping_version,
+            decision.policy_version,
+        ]
+        if isinstance(decision, ScheduleRetry):
+            values.extend(
+                (
+                    decision.jitter_version,
+                    str(decision.window_upper_bound_microseconds),
+                    str(decision.delay_microseconds),
+                )
+            )
+        else:
+            values.append("retry_exhausted")
+        return "\n".join(values)
 
     @staticmethod
     def _assert_new_transition_operation(

@@ -14,6 +14,7 @@ from knora.ingestion.job_processing import (
     CanonicalFailureV1,
     ClaimedAttempt,
     ClaimOperationId,
+    ExpiredAttemptObservation,
     FailedTerminal,
     FailureCauseV1,
     Fenced,
@@ -26,6 +27,9 @@ from knora.ingestion.job_processing import (
     IngestionWork,
     LeaseLost,
     ProcessIngestionJob,
+    RecoveryFailedExhausted,
+    RecoveryResult,
+    RecoveryRetryScheduled,
     RetryExhausted,
     RetryPolicyV1,
     RetryScheduleApplied,
@@ -33,6 +37,7 @@ from knora.ingestion.job_processing import (
     RetryScheduleResult,
     RunnerCapacityUnavailable,
     ScheduleRetry,
+    StaleObservation,
     SupervisorLeaseLost,
     TransitionOperationId,
     WorkFailed,
@@ -53,6 +58,12 @@ class RecordingStore:
     retry_schedule_result: RetryScheduleResult | None = None
     heartbeats: list[object] = field(default_factory=list)
     heartbeat_result: object | None = None
+
+    expired_observation: ExpiredAttemptObservation | None = None
+    recovery_result: RecoveryResult | None = None
+    recoveries: list[
+        tuple[TransitionOperationId, ExpiredAttemptObservation, CanonicalFailureV1, object]
+    ] = field(default_factory=list)
 
     def heartbeat(self, *, operation_id, token, lease_duration):
         self.heartbeats.append((operation_id, token, lease_duration))
@@ -101,6 +112,28 @@ class RecordingStore:
         return RetryScheduleApplied(
             attempt=AttemptRef(job_id=claim.token.job_id, attempt_number=claim.attempt_count),
             next_attempt_at=claim.attempt_started_at,
+        )
+
+    def observe_expired_attempt(self) -> ExpiredAttemptObservation | None:
+        return self.expired_observation
+
+    def apply_expired_recovery(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        observation: ExpiredAttemptObservation,
+        failure: CanonicalFailureV1,
+        decision: object,
+    ) -> RecoveryRetryScheduled:
+        self.recoveries.append((operation_id, observation, failure, decision))
+        if self.recovery_result is not None:
+            return self.recovery_result
+        return RecoveryRetryScheduled(
+            attempt=AttemptRef(
+                job_id=observation.job_id,
+                attempt_number=observation.attempt_number,
+            ),
+            next_attempt_at=observation.lease_expires_at,
         )
 
 
@@ -448,7 +481,6 @@ def test_run_once_supervises_a_completed_attempt_before_finalization() -> None:
         operation_ids=FixedOperationIds(),
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=0)),
-        runner=AvailableRunner(),
         runtime=AttemptRuntime(AvailableRunner(), FixedMonotonicClock(), NoopScheduler()),
     )
 
@@ -602,3 +634,135 @@ def test_run_once_reports_lease_loss_when_fenced_while_scheduling_retry() -> Non
     assert result == LeaseLost(attempt=AttemptRef(job_id="job-1", attempt_number=1))
     assert len(store.claims) == 1
     assert len(store.retry_schedules) == 1
+
+
+def test_run_once_recovers_an_expired_attempt_before_claiming_or_executing_work() -> None:
+    claim = claimed_attempt()
+    observation = ExpiredAttemptObservation(
+        job_id=claim.token.job_id,
+        attempt_number=claim.token.attempt_number,
+        worker_id=claim.token.worker_id,
+        lease_version=claim.token.lease_version,
+        attempt_count=claim.attempt_count,
+        max_attempts=claim.max_attempts,
+        lease_expires_at=claim.initial_lease_expires_at,
+    )
+    store = RecordingStore(claim=claim, expired_observation=observation)
+    handler = FailingHandler()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=handler,
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=0)),
+        runner=AvailableRunner(),
+    )
+
+    result = processor.run_once("worker-a")
+
+    assert result == RetryScheduled(
+        attempt=AttemptRef(job_id="job-1", attempt_number=1),
+        safe_code="lease_expired",
+    )
+    assert handler.received == []
+    assert store.claims == []
+    assert store.recoveries == [
+        (
+            TransitionOperationId("terminal-op-1"),
+            observation,
+            CanonicalFailureV1(
+                cause=FailureCauseV1.LEASE_EXPIRED,
+                safe_code="lease_expired",
+                failure_reason=None,
+                cause_version="failure-causes-v1",
+                mapping_version="cause-mapping-v1",
+            ),
+            ScheduleRetry(
+                delay_microseconds=0,
+                window_upper_bound_microseconds=5_000_000,
+            ),
+        )
+    ]
+
+
+def test_run_once_falls_through_once_after_a_stale_expiry_observation() -> None:
+    claim = claimed_attempt()
+    observation = ExpiredAttemptObservation(
+        job_id=claim.token.job_id,
+        attempt_number=claim.token.attempt_number,
+        worker_id=claim.token.worker_id,
+        lease_version=claim.token.lease_version,
+        attempt_count=claim.attempt_count,
+        max_attempts=claim.max_attempts,
+        lease_expires_at=claim.initial_lease_expires_at,
+    )
+    store = RecordingStore(
+        claim=claim,
+        expired_observation=observation,
+        recovery_result=StaleObservation(),
+    )
+    handler = FailingHandler()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=handler,
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(FixedRandom(delay_microseconds=0)),
+        runner=AvailableRunner(),
+    )
+
+    result = processor.run_once("worker-a")
+
+    assert result == FailedTerminal(
+        attempt=AttemptRef(job_id="job-1", attempt_number=1),
+        failure_reason="terminal_input",
+        safe_code="invalid_input",
+    )
+    assert handler.received == [claim.work]
+    assert len(store.recoveries) == 1
+    assert len(store.claims) == 1
+
+
+def test_run_once_reports_expiry_retry_exhaustion_without_claiming_or_executing_work() -> None:
+    initial_claim = claimed_attempt()
+    claim = replace(
+        initial_claim,
+        token=replace(initial_claim.token, attempt_number=4),
+        attempt_count=4,
+    )
+    observation = ExpiredAttemptObservation(
+        job_id=claim.token.job_id,
+        attempt_number=claim.token.attempt_number,
+        worker_id=claim.token.worker_id,
+        lease_version=claim.token.lease_version,
+        attempt_count=claim.attempt_count,
+        max_attempts=claim.max_attempts,
+        lease_expires_at=claim.initial_lease_expires_at,
+    )
+    store = RecordingStore(
+        claim=claim,
+        expired_observation=observation,
+        recovery_result=RecoveryFailedExhausted(
+            attempt=AttemptRef(job_id="job-1", attempt_number=4)
+        ),
+    )
+    handler = FailingHandler()
+    processor = ProcessIngestionJob(
+        store=store,
+        handler=handler,
+        operation_ids=FixedOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(NoRandom()),
+        runner=AvailableRunner(),
+    )
+
+    result = processor.run_once("worker-a")
+
+    assert result == FailedTerminal(
+        attempt=AttemptRef(job_id="job-1", attempt_number=4),
+        failure_reason="retry_exhausted",
+        safe_code="lease_expired",
+    )
+    assert handler.received == []
+    assert store.claims == []
+    assert store.recoveries[0][3] == RetryExhausted()

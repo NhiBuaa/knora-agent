@@ -1,8 +1,8 @@
 """Typed orchestration for one durable Ingestion Job attempt.
 
-Ticket #26 deliberately implements only the first vertical path:
-``queued -> processing -> failed``. Retry, recovery, supervision, success and supersession are
-added by their approved follow-up tickets.
+Ticket #26 introduced ``queued -> processing -> failed`` and Ticket #27 added scheduled retry.
+Ticket #28 adds optimistic expired-attempt recovery. Supervision, success and supersession remain
+approved follow-up work.
 """
 
 from __future__ import annotations
@@ -203,6 +203,19 @@ class ClaimedAttempt:
 
 
 @dataclass(frozen=True, slots=True)
+class ExpiredAttemptObservation:
+    """An optimistic database-time observation that grants no processing ownership."""
+
+    job_id: str
+    attempt_number: int
+    worker_id: str
+    lease_version: int
+    attempt_count: int
+    max_attempts: int
+    lease_expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class AttemptTimingV1:
     lease_duration: timedelta
     max_attempt_runtime: timedelta
@@ -307,6 +320,27 @@ class RetryScheduleApplied:
 
 
 @dataclass(frozen=True, slots=True)
+class RecoveryRetryScheduled:
+    attempt: AttemptRef
+    next_attempt_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryFailedExhausted:
+    attempt: AttemptRef
+
+
+@dataclass(frozen=True, slots=True)
+class StaleObservation:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class NotExpired:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
 class Fenced:
     pass
 
@@ -325,6 +359,7 @@ ClaimResult = ClaimedAttempt | NoEligibleClaim
 FinalizationResult = FinalizationApplied | Fenced | InvalidTransition
 RetryScheduleResult = RetryScheduleApplied | Fenced | InvalidTransition
 HeartbeatResult = HeartbeatApplied | Fenced
+RecoveryResult = RecoveryRetryScheduled | RecoveryFailedExhausted | StaleObservation | NotExpired
 
 
 @dataclass(frozen=True, slots=True)
@@ -512,6 +547,17 @@ class AttemptSupervisor:
 
 
 class IngestionJobCoordinationStore(Protocol):
+    def observe_expired_attempt(self) -> ExpiredAttemptObservation | None: ...
+
+    def apply_expired_recovery(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        observation: ExpiredAttemptObservation,
+        failure: CanonicalFailureV1,
+        decision: ScheduleRetry | RetryExhausted,
+    ) -> RecoveryResult: ...
+
     def claim_next_attempt(
         self,
         *,
@@ -591,6 +637,10 @@ class ProcessIngestionJob[SuccessT]:
         self._runner = runtime.runner if runtime is not None else runner
 
     def run_once(self, worker_id: str) -> RunOnceResult:
+        recovered = self._recover_expired_attempt()
+        if recovered is not None:
+            return recovered
+
         permit = self._runner.try_reserve()
         if permit is None:
             raise RunnerCapacityUnavailable("no bounded execution capacity is available")
@@ -710,3 +760,43 @@ class ProcessIngestionJob[SuccessT]:
         if isinstance(finalization, Fenced):
             return LeaseLost(attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number))
         raise CoordinationInvariantError("terminal finalization was not applicable")
+
+    def _recover_expired_attempt(self) -> RunOnceResult | None:
+        observation = self._store.observe_expired_attempt()
+        if observation is None:
+            return None
+
+        failure = CanonicalFailureV1(
+            cause=FailureCauseV1.LEASE_EXPIRED,
+            safe_code="lease_expired",
+            failure_reason=None,
+            cause_version="failure-causes-v1",
+            mapping_version="cause-mapping-v1",
+        )
+        decision = self._retry_policy.decide(
+            failure.cause,
+            attempt_count=observation.attempt_count,
+            max_attempts=observation.max_attempts,
+        )
+        if not isinstance(decision, (ScheduleRetry, RetryExhausted)):
+            raise CoordinationInvariantError(
+                "lease-expiry recovery requires a retry policy decision"
+            )
+
+        recovery = self._store.apply_expired_recovery(
+            operation_id=self._operation_ids.new_transition_id(),
+            observation=observation,
+            failure=failure,
+            decision=decision,
+        )
+        if isinstance(recovery, RecoveryRetryScheduled):
+            return RetryScheduled(attempt=recovery.attempt, safe_code=failure.safe_code)
+        if isinstance(recovery, RecoveryFailedExhausted):
+            return FailedTerminal(
+                attempt=recovery.attempt,
+                failure_reason="retry_exhausted",
+                safe_code=failure.safe_code,
+            )
+        if isinstance(recovery, (StaleObservation, NotExpired)):
+            return None
+        raise CoordinationInvariantError("expired-attempt recovery was not applicable")
