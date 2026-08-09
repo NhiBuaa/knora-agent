@@ -56,6 +56,7 @@ from knora.ingestion.job_processing import (
     ScheduleRetry,
     StaleObservation,
     TransitionOperationId,
+    WorkSuperseded,
 )
 from knora.ingestion.jobs import (
     PdfSubmissionResult,
@@ -674,6 +675,20 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 next_attempt_at=next_attempt_at,
             )
 
+    def finalize_success[SuccessT](
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        success: SuccessT,
+    ) -> FinalizationResult:
+        """Refuse generic success until Issue #18 owns its atomic persistence value."""
+
+        raise CoordinationInvariantError(
+            "generic success persistence requires Issue #18's fenced derivation and activation "
+            "transaction"
+        )
+
     def finalize_terminal_failure(
         self,
         *,
@@ -805,6 +820,134 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 )
             )
 
+    def finalize_superseded(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        outcome: WorkSuperseded,
+    ) -> FinalizationResult:
+        transition_fingerprint = self._superseded_fingerprint(claim=claim, outcome=outcome)
+        replay = self._read_superseded_replay(
+            operation_id=str(operation_id), request_fingerprint=transition_fingerprint
+        )
+        if replay is not None:
+            return replay
+        return self._reconcile_database_error(
+            operation_kind="superseded",
+            operation_id=str(operation_id),
+            job_id=claim.token.job_id,
+            attempt_number=claim.token.attempt_number,
+            apply=lambda: self._finalize_superseded_once(
+                operation_id=operation_id,
+                claim=claim,
+                outcome=outcome,
+            ),
+            read_back=lambda: self._read_superseded_replay(
+                operation_id=str(operation_id), request_fingerprint=transition_fingerprint
+            ),
+        )
+
+    def _finalize_superseded_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        outcome: WorkSuperseded,
+    ) -> FinalizationResult:
+        """Fenced `processing -> superseded` for a target made stale by a newer version."""
+
+        transition_fingerprint = self._superseded_fingerprint(claim=claim, outcome=outcome)
+        with self._session_factory.begin() as session:
+            job = session.scalar(
+                select(IngestionJobTable)
+                .where(IngestionJobTable.id == claim.token.job_id)
+                .with_for_update()
+            )
+            if job is None:
+                return Fenced()
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable)
+                .where(
+                    IngestionJobAttemptTable.ingestion_job_id == claim.token.job_id,
+                    IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+                )
+                .with_for_update()
+            )
+            if attempt is None or attempt.closed_at is not None:
+                return InvalidTransition()
+
+            database_now = self._database_now(session)
+            if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                return Fenced()
+            if (
+                attempt.worker_id != claim.token.worker_id
+                or attempt.lease_version != claim.token.lease_version
+                or attempt.attempt_number != job.current_attempt_number
+            ):
+                return InvalidTransition()
+
+            document = session.get(DocumentTable, job.document_id)
+            if (
+                document is None
+                or document.current_document_version_id == job.target_document_version_id
+            ):
+                return InvalidTransition()
+            if (
+                outcome.replacement_document_version_id is not None
+                and outcome.replacement_document_version_id != document.current_document_version_id
+            ):
+                return InvalidTransition()
+            if outcome.replacement_ingestion_job_id is not None:
+                replacement_job = session.get(
+                    IngestionJobTable, outcome.replacement_ingestion_job_id
+                )
+                if (
+                    replacement_job is None
+                    or replacement_job.document_id != job.document_id
+                    or replacement_job.target_document_version_id
+                    != document.current_document_version_id
+                ):
+                    return InvalidTransition()
+
+            transition_operation_id = str(operation_id)
+            self._assert_new_transition_operation(
+                session=session,
+                operation_id=transition_operation_id,
+                request_fingerprint=transition_fingerprint,
+                operation_kind="superseded",
+            )
+            attempt.closed_at = database_now
+            attempt.disposition = "superseded"
+            attempt.closure_cause = "stale_document_version"
+            attempt.terminal_outcome_code = "stale_document_version"
+            attempt.transition_operation_id = transition_operation_id
+            attempt.transition_operation_kind = "superseded"
+            attempt.transition_request_fingerprint = transition_fingerprint
+            attempt.replacement_document_version_id = outcome.replacement_document_version_id
+            attempt.replacement_ingestion_job_id = outcome.replacement_ingestion_job_id
+
+            job.status = "superseded"
+            job.worker_id = None
+            job.lease_expires_at = None
+            job.current_attempt_number = None
+            job.current_attempt_started_at = None
+            job.current_attempt_deadline_at = None
+            job.next_attempt_at = None
+            job.terminal_at = database_now
+            job.failure_reason = None
+            job.safe_failure_code = None
+            job.terminal_outcome_code = "stale_document_version"
+            job.replacement_document_version_id = outcome.replacement_document_version_id
+            job.replacement_ingestion_job_id = outcome.replacement_ingestion_job_id
+            session.flush()
+            return FinalizationApplied(
+                attempt=AttemptRef(
+                    job_id=claim.token.job_id,
+                    attempt_number=claim.token.attempt_number,
+                )
+            )
+
     @staticmethod
     def _database_now(session: Session) -> datetime:
         database_now = session.scalar(select(func.clock_timestamp()))
@@ -878,6 +1021,21 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         if isinstance(decision, RetryExhausted):
             return "retry_exhausted"
         return "fail_terminal"
+
+    @staticmethod
+    def _superseded_fingerprint(*, claim: ClaimedAttempt, outcome: WorkSuperseded) -> str:
+        return "\n".join(
+            (
+                claim.token.job_id,
+                str(claim.token.attempt_number),
+                claim.token.worker_id,
+                str(claim.token.lease_version),
+                "superseded",
+                "stale_document_version",
+                outcome.replacement_document_version_id or "",
+                outcome.replacement_ingestion_job_id or "",
+            )
+        )
 
     @staticmethod
     def _validate_expired_recovery_input(
@@ -1114,6 +1272,31 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 raise CoordinationInvariantError("transition operation ID was reused incompatibly")
             if attempt.disposition != "failed":
                 raise CoordinationInvariantError("transition replay has no terminal-failure result")
+            return FinalizationApplied(
+                attempt=AttemptRef(
+                    job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
+                )
+            )
+
+    def _read_superseded_replay(
+        self, *, operation_id: str, request_fingerprint: str
+    ) -> FinalizationApplied | None:
+        with self._session_factory() as session:
+            attempt = session.scalar(
+                select(IngestionJobAttemptTable).where(
+                    IngestionJobAttemptTable.transition_operation_kind == "superseded",
+                    IngestionJobAttemptTable.transition_operation_id == operation_id,
+                )
+            )
+            if attempt is None:
+                return None
+            if attempt.transition_request_fingerprint != request_fingerprint:
+                raise CoordinationInvariantError("transition operation ID was reused incompatibly")
+            if (
+                attempt.disposition != "superseded"
+                or attempt.terminal_outcome_code != "stale_document_version"
+            ):
+                raise CoordinationInvariantError("transition replay has no superseded result")
             return FinalizationApplied(
                 attempt=AttemptRef(
                     job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number

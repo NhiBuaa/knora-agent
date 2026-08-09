@@ -12,9 +12,12 @@ from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAt
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.tables import (
+    DocumentTable,
+    DocumentVersionTable,
     IdempotencyRecordTable,
     IngestionJobAttemptTable,
     IngestionJobTable,
+    OriginalSourceObjectTable,
     WorkspaceTable,
 )
 from knora.ingestion.job_processing import (
@@ -35,6 +38,7 @@ from knora.ingestion.job_processing import (
     HandlerFailureKindV1,
     HeartbeatApplied,
     HeartbeatOperationId,
+    InvalidTransition,
     NoEligibleClaim,
     NotExpired,
     ProcessIngestionJob,
@@ -47,6 +51,7 @@ from knora.ingestion.job_processing import (
     StaleObservation,
     TransitionOperationId,
     WorkFailed,
+    WorkSuperseded,
 )
 from knora.ingestion.jobs import PdfSubmissionConfiguration, PreparedPdfSubmission
 from knora.ingestion.object_store import ObjectMetadata
@@ -161,6 +166,64 @@ def expired_lease_failure() -> CanonicalFailureV1:
     )
 
 
+def replace_current_document_version(job_id: str) -> str:
+    with SessionFactory.begin() as session:
+        job = session.get(IngestionJobTable, job_id)
+        assert job is not None
+        document = session.get(DocumentTable, job.document_id)
+        assert document is not None
+        replacement = DocumentVersionTable(
+            id=uuid4().hex,
+            document_id=document.id,
+            normalized_content=None,
+            normalized_content_checksum=None,
+            raw_sha256=uuid4().hex + uuid4().hex,
+            media_type="application/pdf",
+            version_number=2,
+        )
+        session.add(replacement)
+        session.flush()
+        document.current_document_version_id = replacement.id
+        return replacement.id
+
+
+def create_replacement_job(job_id: str, replacement_version_id: str) -> str:
+    with SessionFactory.begin() as session:
+        job = session.get(IngestionJobTable, job_id)
+        assert job is not None
+        version = session.get(DocumentVersionTable, replacement_version_id)
+        assert version is not None
+        source_object = OriginalSourceObjectTable(
+            id=uuid4().hex,
+            workspace_id=job.workspace_id,
+            document_version_id=replacement_version_id,
+            object_key=uuid4().hex,
+            raw_sha256=version.raw_sha256,
+            byte_size=123,
+            media_type="application/pdf",
+        )
+        session.add(source_object)
+        session.flush()
+        replacement_job = IngestionJobTable(
+            id=uuid4().hex,
+            workspace_id=job.workspace_id,
+            operation=job.operation,
+            document_id=job.document_id,
+            target_document_version_id=replacement_version_id,
+            source_object_id=source_object.id,
+            content_fingerprint=uuid4().hex,
+            parser_configuration_id=job.parser_configuration_id,
+            normalizer_configuration_id=job.normalizer_configuration_id,
+            chunking_configuration_id=job.chunking_configuration_id,
+            embedding_configuration_id=job.embedding_configuration_id,
+            status="queued",
+            attempt_count=0,
+            max_attempts=job.max_attempts,
+        )
+        session.add(replacement_job)
+        return replacement_job.id
+
+
 @dataclass
 class DatabaseLockProbeHandler:
     job_id: str
@@ -195,6 +258,11 @@ class ZeroRandom:
     def next_int_inclusive(self, upper_bound_microseconds: int) -> int:
         self.bounds.append(upper_bound_microseconds)
         return 0
+
+
+@dataclass(frozen=True)
+class FakeSuccess:
+    derivation_id: str
 
 
 class CommitAcknowledgementFaults:
@@ -257,6 +325,13 @@ def mutate_with_acknowledgement_fault(operation: str, mode: str):
             claim=claim,
             failure=terminal_failure(),
         )
+    if operation == "superseded":
+        replacement_version_id = replace_current_document_version(job_id)
+        return faulted_store.finalize_superseded(
+            operation_id=operation_id,
+            claim=claim,
+            outcome=WorkSuperseded(replacement_document_version_id=replacement_version_id),
+        )
 
     with SessionFactory.begin() as session:
         expired_at = session.scalar(select(func.clock_timestamp() - text("interval '1 second'")))
@@ -292,6 +367,7 @@ def mutate_with_acknowledgement_fault(operation: str, mode: str):
         ("claim", ClaimedAttempt),
         ("schedule_retry", RetryScheduleApplied),
         ("terminal_failure", FinalizationApplied),
+        ("superseded", FinalizationApplied),
         ("expired_recovery", RecoveryRetryScheduled),
     ],
 )
@@ -303,7 +379,7 @@ def test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit(
 
 
 @pytest.mark.parametrize(
-    "operation", ["claim", "schedule_retry", "terminal_failure", "expired_recovery"]
+    "operation", ["claim", "schedule_retry", "terminal_failure", "superseded", "expired_recovery"]
 )
 def test_attempt_mutation_raises_indeterminate_when_read_back_is_unavailable(
     operation: str,
@@ -365,6 +441,222 @@ def test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically()
             )
             .values(safe_failure_code="changed")
         )
+
+
+def test_finalize_superseded_closes_a_stale_target_attempt_atomically() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    replacement_version_id = replace_current_document_version(job_id)
+
+    result = store.finalize_superseded(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=claim,
+        outcome=WorkSuperseded(replacement_document_version_id=replacement_version_id),
+    )
+
+    assert isinstance(result, FinalizationApplied)
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "superseded"
+        assert job.attempt_count == 1
+        assert job.worker_id is None
+        assert job.lease_expires_at is None
+        assert job.current_attempt_number is None
+        assert job.current_attempt_started_at is None
+        assert job.current_attempt_deadline_at is None
+        assert job.next_attempt_at is None
+        assert job.terminal_at is not None
+        assert job.failure_reason is None
+        assert job.safe_failure_code is None
+        assert job.terminal_outcome_code == "stale_document_version"
+        assert job.replacement_document_version_id == replacement_version_id
+        assert job.replacement_ingestion_job_id is None
+        assert attempt.closed_at is not None
+        assert attempt.disposition == "superseded"
+        assert attempt.closure_cause == "stale_document_version"
+        assert attempt.failure_cause is None
+        assert attempt.failure_reason is None
+        assert attempt.terminal_outcome_code == "stale_document_version"
+        assert attempt.replacement_document_version_id == replacement_version_id
+
+
+def test_postgres_store_rejects_unimplemented_generic_success_without_mutating() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+
+    with pytest.raises(CoordinationInvariantError, match="Issue #18"):
+        store.finalize_success(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=claim,
+            success=FakeSuccess(derivation_id="derivation-1"),
+        )
+
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "processing"
+        assert attempt.closed_at is None
+
+
+def test_superseded_replay_returns_the_exact_durable_result() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    operation_id = TransitionOperationId(uuid4().hex)
+    outcome = WorkSuperseded(
+        replacement_document_version_id=replace_current_document_version(job_id)
+    )
+
+    initial = store.finalize_superseded(
+        operation_id=operation_id, claim=claim, outcome=outcome
+    )
+    replay = store.finalize_superseded(
+        operation_id=operation_id, claim=claim, outcome=outcome
+    )
+
+    assert isinstance(initial, FinalizationApplied)
+    assert replay == initial
+
+
+def test_superseded_finalization_accepts_matching_replacement_identifiers() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    replacement_version_id = replace_current_document_version(job_id)
+    replacement_job_id = create_replacement_job(job_id, replacement_version_id)
+    replacement_claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="replacement-worker",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(replacement_claim, ClaimedAttempt)
+    assert replacement_claim.token.job_id == replacement_job_id
+    assert isinstance(
+        store.finalize_terminal_failure(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=replacement_claim,
+            failure=terminal_failure(),
+        ),
+        FinalizationApplied,
+    )
+
+    result = store.finalize_superseded(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=claim,
+        outcome=WorkSuperseded(
+            replacement_document_version_id=replacement_version_id,
+            replacement_ingestion_job_id=replacement_job_id,
+        ),
+    )
+
+    assert isinstance(result, FinalizationApplied)
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.replacement_document_version_id == replacement_version_id
+        assert job.replacement_ingestion_job_id == replacement_job_id
+        assert attempt.replacement_document_version_id == replacement_version_id
+        assert attempt.replacement_ingestion_job_id == replacement_job_id
+
+
+def test_superseded_replay_rejects_an_incompatible_operation_binding() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    operation_id = TransitionOperationId(uuid4().hex)
+    store.finalize_superseded(
+        operation_id=operation_id,
+        claim=claim,
+        outcome=WorkSuperseded(
+            replacement_document_version_id=replace_current_document_version(job_id)
+        ),
+    )
+
+    with pytest.raises(CoordinationInvariantError, match="reused incompatibly"):
+        store.finalize_superseded(
+            operation_id=operation_id,
+            claim=claim,
+            outcome=WorkSuperseded(),
+        )
+
+
+def test_superseded_finalization_requires_a_stale_target_and_valid_replacements() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+
+    assert store.finalize_superseded(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=claim,
+        outcome=WorkSuperseded(),
+    ) == InvalidTransition()
+
+    replacement_version_id = replace_current_document_version(job_id)
+    _, unrelated_job_id = submit_queued_job()
+    assert store.finalize_superseded(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=claim,
+        outcome=WorkSuperseded(
+            replacement_document_version_id=replacement_version_id,
+            replacement_ingestion_job_id=unrelated_job_id,
+        ),
+    ) == InvalidTransition()
+
+
+def test_superseded_finalization_gives_fencing_precedence_over_stale_target() -> None:
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-a",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    replacement_version_id = replace_current_document_version(job_id)
+    with SessionFactory.begin() as session:
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=func.clock_timestamp() - text("interval '1 second'"))
+        )
+
+    assert store.finalize_superseded(
+        operation_id=TransitionOperationId(uuid4().hex),
+        claim=claim,
+        outcome=WorkSuperseded(replacement_document_version_id=replacement_version_id),
+    ) == Fenced()
+
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        assert job.status == "processing"
+        assert attempt.closed_at is None
 
 
 def test_heartbeat_renews_the_current_lease_without_rewriting_attempt_history() -> None:
