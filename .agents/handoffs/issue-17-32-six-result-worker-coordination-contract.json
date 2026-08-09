@@ -29,10 +29,11 @@
     "Origin main contains the #30 and #31 coordination reconciliation commits through d0c4c1b",
     "Issue #32 dependency status verified: blockers #30 and #31 are closed",
     "Isolated Issue #32 worktree created on codex/issue-32-six-result-contract from d0c4c1b",
-    "Issue #32 implementation, independent code review, and approved manual acceptance completed"
+    "Issue #32 implementation, independent code review, and approved manual acceptance completed",
+    "Pull request #39 created and published with Closes #32"
   ],
-  "current_state": "Issue #32 implementation is complete in the isolated codex/issue-32-six-result-contract worktree from origin/main commit d0c4c1b; code review and approved manual acceptance passed.",
-  "next_valid_transition": "Create and publish the Issue #32 pull request, then await merge before GitHub closes Issue #32.",
+  "current_state": "Issue #32 implementation is complete in pull request #39 from codex/issue-32-six-result-contract; code review and approved manual acceptance passed.",
+  "next_valid_transition": "Await merge of pull request #39; GitHub will close Issue #32 through its Closes #32 reference.",
   "outstanding_blockers": [],
   "reason": "User will open a new isolated worktree/session to implement GitHub Issue #32 after its blockers, Issues #30 and #31, completed and closed.",
   "schema_version": 1,
