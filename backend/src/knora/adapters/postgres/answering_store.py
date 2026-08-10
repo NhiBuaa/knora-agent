@@ -92,6 +92,10 @@ class PostgresAnsweringStore(AnsweringStore):
                 token_count=chunk.token_count,
                 cosine_distance=float(raw_distance),
                 similarity=1.0 - float(raw_distance),
+                page_start=chunk.page_start,
+                page_end=chunk.page_end,
+                start_offset=chunk.start_offset,
+                end_offset=chunk.end_offset,
             )
             for document, version, chunk_set, embedding_set, chunk, raw_distance in rows
         )

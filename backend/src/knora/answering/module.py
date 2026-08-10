@@ -186,6 +186,10 @@ class AnswerQuestion:
             end_line=candidate.end_line,
             excerpt=candidate.content[:500],
             content_checksum=candidate.content_checksum,
+            page_start=candidate.page_start,
+            page_end=candidate.page_end,
+            start_offset=candidate.start_offset,
+            end_offset=candidate.end_offset,
         )
 
     def _trace(

@@ -19,6 +19,10 @@ class CitationProjection:
     end_line: int
     excerpt: str
     content_checksum: str
+    page_start: int | None = None
+    page_end: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
