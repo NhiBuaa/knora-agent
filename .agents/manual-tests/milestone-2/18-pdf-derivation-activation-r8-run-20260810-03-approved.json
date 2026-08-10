@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-18-20260810-r8-acceptance-03-approved",
+  "observed_at": "2026-08-10T07:59:56+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-18-r8",
+  "finalizes_run_id": "m2-issue-18-20260810-r8-acceptance-03",
+  "approval_basis": "Explicit human approval in the Codex task; the locked r8 guide, all acceptance-03 observations, verification evidence and remediation review are adopted without alteration.",
+  "test_results": [
+    {"id":"TC-01","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-01 evidence"]},
+    {"id":"TC-02","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-02 evidence"]},
+    {"id":"TC-03","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-03 evidence"]},
+    {"id":"TC-04","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-04 evidence"]},
+    {"id":"TC-05","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-05 evidence"]},
+    {"id":"TC-06","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-06 evidence"]},
+    {"id":"TC-07","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-07 evidence"]},
+    {"id":"TC-08","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-08 evidence"]},
+    {"id":"TC-09","outcome":"PASS","observation":"Adopts unchanged acceptance-03 technical observation.","evidence":["m2-issue-18-20260810-r8-acceptance-03 TC-09 evidence"]}
+  ],
+  "verification": {
+    "focused_remediation_and_acceptance": "15 passed, 2 warnings",
+    "full_pytest": "320 passed, 3 skipped",
+    "ruff": "pass",
+    "docker_compose_config": "pass",
+    "alembic": "20260809_0015 (head)",
+    "review": "APPROVE; 0 Critical, 0 Major",
+    "locked_guide_sha256": "15230A5E39AE465C831BA6F351ABF6533B393B262F48EB3C292EC425688A4191"
+  },
+  "verdict": "PASSED",
+  "human_approval": "approved"
+}

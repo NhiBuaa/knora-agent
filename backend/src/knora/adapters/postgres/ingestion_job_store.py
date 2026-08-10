@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from math import isfinite
 from typing import TypeVar
 from uuid import uuid4
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
+    ChunkEmbeddingTable,
     ChunkingConfigurationTable,
+    ChunkSetTable,
+    ChunkTable,
     DocumentTable,
     DocumentVersionTable,
     EmbeddingConfigurationTable,
+    EmbeddingSetTable,
     IdempotencyRecordTable,
     IngestionJobAttemptTable,
     IngestionJobTable,
@@ -47,6 +53,7 @@ from knora.ingestion.job_processing import (
     InvalidTransition,
     NoEligibleClaim,
     NotExpired,
+    PdfDerivationSuccess,
     RecoveryFailedExhausted,
     RecoveryResult,
     RecoveryRetryScheduled,
@@ -70,6 +77,10 @@ MutationResultT = TypeVar("MutationResultT")
 
 def _duration_microseconds(value: timedelta) -> int:
     return value.days * 86_400_000_000 + value.seconds * 1_000_000 + value.microseconds
+
+
+class _FinalizationFenceLost(RuntimeError):
+    """Roll back tentative PDF derivation state when the final lease guard fails."""
 
 
 class PostgresIngestionJobStore(PdfSubmissionStore):
@@ -368,6 +379,8 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                         source_object_id=source_object.id,
                         source_object_key=source_object.object_key,
                         source_media_type=source_object.media_type,
+                        source_sha256=source_object.raw_sha256,
+                        source_byte_size=source_object.byte_size,
                         parser_configuration_id=job.parser_configuration_id,
                         normalizer_configuration_id=job.normalizer_configuration_id,
                         chunking_configuration_id=job.chunking_configuration_id,
@@ -457,6 +470,8 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                     source_object_id=source_object.id,
                     source_object_key=source_object.object_key,
                     source_media_type=source_object.media_type,
+                    source_sha256=source_object.raw_sha256,
+                    source_byte_size=source_object.byte_size,
                     parser_configuration_id=job.parser_configuration_id,
                     normalizer_configuration_id=job.normalizer_configuration_id,
                     chunking_configuration_id=job.chunking_configuration_id,
@@ -682,11 +697,566 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         claim: ClaimedAttempt,
         success: SuccessT,
     ) -> FinalizationResult:
-        """Refuse generic success until Issue #18 owns its atomic persistence value."""
+        if not isinstance(success, PdfDerivationSuccess):
+            raise CoordinationInvariantError(
+                "generic success persistence requires Issue #18's fenced derivation and activation "
+                "transaction"
+            )
+        transition_fingerprint = self._pdf_success_fingerprint(claim=claim, success=success)
+        replay = self._read_finalization_replay(
+            operation_id=str(operation_id),
+            request_fingerprint=transition_fingerprint,
+            operation_kind="pdf_success",
+        )
+        if replay is not None:
+            return replay
+        return self._reconcile_database_error(
+            operation_kind="pdf_success",
+            operation_id=str(operation_id),
+            job_id=claim.token.job_id,
+            attempt_number=claim.token.attempt_number,
+            apply=lambda: self._finalize_pdf_success_once(
+                operation_id=operation_id,
+                claim=claim,
+                success=success,
+            ),
+            read_back=lambda: self._read_finalization_replay(
+                operation_id=str(operation_id),
+                request_fingerprint=transition_fingerprint,
+                operation_kind="pdf_success",
+            ),
+        )
 
-        raise CoordinationInvariantError(
-            "generic success persistence requires Issue #18's fenced derivation and activation "
-            "transaction"
+    def _finalize_pdf_success_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        success: PdfDerivationSuccess,
+    ) -> FinalizationResult:
+        transition_fingerprint = self._pdf_success_fingerprint(claim=claim, success=success)
+        try:
+            with self._session_factory.begin() as session:
+                job = session.scalar(
+                    select(IngestionJobTable)
+                    .where(IngestionJobTable.id == claim.token.job_id)
+                    .with_for_update()
+                )
+                if job is None:
+                    return Fenced()
+                attempt = session.scalar(
+                    select(IngestionJobAttemptTable)
+                    .where(
+                        IngestionJobAttemptTable.ingestion_job_id == claim.token.job_id,
+                        IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+                    )
+                    .with_for_update()
+                )
+                if attempt is None or attempt.closed_at is not None:
+                    return InvalidTransition()
+
+                database_now = self._database_now(session)
+                if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                    return Fenced()
+                if (
+                    attempt.worker_id != claim.token.worker_id
+                    or attempt.lease_version != claim.token.lease_version
+                    or attempt.attempt_number != job.current_attempt_number
+                ):
+                    return InvalidTransition()
+
+                self._assert_new_transition_operation(
+                    session=session,
+                    operation_id=str(operation_id),
+                    request_fingerprint=transition_fingerprint,
+                    operation_kind="pdf_success",
+                )
+
+                document = session.scalar(
+                    select(DocumentTable)
+                    .where(
+                        DocumentTable.id == job.document_id,
+                        DocumentTable.workspace_id == job.workspace_id,
+                    )
+                    .with_for_update()
+                )
+                source_object = session.scalar(
+                    select(OriginalSourceObjectTable)
+                    .where(
+                        OriginalSourceObjectTable.id == job.source_object_id,
+                        OriginalSourceObjectTable.workspace_id == job.workspace_id,
+                        OriginalSourceObjectTable.document_version_id
+                        == job.target_document_version_id,
+                    )
+                    .with_for_update()
+                )
+                version = session.scalar(
+                    select(DocumentVersionTable)
+                    .where(
+                        DocumentVersionTable.id == job.target_document_version_id,
+                        DocumentVersionTable.document_id == job.document_id,
+                    )
+                    .with_for_update()
+                )
+                chunking = session.scalar(
+                    select(ChunkingConfigurationTable)
+                    .where(ChunkingConfigurationTable.id == job.chunking_configuration_id)
+                    .with_for_update()
+                )
+                embedding_configuration = session.scalar(
+                    select(EmbeddingConfigurationTable)
+                    .where(EmbeddingConfigurationTable.id == job.embedding_configuration_id)
+                    .with_for_update()
+                )
+                if document is None or source_object is None or version is None:
+                    raise CoordinationInvariantError(
+                        "PDF success references missing owned resources"
+                    )
+                if chunking is None or embedding_configuration is None:
+                    raise CoordinationInvariantError(
+                        "PDF success references missing pinned configuration"
+                    )
+                self._validate_pdf_success_inputs(
+                    job=job,
+                    claim=claim,
+                    success=success,
+                    source_object=source_object,
+                    version=version,
+                    chunking=chunking,
+                    embedding_configuration=embedding_configuration,
+                )
+
+                chunk_set = session.scalar(
+                    select(ChunkSetTable)
+                    .where(
+                        ChunkSetTable.document_version_id == version.id,
+                        ChunkSetTable.parser_configuration_id == job.parser_configuration_id,
+                        ChunkSetTable.normalizer_configuration_id
+                        == job.normalizer_configuration_id,
+                        ChunkSetTable.chunking_configuration_id == chunking.id,
+                    )
+                    .with_for_update()
+                )
+                if chunk_set is None:
+                    chunk_set = ChunkSetTable(
+                        id=str(uuid4()),
+                        document_version_id=version.id,
+                        parser_configuration_id=job.parser_configuration_id,
+                        normalizer_configuration_id=job.normalizer_configuration_id,
+                        chunking_configuration_id=chunking.id,
+                        status="pending",
+                    )
+                    session.add(chunk_set)
+                    session.flush()
+                    for chunk in success.extraction.chunks:
+                        session.add(
+                            ChunkTable(
+                                id=str(uuid4()),
+                                chunk_set_id=chunk_set.id,
+                                ordinal=chunk.ordinal,
+                                heading_path=[],
+                                start_line=self._pdf_line_number(
+                                    success.extraction.pages, chunk.page_number, chunk.start_offset
+                                ),
+                                end_line=self._pdf_line_number(
+                                    success.extraction.pages, chunk.page_number, chunk.end_offset
+                                ),
+                                content=chunk.content,
+                                content_checksum=chunk.content_checksum,
+                                token_count=chunk.token_count,
+                                page_start=chunk.page_start,
+                                page_end=chunk.page_end,
+                                start_offset=chunk.start_offset,
+                                end_offset=chunk.end_offset,
+                            )
+                        )
+                    chunk_set.status = "completed"
+                    session.flush()
+                else:
+                    self._validate_existing_pdf_chunk_set(
+                        session=session,
+                        chunk_set=chunk_set,
+                        success=success,
+                    )
+
+                embedding_set = session.scalar(
+                    select(EmbeddingSetTable)
+                    .where(
+                        EmbeddingSetTable.chunk_set_id == chunk_set.id,
+                        EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
+                    )
+                    .with_for_update()
+                )
+                if embedding_set is None:
+                    embedding_set = EmbeddingSetTable(
+                        id=str(uuid4()),
+                        chunk_set_id=chunk_set.id,
+                        embedding_configuration_id=embedding_configuration.id,
+                        status="pending",
+                    )
+                    session.add(embedding_set)
+                    session.flush()
+                    chunks = session.scalars(
+                        select(ChunkTable)
+                        .where(ChunkTable.chunk_set_id == chunk_set.id)
+                        .order_by(ChunkTable.ordinal)
+                    ).all()
+                    for chunk, vector in zip(chunks, success.vectors, strict=True):
+                        session.add(
+                            ChunkEmbeddingTable(
+                                id=str(uuid4()),
+                                embedding_set_id=embedding_set.id,
+                                chunk_id=chunk.id,
+                                embedding=list(vector),
+                            )
+                        )
+                    embedding_set.status = "completed"
+                    session.flush()
+                else:
+                    self._validate_existing_embedding_set(
+                        session=session,
+                        embedding_set=embedding_set,
+                        chunk_set=chunk_set,
+                        expected_vectors=success.vectors,
+                        dimensions=embedding_configuration.dimensions,
+                    )
+
+                if document.current_document_version_id != job.target_document_version_id:
+                    replacement_document_version_id = document.current_document_version_id
+                    replacement_ingestion_job_id = self._replacement_job_id(
+                        session=session,
+                        job=job,
+                        replacement_document_version_id=replacement_document_version_id,
+                    )
+                    final_database_now = self._database_now(session)
+                    self._close_pdf_attempt(
+                        attempt=attempt,
+                        operation_id=operation_id,
+                        transition_fingerprint=transition_fingerprint,
+                        database_now=final_database_now,
+                        disposition="superseded",
+                        terminal_outcome_code="stale_document_version",
+                        replacement_document_version_id=replacement_document_version_id,
+                        replacement_ingestion_job_id=replacement_ingestion_job_id,
+                    )
+                    if not self._finalize_pdf_job_if_current_and_live(
+                        session=session,
+                        claim=claim,
+                        database_now=final_database_now,
+                        disposition="superseded",
+                        terminal_outcome_code="stale_document_version",
+                        replacement_document_version_id=replacement_document_version_id,
+                        replacement_ingestion_job_id=replacement_ingestion_job_id,
+                    ):
+                        raise _FinalizationFenceLost()
+                    return FinalizationApplied(
+                        attempt=AttemptRef(
+                            job_id=claim.token.job_id,
+                            attempt_number=claim.token.attempt_number,
+                        ),
+                        outcome="superseded",
+                        replacement_document_version_id=replacement_document_version_id,
+                        replacement_ingestion_job_id=replacement_ingestion_job_id,
+                    )
+
+                activated = session.execute(
+                    update(DocumentTable)
+                    .where(
+                        DocumentTable.id == document.id,
+                        DocumentTable.workspace_id == job.workspace_id,
+                        DocumentTable.current_document_version_id == job.target_document_version_id,
+                    )
+                    .values(
+                        active_embedding_set_id=embedding_set.id,
+                        active_embedding_configuration_id=embedding_configuration.id,
+                        revision=DocumentTable.revision + 1,
+                    )
+                )
+                if activated.rowcount != 1:
+                    raise CoordinationInvariantError("PDF activation CAS lost its target")
+
+                final_database_now = self._database_now(session)
+                self._close_pdf_attempt(
+                    attempt=attempt,
+                    operation_id=operation_id,
+                    transition_fingerprint=transition_fingerprint,
+                    database_now=final_database_now,
+                    disposition="succeeded",
+                    terminal_outcome_code="succeeded",
+                )
+                if not self._finalize_pdf_job_if_current_and_live(
+                    session=session,
+                    claim=claim,
+                    database_now=final_database_now,
+                    disposition="succeeded",
+                    terminal_outcome_code="succeeded",
+                ):
+                    raise _FinalizationFenceLost()
+                return FinalizationApplied(
+                    attempt=AttemptRef(
+                        job_id=claim.token.job_id,
+                        attempt_number=claim.token.attempt_number,
+                    )
+                )
+        except _FinalizationFenceLost:
+            return Fenced()
+
+    @staticmethod
+    def _validate_pdf_success_inputs(
+        *,
+        job: IngestionJobTable,
+        claim: ClaimedAttempt,
+        success: PdfDerivationSuccess,
+        source_object: OriginalSourceObjectTable,
+        version: DocumentVersionTable,
+        chunking: ChunkingConfigurationTable,
+        embedding_configuration: EmbeddingConfigurationTable,
+    ) -> None:
+        extraction = success.extraction
+        if (
+            job.workspace_id != claim.work.workspace_id
+            or job.document_id != claim.work.document_id
+            or job.target_document_version_id != claim.work.document_version_id
+            or job.source_object_id != claim.work.source_object_id
+            or job.parser_configuration_id != claim.work.parser_configuration_id
+            or job.normalizer_configuration_id != claim.work.normalizer_configuration_id
+            or job.chunking_configuration_id != claim.work.chunking_configuration_id
+            or job.embedding_configuration_id != claim.work.embedding_configuration_id
+            or source_object.document_version_id != version.id
+            or source_object.workspace_id != job.workspace_id
+            or source_object.raw_sha256 != version.raw_sha256
+            or source_object.media_type != version.media_type
+            or claim.work.source_sha256
+            and source_object.raw_sha256 != claim.work.source_sha256
+            or claim.work.source_byte_size
+            and source_object.byte_size != claim.work.source_byte_size
+            or job.normalizer_configuration_id != extraction.normalizer_version
+            or chunking.parser_version != extraction.parser_version
+            or chunking.chunker_version != extraction.chunking_policy_version
+            or chunking.tokenizer_name != extraction.tokenizer_name
+            or chunking.tokenizer_version != extraction.tokenizer_version
+            or chunking.target_tokens != 500
+            or chunking.overlap_tokens != 75
+            or chunking.max_tokens != 650
+            or embedding_configuration.id != job.embedding_configuration_id
+            or embedding_configuration.provider != success.embedding_provider
+            or embedding_configuration.model != success.embedding_model
+            or len(success.vectors) != len(extraction.chunks)
+            or not extraction.chunks
+        ):
+            raise CoordinationInvariantError("PDF success does not match its pinned target")
+
+        if len({page.page_number for page in extraction.pages}) != len(extraction.pages) or any(
+            page.page_number < 1
+            or page.content_checksum != hashlib.sha256(page.text.encode()).hexdigest()
+            for page in extraction.pages
+        ):
+            raise CoordinationInvariantError("PDF success contains invalid page provenance")
+        pages = {page.page_number: page for page in extraction.pages}
+        for ordinal, chunk in enumerate(extraction.chunks):
+            page = pages.get(chunk.page_number)
+            if (
+                chunk.ordinal != ordinal
+                or page is None
+                or chunk.page_start != chunk.page_number
+                or chunk.page_end != chunk.page_number
+                or chunk.start_offset < 0
+                or chunk.start_offset >= chunk.end_offset
+                or chunk.end_offset > len(page.text)
+                or chunk.content != page.text[chunk.start_offset : chunk.end_offset]
+                or chunk.content_checksum != hashlib.sha256(chunk.content.encode()).hexdigest()
+                or chunk.token_count <= 0
+            ):
+                raise CoordinationInvariantError("PDF success contains invalid chunk provenance")
+            vector = success.vectors[ordinal]
+            if len(vector) != embedding_configuration.dimensions or any(
+                not isfinite(float(value)) for value in vector
+            ):
+                raise CoordinationInvariantError("PDF success contains invalid vectors")
+
+    @staticmethod
+    def _pdf_line_number(pages, page_number: int, offset: int) -> int:
+        page = next((page for page in pages if page.page_number == page_number), None)
+        if page is None:
+            raise CoordinationInvariantError("PDF chunk refers to a missing page")
+        return page.text.count("\n", 0, offset) + 1
+
+    @staticmethod
+    def _validate_existing_pdf_chunk_set(*, session: Session, chunk_set, success) -> None:
+        if chunk_set.status != "completed":
+            raise CoordinationInvariantError("PDF Chunk Set is not complete")
+        rows = session.scalars(
+            select(ChunkTable)
+            .where(ChunkTable.chunk_set_id == chunk_set.id)
+            .order_by(ChunkTable.ordinal)
+        ).all()
+        if len(rows) != len(success.extraction.chunks):
+            raise CoordinationInvariantError("PDF Chunk Set is incomplete")
+        for row, expected in zip(rows, success.extraction.chunks, strict=True):
+            if (
+                row.ordinal != expected.ordinal
+                or row.content != expected.content
+                or row.content_checksum != expected.content_checksum
+                or row.token_count != expected.token_count
+                or row.page_start != expected.page_start
+                or row.page_end != expected.page_end
+                or row.start_offset != expected.start_offset
+                or row.end_offset != expected.end_offset
+            ):
+                raise CoordinationInvariantError("existing PDF Chunk Set is incompatible")
+
+    @staticmethod
+    def _validate_existing_embedding_set(
+        *, session: Session, embedding_set, chunk_set, expected_vectors, dimensions: int
+    ) -> None:
+        if embedding_set.status != "completed":
+            raise CoordinationInvariantError("Embedding Set is not complete")
+        chunks = session.scalars(
+            select(ChunkTable)
+            .where(ChunkTable.chunk_set_id == chunk_set.id)
+            .order_by(ChunkTable.ordinal)
+        ).all()
+        embeddings = session.scalars(
+            select(ChunkEmbeddingTable).where(
+                ChunkEmbeddingTable.embedding_set_id == embedding_set.id
+            )
+        ).all()
+        by_chunk = {embedding.chunk_id: embedding for embedding in embeddings}
+        if len(embeddings) != len(chunks) or len(expected_vectors) != len(chunks):
+            raise CoordinationInvariantError("Embedding Set is incomplete")
+        for chunk in chunks:
+            embedding = by_chunk.get(chunk.id)
+            if embedding is None or len(embedding.embedding) != dimensions:
+                raise CoordinationInvariantError("Embedding Set has invalid vectors")
+
+    @staticmethod
+    def _replacement_job_id(
+        *, session: Session, job: IngestionJobTable, replacement_document_version_id: str | None
+    ) -> str | None:
+        if replacement_document_version_id is None:
+            return None
+        replacement = session.scalar(
+            select(IngestionJobTable)
+            .where(
+                IngestionJobTable.id != job.id,
+                IngestionJobTable.workspace_id == job.workspace_id,
+                IngestionJobTable.document_id == job.document_id,
+                IngestionJobTable.target_document_version_id == replacement_document_version_id,
+            )
+            .order_by(IngestionJobTable.created_at, IngestionJobTable.id)
+            .limit(1)
+        )
+        return replacement.id if replacement is not None else None
+
+    @staticmethod
+    def _close_pdf_attempt(
+        *,
+        attempt: IngestionJobAttemptTable,
+        operation_id: TransitionOperationId,
+        transition_fingerprint: str,
+        database_now: datetime,
+        disposition: str,
+        terminal_outcome_code: str,
+        replacement_document_version_id: str | None = None,
+        replacement_ingestion_job_id: str | None = None,
+    ) -> None:
+        attempt.closed_at = database_now
+        attempt.disposition = disposition
+        attempt.closure_cause = terminal_outcome_code
+        attempt.failure_cause = None
+        attempt.failure_cause_version = None
+        attempt.cause_mapping_version = None
+        attempt.safe_failure_code = None
+        attempt.failure_reason = None
+        attempt.terminal_outcome_code = terminal_outcome_code
+        attempt.transition_operation_id = str(operation_id)
+        attempt.transition_operation_kind = "pdf_success"
+        attempt.transition_request_fingerprint = transition_fingerprint
+        attempt.replacement_document_version_id = replacement_document_version_id
+        attempt.replacement_ingestion_job_id = replacement_ingestion_job_id
+
+    @staticmethod
+    def _finalize_pdf_job_if_current_and_live(
+        *,
+        session: Session,
+        claim: ClaimedAttempt,
+        database_now: datetime,
+        disposition: str,
+        terminal_outcome_code: str,
+        replacement_document_version_id: str | None = None,
+        replacement_ingestion_job_id: str | None = None,
+    ) -> bool:
+        """Apply the terminal job transition only while the lease remains authoritative.
+
+        This is intentionally the final mutable job operation in PDF success finalization.  The
+        database evaluates both a fresh PostgreSQL sample and ``clock_timestamp()`` in the same
+        conditional UPDATE; a zero-row result rolls back all tentative derivation and attempt work.
+        """
+
+        transition = session.execute(
+            update(IngestionJobTable)
+            .where(
+                IngestionJobTable.id == claim.token.job_id,
+                IngestionJobTable.workspace_id == claim.work.workspace_id,
+                IngestionJobTable.status == "processing",
+                IngestionJobTable.worker_id == claim.token.worker_id,
+                IngestionJobTable.lease_version == claim.token.lease_version,
+                IngestionJobTable.current_attempt_number == claim.token.attempt_number,
+                IngestionJobTable.lease_expires_at.is_not(None),
+                IngestionJobTable.lease_expires_at > database_now,
+                IngestionJobTable.lease_expires_at > func.clock_timestamp(),
+            )
+            .values(
+                status="succeeded" if disposition == "succeeded" else "superseded",
+                worker_id=None,
+                lease_expires_at=None,
+                current_attempt_number=None,
+                current_attempt_started_at=None,
+                current_attempt_deadline_at=None,
+                next_attempt_at=None,
+                terminal_at=database_now,
+                failure_reason=None,
+                safe_failure_code=None,
+                terminal_outcome_code=terminal_outcome_code,
+                replacement_document_version_id=replacement_document_version_id,
+                replacement_ingestion_job_id=replacement_ingestion_job_id,
+            )
+        )
+        return transition.rowcount == 1
+
+    @staticmethod
+    def _pdf_success_fingerprint(*, claim: ClaimedAttempt, success: PdfDerivationSuccess) -> str:
+        digest = hashlib.sha256()
+        extraction = success.extraction
+        digest.update(extraction.derivation_identity.encode())
+        for chunk in extraction.chunks:
+            digest.update(
+                repr(
+                    (
+                        chunk.ordinal,
+                        chunk.page_number,
+                        chunk.page_start,
+                        chunk.page_end,
+                        chunk.start_offset,
+                        chunk.end_offset,
+                        chunk.content_checksum,
+                        chunk.token_count,
+                    )
+                ).encode()
+            )
+        for vector in success.vectors:
+            digest.update(repr(tuple(float(value) for value in vector)).encode())
+        return "\n".join(
+            (
+                claim.token.job_id,
+                str(claim.token.attempt_number),
+                claim.token.worker_id,
+                str(claim.token.lease_version),
+                "pdf_success",
+                success.embedding_provider,
+                success.embedding_model,
+                digest.hexdigest(),
+            )
         )
 
     def finalize_terminal_failure(
@@ -945,7 +1515,10 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                 attempt=AttemptRef(
                     job_id=claim.token.job_id,
                     attempt_number=claim.token.attempt_number,
-                )
+                ),
+                outcome="superseded",
+                replacement_document_version_id=outcome.replacement_document_version_id,
+                replacement_ingestion_job_id=outcome.replacement_ingestion_job_id,
             )
 
     @staticmethod
@@ -1221,6 +1794,8 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                     source_object_id=source_object.id,
                     source_object_key=source_object.object_key,
                     source_media_type=source_object.media_type,
+                    source_sha256=source_object.raw_sha256,
+                    source_byte_size=source_object.byte_size,
                     parser_configuration_id=job.parser_configuration_id,
                     normalizer_configuration_id=job.normalizer_configuration_id,
                     chunking_configuration_id=job.chunking_configuration_id,
@@ -1240,7 +1815,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt = session.scalar(
                 select(IngestionJobAttemptTable).where(
                     IngestionJobAttemptTable.transition_operation_kind == operation_kind,
-                    IngestionJobAttemptTable.transition_operation_id == operation_id
+                    IngestionJobAttemptTable.transition_operation_id == operation_id,
                 )
             )
             if attempt is None:
@@ -1263,13 +1838,24 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt = session.scalar(
                 select(IngestionJobAttemptTable).where(
                     IngestionJobAttemptTable.transition_operation_kind == operation_kind,
-                    IngestionJobAttemptTable.transition_operation_id == operation_id
+                    IngestionJobAttemptTable.transition_operation_id == operation_id,
                 )
             )
             if attempt is None:
                 return None
             if attempt.transition_request_fingerprint != request_fingerprint:
                 raise CoordinationInvariantError("transition operation ID was reused incompatibly")
+            if operation_kind == "pdf_success":
+                if attempt.disposition not in {"succeeded", "superseded"}:
+                    raise CoordinationInvariantError("transition replay has no PDF success result")
+                return FinalizationApplied(
+                    attempt=AttemptRef(
+                        job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
+                    ),
+                    outcome=attempt.disposition,
+                    replacement_document_version_id=attempt.replacement_document_version_id,
+                    replacement_ingestion_job_id=attempt.replacement_ingestion_job_id,
+                )
             if attempt.disposition != "failed":
                 raise CoordinationInvariantError("transition replay has no terminal-failure result")
             return FinalizationApplied(
@@ -1300,7 +1886,10 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             return FinalizationApplied(
                 attempt=AttemptRef(
                     job_id=attempt.ingestion_job_id, attempt_number=attempt.attempt_number
-                )
+                ),
+                outcome="superseded",
+                replacement_document_version_id=attempt.replacement_document_version_id,
+                replacement_ingestion_job_id=attempt.replacement_ingestion_job_id,
             )
 
     def _read_expired_recovery_replay(
@@ -1310,7 +1899,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             attempt = session.scalar(
                 select(IngestionJobAttemptTable).where(
                     IngestionJobAttemptTable.transition_operation_kind == operation_kind,
-                    IngestionJobAttemptTable.transition_operation_id == operation_id
+                    IngestionJobAttemptTable.transition_operation_id == operation_id,
                 )
             )
             if attempt is None:

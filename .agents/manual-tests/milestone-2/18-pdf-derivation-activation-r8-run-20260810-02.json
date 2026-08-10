@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-18-20260810-r8-acceptance-02",
+  "observed_at": "2026-08-10T07:33:53+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-18-r8",
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "FAIL",
+      "observation": "The real worker path, correlated transaction/connection/transaction-ID probe, independent heartbeat, finalization row-lock trace, atomic derivation and internal PDF page/offset citation projection passed. The controlled HTTP question probe showed that CitationResponse drops page_start, page_end, start_offset and end_offset. Code review also found that PDF finalization checks lease ownership only at transaction entry and not at the commit boundary. The locked citation and live-fencing outcome is therefore not satisfied.",
+      "evidence": [
+        "test_tc01_real_worker_transaction_probe_keeps_remote_work_outside_db_transactions: PASS",
+        "controlled HTTP citation probe: status 200 with all four PDF locator fields absent",
+        "backend/src/knora/api/schemas.py:17-27 CitationResponse",
+        "backend/src/knora/adapters/postgres/ingestion_job_store.py:753-968 _finalize_pdf_success_once"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "PASS",
+      "observation": "A completed historical PDF remained active and served while a newer source became current and then failed with terminal PDF_TEXT_INSUFFICIENT. Both pre-failure and post-failure AnswerQuestion retrievals cited the historical version; the newer version produced no Chunk Set. The immutable-profile invalid fixture rejected before ObjectStore access and did not fall back to profile B.",
+      "evidence": [
+        "test_tc02_new_current_failure_preserves_historical_active_and_served_retrieval: PASS",
+        "test_tc01b_worker_uses_the_immutable_profile_after_current_selection_moves: PASS",
+        "current/active/served projection before, during and after failure",
+        "terminal job and attempt projection with terminal_input/PDF_TEXT_INSUFFICIENT"
+      ]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "PASS",
+      "observation": "The controlled handler matrix passed for provider timeout/429/503, transient ObjectStore failure, isolated extractor child failure, text-insufficient, encrypted, resource/malformed input, invalid pinned configuration, vector count, vector dimension and provider/model identity. The concrete ProcessIngestionJob retry seam recorded the approved retry policy for the transient path. TC-03F remains not applicable exactly as locked because the PDF handler owns no database dependency.",
+      "evidence": [
+        "test_tc03_provider_transients_become_retryable_handler_facts: PASS",
+        "test_tc03d_transient_object_store_failure_is_retryable_and_provider_is_not_called: PASS",
+        "test_tc03_extractor_taxonomy_is_preserved_as_typed_handler_facts: PASS",
+        "test_tc03j_to_l_vector_identity_mismatch_is_terminal_before_persistence: PASS",
+        "test_tc03j_provider_vector_count_mismatch_is_terminal_before_persistence: PASS",
+        "test_tc03_retryable_handler_fact_reaches_worker_retry_policy: PASS"
+      ]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "PASS",
+      "observation": "The newer B job completed first and remained current, active and served. The older held-worker A finalization became superseded, closed its counted attempt without another retry, retained replacement metadata and could not replace B. A B-only retrieval cited B.",
+      "evidence": [
+        "test_tc04_two_job_cas_supersession_keeps_newer_target_active: PASS",
+        "job A superseded/job B succeeded projection",
+        "current/active/served projection and B citation after completion"
+      ]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "PASS",
+      "observation": "Independent duplicate delivery returned NoEligibleJob without repeating handler/provider work; same TransitionOperationId replay returned the committed FinalizationApplied result without duplicate rows; definite pre-commit rollback left the job, attempt, derivation rows and active pointer unchanged.",
+      "evidence": [
+        "test_tc05a_independent_duplicate_delivery_does_not_repeat_handler_or_provider: PASS",
+        "test_tc05b_same_transition_operation_replays_after_response_loss: PASS",
+        "test_tc05c_definite_precommit_rollback_leaves_no_pdf_derivation_or_lifecycle_mutation: PASS"
+      ]
+    },
+    {
+      "id": "TC-06",
+      "outcome": "PASS",
+      "observation": "Preserved from acceptance-01 because this workstream changed only test harness files and did not change relevant production lease-loss behavior. The prior heartbeat fencing, late-completion detachment and expiry-recovery evidence remains valid.",
+      "evidence": [
+        "acceptance-01 TC-06 PASS preserved unchanged",
+        "test_supervisor_fencing_cancels_and_detaches_before_finalization: PASS",
+        "test_run_once_maps_a_definite_heartbeat_fence_to_lease_lost: PASS",
+        "test_expired_observation_applies_scheduled_recovery_before_a_separate_claim: PASS"
+      ]
+    },
+    {
+      "id": "TC-07",
+      "outcome": "PASS",
+      "observation": "All five independent ObjectStore.head metadata mismatches stopped before open_read, extraction or provider calls. The bounded-read fixture used source-derived byte tags and live-reference accounting: whole-object reads were zero, all tagged source bytes were consumed, live tagged references returned to zero, and peak live parent raw-source bytes stayed below the full object size.",
+      "evidence": [
+        "test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider[workspace/object-key/sha256/byte-size/media-type]: PASS",
+        "test_tc07b_parent_read_is_incremental_and_retention_is_bounded: PASS",
+        "AcceptanceObjectStore head/open_read counters and delete spy",
+        "SourceByteTag/SourceDerivedBytes tagged-reference report with peak_live_parent_raw_source_bytes"
+      ]
+    },
+    {
+      "id": "TC-08",
+      "outcome": "PASS",
+      "observation": "Preserved from acceptance-01 because this workstream changed only test harness files and did not change relevant production constraint behavior. The prior PostgreSQL ownership, completeness and protected-deletion evidence remains valid.",
+      "evidence": [
+        "acceptance-01 TC-08 PASS preserved unchanged",
+        "PostgreSQL cross-document/cross-workspace active-set constraint tests: PASS",
+        "incomplete active-set and protected deletion constraint tests: PASS"
+      ]
+    },
+    {
+      "id": "TC-09",
+      "outcome": "PASS",
+      "observation": "The concrete PostgreSQL worker path preserved the Document Version-owned Original Source Object after both terminal success and deterministic terminal failure. The ObjectStore delete spy recorded zero calls in both paths.",
+      "evidence": [
+        "test_tc09_original_source_object_remains_after_concrete_success_and_failure: PASS",
+        "OriginalSourceObjectTable reference present after success and failure",
+        "AcceptanceObjectStore.delete_calls == [] for both terminal outcomes"
+      ]
+    }
+  ],
+  "verification": {
+    "focused_acceptance_harness": "31 passed, 2 warnings",
+    "pytest_full_command": "317 passed, 1 failed, 3 skipped; the isolated multi-column child-process failure was reproduced twice in the full process",
+    "pytest_isolated_pdf_file": "30 passed, 3 skipped",
+    "pytest_without_existing_pdf_file": "288 passed",
+    "pytest_split_total": "318 passed, 3 skipped",
+    "ruff": "pass",
+    "docker_compose_config": "pass",
+    "alembic": "20260809_0015 (head)"
+  },
+  "verdict": "FAILED",
+  "human_approval": "pending"
+}

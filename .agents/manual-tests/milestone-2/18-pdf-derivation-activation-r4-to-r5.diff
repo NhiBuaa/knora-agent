@@ -1,0 +1,106 @@
+diff --git "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r4.md" "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r5.md"
+index d1b88d4..80bcb22 100644
+--- "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r4.md"
++++ "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r5.md"
+@@ -2,15 +2,15 @@
+ 
+ ## Metadata
+ 
+-- Status: Draft — revision `m2-issue-18-r4` awaits explicit human approval. Do not implement or
++- Status: Draft — revision `m2-issue-18-r5` awaits explicit human approval. Do not implement or
+   execute this guide.
+ - Feature: Milestone 2 — Production-shaped ingestion
+ - Slice: GitHub issue #18 — PDF derivation, embedding, and CAS activation
+ - Authoritative specification: https://github.com/NhiBuaa/knora-agent/issues/18
+ - Design: `docs/design/issue-18-pdf-derivation-activation.md`
+-- Guide revision: `m2-issue-18-r4`
+-- Supersedes: draft `m2-issue-18-r3` at
+-  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r3.md`; r1, r2 and r3 remain
++- Guide revision: `m2-issue-18-r5`
++- Supersedes: draft `m2-issue-18-r4` at
++  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r4.md`; r1, r2, r3 and r4 remain
+   unchanged.
+ - Approved by: Pending
+ - Approved at: Pending
+@@ -41,10 +41,12 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+ - Data: an authorized Workspace; two valid text PDFs with distinct raw SHA-256 values under one
+   `source_key`; a pre-existing completed historical active Embedding Set; exact immutable profile
+   A and a distinct immutable profile B; and resettable Document/Job/attempt state per case.
+-- Instrumentation: provider/extractor/ObjectStore call counters; bounded-reader trace; injected
+-  monotonic heartbeat schedule; PostgreSQL fresh-time/row-lock trace; transition-operation-ID
+-  replay trace; and a transaction probe that observes final persistence transaction begin/end and
+-  activation-row lock acquisition.
++- Instrumentation: provider/extractor/ObjectStore call counters; parent raw-source-retention probe
++  with source-derived byte tagging/reference accounting and `peak_live_parent_raw_source_bytes`;
++  injected monotonic heartbeat schedule; PostgreSQL fresh-time/row-lock trace;
++  transition-operation-ID replay trace; and a correlated transaction probe recording transaction
++  ID, connection ID, owner/span kind and begin/end for claim/recovery, heartbeat,
++  handler/configuration/persistence lookup and finalization/activation operations.
+ - Access: an authorized API credential for HTTP/status/question observations. A separate authorized
+   Workspace is available for cross-Workspace constraint attempts.
+ 
+@@ -54,7 +56,7 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+ | --- | --- | --- | --- |
+ | Worker orchestrates claimed work through storage, extraction, embedding, persistence, activation and terminal/retry outcome | TC-01 steps 1–3; TC-03A steps 1–3 | One `run_once` yields only an authoritative success/retry result after all owned stages | Ordered worker stage trace, job/attempt projection, derivation IDs |
+ | Worker uses job-snapshotted configuration IDs, never mutable current selection | TC-01B steps 1–3; TC-02B steps 1–2 | Profile A is used after current selection moves to B; invalid A never falls back to B | Handler profile trace, persisted configuration IDs, provider call count |
+-| Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A steps 1–3; TC-07B steps 1–3 | Mismatch stops before extractor/provider; reader rejects unbounded application read | Metadata comparison, zero call counts, bounded-reader trace |
++| Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A steps 1–3; TC-07B steps 1–3 | Mismatch stops before extractor/provider; no whole-object read and no complete logical raw-source retention across one or multiple parent buffers | Metadata comparison, zero call counts, parent raw-source-retention/peak-live-byte trace |
+ | Parser/chunker creates or reuses the correct PDF Chunk Set | TC-01A steps 1–3; TC-05A steps 1–3 | Exact full derivation identity creates/reuses one immutable complete Chunk Set | Chunk Set identity, chunk ordinal/checksum/page-offset projection |
+ | Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | No handler/configuration/persistence or finalization/activation transaction encloses remote work; independent short heartbeat transactions may overlap | Correlated transaction ownership trace, finalization lock trace, provider trace, vector validation projection |
+ | Retry taxonomy covers approved transient categories; deterministic failures are terminal | TC-03A–TC-03E and TC-03G–TC-03L; TC-03F is the upstream blocker | Every executable fixed injection maps to its named failure kind/cause and policy disposition | Handler fact, canonical cause, attempt history, policy metadata, call counts |
+@@ -370,20 +372,25 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+ 
+ #### TC-07B: Worker consumes the source incrementally without whole-object materialization
+ 
+-- Injection: `ObjectStore.open_read` returns an instrumented incremental source. A parent-process
+-  raw-source-retention probe records every byte-buffer allocation/reference derived from that
+-  source and fails if any live parent application buffer or assembled value equals the complete raw
+-  source. The isolated extractor test adapter may receive a bounded wrapper, pipe, file descriptor
+-  or bounded spool-to-disk; it returns the fixed projection after consuming the complete source
+-  through that approved bounded transport.
++- Injection: `ObjectStore.open_read` returns an instrumented incremental source whose derived
++  chunks carry source-byte tags. A parent raw-source-retention probe uses tag/reference accounting
++  across buffers, containers, wrappers and equivalent representations to record
++  `peak_live_parent_raw_source_bytes`. It fails if a whole-object read occurs or if live parent
++  references simultaneously retain all logical raw-source bytes. The isolated extractor test
++  adapter may receive a bounded wrapper, pipe, file descriptor or bounded spool-to-disk; it returns
++  the fixed projection after consuming the complete source through that approved bounded transport.
+ - Steps:
+   1. Run the valid fixture handler to extraction completion.
+-  2. Inspect source-consumption, whole-object-read and parent raw-source-retention traces before
+-     provider/finalization.
++  2. Compare `peak_live_parent_raw_source_bytes` with the fixed fixture's `raw_source_size` and
++     inspect source-consumption/whole-object-read traces before provider/finalization.
+ - Expected results:
+   - No worker/application whole-object read API is called, and the application does not materialize
+-    the full raw PDF in memory. The retention probe rejects the invalid shape that repeatedly reads
+-    bounded chunks but assembles and retains the entire raw PDF in the parent application.
++    the full raw PDF in memory. The deterministic retention predicate proves
++    `peak_live_parent_raw_source_bytes < raw_source_size`, regardless of whether retained bytes
++    would otherwise be contiguous, split across chunks, stored in a container or wrapped.
++  - The retention probe rejects all three invalid shapes: whole-object read, bounded reads followed
++    by a joined full source value, and bounded reads whose every source-derived chunk remains live
++    in the parent application without joining.
+   - Source consumption is incremental. Its bounded transport remains subject to the approved 25 MiB
+     raw-object limit; isolated extractor RSS is verified separately against its 256 MiB budget and
+     is not used as the no-materialization oracle.
+@@ -391,9 +398,9 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+     does not prescribe a Python object identity or chunk size. The valid path makes exactly one
+     provider call and continues normally.
+ - Evidence to capture:
+-  - Whole-object-read count zero, incremental-consumption trace, retention-probe report showing no
+-    complete parent raw-source buffer, bounded transport classification, extractor/provider counts
+-    and lifecycle result.
++  - Whole-object-read count zero, incremental-consumption trace, `raw_source_size`,
++    `peak_live_parent_raw_source_bytes`, tagged-reference accounting report, bounded transport
++    classification, extractor/provider counts and lifecycle result.
+ 
+ ### TC-08: PostgreSQL, not application validation alone, protects activation and retention
+ 
+@@ -439,5 +446,5 @@ retain their required observable behavior without preselecting those mechanisms.
+ 
+ This guide becomes immutable only after explicit human approval. Any resolution of an ambiguity,
+ semantic test change, or authoritative-specification change requires a new revision; do not rewrite
+-`m2-issue-18-r4` after approval. Store future execution observations separately as JSONL
++`m2-issue-18-r5` after approval. Store future execution observations separately as JSONL
+ Evaluation records.

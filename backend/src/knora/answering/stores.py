@@ -44,6 +44,10 @@ class RetrievalCandidate:
     token_count: int
     cosine_distance: float
     similarity: float
+    page_start: int | None = None
+    page_end: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

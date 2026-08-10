@@ -1,0 +1,36 @@
+{
+  "attempted_steps": [
+    {
+      "result": "#14's authoritative design decisions cover the material #18 semantics. Concrete SuccessT field shape and SQL statement ordering are implementation-level module design details, not an automatic new architecture interview.",
+      "step": "design-evidence-review"
+    }
+  ],
+  "authoritative_artifacts": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs/agents/issue-tracker.md",
+    "docs/standards/architecture.md",
+    "docs/design/milestone-2-module-seams.md",
+    "docs/design/issue-17-worker-coordination.md",
+    "docs/adr/0001-postgresql-ingestion-job-store.md",
+    "docs/adr/0005-fenced-ingestion-retry-policy.md",
+    "https://github.com/NhiBuaa/knora-agent/issues/14",
+    "https://github.com/NhiBuaa/knora-agent/issues/15",
+    "https://github.com/NhiBuaa/knora-agent/issues/16",
+    "https://github.com/NhiBuaa/knora-agent/issues/17",
+    "https://github.com/NhiBuaa/knora-agent/issues/18",
+    "https://github.com/NhiBuaa/knora-agent/issues/32"
+  ],
+  "completed_transitions": [
+    "Milestone 2 Issue #14 completed an approved design gate covering PDF worker ownership, source identity, extraction boundary, retry taxonomy, activation CAS, pointer semantics and no-partial-write rules",
+    "Issues #15, #16 and #17 are completed",
+    "Issue #17 generic-success and fenced coordination extension contract is complete through Issue #32",
+    "A duplicate Issue #18 grill was considered and rejected because no new architecture contradiction has been evidenced"
+  ],
+  "current_state": "Issue #18 is open and ready for an implementation-oriented codebase-design preflight against the approved Milestone 2 and Issue #17 extension contracts.",
+  "next_valid_transition": "Run codebase-design for the existing Issue #18 ticket: define the concrete immutable typed success value, handler/store responsibility split and atomic Postgres finalization shape while preserving the already-approved #14/#17 invariants. Do not create new tickets or reopen grill-with-docs unless preflight produces a material contradiction with an authoritative artifact. Then prepare the Issue #18 manual-acceptance guide and implement the approved ticket.",
+  "outstanding_blockers": [],
+  "reason": "The prior Milestone 2 design gate for Issue #14 already established shared understanding for Issue #18. The next session must reuse it through codebase-design preflight rather than duplicate grill-with-docs.",
+  "schema_version": 1,
+  "workflow_identity": "issue-18-pdf-derivation-embedding-cas-activation-implementation-preflight"
+}

@@ -268,7 +268,29 @@ class ChunkingConfigurationTable(Base):
 
 class ChunkSetTable(Base):
     __tablename__ = "chunk_sets"
-    __table_args__ = (UniqueConstraint("document_version_id", "chunking_configuration_id"),)
+    __table_args__ = (
+        Index(
+            "uq_chunk_sets_legacy_identity",
+            "document_version_id",
+            "chunking_configuration_id",
+            unique=True,
+            postgresql_where=text(
+                "parser_configuration_id IS NULL AND normalizer_configuration_id IS NULL"
+            ),
+        ),
+        Index(
+            "uq_chunk_sets_pdf_derivation_identity",
+            "document_version_id",
+            "parser_configuration_id",
+            "normalizer_configuration_id",
+            "chunking_configuration_id",
+            unique=True,
+            postgresql_where=text(
+                "parser_configuration_id IS NOT NULL AND "
+                "normalizer_configuration_id IS NOT NULL"
+            ),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     document_version_id: Mapped[str] = mapped_column(
@@ -276,6 +298,12 @@ class ChunkSetTable(Base):
     )
     chunking_configuration_id: Mapped[str] = mapped_column(
         ForeignKey("chunking_configurations.id", ondelete="RESTRICT"), index=True
+    )
+    parser_configuration_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
+    normalizer_configuration_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False)
 
@@ -295,6 +323,10 @@ class ChunkTable(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    page_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    start_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    end_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class EmbeddingConfigurationTable(Base):

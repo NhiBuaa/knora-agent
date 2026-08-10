@@ -401,6 +401,7 @@ def test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically()
     with SessionFactory() as session:
         job = session.get(IngestionJobTable, job_id)
         attempt = session.get(IngestionJobAttemptTable, (job_id, 1))
+        source_object = session.get(OriginalSourceObjectTable, job.source_object_id)
         assert job.status == "processing"
         assert job.attempt_count == 1
         assert job.lease_version == 1
@@ -409,6 +410,8 @@ def test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically()
         assert attempt.closed_at is None
         assert attempt.lease_version == 1
         assert attempt.initial_lease_expires_at == job.lease_expires_at
+        assert claim.work.source_sha256 == source_object.raw_sha256
+        assert claim.work.source_byte_size == source_object.byte_size
 
     result = store.finalize_terminal_failure(
         operation_id=TransitionOperationId(uuid4().hex),

@@ -1,0 +1,38 @@
+{
+  "attempted_steps": [
+    {
+      "result": "Fresh GitHub REST body, stored read-back and the exact before/after criterion diff agree on the approved retry clarification.",
+      "step": "authority-rest-verification"
+    },
+    {
+      "result": "Guide m2-issue-18-r8 was approved by the user, locked, and verified by SHA-256 15230A5E39AE465C831BA6F351ABF6533B393B262F48EB3C292EC425688A4191.",
+      "step": "manual-acceptance-prepare"
+    }
+  ],
+  "authoritative_artifacts": [
+    "AGENTS.md",
+    "CONTEXT.md",
+    "docs/agents/issue-tracker.md",
+    "docs/standards/architecture.md",
+    "docs/design/milestone-2-module-seams.md",
+    "docs/design/issue-17-worker-coordination.md",
+    "docs/design/issue-18-pdf-derivation-activation.md",
+    ".agents/manual-tests/milestone-2/18-pdf-derivation-activation-r8.md",
+    ".agents/manual-tests/milestone-2/18-pdf-derivation-activation-r7-to-r8.diff",
+    ".agents/issue-18-authority-readback.md",
+    ".agents/issue-18-authority-resolution.diff",
+    "https://github.com/NhiBuaa/knora-agent/issues/18"
+  ],
+  "completed_transitions": [
+    "Specify/design reuse: Issue #18 remains the approved implementation ticket under Milestone 2; no additional ticket or grill is required.",
+    "Codebase design: docs/design/issue-18-pdf-derivation-activation.md finalized the PdfDerivationSuccess, handler/store split, fenced finalization and migration design.",
+    "Prepare acceptance: m2-issue-18-r8 is final approved and immutable with complete traceability and no approval blockers.",
+    "Authority resolution: GitHub Issue #18 now clarifies that this PDF handler has no handler-owned database dependency and coordination PostgreSQL failures retain Issue #17 reconciliation/indeterminate semantics."
+  ],
+  "current_state": "Issue #18 is ready for the Feature Delivery Implement transition: codebase design is complete, GitHub Issue #18 retry authority is clarified, guide m2-issue-18-r8 is final approved and immutable, and manual-acceptance execution remains pending implementation.",
+  "next_valid_transition": "Call implement exactly once for GitHub Issue #18 using docs/design/issue-18-pdf-derivation-activation.md and locked guide m2-issue-18-r8; do not execute manual acceptance until implementation completes, and do not commit, publish, merge, or deploy without separate authorization.",
+  "outstanding_blockers": [],
+  "reason": "User requested a session transition after approving the Issue #18 authority clarification and locking manual-acceptance guide m2-issue-18-r8, before implementation begins.",
+  "schema_version": 1,
+  "workflow_identity": "feature-delivery"
+}

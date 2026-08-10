@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-18-20260810-r8-acceptance-03",
+  "observed_at": "2026-08-10T07:56:55+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-18-r8",
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "PASS",
+      "observation": "The real worker transaction probe kept ObjectStore, extraction and provider work outside finalization transactions. The HTTP contract now serializes the existing PDF page and half-open offset locators unchanged. A deterministic final commit-boundary guard fences an expired lease and rolls back every tentative derivation, activation, attempt, transition and terminal-job mutation.",
+      "evidence": [
+        "test_tc01_real_worker_transaction_probe_keeps_remote_work_outside_db_transactions: PASS",
+        "test_question_http_contract_projects_validated_citations: PASS",
+        "test_finalization_fences_lease_expiry_at_the_final_guard_and_rolls_back: PASS",
+        "CitationResponse page_start/page_end/start_offset/end_offset serialization: observed"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "PASS",
+      "observation": "The rerun preserved historical active-and-served PDF retrieval when a newer current version failed; immutable profile selection remained pinned to the claimed work and did not fall back to mutable current selection.",
+      "evidence": [
+        "test_tc02_new_current_failure_preserves_historical_active_and_served_retrieval: PASS",
+        "test_tc01b_worker_uses_the_immutable_profile_after_current_selection_moves: PASS"
+      ]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "PASS",
+      "observation": "Carried forward from acceptance-02: the controlled handler failure matrix and retry-policy observation remain valid because neither remediation changes handler taxonomy, provider/object-store boundaries, nor vector validation.",
+      "evidence": [
+        "acceptance-02 TC-03 PASS preserved unchanged",
+        "test_tc03_provider_transients_become_retryable_handler_facts: PASS",
+        "test_tc03j_to_l_vector_identity_mismatch_is_terminal_before_persistence: PASS"
+      ]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "PASS",
+      "observation": "The rerun showed that B remains current, active and served; stale A is atomically superseded and cannot overwrite B. The final fencing guard applies to this terminal path as well.",
+      "evidence": [
+        "test_tc04_two_job_cas_supersession_keeps_newer_target_active: PASS",
+        "test_finalization_fences_lease_expiry_at_the_final_guard_and_rolls_back: PASS"
+      ]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "PASS",
+      "observation": "The rerun confirmed independent duplicate delivery avoids duplicate handler/provider work, same TransitionOperationId reconciliation replays its durable result without duplicate rows, and a definite pre-commit rollback leaves no PDF or lifecycle mutation.",
+      "evidence": [
+        "test_tc05a_independent_duplicate_delivery_does_not_repeat_handler_or_provider: PASS",
+        "test_tc05b_same_transition_operation_replays_after_response_loss: PASS",
+        "test_tc05c_definite_precommit_rollback_leaves_no_pdf_derivation_or_lifecycle_mutation: PASS"
+      ]
+    },
+    {
+      "id": "TC-06",
+      "outcome": "PASS",
+      "observation": "TC-06A/C remain valid from acceptance-01. TC-06B was rerun because finalization changed: a late expired lease returns Fenced and commits zero tentative mutation.",
+      "evidence": [
+        "acceptance-01 TC-06A/C PASS preserved unchanged",
+        "test_finalization_fences_lease_expiry_at_the_final_guard_and_rolls_back: PASS",
+        "test_expired_observation_applies_scheduled_recovery_before_a_separate_claim: PASS"
+      ]
+    },
+    {
+      "id": "TC-07",
+      "outcome": "PASS",
+      "observation": "Carried forward from acceptance-02: the remediations do not change ObjectStore metadata validation, streaming ownership, extraction or provider execution.",
+      "evidence": [
+        "acceptance-02 TC-07 PASS preserved unchanged",
+        "test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider: PASS",
+        "test_tc07b_parent_read_is_incremental_and_retention_is_bounded: PASS"
+      ]
+    },
+    {
+      "id": "TC-08",
+      "outcome": "PASS",
+      "observation": "Carried forward from acceptance-01/02: neither remediation changes database ownership, completeness, active-set or current-version constraints.",
+      "evidence": [
+        "acceptance-01 TC-08 PASS preserved unchanged",
+        "acceptance-02 TC-08 PASS preserved unchanged"
+      ]
+    },
+    {
+      "id": "TC-09",
+      "outcome": "PASS",
+      "observation": "The rerun retained the Original Source Object on both concrete terminal success and deterministic terminal failure; the delete spy recorded no ObjectStore deletion.",
+      "evidence": [
+        "test_tc09_original_source_object_remains_after_concrete_success_and_failure: PASS",
+        "AcceptanceObjectStore.delete_calls == []"
+      ]
+    }
+  ],
+  "verification": {
+    "focused_remediation_and_acceptance": "15 passed, 2 warnings",
+    "full_pytest": "320 passed, 3 skipped",
+    "ruff": "pass",
+    "docker_compose_config": "pass",
+    "alembic": "20260809_0015 (head)",
+    "review": "APPROVE; 0 Critical, 0 Major"
+  },
+  "verdict": "BLOCKED",
+  "human_approval": "pending",
+  "approval_blocker": "All locked technical oracles passed, but manual-acceptance policy requires explicit human approval before this run may be recorded as PASSED."
+}

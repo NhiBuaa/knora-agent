@@ -1,19 +1,26 @@
-"""Typed orchestration for one durable Ingestion Job attempt.
-
-Ticket #26 introduced ``queued -> processing -> failed`` and Ticket #27 added scheduled retry.
-Ticket #28 adds optimistic expired-attempt recovery. Supervision, success and supersession remain
-approved follow-up work.
-"""
+"""Typed orchestration for one durable Ingestion Job attempt and PDF derivation work."""
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+from math import isfinite
 from threading import Event
 from typing import NewType, Protocol, TypeVar
 from uuid import uuid4
+
+from knora.domain.errors import KnoraError
+from knora.ingestion.object_store import ObjectMetadata, ObjectStore
+from knora.ingestion.pdf import (
+    PdfExtractionConfiguration,
+    PdfExtractionError,
+    PdfExtractionResult,
+    PdfTextExtractor,
+)
+from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
 
 SuccessT = TypeVar("SuccessT")
 
@@ -53,15 +60,23 @@ class FailureCauseV1(StrEnum):
 
 
 _SAFE_CODES_BY_KIND: dict[HandlerFailureKindV1, frozenset[str]] = {
-    HandlerFailureKindV1.INVALID_INPUT: frozenset({"invalid_input"}),
-    HandlerFailureKindV1.UNSUPPORTED_INPUT: frozenset({"unsupported_input"}),
+    HandlerFailureKindV1.INVALID_INPUT: frozenset(
+        {"invalid_input", "PDF_TEXT_INSUFFICIENT", "PDF_MALFORMED"}
+    ),
+    HandlerFailureKindV1.UNSUPPORTED_INPUT: frozenset(
+        {"unsupported_input", "PDF_ENCRYPTED", "PDF_UNSUPPORTED"}
+    ),
     HandlerFailureKindV1.CONFIGURATION_INVALID: frozenset({"configuration_invalid"}),
-    HandlerFailureKindV1.RESOURCE_LIMIT: frozenset({"resource_limit"}),
+    HandlerFailureKindV1.RESOURCE_LIMIT: frozenset(
+        {"resource_limit", "PDF_RESOURCE_LIMIT_EXCEEDED"}
+    ),
     HandlerFailureKindV1.VECTOR_MISMATCH: frozenset({"vector_mismatch"}),
     HandlerFailureKindV1.PROVIDER_TRANSIENT: frozenset({"provider_transient"}),
     HandlerFailureKindV1.DATABASE_TRANSIENT: frozenset({"database_transient"}),
     HandlerFailureKindV1.STORAGE_TRANSIENT: frozenset({"storage_transient"}),
-    HandlerFailureKindV1.WORKER_UNEXPECTED: frozenset({"worker_unexpected"}),
+    HandlerFailureKindV1.WORKER_UNEXPECTED: frozenset(
+        {"worker_unexpected", "PDF_EXTRACTOR_UNAVAILABLE"}
+    ),
 }
 
 _TERMINAL_REASONS: dict[FailureCauseV1, str] = {
@@ -218,6 +233,8 @@ class IngestionWork:
     normalizer_configuration_id: str
     chunking_configuration_id: str
     embedding_configuration_id: str
+    source_sha256: str = ""
+    source_byte_size: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,6 +306,250 @@ WorkOutcome = WorkSucceeded[SuccessT] | WorkSuperseded | WorkFailed
 
 
 @dataclass(frozen=True, slots=True)
+class PdfDerivationSuccess:
+    extraction: PdfExtractionResult
+    vectors: tuple[tuple[float, ...], ...]
+    embedding_provider: str
+    embedding_model: str
+
+
+@dataclass(frozen=True, slots=True)
+class PdfDerivationProfile:
+    parser_configuration_id: str
+    normalizer_configuration_id: str
+    chunking_configuration_id: str
+    extraction_configuration: PdfExtractionConfiguration
+    embedding_configuration: EmbeddingConfiguration
+
+    @classmethod
+    def milestone_two(
+        cls, *, embedding_configuration: EmbeddingConfiguration
+    ) -> PdfDerivationProfile:
+        extraction = PdfExtractionConfiguration.milestone_two()
+        return cls(
+            parser_configuration_id="pdf-parser-pypdf-6-14-2-plain-layout-v1",
+            normalizer_configuration_id=extraction.normalizer_version,
+            chunking_configuration_id="chunking-m2-pdf-pypdf-6-14-2-v1",
+            extraction_configuration=extraction,
+            embedding_configuration=embedding_configuration,
+        )
+
+
+class PdfDerivationHandler:
+    """Prepare one immutable PDF derivation outside the coordination transaction."""
+
+    def __init__(
+        self,
+        *,
+        object_store: ObjectStore,
+        extractor: PdfTextExtractor,
+        embedding_provider: EmbeddingProvider,
+        profile: PdfDerivationProfile,
+    ) -> None:
+        self._object_store = object_store
+        self._extractor = extractor
+        self._embedding_provider = embedding_provider
+        self._profile = profile
+
+    def execute(
+        self, work: IngestionWork, cancellation: CancellationToken
+    ) -> WorkOutcome[PdfDerivationSuccess]:
+        del cancellation
+        if not self._profile_matches_work(work):
+            return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+
+        try:
+            metadata = self._object_store.head(
+                workspace_id=work.workspace_id,
+                object_key=work.source_object_key,
+            )
+        except KnoraError as error:
+            if error.code == "OBJECT_NOT_FOUND":
+                return WorkFailed(HandlerFailureKindV1.INVALID_INPUT, "invalid_input")
+            return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+        except (ConnectionError, OSError, TimeoutError):
+            return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+        except Exception as error:
+            if getattr(error, "retryable", False):
+                return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+            return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected")
+
+        if not self._metadata_matches(work, metadata):
+            return WorkFailed(HandlerFailureKindV1.INVALID_INPUT, "invalid_input")
+
+        try:
+            stream = self._object_store.open_read(
+                workspace_id=work.workspace_id,
+                object_key=work.source_object_key,
+            )
+        except KnoraError as error:
+            if error.code == "OBJECT_NOT_FOUND":
+                return WorkFailed(HandlerFailureKindV1.INVALID_INPUT, "invalid_input")
+            return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+        except (ConnectionError, OSError, TimeoutError):
+            return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+        except Exception as error:
+            if getattr(error, "retryable", False):
+                return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+            return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected")
+
+        try:
+            extraction = self._extractor.extract(
+                stream, self._profile.extraction_configuration
+            )
+        except PdfExtractionError as error:
+            return self._pdf_extraction_failure(error)
+        except Exception:
+            return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected")
+        finally:
+            stream.close()
+
+        try:
+            extraction_matches_profile = self._extraction_matches_profile(extraction)
+        except (AttributeError, TypeError, ValueError):
+            extraction_matches_profile = False
+        if not extraction_matches_profile:
+            return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+
+        try:
+            batch = self._embedding_provider.embed(
+                [chunk.content for chunk in extraction.chunks],
+                self._profile.embedding_configuration,
+            )
+        except KnoraError as error:
+            if error.code == "PROVIDER_REQUEST_FAILED":
+                return WorkFailed(HandlerFailureKindV1.PROVIDER_TRANSIENT, "provider_transient")
+            if error.code == "PROVIDER_RESPONSE_INVALID":
+                return WorkFailed(HandlerFailureKindV1.VECTOR_MISMATCH, "vector_mismatch")
+            return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected")
+        except (ConnectionError, TimeoutError):
+            return WorkFailed(HandlerFailureKindV1.PROVIDER_TRANSIENT, "provider_transient")
+        except Exception as error:
+            if getattr(error, "retryable", False) or getattr(error, "status_code", 0) in {
+                408,
+                429,
+                500,
+                502,
+                503,
+                504,
+            }:
+                return WorkFailed(HandlerFailureKindV1.PROVIDER_TRANSIENT, "provider_transient")
+            return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected")
+
+        try:
+            vectors = tuple(tuple(float(value) for value in vector) for vector in batch.vectors)
+            provider = batch.provider
+            model = batch.model
+        except (AttributeError, TypeError, ValueError):
+            return WorkFailed(HandlerFailureKindV1.VECTOR_MISMATCH, "vector_mismatch")
+        configuration = self._profile.embedding_configuration
+        if (
+            len(vectors) != len(extraction.chunks)
+            or any(
+                len(vector) != configuration.dimensions
+                or any(not isfinite(value) for value in vector)
+                for vector in vectors
+            )
+            or provider != configuration.provider
+            or model != configuration.model
+        ):
+            return WorkFailed(HandlerFailureKindV1.VECTOR_MISMATCH, "vector_mismatch")
+
+        return WorkSucceeded(
+            PdfDerivationSuccess(
+                extraction=extraction,
+                vectors=vectors,
+                embedding_provider=provider,
+                embedding_model=model,
+            )
+        )
+
+    def _profile_matches_work(self, work: IngestionWork) -> bool:
+        profile = self._profile
+        extraction = profile.extraction_configuration
+        return (
+            profile.parser_configuration_id == work.parser_configuration_id
+            and profile.normalizer_configuration_id == work.normalizer_configuration_id
+            and profile.chunking_configuration_id == work.chunking_configuration_id
+            and profile.embedding_configuration.id == work.embedding_configuration_id
+            and profile.normalizer_configuration_id == extraction.normalizer_version
+        )
+
+    @staticmethod
+    def _metadata_matches(work: IngestionWork, metadata: ObjectMetadata) -> bool:
+        return (
+            metadata.workspace_id == work.workspace_id
+            and metadata.object_key == work.source_object_key
+            and metadata.sha256 == work.source_sha256
+            and metadata.byte_size == work.source_byte_size
+            and metadata.media_type == work.source_media_type
+        )
+
+    def _extraction_matches_profile(self, extraction: PdfExtractionResult) -> bool:
+        configuration = self._profile.extraction_configuration
+        if (
+            extraction.parser_version != configuration.parser_version
+            or extraction.extraction_options_version != configuration.extraction_options_version
+            or extraction.normalizer_version != configuration.normalizer_version
+            or extraction.tokenizer_name != configuration.tokenizer_name
+            or extraction.tokenizer_version != configuration.tokenizer_version
+            or extraction.chunking_policy_version != configuration.chunking_policy_version
+            or extraction.derivation_identity != configuration.derivation_identity
+            or not extraction.chunks
+        ):
+            return False
+        if (
+            len({page.page_number for page in extraction.pages}) != len(extraction.pages)
+            or any(
+                page.page_number < 1
+                or page.content_checksum != _sha256_text(page.text)
+                for page in extraction.pages
+            )
+        ):
+            return False
+        pages = {page.page_number: page for page in extraction.pages}
+        for ordinal, chunk in enumerate(extraction.chunks):
+            page = pages.get(chunk.page_number)
+            if (
+                chunk.ordinal != ordinal
+                or page is None
+                or chunk.page_start != chunk.page_number
+                or chunk.page_end != chunk.page_number
+                or chunk.start_offset < 0
+                or chunk.start_offset >= chunk.end_offset
+                or chunk.end_offset > len(page.text)
+                or chunk.content != page.text[chunk.start_offset : chunk.end_offset]
+                or chunk.content_checksum != _sha256_text(chunk.content)
+                or chunk.token_count <= 0
+            ):
+                return False
+        return True
+
+    @staticmethod
+    def _pdf_extraction_failure(error: PdfExtractionError) -> WorkFailed:
+        if error.retryable:
+            safe_code = (
+                error.code
+                if error.code == "PDF_EXTRACTOR_UNAVAILABLE"
+                else "worker_unexpected"
+            )
+            return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, safe_code)
+        if error.code == "PDF_ENCRYPTED":
+            return WorkFailed(HandlerFailureKindV1.UNSUPPORTED_INPUT, "PDF_ENCRYPTED")
+        if error.code == "PDF_RESOURCE_LIMIT_EXCEEDED":
+            return WorkFailed(HandlerFailureKindV1.RESOURCE_LIMIT, error.code)
+        if error.code == "PDF_UNSUPPORTED":
+            return WorkFailed(HandlerFailureKindV1.UNSUPPORTED_INPUT, error.code)
+        if error.code in {"PDF_TEXT_INSUFFICIENT", "PDF_MALFORMED"}:
+            return WorkFailed(HandlerFailureKindV1.INVALID_INPUT, error.code)
+        return WorkFailed(HandlerFailureKindV1.INVALID_INPUT, "invalid_input")
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
 class CanonicalFailureV1:
     cause: FailureCauseV1
     safe_code: str
@@ -356,6 +617,9 @@ class ClaimLeaseLost:
 @dataclass(frozen=True, slots=True)
 class FinalizationApplied:
     attempt: AttemptRef
+    outcome: str = "succeeded"
+    replacement_document_version_id: str | None = None
+    replacement_ingestion_job_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -788,6 +1052,14 @@ class ProcessIngestionJob[SuccessT]:
                 success=outcome.payload,
             )
             if isinstance(finalization, FinalizationApplied):
+                if finalization.outcome == "superseded":
+                    return Superseded(
+                        attempt=finalization.attempt,
+                        replacement_document_version_id=(
+                            finalization.replacement_document_version_id
+                        ),
+                        replacement_ingestion_job_id=finalization.replacement_ingestion_job_id,
+                    )
                 return Succeeded(attempt=finalization.attempt)
             if isinstance(finalization, Fenced):
                 return LeaseLost(attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number))

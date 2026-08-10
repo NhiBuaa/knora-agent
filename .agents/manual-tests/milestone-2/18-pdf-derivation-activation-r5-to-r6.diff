@@ -1,0 +1,87 @@
+diff --git "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r5.md" "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r6.md"
+index 80bcb22..f93def5 100644
+--- "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r5.md"
++++ "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r6.md"
+@@ -2,16 +2,16 @@
+ 
+ ## Metadata
+ 
+-- Status: Draft — revision `m2-issue-18-r5` awaits explicit human approval. Do not implement or
++- Status: Draft — revision `m2-issue-18-r6` awaits explicit human approval. Do not implement or
+   execute this guide.
+ - Feature: Milestone 2 — Production-shaped ingestion
+ - Slice: GitHub issue #18 — PDF derivation, embedding, and CAS activation
+ - Authoritative specification: https://github.com/NhiBuaa/knora-agent/issues/18
+ - Design: `docs/design/issue-18-pdf-derivation-activation.md`
+-- Guide revision: `m2-issue-18-r5`
+-- Supersedes: draft `m2-issue-18-r4` at
+-  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r4.md`; r1, r2, r3 and r4 remain
+-  unchanged.
++- Guide revision: `m2-issue-18-r6`
++- Supersedes: draft `m2-issue-18-r5` at
++  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r5.md`; r1, r2, r3, r4 and r5
++  remain unchanged.
+ - Approved by: Pending
+ - Approved at: Pending
+ 
+@@ -56,7 +56,7 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+ | --- | --- | --- | --- |
+ | Worker orchestrates claimed work through storage, extraction, embedding, persistence, activation and terminal/retry outcome | TC-01 steps 1–3; TC-03A steps 1–3 | One `run_once` yields only an authoritative success/retry result after all owned stages | Ordered worker stage trace, job/attempt projection, derivation IDs |
+ | Worker uses job-snapshotted configuration IDs, never mutable current selection | TC-01B steps 1–3; TC-02B steps 1–2 | Profile A is used after current selection moves to B; invalid A never falls back to B | Handler profile trace, persisted configuration IDs, provider call count |
+-| Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A steps 1–3; TC-07B steps 1–3 | Mismatch stops before extractor/provider; no whole-object read and no complete logical raw-source retention across one or multiple parent buffers | Metadata comparison, zero call counts, parent raw-source-retention/peak-live-byte trace |
++| Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A1–TC-07A5; TC-07B steps 1–3 | Each required claimed-vs-observed metadata component (Workspace, opaque key, raw SHA-256, byte size, media type) is independently rejected before open/read/extraction/provider; TC-07B separately proves no whole-object read or complete logical parent retention | Per-field injected mismatch/category, zero open/extractor/provider counts, zero derivation/activation delta, unchanged active pointer; parent raw-source-retention/peak-live-byte trace |
+ | Parser/chunker creates or reuses the correct PDF Chunk Set | TC-01A steps 1–3; TC-05A steps 1–3 | Exact full derivation identity creates/reuses one immutable complete Chunk Set | Chunk Set identity, chunk ordinal/checksum/page-offset projection |
+ | Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | No handler/configuration/persistence or finalization/activation transaction encloses remote work; independent short heartbeat transactions may overlap | Correlated transaction ownership trace, finalization lock trace, provider trace, vector validation projection |
+ | Retry taxonomy covers approved transient categories; deterministic failures are terminal | TC-03A–TC-03E and TC-03G–TC-03L; TC-03F is the upstream blocker | Every executable fixed injection maps to its named failure kind/cause and policy disposition | Handler fact, canonical cause, attempt history, policy metadata, call counts |
+@@ -352,23 +352,28 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+ 
+ ### TC-07: Verify source-object integrity before streaming extraction and prove bounded worker read
+ 
+-#### TC-07A: Raw SHA-256 mismatch stops processing before extractor/provider work
++#### TC-07A: Independently verify every required Original Source Object metadata component
+ 
+-- Injection: durable job expects fixed raw SHA-256 A while controlled `ObjectStore.head` returns
+-  the same Workspace/key/media/size but raw SHA-256 B.
+-- Steps:
+-  1. Claim the job and run its handler once.
+-  2. Inspect handler result and all call/persistence counters.
+-- Expected results:
+-  - The mismatch is detected before `open_read`, extractor or provider; extractor/provider call
+-    counts are zero.
+-  - It takes the design's canonical terminal input behavior (`INVALID_INPUT` -> `FailTerminal`,
+-    `failure_reason=terminal_input`), leaves no partial derivation and preserves the active pointer.
+-  - Its public safe code is the approved allowlisted input-metadata code; the guide does not require
+-    a distinct preselected code name beyond the contract's allowlist. No raw metadata is exposed.
+-- Evidence to capture:
+-  - Safe expected/observed checksum digests, head/open/extractor/provider counts, failure
+-    kind/cause/policy/attempt result and zero derivation/pointer delta.
++The approved Issue #18 design requires `ObjectStore.head` to exactly match the claimed Workspace,
++opaque object key, SHA-256, byte size and media type. These five fields are ObjectStore metadata in
++the Current World Model and Architecture Standard; no other technical field is added to this matrix.
++Each subcase starts with a Document that has a prior active Embedding Set. The durable job expects
++metadata tuple `(workspace_id=W1, object_key=K1, sha256=H1, byte_size=S1, media_type=M1)`.
++
++| Subcase | Fixed `ObjectStore.head` observation | Expected result | Evidence to capture |
++| --- | --- | --- | --- |
++| TC-07A1 | `(W2, K1, H1, S1, M1)` where `W2 != W1` | Workspace mismatch is detected before `open_read`, extraction or embedding | Internal category `workspace_mismatch`; safe expected/observed identity evidence; head/open/extractor/provider counts |
++| TC-07A2 | `(W1, K2, H1, S1, M1)` where `K2 != K1` | Opaque-key mismatch is detected before `open_read`, extraction or embedding | Internal category `object_key_mismatch`; safe key-comparison digest (not key value); head/open/extractor/provider counts |
++| TC-07A3 | `(W1, K1, H2, S1, M1)` where `H2 != H1` | Raw-SHA-256 mismatch is detected before `open_read`, extraction or embedding | Internal category `raw_sha256_mismatch`; safe checksum digests; head/open/extractor/provider counts |
++| TC-07A4 | `(W1, K1, H1, S2, M1)` where `S2 != S1` | Byte-size mismatch is detected before `open_read`, extraction or embedding | Internal category `byte_size_mismatch`; expected/observed size class; head/open/extractor/provider counts |
++| TC-07A5 | `(W1, K1, H1, S1, M2)` where `M2 != M1` | Media-type mismatch is detected before `open_read`, extraction or embedding | Internal category `media_type_mismatch`; safe media-type category; head/open/extractor/provider counts |
++
++For every subcase, `open_read`, extractor and provider call counts are zero; the handler takes the
++canonical terminal input path (`INVALID_INPUT` -> `FailTerminal`,
++`failure_reason=terminal_input`); no derivation/activation mutation occurs; and prior active
++knowledge remains active and retrievable. The public response uses the one approved allowlisted
++source-integrity/input-metadata code where the contract permits sharing; the distinct internal
++mismatch category is retained only in safe test evidence, never exposed as raw object metadata.
+ 
+ #### TC-07B: Worker consumes the source incrementally without whole-object materialization
+ 
+@@ -446,5 +451,5 @@ retain their required observable behavior without preselecting those mechanisms.
+ 
+ This guide becomes immutable only after explicit human approval. Any resolution of an ambiguity,
+ semantic test change, or authoritative-specification change requires a new revision; do not rewrite
+-`m2-issue-18-r5` after approval. Store future execution observations separately as JSONL
++`m2-issue-18-r6` after approval. Store future execution observations separately as JSONL
+ Evaluation records.
