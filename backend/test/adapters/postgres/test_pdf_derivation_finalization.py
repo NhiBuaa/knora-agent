@@ -47,7 +47,10 @@ from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 def _submit_job() -> tuple[PostgresIngestionJobStore, str, PdfSubmissionConfiguration]:
     with SessionFactory.begin() as session:
         session.execute(
-            text("TRUNCATE TABLE idempotency_records, ingestion_job_attempts, ingestion_jobs")
+            text(
+                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "ingestion_job_attempts, ingestion_jobs"
+            )
         )
     workspace_id = f"pdf-finalization-{uuid4()}"
     with SessionFactory.begin() as session:
@@ -305,6 +308,7 @@ def test_process_ingestion_job_runs_concrete_pdf_handler_to_atomic_success() -> 
         session.delete(attempt)
         job.status = "queued"
         job.attempt_count = 0
+        job.started_at = None
         job.worker_id = None
         job.lease_expires_at = None
         job.current_attempt_number = None

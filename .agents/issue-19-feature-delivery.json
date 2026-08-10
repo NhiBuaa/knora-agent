@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "workflow_identity": "feature-delivery",
+  "issue": "GitHub Issue #19",
+  "status": "completed",
+  "specification": "https://github.com/NhiBuaa/knora-agent/issues/19",
+  "parent_design_ledger": "https://github.com/NhiBuaa/knora-agent/issues/14",
+  "frontier_evidence": {
+    "issue_19_state": "OPEN",
+    "issue_19_label": "ready-for-agent",
+    "blocked_by": [
+      {
+        "issue": 18,
+        "state": "CLOSED"
+      }
+    ]
+  },
+  "implementation": {
+    "status": "completed",
+    "ticket": "GitHub Issue #19",
+    "guide_revision": "m2-issue-19-r14",
+    "changed_scope": [
+      "Durable public ingestion-job lifecycle projection, timestamps, retry metadata and safe terminal metadata",
+      "Workspace-scoped polling, upload idempotency/deduplication and manual document-version reprocess",
+      "Atomic PostgreSQL reprocess generation, idempotency binding and audit projection",
+      "HTTP upload, polling and reprocess routes/schemas with no-store and retry hints",
+      "Default worker composition and durable-work PDF handler profile resolution",
+      "Issue #19 HTTP/PostgreSQL/application E2E tests and legacy harness fixture invariants"
+    ],
+    "criteria_satisfied": [
+      "All approved Issue #19 implementation paths are covered by deterministic focused tests",
+      "Public polling exposes the locked r14 lifecycle, serving, retry, timestamp and result projections",
+      "Upload and reprocess request-idempotency, scope isolation, deduplication and conflict behavior are durable",
+      "Worker processing preserves activation, supersession, retry and safe terminal outcomes",
+      "PDF upload-to-worker-to-poll-to-citation application path is wired through the approved seams"
+    ],
+    "tests": {
+      "red_observed": [
+        "Five pre-existing harness tests reset a claimed job to queued without clearing the new started_at invariant"
+      ],
+      "focused_commands": [
+        {
+          "command": "pytest -q backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc01_real_worker_transaction_probe_keeps_remote_work_outside_db_transactions backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc02_new_current_failure_preserves_historical_active_and_served_retrieval backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc05a_independent_duplicate_delivery_does_not_repeat_handler_or_provider backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc09_original_source_object_remains_after_concrete_success_and_failure backend/test/adapters/postgres/test_pdf_derivation_finalization.py::test_process_ingestion_job_runs_concrete_pdf_handler_to_atomic_success",
+          "result": "5 passed"
+        },
+        {
+          "command": "pytest -q backend/test/adapters/http/test_issue_19_public.py backend/test/adapters/postgres/test_issue_19_public_postgres.py backend/test/ingestion/test_issue_19_application_e2e.py",
+          "result": "9 passed"
+        },
+        {
+          "command": "pytest -q backend/test/adapters/http/test_ingestion.py backend/test/adapters/postgres/test_ingestion_jobs.py backend/test/adapters/postgres/test_ingestion_job_coordination.py backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py backend/test/adapters/postgres/test_pdf_derivation_finalization.py backend/test/adapters/http/test_issue_19_public.py backend/test/adapters/postgres/test_issue_19_public_postgres.py backend/test/adapters/postgres/test_answering_store.py backend/test/adapters/http/test_questions.py backend/test/ingestion/test_issue_19_application_e2e.py",
+          "result": "117 passed"
+        },
+        {
+          "command": "pytest -q backend/test/adapters/postgres/test_ingestion_job_coordination_migration.py",
+          "result": "3 passed"
+        },
+        {
+          "command": "ruff check .",
+          "result": "All checks passed"
+        },
+        {
+          "command": "docker compose config --quiet",
+          "result": "passed"
+        },
+        {
+          "command": "git diff --check",
+          "result": "passed"
+        },
+        {
+          "command": "alembic -c alembic.ini current (cwd=backend)",
+          "result": "20260810_0017 (head)"
+        }
+      ],
+      "full_suite": {
+        "command": "pytest -q",
+        "result": "341 passed, 3 skipped",
+        "all_tests_green": true
+      }
+    },
+    "typecheck": {
+      "command": "python -m compileall -q backend/src",
+      "result": "passed"
+    },
+    "structural_evidence": {
+      "owning_module": "knora.ingestion plus approved HTTP/PostgreSQL adapter seams",
+      "interface_changes": [
+        "IngestionJobs status and reprocess application ports",
+        "PostgresIngestionJobStore public projection, reprocess and audit operations",
+        "HTTP polling and document-version reprocess schemas/routes",
+        "PdfDerivationHandler durable-work profile resolver"
+      ],
+      "seam_changes": [
+        "All transport behavior delegates through IngestionJobs",
+        "All durable mutations remain in complete PostgreSQL transactions",
+        "Worker composition injects the durable-work profile through the existing handler seam"
+      ],
+      "responsibilities_added": [
+        "Public polling projection and safe lifecycle metadata",
+        "Atomic reprocess/idempotency/audit coordination",
+        "Default application worker wiring"
+      ],
+      "files_created": [
+        "backend/migrations/versions/20260810_0016_public_polling_reprocess.py",
+        "backend/migrations/versions/20260810_0017_lifecycle_timestamp_invariants.py",
+        "backend/test/adapters/http/test_issue_19_public.py",
+        "backend/test/adapters/postgres/test_issue_19_public_postgres.py",
+        "backend/test/adapters/postgres/test_issue_19_acceptance.py",
+        "backend/test/ingestion/test_issue_19_application_e2e.py"
+      ],
+      "largest_changed_file": {
+        "path": "backend/src/knora/adapters/postgres/ingestion_job_store.py",
+        "before_lines": 2120,
+        "after_lines": 2683
+      },
+      "trigger_disposition": "retained",
+      "rationale": "The approved design assigns complete ingestion-job transactions and projections to this deep PostgreSQL adapter; the addition remains cohesive and no generic/pass-through module was introduced."
+    }
+  },
+  "manual_acceptance": {
+    "guide": ".agents/manual-tests/milestone-2/19-public-polling-reprocess-r14.md",
+    "guide_revision": "m2-issue-19-r14",
+    "status": "locked",
+    "human_approval": "approved",
+    "approved_at": "2026-08-10T12:16:02+07:00",
+    "base_guide_revision": "m2-issue-19-r13",
+    "authority_resolutions": [
+      "Manual reprocess audit contract",
+      "Public lifecycle timestamp projection",
+      "config_mode=same_as_job explicit config_source_job_id selector",
+      "Successful terminal polling result"
+    ],
+    "execution": {
+      "status": "completed",
+      "run_id": "m2-issue-19-20260810-acceptance-01",
+      "verdict": "PASSED",
+      "human_approval": "approved",
+      "evaluation_history": ".agents/manual-tests/milestone-2/19-public-polling-reprocess.evaluations.jsonl",
+      "evaluation_record": ".agents/manual-tests/milestone-2/19-public-polling-reprocess-run-20260810-01.json",
+      "finalization_record": ".agents/manual-tests/milestone-2/19-public-polling-reprocess-approved-20260810-01.json",
+      "technical_observations": "All seven Test Cases PASS; explicit human approval recorded in the append-only finalization record."
+    }
+  },
+  "review": {
+    "status": "completed",
+    "pass": true,
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0,
+    "findings": [],
+    "fixed_point": {
+      "base_commit": "c897c2b80b15b3da1eac4734ea37ae78deb4ebe7",
+      "merge_base": "c897c2b80b15b3da1eac4734ea37ae78deb4ebe7",
+      "commit_list": ["c897c2b80b15b3da1eac4734ea37ae78deb4ebe7"],
+      "working_tree_changes": "uncommitted Issue #19 implementation scope",
+      "scope": [
+        "backend/src/knora/adapters/http/routes.py",
+        "backend/src/knora/adapters/http/schemas.py",
+        "backend/src/knora/adapters/postgres/ingestion_job_store.py",
+        "backend/src/knora/adapters/postgres/tables.py",
+        "backend/src/knora/ingestion/job_processing.py",
+        "backend/src/knora/ingestion/jobs.py",
+        "backend/src/knora/main.py",
+        "backend/migrations/versions/20260810_0016_public_polling_reprocess.py",
+        "backend/migrations/versions/20260810_0017_lifecycle_timestamp_invariants.py",
+        "backend/test/adapters/http/test_issue_19_public.py",
+        "backend/test/adapters/postgres/test_issue_19_acceptance.py",
+        "backend/test/adapters/postgres/test_issue_19_public_postgres.py",
+        "backend/test/ingestion/test_issue_19_application_e2e.py",
+        "modified Issue #18 coordination/finalization fixtures"
+      ]
+    },
+    "axes": {
+      "standards": {"status": "completed", "findings": []},
+      "spec": {"status": "completed", "findings": []}
+    }
+  },
+  "accepted_evaluations": [
+    ".agents/manual-tests/milestone-2/19-public-polling-reprocess.evaluations.jsonl#m2-issue-19-20260810-acceptance-01-approved"
+  ],
+  "commits": [],
+  "next_valid_transition": "No further feature-delivery transition. Commit, publish, merge or deploy only under an explicit commit policy and separate authorization."
+}

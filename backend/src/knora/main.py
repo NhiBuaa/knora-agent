@@ -4,8 +4,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
+from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
+from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
@@ -15,6 +17,14 @@ from knora.api.routes import router
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import settings
+from knora.ingestion.job_processing import (
+    AttemptTimingV1,
+    PdfDerivationHandler,
+    ProcessIngestionJob,
+    RetryPolicyV1,
+    SystemRandomSource,
+    UuidOperationIds,
+)
 from knora.ingestion.jobs import IngestionJobs
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import DocumentProcessor
@@ -28,6 +38,7 @@ def create_app(
     answer_question: AnswerQuestion | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
+    ingestion_worker: ProcessIngestionJob | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -59,9 +70,24 @@ def create_app(
         embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
     )
+    job_store = PostgresIngestionJobStore(SessionFactory)
+    object_store = FileSystemObjectStore(settings.object_store_root)
     application.state.ingestion_jobs = ingestion_jobs or IngestionJobs(
-        object_store=FileSystemObjectStore(settings.object_store_root),
-        store=PostgresIngestionJobStore(SessionFactory),
+        object_store=object_store,
+        store=job_store,
+    )
+    application.state.ingestion_worker = ingestion_worker or ProcessIngestionJob(
+        store=job_store,
+        handler=PdfDerivationHandler(
+            object_store=object_store,
+            extractor=PypdfTextExtractor(),
+            embedding_provider=providers.embedding_provider,
+            profile_resolver=job_store.pdf_profile_for_work,
+        ),
+        operation_ids=UuidOperationIds(),
+        timing=AttemptTimingV1.standard(),
+        retry_policy=RetryPolicyV1(SystemRandomSource()),
+        runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
     )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
@@ -93,6 +119,16 @@ def create_app(
             "OBJECT_NOT_FOUND": 404,
             "PDF_RESOURCE_LIMIT_EXCEEDED": 413,
             "PDF_INGESTION_NOT_CONFIGURED": 503,
+            "INGESTION_JOB_NOT_FOUND": 404,
+            "DOCUMENT_VERSION_NOT_FOUND": 404,
+            "SOURCE_OBJECT_NOT_AVAILABLE": 404,
+            "DOCUMENT_VERSION_NOT_CURRENT": 409,
+            "INVALID_CONFIG_MODE": 400,
+            "CONFIG_SOURCE_JOB_REQUIRED": 400,
+            "CONFIG_SOURCE_JOB_NOT_ALLOWED": 400,
+            "CONFIG_SOURCE_JOB_INVALID": 400,
+            "CONFIGURATION_NOT_AVAILABLE": 409,
+            "IDEMPOTENCY_KEY_CONFLICT": 409,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 

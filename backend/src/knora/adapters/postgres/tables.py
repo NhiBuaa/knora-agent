@@ -154,6 +154,7 @@ class IngestionJobTable(Base):
         DateTime(timezone=True), nullable=True
     )
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
     safe_failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -164,6 +165,9 @@ class IngestionJobTable(Base):
     replacement_ingestion_job_id: Mapped[str | None] = mapped_column(
         ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True
     )
+    reprocess_of_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     last_heartbeat_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_heartbeat_request_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_heartbeat_resulting_lease_expires_at: Mapped[datetime | None] = mapped_column(
@@ -171,7 +175,7 @@ class IngestionJobTable(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now()
     )
 
 
@@ -251,6 +255,31 @@ class IdempotencyRecordTable(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReprocessAuditTable(Base):
+    __tablename__ = "reprocess_audit_records"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    actor_key_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_document_version_id: Mapped[str] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="RESTRICT"), index=True
+    )
+    requested_config_mode: Mapped[str] = mapped_column(String(30), nullable=False)
+    resolved_config_mode: Mapped[str] = mapped_column(String(30), nullable=False)
+    config_source_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    ingestion_job_id: Mapped[str] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), index=True
+    )
+    outcome: Mapped[str] = mapped_column(String(30), nullable=False)
+    trace_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class ChunkingConfigurationTable(Base):

@@ -67,7 +67,10 @@ from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 def clean_coordination_state() -> None:
     with SessionFactory.begin() as session:
         session.execute(
-            text("TRUNCATE TABLE idempotency_records, ingestion_job_attempts, ingestion_jobs")
+            text(
+                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "ingestion_job_attempts, ingestion_jobs"
+            )
         )
 
 
@@ -310,6 +313,7 @@ def reset_claim(job_id: str) -> None:
         session.delete(attempt)
         job.status = "queued"
         job.attempt_count = 0
+        job.started_at = None
         job.worker_id = None
         job.lease_expires_at = None
         job.current_attempt_number = None
@@ -426,6 +430,7 @@ def test_tc01_real_worker_transaction_probe_keeps_remote_work_outside_db_transac
             session.delete(attempt)
             job.status = "queued"
             job.attempt_count = 0
+            job.started_at = None
             job.worker_id = None
             job.lease_expires_at = None
             job.current_attempt_number = None
