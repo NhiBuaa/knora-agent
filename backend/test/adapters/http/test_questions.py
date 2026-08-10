@@ -45,6 +45,10 @@ class RecordingAnswerQuestion:
                     end_line=4,
                     excerpt="Refunds are available for thirty days.",
                     content_checksum="sha256:abc",
+                    page_start=7,
+                    page_end=8,
+                    start_offset=11,
+                    end_offset=29,
                 ),
             ),
             refusal_reason=None,
@@ -55,6 +59,30 @@ class RecordingAnswerQuestion:
 class InvalidGenerationService:
     async def execute(self, command, principal):
         raise KnoraError("GENERATION_OUTPUT_INVALID")
+
+
+class LegacyCitationService:
+    async def execute(self, command, principal) -> QuestionResult:
+        return QuestionResult(
+            decision="ANSWER",
+            answer="Legacy answer [[E1]]",
+            citations=(
+                CitationProjection(
+                    evidence_id="E1",
+                    document_id="document-legacy",
+                    document_version_id="version-legacy",
+                    source_key="support/legacy",
+                    source_name="legacy.md",
+                    heading_path=("Legacy",),
+                    start_line=1,
+                    end_line=1,
+                    excerpt="Legacy citation.",
+                    content_checksum="sha256:legacy",
+                ),
+            ),
+            refusal_reason=None,
+            trace_id="trace-legacy",
+        )
 
 
 @dataclass
@@ -98,9 +126,7 @@ def client_with(service: RecordingAnswerQuestion) -> TestClient:
             ),
         )
     )
-    return TestClient(
-        create_app(answer_question=service, api_key_authenticator=authenticator)
-    )
+    return TestClient(create_app(answer_question=service, api_key_authenticator=authenticator))
 
 
 def test_question_http_contract_projects_validated_citations() -> None:
@@ -128,6 +154,10 @@ def test_question_http_contract_projects_validated_citations() -> None:
                 "end_line": 4,
                 "excerpt": "Refunds are available for thirty days.",
                 "content_checksum": "sha256:abc",
+                "page_start": 7,
+                "page_end": 8,
+                "start_offset": 11,
+                "end_offset": 29,
             }
         ],
         "refusal_reason": None,
@@ -150,6 +180,34 @@ def test_question_workspace_mismatch_is_rejected_before_application_call() -> No
     assert response.status_code == 403
     assert response.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
     assert service.calls == []
+
+
+def test_question_http_contract_preserves_null_pdf_locators_for_legacy_citations() -> None:
+    response = client_with(LegacyCitationService()).post(
+        "/v1/questions",
+        headers={"X-API-Key": RAW_KEY},
+        json={"workspace_id": "workspace-a", "question": "What is the legacy policy?"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["citations"] == [
+        {
+            "evidence_id": "E1",
+            "document_id": "document-legacy",
+            "document_version_id": "version-legacy",
+            "source_key": "support/legacy",
+            "source_name": "legacy.md",
+            "heading_path": ["Legacy"],
+            "start_line": 1,
+            "end_line": 1,
+            "excerpt": "Legacy citation.",
+            "content_checksum": "sha256:legacy",
+            "page_start": None,
+            "page_end": None,
+            "start_offset": None,
+            "end_offset": None,
+        }
+    ]
 
 
 def test_missing_and_invalid_keys_are_rejected_before_question_application_call() -> None:
