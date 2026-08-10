@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-18-20260810-r8-acceptance-01",
+  "observed_at": "2026-08-10T06:40:14+07:00",
+  "executor": "Codex",
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "BLOCKED",
+      "observation": "The concrete PDF handler, atomic derivation finalization, activation and worker flow passed automated PostgreSQL-backed checks, but the locked end-to-end citation query and transaction probe were not executed in the required controlled manual environment.",
+      "evidence": [
+        "141 relevant tests passed in one process",
+        "test_pdf_success_finalization_commits_complete_derivation_and_activation: PASS",
+        "test_process_ingestion_job_runs_concrete_pdf_handler_to_atomic_success: PASS"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "BLOCKED",
+      "observation": "Supporting current-version, active-set and question-seam tests passed, but the locked PDF profile-A/profile-B mutable-selection scenario and historical-serving observation were not run with the required PDF fixture and status trace.",
+      "evidence": [
+        "test_postgres_pdf_submission_serializes_competing_source_versions: PASS",
+        "test_http_question_uses_active_postgres_corpus_and_persists_trace: PASS",
+        "Profile-A/profile-B worker trace and current-versus-served PDF evaluation fixture: NOT RUN"
+      ]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "BLOCKED",
+      "observation": "The handler has the typed failure taxonomy and basic invalid-input mapping passed, but the complete TC-03A-TC-03L injection matrix was not executed; the PDF handler-specific transient provider, storage and extractor cases need controlled sentinels and attempt-history evidence.",
+      "evidence": [
+        "test_pdf_handler_rejects_inconsistent_pinned_profile_before_object_access: PASS",
+        "test_pdf_handler_rejects_source_metadata_before_streaming_or_extraction: PASS",
+        "TC-03A-TC-03L complete handler injection matrix: NOT RUN"
+      ]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "BLOCKED",
+      "observation": "Stale-target supersession and replacement-field persistence passed focused tests, but the locked two-job held-worker A/B sequence and post-completion retrieval observation were not executed as a manual scenario.",
+      "evidence": [
+        "test_pdf_success_finalization_persists_history_but_supersedes_stale_target: PASS",
+        "test_finalize_superseded_closes_a_stale_target_attempt_atomically: PASS",
+        "Held-worker A/B supersession sequence with B-only question: NOT RUN"
+      ]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "BLOCKED",
+      "observation": "Operation replay and reconciliation behavior passed automated checks, but the exact PDF success transport-loss injection and definite pre-commit PDF finalization rollback with row-count evidence were not run in the locked controlled environment.",
+      "evidence": [
+        "test_pdf_success_finalization_replays_one_operation_without_duplicate_rows: PASS",
+        "test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit: PASS in full single-process run",
+        "Exact PDF post-commit transport loss and pre-commit rollback injections: NOT RUN"
+      ]
+    },
+    {
+      "id": "TC-06",
+      "outcome": "PASS",
+      "observation": "Heartbeat fencing, late-completion detachment, stale finalization fencing and expiry recovery without a successor attempt passed through the worker-coordination and PostgreSQL seams.",
+      "evidence": [
+        "test_supervisor_fencing_cancels_and_detaches_before_finalization: PASS",
+        "test_run_once_maps_a_definite_heartbeat_fence_to_lease_lost: PASS",
+        "test_expired_lease_fences_terminal_finalization: PASS",
+        "test_expired_observation_applies_scheduled_recovery_before_a_separate_claim: PASS",
+        "test_expired_final_attempt_recovers_to_retry_exhausted_without_attempt_two: PASS"
+      ]
+    },
+    {
+      "id": "TC-07",
+      "outcome": "BLOCKED",
+      "observation": "One source-metadata rejection and the streaming object-store seam passed, but the five independent metadata mismatch cases and the required parent raw-source-retention probe were not executed.",
+      "evidence": [
+        "test_pdf_handler_rejects_source_metadata_before_streaming_or_extraction: PASS",
+        "test_filesystem_object_store_enforces_streaming_size_limit_and_idempotent_delete: PASS",
+        "TC-07A1-TC-07A5 independent mismatch matrix and TC-07B retention probe: NOT RUN"
+      ]
+    },
+    {
+      "id": "TC-08",
+      "outcome": "PASS",
+      "observation": "PostgreSQL rejected cross-document and cross-workspace active-set pointers, incomplete active sets, protected active-set deletion, and invalid current-version pointer/deletion mutations while preserving valid state.",
+      "evidence": [
+        "test_active_embedding_set_cannot_belong_to_another_document[same-workspace/cross-workspace]: PASS",
+        "test_active_embedding_set_must_be_completed: PASS",
+        "test_active_embedding_set_cannot_become_incomplete: PASS",
+        "test_active_embedding_set_cannot_be_deleted: PASS",
+        "test_current_version_pointer_rejects_cross_document_assignment_and_hard_delete: PASS"
+      ]
+    },
+    {
+      "id": "TC-09",
+      "outcome": "BLOCKED",
+      "observation": "No immediate source-object deletion is present in the implementation path, but the locked delete-spy execution for concrete PDF success and terminal failure was not run, so source-object preservation cannot be recorded as manual PASS.",
+      "evidence": [
+        "Implementation path has no terminal PDF ObjectStore.delete call",
+        "Concrete PDF terminal success/failure source-retention delete-spy: NOT RUN"
+      ]
+    }
+  ],
+  "verdict": "BLOCKED",
+  "human_approval": "pending"
+}

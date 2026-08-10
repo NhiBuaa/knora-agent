@@ -1,0 +1,16 @@
+{
+  "status": "completed",
+  "axis": "standards",
+  "findings": [
+    {
+      "severity": "major",
+      "location": "backend/src/knora/adapters/postgres/ingestion_job_store.py:753-968 (_finalize_pdf_success_once)",
+      "evidence": "The transaction samples PostgreSQL time and proves the token is unexpired at line 753, then performs resource locks, Chunk Set/Embedding Set writes and the activation/attempt close without another fresh clock-and-token check before flush/commit.",
+      "problem": "The fenced finalization path does not revalidate worker_id, lease_version and the unexpired lease at the commit boundary.",
+      "harm": "A slow finalization transaction can outlive the lease while holding the job row lock and still publish a succeeded activation or superseded outcome from an expired worker, violating the worker-coordination fencing invariant and allowing stale work to become retrieval-visible.",
+      "fix": "Take a fresh PostgreSQL clock sample and revalidate the unchanged current token immediately before activation/attempt closure and commit; return Fenced so the transaction rolls back all tentative derivation writes when the lease is no longer valid. Add a deterministic clock/lock probe covering expiry during finalization.",
+      "classification": "implementation defect"
+    }
+  ],
+  "report": "Standards review: one major implementation defect. The claim is fenced at entry, but the finalization transaction has no commit-boundary lease recheck. The remaining transaction-probe and raw-retention observations are harness-only capabilities and are addressed by the authorized test harness work."
+}

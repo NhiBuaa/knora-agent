@@ -1,0 +1,128 @@
+diff --git "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r3.md" "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r4.md"
+index 7fb27a2..d1b88d4 100644
+--- "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r3.md"
++++ "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r4.md"
+@@ -2,15 +2,15 @@
+ 
+ ## Metadata
+ 
+-- Status: Draft — revision `m2-issue-18-r3` awaits explicit human approval. Do not implement or
++- Status: Draft — revision `m2-issue-18-r4` awaits explicit human approval. Do not implement or
+   execute this guide.
+ - Feature: Milestone 2 — Production-shaped ingestion
+ - Slice: GitHub issue #18 — PDF derivation, embedding, and CAS activation
+ - Authoritative specification: https://github.com/NhiBuaa/knora-agent/issues/18
+ - Design: `docs/design/issue-18-pdf-derivation-activation.md`
+-- Guide revision: `m2-issue-18-r3`
+-- Supersedes: draft `m2-issue-18-r2` at
+-  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r2.md`; r1 and r2 remain
++- Guide revision: `m2-issue-18-r4`
++- Supersedes: draft `m2-issue-18-r3` at
++  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r3.md`; r1, r2 and r3 remain
+   unchanged.
+ - Approved by: Pending
+ - Approved at: Pending
+@@ -56,7 +56,7 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+ | Worker uses job-snapshotted configuration IDs, never mutable current selection | TC-01B steps 1–3; TC-02B steps 1–2 | Profile A is used after current selection moves to B; invalid A never falls back to B | Handler profile trace, persisted configuration IDs, provider call count |
+ | Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A steps 1–3; TC-07B steps 1–3 | Mismatch stops before extractor/provider; reader rejects unbounded application read | Metadata comparison, zero call counts, bounded-reader trace |
+ | Parser/chunker creates or reuses the correct PDF Chunk Set | TC-01A steps 1–3; TC-05A steps 1–3 | Exact full derivation identity creates/reuses one immutable complete Chunk Set | Chunk Set identity, chunk ordinal/checksum/page-offset projection |
+-| Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | No attempt-owned application DB transaction remains open during provider work; only exact vector identity persists | All-connection transaction-depth trace, finalization lock trace, provider trace, vector validation projection |
++| Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | No handler/configuration/persistence or finalization/activation transaction encloses remote work; independent short heartbeat transactions may overlap | Correlated transaction ownership trace, finalization lock trace, provider trace, vector validation projection |
+ | Retry taxonomy covers approved transient categories; deterministic failures are terminal | TC-03A–TC-03E and TC-03G–TC-03L; TC-03F is the upstream blocker | Every executable fixed injection maps to its named failure kind/cause and policy disposition | Handler fact, canonical cause, attempt history, policy metadata, call counts |
+ | Final persistence atomically creates/reuses a complete chain with no partial retrieval-visible derivation | TC-01A; TC-05C steps 1–3 | Commit has complete chain plus terminal outcome, while definite rollback has neither | Transaction outcome, all derivation row counts, active pointer, attempt/job fields |
+ | Activation CAS requires live fencing, current target and same Document/Workspace complete set | TC-01A; TC-04; TC-06B; TC-08A–TC-08C | Valid claim activates; stale claim is fenced; stale target is superseded; invalid pointers are rejected | Token/result, pointer state, transaction result and DB constraint error class |
+@@ -111,27 +111,35 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+   - Durable job snapshot before processing, extractor/provider received-profile traces and complete
+     persisted configuration-ID projection.
+ 
+-#### TC-01C: Prove extraction, chunking and provider work occur with no attempt-owned DB transaction
++#### TC-01C: Prove remote work is not enclosed by a handler/persistence transaction
+ 
+-- Injection: an all-connection transaction probe increments/decrements depth for every application
+-  database connection acquired by this attempt, including handler/configuration lookups and
+-  finalization; extractor, chunker and provider spies mark begin/end. The provider blocks until
+-  the probe reports `open_db_transaction_count == 0`, then returns the fixed valid batch.
++- Injection: a correlated transaction probe records transaction ID, connection ID, operation/span
++  kind, owner and begin/end for every attempt connection. Its kinds distinguish claim/recovery,
++  heartbeat, handler/configuration/persistence lookup, and finalization/activation. Extractor,
++  chunker and provider spies record begin/end; the provider returns the fixed valid batch while a
++  controlled short heartbeat transaction begins and commits independently.
+ - Steps:
+   1. Run the profile-A fixture through one worker iteration.
+-  2. At every observed instant from extraction begin through extraction/chunking end and from
+-     provider begin through provider end, assert `open_db_transaction_count == 0`.
++  2. Inspect every transaction whose lifetime intersects extraction/chunking or
++     `provider.begin -> provider.end`.
+   3. Inspect the ordered probe trace after success.
+ - Expected results:
+-  - Extraction, chunking and provider work have zero attempt-owned open database transactions.
+-    The probe fails a handler/configuration lookup transaction held through either activity.
++  - No handler/configuration/persistence lookup transaction begins before extraction/chunking or
++    provider activity and remains open through it. The provider does not execute within, inherit,
++    or become enclosed by any such transaction context.
++  - No finalization/activation transaction begins before valid provider output exists. A short,
++    independent heartbeat transaction may begin and commit while remote work runs and is not a
++    failure.
++  - The probe fails a long-held handler/configuration/persistence or finalization transaction around
++    remote work, while passing the controlled concurrent heartbeat.
+   - Finalization transaction begin and activation-row locking occur only after valid provider output
+     exists.
+   - Finalization runs only after the valid provider output exists and produces TC-01A's atomic
+     outcome.
+ - Evidence to capture:
+-  - All-connection transaction-depth events, extraction/chunking/provider boundaries, finalization
+-    begin/end and lock events, plus final lifecycle/derivation projection.
++  - Correlated transaction records and ownership classification, extraction/chunking/provider
++    boundaries, concurrent heartbeat begin/end, finalization begin/end and lock events, plus final
++    lifecycle/derivation projection.
+ 
+ ### TC-02: Preserve served historical knowledge during and after deterministic target failure
+ 
+@@ -362,25 +370,30 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+ 
+ #### TC-07B: Worker consumes the source incrementally without whole-object materialization
+ 
+-- Injection: `ObjectStore.open_read` returns a bounded-consumption spy that rejects its
+-  whole-object read operation and records incremental consumption, cumulative bytes and peak
+-  application-resident buffer. The isolated extractor test adapter may receive a bounded wrapper,
+-  pipe, file descriptor or bounded spool-to-disk; it returns the fixed projection after consuming
+-  the complete source through that approved bounded transport.
++- Injection: `ObjectStore.open_read` returns an instrumented incremental source. A parent-process
++  raw-source-retention probe records every byte-buffer allocation/reference derived from that
++  source and fails if any live parent application buffer or assembled value equals the complete raw
++  source. The isolated extractor test adapter may receive a bounded wrapper, pipe, file descriptor
++  or bounded spool-to-disk; it returns the fixed projection after consuming the complete source
++  through that approved bounded transport.
+ - Steps:
+   1. Run the valid fixture handler to extraction completion.
+-  2. Inspect source-consumption, whole-object-read and application-memory traces before
++  2. Inspect source-consumption, whole-object-read and parent raw-source-retention traces before
+      provider/finalization.
+ - Expected results:
+   - No worker/application whole-object read API is called, and the application does not materialize
+-    the full raw PDF in memory. Source consumption is incremental and bounded under the approved
+-    ingestion limits (25 MiB raw object and 256 MiB isolated-extractor memory ceiling).
++    the full raw PDF in memory. The retention probe rejects the invalid shape that repeatedly reads
++    bounded chunks but assembles and retains the entire raw PDF in the parent application.
++  - Source consumption is incremental. Its bounded transport remains subject to the approved 25 MiB
++    raw-object limit; isolated extractor RSS is verified separately against its 256 MiB budget and
++    is not used as the no-materialization oracle.
+   - The case accepts any streaming-valid bounded wrapper/pipe/file-descriptor/spool transport; it
+     does not prescribe a Python object identity or chunk size. The valid path makes exactly one
+     provider call and continues normally.
+ - Evidence to capture:
+-  - Whole-object-read count zero, incremental-consumption trace, peak application-resident buffer,
+-    bounded transport classification, extractor/provider counts and lifecycle result.
++  - Whole-object-read count zero, incremental-consumption trace, retention-probe report showing no
++    complete parent raw-source buffer, bounded transport classification, extractor/provider counts
++    and lifecycle result.
+ 
+ ### TC-08: PostgreSQL, not application validation alone, protects activation and retention
+ 
+@@ -426,5 +439,5 @@ retain their required observable behavior without preselecting those mechanisms.
+ 
+ This guide becomes immutable only after explicit human approval. Any resolution of an ambiguity,
+ semantic test change, or authoritative-specification change requires a new revision; do not rewrite
+-`m2-issue-18-r3` after approval. Store future execution observations separately as JSONL
++`m2-issue-18-r4` after approval. Store future execution observations separately as JSONL
+ Evaluation records.

@@ -1,0 +1,50 @@
+{
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "pass": false,
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "scope": "Issue #18 production implementation plus controlled r8 acceptance harness",
+  "guide_revision": "m2-issue-18-r8",
+  "findings": [
+    {
+      "severity": "major",
+      "classification": "implementation defect",
+      "location": "backend/src/knora/adapters/postgres/ingestion_job_store.py:753-968 (_finalize_pdf_success_once)",
+      "evidence": "The fenced finalization transaction samples PostgreSQL time and proves the claim at entry, then performs configuration/resource locks, derivation writes, activation CAS and attempt closure using the original database_now value without a fresh lease check immediately before commit.",
+      "problem": "Finalization does not revalidate worker_id, lease_version and the unexpired lease at the commit boundary.",
+      "harm": "A transaction that outlives the lease can still publish a succeeded activation or superseded outcome from an expired worker, violating live fencing and stale-result safety.",
+      "required_follow_up": "Add a fresh database-time/token check immediately before activation and attempt closure/commit; return Fenced so tentative derivation writes roll back, with a deterministic expiry-during-finalization harness oracle."
+    },
+    {
+      "severity": "major",
+      "classification": "implementation defect",
+      "location": "backend/src/knora/api/schemas.py:17-27 (CitationResponse)",
+      "evidence": "The application CitationProjection and PostgreSQL retrieval candidate carry page_start, page_end, start_offset and end_offset, but CitationResponse does not declare those fields. A controlled HTTP probe therefore drops all four PDF locator values from the public response.",
+      "problem": "The HTTP question contract loses the canonical PDF physical-page and normalized-text offset provenance.",
+      "harm": "Clients cannot verify the locked PDF citation oracle through the existing HTTP question seam, and TC-01 citation evidence is incomplete even though internal projections contain the locator.",
+      "required_follow_up": "Expose the four nullable locator fields in CitationResponse and add a contract test preserving nulls for legacy Markdown/text citations."
+    }
+  ],
+  "harness_review": {
+    "status": "resolved",
+    "classification": "harness-only missing capability closed",
+    "evidence": [
+      "backend/test/ingestion/test_issue_18_acceptance_harness.py",
+      "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py",
+      "backend/test/fixtures/issue_18_acceptance.py",
+      "30 focused acceptance-harness tests passed before the final vector-count addition; 31 focused tests pass after it"
+    ]
+  },
+  "no_issue_areas": [
+    "immutable snapshotted profile use",
+    "ObjectStore metadata verification and bounded source reads",
+    "remote provider/extractor work outside finalization transactions",
+    "vector count/dimension/provider/model validation before persistence",
+    "atomic derivation persistence and activation CAS",
+    "duplicate delivery, operation replay, definite rollback and supersession",
+    "database ownership/completeness constraints",
+    "Original Source Object retention"
+  ]
+}

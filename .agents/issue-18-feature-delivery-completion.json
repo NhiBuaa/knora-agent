@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "workflow_identity": "feature-delivery",
+  "issue": "GitHub Issue #18",
+  "status": "completed",
+  "tickets": [{
+    "issue": "GitHub Issue #18",
+    "implementation": {"status": "completed", "all_tests_green": true},
+    "acceptance": {
+      "status": "completed",
+      "verdict": "PASSED",
+      "human_approval": "approved",
+      "guide_revision": "m2-issue-18-r8",
+      "finalization_record": ".agents/manual-tests/milestone-2/18-pdf-derivation-activation-r8-run-20260810-03-approved.json"
+    }
+  }],
+  "review": {"status": "completed", "pass": true, "verdict": "APPROVE", "critical_count": 0, "major_count": 0},
+  "remaining_blockers": []
+}

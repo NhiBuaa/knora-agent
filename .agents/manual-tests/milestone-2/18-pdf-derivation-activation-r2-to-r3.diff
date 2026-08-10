@@ -1,0 +1,303 @@
+diff --git "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r2.md" "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r3.md"
+index 0d8b79f..7fb27a2 100644
+--- "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r2.md"
++++ "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r3.md"
+@@ -2,15 +2,16 @@
+ 
+ ## Metadata
+ 
+-- Status: Draft — revision `m2-issue-18-r2` awaits explicit human approval. Do not implement or
++- Status: Draft — revision `m2-issue-18-r3` awaits explicit human approval. Do not implement or
+   execute this guide.
+ - Feature: Milestone 2 — Production-shaped ingestion
+ - Slice: GitHub issue #18 — PDF derivation, embedding, and CAS activation
+ - Authoritative specification: https://github.com/NhiBuaa/knora-agent/issues/18
+ - Design: `docs/design/issue-18-pdf-derivation-activation.md`
+-- Guide revision: `m2-issue-18-r2`
+-- Supersedes: draft `m2-issue-18-r1` at
+-  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation.md`; r1 remains unchanged.
++- Guide revision: `m2-issue-18-r3`
++- Supersedes: draft `m2-issue-18-r2` at
++  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r2.md`; r1 and r2 remain
++  unchanged.
+ - Approved by: Pending
+ - Approved at: Pending
+ 
+@@ -55,14 +56,15 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+ | Worker uses job-snapshotted configuration IDs, never mutable current selection | TC-01B steps 1–3; TC-02B steps 1–2 | Profile A is used after current selection moves to B; invalid A never falls back to B | Handler profile trace, persisted configuration IDs, provider call count |
+ | Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A steps 1–3; TC-07B steps 1–3 | Mismatch stops before extractor/provider; reader rejects unbounded application read | Metadata comparison, zero call counts, bounded-reader trace |
+ | Parser/chunker creates or reuses the correct PDF Chunk Set | TC-01A steps 1–3; TC-05A steps 1–3 | Exact full derivation identity creates/reuses one immutable complete Chunk Set | Chunk Set identity, chunk ordinal/checksum/page-offset projection |
+-| Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | Provider completes before final transaction/activation lock; only exact vector identity persists | Transaction/lock probe, provider trace, vector validation projection |
+-| Retry taxonomy covers approved transient categories; deterministic failures are terminal | TC-03A–TC-03F and TC-03G–TC-03K | Each fixed injection maps to its named failure kind/cause, policy disposition and safe result | Handler fact, canonical cause, attempt history, policy metadata, call counts |
++| Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | No attempt-owned application DB transaction remains open during provider work; only exact vector identity persists | All-connection transaction-depth trace, finalization lock trace, provider trace, vector validation projection |
++| Retry taxonomy covers approved transient categories; deterministic failures are terminal | TC-03A–TC-03E and TC-03G–TC-03L; TC-03F is the upstream blocker | Every executable fixed injection maps to its named failure kind/cause and policy disposition | Handler fact, canonical cause, attempt history, policy metadata, call counts |
+ | Final persistence atomically creates/reuses a complete chain with no partial retrieval-visible derivation | TC-01A; TC-05C steps 1–3 | Commit has complete chain plus terminal outcome, while definite rollback has neither | Transaction outcome, all derivation row counts, active pointer, attempt/job fields |
+ | Activation CAS requires live fencing, current target and same Document/Workspace complete set | TC-01A; TC-04; TC-06B; TC-08A–TC-08C | Valid claim activates; stale claim is fenced; stale target is superseded; invalid pointers are rejected | Token/result, pointer state, transaction result and DB constraint error class |
+ | Newer source makes old target superseded without another retry and records replacement when available | TC-04 steps 1–4 | Older job reaches `superseded`, not failed/retried, while newer version stays current/served | A/B job snapshots, attempt count, replacement fields, current/active/served projection |
+ | Current and active source versions may differ while prior knowledge remains served | TC-02A steps 1–4 | Failed/in-progress new current version is not retrieval-visible; historical active version remains cited | Current, active and served IDs plus historical question response |
+ | Constraints prevent cross-Document/Workspace/incomplete pointers and protected deletion | TC-08A–TC-08E | Database rejects every direct invalid mutation atomically | Direct mutation outcome, constraint/FK evidence, unchanged rows/pointers |
+ | Integration coverage includes local activation, retry, terminal failure, lease loss, stale CAS, duplicate delivery and rollback | TC-01 through TC-06 | Each named lifecycle path has one deterministic full or focused integration seam | Per-case evidence listed below and Evaluation record links after execution |
++| Isolated extractor child failure is a handler fact; worker process disappearance is durable lease expiry | TC-03E; TC-06C | Extractor unavailability maps through the handler; vanished worker is recorded only as `LEASE_EXPIRED` during recovery | Extractor error/cause trace; expiry observation/recovery and later-claim trace |
+ 
+ ## Locked Test Cases
+ 
+@@ -109,23 +111,27 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+   - Durable job snapshot before processing, extractor/provider received-profile traces and complete
+     persisted configuration-ID projection.
+ 
+-#### TC-01C: Prove provider work is outside final persistence transactions
++#### TC-01C: Prove extraction, chunking and provider work occur with no attempt-owned DB transaction
+ 
+-- Injection: transaction/lock probe marks finalization transaction begin/end and each
+-  job/attempt/document/activation lock; provider spy marks begin/end. The provider blocks until the
+-  probe confirms no finalization transaction is open, then returns the fixed valid batch.
++- Injection: an all-connection transaction probe increments/decrements depth for every application
++  database connection acquired by this attempt, including handler/configuration lookups and
++  finalization; extractor, chunker and provider spies mark begin/end. The provider blocks until
++  the probe reports `open_db_transaction_count == 0`, then returns the fixed valid batch.
+ - Steps:
+   1. Run the profile-A fixture through one worker iteration.
+-  2. Release the provider only after the probe asserts no finalization transaction or activation
+-     lock is active.
++  2. At every observed instant from extraction begin through extraction/chunking end and from
++     provider begin through provider end, assert `open_db_transaction_count == 0`.
+   3. Inspect the ordered probe trace after success.
+ - Expected results:
+-  - Extraction and provider completion precede finalization transaction begin and activation-row
+-    locking. No database transaction is held across remote provider work.
++  - Extraction, chunking and provider work have zero attempt-owned open database transactions.
++    The probe fails a handler/configuration lookup transaction held through either activity.
++  - Finalization transaction begin and activation-row locking occur only after valid provider output
++    exists.
+   - Finalization runs only after the valid provider output exists and produces TC-01A's atomic
+     outcome.
+ - Evidence to capture:
+-  - Monotonic ordered provider/transaction/lock events and final lifecycle/derivation projection.
++  - All-connection transaction-depth events, extraction/chunking/provider boundaries, finalization
++    begin/end and lock events, plus final lifecycle/derivation projection.
+ 
+ ### TC-02: Preserve served historical knowledge during and after deterministic target failure
+ 
+@@ -146,29 +152,34 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+   - Both questions retrieve/cite H. No inactive or partial N Chunk/Embedding Set is retrieval
+     visible.
+   - N is terminal `failed` with one counted closed attempt, no retry, `failure_reason=terminal_input`
+-    and the approved allowlisted textless-PDF safe code.
++    and `PDF_TEXT_INSUFFICIENT`.
+ - Evidence to capture:
+   - Before/during/after current-active-served projection; both cited answers; N job/attempt result;
+     retrieval candidate projection and N derivation row counts.
+ 
+-#### TC-02B: Invalid pinned configuration does not fall back to profile B
++#### TC-02B: An invalid immutable work/configuration fixture never falls back to profile B
+ 
+-- Injection: enqueue under profile A, then mark A's immutable extraction/profile record invalid
+-  while profile B is valid and selected as mutable current. The handler receives A and emits
+-  `HandlerFailureKindV1.CONFIGURATION_INVALID` before object read/extraction/provider work.
++- Injection: focused concrete-handler seam only; public submission is not used. Construct one
++  frozen `IngestionWork` whose pinned parser ID is
++  `pdf-parser-pypdf-6-14-2-plain-layout-v1`, normalizer ID is `pdf-normalizer-m2-v1`, and chunking
++  ID is `chunking-m2-pdf-pypdf-6-14-2-v1`; pair it with a frozen selected profile whose
++  `PdfExtractionConfiguration.normalizer_version` is `pdf-normalizer-m2-v2`. The IDs and profile
++  are therefore internally inconsistent before the handler begins and no historical immutable
++  configuration record is mutated. Mutable current selection is valid profile B.
+ - Steps:
+-  1. Switch controlled current selection to B after enqueueing A.
+-  2. Run the A job once.
++  1. Assemble the fixed inconsistent work/profile fixture and set current selection to B.
++  2. Execute the concrete handler once and inspect received profile, ObjectStore, extractor and
++     provider traces.
+ - Expected results:
+   - The canonical cause is `CONFIGURATION_INVALID`; policy is terminal, with
+     `failure_reason=terminal_config`; extraction/provider call counts are zero; no profile-B work
+     or derivation is created.
+-  - The exact public safe code is the pinned-config code named by the implementation contract;
+-    until that code is named, this case remains an approval blocker listed below rather than an
+-    operator-chosen value.
++  - The fixed invalid fact is the normalizer-ID/version disagreement. The handler rejects it before
++    ObjectStore read and never falls back to mutable profile B. Its public code need only be the
++    approved allowlisted configuration-invalid code; a distinct code name is not required here.
+ - Evidence to capture:
+-  - Handler failure fact/cause/policy/attempt history, profile traces, zero call counts and zero
+-    derivation/pointer delta.
++  - Work/profile identity comparison, handler failure fact/cause/policy, profile traces, zero
++    ObjectStore/extractor/provider calls and zero derivation/pointer delta.
+ 
+ ### TC-03: Classify deterministic worker failures and retry only approved transient facts
+ 
+@@ -179,23 +190,26 @@ count remains one and there is no provider/extractor call after the named failur
+ 
+ | Subcase | Fixed injection | Expected handler kind -> canonical cause | Expected disposition / safe public result | Required call count and persistence delta |
+ | --- | --- | --- | --- | --- |
+-| TC-03A | Provider raises fixed timeout classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; exact provider-timeout allowlisted code | extractor 1, provider 1; no derivation/activation; closed retry attempt with V1 audit |
+-| TC-03B | Provider returns fixed HTTP 429 classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; exact provider-throttled allowlisted code | extractor 1, provider 1; same retry-only delta |
+-| TC-03C | Provider returns fixed HTTP 503 classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; exact provider-5xx allowlisted code | extractor 1, provider 1; same retry-only delta |
+-| TC-03D | `ObjectStore.open_read` raises the approved transient-storage sentinel before extractor starts | `STORAGE_TRANSIENT` -> `STORAGE_TRANSIENT` | `ScheduleRetry`; exact storage-transient allowlisted code | extractor 0, provider 0; same retry-only delta |
++| TC-03A | Provider raises fixed timeout classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; the approved allowlisted provider-transient code (shared code permitted) | extractor 1, provider 1; no derivation/activation; closed retry attempt with V1 audit |
++| TC-03B | Provider returns fixed HTTP 429 classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; the approved allowlisted provider-transient code (shared code permitted) | extractor 1, provider 1; same retry-only delta |
++| TC-03C | Provider returns fixed HTTP 503 classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; the approved allowlisted provider-transient code (shared code permitted) | extractor 1, provider 1; same retry-only delta |
++| TC-03D | `ObjectStore.open_read` raises the approved transient-storage sentinel before extractor starts | `STORAGE_TRANSIENT` -> `STORAGE_TRANSIENT` | `ScheduleRetry`; approved allowlisted storage-transient code | extractor 0, provider 0; same retry-only delta |
+ | TC-03E | Isolated extractor returns `PDF_EXTRACTOR_UNAVAILABLE` with reason `CHILD_CRASH` and `retryable=True` | `WORKER_UNEXPECTED` -> `WORKER_UNEXPECTED` | `ScheduleRetry`; `PDF_EXTRACTOR_UNAVAILABLE` | extractor 1, provider 0; same retry-only delta |
+-| TC-03F | Handler-owned approved transient database dependency raises its fixed sentinel before provider call | `DATABASE_TRANSIENT` -> `DATABASE_TRANSIENT` | `ScheduleRetry`; exact business-database allowlisted code | extractor/provider count fixed by the selected approved seam; no finalization mutation |
++| TC-03F | **Blocked upstream:** no approved handler-owned database dependency/sentinel exists | Required `DATABASE_TRANSIENT` mapping is undefined | Cannot execute or lock until Issue #18 is authoritatively resolved | No invented injection, call count or persistence delta |
+ | TC-03G | Extractor returns fixed `PDF_TEXT_INSUFFICIENT` with reason `INSUFFICIENT_EXTRACTABLE_TEXT` | `INVALID_INPUT` -> `INVALID_INPUT` | `FailTerminal`, `failure_reason=terminal_input`, `PDF_TEXT_INSUFFICIENT` | extractor 1, provider 0; no derivation/activation |
+ | TC-03H | Extractor returns fixed `PDF_ENCRYPTED` with reason `ENCRYPTED` | `UNSUPPORTED_INPUT` -> `UNSUPPORTED_INPUT` | `FailTerminal`, `failure_reason=terminal_input`, `PDF_ENCRYPTED` | extractor 1, provider 0; no derivation/activation |
+-| TC-03I | Profile A is fixed invalid as in TC-02B | `CONFIGURATION_INVALID` -> `CONFIGURATION_INVALID` | `FailTerminal`, `failure_reason=terminal_config`, pinned-config code | extractor 0, provider 0; no derivation/activation |
+-| TC-03J | Provider returns exactly `chunk_count - 1` vectors | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, `EMBEDDING_DIMENSION_MISMATCH` only if that is the approved count-mismatch code; otherwise the named allowlisted vector-count code | extractor 1, provider 1; no derivation/activation |
+-| TC-03K | Provider returns chunk-count vectors of 1535 dimensions or a mismatched fixed provider/model | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, `EMBEDDING_DIMENSION_MISMATCH` for dimension mismatch and named allowlisted identity-mismatch code for provider/model mismatch | extractor 1, provider 1; no derivation/activation |
++| TC-03I | The fixed internally inconsistent work/profile fixture from TC-02B | `CONFIGURATION_INVALID` -> `CONFIGURATION_INVALID` | `FailTerminal`, `failure_reason=terminal_config`, approved allowlisted configuration-invalid code | extractor 0, provider 0; no derivation/activation |
++| TC-03J | Provider returns exactly `chunk_count - 1` vectors | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, approved allowlisted vector-mismatch code | extractor 1, provider 1; no derivation/activation |
++| TC-03K | Provider returns exactly `chunk_count` vectors of 1535 dimensions | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, `EMBEDDING_DIMENSION_MISMATCH` | extractor 1, provider 1; no derivation/activation |
++| TC-03L | Provider returns exactly `chunk_count` 1536-dimensional vectors with fixed provider/model identity different from profile A | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, approved allowlisted vector-identity code | extractor 1, provider 1; no derivation/activation |
+ 
+ TC-03F is deliberately not satisfied by a coordination-store commit, connection or ambiguous-commit
+ failure: Issue #17 says those failures are infrastructure/indeterminate outcomes, not
+-`DATABASE_TRANSIENT` business work. It is an approval blocker until an approved handler-owned
+-database dependency and sentinel exist. Likewise, every table cell that says “exact ...
+-allowlisted code” is a named-code blocker, not permission for an operator to choose a variant.
++`DATABASE_TRANSIENT` business work. Issue #18 still explicitly requires transient database
++deadlock/serialization/connectivity coverage. It is the one upstream authoritative contract blocker
++until either the approved Issue #18 design adds a legitimate handler-owned database seam with a
++fixed sentinel, or Issue #18 itself is approvedly clarified. Shared allowlisted public codes are
++valid for transient categories unless an approved contract names a variant-specific code.
+ 
+ Evidence for every subcase is the injected sentinel, handler kind, canonical cause, policy result,
+ safe code, full attempt-history retry/terminal fields, call counts, and zero derivation/active
+@@ -223,19 +237,20 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+ 
+ #### TC-05A: At-least-once duplicate worker delivery yields exactly one visible outcome
+ 
+-- Injection: two deliveries attempt to process the same durable job; only the valid current claim
+-  may execute. The second delivery receives the persisted claim/reconciliation result.
++- Injection: delivery one has already committed a terminal success for the isolated job. Trigger an
++  independent second worker delivery after that authoritative commit; it uses a fresh worker
++  invocation and does not replay the first `ClaimOperationId`.
+ - Steps:
+   1. Start delivery one through valid claim and complete its concrete success finalization.
+-  2. Deliver the same work again and reconcile against durable state.
+-  3. Inspect chain, activation and attempt history.
++  2. Invoke a fresh `run_once` for delivery two against the isolated single-job environment.
++  3. Inspect delivery-two result, chain, activation and attempt history.
+ - Expected results:
+   - Exactly one complete visible derivation/activation and one terminal attempt disposition exist.
+-  - No second provider/business execution or second activation occurs solely because delivery was
+-    repeated.
++  - Delivery two returns `NoEligibleJob`; it cannot claim/process the terminal job and performs no
++    handler/provider work or second activation.
+ - Evidence to capture:
+-  - Claim/delivery trace, provider count, one-chain row projection, one attempt closure and active
+-    pointer.
++  - Independent worker-invocation IDs, delivery-two `NoEligibleJob`, provider count unchanged after
++    delivery one, one-chain row projection, one attempt closure and active pointer.
+ 
+ #### TC-05B: Ambiguous success-finalization transport result reconciles one logical mutation
+ 
+@@ -310,7 +325,10 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+ 
+ #### TC-06C: Expiry recovery does not create a successor attempt
+ 
+-- Injection: the exact observed lease expires; recovery receives its fixed policy decision.
++- Injection: the worker process disappears after claim without publishing a completion; controlled
++  PostgreSQL time advances past the exact lease expiry and recovery receives its fixed policy
++  decision. This records the durable fact `LEASE_EXPIRED`, not an invented `WORKER_CRASH` handler
++  result.
+ - Steps:
+   1. Observe and conditionally recover the expired attempt.
+   2. Inspect state immediately after recovery, including the zero-delay policy variant.
+@@ -336,29 +354,33 @@ pointer delta. A definitive coordination persistence failure is not entered in t
+     counts are zero.
+   - It takes the design's canonical terminal input behavior (`INVALID_INPUT` -> `FailTerminal`,
+     `failure_reason=terminal_input`), leaves no partial derivation and preserves the active pointer.
+-  - Its exact public safe code is an unresolved named-code blocker; no raw metadata is exposed.
++  - Its public safe code is the approved allowlisted input-metadata code; the guide does not require
++    a distinct preselected code name beyond the contract's allowlist. No raw metadata is exposed.
+ - Evidence to capture:
+   - Safe expected/observed checksum digests, head/open/extractor/provider counts, failure
+     kind/cause/policy/attempt result and zero derivation/pointer delta.
+ 
+-#### TC-07B: Worker hands a bounded stream to the extractor without materializing the object
++#### TC-07B: Worker consumes the source incrementally without whole-object materialization
+ 
+-- Injection: `ObjectStore.open_read` returns `BoundedReadSpy`, which rejects `read()` with no size
+-  or a request above 64 KiB and records every request. The fixed extractor asserts it received that
+-  same stream and consumes it only by 64-KiB reads before returning its fixed projection.
++- Injection: `ObjectStore.open_read` returns a bounded-consumption spy that rejects its
++  whole-object read operation and records incremental consumption, cumulative bytes and peak
++  application-resident buffer. The isolated extractor test adapter may receive a bounded wrapper,
++  pipe, file descriptor or bounded spool-to-disk; it returns the fixed projection after consuming
++  the complete source through that approved bounded transport.
+ - Steps:
+   1. Run the valid fixture handler to extraction completion.
+-  2. Inspect reader/extractor ownership and read-request trace before provider/finalization.
++  2. Inspect source-consumption, whole-object-read and application-memory traces before
++     provider/finalization.
+ - Expected results:
+-  - Application worker code does not call unbounded `read()`, does not replace the stream with a
+-    bytes buffer, and makes no direct full-object read. The extractor consumes the stream in bounded
+-    reads through the same capability.
+-  - The valid path then makes exactly one provider call and continues normally; the evidence
+-    distinguishes a streaming implementation from one that materializes the PDF in application
+-    memory.
++  - No worker/application whole-object read API is called, and the application does not materialize
++    the full raw PDF in memory. Source consumption is incremental and bounded under the approved
++    ingestion limits (25 MiB raw object and 256 MiB isolated-extractor memory ceiling).
++  - The case accepts any streaming-valid bounded wrapper/pipe/file-descriptor/spool transport; it
++    does not prescribe a Python object identity or chunk size. The valid path makes exactly one
++    provider call and continues normally.
+ - Evidence to capture:
+-  - Reader request-size trace, stream object identity at extractor boundary, worker direct-read
+-    count zero, extractor/provider counts and lifecycle result.
++  - Whole-object-read count zero, incremental-consumption trace, peak application-resident buffer,
++    bounded transport classification, extractor/provider counts and lifecycle result.
+ 
+ ### TC-08: PostgreSQL, not application validation alone, protects activation and retention
+ 
+@@ -385,35 +407,24 @@ violation class rather than accepting an application pre-validation error.
+ - Expected results:
+   - `run_once` does not delete the referenced Original Source Object for either terminal outcome.
+     Terminal success/failure is not changed by absent asynchronous cleanup work.
+-  - If an approved cleanup-intent/outbox mechanism is implemented in this slice, its safe intent
+-    record is observed separately; otherwise the zero immediate-delete result is the complete
+-    Issue #18 assertion and cleanup ownership is deferred.
++  - If an approved cleanup-intent/outbox mechanism is introduced in this slice, observe its safe
++    intent record separately. Its absence is not a failure of this guide: zero immediate deletion
++    is the complete Issue #18 assertion until an authority assigns that mechanism.
+ - Evidence to capture:
+   - Original Source Object reference before/after, delete-spy count zero, terminal status/attempt
+     result and any separately approved cleanup-intent projection.
+ 
+-## Design ambiguities that block approval/execution of affected subcases
+-
+-1. **Named safe codes:** the approved Issue #18/design text requires allowlisted safe codes but
+-   does not name codes for ObjectStore metadata mismatch, invalid pinned configuration, individual
+-   provider timeout/429/5xx, storage transient, extractor eviction, business database transient,
+-   vector-count mismatch or provider/model identity mismatch. The implementation design must name
+-   the exact public codes before TC-02B, TC-03 and TC-07A can be locked.
+-2. **Handler-owned database transient:** the approved worker design makes finalization/coordination
+-   store failures infrastructure or indeterminate outcomes, explicitly not business
+-   `DATABASE_TRANSIENT`. No independent handler-owned database dependency is currently named. The
+-   feature must either specify one with an exact sentinel (enabling TC-03F) or remove that claimed
+-   retry category from Issue #18 scope through an approved design decision.
+-3. **Activation constraints:** the design requires database-level same-Document/Workspace and
+-   completed-set enforcement, but the current table model alone has only simple foreign keys. The
+-   exact migration constraint/trigger names and SQLSTATE evidence are implementation details still
+-   to be designed; TC-08 fixes the required observable enforcement, not a guessed mechanism.
+-4. **Asynchronous cleanup intent:** ADR 0006 establishes that terminal `run_once` does not delete
+-   a Document Version-owned Original Source Object. It does not assign a concrete cleanup
+-   intent/outbox schema to Issue #18. TC-09 therefore proves the owned non-deletion invariant and
+-   records any separately approved intent only when one exists.
++## Approval blockers remaining
++
++| Authoritative blocker | Evidence of conflict | Required authority-level resolution | Affected guide scope |
++| --- | --- | --- | --- |
++| Issue #18 requires transient database deadlock/serialization/connectivity retry coverage, but Issue #17 forbids classifying coordination-store database/network errors as `DATABASE_TRANSIENT`, and no handler-owned database dependency or deterministic sentinel is approved. | Current Issue #18 acceptance criterion; Issue #17 approved cause-mapping and indeterminate-persistence contract. | Either add an approved handler-owned database seam with a fixed deadlock/serialization/connectivity sentinel to the Issue #18 design, or approve an Issue #18 clarification that changes the criterion. A design note cannot silently narrow it. | TC-03F and the corresponding retry-taxonomy acceptance-matrix row. |
++
++Constraint/trigger names, SQLSTATE values, public-code granularity beyond named PDF codes, and a
++cleanup intent/outbox schema are implementation choices, not approval blockers. TC-08 and TC-09
++retain their required observable behavior without preselecting those mechanisms.
+ 
+ This guide becomes immutable only after explicit human approval. Any resolution of an ambiguity,
+ semantic test change, or authoritative-specification change requires a new revision; do not rewrite
+-`m2-issue-18-r2` after approval. Store future execution observations separately as JSONL
++`m2-issue-18-r3` after approval. Store future execution observations separately as JSONL
+ Evaluation records.

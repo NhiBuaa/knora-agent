@@ -1,0 +1,89 @@
+diff --git "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r6.md" "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r7.md"
+index 967dbda..46d07d5 100644
+--- "a/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r6.md"
++++ "b/.agents\\manual-tests\\milestone-2\\18-pdf-derivation-activation-r7.md"
+@@ -2,17 +2,18 @@
+ 
+ ## Metadata
+ 
+-- Status: Approved and locked
++- Status: Draft — synchronization revision awaiting final human review. Do not implement or execute
++  this guide.
+ - Feature: Milestone 2 — Production-shaped ingestion
+ - Slice: GitHub issue #18 — PDF derivation, embedding, and CAS activation
+ - Authoritative specification: https://github.com/NhiBuaa/knora-agent/issues/18
+ - Design: `docs/design/issue-18-pdf-derivation-activation.md`
+-- Guide revision: `m2-issue-18-r6`
+-- Supersedes: draft `m2-issue-18-r5` at
+-  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r5.md`; r1, r2, r3, r4 and r5
+-  remain unchanged.
+-- Approved by: Nhi (explicit human approval in Codex task)
+-- Approved at: 2026-08-09T22:18:48+07:00
++- Guide revision: `m2-issue-18-r7`
++- Supersedes: locked `m2-issue-18-r6` at
++  `.agents/manual-tests/milestone-2/18-pdf-derivation-activation-r6.md`; r1 through r6 remain
++  unchanged.
++- Approved by: Pending
++- Approved at: Pending
+ 
+ ## Authority and fixed test conventions
+ 
+@@ -58,7 +59,7 @@ not invent a synchronous cleanup action that no approved Issue #18 contract defi
+ | Original-object checksum and ObjectStore metadata are verified; reads stream | TC-07A1–TC-07A5; TC-07B steps 1–3 | Each required claimed-vs-observed metadata component (Workspace, opaque key, raw SHA-256, byte size, media type) is independently rejected before open/read/extraction/provider; TC-07B separately proves no whole-object read or complete logical parent retention | Per-field injected mismatch/category, zero open/extractor/provider counts, zero derivation/activation delta, unchanged active pointer; parent raw-source-retention/peak-live-byte trace |
+ | Parser/chunker creates or reuses the correct PDF Chunk Set | TC-01A steps 1–3; TC-05A steps 1–3 | Exact full derivation identity creates/reuses one immutable complete Chunk Set | Chunk Set identity, chunk ordinal/checksum/page-offset projection |
+ | Embedding calls occur outside DB transactions and validate count/dimension/provider/model/configuration | TC-01A step 2; TC-01C steps 1–3; TC-03B steps 1–3 | No handler/configuration/persistence or finalization/activation transaction encloses remote work; independent short heartbeat transactions may overlap | Correlated transaction ownership trace, finalization lock trace, provider trace, vector validation projection |
+-| Retry taxonomy covers approved transient categories; deterministic failures are terminal | TC-03A–TC-03E and TC-03G–TC-03L; TC-03F is the upstream blocker | Every executable fixed injection maps to its named failure kind/cause and policy disposition | Handler fact, canonical cause, attempt history, policy metadata, call counts |
++| Retry taxonomy covers the Issue #18 PDF-handler categories; deterministic failures are terminal | TC-03A–TC-03E and TC-03G–TC-03L; TC-03F is not applicable | Every executable fixed injection maps to its named failure kind/cause and policy disposition; coordinator PostgreSQL failures follow Issue #17 reconciliation/indeterminate semantics | Handler fact, canonical cause, attempt history, policy metadata, call counts and coordination reconciliation evidence |
+ | Final persistence atomically creates/reuses a complete chain with no partial retrieval-visible derivation | TC-01A; TC-05C steps 1–3 | Commit has complete chain plus terminal outcome, while definite rollback has neither | Transaction outcome, all derivation row counts, active pointer, attempt/job fields |
+ | Activation CAS requires live fencing, current target and same Document/Workspace complete set | TC-01A; TC-04; TC-06B; TC-08A–TC-08C | Valid claim activates; stale claim is fenced; stale target is superseded; invalid pointers are rejected | Token/result, pointer state, transaction result and DB constraint error class |
+ | Newer source makes old target superseded without another retry and records replacement when available | TC-04 steps 1–4 | Older job reaches `superseded`, not failed/retried, while newer version stays current/served | A/B job snapshots, attempt count, replacement fields, current/active/served projection |
+@@ -204,7 +205,7 @@ count remains one and there is no provider/extractor call after the named failur
+ | TC-03C | Provider returns fixed HTTP 503 classification after extractor succeeds | `PROVIDER_TRANSIENT` -> `PROVIDER_TRANSIENT` | `ScheduleRetry`; the approved allowlisted provider-transient code (shared code permitted) | extractor 1, provider 1; same retry-only delta |
+ | TC-03D | `ObjectStore.open_read` raises the approved transient-storage sentinel before extractor starts | `STORAGE_TRANSIENT` -> `STORAGE_TRANSIENT` | `ScheduleRetry`; approved allowlisted storage-transient code | extractor 0, provider 0; same retry-only delta |
+ | TC-03E | Isolated extractor returns `PDF_EXTRACTOR_UNAVAILABLE` with reason `CHILD_CRASH` and `retryable=True` | `WORKER_UNEXPECTED` -> `WORKER_UNEXPECTED` | `ScheduleRetry`; `PDF_EXTRACTOR_UNAVAILABLE` | extractor 1, provider 0; same retry-only delta |
+-| TC-03F | **Blocked upstream:** no approved handler-owned database dependency/sentinel exists | Required `DATABASE_TRANSIENT` mapping is undefined | Cannot execute or lock until Issue #18 is authoritatively resolved | No invented injection, call count or persistence delta |
++| TC-03F | Not applicable: the Issue #18 PDF handler has no handler-owned database dependency | `DATABASE_TRANSIENT` is unreachable for this concrete handler | No handler injection; coordination PostgreSQL failures use Issue #17 persistence/reconciliation or indeterminate-infrastructure semantics | No handler/provider rerun or invented lifecycle result from coordination failure |
+ | TC-03G | Extractor returns fixed `PDF_TEXT_INSUFFICIENT` with reason `INSUFFICIENT_EXTRACTABLE_TEXT` | `INVALID_INPUT` -> `INVALID_INPUT` | `FailTerminal`, `failure_reason=terminal_input`, `PDF_TEXT_INSUFFICIENT` | extractor 1, provider 0; no derivation/activation |
+ | TC-03H | Extractor returns fixed `PDF_ENCRYPTED` with reason `ENCRYPTED` | `UNSUPPORTED_INPUT` -> `UNSUPPORTED_INPUT` | `FailTerminal`, `failure_reason=terminal_input`, `PDF_ENCRYPTED` | extractor 1, provider 0; no derivation/activation |
+ | TC-03I | The fixed internally inconsistent work/profile fixture from TC-02B | `CONFIGURATION_INVALID` -> `CONFIGURATION_INVALID` | `FailTerminal`, `failure_reason=terminal_config`, approved allowlisted configuration-invalid code | extractor 0, provider 0; no derivation/activation |
+@@ -212,13 +213,13 @@ count remains one and there is no provider/extractor call after the named failur
+ | TC-03K | Provider returns exactly `chunk_count` vectors of 1535 dimensions | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, `EMBEDDING_DIMENSION_MISMATCH` | extractor 1, provider 1; no derivation/activation |
+ | TC-03L | Provider returns exactly `chunk_count` 1536-dimensional vectors with fixed provider/model identity different from profile A | `VECTOR_MISMATCH` -> `VECTOR_MISMATCH` | `FailTerminal`, `failure_reason=terminal_config`, approved allowlisted vector-identity code | extractor 1, provider 1; no derivation/activation |
+ 
+-TC-03F is deliberately not satisfied by a coordination-store commit, connection or ambiguous-commit
+-failure: Issue #17 says those failures are infrastructure/indeterminate outcomes, not
+-`DATABASE_TRANSIENT` business work. Issue #18 still explicitly requires transient database
+-deadlock/serialization/connectivity coverage. It is the one upstream authoritative contract blocker
+-until either the approved Issue #18 design adds a legitimate handler-owned database seam with a
+-fixed sentinel, or Issue #18 itself is approvedly clarified. Shared allowlisted public codes are
+-valid for transient categories unless an approved contract names a variant-specific code.
++TC-03F is deliberately not satisfied by coordination-store deadlock, serialization, connectivity,
++network or ambiguous-commit failure: updated Issue #18 and Issue #17 require those failures to use
++persistence/reconciliation or indeterminate-infrastructure semantics, never
++`DATABASE_TRANSIENT`. The Issue #18 PDF handler introduces no handler-owned database dependency;
++`DATABASE_TRANSIENT` remains available to future WorkHandlers that legitimately observe one. Shared
++allowlisted public codes are valid for transient categories unless an approved contract names a
++variant-specific code.
+ 
+ Evidence for every subcase is the injected sentinel, handler kind, canonical cause, policy result,
+ safe code, full attempt-history retry/terminal fields, call counts, and zero derivation/active
+@@ -440,9 +441,9 @@ violation class rather than accepting an application pre-validation error.
+ 
+ ## Approval blockers remaining
+ 
+-| Authoritative blocker | Evidence of conflict | Required authority-level resolution | Affected guide scope |
+-| --- | --- | --- | --- |
+-| Issue #18 requires transient database deadlock/serialization/connectivity retry coverage, but Issue #17 forbids classifying coordination-store database/network errors as `DATABASE_TRANSIENT`, and no handler-owned database dependency or deterministic sentinel is approved. | Current Issue #18 acceptance criterion; Issue #17 approved cause-mapping and indeterminate-persistence contract. | Either add an approved handler-owned database seam with a fixed deadlock/serialization/connectivity sentinel to the Issue #18 design, or approve an Issue #18 clarification that changes the criterion. A design note cannot silently narrow it. | TC-03F and the corresponding retry-taxonomy acceptance-matrix row. |
++None. GitHub Issue #18 now authoritatively states that `DATABASE_TRANSIENT` is unreachable for this
++PDF handler and that coordination PostgreSQL failures retain the Issue #17 persistence,
++reconciliation or indeterminate-infrastructure semantics.
+ 
+ Constraint/trigger names, SQLSTATE values, public-code granularity beyond named PDF codes, and a
+ cleanup intent/outbox schema are implementation choices, not approval blockers. TC-08 and TC-09
+@@ -450,5 +451,5 @@ retain their required observable behavior without preselecting those mechanisms.
+ 
+ This guide becomes immutable only after explicit human approval. Any resolution of an ambiguity,
+ semantic test change, or authoritative-specification change requires a new revision; do not rewrite
+-`m2-issue-18-r6` after approval. Store future execution observations separately as JSONL
++`m2-issue-18-r7` after approval. Store future execution observations separately as JSONL
+ Evaluation records.

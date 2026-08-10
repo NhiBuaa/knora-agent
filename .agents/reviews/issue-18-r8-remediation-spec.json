@@ -1,0 +1,6 @@
+{
+  "status": "completed",
+  "axis": "spec",
+  "findings": [],
+  "report": "Reviewed the current Issue #18 worktree diff against docs/design/issue-18-pdf-derivation-activation.md and locked guide m2-issue-18-r8. Finalization now rejects an expired or stale fence at the terminal mutation boundary without committing partial work, and the HTTP contract forwards the existing nullable PDF locator fields unchanged. The focused PostgreSQL and HTTP regression tests cover both requirements. No Spec finding remains."
+}

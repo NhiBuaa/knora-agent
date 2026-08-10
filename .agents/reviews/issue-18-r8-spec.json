@@ -1,0 +1,25 @@
+{
+  "status": "completed",
+  "axis": "spec",
+  "findings": [
+    {
+      "severity": "major",
+      "location": "backend/src/knora/api/schemas.py:17-27 (CitationResponse)",
+      "evidence": "backend/src/knora/answering/interface.py:19-27 and backend/src/knora/answering/module.py:177-193 carry page_start, page_end, start_offset and end_offset into CitationProjection, but CitationResponse exposes only the legacy line fields and checksum.",
+      "problem": "The HTTP question seam drops the canonical PDF physical-page and normalized-text offset locator from the public response.",
+      "harm": "Consumers cannot verify a PDF citation's required 1-based page range and half-open offsets, and locked TC-01/TC-02 retrieval evidence cannot observe the provenance that the Issue #18 design and guide require.",
+      "fix": "Expose the four nullable PDF locator fields on CitationResponse and add an HTTP contract test asserting them for a PDF CitationProjection; preserve nulls for legacy Markdown/text citations.",
+      "classification": "implementation defect"
+    },
+    {
+      "severity": "major",
+      "location": "backend/test/ingestion/test_pdf_job_processing.py:67-270 and backend/test/adapters/postgres/test_pdf_derivation_finalization.py:129-348",
+      "evidence": "The current implementation tests cover one happy handler path, one pinned-profile rejection, one aggregate metadata rejection, atomic success, stale-target supersession, replay and one concrete worker flow; no test executes the locked TC-03A-TC-03L matrix, TC-07A1-TC-07A5/TC-07B probes, TC-05C PDF rollback, TC-09 delete spy, or the required transaction/lock trace.",
+      "problem": "Core Issue #18 acceptance oracles are not executable in the repository's current test harness.",
+      "harm": "Provider/storage/extractor retry mapping, independent metadata verification, bounded parent retention, rollback atomicity and Original Source Object retention remain unproven at the real production seams; a green baseline cannot establish those acceptance criteria.",
+      "fix": "Add test-only controlled adapters and probes at ObjectStore, PdfTextExtractor, EmbeddingProvider, AttemptRunner and PostgreSQL session/transaction seams, then execute the locked cases without weakening their predicates.",
+      "classification": "harness-only missing capability"
+    }
+  ],
+  "report": "Spec review: two major findings. The implementation does not expose PDF locators through the HTTP citation contract, and the current test surface lacks the controlled observations required by the locked r8 guide. No guide redesign is proposed. Other TC-01–TC-09 requirements are structurally present but require the authorized harness to establish evidence."
+}
