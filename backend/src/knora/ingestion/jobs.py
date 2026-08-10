@@ -14,6 +14,13 @@ from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
 
 IDEMPOTENCY_RETENTION = timedelta(hours=24)
+PUBLIC_JOB_STATUSES = Literal[
+    "queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"
+]
+PUBLIC_FAILURE_REASONS = Literal[
+    "retry_exhausted", "terminal_input", "terminal_config", "resource_limit"
+]
+REPROCESS_CONFIG_MODES = Literal["same_as_job", "current"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +88,92 @@ class PdfSubmissionResult:
     retained_object_key: str
 
 
+@dataclass(frozen=True, slots=True)
+class JobStatusProjection:
+    ingestion_job_id: str
+    status: PUBLIC_JOB_STATUSES
+    attempt_count: int
+    max_attempts: int
+    next_attempt_at: datetime | None
+    created_at: datetime
+    started_at: datetime | None
+    updated_at: datetime
+    terminal_at: datetime | None
+    target_document_version_id: str
+    current_document_version_id: str | None
+    served_document_version_id: str | None
+    serving_state: Literal["unavailable", "current", "previous"]
+    failure_reason: PUBLIC_FAILURE_REASONS | None
+    error_code: str | None
+    result_document_version_id: str | None
+    replacement_document_version_id: str | None = None
+    replacement_ingestion_job_id: str | None = None
+    reprocess_of_job_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ReprocessDocumentVersionCommand:
+    workspace_id: str
+    document_version_id: str
+    config_mode: REPROCESS_CONFIG_MODES
+    config_source_job_id: str | None
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReprocessContext:
+    workspace_id: str
+    document_id: str
+    document_version_id: str
+    source_object: ObjectMetadata
+    configuration: PdfSubmissionConfiguration
+    config_source_job_id: str | None
+    prior_job_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedReprocess:
+    workspace_id: str
+    document_id: str
+    document_version_id: str
+    source_object: ObjectMetadata
+    request_fingerprint: str
+    idempotency_operation: str
+    idempotency_key: str
+    idempotency_expires_at: datetime
+    requested_config_mode: REPROCESS_CONFIG_MODES
+    resolved_config_mode: REPROCESS_CONFIG_MODES
+    config_source_job_id: str | None
+    prior_job_id: str | None
+    configuration: PdfSubmissionConfiguration
+    actor_key_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReprocessResult:
+    ingestion_job_id: str
+    document_version_id: str
+    outcome: Literal["created", "reused", "idempotency_replay"]
+    status: PUBLIC_JOB_STATUSES
+    audit_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ReprocessAuditProjection:
+    audit_event_id: str
+    workspace_id: str
+    actor_key_id: str
+    action: str
+    target_document_version_id: str
+    requested_config_mode: REPROCESS_CONFIG_MODES
+    resolved_config_mode: REPROCESS_CONFIG_MODES
+    config_source_job_id: str | None
+    ingestion_job_id: str
+    outcome: Literal["created", "reused"]
+    created_at: datetime
+    trace_id: str | None
+
+
 class PdfSubmissionStore(Protocol):
     def authorize_workspace(self, *, workspace_id: str) -> None: ...
 
@@ -90,6 +183,29 @@ class PdfSubmissionStore(Protocol):
         self,
         prepared: PreparedPdfSubmission,
     ) -> PdfSubmissionResult: ...
+
+    def get_job_status(
+        self, *, workspace_id: str, ingestion_job_id: str
+    ) -> JobStatusProjection | None: ...
+
+    def read_reprocess_context(
+        self,
+        *,
+        workspace_id: str,
+        document_version_id: str,
+        config_mode: REPROCESS_CONFIG_MODES,
+        config_source_job_id: str | None,
+    ) -> ReprocessContext | None: ...
+
+    def commit_reprocess(self, prepared: PreparedReprocess) -> ReprocessResult: ...
+
+    def read_reprocess_replay(
+        self, *, workspace_id: str, idempotency_key: str, request_fingerprint: str
+    ) -> ReprocessResult | None: ...
+
+    def read_reprocess_audit(
+        self, *, workspace_id: str, audit_event_id: str
+    ) -> ReprocessAuditProjection | None: ...
 
 
 class IngestionJobs:
@@ -151,6 +267,110 @@ class IngestionJobs:
         if result.retained_object_key != source_object.object_key:
             self._delete_unreferenced(source_object)
         return result
+
+    def get_job_status(
+        self,
+        *,
+        ingestion_job_id: str,
+        principal: WorkspacePrincipal,
+    ) -> JobStatusProjection:
+        projection = self._store.get_job_status(
+            workspace_id=principal.workspace_id,
+            ingestion_job_id=ingestion_job_id,
+        )
+        if projection is None:
+            raise KnoraError("INGESTION_JOB_NOT_FOUND")
+        return projection
+
+    def reprocess_document_version(
+        self,
+        command: ReprocessDocumentVersionCommand,
+        principal: WorkspacePrincipal,
+    ) -> ReprocessResult:
+        if principal.workspace_id != command.workspace_id:
+            raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        self._store.authorize_workspace(workspace_id=command.workspace_id)
+        if not command.idempotency_key:
+            raise KnoraError("MISSING_IDEMPOTENCY_KEY")
+        if len(command.idempotency_key) > 255:
+            raise KnoraError("INVALID_IDEMPOTENCY_KEY")
+        if command.config_mode not in {"same_as_job", "current"}:
+            raise KnoraError("INVALID_CONFIG_MODE")
+        if command.config_mode == "same_as_job" and not command.config_source_job_id:
+            raise KnoraError("CONFIG_SOURCE_JOB_REQUIRED")
+        if command.config_mode == "current" and command.config_source_job_id is not None:
+            raise KnoraError("CONFIG_SOURCE_JOB_NOT_ALLOWED")
+
+        request_fingerprint = self._reprocess_fingerprint(command=command)
+        replay_reader = getattr(self._store, "read_reprocess_replay", None)
+        if replay_reader is not None:
+            replay = replay_reader(
+                workspace_id=command.workspace_id,
+                idempotency_key=command.idempotency_key,
+                request_fingerprint=request_fingerprint,
+            )
+            if replay is not None:
+                return replay
+
+        context = self._store.read_reprocess_context(
+            workspace_id=command.workspace_id,
+            document_version_id=command.document_version_id,
+            config_mode=command.config_mode,
+            config_source_job_id=command.config_source_job_id,
+        )
+        if context is None:
+            raise KnoraError("DOCUMENT_VERSION_NOT_FOUND")
+        try:
+            observed = self._object_store.head(
+                workspace_id=context.workspace_id,
+                object_key=context.source_object.object_key,
+            )
+        except KnoraError as error:
+            if error.code == "OBJECT_NOT_FOUND":
+                raise KnoraError("SOURCE_OBJECT_NOT_AVAILABLE") from error
+            raise
+        except Exception as error:
+            raise KnoraError("SOURCE_OBJECT_NOT_AVAILABLE") from error
+        if (
+            observed.workspace_id != context.source_object.workspace_id
+            or observed.object_key != context.source_object.object_key
+            or observed.sha256 != context.source_object.sha256
+            or observed.byte_size != context.source_object.byte_size
+            or observed.media_type != context.source_object.media_type
+        ):
+            raise KnoraError("SOURCE_OBJECT_NOT_AVAILABLE")
+
+        prepared = PreparedReprocess(
+            workspace_id=context.workspace_id,
+            document_id=context.document_id,
+            document_version_id=context.document_version_id,
+            source_object=context.source_object,
+            request_fingerprint=request_fingerprint,
+            idempotency_operation="reprocess_document_version",
+            idempotency_key=command.idempotency_key,
+            idempotency_expires_at=datetime.now(UTC) + IDEMPOTENCY_RETENTION,
+            requested_config_mode=command.config_mode,
+            resolved_config_mode=command.config_mode,
+            config_source_job_id=context.config_source_job_id,
+            prior_job_id=context.prior_job_id,
+            configuration=context.configuration,
+            actor_key_id=principal.key_id,
+        )
+        return self._store.commit_reprocess(prepared)
+
+    @staticmethod
+    def _reprocess_fingerprint(
+        *,
+        command: ReprocessDocumentVersionCommand,
+    ) -> str:
+        return "\n".join(
+            (
+                command.workspace_id,
+                command.document_version_id,
+                command.config_mode,
+                command.config_source_job_id or "",
+            )
+        )
 
     @staticmethod
     def _content_fingerprint(command: PdfSubmissionCommand, raw_sha256: str) -> str:

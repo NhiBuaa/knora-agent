@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -344,18 +345,27 @@ class PdfDerivationHandler:
         object_store: ObjectStore,
         extractor: PdfTextExtractor,
         embedding_provider: EmbeddingProvider,
-        profile: PdfDerivationProfile,
+        profile: PdfDerivationProfile | None = None,
+        profile_resolver: Callable[[IngestionWork], PdfDerivationProfile] | None = None,
     ) -> None:
+        if profile is None and profile_resolver is None:
+            raise ValueError("PdfDerivationHandler needs a profile or profile resolver")
         self._object_store = object_store
         self._extractor = extractor
         self._embedding_provider = embedding_provider
         self._profile = profile
+        self._profile_resolver = profile_resolver
 
     def execute(
         self, work: IngestionWork, cancellation: CancellationToken
     ) -> WorkOutcome[PdfDerivationSuccess]:
         del cancellation
-        if not self._profile_matches_work(work):
+        profile = (
+            self._profile_resolver(work)
+            if self._profile_resolver is not None
+            else self._profile
+        )
+        if profile is None or not self._profile_matches_work(work, profile):
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
 
         try:
@@ -395,7 +405,7 @@ class PdfDerivationHandler:
 
         try:
             extraction = self._extractor.extract(
-                stream, self._profile.extraction_configuration
+                stream, profile.extraction_configuration
             )
         except PdfExtractionError as error:
             return self._pdf_extraction_failure(error)
@@ -405,7 +415,9 @@ class PdfDerivationHandler:
             stream.close()
 
         try:
-            extraction_matches_profile = self._extraction_matches_profile(extraction)
+            extraction_matches_profile = self._extraction_matches_profile(
+                extraction, profile
+            )
         except (AttributeError, TypeError, ValueError):
             extraction_matches_profile = False
         if not extraction_matches_profile:
@@ -414,7 +426,7 @@ class PdfDerivationHandler:
         try:
             batch = self._embedding_provider.embed(
                 [chunk.content for chunk in extraction.chunks],
-                self._profile.embedding_configuration,
+                profile.embedding_configuration,
             )
         except KnoraError as error:
             if error.code == "PROVIDER_REQUEST_FAILED":
@@ -442,7 +454,7 @@ class PdfDerivationHandler:
             model = batch.model
         except (AttributeError, TypeError, ValueError):
             return WorkFailed(HandlerFailureKindV1.VECTOR_MISMATCH, "vector_mismatch")
-        configuration = self._profile.embedding_configuration
+        configuration = profile.embedding_configuration
         if (
             len(vectors) != len(extraction.chunks)
             or any(
@@ -464,8 +476,8 @@ class PdfDerivationHandler:
             )
         )
 
-    def _profile_matches_work(self, work: IngestionWork) -> bool:
-        profile = self._profile
+    @staticmethod
+    def _profile_matches_work(work: IngestionWork, profile: PdfDerivationProfile) -> bool:
         extraction = profile.extraction_configuration
         return (
             profile.parser_configuration_id == work.parser_configuration_id
@@ -485,8 +497,11 @@ class PdfDerivationHandler:
             and metadata.media_type == work.source_media_type
         )
 
-    def _extraction_matches_profile(self, extraction: PdfExtractionResult) -> bool:
-        configuration = self._profile.extraction_configuration
+    @staticmethod
+    def _extraction_matches_profile(
+        extraction: PdfExtractionResult, profile: PdfDerivationProfile
+    ) -> bool:
+        configuration = profile.extraction_configuration
         if (
             extraction.parser_version != configuration.parser_version
             or extraction.extraction_options_version != configuration.extraction_options_version

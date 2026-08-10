@@ -62,7 +62,10 @@ from knora.providers.embedding import EmbeddingConfiguration
 def clear_coordination_jobs() -> None:
     with SessionFactory.begin() as session:
         session.execute(
-            text("TRUNCATE TABLE idempotency_records, ingestion_job_attempts, ingestion_jobs")
+            text(
+                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "ingestion_job_attempts, ingestion_jobs"
+            )
         )
 
 
