@@ -399,9 +399,25 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Manual reprocess targets a current `Document Version` through
   `POST /v1/workspaces/{workspace_id}/document-versions/{document_version_id}/reprocess`. It
   requires Workspace reprocess authorization, a new `Idempotency-Key`, an audit record and
-  `config_mode` of `same_as_job` or `current`. The handler checks Original Source Object
-  availability, snapshots immutable config version IDs and enqueues; it never reads or parses the
-  object. The worker reads the object and never resolves mutable/current configuration.
+  `config_mode` of `same_as_job` or `current`. A `same_as_job` request must explicitly provide
+  `config_source_job_id`. The selected Job must be in the authorized Workspace and target the same
+  Document Version; the handler snapshots its immutable parser, normalizer, chunking and embedding
+  configuration IDs. Timestamps, UUID ordering, `MAX(id)` and a hidden latest-Job rule are invalid
+  selectors. A `current` request has no source selector and snapshots active immutable
+  configuration IDs. Invalid, missing or mismatched source selectors reject before generation
+  creation. The handler checks Original Source Object availability and enqueues without reading or
+  parsing the object. The worker reads the object and never resolves mutable/current configuration.
+- One logical accepted manual-reprocess request is the first processing of its scoped
+  `(workspace_id, reprocess operation, Idempotency-Key)`. It creates exactly one audit record. A
+  same-key/same-request replay creates none, while a fresh key creates one even when equal work
+  reuses an existing processing or succeeded generation. The audit record, Idempotency Record and
+  created-versus-reused durable generation decision commit atomically in one PostgreSQL transaction.
+  The read-only audit projection exposes safe audit ID, Workspace ID, actor/key ID,
+  `document_version.reprocess` action, target Document Version ID, requested/resolved config mode,
+  resulting Job ID, created-versus-reused outcome, database-created timestamp and available opaque
+  correlation ID. It never exposes raw credentials or Idempotency Keys. Rejected requests need no
+  Issue #19 audit record: authentication/authorization failure, invalid/missing config mode,
+  historical target or unavailable source.
 - Reprocess creates a new job generation with `reprocess_of_job_id` and a reset attempt budget;
   the old job is immutable. Equal Document Version plus equal config versions already processing
   or succeeded is deduplicated/reused. A non-current target returns `409 DOCUMENT_VERSION_NOT_CURRENT`.
@@ -434,11 +450,21 @@ These rules are normative for Knora unless superseded by an approved Standard or
   is the total budget. `failed` exposes only safe `failure_reason` (`retry_exhausted`,
   `terminal_input`, `terminal_config` or `resource_limit`) plus a safe error code.
 - Polling returns `200 OK` with status, attempt counts, `next_attempt_at` only when retry is
-  scheduled, UTC RFC 3339 created/started/updated/terminal timestamps, terminal result or safe
-  error, and `poll_after_seconds` or `Retry-After`. Responses use `Cache-Control: no-store`.
-  `superseded` may include replacement Document Version and Ingestion Job IDs; `reprocess_of` is
-  only on a newly created processing generation. Missing or cross-Workspace jobs return the same
-  `404 INGESTION_JOB_NOT_FOUND` response.
+  scheduled, `poll_after_seconds` or `Retry-After`, and `Cache-Control: no-store`. It exposes
+  `created_at`, `started_at`, `updated_at` and `terminal_at` as UTC RFC 3339 values. `created_at`
+  is required and immutable from durable Job-generation creation. `started_at` is null before the
+  first successful transition to processing, then records that first PostgreSQL time and remains
+  immutable across retries and terminalization. `updated_at` is required and reflects the latest
+  durable mutation to public lifecycle fields, excluding heartbeat-only lease updates and unrelated
+  serving-pointer changes. `terminal_at` is null in non-terminal states and is set once and immutable
+  after transition to `succeeded`, `superseded` or `failed`. PostgreSQL wall clock is authoritative.
+  For `succeeded`, polling includes only `result: { document_version_id }`, where the value equals
+  `target_document_version_id` after complete derivation and activation CAS commit. Non-terminal,
+  failed and superseded states omit a successful `result`; failed retains safe failure reason/error
+  and superseded may retain optional replacement Document Version/Job metadata. `result` must not
+  expose Chunk Set, Embedding Set, lease, worker or other internal coordination IDs.
+  `reprocess_of` is only on a newly created processing generation. Missing or cross-Workspace jobs
+  return the same `404 INGESTION_JOB_NOT_FOUND` response.
 - Job status exposes `target_document_version_id`, `current_document_version_id` and nullable
   `served_document_version_id` resolved from `active_embedding_set_id` in one consistent database
   snapshot. It also exposes server-computed `serving_state`: `unavailable` when no active set

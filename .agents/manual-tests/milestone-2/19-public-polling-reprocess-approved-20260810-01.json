@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-19-20260810-acceptance-01-approved",
+  "finalizes_run_id": "m2-issue-19-20260810-acceptance-01",
+  "observed_at": "2026-08-10T13:59:01+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-19-r14",
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "PASS",
+      "observation": "The public upload branch harness observed created, non-terminal idempotency replay, non-terminal fingerprint deduplication, terminal replay and terminal deduplication with status and ingestion_job_id coherent with one durable job. Filename-only identity, Workspace and operation scope, immutable conflict binding, K2 replay, same-fingerprint upload convergence and conflicting-fingerprint upload/reprocess races were deterministic and produced no extra authoritative generation.",
+      "evidence": [
+        "test_public_upload_status_and_idempotency_branches_match_durable_job: PASS",
+        "test_upload_idempotency_binding_filename_scope_and_operation_isolation: PASS",
+        "test_upload_conflict_preserves_original_binding_and_fingerprint_race_is_one_winner: PASS",
+        "test_reprocess_conflicting_fingerprints_have_one_binding_and_no_extra_generation: PASS",
+        "test_reprocess_creates_one_audit_and_replays_same_binding: PASS"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "PASS",
+      "observation": "All six public states were constructed and polled. Attempt counts/max budget, literal retry timestamp, absent non-retry timestamp, safe terminal metadata, successful result, exact serving tuples, polling hint, no-store and lifecycle timestamp progression were observed. Authentication and Workspace-scoped not-found probes returned safe results before unauthorized lookup.",
+      "evidence": [
+        "test_public_poll_projects_all_six_states_exact_retry_and_terminal_metadata: PASS",
+        "test_public_timestamp_sequence_keeps_first_started_at_across_retry: PASS",
+        "test_poll_and_reprocess_authorization_precede_scoped_resource_lookup: PASS",
+        "test_poll_projects_result_hint_and_no_store_without_internal_fields: PASS"
+      ]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "PASS",
+      "observation": "The adversarial PostgreSQL retrieval probe returned only Workspace/active-set/configuration-authorized candidates with candidate_k applied at the retrieval boundary. Processing and terminal failure polls retained the previous serving tuple, historical evidence stayed active-only, and the current worker/tracer probes preserved immutable configuration selection.",
+      "evidence": [
+        "test_retrieval_filters_workspace_and_active_embedding_set_in_sql: PASS",
+        "test_processing_and_failed_poll_keep_previous_serving_tuple: PASS",
+        "test_tc02_new_current_failure_preserves_historical_active_and_served_retrieval: PASS",
+        "test_tc01b_worker_uses_the_immutable_profile_after_current_selection_moves: PASS"
+      ]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "PASS",
+      "observation": "Reprocess authorization order, invalid mode/selector rejection, historical rejection side-effect freedom, audit projection, explicit selector snapshot and current-mode request replay were observed. Rejected paths created no generation and did not enqueue worker work; accepted audit/idempotency/generation decisions were durable and scoped.",
+      "evidence": [
+        "test_poll_and_reprocess_authorization_precede_scoped_resource_lookup: PASS",
+        "test_reprocess_invalid_config_mode_is_rejected_without_service_execution: PASS",
+        "test_historical_reprocess_rejection_is_side_effect_free: PASS",
+        "test_reprocess_missing_key_and_unavailable_source_create_no_generation: PASS",
+        "test_reprocess_source_selector_validation_precedes_generation_creation: PASS",
+        "test_same_as_job_explicit_selector_links_fresh_generation_and_resets_budget: PASS",
+        "test_reprocess_creates_one_audit_and_replays_same_binding: PASS"
+      ]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "PASS",
+      "observation": "Exact-tuple reuse and stale-CAS supersession preserved durable attempt state, replacement metadata, current/active/served pointers and old-generation immutability. Independent duplicate delivery and transition replay did not repeat handler/provider work or create duplicate rows.",
+      "evidence": [
+        "test_tc04_two_job_cas_supersession_keeps_newer_target_active: PASS",
+        "test_tc05a_independent_duplicate_delivery_does_not_repeat_handler_or_provider: PASS",
+        "test_pdf_success_finalization_persists_history_but_supersedes_stale_target: PASS",
+        "test_same_as_job_explicit_selector_links_fresh_generation_and_resets_budget: PASS"
+      ]
+    },
+    {
+      "id": "TC-06",
+      "outcome": "PASS",
+      "observation": "The connected multi-page PDF tracer independently established physical page 2 and returned server-resolved page 2, inclusive/exclusive offsets and the exact normalized excerpt/checksum path. Generation used Evidence Aliases, and the pinned legacy citation baseline remained unchanged.",
+      "evidence": [
+        "test_public_upload_worker_poll_and_citation_use_one_job_flow: PASS",
+        "test_question_http_contract_preserves_null_pdf_locators_for_legacy_citations: PASS",
+        "git ls-tree c897c2b80b15b3da1eac4734ea37ae78deb4ebe7 -- backend/test/adapters/http/test_questions.py: blob 92fb06d62d3ce926c14f4302ea60c649983c33da",
+        "locked guide SHA256 7402885B2A6E43148AFCD4A1B75FF276E3740427C4918C58B967AC6CA8C7234F"
+      ]
+    },
+    {
+      "id": "TC-07",
+      "outcome": "PASS",
+      "observation": "The connected upload-to-worker-to-poll-to-cited-answer flow resolved the citation to the exact generated Document Version/Chunk. Tenant retrieval and no-qualified-evidence refusal preserved the frozen public payload with zero Generation Provider calls and a generation-not-called trace. Changed paths contain no SSE/progress/UI surface.",
+      "evidence": [
+        "test_public_upload_worker_poll_and_citation_use_one_job_flow: PASS",
+        "test_retrieval_filters_workspace_and_active_embedding_set_in_sql: PASS",
+        "test_no_qualified_evidence_returns_deterministic_http_refusal: PASS",
+        "changed Issue #19 path inspection: no frontend/UI files, SSE content type or progress response contract"
+      ]
+    }
+  ],
+  "verification": {
+    "focused_acceptance_suite": "117 passed, 2 warnings",
+    "full_pytest": "341 passed, 3 skipped",
+    "ruff": "pass",
+    "docker_compose_config": "pass",
+    "compileall": "pass",
+    "alembic": "20260810_0017 (head)",
+    "git_diff_check": "pass",
+    "locked_guide_sha256": "7402885B2A6E43148AFCD4A1B75FF276E3740427C4918C58B967AC6CA8C7234F"
+  },
+  "verdict": "PASSED",
+  "human_approval": "approved",
+  "human_approval_evidence": "User explicitly approved m2-issue-19-20260810-acceptance-01 as PASSED in this Codex task."
+}
