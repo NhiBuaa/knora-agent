@@ -29,6 +29,57 @@ idempotency, audit và supersession semantics đã được phê duyệt.
 
 Yêu cầu: Python 3.12–3.14, Docker Desktop và PowerShell.
 
+### Quickstart: clone đến cited answer
+
+Quickstart này dùng `deterministic-local`, PostgreSQL và filesystem ObjectStore. Nó không cần API
+key từ provider bên ngoài.
+
+```powershell
+git clone https://github.com/NhiBuaa/knora-agent.git
+Set-Location knora-agent
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -e ".\backend[dev]"
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d postgres
+docker compose ps postgres
+Push-Location .\backend
+..\.venv\Scripts\alembic upgrade head
+Pop-Location
+```
+
+Tiếp theo, chạy block **Bootstrap mỗi phiên PowerShell** bên dưới trong cùng terminal. Block đó tạo
+credential runtime an toàn cho Workspace evaluation. Sau đó mở terminal thứ hai tại repository root,
+chạy lại block bootstrap và khởi động API:
+
+```powershell
+Push-Location .\backend
+..\.venv\Scripts\python -m uvicorn knora.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Trong terminal bootstrap, xác nhận API và chạy full regression suite:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+.\.venv\Scripts\python -m pytest
+```
+
+`pytest` là đường nhanh nhất để chạy các HTTP, worker, polling, citation và PostgreSQL seams một
+cách lặp lại được. Phần **Chạy evaluation** bên dưới hướng dẫn ingest corpus mẫu và gửi câu hỏi qua
+API với credential runtime.
+
+Sau khi ingest corpus theo phần **Chạy evaluation**, gửi một câu hỏi từ terminal bootstrap:
+
+```powershell
+$headers = @{ "X-API-Key" = $env:KNORA_EVALUATION_API_KEY }
+$body = @{ workspace_id = "evaluation-m1-r2"; question = "What is the refund policy?" } |
+  ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/questions `
+  -Headers $headers -ContentType "application/json" -Body $body
+```
+
+Response thành công chứa answer và citations. Nếu mở terminal khác, chạy lại block bootstrap trước
+khi gửi request để tạo lại biến `KNORA_EVALUATION_API_KEY` trong process đó.
+
 ### Cài đặt lần đầu
 
 ```powershell
@@ -224,6 +275,21 @@ fields `source_key` và `file`.
   activation thành công sau fenced compare-and-swap.
 - Repository hiện composition worker qua `application.state.ingestion_worker`; daemon/queue
   scheduling loop là deployment concern riêng, không phải một HTTP progress surface.
+
+Repository không có worker daemon/CLI. Để local demo một queued PDF Job, chạy đúng composition đã
+được app tạo ra một lần từ `backend`:
+
+```powershell
+@'
+from knora.main import create_app
+
+app = create_app()
+print(app.state.ingestion_worker.run_once("readme-manual-worker"))
+'@ | ..\.venv\Scripts\python -
+```
+
+Lệnh này xử lý nhiều nhất một Job eligible. Production phải chạy scheduling loop do vận hành cung
+cấp, không dùng loop demo này.
 
 ### OpenAI-compatible provider
 
