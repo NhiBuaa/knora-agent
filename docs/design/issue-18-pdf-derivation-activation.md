@@ -1,6 +1,6 @@
 # Issue #18 PDF derivation and activation design
 
-Status: Approved implementation design (2026-08-09)  
+Status: Approved and implemented (2026-08-09; consumed by Issue #19)
 Source: [Issue #18](https://github.com/NhiBuaa/knora-agent/issues/18)  
 Depends on: [Issue #17 worker coordination design](issue-17-worker-coordination.md)
 
@@ -184,5 +184,8 @@ This design preserves Milestone 1 synchronous ingestion and the Issue #17 public
 method, and no reopening of `grill-with-docs`: the implementation details close the approved
 #14/#17 seams without contradicting an authoritative artifact.
 
-The next `feature-delivery` transition is to prepare the locked manual-acceptance guide for Issue
-#18. Implementation waits for that guide's explicit human approval.
+Issue #18 implementation and acceptance are complete. Issue #19 consumes this derivation and
+activation seam for its connected upload → worker → poll → cited-answer path; the public polling
+and Document Version reprocess contract is recorded in [ADR 0009](../adr/0009-ingestion-job-http-contract.md),
+[ADR 0010](../adr/0010-document-version-reprocess-api.md), and the locked
+[Issue #19 guide](../../.agents/manual-tests/milestone-2/19-public-polling-reprocess-r14.md).
