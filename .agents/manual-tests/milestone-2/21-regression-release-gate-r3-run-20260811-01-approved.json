@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-21-20260811-r3-acceptance-01-approved",
+  "finalizes_run_id": "m2-issue-21-20260811-r3-acceptance-01",
+  "observed_at": "2026-08-11T11:28:56+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-21-r3",
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "approval_basis": "Explicit human approval in the Codex task: final PASSED for m2-issue-21-r3 on candidate 1ac2aac7259d2dcd0faf307883aeafb471e8ac0d; TC-01 through TC-07 accepted PASS.",
+  "baseline": {
+    "baseline_identity_artifact": ".agents/manual-tests/milestone-2/21-regression-release-gate-r3-baseline-identity.json",
+    "baseline_identity_sha256": "59e0c18b7243d342e9133518aef4abf7edd529b34a2d13a4932418993ea53e01",
+    "inventory_artifact": ".agents/manual-tests/milestone-2/21-regression-release-gate-r3-preexecution-inventory.json",
+    "inventory_sha256": "82c0e54fd9d947fb53da8bf4090f945ee0cd244690720908d55e72e4a517125e",
+    "approved_allowlist_artifact": ".agents/manual-tests/milestone-2/21-regression-release-gate-r3-approved-non-pass-allowlist.json",
+    "tc01_policy_validation_artifact": ".agents/manual-tests/milestone-2/21-regression-release-gate-r3-tc01-policy-validation-r2.json"
+  },
+  "test_results": [
+    {"id":"TC-01","outcome":"PASS","observation":"Adopts the exact inventory-policy result: 437 matching nodes, 434 PASS and only the three approved manual-fixture skips.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-01 evidence"]},
+    {"id":"TC-02","outcome":"PASS","observation":"Adopts the exact upload/worker/poll/cited-answer and server-side Evidence Set result.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-02 evidence"]},
+    {"id":"TC-03","outcome":"PASS","observation":"Adopts the exact durable coordination and atomicity result.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-03 evidence"]},
+    {"id":"TC-04","outcome":"PASS","observation":"Adopts the exact fresh manual PDF fixture result on the candidate.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-04 evidence"]},
+    {"id":"TC-05","outcome":"PASS","observation":"Adopts the exact reprocess, serving-state and citation result.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-05 evidence"]},
+    {"id":"TC-06","outcome":"PASS","observation":"Adopts the exact object lifecycle and observability result.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-06 evidence"]},
+    {"id":"TC-07","outcome":"PASS","observation":"Adopts the exact migration/documentation/traceability and repository-verification result.","evidence":["m2-issue-21-20260811-r3-acceptance-01 TC-07 evidence"]}
+  ],
+  "verification": {
+    "full_pytest": "434 passed, 3 approved skipped",
+    "fresh_manual_pdf_fixtures": "3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+    "focused_public_citation": "14 passed",
+    "focused_coordination_atomicity": "137 passed",
+    "focused_lifecycle_observability": "67 passed",
+    "ruff": "PASS",
+    "docker_compose_config": "PASS",
+    "criterion_traceability_artifact": ".agents/manual-tests/milestone-2/21-regression-release-gate-r3-criterion-traceability.json",
+    "criterion_traceability": "118/118 rows PASSED; no unresolved technical blocker"
+  },
+  "evidence_correction": "The normalization from approved allowlist disposition `skip` to pytest terminal outcome `skipped` corrected only the evidence checker. It was not a production repair and did not change the candidate SHA, tree or inventory.",
+  "verdict": "PASSED",
+  "human_approval": "approved"
+}

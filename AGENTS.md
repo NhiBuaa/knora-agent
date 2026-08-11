@@ -11,9 +11,11 @@ Before changing the repository, read:
 - [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md) for production-ingestion
   interfaces and target directory ownership.
 
-The completed product slice is
-[Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md). The active Milestone 2
-specification and design ledger is [GitHub Issue #14](https://github.com/NhiBuaa/knora-agent/issues/14).
+Completed product slices are [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
+and [Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md).
+Milestone 2's closed specification and design ledger is
+[GitHub Issue #14](https://github.com/NhiBuaa/knora-agent/issues/14); its accepted release gate is
+[GitHub Issue #21](https://github.com/NhiBuaa/knora-agent/issues/21).
 
 ## Governed workflows
 

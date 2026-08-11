@@ -1,0 +1,9 @@
+{
+  "baseline_identity_sha256": "59e0c18b7243d342e9133518aef4abf7edd529b34a2d13a4932418993ea53e01",
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "candidate_tree_sha": "f61e55dba7eb037ac59019d0d0149278ed560f61",
+  "inventory_artifact": ".agents/manual-tests/milestone-2/21-regression-release-gate-r3-preexecution-inventory.json",
+  "inventory_sha256": "82c0e54fd9d947fb53da8bf4090f945ee0cd244690720908d55e72e4a517125e",
+  "kind": "locked_pre_execution_inventory_baseline_identity",
+  "schema_version": 1
+}

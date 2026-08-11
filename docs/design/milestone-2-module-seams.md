@@ -1,17 +1,18 @@
 
 # Milestone 2 Module Seams
 
-Status: Approved; delivered through Issue #19 (2026-08-10)
+Status: Completed; accepted through Issue #21 (2026-08-11)
 Source: [Milestone 2 specification and design ledger](https://github.com/NhiBuaa/knora-agent/issues/14)
 
 Milestone 2 extends the existing capability-first layout. It does not add a top-level
 `milestone-2` package. Existing Milestone 1 interfaces remain stable while PDF submission,
 processing, storage, and worker behavior enter through explicit modules and adapters.
 
-Issues #15–#19 have delivered the durable PDF submission, deterministic extraction, worker
-coordination, PDF derivation/activation, and public polling/reprocess slices described below. The
-seams remain the ownership contract for the next Milestone 2 tickets; this document does not make
-the standalone worker scheduler or an S3 adapter part of the current HTTP application.
+Issues #15–#20 delivered the durable PDF submission, deterministic extraction, worker
+coordination, PDF derivation/activation, public polling/reprocess, object lifecycle and operational
+observability slices described below. Issue #21 accepted the integrated release gate. The seams
+remain the ownership contract for future changes; this document does not make the standalone worker
+scheduler part of the current HTTP application.
 
 ## Application modules
 

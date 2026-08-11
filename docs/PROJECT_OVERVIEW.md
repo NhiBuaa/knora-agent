@@ -55,7 +55,7 @@ Knora Agent Service
 
 ### Milestone 2 — Production-shaped ingestion
 
-Status: delivered through GitHub Issue #20.
+Status: completed through GitHub Issue #21.
 
 - Issue #15: durable PDF upload, Workspace-scoped request idempotency, source-version commit và
   ObjectStore staging.
@@ -69,8 +69,12 @@ Status: delivered through GitHub Issue #20.
 - Issue #20: durable object lifecycle maintenance, bounded failed-upload diagnostic retention,
   authoritative cleanup/reconciliation fencing, Operational Metrics V1, versioned alerts và
   S3-compatible ObjectStore support.
+- Issue #21: final regression and release gate. It accepted the full production-shaped ingestion
+  lifecycle, PostgreSQL concurrency/atomicity coverage, PDF boundary fixtures, citations,
+  reprocessing, object lifecycle, operational metrics, migrations, documentation and Milestone 1
+  compatibility.
 
-The current application composes `ProcessIngestionJob`, `ObjectLifecycleMaintenance`,
+The completed application composes `ProcessIngestionJob`, `ObjectLifecycleMaintenance`,
 `OperationalObservability` and typed filesystem or S3-compatible ObjectStore adapters. A
 deployment-specific daemon or scheduler remains an operational concern.
 

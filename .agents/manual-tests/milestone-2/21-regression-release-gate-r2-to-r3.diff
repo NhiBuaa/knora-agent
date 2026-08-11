@@ -1,0 +1,73 @@
+diff --git a/.agents/manual-tests/milestone-2/21-regression-release-gate-r2.md b/.agents/manual-tests/milestone-2/21-regression-release-gate-r3.md
+index d7dfce8..198b36d 100644
+--- a/.agents/manual-tests/milestone-2/21-regression-release-gate-r2.md
++++ b/.agents/manual-tests/milestone-2/21-regression-release-gate-r3.md
+@@ -2,16 +2,16 @@
+ 
+ ## Metadata
+ 
+-- Status: Locked after explicit human approval. Do not change this revision.
++- Status: Draft — do not implement or execute until explicit human approval.
+ - Feature: Milestone 2 — Production-shaped ingestion
+ - Slice: GitHub Issue #21 — Regression and release gate
+ - Authoritative specification: https://github.com/NhiBuaa/knora-agent/issues/21
+ - Parent ledger: https://github.com/NhiBuaa/knora-agent/issues/14
+-- Guide revision: `m2-issue-21-r2`
+-- Supersedes: draft `m2-issue-21-r1`.
+-- Baseline: local `main` at `1ac2aac7259d2dcd0faf307883aeafb471e8ac0d`
+-- Approved by: Nhi (explicit human approval in Codex task)
+-- Approved at: 2026-08-11T10:53:15+07:00
++- Guide revision: `m2-issue-21-r3`
++- Supersedes: locked `m2-issue-21-r2`; its append-only Evaluation history remains unchanged.
++- Candidate baseline: exact clean release-candidate SHA, recorded when R3 is approved.
++- Approved by: pending
++- Approved at: pending
+ 
+ ## Purpose and boundaries
+ 
+@@ -30,7 +30,8 @@ A repair can correct only the observed defect within approved behavior. The repa
+ - Clean release-candidate worktree; local PostgreSQL/pgvector and MinIO from Compose; API and worker.
+ - Two authorized Workspace credentials; safe PostgreSQL and metrics/alert test projections.
+ - Resettable Workspaces; valid, changed, malformed, encrypted, textless and boundary PDFs; fixed immutable configuration profiles; clean lifecycle work and metrics state per case.
+-- A generated baseline manifest that contains each collected pytest node ID, outcome and approved disposition.
++- A pre-execution machine-generated test inventory from the exact clean candidate SHA. The inventory contains each pytest node ID, collection/static disposition metadata, candidate SHA, generation commands, toolchain/environment/configuration fingerprints and a manifest digest.
++- An explicit human-approved non-pass allowlist before execution when any node is expected to skip or xfail. Each entry contains exact node ID, disposition, reason, authority and expiry.
+ - Run repository verification with `./.venv/Scripts/python -m pytest`, `./.venv/Scripts/ruff check .`, and `docker compose config --quiet`.
+ 
+ ## Locked Test Cases
+@@ -39,16 +40,21 @@ A repair can correct only the observed defect within approved behavior. The repa
+ 
+ - Purpose: Issue #21 full verification and no Milestone 1 regression.
+ - Steps:
+-  1. Record the candidate SHA and clean-worktree status.
+-  2. Generate the candidate test manifest from pytest collection and execution results.
+-  3. Compare the candidate manifest with the approved baseline allowlist or a machine-generated baseline manifest from the pinned predecessor candidate.
+-  4. Run Ruff, Compose configuration verification, and existing synchronous ingestion, question/citation/refusal, authentication and evaluation suites.
++  1. Record the clean candidate SHA.
++  2. Generate the pre-execution inventory from that exact clean candidate SHA before acceptance execution. Do not include observed acceptance outcomes as expected outcomes.
++  3. Calculate the inventory digest. Lock `candidate SHA + inventory digest` as the baseline identity before execution.
++  4. Obtain human approval for any non-pass allowlist entry before execution.
++  5. Run the full pytest suite with the same test environment and profile used to generate the inventory.
++  6. Compare the full execution node set and observed outcomes to the locked inventory and approved allowlist.
++  7. Run Ruff, Compose configuration verification, and existing synchronous ingestion, question/citation/refusal, authentication and evaluation suites.
+ - Expected results:
+-  - Every required command passes.
+-  - The manifest diff has no added, removed or outcome-changed node ID unless the exact difference is in the approved baseline allowlist.
+-  - The allowlist records each permitted node ID, exact disposition, reason, authority and expiry. A total pass, skip or xfail count does not satisfy this oracle.
++  - Every collected inventory node defaults to required `PASS`.
++  - An expected `skip` or `xfail` is valid only when its exact node ID appears in the human-approved pre-execution allowlist with disposition, reason, authority and unexpired expiry.
++  - The full execution node set exactly equals the locked inventory node set. A missing, deselected or new node fails or blocks this case.
++  - A collection error, unknown skip/xfail, outcome outside policy, or environment/toolchain/configuration fingerprint mismatch fails or blocks this case.
++  - A candidate or test-tree change invalidates the inventory. Regenerate the inventory and obtain human approval before execution.
+   - Markdown/plain-text ingestion and existing cited-answer/refusal contracts remain unchanged.
+-- Evidence: candidate SHA, baseline-manifest SHA, machine-readable diff, approved allowlist, commands/selectors, per-outcome node IDs, lint/Compose outputs and safe HTTP samples.
++- Evidence: candidate SHA, inventory artifact and digest, baseline identity, generation commands, toolchain/environment/configuration fingerprints, approved allowlist, execution node/outcome diff, lint/Compose outputs and safe HTTP samples.
+ 
+ ### TC-02: Authenticated PDF upload-to-cited-answer integration
+ 
+@@ -151,4 +157,4 @@ A repair can correct only the observed defect within approved behavior. The repa
+ | Issue #20 retention/reconciliation/metrics | TC-06, TC-07 |
+ | Issue #21 acceptance criteria | TC-01–TC-07 |
+ 
+-This guide is immutable. A semantic change requires a new revision. Execution observations belong in a separate append-only JSONL Evaluation history.
++This guide becomes immutable only after explicit human approval. A semantic change requires a new revision. Execution observations belong in a separate append-only JSONL Evaluation history.
