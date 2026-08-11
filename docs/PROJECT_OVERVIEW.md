@@ -27,8 +27,8 @@ KittaChat / Web Client
 Knora Agent Service
         |
         +-- PostgreSQL + pgvector
-        +-- Redis + background worker (khi cần)
-        +-- S3-compatible storage (khi cần)
+        +-- Durable ingestion jobs + ProcessIngestionJob worker
+        +-- ObjectStore (filesystem local; S3-compatible khi cần)
         +-- LLM / embedding providers
         +-- external tools
 ```
@@ -55,10 +55,23 @@ Knora Agent Service
 
 ### Milestone 2 — Production-shaped ingestion
 
-- Upload PDF.
-- Background jobs và trạng thái ingestion.
-- Retry, deduplication và versioned chunking.
-- Object storage khi file lifecycle yêu cầu.
+Status: delivered through GitHub Issue #19.
+
+- Issue #15: durable PDF upload, Workspace-scoped request idempotency, source-version commit và
+  ObjectStore staging.
+- Issue #16: deterministic, isolated PDF extraction, normalized physical pages và page-bounded
+  chunking.
+- Issues #17–#18: fenced worker coordination, retries, PDF derivation/embedding persistence,
+  activation CAS và supersession.
+- Issue #19: public six-state polling, lifecycle/retry/serving projections, upload and reprocess
+  idempotency, explicit reprocess configuration selection, audit projection và connected
+  upload → worker → poll → cited-answer flow.
+
+The current application composes `ProcessIngestionJob` and the durable-work PDF handler. A
+deployment-specific daemon or queue scheduler is still an operational concern, and S3-compatible
+storage remains reserved for the later object-lifecycle work.
+
+The next planned Milestone 2 slice is [Issue #20 — object lifecycle metrics](https://github.com/NhiBuaa/knora-agent/issues/20).
 
 ### Milestone 3 — Hybrid retrieval và evaluation
 
@@ -99,4 +112,3 @@ Knora Agent Service
 ## Câu chuyện portfolio
 
 > Xây dựng một knowledge agent có cited RAG, hybrid retrieval, human-approved tool execution và evaluation pipeline; sau đó tích hợp nó vào hệ thống chat realtime KittaChat thông qua API contract độc lập.
-

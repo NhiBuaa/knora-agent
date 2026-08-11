@@ -170,14 +170,21 @@ proposals.
   `current_document_version_id`, a complete Embedding Set and matching Document/Workspace
   ownership. A newer source version supersedes an older job.
 - A failed retry-exhausted job may be explicitly reprocessed as a new processing generation linked
-  by `reprocess_of`; the old job and attempt budget remain immutable. A `superseded` job does not
+  by `reprocess_of_job_id`; the old job and attempt budget remain immutable. A `superseded` job does not
   block explicit reprocessing, and reprocessing an older version never automatically replaces a
   newer current version.
 - **Reprocess Document Version** is the explicit backend operation for rebuilding the current
   Document Version. It snapshots immutable configuration versions at enqueue time using
   `same_as_job` or `current`, records `reprocess_of_job_id`, resets the attempt budget and never
-  resolves configuration again in the worker. The HTTP handler authorizes, checks source-object
-  availability and enqueues; the worker reads the Original Source Object.
+  resolves configuration again in the worker. `same_as_job` requires an explicit
+  `config_source_job_id`; `current` snapshots the active immutable configuration without a source
+  Job selector. The HTTP handler authorizes, checks source-object availability and enqueues; the
+  worker reads the Original Source Object.
+- The Issue #19 public Job projection is the stable HTTP view over this lifecycle. It includes
+  attempt/max-attempt counts, retry scheduling and polling hints, Workspace-scoped target/current/
+  served pointers, `serving_state`, UTC RFC 3339 lifecycle timestamps, safe terminal failure
+  metadata, and a successful `result.document_version_id` only after derivation and activation
+  commit. The projection is cache-free; `next_attempt_at` is present only for `retry_scheduled`.
 - **PdfTextExtractor** is the Knora adapter around the pinned `pypdf` baseline. Deterministic
   behavior belongs to the adapter: extraction mode/options, `parser_version`,
   `normalizer_version` and `chunking_config_version` are explicit immutable identities. Unicode,
@@ -283,3 +290,4 @@ proposals.
 - Explicit current Document Version rationale: [ADR 0011](docs/adr/0011-explicit-current-document-version-pointer.md)
 - Serving state projection rationale: [ADR 0012](docs/adr/0012-serving-state-projection.md)
 - PDF source/derivation identity rationale: [ADR 0013](docs/adr/0013-pdf-source-versus-derivation-identity.md)
+- Issue #19 implementation and acceptance evidence: [.agents/issue-19-feature-delivery.json](.agents/issue-19-feature-delivery.json)

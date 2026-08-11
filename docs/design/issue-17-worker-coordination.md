@@ -1,6 +1,6 @@
 # Issue #17 Worker Coordination Design
 
-Status: Approved (2026-08-09)  
+Status: Approved and implemented (2026-08-09; consumed by Issues #18–#19)
 Source: [GitHub Issue #17](https://github.com/NhiBuaa/knora-agent/issues/17)  
 Parent: [Milestone 2](https://github.com/NhiBuaa/knora-agent/issues/14)
 
@@ -14,8 +14,9 @@ result = processor.run_once(worker_id)
 
 The module hides expired-attempt recovery, bounded execution admission, atomic claim, heartbeat,
 deadline precedence, failure mapping, retry policy, fenced outcome persistence and ambiguous-commit
-reconciliation. Issue #18 supplies the concrete PDF/embedding Work Handler, concrete typed success
-value and production worker loop; it does not duplicate coordination.
+reconciliation. Issue #18 supplies the concrete PDF/embedding Work Handler and typed success value;
+Issue #19 consumes the same worker seam for public job polling and reprocess projections. Neither
+ticket duplicates coordination.
 
 This design is constrained by the canonical meanings in `CONTEXT.md`, the Architecture Standard,
 ADRs 0001 and 0005, and the approved Issue #17 design ledger. If an implementation detail cannot
@@ -111,7 +112,8 @@ while not stop.is_set():
         stop.wait(idle_poll_interval)
 ```
 
-Polling, daemon lifetime and process-level operational backoff remain Issue #18 concerns.
+Public job polling and reprocess HTTP projections are Issue #19 concerns. Daemon lifetime and
+process-level operational backoff remain deployment concerns outside this coordination seam.
 
 ### Six lifecycle results
 
@@ -484,10 +486,11 @@ Issue #17 implements and tests the full generic orchestration interface, Retry P
 supervisor, bounded thread runner, migration, atomic claim, heartbeat, recovery, failure and
 superseded persistence. The fake typed store proves success orchestration.
 
-The PostgreSQL adapter is not a complete production `IngestionJobCoordinationStore[SuccessT]` until
-Issue #18 supplies the concrete success value/schema and fenced transaction that atomically commits
-derivation/activation with `status=succeeded`. Production handler wiring before that point is
-forbidden; `status=succeeded` is never committed as a placeholder.
+The PostgreSQL adapter was not a complete production `IngestionJobCoordinationStore[SuccessT]`
+until Issue #18 supplied the concrete success value/schema and fenced transaction that atomically
+commits derivation/activation with `status=succeeded`. Issue #19 then added the public projection
+over that durable outcome. Production handler wiring before the Issue #18 activation transaction
+was forbidden; `status=succeeded` is never committed as a placeholder.
 
 ## Implementation-planning gates
 

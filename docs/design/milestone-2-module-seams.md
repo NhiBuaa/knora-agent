@@ -1,12 +1,17 @@
 
 # Milestone 2 Module Seams
 
-Status: Approved
+Status: Approved; delivered through Issue #19 (2026-08-10)
 Source: [Milestone 2 specification and design ledger](https://github.com/NhiBuaa/knora-agent/issues/14)
 
 Milestone 2 extends the existing capability-first layout. It does not add a top-level
 `milestone-2` package. Existing Milestone 1 interfaces remain stable while PDF submission,
 processing, storage, and worker behavior enter through explicit modules and adapters.
+
+Issues #15–#19 have delivered the durable PDF submission, deterministic extraction, worker
+coordination, PDF derivation/activation, and public polling/reprocess slices described below. The
+seams remain the ownership contract for the next Milestone 2 tickets; this document does not make
+the standalone worker scheduler or an S3 adapter part of the current HTTP application.
 
 ## Application modules
 
@@ -27,12 +32,15 @@ switching, background work, or ObjectStore behavior to this module.
 
 ```text
 IngestionJobs.submit_pdf(command, principal) -> PdfSubmissionResult
+IngestionJobs.get_job_status(ingestion_job_id, principal) -> JobStatusProjection
+IngestionJobs.reprocess_document_version(command, principal) -> ReprocessResult
 ```
 
-Status and reprocess entry points are added to the same module only when their approved tickets
-require them. The module hides request idempotency, content/configuration deduplication, source
-version creation, current-version updates, job creation, and compensation for an unreferenced
-uploaded object.
+Issues #15 and #19 deliver the submission, status and reprocess entry points in this module. It
+hides request idempotency, content/configuration deduplication, source version creation,
+current-version updates, job generation, audit binding and compensation for an unreferenced
+uploaded object. The public status projection and reprocess result are serialized by the HTTP
+adapter; callers do not read the PostgreSQL projection directly.
 
 The interface and implementation stay in `knora/ingestion/jobs.py`. HTTP handlers translate
 transport input and delegate to this module. They do not query PostgreSQL tables or construct
@@ -40,9 +48,9 @@ object keys.
 
 ### Process Ingestion Job
 
-`ProcessIngestionJob` will own worker orchestration when Issues #17 and #18 require it. It will
-coordinate claims, fenced leases, ObjectStore reads, extraction, chunking, embedding, persistence,
-activation, retries, and cleanup outcomes.
+`ProcessIngestionJob` owns worker orchestration delivered by Issues #17 and #18 and consumed by
+Issue #19. It coordinates claims, fenced leases, ObjectStore reads, extraction, chunking,
+embedding, persistence, activation, retries and cleanup outcomes.
 
 The Issue #17 orchestration contract remains strongly typed without knowing the Issue #18 success
 schema: one immutable data-only type parameter flows through `WorkHandler[SuccessT]`,
@@ -51,19 +59,20 @@ schema: one immutable data-only type parameter flows through `WorkHandler[Succes
 handles are not valid success payloads. Issue #18 supplies the concrete value object and its
 fenced atomic derivation/activation persistence.
 
-Its target location is `knora/ingestion/job_processing.py`. Do not create the file before a ticket
-needs it.
+Its implementation is `knora/ingestion/job_processing.py`. The application composes the worker and
+the durable-work PDF handler in `knora.main`; a deployment-specific daemon loop remains outside
+this seam.
 
 ## PDF extraction seam
 
 Issue #16 places the `PdfTextExtractor` interface and PDF result/configuration types in
-`knora/ingestion/pdf.py`. The pinned `pypdf` implementation will be an adapter in
+`knora/ingestion/pdf.py`. The pinned `pypdf` implementation is the adapter in
 `knora/adapters/pdf/pypdf.py`.
 
-The adapter will hide child-process execution, parser options, resource enforcement, and parser
-error translation. Deterministic normalization and page-bounded chunking remain behind the PDF
-interface. `knora/ingestion/processing.py` remains the Milestone 1 text/Markdown processor and must
-not become a format switchboard.
+The adapter hides child-process execution, parser options, resource enforcement, and parser error
+translation. Deterministic normalization and page-bounded chunking remain behind the PDF interface.
+`knora/ingestion/processing.py` remains the Milestone 1 text/Markdown processor and must not become
+a format switchboard.
 
 ## Persistence and storage seams
 
@@ -76,8 +85,8 @@ derivations. Its PostgreSQL adapter remains
 ### Ingestion Job persistence
 
 The PostgreSQL adapter for durable Ingestion Jobs is
-`knora/adapters/postgres/ingestion_job_store.py`. It owns submission transactions now and will
-gain claim, lease, retry, and status projections only through their approved tickets.
+`knora/adapters/postgres/ingestion_job_store.py`. It owns submission, claim, lease, retry, public
+status, reprocess, idempotency and audit transactions delivered by Issues #15, #17 and #19.
 
 Worker coordination depends on a consumer-owned `IngestionJobCoordinationStore` application port,
 initially beside `ProcessIngestionJob` in `knora/ingestion/job_processing.py`. The existing
@@ -113,7 +122,9 @@ multi-statement transactions.
 The migration asserts all pre-existing jobs are queued with zero attempts, the only state the
 pre-#17 production application can create, and fails rather than synthesizing unknown history.
 Issue #17 adds no generic success JSON or production-only success transition; Issue #18 specializes
-the typed success port and adds concrete activation persistence before wiring its handler.
+the typed success port and adds concrete activation persistence before wiring its handler. Issue #19
+adds the public lifecycle, serving, retry-hint and successful terminal-result projections without
+exposing internal coordination identifiers.
 
 Job projection and attempt history enter and leave processing atomically. PostgreSQL must enforce
 the cross-table correspondence—processing if and only if exactly one current-numbered attempt is
@@ -171,7 +182,10 @@ Do not create `s3.py` before Issue #20 requires it.
 
 HTTP routes and schemas remain under `knora/adapters/http/`. The document upload route selects the
 synchronous text module or the durable PDF module from transport metadata, then delegates. It owns
-HTTP status selection and serialization, not application rules or persistence.
+HTTP status selection and serialization, not application rules or persistence. The same adapter now
+exposes Workspace-scoped PDF job polling and current Document Version reprocess routes with
+no-store polling responses, retry hints, safe terminal metadata and explicit configuration-source
+selection.
 
 ## Target directory ownership
 
@@ -186,7 +200,7 @@ backend/
 │   │   ├── processing.py
 │   │   ├── store.py
 │   │   ├── jobs.py
-│   │   ├── job_processing.py        # create when Issues #17/#18 need it
+│   │   ├── job_processing.py        # Issues #17/#18 worker orchestration
 │   │   ├── object_store.py
 │   │   └── pdf.py
 │   └── adapters/
