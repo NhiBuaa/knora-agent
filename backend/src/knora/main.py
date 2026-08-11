@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -7,16 +8,23 @@ from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
+from knora.adapters.object_store.inventory import JsonlObjectInventory
+from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
+from knora.adapters.postgres.object_reconciliation import (
+    PostgresClock,
+    PostgresObjectReferenceResolver,
+)
+from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.answering.module import AnswerQuestion
 from knora.api.routes import router
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
-from knora.infrastructure.settings import settings
+from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.job_processing import (
     AttemptTimingV1,
     PdfDerivationHandler,
@@ -27,6 +35,25 @@ from knora.ingestion.job_processing import (
 )
 from knora.ingestion.jobs import IngestionJobs
 from knora.ingestion.module import IngestDocument
+from knora.ingestion.object_lifecycle import (
+    LifecycleClock,
+    LifecycleRandomSource,
+    ObjectInventory,
+    ObjectLifecycleMaintenance,
+    ObjectLifecycleReconciler,
+    ObjectLifecycleRetryPolicyV1,
+    ObjectLifecycleWorker,
+    SystemLifecycleRandomSource,
+)
+from knora.ingestion.object_store import ObjectStore
+from knora.ingestion.operational_observability import (
+    AlertPolicyV1,
+    LoggingOperationalTelemetry,
+    OperationalAlertConfigurationV1,
+    OperationalMetricsStore,
+    OperationalObservability,
+    OperationalTelemetry,
+)
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
 
@@ -39,6 +66,15 @@ def create_app(
     api_key_authenticator: ApiKeyAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
     ingestion_worker: ProcessIngestionJob | None = None,
+    object_store: ObjectStore | None = None,
+    s3_client: S3CapabilityClient | None = None,
+    lifecycle_maintenance: ObjectLifecycleMaintenance | None = None,
+    lifecycle_inventory: ObjectInventory | None = None,
+    lifecycle_clock: LifecycleClock | None = None,
+    lifecycle_random_source: LifecycleRandomSource | None = None,
+    operational_metrics_store: OperationalMetricsStore | None = None,
+    operational_telemetry: OperationalTelemetry | None = None,
+    operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -70,16 +106,44 @@ def create_app(
         embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
     )
+    runtime_object_store_settings = ObjectStoreSettings.from_runtime(settings)
+    selected_object_store = object_store
+    if selected_object_store is None and runtime_object_store_settings.backend == "filesystem":
+        selected_object_store = FileSystemObjectStore(runtime_object_store_settings.root)
+    if selected_object_store is None and runtime_object_store_settings.backend == "s3_compatible":
+        if not runtime_object_store_settings.s3_bucket:
+            raise ValueError("S3-compatible ObjectStore requires a bucket")
+        if s3_client is None:
+            if (
+                runtime_object_store_settings.s3_access_key is None
+                or runtime_object_store_settings.s3_secret_key is None
+            ):
+                raise ValueError("S3-compatible ObjectStore requires access credentials")
+            s3_client = BotoS3CapabilityClient(
+                endpoint_url=runtime_object_store_settings.s3_endpoint,
+                region_name=runtime_object_store_settings.s3_region,
+                access_key=runtime_object_store_settings.s3_access_key.get_secret_value(),
+                secret_key=runtime_object_store_settings.s3_secret_key.get_secret_value(),
+            )
+        selected_object_store = S3ObjectStore(
+            client=s3_client,
+            bucket=runtime_object_store_settings.s3_bucket,
+        )
+    if selected_object_store is None:
+        raise ValueError("unsupported object_store_backend")
     job_store = PostgresIngestionJobStore(SessionFactory)
-    object_store = FileSystemObjectStore(settings.object_store_root)
+    selected_lifecycle_maintenance = lifecycle_maintenance or job_store
+    selected_lifecycle_clock = lifecycle_clock or PostgresClock(SessionFactory)
     application.state.ingestion_jobs = ingestion_jobs or IngestionJobs(
-        object_store=object_store,
+        object_store=selected_object_store,
         store=job_store,
+        lifecycle_maintenance=selected_lifecycle_maintenance,
+        lifecycle_clock=selected_lifecycle_clock,
     )
     application.state.ingestion_worker = ingestion_worker or ProcessIngestionJob(
         store=job_store,
         handler=PdfDerivationHandler(
-            object_store=object_store,
+            object_store=selected_object_store,
             extractor=PypdfTextExtractor(),
             embedding_provider=providers.embedding_provider,
             profile_resolver=job_store.pdf_profile_for_work,
@@ -88,6 +152,47 @@ def create_app(
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(SystemRandomSource()),
         runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
+    )
+    application.state.object_lifecycle_worker = ObjectLifecycleWorker(
+        maintenance=selected_lifecycle_maintenance,
+        object_store=selected_object_store,
+        retry_policy=ObjectLifecycleRetryPolicyV1(
+            random_source=lifecycle_random_source or SystemLifecycleRandomSource()
+        ),
+    )
+    selected_inventory = lifecycle_inventory
+    if selected_inventory is None and settings.object_inventory_manifest:
+        selected_inventory = JsonlObjectInventory(settings.object_inventory_manifest)
+    application.state.object_lifecycle_reconciler = None
+    if selected_inventory is not None:
+        minimum_age_seconds = settings.object_inventory_minimum_age_seconds
+        if minimum_age_seconds is None or minimum_age_seconds < 0:
+            raise ValueError(
+                "object inventory reconciliation requires a non-negative minimum age setting"
+            )
+        application.state.object_lifecycle_reconciler = ObjectLifecycleReconciler(
+            inventory=selected_inventory,
+            references=PostgresObjectReferenceResolver(SessionFactory),
+            maintenance=selected_lifecycle_maintenance,
+            minimum_age=timedelta(seconds=minimum_age_seconds),
+            now=selected_lifecycle_clock,
+        )
+    selected_alert_configuration = operational_alert_configuration
+    if selected_alert_configuration is None and settings.operational_alert_configuration_json:
+        selected_alert_configuration = OperationalAlertConfigurationV1.from_json(
+            settings.operational_alert_configuration_json
+        )
+    selected_metrics_store = operational_metrics_store
+    if selected_metrics_store is None:
+        selected_metrics_store = PostgresOperationalMetricsStore(
+            SessionFactory,
+            retry_window=timedelta(seconds=settings.operational_metrics_retry_window_seconds),
+        )
+    application.state.operational_observability = OperationalObservability(
+        store=selected_metrics_store,
+        telemetry=operational_telemetry or LoggingOperationalTelemetry(),
+        alert_policy=AlertPolicyV1() if selected_alert_configuration is not None else None,
+        alert_configuration=selected_alert_configuration,
     )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)

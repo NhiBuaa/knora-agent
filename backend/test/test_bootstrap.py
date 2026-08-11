@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from knora.bootstrap import build_provider_selection
-from knora.infrastructure.settings import Settings
+from knora.infrastructure.settings import ObjectStoreSettings, Settings
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
@@ -98,3 +98,37 @@ def test_settings_repr_redacts_provider_api_key() -> None:
     runtime_settings = compatible_settings(openai_api_key="unique-runtime-canary")
 
     assert "unique-runtime-canary" not in repr(runtime_settings)
+
+
+def test_object_store_settings_are_typed_and_validate_backend() -> None:
+    runtime = Settings(_env_file=None, object_store_backend="filesystem")
+    selected = runtime.object_store_settings
+    assert isinstance(selected, ObjectStoreSettings)
+    assert selected.backend == "filesystem"
+
+    with pytest.raises(ValueError, match="unsupported object_store_backend"):
+        assert Settings(_env_file=None, object_store_backend="other").object_store_settings
+
+    with pytest.raises(ValueError, match="access credentials"):
+        runtime = Settings(
+            _env_file=None,
+            object_store_backend="s3_compatible",
+            object_store_s3_bucket="knora",
+        )
+        _ = runtime.object_store_settings
+
+
+@pytest.mark.parametrize("field", ["object_store_s3_access_key", "object_store_s3_secret_key"])
+def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
+    values = {
+        "_env_file": None,
+        "object_store_backend": "s3_compatible",
+        "object_store_s3_bucket": "knora",
+        "object_store_s3_access_key": "access",
+        "object_store_s3_secret_key": "secret",
+        field: "",
+    }
+    runtime = Settings(**values)
+
+    with pytest.raises(ValueError, match="access credentials"):
+        _ = runtime.object_store_settings

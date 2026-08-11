@@ -433,6 +433,19 @@ These rules are normative for Knora unless superseded by an approved Standard or
   follow retention required by citations, traces and evaluations; failed uploads follow bounded
   diagnostic retention. Staging, temporary and partial derivation artifacts are cleaned
   asynchronously after terminal state.
+- A failed-upload diagnostic artifact is only a source or staging object that never became the
+  Original Source Object of a committed Document Version. It is retained for at least 24 hours from
+  the Knora-owned durable timestamp recorded at classification; it cannot be automatically cleaned
+  before expiry, and is only eligible—not required—to be cleaned afterwards. This retention is
+  independent of Idempotency Record retention.
+- An Original Source Object remains subject to Document Version retention regardless of a later
+  failed, retry-exhausted, resource-limit, superseded, or other terminal Ingestion Job outcome. It
+  may be hard-deleted only through an approved path after authoritative deletion-time checks show
+  no current/active ownership constraint or citation/trace/evaluation/version-retention reference.
+  Cleanup and orphan reconciliation must revalidate authoritative database ownership and Workspace
+  scope immediately before deletion; stale discovery snapshots are insufficient, and an object
+  attached as a retained Original Source Object since discovery must be preserved. Cleanup is
+  idempotent, retries independently on failure, and cannot change submission or ingestion outcome.
 - The minimum `ObjectStore` interface is streaming `put_stream`, streaming `open_read`, `head`,
   and idempotent `delete`. Objects carry Workspace identity, a server-generated opaque key,
   SHA-256 content hash, byte size and media type. ETag is not a content hash, and callers must not
@@ -441,6 +454,50 @@ These rules are normative for Knora unless superseded by an approved Standard or
   must find and clean unreferenced staging/temporary objects, retry cleanup failures, expose
   cleanup/orphan metrics and alert without reversing a committed ingestion success. Contract tests
   must run against MinIO and the configured production S3-compatible provider.
+- `ObjectLifecycleMaintenance` owns asynchronous cleanup and reconciliation through its
+  consumer-owned application port. PostgreSQL owns Workspace-scoped Object Lifecycle Work Items,
+  their immutable attempts, lease/fencing state, operation-ID request binding, replay results, and
+  deletion-preparation generation. An Ingestion Job terminalization transaction atomically records
+  a deduplicated lifecycle work item with its Job/Attempt result; lifecycle retry state and outcome
+  are independent and cannot change that already-durable ingestion outcome.
+- A lifecycle worker claims one work item with its own lease/fencing capability and logical
+  operation ID. Before destructive ObjectStore deletion it obtains a fenced delete-preparation
+  capability that authoritatively revalidates Workspace, artifact class, ownership, retention
+  expiry and every blocking reference. Attach and hard-deletion paths use the same lifecycle
+  gateway, so a later attach fences or suppresses stale deletion. After idempotent external delete,
+  completion consumes that capability. A crash between delete acknowledgement and completion is
+  reconciled from durable work state plus `ObjectStore.head`; it neither repeats an unverified
+  destructive effect nor changes the Ingestion Job outcome.
+- Object Lifecycle Work dispatch is PostgreSQL polling, not a new broker. It atomically claims
+  eligible `queued` or due `retry_scheduled` work using `FOR UPDATE SKIP LOCKED` (or equivalent),
+  a lease/fencing capability and operation-ID replay. Its only transitions are `queued ->
+  processing -> retry_scheduled | succeeded | failed`. Object Lifecycle Retry Policy V1 permits
+  four total attempts with full-jitter windows of 5 seconds, 30 seconds and 2 minutes. Duplicate
+  delivery or replay returns the one durable operation result without creating another attempt or
+  external effect; failure changes only lifecycle work, metrics and alerts.
+- Object Lifecycle Retry Policy V1 receives an injectable deterministic random-source abstraction at
+  its application/policy boundary. Production wiring uses process-local randomness; deterministic
+  tests inject a controlled sequence, and equal policy input plus sequence produces the same exact
+  chosen delay. Policy logic must not read global/process randomness directly. The chosen delay is
+  inside the authoritative inclusive full-jitter window and is persisted exactly. Reuse of the
+  Issue #17 `RandomSource` seam is allowed when compatible but is not required.
+- The Object Lifecycle random-source contract supplies one full-jitter sample for the policy's
+  requested upper bound, and the policy must use that returned sample as its chosen persisted delay.
+  Controlled sample X produces persisted delay X; a different valid sample Y produces Y. Calling
+  and ignoring the source is invalid. No SDK/library RNG implementation or separately persisted
+  jitter-version field is required.
+- `OperationalObservability` owns Operational Metrics V1 collection and pure Alert Policy V1.
+  Its consumer-owned `OperationalMetricsStore` port provides purpose-specific authoritative
+  read-only snapshots; the PostgreSQL adapter exposes no ORM/session through it. Immutable,
+  versioned `OperationalAlertConfigurationV1` is loaded by `config.py` at bootstrap. The module
+  emits typed snapshots and alerts only to `OperationalTelemetry`; that port accepts metric names,
+  numeric values, durations, fixed low-cardinality enum labels and configuration version, never
+  Workspace/object/Job/Attempt IDs, keys, checksums or raw annotation maps.
+- `S3ObjectStore` is the S3-compatible adapter selected by typed `ObjectStoreSettings` loaded from
+  runtime configuration at bootstrap. It is the only application-facing S3 seam. Its injected
+  provider capability client permits only streaming put/get, head and delete; a capability-audit
+  wrapper at that boundary rejects any other provider operation in contract tests without exposing
+  SDK internals, keys or credentials.
 - The PDF upload response is `202 Accepted` when a created or reused job is non-terminal and
   `200 OK` for a terminal idempotency replay or fingerprint deduplication. Every response includes
   `ingestion_job_id`, `submission_outcome` (`created`, `idempotency_replay` or `deduplicated`) and
@@ -480,8 +537,48 @@ These rules are normative for Knora unless superseded by an approved Standard or
   changes can shift line boundaries. The schema must leave room for future bounding-box metadata;
   bounding boxes are out of scope for Milestone 2.
 - Queue observability records queue depth, oldest-job age, claim latency, retry rate and
-  lease-expiry recovery. Polling clients should use jitter and must not rely on synchronized tight
-  loops.
+  lease-expiry recovery. Operational Metrics V1 defines `queue_depth` as the non-negative integer
+  count, at one fresh PostgreSQL `clock_timestamp()` observation, of Ingestion Jobs eligible for
+  claim: `queued` Jobs plus `retry_scheduled` Jobs whose `next_attempt_at <= clock_timestamp()`.
+  A future-scheduled retry is not in this metric's population. Polling clients should use jitter
+  and must not rely on synchronized tight loops. Operational Metrics V1 defines
+  `oldest_job_age` as the non-negative duration `clock_timestamp() - created_at` for the oldest
+  Job in that same eligible-for-claim population; its value is zero when that population is empty.
+  It defines `claim_latency` as a non-negative duration emitted for each successful claim, from
+  the Job's durable eligibility timestamp to its durable claim timestamp: `created_at` for the
+  first attempt and the persisted `next_attempt_at` for a retry attempt. PostgreSQL owns both
+  timestamps.
+  It defines `retry_rate` for a configured trailing window `W` as the dimensionless ratio in
+  `[0,1]` of attempt closures with `retry_policy_result = schedule_retry` to all attempt closures
+  whose durable PostgreSQL `closed_at` falls within `W`. When that denominator is zero, the metric
+  emits no sample rather than zero.
+  It defines `lease_expiry_recovery_total` as a monotonic counter that increments exactly once for
+  each applied expired-attempt recovery that closes an Attempt with canonical cause
+  `LEASE_EXPIRED`. Stale or not-expired observations and transport retry/read-back of the same
+  applied recovery do not increment it. The event timestamp is the PostgreSQL-owned `closed_at`;
+  both retry-scheduled and retry-exhausted applied recoveries are included.
+  It defines `cleanup_attempt_total` as a monotonic counter that increments once when a durable
+  cleanup-attempt record is created, and `cleanup_failure_total` as a monotonic counter that
+  increments once when that attempt is durably classified failed. A retry creates and counts as a
+  new attempt; replay or read-back of the same operation does not increment either counter. Their
+  event timestamps are the durable database timestamps of attempt creation and failure
+  classification.
+  It defines `orphan_discovery_total` as a monotonic counter that increments once when
+  authoritative reconciliation state first records an object identity as an orphan; later scans of
+  that unresolved identity do not increment it. It defines `orphan_reconciliation_total` as a
+  monotonic counter that increments once when a durable corrective disposition completes: repairing
+  an inconsistent object record or deleting an eligible unreferenced object. Report-only,
+  too-young, retained, cross-Workspace, and delete-suppressed dispositions do not increment the
+  reconciliation counter.
+  Each Operational Metrics V1 alert definition is versioned configuration that names its metric
+  predicate, threshold, sustain window, and recovery condition. V1 sets no numeric default. Tests
+  use the configured definition as their oracle: a value below threshold or shorter than its
+  sustain window produces no alert; a sustained breach produces the defined alert; and a cleared
+  condition follows the configured recovery behavior.
+  Operational Metrics V1 permits only low-cardinality operational labels, including metric name,
+  cleanup or reconciliation disposition, retry-policy version, and alert-definition version. It
+  forbids `workspace_id`, Document/Job/Attempt IDs, opaque object keys, checksums, filenames, raw
+  source data, credentials, and ETags in metric labels or alert annotations.
 
 ### PDF extraction safety and versioning
 

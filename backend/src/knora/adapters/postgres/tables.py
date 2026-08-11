@@ -101,6 +101,7 @@ class OriginalSourceObjectTable(Base):
     raw_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
     media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -236,6 +237,99 @@ class IngestionJobAttemptTable(Base):
     )
     replacement_ingestion_job_id: Mapped[str | None] = mapped_column(
         ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+
+
+class ObjectLifecycleWorkTable(Base):
+    __tablename__ = "object_lifecycle_work"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "object_key",
+            "artifact_class",
+            "lifecycle_generation",
+            name="uq_object_lifecycle_work_identity",
+        ),
+        CheckConstraint(
+            "state IN ('queued', 'processing', 'retry_scheduled', 'succeeded', 'failed')",
+            name="ck_object_lifecycle_work_state",
+        ),
+        CheckConstraint(
+            "attempt_count >= 0 AND attempt_count <= max_attempts AND max_attempts = 4",
+            name="ck_object_lifecycle_work_attempts",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    object_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    artifact_class: Mapped[str] = mapped_column(String(40), nullable=False)
+    lifecycle_generation: Mapped[str] = mapped_column(String(255), nullable=False)
+    state: Mapped[str] = mapped_column(String(30), nullable=False, default="queued")
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
+    worker_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    lease_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    eligible_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    discovery_recorded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deletion_generation: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    reconciliation_disposition: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ObjectLifecycleAttemptTable(Base):
+    __tablename__ = "object_lifecycle_attempts"
+    __table_args__ = (
+        UniqueConstraint(
+            "object_lifecycle_work_id", "attempt_number", name="uq_object_lifecycle_attempt"
+        ),
+        Index(
+            "uq_object_lifecycle_attempt_open",
+            "object_lifecycle_work_id",
+            unique=True,
+            postgresql_where=text("closed_at IS NULL"),
+        ),
+        CheckConstraint(
+            "attempt_number >= 1 AND attempt_number <= 4",
+            name="ck_object_lifecycle_attempt_number",
+        ),
+    )
+
+    object_lifecycle_work_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("object_lifecycle_work.id", ondelete="RESTRICT"), primary_key=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    worker_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    lease_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    claim_operation_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    attempt_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    prepare_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
+    deletion_generation: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    completion_operation_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, unique=True
+    )
+    failure_operation_id: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disposition: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_policy_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    retry_window_upper_bound_microseconds: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    retry_delay_microseconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retry_next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 
