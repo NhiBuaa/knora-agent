@@ -168,13 +168,13 @@ when a later ticket demonstrates that one file obscures ownership or migration s
 
 ### Object Lifecycle Maintenance
 
-Issue #20 adds `ObjectLifecycleMaintenance` in `knora/ingestion/object_lifecycle.py`. It owns
+`ObjectLifecycleMaintenance` lives in `knora/ingestion/object_lifecycle.py`. It owns
 cleanup and orphan reconciliation application behavior, not Ingestion Job terminal state. Its
 consumer-owned lifecycle store port returns typed work claims, delete-preparation capabilities and
 typed completion/reconciliation results; it exposes no ORM rows, sessions, transactions, generic
 status updates or ObjectStore implementation details.
 
-The existing PostgreSQL ingestion-job-store adapter implements the port in Issue #20. It owns the
+The PostgreSQL ingestion-job-store adapter implements the port. It owns the
 transaction that atomically records terminal Job/Attempt state with deduplicated Object Lifecycle
 Work and later owns lifecycle attempts, lease/fencing, operation-ID replay and authoritative
 delete-time revalidation. `ObjectStore.delete` remains an external idempotent action. A cleanup
@@ -183,7 +183,7 @@ already-durable Ingestion Job outcome.
 
 ### Operational observability
 
-Issue #20 adds `knora/ingestion/operational_observability.py`. It owns typed metric collection and
+`knora/ingestion/operational_observability.py` owns typed metric collection and
 pure alert-policy evaluation. Its `OperationalMetricsStore` and `OperationalTelemetry` ports stay
 beside the module; the Postgres adapter supplies purpose-specific read-only snapshots and telemetry
 adapters receive only typed low-cardinality values. `config.py` owns bootstrap loading of immutable,
@@ -197,9 +197,7 @@ keys and cannot construct storage paths.
 Adapters live under `knora/adapters/object_store/`:
 
 - `filesystem.py` supports local development and deterministic tests.
-- `s3.py` is reserved for the S3-compatible adapter introduced by Issue #20.
-
-Do not create `s3.py` before Issue #20 requires it.
+- `s3.py` provides the S3-compatible adapter.
 
 `S3ObjectStore` is selected by typed `ObjectStoreSettings` in `config.py` and composed in
 `main.py`. Its injected private provider-capability client exposes only streaming put/get, head and
@@ -229,8 +227,8 @@ backend/
 │   │   ├── store.py
 │   │   ├── jobs.py
 │   │   ├── job_processing.py        # create when Issues #17/#18 need it
-│   │   ├── object_lifecycle.py       # create when Issue #20 needs it
-│   │   ├── operational_observability.py # create when Issue #20 needs it
+│   │   ├── object_lifecycle.py
+│   │   ├── operational_observability.py
 │   │   ├── object_store.py
 │   │   └── pdf.py
 │   └── adapters/
@@ -243,7 +241,7 @@ backend/
 │       │   └── ingestion_job_store.py
 │       ├── object_store/
 │       │   ├── filesystem.py
-│       │   └── s3.py                # create when Issue #20 starts
+│       │   └── s3.py
 │       └── pdf/
 │           └── pypdf.py
 └── test/

@@ -55,7 +55,7 @@ Knora Agent Service
 
 ### Milestone 2 — Production-shaped ingestion
 
-Status: delivered through GitHub Issue #19.
+Status: delivered through GitHub Issue #20.
 
 - Issue #15: durable PDF upload, Workspace-scoped request idempotency, source-version commit và
   ObjectStore staging.
@@ -66,12 +66,13 @@ Status: delivered through GitHub Issue #19.
 - Issue #19: public six-state polling, lifecycle/retry/serving projections, upload and reprocess
   idempotency, explicit reprocess configuration selection, audit projection và connected
   upload → worker → poll → cited-answer flow.
+- Issue #20: durable object lifecycle maintenance, bounded failed-upload diagnostic retention,
+  authoritative cleanup/reconciliation fencing, Operational Metrics V1, versioned alerts và
+  S3-compatible ObjectStore support.
 
-The current application composes `ProcessIngestionJob` and the durable-work PDF handler. A
-deployment-specific daemon or queue scheduler is still an operational concern, and S3-compatible
-storage remains reserved for the later object-lifecycle work.
-
-The next planned Milestone 2 slice is [Issue #20 — object lifecycle metrics](https://github.com/NhiBuaa/knora-agent/issues/20).
+The current application composes `ProcessIngestionJob`, `ObjectLifecycleMaintenance`,
+`OperationalObservability` and typed filesystem or S3-compatible ObjectStore adapters. A
+deployment-specific daemon or scheduler remains an operational concern.
 
 ### Milestone 3 — Hybrid retrieval và evaluation
 

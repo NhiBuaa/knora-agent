@@ -312,8 +312,11 @@ repeatability and report boundaries.
 - [Issue #19 design/acceptance guide](.agents/manual-tests/milestone-2/19-public-polling-reprocess-r14.md)
 - [Issue #19 accepted execution evidence](.agents/manual-tests/milestone-2/19-public-polling-reprocess-approved-20260810-01.json)
 - [Issue #19 delivery ledger](.agents/issue-19-feature-delivery.json)
+- [Issue #20 locked manual test guide](.agents/manual-tests/milestone-2/20-object-lifecycle-metrics-r9.md)
+- [Issue #20 accepted execution evidence](.agents/manual-tests/milestone-2/20-object-lifecycle-metrics.evaluations.jsonl)
 - [ADR 0009 — ingestion job HTTP contract](docs/adr/0009-ingestion-job-http-contract.md)
 - [ADR 0010 — Document Version reprocess API](docs/adr/0010-document-version-reprocess-api.md)
+- [ADR 0014 — Object Lifecycle Maintenance](docs/adr/0014-object-lifecycle-maintenance.md)
 - [Hướng dẫn làm việc trong repository](AGENTS.md)
 
 ## Trạng thái phát triển
@@ -328,5 +331,7 @@ repeatability and report boundaries.
   state, safe terminal result và connected upload → worker → poll → cited-answer flow. Manual
   acceptance `m2-issue-19-20260810-acceptance-01` đã `PASSED` với human approval; full suite là
   `341 passed, 3 skipped` và focused acceptance là `117 passed`.
-- Issue #20 (object lifecycle metrics) là ticket tiếp theo của Milestone 2; không thuộc phạm vi
-  của Issue #19.
+- Issue #20 đã hoàn tất object lifecycle maintenance, 24-hour failed-upload diagnostic retention,
+  delete-time ownership fencing, reconciliation, Operational Metrics V1, versioned alerts và
+  S3-compatible ObjectStore support. Locked guide `m2-issue-20-r9` đã `PASSED` với human
+  approval sau integration; verification là `434 passed, 3 skipped`.
