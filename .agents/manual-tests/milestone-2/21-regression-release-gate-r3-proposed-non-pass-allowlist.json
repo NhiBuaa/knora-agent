@@ -1,0 +1,59 @@
+{
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "candidate_tree_sha": "f61e55dba7eb037ac59019d0d0149278ed560f61",
+  "default_policy": "Every inventory node requires PASS unless an approved entry below permits a non-pass disposition.",
+  "derivation": "Derived only from static pytest collection markers in the pre-execution inventory. No test execution outcome was read.",
+  "entries": [
+    {
+      "authority": "pending explicit human approval",
+      "expiry": "invalid if candidate SHA, candidate tree SHA, or inventory digest changes",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_raw_and_page_boundaries",
+      "proposed_disposition": "skip",
+      "reason": "'locked baseline acceptance fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'",
+      "static_evidence": {
+        "args": [
+          "True"
+        ],
+        "kwargs": {
+          "reason": "'locked baseline acceptance fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'"
+        },
+        "name": "skipif"
+      }
+    },
+    {
+      "authority": "pending explicit human approval",
+      "expiry": "invalid if candidate SHA, candidate tree SHA, or inventory digest changes",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_stream_boundaries",
+      "proposed_disposition": "skip",
+      "reason": "'locked baseline acceptance fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'",
+      "static_evidence": {
+        "args": [
+          "True"
+        ],
+        "kwargs": {
+          "reason": "'locked baseline acceptance fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'"
+        },
+        "name": "skipif"
+      }
+    },
+    {
+      "authority": "pending explicit human approval",
+      "expiry": "invalid if candidate SHA, candidate tree SHA, or inventory digest changes",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy",
+      "proposed_disposition": "skip",
+      "reason": "'locked baseline child-limit fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'",
+      "static_evidence": {
+        "args": [
+          "True"
+        ],
+        "kwargs": {
+          "reason": "'locked baseline child-limit fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'"
+        },
+        "name": "skipif"
+      }
+    }
+  ],
+  "inventory_sha256": "82c0e54fd9d947fb53da8bf4090f945ee0cd244690720908d55e72e4a517125e",
+  "kind": "proposed_pre_execution_non_pass_allowlist",
+  "schema_version": 1
+}

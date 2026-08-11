@@ -1,0 +1,2289 @@
+{
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "candidate_tree_sha": "f61e55dba7eb037ac59019d0d0149278ed560f61",
+  "configuration_fingerprints": {
+    ".env.example": "3168cf7d85742c7615f211e8ed13458e0b676a5a64846a6f3b82b07e2a32f6d8",
+    "backend/pyproject.toml": "91ab3923079b7ae71d3d34c6a2f8ecc9f7827f2154cb9db06e452276fcd52112",
+    "docker-compose.yml": "2719b7d3156660ede45d196f661ffdb05c08e1e31e79f30b48e51257f89a0fa0"
+  },
+  "environment_fingerprints": {
+    "DATABASE_URL": {
+      "present": false,
+      "value_sha256": null
+    },
+    "MINIO_ENDPOINT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "POSTGRES_HOST": {
+      "present": false,
+      "value_sha256": null
+    },
+    "POSTGRES_PORT": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYTEST_ADDOPTS": {
+      "present": false,
+      "value_sha256": null
+    },
+    "PYTHONPATH": {
+      "present": false,
+      "value_sha256": null
+    },
+    "S3_ENDPOINT_URL": {
+      "present": false,
+      "value_sha256": null
+    }
+  },
+  "generated_at": "2026-08-11T04:06:06.779207+00:00",
+  "generation": {
+    "collection_exit_code": 0,
+    "commands": [
+      ".\\.venv\\Scripts\\python -m pytest --collect-only -q",
+      ".\\.venv\\Scripts\\python -m pip freeze",
+      ".\\.venv\\Scripts\\python -m pytest --version",
+      "git rev-parse HEAD",
+      "git rev-parse HEAD^{tree}"
+    ],
+    "no_test_execution": true,
+    "working_tree": "C:\\Users\\Nhi\\AppData\\Local\\Temp\\knora-agent-issue-21-inventory-1ac2aac"
+  },
+  "inventory": [
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/access/test_api_keys.py::test_authenticator_rejects_disabled_keys_and_returns_safe_principal",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/access/test_api_keys.py::test_one_key_hash_cannot_authorize_multiple_workspaces",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/access/test_api_keys.py::test_runtime_credential_configuration_rejects_invalid_shapes[[{\"key_id\":\"a\",\"key_hash\":\"not-a-hash\",\"workspace_id\":\"w\",\"enabled\":true}]]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/access/test_api_keys.py::test_runtime_credential_configuration_rejects_invalid_shapes[[{\"key_id\":\"a\",\"key_hash\":\"sha256:00\",\"workspace_id\":\"w\",\"enabled\":\"yes\"}]]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/access/test_api_keys.py::test_runtime_credential_configuration_rejects_invalid_shapes[{}]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_accepts_markdown_paths[policy.markdown]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_accepts_markdown_paths[policy.md]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_accepts_plain_text_paths[policy.text]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_accepts_plain_text_paths[policy.txt]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_accepts_plain_text_paths[policy]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_ingestion_writes_only_its_explicit_workspace",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/cli/test_ingest.py::test_cli_rejects_unsupported_path_extensions",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/execution/test_thread_attempt_runner.py::test_detached_work_retains_capacity_until_its_thread_physically_exits",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/execution/test_thread_attempt_runner.py::test_releasing_a_permit_twice_does_not_create_extra_capacity",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/execution/test_thread_attempt_runner.py::test_runner_denies_a_second_reservation_until_the_first_is_released",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/execution/test_thread_attempt_runner.py::test_runner_publishes_handler_exception_and_releases_after_thread_exit",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_created_and_reused_results_use_distinct_http_statuses",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_health_is_public_and_minimal",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_http_ingestion_creates_then_reuses_postgres_derivation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_http_ingestion_does_not_block_the_async_route",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_http_ingestion_uses_the_runtime_embedding_configuration",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_http_pdf_submission_persists_source_object_and_queued_job",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_http_persistence_failure_returns_only_a_stable_error_code",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_invalid_source_type_and_size_fail_before_provider_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_missing_and_invalid_keys_are_rejected_before_ingestion",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_pdf_declared_media_type_cannot_bypass_the_filename_contract",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_pdf_upload_authentication_and_workspace_mismatch_precede_job_submission",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_pdf_upload_rejects_a_mismatched_declared_media_type",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_pdf_upload_returns_durable_job_response_without_reading_into_application_memory",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_pdf_upload_uses_terminal_replay_http_status",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_ingestion.py::test_workspace_mismatch_is_rejected_before_ingestion",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_issue_19_public.py::test_poll_and_reprocess_authorization_precede_scoped_resource_lookup",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_issue_19_public.py::test_poll_authentication_precedes_lookup",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_issue_19_public.py::test_poll_projects_result_hint_and_no_store_without_internal_fields",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_issue_19_public.py::test_reprocess_invalid_config_mode_is_rejected_without_service_execution",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_issue_19_public.py::test_reprocess_uses_scoped_idempotency_key_and_no_upload_outcome_field",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_http_question_uses_active_postgres_corpus_and_persists_trace",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_invalid_generation_maps_to_explicit_http_502",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_missing_and_invalid_keys_are_rejected_before_question_application_call",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_no_qualified_evidence_returns_deterministic_http_refusal",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_question_http_contract_preserves_null_pdf_locators_for_legacy_citations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_question_http_contract_projects_validated_citations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/http/test_questions.py::test_question_workspace_mismatch_is_rejected_before_application_call",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_filesystem.py::test_filesystem_object_store_enforces_streaming_size_limit_and_idempotent_delete",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_filesystem.py::test_filesystem_object_store_streams_immutable_workspace_scoped_objects",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_inventory.py::test_jsonl_inventory_accepts_provider_opaque_key_without_format_assumption",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_inventory.py::test_jsonl_inventory_is_workspace_scoped_and_validates_records",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_inventory.py::test_jsonl_inventory_rejects_invalid_record",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_s3.py::test_boto_s3_bootstrap_uses_path_style_for_s3_compatible_endpoints",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_s3.py::test_s3_capability_audit_records_only_approved_operations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_s3.py::test_s3_delete_is_idempotent_when_object_is_already_absent",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_s3.py::test_s3_rejects_malformed_provider_metadata",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/object_store/test_s3.py::test_s3_rejects_non_metadata_provider_result",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_array_content_stream_budget_counts_each_decoded_stream_without_join_bytes",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_child_eof_is_classified_as_retryable_extractor_failure",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_child_start_failure_is_retryable_extractor_unavailable",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_chunking_accepts_literal_tokenizer_special_tokens",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_compressed_content_stream_over_budget_returns_page_stream_limit",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_configuration_change_creates_new_derivation_identity_without_mutation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_difficult_layout_baselines_remain_deterministic[mixed-image-text]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_difficult_layout_baselines_remain_deterministic[multi-column]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_difficult_layout_baselines_remain_deterministic[rotated]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_difficult_layout_baselines_remain_deterministic[table]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_difficult_layout_baselines_remain_deterministic[unusual-font]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_empty_stream_after_exact_page_and_total_budget_is_allowed",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_enforces_inclusive_raw_page_and_decompressed_stream_budgets",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_extracts_reproducible_normalized_pages_and_page_bounded_chunks",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_hard_split_keeps_supplementary_unicode_under_the_token_cap",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_hard_split_preserves_all_supplementary_unicode_text",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_kills_over_budget_child_and_keeps_parent_healthy[configuration0-EXTRACTION_TIMEOUT]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_kills_over_budget_child_and_keeps_parent_healthy[configuration1-EXTRACTOR_MEMORY]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_raw_and_page_boundaries",
+      "static_non_pass_markers": [
+        {
+          "args": [
+            "True"
+          ],
+          "kwargs": {
+            "reason": "'locked baseline acceptance fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'"
+          },
+          "name": "skipif"
+        }
+      ]
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_stream_boundaries",
+      "static_non_pass_markers": [
+        {
+          "args": [
+            "True"
+          ],
+          "kwargs": {
+            "reason": "'locked baseline acceptance fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'"
+          },
+          "name": "skipif"
+        }
+      ]
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy",
+      "static_non_pass_markers": [
+        {
+          "args": [
+            "True"
+          ],
+          "kwargs": {
+            "reason": "'locked baseline child-limit fixture; set KNORA_RUN_MANUAL_ACCEPTANCE=1'"
+          },
+          "name": "skipif"
+        }
+      ]
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_nested_form_xobject_streams_count_toward_page_budget",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_normalization_contract_and_pinned_metadata_are_observable",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_packs_complete_blocks_with_overlap_and_hard_splits_only_oversized_blocks",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_receive_message_rejects_ready_message_after_deadline",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_child_output_sent_after_the_extraction_deadline",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_invalid_pdf_categories_without_partial_output[encrypted]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_invalid_pdf_categories_without_partial_output[malformed-contents-structure]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_invalid_pdf_categories_without_partial_output[malformed]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_invalid_pdf_categories_without_partial_output[text-insufficient]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_invalid_pdf_categories_without_partial_output[unsupported-decoder-dependency]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_rejects_invalid_pdf_categories_without_partial_output[unsupported]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/pdf/test_pypdf.py::test_windows_job_object_peak_memory_is_classified_as_extractor_memory",
+      "static_non_pass_markers": [
+        {
+          "args": [
+            "False"
+          ],
+          "kwargs": {
+            "reason": "'Windows Job Object contract'"
+          },
+          "name": "skipif"
+        }
+      ]
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_answering_store.py::test_retrieval_filters_workspace_and_active_embedding_set_in_sql",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_evaluation_reader.py::test_evaluation_reader_rejects_cross_workspace_candidate_reference",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_evaluation_reader.py::test_evaluation_reader_resolves_real_candidate_ownership_and_active_corpus",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_raises_indeterminate_when_read_back_is_unavailable[claim]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_raises_indeterminate_when_read_back_is_unavailable[expired_recovery]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_raises_indeterminate_when_read_back_is_unavailable[schedule_retry]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_raises_indeterminate_when_read_back_is_unavailable[superseded]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_raises_indeterminate_when_read_back_is_unavailable[terminal_failure]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[committed-claim-ClaimedAttempt]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[committed-expired_recovery-RecoveryRetryScheduled]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[committed-schedule_retry-RetryScheduleApplied]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[committed-superseded-FinalizationApplied]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[committed-terminal_failure-FinalizationApplied]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[not_committed-claim-ClaimedAttempt]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[not_committed-expired_recovery-RecoveryRetryScheduled]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[not_committed-schedule_retry-RetryScheduleApplied]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[not_committed-superseded-FinalizationApplied]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_attempt_mutation_reconciles_commit_ack_loss_and_proven_non_commit[not_committed-terminal_failure-FinalizationApplied]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_claim_accepts_only_due_retry_schedules_in_a_subsequent_transaction",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_claim_operation_id_is_bound_to_its_immutable_request",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_claim_replay_reports_lease_loss_without_claiming_another_job",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_claim_replay_returns_the_current_executable_attempt",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_claim_then_fenced_terminal_failure_closes_matching_attempt_atomically",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_commit_rejects_current_projection_that_does_not_match_open_attempt",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_database_rejects_a_second_open_attempt_for_one_job",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_final_attempt_recovers_to_retry_exhausted_without_attempt_two",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_final_attempt_recovery_atomically_enqueues_lifecycle_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_lease_fences_terminal_finalization",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_observation_applies_scheduled_recovery_before_a_separate_claim",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_recovery_rejects_a_non_recovery_policy_decision",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_recovery_replay_returns_the_persisted_disposition_and_timestamp",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_expired_recovery_revalidates_the_exact_observed_lease_expiry",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_finalize_superseded_closes_a_stale_target_attempt_atomically",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_fourth_retryable_attempt_finalizes_exhausted_without_attempt_five",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_raises_indeterminate_after_an_unresolved_acknowledgement_loss",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_reconciles_an_acknowledgement_loss_with_the_same_operation_id",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_renews_the_current_lease_without_rewriting_attempt_history",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_replay_rejects_a_different_lease_duration",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_replay_rejects_an_incompatible_operation_binding",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_replay_returns_the_recorded_expiry_without_renewing_again",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_heartbeat_returns_fenced_for_a_definitely_stale_token",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_noop_claim_keeps_operation_absent_so_eligibility_can_be_retried",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_postgres_store_rejects_unimplemented_generic_success_without_mutating",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_recovery_reports_not_expired_for_a_current_observation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_run_once_releases_claim_transaction_before_handler_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_schedule_retry_closes_current_attempt_with_one_database_time_anchor",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_schedule_retry_replay_returns_the_persisted_disposition_and_timestamp",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_simultaneous_claims_have_one_winner_and_stale_finalization_is_fenced",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_simultaneous_recovery_has_one_winner_and_one_stale_observation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_superseded_finalization_accepts_matching_replacement_identifiers",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_superseded_finalization_gives_fencing_precedence_over_stale_target",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_superseded_finalization_requires_a_stale_target_and_valid_replacements",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_superseded_replay_rejects_an_incompatible_operation_binding",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_superseded_replay_returns_the_exact_durable_result",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_terminal_failure_persists_one_lifecycle_work_and_replay_deduplicates",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_terminal_failure_replay_returns_the_persisted_disposition",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_terminal_failure_rolls_back_job_attempt_and_work_together",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_transition_operation_id_rejects_a_different_terminal_request",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination.py::test_transition_operation_ids_are_unique_within_kind_not_across_kinds",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination_migration.py::test_migration_preserves_known_queued_legacy_job_without_attempt_history",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination_migration.py::test_migration_rejects_unknown_legacy_attempt_history[processing-0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_job_coordination_migration.py::test_migration_rejects_unknown_legacy_attempt_history[queued-1]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_current_version_pointer_rejects_cross_document_assignment_and_hard_delete",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_postgres_pdf_submission_commits_source_current_pointer_and_queued_job",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_postgres_pdf_submission_converges_concurrent_duplicates_to_one_identity",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_postgres_pdf_submission_rejects_idempotency_key_conflict_without_mutation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_postgres_pdf_submission_separates_replay_dedup_and_source_version_identity",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_postgres_pdf_submission_serializes_competing_source_versions",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_raw_distinct_pdf_versions_can_share_a_normalized_checksum",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_jobs.py::test_source_version_and_current_pointer_roll_back_when_object_identity_conflicts",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_activation_locks_target_set_against_concurrent_invalidation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_active_embedding_set_cannot_be_deleted",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_active_embedding_set_cannot_become_incomplete",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_active_embedding_set_cannot_belong_to_another_document[cross-workspace]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_active_embedding_set_cannot_belong_to_another_document[same-workspace]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_active_embedding_set_must_be_completed",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_active_embedding_set_must_match_the_required_configuration",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_invalidation_locks_target_set_against_concurrent_activation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_persistence_failure_is_sanitized_and_rolls_back_the_derivation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_postgres_store_cas_rejects_stale_commit_without_partial_chain",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_postgres_store_creates_then_reuses_the_same_derivation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_postgres_store_rejects_configuration_id_collision",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_ingestion_store.py::test_postgres_store_versions_content_and_separates_source_keys",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_finalization_fences_lease_expiry_at_the_final_guard_and_rolls_back",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc01_real_worker_transaction_probe_keeps_remote_work_outside_db_transactions",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc02_new_current_failure_preserves_historical_active_and_served_retrieval",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc04_two_job_cas_supersession_keeps_newer_target_active",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc05a_independent_duplicate_delivery_does_not_repeat_handler_or_provider",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc05b_same_transition_operation_replays_after_response_loss",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc05c_definite_precommit_rollback_leaves_no_pdf_derivation_or_lifecycle_mutation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_18_postgres_acceptance_harness.py::test_tc09_original_source_object_remains_after_concrete_success_and_failure",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_historical_reprocess_rejection_is_side_effect_free",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_processing_and_failed_poll_keep_previous_serving_tuple",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_public_poll_projects_all_six_states_exact_retry_and_terminal_metadata",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_public_timestamp_sequence_keeps_first_started_at_across_retry",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_reprocess_conflicting_fingerprints_have_one_binding_and_no_extra_generation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_reprocess_missing_key_and_unavailable_source_create_no_generation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_upload_conflict_preserves_original_binding_and_fingerprint_race_is_one_winner",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_acceptance.py::test_upload_idempotency_binding_filename_scope_and_operation_isolation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_public_postgres.py::test_first_claim_projects_processing_and_immutable_started_at",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_public_postgres.py::test_queued_job_has_public_projection_and_workspace_scoped_status",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_public_postgres.py::test_reprocess_conflict_is_detected_before_selector_lookup",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_public_postgres.py::test_reprocess_creates_one_audit_and_replays_same_binding",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_public_postgres.py::test_reprocess_source_selector_validation_precedes_generation_creation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_issue_19_public_postgres.py::test_same_as_job_explicit_selector_links_fresh_generation_and_resets_budget",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_crash_reconciliation_reissues_generation_for_new_owner",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_delete_revalidation_honors_other_active_diagnostic_retention",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_attempt_rejects_attempt_number_beyond_total_budget",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_claim_handoff_and_generation_fencing",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_claim_respects_durable_eligibility_timestamp",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_enqueue_rejects_invalid_diagnostic_retention_metadata",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_expiry_fails_closed_when_attempt_history_is_missing",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_operation_replay_keeps_one_attempt_and_exact_retry_fields",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_lifecycle_work_rejects_attempt_count_beyond_total_budget",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_reference_resolver_releases_failed_diagnostic_after_eligibility",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_reference_resolver_retains_active_cleanup_after_eligibility",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_reference_resolver_retains_diagnostic_before_eligibility",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_reference_resolver_suppresses_active_staging_duplicate_orphan",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_report_only_orphan_can_record_completed_repair",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_suppression_fences_stale_prepared_generation_after_handoff",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_worker_completes_unchanged_prepared_generation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_worker_exhausts_exactly_four_retry_attempts",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_worker_persists_exact_policy_sample_and_window",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_worker_replays_successful_cleanup_without_second_effect",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_worker_returns_fenced_for_stale_delivery_after_lease_handoff",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_lifecycle_store.py::test_postgres_worker_revalidates_attachment_after_prepare_before_delete",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_reconciliation.py::test_postgres_clock_reads_authoritative_database_time",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_reconciliation.py::test_reference_resolver_fails_closed_on_unexpected_authoritative_read_error",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_reconciliation.py::test_reference_resolver_honors_durable_failed_upload_retention_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_reconciliation.py::test_reference_resolver_is_workspace_scoped",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_object_reconciliation.py::test_reference_resolver_reports_only_database_records_missing_from_inventory",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_original_source_hard_delete.py::test_hard_delete_blocks_active_embedding_set_retention",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_original_source_hard_delete.py::test_hard_delete_rechecks_retention_after_capability_preparation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_original_source_hard_delete.py::test_hard_delete_requires_authoritative_no_blocker_and_is_idempotent",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_original_source_hard_delete.py::test_hard_delete_treats_trace_chunk_reference_as_retention_blocker",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_original_source_hard_delete.py::test_worker_hard_delete_path_revalidates_and_marks_tombstone",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_original_source_hard_delete.py::test_worker_hard_delete_suppresses_late_retention_before_object_store_delete",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_pdf_derivation_finalization.py::test_pdf_success_finalization_commits_complete_derivation_and_activation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_pdf_derivation_finalization.py::test_pdf_success_finalization_persists_history_but_supersedes_stale_target",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_pdf_derivation_finalization.py::test_pdf_success_finalization_replays_one_operation_without_duplicate_rows",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_pdf_derivation_finalization.py::test_process_ingestion_job_runs_concrete_pdf_handler_to_atomic_success",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/adapters/postgres/test_postgres_operational_observability.py::test_postgres_operational_metrics_count_completed_orphan_dispositions_once",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_evidence.py::test_adjacent_strongly_overlapping_chunk_is_redundant",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_evidence.py::test_similarity_boundary_qualifies_and_evidence_count_stops_at_five",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_evidence.py::test_threshold_count_and_token_budget_assign_one_outcome_per_candidate",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_generation_validation.py::test_answer_marker_order_must_match_cited_evidence_ids",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_generation_validation.py::test_answer_rejects_unknown_duplicate_or_missing_markers[Duplicate. [[E1]] Again. [[E1]]-cited_ids1]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_generation_validation.py::test_answer_rejects_unknown_duplicate_or_missing_markers[Missing marker.-cited_ids2]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_generation_validation.py::test_answer_rejects_unknown_duplicate_or_missing_markers[Unknown. [[E9]]-cited_ids0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_generation_validation.py::test_structured_refusal_requires_empty_answer_and_citations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_answer_projects_citations_in_first_marker_order",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_below_threshold_refusal_traces_every_retrieved_candidate_and_set",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_invalid_generation_is_traced_then_raises_explicit_error",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_no_qualified_evidence_persists_refusal_without_generation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_query_embedding_configuration_mismatch_fails_before_retrieval",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_query_embedding_does_not_block_the_async_application_path",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_trace_persistence_failure_prevents_answer_delivery",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/answering/test_module.py::test_valid_provider_refusal_uses_application_message_and_persists_generation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/api/test_http_api.py::test_health_reports_service_is_ready",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/api/test_http_api.py::test_question_endpoint_rejects_blank_questions",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/application/test_answer_question.py::test_answer_refuses_when_no_evidence_is_available",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/application/test_answer_question.py::test_answer_uses_retrieved_evidence_as_citations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_authorizes_workspace_before_lookup_or_provider",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_prepares_and_commits_a_new_derivation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_embedding_configuration_mismatch_before_commit",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_embedding_dimension_mismatch_before_commit",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_non_logical_source_keys[  support/refund  ]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_non_logical_source_keys[/etc/passwd]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_non_logical_source_keys[C:\\\\\\\\secret.txt]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_non_logical_source_keys[]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_non_logical_source_keys[a/../b]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_principal_command_workspace_mismatch",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_sync_limits_before_embedding[chunk-count-limit]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_sync_limits_before_embedding[normalized-token-limit]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_ingest_document.py::test_ingest_document_rejects_sync_limits_before_embedding[raw-byte-limit]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc01b_worker_uses_the_immutable_profile_after_current_selection_moves",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_extractor_taxonomy_is_preserved_as_typed_handler_facts[child-crash]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_extractor_taxonomy_is_preserved_as_typed_handler_facts[encrypted]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_extractor_taxonomy_is_preserved_as_typed_handler_facts[malformed]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_extractor_taxonomy_is_preserved_as_typed_handler_facts[resource-limit]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_extractor_taxonomy_is_preserved_as_typed_handler_facts[text-insufficient]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_provider_transients_become_retryable_handler_facts[provider-429]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_provider_transients_become_retryable_handler_facts[provider-503]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_provider_transients_become_retryable_handler_facts[provider-connection]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_provider_transients_become_retryable_handler_facts[provider-request]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_provider_transients_become_retryable_handler_facts[provider-timeout]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03_retryable_handler_fact_reaches_worker_retry_policy",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03d_transient_object_store_failure_is_retryable_and_provider_is_not_called",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03j_provider_vector_count_mismatch_is_terminal_before_persistence",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03j_to_l_vector_identity_mismatch_is_terminal_before_persistence[wrong-dimension]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03j_to_l_vector_identity_mismatch_is_terminal_before_persistence[wrong-model]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc03j_to_l_vector_identity_mismatch_is_terminal_before_persistence[wrong-provider]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider[byte-size]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider[media-type]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider[object-key]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider[sha256]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc07a_each_object_metadata_mismatch_stops_before_read_or_provider[workspace]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc07b_parent_read_is_incremental_and_retention_is_bounded",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_18_acceptance_harness.py::test_tc09_terminal_worker_paths_never_delete_the_original_source_object",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_19_application_e2e.py::test_public_upload_status_and_idempotency_branches_match_durable_job",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_issue_19_application_e2e.py::test_public_upload_worker_poll_and_citation_use_one_job_flow",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_attempt_runtime_binds_one_runner_clock_and_scheduler",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_claims_then_fenced_finalizes_non_retryable_failure",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_does_not_claim_when_runner_capacity_is_unavailable",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_exhausts_the_fourth_retryable_attempt_without_sampling",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_falls_through_once_after_a_stale_expiry_observation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_finalizes_a_frozen_fake_success_value",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_finalizes_typed_supersession",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_maps_a_definite_heartbeat_fence_to_lease_lost",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_maps_handler_failure_then_reports_scheduled_retry",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_maps_timeout_to_the_timeout_failure_cause",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_propagates_indeterminate_heartbeat_without_finalizing_or_releasing",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_recovers_an_expired_attempt_before_claiming_or_executing_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_reports_claim_replay_lease_loss_without_executing_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_reports_expiry_retry_exhaustion_without_claiming_or_executing_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_reports_lease_loss_when_fenced_while_scheduling_retry",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_reports_no_eligible_job_without_executing_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_schedules_retry_when_runner_start_fails_after_claim",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_run_once_supervises_a_completed_attempt_before_finalization",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_accepts_completion_only_after_heartbeat_readback_returns",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_cancels_detaches_and_reraises_an_indeterminate_heartbeat",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_fencing_cancels_and_detaches_before_finalization",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_gives_fencing_precedence_over_completion",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_heartbeats_before_accepting_a_later_completion",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_timeout_cancels_and_detaches_without_waiting_for_exit",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_job_processing.py::test_supervisor_treats_completion_at_the_deadline_as_timeout",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_failed_upload_cannot_enqueue_cross_workspace_lifecycle_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_failed_upload_does_not_classify_without_an_authoritative_clock",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_failed_upload_does_not_enqueue_invalid_object_key",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_failed_upload_outcome_is_not_masked_when_retention_clock_is_unavailable",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_failed_upload_uses_durable_diagnostic_retention_when_lifecycle_is_configured",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_milestone_two_submission_snapshots_the_pinned_pdf_configuration",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_pdf_submission_authorizes_before_source_storage",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_pdf_submission_enqueues_duplicate_staging_cleanup_with_lifecycle",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_pdf_submission_removes_duplicate_object_after_idempotency_replay",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_pdf_submission_removes_object_when_metadata_validation_fails",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_jobs.py::test_pdf_submission_streams_source_and_snapshots_immutable_identity",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_failed_upload_diagnostic_enqueue_requires_durable_24_hour_retention[None-eligible_at0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_failed_upload_diagnostic_enqueue_requires_durable_24_hour_retention[discovery_recorded_at1-eligible_at1]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_failed_upload_diagnostic_enqueue_requires_timezone_aware_timestamps",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_inmemory_failure_operation_replay_returns_durable_state",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_lifecycle_claim_does_not_dispatch_before_retention_eligibility",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_lifecycle_claim_is_single_owner_and_stale_generation_is_fenced",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_lifecycle_enqueue_deduplicates_workspace_object_artifact_generation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_lifecycle_enqueue_rejects_attempt_count_beyond_budget",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_lifecycle_failure_rejects_negative_retry_delay_without_closing_attempt",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_object_lifecycle_retry_rejects_invalid_scheduling_attempt_numbers[0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_object_lifecycle_retry_rejects_invalid_scheduling_attempt_numbers[1.0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_object_lifecycle_retry_rejects_invalid_scheduling_attempt_numbers[4]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_object_lifecycle_retry_rejects_invalid_scheduling_attempt_numbers[True]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_object_lifecycle_retry_uses_one_controlled_sample_per_window",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_reconciler_can_record_completed_repair_for_report_only_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_reconciler_counts_an_orphan_only_once_across_reobservations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_reconciler_discovers_only_old_unretained_inventory_objects",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_reconciler_records_inconsistent_database_object_as_report_only_work",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_replaying_lifecycle_claim_operation_does_not_create_another_attempt",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_stale_delete_generation_cannot_complete_after_lease_handoff",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_does_not_repeat_delete_when_crash_reconciliation_head_is_indeterminate",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_does_not_terminalize_a_claim_when_retention_expires_after_claim",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_operation_replay_returns_durable_failure_without_new_attempt",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_persists_exact_controlled_samples_for_all_three_retry_windows",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_reconciles_crash_after_external_delete_without_repeating_delete",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_retries_delete_without_changing_work_outcome",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_object_lifecycle_retry.py::test_worker_suppresses_delete_when_authoritative_retention_appears_before_effect",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_configuration_json_rejects_coerced_numeric_values",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_configuration_rejects_coerced_boolean_sustain_duration",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_configuration_rejects_mutable_definition_container",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_configuration_rejects_unknown_metric_and_duplicate_class",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_configuration_requires_all_issue_20_classes_and_emits_typed_alert",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_policy_emits_recovery_after_condition_clears",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_alert_policy_uses_configured_recovery_boundary",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_claim_latency_histogram_is_contract_visible_without_raw_samples",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_direct_alert_configuration_validation_matches_json_validation",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_operational_histogram_rejects_non_cumulative_or_incomplete_buckets",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_operational_observability_rejects_missing_alert_configuration_when_policy_enabled",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_operational_observability.py::test_versioned_alert_configuration_loads_from_json_without_defaults",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_pdf_job_processing.py::test_pdf_handler_produces_immutable_success_from_verified_streamed_source",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_pdf_job_processing.py::test_pdf_handler_rejects_inconsistent_pinned_profile_before_object_access",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_pdf_job_processing.py::test_pdf_handler_rejects_source_metadata_before_streaming_or_extraction",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_processing.py::test_process_normalizes_content_and_preserves_citation_metadata",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_processing.py::test_process_splits_oversized_paragraph_with_token_overlap",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[configuration_invalid-configuration_invalid-configuration_invalid]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[database_transient-database_transient-database_transient]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[invalid_input-invalid_input-invalid_input]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[provider_transient-provider_transient-provider_transient]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[resource_limit-resource_limit-resource_limit]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[storage_transient-storage_transient-storage_transient]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[unsupported_input-unsupported_input-unsupported_input]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[vector_mismatch-vector_mismatch-vector_mismatch]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_cause_mapping_is_closed_and_preserves_observed_failure_facts[worker_unexpected-worker_unexpected-worker_unexpected]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_deterministic_failure_is_terminal_before_and_at_the_attempt_limit",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_retry_policy_accepts_zero_delay",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_retry_policy_does_not_consume_random_for_exhaustion_or_terminal_failure",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_retry_policy_uses_exact_full_jitter_once_for_retryable_attempts",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/ingestion/test_retry_policy.py::test_system_random_source_translates_inclusive_upper_bound_for_exclusive_rng",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_application_integration.py::test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_embedding.py::test_openai_compatible_embedding_accepts_unindexed_wire_order",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_embedding.py::test_openai_compatible_embedding_returns_ordered_vectors_and_safe_metadata",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_embedding.py::test_openai_compatible_embedding_sanitizes_transport_failures[http]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_embedding.py::test_openai_compatible_embedding_sanitizes_transport_failures[timeout]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_generation.py::test_openai_compatible_generation_normalizes_failures_without_retry[http]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_generation.py::test_openai_compatible_generation_normalizes_failures_without_retry[malformed]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_generation.py::test_openai_compatible_generation_normalizes_failures_without_retry[timeout]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/openai_compatible/test_generation.py::test_openai_compatible_generation_returns_structured_result_and_safe_metadata",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/test_deterministic_embedding.py::test_deterministic_embedding_uses_production_dimension_and_is_repeatable",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/providers/test_deterministic_generation.py::test_deterministic_generation_returns_valid_request_scoped_alias",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_accepts_a_compatible_embedding_model_with_fixed_dimension",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_an_unapproved_embedding_space[runtime_settings0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_an_unapproved_embedding_space[runtime_settings1]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_invalid_configuration_without_fallback[openai-compatible]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_invalid_configuration_without_fallback[unknown]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_api_key-]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_embedding_configuration_id-]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_embedding_input_cost_per_million_tokens-value5]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_embedding_model-]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_generation_input_cost_per_million_tokens-value6]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_generation_model-]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_generation_output_cost_per_million_tokens-value7]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_pricing_version-]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_rejects_unsafe_compatible_settings[openai_timeout_seconds-0]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_bootstrap_selects_one_complete_provider_mode",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_object_store_settings_are_typed_and_validate_backend",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_object_store_settings_reject_empty_s3_credentials[object_store_s3_access_key]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_object_store_settings_reject_empty_s3_credentials[object_store_s3_secret_key]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_bootstrap.py::test_settings_repr_redacts_provider_api_key",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "backend/test/test_main_lifecycle.py::test_create_app_composes_lifecycle_worker_and_optional_reconciler",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_any_structural_violation_fails_the_hard_gate",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_concurrent_report_writers_cannot_replace_the_winner",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_corpus_manifest_pins_every_document_checksum",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_dataset_manifest_binds_version_to_content_checksum",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_dataset_validation_rejects_duplicate_case_ids",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_dataset_validation_rejects_invalid_contract_variants[<lambda>-ANSWER case refund-window requires relevant sources and chunks]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_dataset_validation_rejects_invalid_contract_variants[<lambda>-case refund-window missing field: question]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_dataset_validation_rejects_invalid_contract_variants[<lambda>-dataset must contain 20 to 25 cases]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_dataset_validation_rejects_invalid_contract_variants[<lambda>-unknown category: unknown]",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_duplicate_citation_aliases_and_invalid_refusal_answer_fail_structure",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_local_report_separates_structural_retrieval_and_system_results",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_milestone_one_dataset_has_the_approved_case_contract",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_model_backed_corpus_manifest_pins_the_openai_embedding_configuration",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_model_backed_mode_requires_explicit_provider_and_scorer",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_normalized_model_report_excludes_scorer_wall_clock_observations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_normalized_report_excludes_only_wall_clock_observations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_report_rejects_duplicate_observations",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_report_write_is_atomic_and_never_overwrites_prior_evidence",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_retrieval_metrics_match_an_independent_worked_example",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_evaluation_runner.py::test_retrieval_miss_is_reported_without_falsifying_structural_gate",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_http_eval.py::test_http_executor_uses_question_endpoint_and_resolves_trace_ownership",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_semantic_scorer.py::test_model_backed_report_keeps_semantic_and_system_metrics_separate",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_semantic_scorer.py::test_semantic_scorer_configuration_requires_runtime_values",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_semantic_scorer.py::test_semantic_scorer_sanitizes_invalid_responses",
+      "static_non_pass_markers": []
+    },
+    {
+      "default_expected_outcome": "PASS",
+      "node_id": "evals/test/test_semantic_scorer.py::test_semantic_scorer_sends_aliases_and_returns_four_scores",
+      "static_non_pass_markers": []
+    }
+  ],
+  "kind": "pytest_pre_execution_inventory",
+  "manifest_sha256": "82c0e54fd9d947fb53da8bf4090f945ee0cd244690720908d55e72e4a517125e",
+  "schema_version": 1,
+  "toolchain": {
+    "pip_freeze_sha256": "e28e7e7313ac975f2e9ebff3b6138640647842c23506c957dc4f4aa38c8cbe5d",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "pytest_version": "pytest 8.4.2",
+    "python_executable": "D:\\Developer\\Projects\\knora-agent\\.venv\\Scripts\\python.exe",
+    "python_version": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-21-20260811-r2-acceptance-02",
+  "supersedes_run_id": "m2-issue-21-20260811-r2-acceptance-01",
+  "observed_at": "2026-08-11T10:55:00+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-21-r2",
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "BLOCKED",
+      "observation": "Corrects only the next-action wording in acceptance-01. The deterministic node-level baseline oracle remains blocked because no approved baseline allowlist or immutable predecessor manifest is available.",
+      "evidence": [
+        "m2-issue-21-20260811-r2-acceptance-01 TC-01 evidence",
+        "A baseline artifact can satisfy the existing locked R2 prerequisite without changing the guide"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "NOT_RUN",
+      "observation": "Stopped before execution because TC-01 remains BLOCKED under the defect-gate rule.",
+      "evidence": ["TC-01 BLOCKED"]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "NOT_RUN",
+      "observation": "Stopped before execution because TC-01 remains BLOCKED under the defect-gate rule.",
+      "evidence": ["TC-01 BLOCKED"]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "NOT_RUN",
+      "observation": "Stopped before execution because TC-01 remains BLOCKED under the defect-gate rule.",
+      "evidence": ["TC-01 BLOCKED"]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "NOT_RUN",
+      "observation": "Stopped before execution because TC-01 remains BLOCKED under the defect-gate rule.",
+      "evidence": ["TC-01 BLOCKED"]
+    },
+    {
+      "id": "TC-06",
+      "outcome": "NOT_RUN",
+      "observation": "Stopped before execution because TC-01 remains BLOCKED under the defect-gate rule.",
+      "evidence": ["TC-01 BLOCKED"]
+    },
+    {
+      "id": "TC-07",
+      "outcome": "NOT_RUN",
+      "observation": "Stopped before execution because TC-01 remains BLOCKED under the defect-gate rule.",
+      "evidence": ["TC-01 BLOCKED"]
+    }
+  ],
+  "verdict": "BLOCKED",
+  "human_approval": "pending",
+  "approval_blocker": "Provide an approved exact baseline allowlist or an immutable baseline manifest from a pinned predecessor candidate. Then resume execution under the existing locked R2 guide."
+}

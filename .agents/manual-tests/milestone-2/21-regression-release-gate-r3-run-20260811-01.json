@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "run_id": "m2-issue-21-20260811-r3-acceptance-01",
+  "resumes_run_id": "m2-issue-21-20260811-r2-acceptance-02",
+  "observed_at": "2026-08-11T11:25:40+07:00",
+  "executor": "Codex",
+  "guide_revision": "m2-issue-21-r3",
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "baseline_identity_sha256": "59e0c18b7243d342e9133518aef4abf7edd529b34a2d13a4932418993ea53e01",
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "PASS",
+      "observation": "The 437-node full execution exactly matched the locked pre-execution inventory. The three approved manual fixtures were the only skipped nodes; 434 nodes passed.",
+      "evidence": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json: PASS",
+        "21-regression-release-gate-r3-tc01-execution.json: 434 passed, 3 skipped",
+        "evidence-only checker repair mapped allowlist skip to pytest skipped; candidate and inventory inputs were unchanged"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "PASS",
+      "observation": "The candidate-specific public upload -> worker -> poll -> cited-answer flow passed. Existing server-side Evidence Set alias validation rejected an outside-set alias.",
+      "evidence": [
+        "focused issue-19/generation/http suite: 14 passed",
+        "server_side_outside_evidence_alias=REJECTED",
+        "full pytest policy run: PASS"
+      ]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "PASS",
+      "observation": "Durable claim, lease, retry, recovery, CAS and atomic finalization coverage passed on the candidate.",
+      "evidence": ["focused coordination/atomicity suite: 137 passed", "full pytest policy run: PASS"]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "PASS",
+      "observation": "Malformed/input and resource-boundary coverage passed. The three locked PDF manual fixtures ran freshly with KNORA_RUN_MANUAL_ACCEPTANCE=1.",
+      "evidence": ["fresh manual PDF fixtures: 3 passed", "full pytest policy run: PASS"]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "PASS",
+      "observation": "Public reprocess, serving-state, citation and Evidence Set validation coverage passed on the candidate.",
+      "evidence": ["focused issue-19/generation/http suite: 14 passed", "full pytest policy run: PASS"]
+    },
+    {
+      "id": "TC-06",
+      "outcome": "PASS",
+      "observation": "Original-source retention, artifact-class cleanup, reconciliation and operational-observability coverage passed.",
+      "evidence": ["focused lifecycle/observability suite: 67 passed", "full pytest policy run: PASS"]
+    },
+    {
+      "id": "TC-07",
+      "outcome": "PASS",
+      "observation": "Migration-oriented coverage, documentation inspection, criterion-level traceability, Ruff and Compose verification passed.",
+      "evidence": [
+        "21-regression-release-gate-r3-criterion-traceability.json: 118 PASS rows",
+        "ruff check .: PASS",
+        "docker compose config --quiet: PASS",
+        "full pytest policy run: PASS"
+      ]
+    }
+  ],
+  "verification": {
+    "full_pytest": "434 passed, 3 approved skipped",
+    "focused_public_citation": "14 passed",
+    "focused_coordination_atomicity": "137 passed",
+    "fresh_manual_pdf_fixtures": "3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+    "focused_lifecycle_observability": "67 passed",
+    "ruff": "PASS",
+    "docker_compose_config": "PASS",
+    "criterion_traceability": "118 rows, all PASS",
+    "candidate_tree_sha": "f61e55dba7eb037ac59019d0d0149278ed560f61"
+  },
+  "verdict": "BLOCKED",
+  "human_approval": "pending",
+  "approval_blocker": "All technical observations passed. Manual-acceptance requires explicit human approval before a PASSED verdict."
+}

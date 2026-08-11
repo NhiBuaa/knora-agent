@@ -1,0 +1,2717 @@
+{
+  "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+  "coverage_by_issue": {
+    "#14": 38,
+    "#15": 11,
+    "#16": 11,
+    "#17": 12,
+    "#18": 12,
+    "#19": 12,
+    "#20": 10,
+    "#21": 12
+  },
+  "criterion_count": 118,
+  "kind": "issue-21-criterion-traceability",
+  "rows": [
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want to upload one PDF, so that its contents can become searchable knowledge.",
+      "criterion_id": "#14-US-01",
+      "criterion_sha256": "c09be804813366fe4fc6cea3accd95a9da96b2c1fa681d1664bde2616c309d21",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want an accepted PDF upload to return HTTP `202`, so that I do not have to hold a connection open during ingestion.",
+      "criterion_id": "#14-US-02",
+      "criterion_sha256": "b5eeb3bbe3e56f0c2479d64f5d5ab6338dca58a555e2bd22ccb04c7de5b9f353",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want the upload response to contain an Ingestion Job ID, so that I can track the accepted work.",
+      "criterion_id": "#14-US-03",
+      "criterion_sha256": "52ffe452a619c5ee4d3b50d789867cf551cd8ebcef1426a696f7c92c0d20c1a8",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want to know whether a submission created or reused a job, so that deduplication is explicit.",
+      "criterion_id": "#14-US-04",
+      "criterion_sha256": "910e6c90c589dfe5d035952de8944532aa860899b9b519b735e30cd80dfbaebf",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want to poll the current job state, so that I can distinguish queued, processing, retrying, successful, and failed work.",
+      "criterion_id": "#14-US-05",
+      "criterion_sha256": "0d26411ab03a89a88714a931b264547f1a0647a41968ca04045692f9abe47c2b",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want terminal success to include the resulting derivation identifiers, so that I can correlate the job with activated knowledge.",
+      "criterion_id": "#14-US-06",
+      "criterion_sha256": "6edfc633882130773f8615c5aff9d54b1aa09f74a4b884a6863370eacb3f0387",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want terminal failure to expose a stable safe error code, so that I can respond without parsing internal error text.",
+      "criterion_id": "#14-US-07",
+      "criterion_sha256": "a5c1fc7564fb5d3b3121b6ed58f2c622a2361bfa6d0d3288955bf20da0be7183",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a Workspace member, I want job access restricted to my Workspace, so that another tenant cannot infer my uploads or job states.",
+      "criterion_id": "#14-US-08",
+      "criterion_sha256": "867f93fe66ee21c543b6657d32bc50ae591697476f67d76b97c6226cc660bbdb",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a Workspace member, I want authentication and authorization to occur before job lookup, so that resource existence is not leaked.",
+      "criterion_id": "#14-US-09",
+      "criterion_sha256": "c26e3c1d40d71d7587a788e4ff2cbe36dc205eec5860b9326b0415379e86ca64",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want a completed PDF ingestion to become answerable through the existing question API, so that clients need no new answer contract.",
+      "criterion_id": "#14-US-10",
+      "criterion_sha256": "a106dbe95fae2f0771a3c3889d95487b4937645f18896f7d2062b12c5cd25edb",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want PDF answers to retain verifiable Citation Projections, so that every claim remains traceable to the source.",
+      "criterion_id": "#14-US-11",
+      "criterion_sha256": "29aeaac2dcf6ab3fef22c8a15e1671ab48d5bd174ebd5845d719a84608696783",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want failed ingestion to leave the previously Active Embedding Set unchanged, so that bad uploads do not break existing answers.",
+      "criterion_id": "#14-US-12",
+      "criterion_sha256": "a3d3f5b869909224ab9256d070f9389eadbdf3742a339374c2658fa0d6c356db",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want a newly completed Embedding Set activated atomically, so that retrieval never observes partial knowledge.",
+      "criterion_id": "#14-US-13",
+      "criterion_sha256": "13c62bc33198408319d216eecb6c2d341f7009204f2815096d2424f572afac96",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want provider and temporary infrastructure failures retried automatically, so that brief outages do not require resubmission.",
+      "criterion_id": "#14-US-14",
+      "criterion_sha256": "8714a44ed4d8cfc3fb5a01f6a905374e5b8209f6c2a37e56e52076bbf1b58c23",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want permanent PDF validation failures to stop immediately, so that retry capacity is not wasted.",
+      "criterion_id": "#14-US-15",
+      "criterion_sha256": "99b98866c3122395e33afbbe18ed15664dd0f01a2d59d5137183a05309dd14c2",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want exhausted retry attempts to produce a terminal failed state, so that stuck work is visible.",
+      "criterion_id": "#14-US-16",
+      "criterion_sha256": "151a5571b367d96a733d31be1ca517ae4d47383c75ad0fdb0fedf4cd4fbc292e",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want retry timing and attempt counts recorded, so that ingestion behavior can be diagnosed.",
+      "criterion_id": "#14-US-17",
+      "criterion_sha256": "4b0e245dc433b89ed228d80c7daf71ee4d35ebeb60b992285b9aa238f3011a89",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want worker crashes recovered through an expiring job lease, so that claimed work is not lost forever.",
+      "criterion_id": "#14-US-18",
+      "criterion_sha256": "b9fa42153bad2a13f5480dc59ff2a46e4e75c3e1640c43d93133b1cd0cf43383",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want raw PDFs durably available throughout processing and retry, so that worker restarts do not invalidate accepted jobs.",
+      "criterion_id": "#14-US-19",
+      "criterion_sha256": "3ce444d59a8a797ea8a7dc874126c124c64952a7266438b1e7183e475ad2067f",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want terminal-job upload artifacts cleaned up, so that staging storage does not grow without bound.",
+      "criterion_id": "#14-US-20",
+      "criterion_sha256": "23938454504201d78860dceb8b19f99b7dfae3a4cc26b1ab4f044df5d0b65ae2",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an operator, I want object cleanup retried independently, so that cleanup failure does not falsify an otherwise successful ingestion result.",
+      "criterion_id": "#14-US-21",
+      "criterion_sha256": "a478e19205c8eadc13c57784468b5a0cb62fca9a4fa020baf26410b92e8fbb8e",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want a `202` response only after the job and upload artifact are durable, so that acknowledged work survives process failure.",
+      "criterion_id": "#14-US-22",
+      "criterion_sha256": "56caf5f09c20be3a01602ae8cbc7fadade46f88dcbdec8014303ca222a485eae",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As an API client, I want identical eligible submissions to return the same job, so that request retries do not multiply work.",
+      "criterion_id": "#14-US-23",
+      "criterion_sha256": "03eb926492d69f01ff2f12afecc8dd32244988eaa5fb49d7369da65f0487dd7f",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want equal content under different `source_key` values to remain separate Documents, so that logical source identity is preserved.",
+      "criterion_id": "#14-US-24",
+      "criterion_sha256": "608f4fa99f723dbc50583d9883af1f97cf93cef8cf88d7bdadbd08d86aea858e",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a support engineer, I want changed PDF content under the same `source_key` to create a new Document Version, so that source history remains immutable.",
+      "criterion_id": "#14-US-25",
+      "criterion_sha256": "4a54c906ec400b95732182e548a3ecd904f708969488882279a87f1ef4bfbf8d",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want raw-PDF equality separated from normalized-content equality, so that transport deduplication does not change domain identity.",
+      "criterion_id": "#14-US-26",
+      "criterion_sha256": "f88607f301daf91addc9c3fb890b5d86d5bbe4b82b41831444c095bb46d36c9b",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want PDF parsing and chunking identified by an immutable Chunking Configuration, so that derivations can be reproduced.",
+      "criterion_id": "#14-US-27",
+      "criterion_sha256": "69b9fb4ef4010a473cd2a2df1639b3d79fac23233aa20d3457e06ff051d0ee65",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want parser or chunker changes to create a new Chunk Set rather than mutate an old one, so that historical traces remain valid.",
+      "criterion_id": "#14-US-28",
+      "criterion_sha256": "69306ade6b809edfdca382be3c0a0b876f21ed978a297ef42e5305ea933739fd",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want embedding changes to create a new Embedding Set without creating a new Document Version, so that configuration identities remain correct.",
+      "criterion_id": "#14-US-29",
+      "criterion_sha256": "acd37c273052e605e886315372d69d1058b35d91d18dd724065c628757cdcfae",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want retries to reuse completed derivations, so that they do not persist duplicate versions, chunks, or embeddings.",
+      "criterion_id": "#14-US-30",
+      "criterion_sha256": "4504cfa010e9211674a086fed7794bff7790f711fbf943ddecabff2e65b84515",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want concurrent workers to coordinate on a derivation identity, so that they minimize duplicate provider calls.",
+      "criterion_id": "#14-US-31",
+      "criterion_sha256": "d010d6d9997d57ef8e91a9daafb16bc5c681ad823a36fe57013d2833d0487c6a",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want all provider calls outside database transactions, so that remote latency does not hold database locks.",
+      "criterion_id": "#14-US-32",
+      "criterion_sha256": "c91c9ba7a435d34c840b9885f67c0eff6d8a16d5744d475c8bc9ee895f5111a5",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want vector dimensions and provider/model identity validated before persistence, so that invalid embeddings cannot be activated.",
+      "criterion_id": "#14-US-33",
+      "criterion_sha256": "1859978cd8d5f731a96792a9efe04e9896e8f1d100d395c53689687530fab55f",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want a late older job to fail its compare-and-swap instead of replacing newer knowledge, so that completion order cannot corrupt source ordering.",
+      "criterion_id": "#14-US-34",
+      "criterion_sha256": "88df2a512364f3774ecd2dd263919343b8c83978ca06b41b304a2055cdde1326",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want job success, derivation persistence, and activation to agree transactionally, so that polling never reports success for an uncommitted activation.",
+      "criterion_id": "#14-US-35",
+      "criterion_sha256": "cbc2aefb78dffcec2dcdaaf3d8f32ab922134270e23aca82594347c1646bfe5b",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want textless, encrypted, malformed, or oversized PDFs to fail with stable codes, so that invalid inputs are predictable.",
+      "criterion_id": "#14-US-36",
+      "criterion_sha256": "949c5d8fd79cd7e8543ebbe142da23ec677fd72ecc6c057128616cdc38b2be7c",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a developer, I want source filenames sanitized and object keys opaque, so that client input cannot expose or select internal paths.",
+      "criterion_id": "#14-US-37",
+      "criterion_sha256": "8736275613c157fdc18b038ad0fe65f75d59b9748787eac53f3142d28df437e5",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "As a portfolio reviewer, I want an HTTP-observable upload-to-answer workflow, so that production-shaped ingestion can be demonstrated end to end.",
+      "criterion_id": "#14-US-38",
+      "criterion_sha256": "791514a46951a77e12bdf4a1d9097aa8b591bdb759b4cdf89bba396b0d40af7b",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#14",
+      "kind": "user_story",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "The authenticated upload streams through `ObjectStore.put_stream`; application code never loads the complete object into memory and never lets the caller construct an object key.",
+      "criterion_id": "#15-AC-01",
+      "criterion_sha256": "80295f8f6e3e27fdfc093e188c99bb9528481ae8aa99a29a08146d472561672b",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Original-object metadata records Workspace, opaque key, raw SHA-256, byte size and media type; ETag is not treated as a content hash.",
+      "criterion_id": "#15-AC-02",
+      "criterion_sha256": "67f18bcd1c5f1826fd96e5dd2f910d07fe1d03098389d1ac781615fe60804044",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "PDF Document Version identity is `(document_id, raw_sha256)` and is independent of parser, normalizer, chunking and embedding configuration versions.",
+      "criterion_id": "#15-AC-03",
+      "criterion_sha256": "142d6a11ced35243fdbf14120f148798a89ff1d5ea90e7aaf7827573988921f3",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "The Document Version and sequential `version_number` are committed atomically with `Document.current_document_version_id`; concurrent uploads serialize or use CAS without deriving current from time/UUID/order.",
+      "criterion_id": "#15-AC-04",
+      "criterion_sha256": "9b6001c3621f86940fab4d17d528fe66b14e017c40bc943d9a8a2be71d20b964",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "The derivation fingerprint uses Workspace, canonical source key, raw SHA-256 and immutable parser/normalizer/chunking/embedding configuration version IDs; filename, upload timestamp and object key are excluded.",
+      "criterion_id": "#15-AC-05",
+      "criterion_sha256": "b8ee4e3fd3efeae7cac12abf874c8872b2af2da3142c5dc1e9439b14a35a079a",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "An Idempotency Record is unique by `(workspace_id, operation, key)`, retained for the 24-hour baseline, replays the same request, and returns `IDEMPOTENCY_KEY_CONFLICT` for a changed fingerprint.",
+      "criterion_id": "#15-AC-06",
+      "criterion_sha256": "f609bc0ad7b9292363e0ba7a5edbeab7bff8f06f84a5b83d763cb1fd5c418260",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Atomic insert or database uniqueness prevents concurrent request/job/document-version duplication.",
+      "criterion_id": "#15-AC-07",
+      "criterion_sha256": "b542069cd1bc54a7fef44df935a635a4fc7c58b63ac34ce2457ff8444b1b93b9",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "The upload returns the approved `202/200` semantics and always includes `ingestion_job_id`, `submission_outcome` and `status=queued` for a new non-terminal job.",
+      "criterion_id": "#15-AC-08",
+      "criterion_sha256": "cbcad1f19eb7d831b7ec4d5099234150226183e31e01466e93a438756538bce4",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Authentication and Workspace authorization happen before resource lookup and do not leak another Workspace's source or job existence.",
+      "criterion_id": "#15-AC-09",
+      "criterion_sha256": "c1ce62adc1d809edb9b7b1b94fc247977690cbc960d3dae482ca9a4fd2d9011d",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Database migrations, foreign keys and uniqueness constraints preserve Document/Workspace pointer ownership and forbid hard deletion of referenced current/active resources.",
+      "criterion_id": "#15-AC-10",
+      "criterion_sha256": "02b40340139f34f8e84177e27dc48062e35754fa0e6ba9f4dd6c2f3fd2a755ef",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Existing synchronous Markdown/plain-text ingestion behavior and tests remain green.",
+      "criterion_id": "#15-AC-11",
+      "criterion_sha256": "3711a23c92ccd3d58dc5dacc6e8e911b54f1689f817ede0a973e461a97a5cbe9",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#15",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "`PdfTextExtractor` hides `pypdf` behind a versioned interface accepting a stream/file handle and returning normalized physical pages or stable terminal errors.",
+      "criterion_id": "#16-AC-01",
+      "criterion_sha256": "cd8cfd7bdf83908a66829a091d2b2544a955f5fa93630b6310af3f780192c709",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Extraction runs in an isolated child process with parent-enforced 256 MiB hard RSS/container/process ceiling and a 30-second inspection/extraction timeout.",
+      "criterion_id": "#16-AC-02",
+      "criterion_sha256": "6ba7d9559d0f94620ca8cdcfca93c85efaef8710bb6d0d7324357eba05b1e293",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Versioned budgets enforce 25 MiB raw input, 500 physical pages, 4 MiB decompressed content stream per page and 64 MiB aggregate decompressed content streams.",
+      "criterion_id": "#16-AC-03",
+      "criterion_sha256": "767c49bcd4d06a6fb855a2936aef19bb16c3e0f0a2737d9eac5ad4fb8076207e",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Budget failures return `PDF_RESOURCE_LIMIT_EXCEEDED` with the approved internal reason; infrastructure crash/eviction remains distinguishable from deterministic terminal failure.",
+      "criterion_id": "#16-AC-04",
+      "criterion_sha256": "85359da618b8e0ba0614f706fe13aa48ce14ed69e61c61e0927b15c5e2d96251",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Encrypted/password-protected, malformed, unsupported and textless/insufficient-text PDFs return distinct terminal domain errors and cannot produce an empty successful corpus.",
+      "criterion_id": "#16-AC-05",
+      "criterion_sha256": "cfccb183bbac84a8b66e49051b7e786fbefdd120d31e230e5854345df69e6fef",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Normalization deterministically handles Unicode, whitespace, newlines, control characters and line joining under exact parser/extraction-options/normalizer versions.",
+      "criterion_id": "#16-AC-06",
+      "criterion_sha256": "2886ea7a7a871652a7f69c23978eb051afbc5097a531b92ddc785db32081d9da",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Normalized page text is split into deterministic paragraphs/blocks, packed toward 500 tokens with at most 75-token complete-block overlap, and hard-split only when a block exceeds 650 tokens.",
+      "criterion_id": "#16-AC-07",
+      "criterion_sha256": "21dd5ff4b3333627470a2df0d0bee2d03a9960ba9e7551497e1fed8be8bd87ae",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Chunks never cross physical page boundaries, never exceed 650 tokens because of overlap, and empty/whitespace-only pages produce no chunk.",
+      "criterion_id": "#16-AC-08",
+      "criterion_sha256": "d2b536161e39866398f95bbd88ffc66e75fe0d1ddd865985b03c5ec7deb7724f",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Each chunk records 1-based physical page number, ordinal, normalized-text token count, half-open character offsets and content checksum; `page_start = page_end` while page label remains display-only.",
+      "criterion_id": "#16-AC-09",
+      "criterion_sha256": "d23afaf5fc082b552077e1d2e8e59a13cc1b71399df1f87a65e31fbd74b25e26",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Tokenizer name and exact version are immutable configuration; parser, normalizer, tokenizer or chunking changes produce a new derivation identity rather than mutating prior output.",
+      "criterion_id": "#16-AC-10",
+      "criterion_sha256": "1fde07dcb28c67be7abd05f14e487c3980bfa38a34dd2cdc1933d3dd4d9ac8a5",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Fixture tests cover multi-column pages, tables, rotated text, unusual fonts, mixed image/text, malformed, encrypted and resource-budget cases without promising OCR, table reconstruction or perfect reading order.",
+      "criterion_id": "#16-AC-11",
+      "criterion_sha256": "175ac84bfe1c25a660b4aa235f14fc4a13b01768ec225a0957083ad6ced5cdf3",
+      "evidence_ids": [
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#16",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Eligible jobs are claimed atomically, using `FOR UPDATE SKIP LOCKED` or an equivalent single-owner database operation.\r",
+      "criterion_id": "#17-AC-01",
+      "criterion_sha256": "96080fc48ecdb257edff98befca06ed171c1c2b0988a2a55327f823821094861",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "A claim records `worker_id`, a monotonically changing `lease_version` and `lease_expires_at`; only one unexpired claim owns a job.\r",
+      "criterion_id": "#17-AC-02",
+      "criterion_sha256": "6b84af3edde3d2cbd921ff82ebdd43cc480af92c97213a40db90aee2bcb6aec1",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "The 2-minute lease is heartbeated every 30 seconds to `now + 2 minutes`; every heartbeat and outcome commit predicates on `worker_id + lease_version`.\r",
+      "criterion_id": "#17-AC-03",
+      "criterion_sha256": "ae746537e08a79dfaa499ac2413f67a7f08c8062a0c8d56b9c95b1bf1d91bbfd",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Losing or being fenced out of a lease stops processing and prevents any stale worker from committing status or activation-related outcomes.\r",
+      "criterion_id": "#17-AC-04",
+      "criterion_sha256": "d554e9d42fdcd87ccad6c708ee7bf8320839ea725876718f6a55c83cbab24ebb",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Claim transactions end before the work handler runs; no transaction remains open across extraction, chunking, embedding or external I/O.\r",
+      "criterion_id": "#17-AC-05",
+      "criterion_sha256": "92a6c582c23e5ea2da429fe02d8a2e293f2b36d3168b3ca6078b56007a4bf8a2",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "An expired claim can be reclaimed by another worker with a new lease version, while duplicate delivery remains safe through idempotent processing and database constraints.\r",
+      "criterion_id": "#17-AC-06",
+      "criterion_sha256": "4aaca66853abd1f2909c306d74f393cd15d666c91cf2cc0b4913de0c6e843d91",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "`attempt_count` counts attempts started, `max_attempts=4`, and `max_attempt_runtime=15 minutes` is distinct from lease duration.\r",
+      "criterion_id": "#17-AC-07",
+      "criterion_sha256": "33aa8ebd0b9e321a0e90ccff8fa1c232c115e920fa3c7a4962eef738a3a878d6",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Versioned full-jitter retry windows are 5 seconds, 30 seconds and 2 minutes with a 5-minute cap; `next_attempt_at` appears only when retry is scheduled.\r",
+      "criterion_id": "#17-AC-08",
+      "criterion_sha256": "b252e5547c563fe0f09de99659ed624df1d34cb7c77ace069f3e4e50fb947112",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Retryable infrastructure/provider/database/worker outcomes schedule the next attempt; deterministic terminal outcomes become public `failed` with safe failure reason and code.\r",
+      "criterion_id": "#17-AC-09",
+      "criterion_sha256": "ab872d7f7860fc5a3aa63f0fdc8eff6ef1223f55e5a7118f59d84eacb604b724",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Exhausted retry budget becomes public `failed` with `failure_reason=retry_exhausted`; old attempt history is immutable.\r",
+      "criterion_id": "#17-AC-10",
+      "criterion_sha256": "f365462c8923b65f235af0600d4d3455712396df1762b16d8cc2613889712573",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Public/internal transition constraints reject invalid state changes, stale writes and duplicate terminal commits.\r",
+      "criterion_id": "#17-AC-11",
+      "criterion_sha256": "92b9ff422cc994076571591d11c3c52c7eb3d8bf0a579d6775d43738d031ea06",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Concurrency tests with a fake clock and fake work handler cover simultaneous claims, heartbeat, lease loss, stale-worker commit, crash/expiry reclaim, retry scheduling and retry exhaustion.\r",
+      "criterion_id": "#17-AC-12",
+      "criterion_sha256": "05f9a8117b14a3cd265eb1b48627eed3d248b7d382d6598b5213a97e78b1066a",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#17",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-03"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "`ProcessIngestionJob` owns orchestration from claimed job through ObjectStore read, isolated extraction, chunking, embedding, persistence, activation and terminal/retry cleanup outcome.",
+      "criterion_id": "#18-AC-01",
+      "criterion_sha256": "a8fc1193b1edf71d1cbae88fc5ed79926bbee56051a83b7c21ee46ab4db45c30",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "The worker uses only the immutable parser/normalizer/chunking/embedding configuration IDs snapshotted at job creation and never resolves mutable current configuration while running.",
+      "criterion_id": "#18-AC-02",
+      "criterion_sha256": "12404fbf7bfe12c635ccbaa1c080a362fa6b8012f718ee85c3a020ae49a95ffb",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Original source checksum and ObjectStore metadata are verified before processing; streaming reads avoid whole-object memory loading.",
+      "criterion_id": "#18-AC-03",
+      "criterion_sha256": "57471233ea3c18beeeeecca97793c860ec2f55ea34bb124059f1e2c3a13a76bb",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Parser/chunker output creates or reuses the correct Chunk Set for the PDF Document Version and immutable extraction/chunking configuration target.",
+      "criterion_id": "#18-AC-04",
+      "criterion_sha256": "3e4f445640e719d082f77cd180dc1bf48f12ae9206c7c6ba9c7b53203956327d",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Embedding Provider calls happen outside database transactions and validate vector count, dimensions, provider and model/configuration identity before persistence.",
+      "criterion_id": "#18-AC-05",
+      "criterion_sha256": "2fea265239332364c5c9843685dae9bd0883f45d3e56e0ad3e4c5d0083a5e836",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Retry taxonomy for the Issue #18 PDF handler covers provider timeout/429/5xx, transient ObjectStore failures, retryable isolated-extractor infrastructure failure or eviction, and unexpected ordinary handler failures according to the Issue #17 cause mapping. Deterministic input, pinned-configuration, resource-limit, and vector-validation failures are non-retryable. Coordinator-owned attempt timeout and worker disappearance retain Issue #17 semantics; worker/process disappearance is recorded only as `LEASE_EXPIRED` when recovery proves lease expiry. PostgreSQL coordination-store deadlock, serialization, connectivity, network, and ambiguous-commit failures follow Issue #17 persistence/reconciliation or indeterminate-infrastructure semantics and never become handler `DATABASE_TRANSIENT`. `DATABASE_TRANSIENT` remains available only when a business-work handler legitimately observes a transient database dependency; the Issue #18 PDF handler introduces no such dependency.",
+      "criterion_id": "#18-AC-06",
+      "criterion_sha256": "b1a9e961704eeafeef0bb54b82edc5b2ea67cad9be19fcc7920096978e31e449",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Final persistence atomically creates or reuses the complete Chunk Set/Embedding Set, validates Document/Workspace ownership and records the job outcome without partial retrieval-visible derivations.",
+      "criterion_id": "#18-AC-07",
+      "criterion_sha256": "1423021451c5a71b69ec015cc90960a016d5a167e14565588d104bc50160e0e9",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Activation CAS succeeds only with matching `worker_id + lease_version`, target still equal to `current_document_version_id`, and a completed compatible Embedding Set belonging to the same Document/Workspace.",
+      "criterion_id": "#18-AC-08",
+      "criterion_sha256": "733f480c7eb4e3948efdbfa8d0cec2caf3f27beaa8384c0d243cf4e1f5e0e129",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "A newer source version causes stale activation to finish `superseded` without consuming retry budget and records replacement metadata when available.",
+      "criterion_id": "#18-AC-09",
+      "criterion_sha256": "4a92412288af1d7f700be91020175fc2012b736ef2d65bb1e658986a28fc0cb1",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "`current_document_version_id` and `active_embedding_set_id` may refer to different source versions; retrieval continues from the prior active set while a newer job processes or fails.",
+      "criterion_id": "#18-AC-10",
+      "criterion_sha256": "394c31ce60ca40c7e27bc31df950061eaab89825f92b481fcd6677740dc49824",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Database constraints prevent cross-Document/Workspace pointers, incomplete active sets and deletion of current/active resources.",
+      "criterion_id": "#18-AC-11",
+      "criterion_sha256": "47b88f60cf5b607d985bb854c3db997955a5331f4c28b744f1aa025968d2e9bb",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Integration tests cover successful local embedding activation, provider retry, non-retryable failure, lease loss during processing, stale CAS supersession, duplicate delivery and no-partial-write rollback.",
+      "criterion_id": "#18-AC-12",
+      "criterion_sha256": "da80cb9da3e5f7de3d66424b2c6904a2928944ec7cf467cfa033ae4dde7587ca",
+      "evidence_ids": [
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#18",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-03",
+        "TC-04"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "PDF upload returns `202 Accepted` for a created/reused non-terminal job and `200 OK` for terminal idempotency replay/fingerprint deduplication; bodies contain job ID, submission outcome and public state.",
+      "criterion_id": "#19-AC-01",
+      "criterion_sha256": "ca02a5df617c91560aeddbeaaa0998397d954e3a34f6a0ff037f06a233509b89",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Public states are exactly `queued`, `processing`, `retry_scheduled`, `succeeded`, `superseded` and `failed`; failure reason and error code remain safe and separate from public state.",
+      "criterion_id": "#19-AC-02",
+      "criterion_sha256": "9e9fb37509343ff9948acde1fc7c7390ba7a6df296dec11a7237870064bf20c2",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Polling returns attempt count/max, conditional `next_attempt_at`, UTC RFC 3339 lifecycle timestamps, terminal result/error and `poll_after_seconds` or `Retry-After`, with `Cache-Control: no-store`.",
+      "criterion_id": "#19-AC-03",
+      "criterion_sha256": "662bc9fcba9dbd5c30947513e226d2c493ea955ebff9c0418551c8020343192f",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Polling exposes target/current/nullable-served Document Version IDs and server-computed `serving_state` (`unavailable`, `current`, `previous`) resolved in one database snapshot.",
+      "criterion_id": "#19-AC-04",
+      "criterion_sha256": "6fa317bc327b24fe5bfa59d4bddbc83cd36640dc475b0b574711eec76f9097ec",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Unknown and cross-Workspace job lookups return the same `404 INGESTION_JOB_NOT_FOUND`; authentication/authorization precede lookup.",
+      "criterion_id": "#19-AC-05",
+      "criterion_sha256": "072a0f23508fd8b0d3638311326f1df47ef02aeec59a44f99fdd4cf62cccf89b",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Manual reprocess targets the current Document Version, requires reprocess authorization, audit and a new scoped Idempotency-Key, and returns `409 DOCUMENT_VERSION_NOT_CURRENT` for a historical target.",
+      "criterion_id": "#19-AC-06",
+      "criterion_sha256": "62bf321820321b5e37b74aad0fb730cb53fc3b1b67d5dfc805ed3e7c50ae31c2",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "`config_mode=same_as_job` snapshots the exact prior config versions; `config_mode=current` snapshots active config versions at creation; the worker never resolves them again.",
+      "criterion_id": "#19-AC-07",
+      "criterion_sha256": "08ee3203cc03e9e05ca18b50d52bda56231c30b24b8c488febf6911b3862eb19",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Reprocess creates a fresh generation with `reprocess_of_job_id` and reset attempt budget, reuses equal current-version/config work already processing/succeeded, and never mutates the prior job.",
+      "criterion_id": "#19-AC-08",
+      "criterion_sha256": "6ba3e2ea530fdac088bee821436c74f3da62b91414012d120f5dd6f2e5db76e8",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "PDF Citation Projection remains backward compatible while adding 1-based physical page fields, normalized-text half-open offsets and server-resolved provenance pinned to Document Version and Chunk identity.",
+      "criterion_id": "#19-AC-09",
+      "criterion_sha256": "428c231506103b738d1e10e0a05f1ada9739fd38387eddf477d3d48e8f066829",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Existing `POST /v1/questions` retrieves only from the active Embedding Set and returns cited PDF answers or the existing refusal contract.",
+      "criterion_id": "#19-AC-10",
+      "criterion_sha256": "ce7a1cb37f7f9d739d080a68d59357d2ffaf420e0a3880a661cb71ca7b17ab0a",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Application integration tests cover upload \u00e2\u2020\u2019 worker \u00e2\u2020\u2019 poll \u00e2\u2020\u2019 cited answer, previous-serving state during processing/failure, successful reprocess, superseded reprocess and tenant isolation.",
+      "criterion_id": "#19-AC-11",
+      "criterion_sha256": "d2fbbfe6d533df23e407c213b5b8ad39b03948aac89c15f20e4437e0240644d3",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "No percentage progress, token streaming, SSE or UI is introduced.",
+      "criterion_id": "#19-AC-12",
+      "criterion_sha256": "872b3ad7719c5889c4527cd691fa3e8e323f5ea1b042e06cc884414649f96282",
+      "evidence_ids": [
+        "focused issue-19/generation/http suite 14 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#19",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-02",
+        "TC-05"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Original PDFs belong to Document Versions and remain until approved hard deletion; superseded originals respect citation/trace/evaluation retention and failed uploads use bounded diagnostic retention.",
+      "criterion_id": "#20-AC-01",
+      "criterion_sha256": "852b271811b767b018831077ce3393b3fca0a7cad4a7eceeb92a5271390c489c",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Staging, temporary and partial derivation artifacts are cleaned asynchronously and idempotently after terminal outcomes without deleting a retained original source object.",
+      "criterion_id": "#20-AC-02",
+      "criterion_sha256": "c3ef602b37c6c901a520aa8a50a92e4d31a5544df410046ed090f4a08b57cec5",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Cleanup failure is retried independently, never changes a successful ingestion result and produces an observable failure signal.",
+      "criterion_id": "#20-AC-03",
+      "criterion_sha256": "04ff8a13fd9e36a452d7b02f0e9269d09edb0f99f5eefaff3ded938293006699",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "An orphan sweeper/reconciler detects both unreferenced objects and inconsistent database object records, uses safe age/ownership guards and repairs or reports without cross-Workspace access.",
+      "criterion_id": "#20-AC-04",
+      "criterion_sha256": "8dbc2bec9ef1c7bd60a633fe228e894f0cd793fe47ad1a9fb025c911df5d0f36",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Object metadata and checksum verification use SHA-256 rather than ETag and preserve Workspace scope, byte size and media type.",
+      "criterion_id": "#20-AC-05",
+      "criterion_sha256": "16316889a0ce6ada2d5502c9028182ee73cad5bc465bf16cf4e65142f351ac8c",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Queue metrics include depth, oldest-job age, claim latency, retry rate and lease-expiry recovery; lifecycle metrics include cleanup attempts/failures and orphan discovery/reconciliation.",
+      "criterion_id": "#20-AC-06",
+      "criterion_sha256": "02a180d9e18ad31fa57f6f37bae5fe160b5174b416f822d685631e54e4d0d178",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Alerts are defined for sustained queue age/contention, repeated lease expiry recovery, cleanup backlog and unreconciled orphan growth.",
+      "criterion_id": "#20-AC-07",
+      "criterion_sha256": "67c3c8ba2c4baba8da207eb24caacf8fc5d1505d9d2e543280b38efd04a29479",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "MinIO is available in the local Compose topology and uses only the approved S3-compatible capability subset.",
+      "criterion_id": "#20-AC-08",
+      "criterion_sha256": "fd9775bc61bfbe445c1d4b5fb0b644a1e32433ef05b39cc86155cc408bb37c2e",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "`ObjectStore` contract tests cover streaming put/open, head metadata, immutable-object behavior and idempotent delete against MinIO and the configured production S3-compatible provider.",
+      "criterion_id": "#20-AC-09",
+      "criterion_sha256": "5d46273a3527791876625876907e8ded6b1ad6057656ea11ffdb304dd53dbd5b",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Reconciliation and cleanup tests cover database commit/object write gaps, duplicate cleanup delivery, worker crash, superseded jobs, failed uploads and successful retained originals.",
+      "criterion_id": "#20-AC-10",
+      "criterion_sha256": "84cd241b2a76cffe8e7d1df3425ffa5a55db95ce7e77c92897a9969498a7dd72",
+      "evidence_ids": [
+        "focused lifecycle/observability suite 67 passed",
+        "full pytest 434 passed, 3 approved skips"
+      ],
+      "issue": "#20",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-06"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "One repeatable integration scenario proves authenticated PDF upload \u00e2\u2020\u2019 durable job \u00e2\u2020\u2019 worker processing \u00e2\u2020\u2019 polling \u00e2\u2020\u2019 active PDF cited answer through the approved public seams.",
+      "criterion_id": "#21-AC-01",
+      "criterion_sha256": "5d54e39fc5c8bd69b30b8f5c37b8be63a3110d3b8b66fd3522cd8320e68ab873",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "PostgreSQL tests prove request/document/derivation deduplication, atomic claim, fenced lease, heartbeat, stale-worker rejection, lease-expiry reclaim, retry exhaustion, CAS supersession and no-partial-write rollback.",
+      "criterion_id": "#21-AC-02",
+      "criterion_sha256": "65dceee9a94e6beca56d09c043175a41ac734716b999908243f6ce6f02ec39fb",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "PDF fixtures prove malformed, encrypted/password-protected, unsupported, textless/insufficient-text and every resource-budget reason, including child-process timeout/memory enforcement.",
+      "criterion_id": "#21-AC-03",
+      "criterion_sha256": "d79b62ff59b6fa6b31c348de009014ca25796eae43216fad0de754a66582f38f",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Citation checks prove page/offset provenance, backward-compatible line fields and no citation outside the Evidence Set.",
+      "criterion_id": "#21-AC-04",
+      "criterion_sha256": "3e0a7f0775ab5ed3de7b0d37764156058105d4061fecd70b9b4f945e18175d98",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Object lifecycle tests prove retained originals, staging/partial cleanup, orphan reconciliation, cleanup retry and successful-ingestion stability.",
+      "criterion_id": "#21-AC-05",
+      "criterion_sha256": "db52bdc552032d579881d0f180db9b7bfeea3539c6260de7b4d52e4fb82d7b6b",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Reprocess tests prove both config modes, idempotency replay/conflict, generation history, non-current conflict and superseded completion.",
+      "criterion_id": "#21-AC-06",
+      "criterion_sha256": "5dd10fd49d00b0fe8e53bfb9aefdcfa5e1d99c2e3d27d442e260b46933387ebd",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Serving-state tests prove unavailable/current/previous projections from one database snapshot while job status remains independent.",
+      "criterion_id": "#21-AC-07",
+      "criterion_sha256": "f0967bf97094faa00e89ebafd1566e25b9dc5c2ec6a9bcdd6c8fe2116e4f4e80",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "All Milestone 1 synchronous ingestion, retrieval, citation, refusal, authentication and evaluation tests remain green without contract regression.",
+      "criterion_id": "#21-AC-08",
+      "criterion_sha256": "93147dc07b5943a600fa32531227e73284f69d13af23aa762574d4babd63aeba",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Database migrations upgrade cleanly and enforce all new uniqueness, foreign-key, current/active pointer and hard-delete invariants.",
+      "criterion_id": "#21-AC-09",
+      "criterion_sha256": "299fa158dae447218d093a0bde13a4d11c8200fc4828fb2f44dc911eeccd51f2",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Full repository pytest, Ruff and Docker Compose configuration verification pass from the repository root.",
+      "criterion_id": "#21-AC-10",
+      "criterion_sha256": "bff6449cac5a4d15f97ad4d51905e47d8fbbf0ec363666e66d8920feb21eae15",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "README/operations guidance documents local MinIO, API/worker startup, polling, reprocess, retry/lease behavior, object retention, metrics and failure diagnosis without exposing secrets.",
+      "criterion_id": "#21-AC-11",
+      "criterion_sha256": "dae803d546fd8f2e89afdd3c8a4c3466133c77cbb7cf3a743aff7a459db88c1d",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    },
+    {
+      "candidate_sha": "1ac2aac7259d2dcd0faf307883aeafb471e8ac0d",
+      "criterion": "Append-only manual acceptance evidence maps every Issue #14 criterion and every child-ticket criterion to an observable passing result with explicit human approval.",
+      "criterion_id": "#21-AC-12",
+      "criterion_sha256": "6b624d01f23b584bc2c14b98415a848a4ef2b1e32d60bc77b4e53174456bc81e",
+      "evidence_ids": [
+        "21-regression-release-gate-r3-tc01-policy-validation-r2.json",
+        "docker compose config --quiet PASS",
+        "focused coordination/atomicity suite 137 passed",
+        "focused issue-19/generation/http suite 14 passed",
+        "focused lifecycle/observability suite 67 passed",
+        "fresh manual PDF fixtures: 3 passed with KNORA_RUN_MANUAL_ACCEPTANCE=1",
+        "full pytest 434 passed, 3 approved skips",
+        "ruff check . PASS"
+      ],
+      "issue": "#21",
+      "kind": "acceptance_criterion",
+      "provenance": "fresh",
+      "result": "PASS",
+      "test_case_ids": [
+        "TC-01",
+        "TC-02",
+        "TC-03",
+        "TC-04",
+        "TC-05",
+        "TC-06",
+        "TC-07"
+      ]
+    }
+  ],
+  "schema_version": 1
+}

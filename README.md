@@ -1,10 +1,11 @@
 # Knora Agent
 
 Knora là AI support và knowledge agent trả lời dựa trên tài liệu có citation.
-[Milestone 1](docs/specs/done/milestone-1-cited-rag.md) đã hoàn tất. Milestone 2 đã hoàn thành
-production-shaped PDF ingestion qua Issues #15–#19: upload tạo durable job, worker path xử lý và
-activate derivation, HTTP có polling/retry projection, và Document Version hiện tại có thể được
-reprocess với idempotency, audit và supersession semantics đã được phê duyệt.
+[Milestone 1](docs/specs/done/milestone-1-cited-rag.md) và
+[Milestone 2](docs/specs/done/milestone-2-production-ingestion.md) đã hoàn tất. Milestone 2 cung
+cấp PDF ingestion production-shaped: upload tạo durable job, worker xử lý và activate derivation,
+HTTP có polling/retry/serving projection, và Document Version hiện tại có thể được reprocess với
+idempotency, audit và supersession semantics đã được phê duyệt.
 
 Đọc [bức tranh tổng quan](docs/PROJECT_OVERVIEW.md) trước để hiểu product boundary và roadmap.
 
@@ -308,12 +309,15 @@ repeatability and report boundaries.
 - [Spec Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - [Module seams Milestone 1](docs/design/milestone-1-module-seams.md)
 - [Module seams Milestone 2](docs/design/milestone-2-module-seams.md)
-- [Milestone 2 specification và design ledger](https://github.com/NhiBuaa/knora-agent/issues/14)
+- [Milestone 2 completion record](docs/specs/done/milestone-2-production-ingestion.md)
+- [Milestone 2 closed specification and design ledger](https://github.com/NhiBuaa/knora-agent/issues/14)
+- [Milestone 2 accepted release gate](https://github.com/NhiBuaa/knora-agent/issues/21)
 - [Issue #19 design/acceptance guide](.agents/manual-tests/milestone-2/19-public-polling-reprocess-r14.md)
 - [Issue #19 accepted execution evidence](.agents/manual-tests/milestone-2/19-public-polling-reprocess-approved-20260810-01.json)
 - [Issue #19 delivery ledger](.agents/issue-19-feature-delivery.json)
 - [Issue #20 locked manual test guide](.agents/manual-tests/milestone-2/20-object-lifecycle-metrics-r9.md)
 - [Issue #20 accepted execution evidence](.agents/manual-tests/milestone-2/20-object-lifecycle-metrics.evaluations.jsonl)
+- [Issue #21 accepted release Evaluation](.agents/manual-tests/milestone-2/21-regression-release-gate-r3-run-20260811-01-approved.json)
 - [ADR 0009 — ingestion job HTTP contract](docs/adr/0009-ingestion-job-http-contract.md)
 - [ADR 0010 — Document Version reprocess API](docs/adr/0010-document-version-reprocess-api.md)
 - [ADR 0014 — Object Lifecycle Maintenance](docs/adr/0014-object-lifecycle-maintenance.md)
@@ -335,3 +339,7 @@ repeatability and report boundaries.
   delete-time ownership fencing, reconciliation, Operational Metrics V1, versioned alerts và
   S3-compatible ObjectStore support. Locked guide `m2-issue-20-r9` đã `PASSED` với human
   approval sau integration; verification là `434 passed, 3 skipped`.
+- Issue #21 đã hoàn tất release gate và được human approval. Candidate
+  `1ac2aac7259d2dcd0faf307883aeafb471e8ac0d` có `434 passed, 3 approved skipped`; ba locked
+  manual PDF fixtures chạy riêng với `KNORA_RUN_MANUAL_ACCEPTANCE=1` đều pass. Traceability map
+  118/118 criteria về evidence `PASSED`, không còn technical blocker.

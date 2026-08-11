@@ -1,0 +1,37 @@
+{
+  "actual_node_count": 437,
+  "approved_allowlist_entries": [
+    "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_raw_and_page_boundaries",
+    "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_stream_boundaries",
+    "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy"
+  ],
+  "expected_node_count": 437,
+  "inventory_sha256": "82c0e54fd9d947fb53da8bf4090f945ee0cd244690720908d55e72e4a517125e",
+  "missing_nodes": [],
+  "new_nodes": [],
+  "nodes_without_terminal_outcome": [],
+  "outcome_counts": {
+    "passed": 434,
+    "skipped": 3
+  },
+  "policy_violations": [
+    [
+      "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_raw_and_page_boundaries",
+      "skipped",
+      "skip"
+    ],
+    [
+      "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_stream_boundaries",
+      "skipped",
+      "skip"
+    ],
+    [
+      "backend/test/adapters/pdf/test_pypdf.py::test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy",
+      "skipped",
+      "skip"
+    ]
+  ],
+  "pytest_exit_status": 0,
+  "schema_version": 1,
+  "verdict": "FAIL"
+}
