@@ -36,6 +36,25 @@ proposals.
   lifecycle follows version retention, citation/trace/evaluation references and approved hard
   deletion, not the terminal state of an Ingestion Job. Job staging objects and partial
   derivations are separate temporary artifacts.
+- A **Failed-upload Diagnostic Artifact** is a source or staging object from a failed upload that
+  never became the Original Source Object of a committed Document Version. Its separate, bounded
+  diagnostic-retention lifecycle is defined by the Object Lifecycle Retention decision in ADR
+  0006; it never transfers to an Original Source Object merely because an Ingestion Job reaches a
+  terminal state.
+- An **Object Lifecycle Work Item** is a durable, Workspace-scoped cleanup or reconciliation work
+  identity independent of an Ingestion Job outcome. Its attempt history, lease/fencing capability,
+  operation-ID replay, and deletion-preparation generation belong to Object Lifecycle Maintenance;
+  it can never make a retained Original Source Object eligible for deletion.
+- Object Lifecycle Work transitions only `queued -> processing -> retry_scheduled | succeeded |
+  failed`. Its independent Object Lifecycle Retry Policy V1 permits four total attempts and uses
+  full-jitter windows of 5 seconds, 30 seconds and 2 minutes; cleanup failure is observable but
+  never reverses the related Ingestion Job outcome.
+- **OperationalObservability** collects authoritative ingestion/lifecycle snapshots and evaluates
+  immutable versioned Alert Configuration V1. It emits typed low-cardinality metrics and alerts;
+  Workspace, object, job, attempt and source identities are never telemetry labels or annotations.
+- **S3ObjectStore** is the S3-compatible ObjectStore adapter selected by typed runtime
+  configuration. Its provider boundary exposes only streaming put/get, head and delete through an
+  auditable capability client; caller code never selects keys or invokes SDK capabilities directly.
 - An **Embedding Set** is the vectorization of one Chunk Set under exactly one Embedding
   Configuration.
 - A completed Embedding Set may become a Document's **Active Embedding Set**; inactive historical

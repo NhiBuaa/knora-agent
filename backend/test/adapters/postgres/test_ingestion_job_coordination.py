@@ -17,6 +17,7 @@ from knora.adapters.postgres.tables import (
     IdempotencyRecordTable,
     IngestionJobAttemptTable,
     IngestionJobTable,
+    ObjectLifecycleWorkTable,
     OriginalSourceObjectTable,
     WorkspaceTable,
 )
@@ -1080,6 +1081,158 @@ def test_fourth_retryable_attempt_finalizes_exhausted_without_attempt_five() -> 
         ),
         NoEligibleClaim,
     )
+
+
+def test_expired_final_attempt_recovery_atomically_enqueues_lifecycle_work() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-expired-final",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    policy = RetryPolicyV1(ZeroRandom(bounds=[]))
+
+    for attempt_number in (1, 2, 3):
+        decision = policy.decide(
+            FailureCauseV1.PROVIDER_TRANSIENT,
+            attempt_count=attempt_number,
+            max_attempts=4,
+        )
+        assert isinstance(decision, ScheduleRetry)
+        assert isinstance(
+            store.schedule_retry(
+                operation_id=TransitionOperationId(uuid4().hex),
+                claim=claim,
+                failure=retryable_failure(),
+                decision=decision,
+            ),
+            RetryScheduleApplied,
+        )
+        claim = store.claim_next_attempt(
+            operation_id=ClaimOperationId(uuid4().hex),
+            worker_id="worker-expired-final",
+            timing=AttemptTimingV1.standard(),
+        )
+        assert isinstance(claim, ClaimedAttempt)
+
+    with SessionFactory.begin() as session:
+        session.execute(
+            update(IngestionJobTable)
+            .where(IngestionJobTable.id == job_id)
+            .values(lease_expires_at=datetime.now(UTC) - timedelta(seconds=1))
+        )
+
+    observation = store.observe_expired_attempt()
+    assert observation is not None
+    result = store.apply_expired_recovery(
+        operation_id=TransitionOperationId(uuid4().hex),
+        observation=observation,
+        failure=expired_lease_failure(),
+        decision=RetryExhausted(),
+    )
+
+    assert isinstance(result, RecoveryFailedExhausted)
+    try:
+        with SessionFactory() as session:
+            job = session.get(IngestionJobTable, job_id)
+            work = session.scalar(
+                select(ObjectLifecycleWorkTable).where(
+                    ObjectLifecycleWorkTable.lifecycle_generation == job_id
+                )
+            )
+            assert job is not None and job.status == "failed"
+            assert work is not None
+            assert work.state == "queued"
+            assert work.artifact_class == "terminal_cleanup"
+    finally:
+        with SessionFactory.begin() as session:
+            session.execute(
+                delete(ObjectLifecycleWorkTable).where(
+                    ObjectLifecycleWorkTable.lifecycle_generation == job_id
+                )
+            )
+
+
+def test_terminal_failure_rolls_back_job_attempt_and_work_together(monkeypatch) -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-terminal-fault",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+
+    def fail_lifecycle_insert(*, session, job, database_now) -> None:
+        del session, job, database_now
+        raise RuntimeError("controlled lifecycle insertion fault")
+
+    monkeypatch.setattr(
+        PostgresIngestionJobStore,
+        "_enqueue_lifecycle_work",
+        staticmethod(fail_lifecycle_insert),
+    )
+
+    with pytest.raises(RuntimeError, match="controlled lifecycle insertion fault"):
+        store.finalize_terminal_failure(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=claim,
+            failure=terminal_failure(),
+        )
+
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, job_id)
+        attempt = session.scalar(
+            select(IngestionJobAttemptTable).where(
+                IngestionJobAttemptTable.ingestion_job_id == job_id,
+                IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+            )
+        )
+        work = session.scalar(
+            select(ObjectLifecycleWorkTable).where(
+                ObjectLifecycleWorkTable.lifecycle_generation == job_id
+            )
+        )
+        assert job is not None and job.status == "processing"
+        assert attempt is not None and attempt.closed_at is None
+        assert work is None
+
+
+def test_terminal_failure_persists_one_lifecycle_work_and_replay_deduplicates() -> None:
+    clear_coordination_jobs()
+    store, job_id = submit_queued_job()
+    claim = store.claim_next_attempt(
+        operation_id=ClaimOperationId(uuid4().hex),
+        worker_id="worker-terminal-replay",
+        timing=AttemptTimingV1.standard(),
+    )
+    assert isinstance(claim, ClaimedAttempt)
+    operation_id = TransitionOperationId(uuid4().hex)
+    failure = terminal_failure()
+
+    initial = store.finalize_terminal_failure(
+        operation_id=operation_id,
+        claim=claim,
+        failure=failure,
+    )
+    replay = store.finalize_terminal_failure(
+        operation_id=operation_id,
+        claim=claim,
+        failure=failure,
+    )
+
+    assert isinstance(initial, FinalizationApplied)
+    assert replay == initial
+    with SessionFactory() as session:
+        work_items = session.scalars(
+            select(ObjectLifecycleWorkTable).where(
+                ObjectLifecycleWorkTable.lifecycle_generation == job_id
+            )
+        ).all()
+        assert len(work_items) == 1
+        assert work_items[0].state == "queued"
 
 
 def test_run_once_releases_claim_transaction_before_handler_work() -> None:

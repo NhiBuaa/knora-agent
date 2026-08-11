@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from io import BytesIO
 
@@ -14,6 +14,7 @@ from knora.ingestion.jobs import (
     PdfSubmissionResult,
     PreparedPdfSubmission,
 )
+from knora.ingestion.object_lifecycle import ObjectLifecycleWorkItem
 from knora.ingestion.object_store import ObjectMetadata
 from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
@@ -52,7 +53,7 @@ class InvalidMetadataObjectStore(RecordingObjectStore):
                 stream=stream,
                 media_type=media_type,
             ),
-            sha256="invalid",
+            sha256="g" * 64,
         )
 
 
@@ -68,6 +69,28 @@ class RecordingSubmissionStore:
     def commit_pdf_submission(self, prepared: PreparedPdfSubmission) -> PdfSubmissionResult:
         self.prepared.append(prepared)
         return self.result
+
+
+@dataclass
+class RecordingLifecycleMaintenance:
+    items: list[ObjectLifecycleWorkItem] = field(default_factory=list)
+
+    def enqueue(self, item: ObjectLifecycleWorkItem) -> ObjectLifecycleWorkItem:
+        self.items.append(item)
+        return item
+
+
+class FailingLifecycleClock:
+    def now(self) -> datetime:
+        raise OSError("database clock unavailable")
+
+
+@dataclass(frozen=True)
+class FixedLifecycleClock:
+    value: datetime
+
+    def now(self) -> datetime:
+        return self.value
 
 
 def configuration() -> PdfSubmissionConfiguration:
@@ -208,6 +231,47 @@ def test_pdf_submission_removes_duplicate_object_after_idempotency_replay() -> N
     assert object_store.deletes == [("workspace-a", "opaque/source-object-1")]
 
 
+def test_pdf_submission_enqueues_duplicate_staging_cleanup_with_lifecycle() -> None:
+    object_store = RecordingObjectStore()
+    replay = PdfSubmissionResult(
+        ingestion_job_id="job-existing",
+        submission_outcome="idempotency_replay",
+        status="queued",
+        document_id="document-1",
+        document_version_id="version-1",
+        retained_object_key="opaque/source-object-existing",
+    )
+    maintenance = RecordingLifecycleMaintenance()
+    service = IngestionJobs(
+        object_store=object_store,
+        store=RecordingSubmissionStore(replay),
+        lifecycle_maintenance=maintenance,
+    )
+
+    result = service.submit_pdf(
+        PdfSubmissionCommand(
+            workspace_id="workspace-a",
+            source_key="support/refund-policy",
+            source_name="refund-policy.pdf",
+            media_type="application/pdf",
+            stream=BytesIO(b"%PDF-1.7\nsmall fixture"),
+            idempotency_key="request-1",
+            configuration=configuration(),
+        ),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+
+    assert result == replay
+    assert object_store.deletes == []
+    assert len(maintenance.items) == 1
+    item = maintenance.items[0]
+    assert item.workspace_id == "workspace-a"
+    assert item.object_key == "opaque/source-object-1"
+    assert item.artifact_class == "staging"
+    assert item.eligible_at is None
+    assert item.lifecycle_generation == item.work_id
+
+
 def test_pdf_submission_removes_object_when_metadata_validation_fails() -> None:
     object_store = InvalidMetadataObjectStore()
     submission_store = RecordingSubmissionStore(created_result())
@@ -229,3 +293,173 @@ def test_pdf_submission_removes_object_when_metadata_validation_fails() -> None:
 
     assert object_store.deletes == [("workspace-a", "opaque/source-object-1")]
     assert submission_store.prepared == []
+
+
+def test_failed_upload_uses_durable_diagnostic_retention_when_lifecycle_is_configured() -> None:
+    object_store = InvalidMetadataObjectStore()
+    submission_store = RecordingSubmissionStore(created_result())
+    maintenance = RecordingLifecycleMaintenance()
+    classified_at = datetime(2026, 8, 10, 12, 0, tzinfo=UTC)
+    service = IngestionJobs(
+        object_store=object_store,
+        store=submission_store,
+        lifecycle_maintenance=maintenance,
+        lifecycle_clock=FixedLifecycleClock(classified_at),
+    )
+
+    with pytest.raises(KnoraError, match="OBJECT_STORE_METADATA_INVALID"):
+        service.submit_pdf(
+            PdfSubmissionCommand(
+                workspace_id="workspace-a",
+                source_key="support/refund-policy",
+                source_name="refund-policy.pdf",
+                media_type="application/pdf",
+                stream=BytesIO(b"%PDF-1.7\nsmall fixture"),
+                idempotency_key="request-1",
+                configuration=configuration(),
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert object_store.deletes == []
+    assert len(maintenance.items) == 1
+    item = maintenance.items[0]
+    assert item.artifact_class == "failed_upload_diagnostic"
+    assert item.discovery_recorded_at == classified_at
+    assert item.eligible_at is not None
+    assert item.eligible_at == classified_at + timedelta(hours=24)
+
+
+@dataclass
+class CrossWorkspaceMetadataObjectStore(RecordingObjectStore):
+    def put_stream(self, *, workspace_id: str, stream, media_type: str) -> ObjectMetadata:
+        metadata = super().put_stream(
+            workspace_id=workspace_id,
+            stream=stream,
+            media_type=media_type,
+        )
+        return replace(metadata, workspace_id="workspace-b")
+
+
+@dataclass
+class EmptyKeyMetadataObjectStore(RecordingObjectStore):
+    def put_stream(self, *, workspace_id: str, stream, media_type: str) -> ObjectMetadata:
+        metadata = super().put_stream(
+            workspace_id=workspace_id,
+            stream=stream,
+            media_type=media_type,
+        )
+        return replace(metadata, object_key="")
+
+
+def test_failed_upload_outcome_is_not_masked_when_retention_clock_is_unavailable() -> None:
+    object_store = InvalidMetadataObjectStore()
+    submission_store = RecordingSubmissionStore(created_result())
+    maintenance = RecordingLifecycleMaintenance()
+    service = IngestionJobs(
+        object_store=object_store,
+        store=submission_store,
+        lifecycle_maintenance=maintenance,
+        lifecycle_clock=FailingLifecycleClock(),
+    )
+
+    with pytest.raises(KnoraError, match="OBJECT_STORE_METADATA_INVALID"):
+        service.submit_pdf(
+            PdfSubmissionCommand(
+                workspace_id="workspace-a",
+                source_key="support/refund-policy",
+                source_name="refund-policy.pdf",
+                media_type="application/pdf",
+                stream=BytesIO(b"%PDF-1.7\nsmall fixture"),
+                idempotency_key="request-1",
+                configuration=configuration(),
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert object_store.deletes == []
+    assert maintenance.items == []
+
+
+def test_failed_upload_does_not_enqueue_invalid_object_key() -> None:
+    object_store = EmptyKeyMetadataObjectStore()
+    submission_store = RecordingSubmissionStore(created_result())
+    maintenance = RecordingLifecycleMaintenance()
+    service = IngestionJobs(
+        object_store=object_store,
+        store=submission_store,
+        lifecycle_maintenance=maintenance,
+        lifecycle_clock=FixedLifecycleClock(datetime(2026, 8, 10, 12, 0, tzinfo=UTC)),
+    )
+
+    with pytest.raises(KnoraError, match="OBJECT_STORE_METADATA_INVALID"):
+        service.submit_pdf(
+            PdfSubmissionCommand(
+                workspace_id="workspace-a",
+                source_key="support/refund-policy",
+                source_name="refund-policy.pdf",
+                media_type="application/pdf",
+                stream=BytesIO(b"%PDF-1.7\nsmall fixture"),
+                idempotency_key="request-1",
+                configuration=configuration(),
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert object_store.deletes == []
+    assert maintenance.items == []
+
+
+def test_failed_upload_does_not_classify_without_an_authoritative_clock() -> None:
+    object_store = InvalidMetadataObjectStore()
+    submission_store = RecordingSubmissionStore(created_result())
+    maintenance = RecordingLifecycleMaintenance()
+    service = IngestionJobs(
+        object_store=object_store,
+        store=submission_store,
+        lifecycle_maintenance=maintenance,
+    )
+
+    with pytest.raises(KnoraError, match="OBJECT_STORE_METADATA_INVALID"):
+        service.submit_pdf(
+            PdfSubmissionCommand(
+                workspace_id="workspace-a",
+                source_key="support/refund-policy",
+                source_name="refund-policy.pdf",
+                media_type="application/pdf",
+                stream=BytesIO(b"%PDF-1.7\nsmall fixture"),
+                idempotency_key="request-1",
+                configuration=configuration(),
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert object_store.deletes == []
+    assert maintenance.items == []
+
+
+def test_failed_upload_cannot_enqueue_cross_workspace_lifecycle_work() -> None:
+    object_store = CrossWorkspaceMetadataObjectStore()
+    submission_store = RecordingSubmissionStore(created_result())
+    maintenance = RecordingLifecycleMaintenance()
+    service = IngestionJobs(
+        object_store=object_store,
+        store=submission_store,
+        lifecycle_maintenance=maintenance,
+    )
+
+    with pytest.raises(KnoraError, match="OBJECT_STORE_METADATA_INVALID"):
+        service.submit_pdf(
+            PdfSubmissionCommand(
+                workspace_id="workspace-a",
+                source_key="support/refund-policy",
+                source_name="refund-policy.pdf",
+                media_type="application/pdf",
+                stream=BytesIO(b"%PDF-1.7\nsmall fixture"),
+                idempotency_key="request-1",
+                configuration=configuration(),
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert maintenance.items == []

@@ -15,17 +15,89 @@ services:
     volumes:
       - knora_postgres_data:/var/lib/postgresql/data
 
+  minio:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_minio_data:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    environment:
+      MINIO_ROOT_USER: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
+    command: >-
+      "mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/knora"
+
+  s3-provider-test:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${KNORA_PROVIDER_TEST_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_PROVIDER_TEST_SECRET_KEY}
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_provider_test_data:/data
+
+  s3-provider-test-init:
+    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    depends_on:
+      s3-provider-test:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    environment:
+      MINIO_ROOT_USER: ${KNORA_PROVIDER_TEST_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_PROVIDER_TEST_SECRET_KEY}
+    command: >-
+      "mc alias set provider http://s3-provider-test:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing provider/knora-acceptance"
+
   api:
     build:
       context: ./backend
     environment:
       KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@postgres:5432/knora
+      KNORA_OBJECT_STORE_BACKEND: s3_compatible
+      KNORA_OBJECT_STORE_S3_ENDPOINT: http://minio:9000
+      KNORA_OBJECT_STORE_S3_BUCKET: knora
+      KNORA_OBJECT_STORE_S3_REGION: us-east-1
+      KNORA_OBJECT_STORE_S3_ACCESS_KEY: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
+      KNORA_OBJECT_STORE_S3_SECRET_KEY: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
 volumes:
   knora_postgres_data:
+  knora_minio_data:
+  knora_provider_test_data:
 

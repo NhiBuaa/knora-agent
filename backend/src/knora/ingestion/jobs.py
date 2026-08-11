@@ -4,10 +4,18 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import BinaryIO, Literal, Protocol
+from uuid import NAMESPACE_URL, uuid5
 
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.module import _validate_source_key
+from knora.ingestion.object_lifecycle import (
+    FAILED_UPLOAD_DIAGNOSTIC_RETENTION,
+    LifecycleClock,
+    LifecycleWorkState,
+    ObjectLifecycleMaintenance,
+    ObjectLifecycleWorkItem,
+)
 from knora.ingestion.object_store import ObjectMetadata, ObjectStore
 from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
@@ -209,9 +217,18 @@ class PdfSubmissionStore(Protocol):
 
 
 class IngestionJobs:
-    def __init__(self, *, object_store: ObjectStore, store: PdfSubmissionStore) -> None:
+    def __init__(
+        self,
+        *,
+        object_store: ObjectStore,
+        store: PdfSubmissionStore,
+        lifecycle_maintenance: ObjectLifecycleMaintenance | None = None,
+        lifecycle_clock: LifecycleClock | None = None,
+    ) -> None:
         self._object_store = object_store
         self._store = store
+        self._lifecycle_maintenance = lifecycle_maintenance
+        self._lifecycle_clock = lifecycle_clock
 
     def submit_pdf(
         self,
@@ -256,16 +273,20 @@ class IngestionJobs:
                 configuration=command.configuration,
             )
         except Exception:
-            self._delete_unreferenced(source_object)
+            self._handle_failed_upload(
+                source_object, expected_workspace_id=command.workspace_id
+            )
             raise
         try:
             result = self._store.commit_pdf_submission(prepared)
         except Exception:
             if not self._is_object_referenced(source_object):
-                self._delete_unreferenced(source_object)
+                self._handle_failed_upload(
+                    source_object, expected_workspace_id=command.workspace_id
+                )
             raise
         if result.retained_object_key != source_object.object_key:
-            self._delete_unreferenced(source_object)
+            self._schedule_unreferenced_cleanup(source_object)
         return result
 
     def get_job_status(
@@ -393,11 +414,20 @@ class IngestionJobs:
         source_object: ObjectMetadata,
     ) -> None:
         if (
-            source_object.workspace_id != command.workspace_id
+            not isinstance(source_object.workspace_id, str)
+            or source_object.workspace_id != command.workspace_id
+            or not isinstance(source_object.object_key, str)
             or source_object.media_type != command.media_type
             or not source_object.object_key
+            or not isinstance(source_object.sha256, str)
             or len(source_object.sha256) != 64
+            or any(
+                character not in "0123456789abcdefABCDEF" for character in source_object.sha256
+            )
+            or isinstance(source_object.byte_size, bool)
+            or not isinstance(source_object.byte_size, int)
             or source_object.byte_size <= 0
+            or not isinstance(source_object.media_type, str)
         ):
             raise KnoraError("OBJECT_STORE_METADATA_INVALID")
 
@@ -406,6 +436,92 @@ class IngestionJobs:
             self._object_store.delete(
                 workspace_id=source_object.workspace_id,
                 object_key=source_object.object_key,
+            )
+
+    def _schedule_unreferenced_cleanup(self, source_object: ObjectMetadata) -> None:
+        """Route an unretained post-submit staging object to asynchronous cleanup.
+
+        A replay or fingerprint deduplication can leave the newly uploaded object unrelated to
+        the durable Document Version returned by the submission transaction.  Production owns
+        cleanup through the lifecycle application port; callers without that port retain the
+        legacy best-effort compensation behavior used by older synchronous adapters.
+        """
+
+        maintenance = self._lifecycle_maintenance
+        if maintenance is None:
+            self._delete_unreferenced(source_object)
+            return
+        lifecycle_id = str(
+            uuid5(
+                NAMESPACE_URL,
+                f"staging-cleanup:{source_object.workspace_id}:{source_object.object_key}",
+            )
+        )
+        with suppress(Exception):
+            maintenance.enqueue(
+                ObjectLifecycleWorkItem(
+                    work_id=lifecycle_id,
+                    workspace_id=source_object.workspace_id,
+                    object_key=source_object.object_key,
+                    state=LifecycleWorkState.QUEUED,
+                    artifact_class="staging",
+                    lifecycle_generation=lifecycle_id,
+                )
+            )
+
+    def _handle_failed_upload(
+        self, source_object: ObjectMetadata, *, expected_workspace_id: str
+    ) -> None:
+        if source_object.workspace_id != expected_workspace_id:
+            # A malformed provider result must never cause lifecycle work to be written into a
+            # different Workspace. Leave ownership recovery to the configured inventory path.
+            return
+        if not isinstance(source_object.object_key, str) or not source_object.object_key:
+            # A malformed provider result without an opaque key cannot be addressed safely by
+            # lifecycle cleanup. Leave recovery to inventory instead of creating unusable work.
+            return
+        maintenance = self._lifecycle_maintenance
+        if maintenance is None:
+            # Older synchronous callers that have no lifecycle application port retain their
+            # established compensation behavior. Production bootstrap always supplies the port,
+            # which makes failed-upload retention durable and asynchronous.
+            self._delete_unreferenced(source_object)
+            return
+        if self._lifecycle_clock is None:
+            # A process-local wall-clock value is not an authoritative classification timestamp.
+            # Leave the object for a later inventory/reconciliation pass instead of starting a
+            # retention window that cannot be proven durable.
+            return
+        try:
+            classified_at = self._lifecycle_clock.now()
+        except Exception:
+            # A failed authoritative timestamp read cannot change the already-observed upload
+            # outcome. Leave the object for a later inventory/reconciliation pass instead of
+            # inventing a non-durable retention start time or masking the original exception.
+            return
+        if not isinstance(classified_at, datetime) or classified_at.tzinfo is None:
+            return
+        lifecycle_id = str(
+            uuid5(
+                NAMESPACE_URL,
+                f"failed-upload:{source_object.workspace_id}:{source_object.object_key}",
+            )
+        )
+        with suppress(Exception):
+            maintenance.enqueue(
+                ObjectLifecycleWorkItem(
+                    work_id=lifecycle_id,
+                    workspace_id=source_object.workspace_id,
+                    object_key=source_object.object_key,
+                    state=LifecycleWorkState.QUEUED,
+                    artifact_class="failed_upload_diagnostic",
+                    lifecycle_generation=lifecycle_id,
+                    eligible_at=classified_at + FAILED_UPLOAD_DIAGNOSTIC_RETENTION,
+                    # This is the Knora-owned durable classification timestamp for the
+                    # diagnostic-retention window.  The lifecycle adapter persists it with the
+                    # work identity; it is not derived from Idempotency Record retention.
+                    discovery_recorded_at=classified_at,
+                )
             )
 
     def _is_object_referenced(self, source_object: ObjectMetadata) -> bool:
