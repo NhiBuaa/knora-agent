@@ -307,7 +307,7 @@ def test_postgres_lifecycle_expiry_fails_closed_when_attempt_history_is_missing(
 def test_postgres_lifecycle_claim_respects_durable_eligibility_timestamp() -> None:
     workspace_id = f"lifecycle-eligibility-{uuid4()}"
     work_id = str(uuid4())
-    classified_at = datetime(2026, 8, 10, 12, 0, tzinfo=UTC)
+    classified_at = datetime.now(UTC)
     with SessionFactory.begin() as session:
         session.add(WorkspaceTable(id=workspace_id, name="lifecycle eligibility"))
     store = PostgresIngestionJobStore(SessionFactory)
