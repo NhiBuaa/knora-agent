@@ -626,8 +626,12 @@ These rules are normative for Knora unless superseded by an approved Standard or
 
 ## Retrieval and evidence selection
 
-- Milestone 1 uses exact pgvector cosine search. HNSW, IVFFlat, hybrid search and reranking are out
-  of scope so the Recall@k baseline remains stable and inspectable.
+- The application exposes one retrieval seam through `AnsweringStore.retrieve_candidates`; callers
+  and evaluation code must not select vector and full-text paths separately. Hybrid retrieval is
+  implemented behind that seam by the PostgreSQL adapter.
+- A versioned Retrieval Configuration is strategy-agnostic at the application interface and records
+  the retrieval strategy and fusion policy/version that determine candidate ordering. The vector-only
+  Milestone 1 configuration remains a reproducible baseline; Milestone 3 may add a hybrid version.
 - Score semantics are `similarity = 1 - cosine_distance`; the threshold applies to similarity.
   Question Trace records both raw cosine distance and derived similarity.
 - The versioned Retrieval Configuration baseline is `candidate_k = 8`,
@@ -635,8 +639,42 @@ These rules are normative for Knora unless superseded by an approved Standard or
   The threshold is an initial value to calibrate with evaluation data, not a demonstrated quality
   claim.
 - Workspace, Active Embedding Set and Embedding Configuration predicates must be applied inside
-  the retrieval query. Global retrieval followed by application filtering is forbidden.
-- Candidate order is `similarity DESC → document_id ASC → chunk_ordinal ASC → chunk_id ASC`.
+  every vector and full-text retrieval branch. Global retrieval followed by application filtering is
+  forbidden.
+- Each retrieval branch has a deterministic total order before its rank is assigned and returns at
+  most `candidate_k`; `candidate_k` is distinct from the final Evidence Set top-k/count limit.
+- Hybrid candidates are deduplicated by canonical Chunk identity and fused using the immutable
+  policy named by the Retrieval Configuration. `rrf-v1` contributes `1 / (60 + rank)` per branch
+  and sums contributions for duplicate canonical Chunks. Final ordering is
+  `fusion_score DESC → chunk_id ASC`, with all tie-breakers part of configuration semantics.
+- RRF fusion score is a ranking/fusion signal, not a calibrated relevance score. Evidence
+  sufficiency/refusal uses a separate versioned policy with explicit semantics; no magic RRF cutoff
+  is permitted. Any threshold must be independently defined and calibrated.
+- The initial Evidence Sufficiency Policy applies vector `min_similarity` before that branch assigns
+  rank or makes an RRF contribution. The full-text branch uses native eligibility/rank semantics and
+  must not be converted to similarity. Only eligible branch contributions are fused: when a
+  canonical Chunk is below vector `min_similarity` but is eligible in full-text search, it remains
+  a full-text-only candidate with no vector contribution.
+- Evidence Selection continues to enforce its versioned chunk count, token budget and overlap
+  policy after fusion. An empty Evidence Set returns the deterministic Refusal without generation;
+  a non-empty Evidence Set may still yield a valid structured Generation Provider refusal.
+- The Question Trace retains ordered rank, source contribution and raw/derived scores needed to
+  analyze vector, full-text and fusion behavior, but SQL details do not cross the application seam.
+- Retrieval configuration ID, fusion-policy version, and embedding/chunk-set provenance are
+  trace-level metadata and are not repeated for every candidate in one invocation. The trace stores
+  the ordered fused candidate set before Evidence Selection. Each candidate stores canonical
+  `chunk_id`, fused `final_rank`, `fusion_score`, a closed `final_decision`/`decision_reason`, and
+  typed vector (`branch_rank`, `cosine_distance`, `similarity`) and full-text (`branch_rank`,
+  `native_rank`) contributions. `final_rank` is fused retrieval rank, never Evidence Set order.
+  Branch observations are recorded separately: vector is `ELIGIBLE`, `BELOW_THRESHOLD`, or no
+  contribution; full-text is `ELIGIBLE`, `INELIGIBLE`, or no contribution. Pre-fusion losses are
+  never represented as fused candidates. A fused candidate decision is only `SELECTED`,
+  `REDUNDANT_OVERLAP`, `BUDGET_EXCEEDED`, or `ELIGIBLE_NOT_SELECTED`; `decision_reason`
+  distinguishes `TOKEN_BUDGET` from `CHUNK_COUNT_LIMIT`. A full-text native rank is versioned
+  provenance and never a general similarity or confidence score.
+- A Question Trace is a persisted observation artifact only. Retrieval and answering must not
+  depend on a trace to produce a production result. SQL query text, `tsvector`, `tsquery`, execution
+  plans, and other database implementation details must not be persisted in the trace.
 - Evidence selection scans that order after thresholding and removes strongly overlapping adjacent
   Chunks from the same Chunk Set. It does not merge Chunks.
 - Each candidate is traced with exactly one outcome: `SELECTED`, `BELOW_THRESHOLD`,
@@ -698,13 +736,32 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Each case records `expected_behavior`, `expected_source_documents`,
   `acceptable_relevant_chunks` and required facts/reference answer when applicable. Evaluation
   must not require one unique correct Chunk when several relevant Chunks are acceptable.
-- Retrieval metrics are independent of Generation Provider: Recall@8, MRR, hit rate and retrieval
-  latency.
+- A dataset version includes both case definitions and gold relevance/evidence judgments. It
+  includes answerable lexical/exact-match, semantic/paraphrase and multi-source cases plus
+  insufficient-evidence/refusal cases. Cross-Workspace isolation is a separate pass/fail security
+  contract and is not a score-corpus category.
+- Retrieval metrics are independent of Generation Provider: Recall@k, MRR, hit rate and retrieval
+  latency. The evaluation runner calls the production Q&A endpoint and reads that request's exact
+  trace by the exact `(workspace_id, trace_id)` pair taken directly from the Q&A response; an
+  evaluation-only retrieval path and fallback by timestamp, question or latest trace are forbidden.
+  A missing trace, Workspace mismatch, or incomplete provenance is an evaluation
+  execution/observation failure, not a zero retrieval-quality score.
 - Generation semantic metrics require a model-backed provider: citation entailment, faithfulness,
   answer relevance and refusal correctness.
 - System metrics include latency, tokens, cost and provider errors; they are not semantic metrics.
 - Citation correctness is split into deterministic validity checks (structural invariants must be
-  100%) and semantic support/entailment scored by a human or versioned scorer.
+  100%) and semantic support/entailment scored from the final public answer and public citations by
+  a human or versioned scorer; retrieval trace provenance alone is insufficient.
+- Deterministic citation correctness evaluates the exact public answer, public citations, marker
+  order, and Evidence Alias mapping from the correlated request. Semantic citation correctness
+  receives only the public answer and public citation excerpts/source locators; hidden retrieved
+  chunks in the trace must not be supplied to the scorer. The trace establishes correlation and
+  evidence/configuration provenance only.
+- `retrieval_latency_ms` and client-observed `end_to_end_latency_ms` are independent metrics with
+  distinct clock boundaries: retrieval latency is server work obtaining candidates and selecting
+  evidence, while end-to-end latency is the executor's client-side Q&A request/response interval.
+  Neither is derived from the other. Future streaming requires a new explicit end-to-end metric
+  contract and must not silently change this meaning.
 - Milestone 1 hard gates are: structural pipeline checks at 100%, no cross-Workspace retrieval,
   no citation outside Evidence Set, persisted Question Trace, repeatable runner and complete
   provenance for dataset, corpus, chunking, embedding, retrieval, generation and scorer versions.
@@ -726,6 +783,33 @@ These rules are normative for Knora unless superseded by an approved Standard or
   answerable required facts, and citations outside expected source Documents before execution.
 - Dataset V1 is a data-contract boundary. It does not implement retrieval metrics, evaluation
   execution, or report generation.
+- Vector-only baseline and hybrid are paired runs: dataset, immutable corpus/Chunk Set provenance,
+  embedding, generation and scorer settings must match; only Retrieval Configuration may differ.
+  Semantic citation scorer provenance versions its model plus evaluator prompt/policy, and the
+  report discloses provider stochasticity when the scorer is non-deterministic.
+- Reports provide aggregate metrics and breakdowns for lexical/exact-match, semantic/paraphrase,
+  multi-source and refusal categories. Recall@k and MRR apply only to cases with compatible gold
+  relevance semantics; refusal correctness is reported separately.
+- Before observing results, an improvement claim requires comparable provenance, zero observation
+  failures, improvement in pre-declared primary retrieval metrics, no citation/refusal guardrail
+  regression beyond pre-declared policy, and disclosure of every latency trade-off. Selecting
+  favorable metrics after a run is forbidden.
+- Failure taxonomy is versioned and stage-assigned. `LEXICAL_MISS` and `SEMANTIC_MISS` are
+  branch-level misses. `FUSION_RANKING_ERROR` applies only where gold evidence is present in the
+  eligible branch union but ranked incorrectly after fusion. `EVIDENCE_SELECTION_ERROR` applies
+  only after fusion where relevant evidence is wrongly excluded by overlap, token budget, or chunk
+  count selection. Other categories are `FALSE_REFUSAL`, `CITATION_STRUCTURAL_ERROR`,
+  `CITATION_SEMANTIC_UNSUPPORTED`, `CORPUS_OR_CONFIGURATION_MISMATCH`,
+  `EVALUATION_OBSERVATION_FAILURE`, `PROVIDER_ERROR`, and `INFRASTRUCTURE_ERROR`. A finding has one
+  primary category plus optional contributing categories; provider, observation, and configuration
+  failures must not be forced into retrieval-failure categories. `INSUFFICIENT_EVIDENCE_CORRECT` is
+  a non-failure outcome used for refusal correctness, not a failure finding.
+- Commit dataset/corpus manifests, normalized reports, failure annotations and selected-improvement
+  records. Do not commit raw traces or secrets; they remain in authorized persistence. Every
+  evaluation report carries immutable reproducibility metadata: dataset version, corpus/Chunk Set
+  digest, Retrieval Configuration ID, generation/scorer versions, Git commit, and artifact schema
+  version. A selected-improvement record retains metric deltas, guardrail results, latency
+  trade-offs, and remaining regressions.
 
 ## Tool actions
 

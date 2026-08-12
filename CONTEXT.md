@@ -63,9 +63,35 @@ proposals.
 - An **Evidence Alias** is a request-scoped opaque identifier such as `E1`; application code owns
   its mapping to one Chunk and providers never receive database Chunk IDs.
 - A **Retrieval Configuration** is an immutable definition of candidate count, similarity
-  threshold, evidence count, token budget and overlap-redundancy policy.
+  threshold, evidence count, token budget, overlap-redundancy policy and retrieval strategy/fusion
+  version. Its contract is retrieval-strategy-agnostic to application callers.
+- **Hybrid Retrieval** is one implementation of the `AnsweringStore.retrieve_candidates` seam. It
+  combines vector and PostgreSQL full-text candidates inside the PostgreSQL adapter, applies
+  Workspace and Active Embedding Set predicates in every branch before fusion, deduplicates by
+  canonical Chunk identity, and emits one deterministic total order. The initial fusion policy is
+  versioned `rrf-v1`: each branch returns at most `candidate_k`, ranks its own deterministically
+  ordered results, and contributes `1 / (60 + rank)` to the canonical Chunk's fusion score; final
+  ordering is `fusion_score DESC → chunk_id ASC`.
+- **Candidate Budget** (`candidate_k`) is the per-branch retrieval limit and is distinct from the
+  final Evidence Set top-k/count limit.
+- **Evidence Sufficiency Policy** is a separately versioned policy that decides whether retrieved
+  evidence is sufficient for generation or refusal. RRF fusion score is a ranking signal only and
+  is never used as an uncalibrated evidence-confidence threshold. Under the initial policy, the
+  vector branch applies `min_similarity` before rank/RRF contribution; the full-text branch applies
+  its native eligibility and rank without conversion to similarity; only eligible contributions
+  enter fusion. A canonical Chunk with an ineligible vector result and eligible full-text result is
+  retained as a full-text-only candidate. An empty Evidence Set deterministically refuses, while a
+  non-empty Evidence Set still permits a structured Generation Provider refusal.
 - A **Retrieval Candidate Decision** records a candidate's raw score and whether it was selected or
-  excluded by threshold, redundancy or token budget.
+  excluded by threshold, redundancy or token budget, together with ordered rank and retrieval
+  provenance sufficient to analyze vector, full-text and fusion contributions without exposing SQL
+  details through the application interface. For hybrid retrieval it records canonical Chunk
+  identity, fused retrieval rank, fusion score, and a closed decision/reason taxonomy. Branch
+  observations are separate from fused outcomes: vector status is `ELIGIBLE`, `BELOW_THRESHOLD`,
+  or no contribution; full-text status is `ELIGIBLE`, `INELIGIBLE`, or no contribution. Only
+  eligible branch contributions create a fused candidate. A fused candidate's final decision is
+  `SELECTED`, `REDUNDANT_OVERLAP`, `BUDGET_EXCEEDED`, or `ELIGIBLE_NOT_SELECTED`; its reason
+  distinguishes `TOKEN_BUDGET` from `CHUNK_COUNT_LIMIT`.
 
 ### Ingestion
 
@@ -240,18 +266,26 @@ proposals.
 - A **Refusal** is the valid application response when retrieval finds no qualified evidence or a
   valid Structured Generation Result reports insufficient evidence.
 - A **Question Trace** records retrieval and generation observations used for debugging and
-  evaluation, including every Retrieval Candidate Decision; it is not conversation state.
+  evaluation, including the ordered fused candidate set before Evidence Selection; it is not
+  conversation state and production retrieval/answering never depends on it. Trace-level retrieval
+  metadata includes retrieval configuration ID, fusion-policy version, and embedding/chunk-set
+  provenance once per invocation. A candidate's fused rank is retrieval rank, not its later
+  Evidence Set position.
 - An **Evaluation Case** is a versioned question fixture. Its contract separates retrieval
   relevance applicability and acceptable relevant Chunks from answer expectations (including
   non-empty required facts for an answerable case) and evidence expectations (expected source
   Documents and acceptable cited Chunks). An insufficient-evidence case has explicit refusal
-  expectations and non-applicable retrieval relevance; it is not a retrieval miss.
+  expectations and non-applicable retrieval relevance; it is not a retrieval miss. An Evaluation
+  Dataset version includes both case definitions and gold relevance/evidence judgments.
 - The **Milestone 3 Evaluation Dataset V1** is the 50-case fixture set pinned by
   `m3-dataset-v1` and `m3-corpus-v1`. It covers lexical/exact-match, semantic/paraphrase,
   multi-source, and insufficient-evidence/refusal behavior. Its dataset and corpus/Chunk Set
   manifests are immutable inputs; metric execution and reporting are separate later work.
 - An **Evaluation Report** separates structural pipeline checks, retrieval metrics, generation
-  semantic metrics and system metrics with versioned dataset/configuration/scorer provenance.
+  semantic metrics and system metrics with versioned dataset/configuration/scorer provenance. A
+  vector-only baseline and hybrid result are a paired comparison: immutable corpus and Chunk Set
+  provenance, dataset, embedding, generation and scorer settings remain fixed; only Retrieval
+  Configuration differs.
 
 ### Provider boundaries
 
@@ -292,6 +326,28 @@ proposals.
   explicit service contracts; it never shares its database with Knora.
 - **Evaluation → Knora**: version-controlled cases exercise public seams and measure retrieval,
   citation, refusal, latency, and cost behavior.
+- **Evaluation → Question Trace**: `HttpEvaluationExecutor` calls the production question endpoint
+  and reads the exact opaque trace returned by that request under the exact `(workspace_id,
+  trace_id)` correlation pair; it never uses an evaluation-only retrieval path or a fallback by
+  timestamp, question, or recency. Missing/mismatched/incomplete trace provenance is an evaluation
+  observation failure, not a zero retrieval-quality score. The trace's ordered results and
+  versioned retrieval provenance support Recall@k and MRR, while citation correctness is measured
+  from the final public answer and citations. Semantic citation scoring receives only public answer
+  and public citation excerpts/source locators, never hidden retrieved chunks.
+- **Evaluation Report → Improvement Claim**: an improvement is pre-defined, not selected after a
+  run: comparable provenance and zero observation failures are required; primary retrieval metrics
+  must improve, citation/refusal guardrails may not regress beyond pre-defined policy, and all
+  latency trade-offs are disclosed.
+- **Evaluation Finding** is a versioned, stage-assigned failure annotation with one primary
+  category and optional contributing categories. `LEXICAL_MISS` and `SEMANTIC_MISS` are branch
+  misses; `FUSION_RANKING_ERROR` requires gold evidence in the eligible branch union but ranked
+  incorrectly after fusion; `EVIDENCE_SELECTION_ERROR` occurs only after fusion when relevant
+  evidence is wrongly excluded by overlap or budget selection. A correct insufficient-evidence
+  refusal is a non-failure evaluation outcome for refusal correctness, not a finding.
+- An **Evaluation Reproducibility Record** is immutable report metadata comprising dataset version,
+  corpus/Chunk Set digest, Retrieval Configuration ID, generation/scorer versions, Git commit, and
+  artifact schema version. Normalized reports, manifests, findings and selected-improvement records
+  are repository artifacts; raw traces and secrets remain only in authorized persistence.
 - **Question Trace → Client**: an opaque, workspace-authorized `trace_id` permits debugging without
   granting general trace access.
 - **Question Request flow**: retrieve → complete generation → validate structured output and
