@@ -1,0 +1,1 @@
+Invoices list the billing period and are available after payment is confirmed.
