@@ -54,10 +54,10 @@ def test_adjacent_strongly_overlapping_chunk_is_redundant() -> None:
     ]
 
 
-def test_threshold_count_and_token_budget_assign_one_outcome_per_candidate() -> None:
+def test_selection_applies_token_budget_without_post_fusion_similarity_threshold() -> None:
     configuration = RetrievalConfiguration.milestone_one()
     candidates = (
-        candidate(chunk_id="below", ordinal=0, content="below", similarity=0.649),
+        candidate(chunk_id="below", ordinal=0, content="below", similarity=0.649, token_count=1),
         candidate(chunk_id="one", ordinal=2, content="one unique", token_count=1000),
         candidate(chunk_id="two", ordinal=4, content="two unique", token_count=1000),
         candidate(chunk_id="three", ordinal=6, content="three unique", token_count=1000),
@@ -67,16 +67,16 @@ def test_threshold_count_and_token_budget_assign_one_outcome_per_candidate() -> 
     result = select_evidence(candidates, configuration)
 
     assert [item.outcome for item in result.decisions] == [
-        "BELOW_THRESHOLD",
         "SELECTED",
         "SELECTED",
         "SELECTED",
         "TOKEN_BUDGET_EXCEEDED",
+        "SELECTED",
     ]
-    assert sum(item.candidate.token_count for item in result.selected) == 3000
+    assert sum(item.candidate.token_count for item in result.selected) == 2002
 
 
-def test_similarity_boundary_qualifies_and_evidence_count_stops_at_five() -> None:
+def test_evidence_count_limit_has_distinct_outcome() -> None:
     candidates = tuple(
         candidate(
             chunk_id=f"chunk-{index}",
@@ -97,5 +97,5 @@ def test_similarity_boundary_qualifies_and_evidence_count_stops_at_five() -> Non
         "SELECTED",
         "SELECTED",
         "SELECTED",
-        "TOKEN_BUDGET_EXCEEDED",
+        "CHUNK_COUNT_LIMIT",
     ]

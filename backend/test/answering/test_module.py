@@ -204,10 +204,8 @@ async def test_no_qualified_evidence_persists_refusal_without_generation() -> No
 
 
 @pytest.mark.asyncio
-async def test_below_threshold_refusal_traces_every_retrieved_candidate_and_set() -> None:
-    store = CandidateStore(
-        candidates=(retrieval_candidate("chunk-below", 0, similarity=0.64),)
-    )
+async def test_empty_fused_candidates_persist_refusal_without_generation() -> None:
+    store = CandidateStore(candidates=())
     service = AnswerQuestion(
         embedding_provider=QueryEmbeddingProvider(),
         generation_provider=GeneratorThatMustNotRun(),
@@ -216,15 +214,13 @@ async def test_below_threshold_refusal_traces_every_retrieved_candidate_and_set(
     )
 
     result = await service.execute(
-        QuestionCommand(workspace_id="workspace-a", question="Near miss question"),
+        QuestionCommand(workspace_id="workspace-a", question="No eligible branch contribution"),
         WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
     )
 
     assert result.decision == "REFUSAL"
-    assert store.traces[0].retrieved_chunk_ids == ("chunk-below",)
-    assert store.traces[0].embedding_set_ids == ("embedding-set-1",)
-    assert store.traces[0].chunk_set_ids == ("chunk-set-1",)
-    assert store.traces[0].candidate_decisions[0]["outcome"] == "BELOW_THRESHOLD"
+    assert store.traces[0].retrieved_chunk_ids == ()
+    assert store.traces[0].candidate_decisions == ()
 
 
 @pytest.mark.asyncio

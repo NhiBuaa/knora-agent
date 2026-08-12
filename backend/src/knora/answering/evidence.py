@@ -38,14 +38,11 @@ def select_evidence(
     decisions: list[CandidateDecision] = []
     selected_tokens = 0
     for candidate in candidates:
-        if candidate.similarity < configuration.min_similarity:
-            outcome = "BELOW_THRESHOLD"
-        elif any(_is_redundant(candidate, item.candidate) for item in selected):
+        if any(_is_redundant(candidate, item.candidate) for item in selected):
             outcome = "REDUNDANT_OVERLAP"
-        elif (
-            len(selected) >= configuration.max_evidence_chunks
-            or selected_tokens + candidate.token_count > configuration.max_evidence_tokens
-        ):
+        elif len(selected) >= configuration.max_evidence_chunks:
+            outcome = "CHUNK_COUNT_LIMIT"
+        elif selected_tokens + candidate.token_count > configuration.max_evidence_tokens:
             outcome = "TOKEN_BUDGET_EXCEEDED"
         else:
             outcome = "SELECTED"

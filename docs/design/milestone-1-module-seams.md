@@ -82,12 +82,18 @@ inside this interface.
 ### Retrieval store
 
 ```text
-retrieve_candidates(workspace_id, query_vector, embedding_configuration, retrieval_configuration)
+retrieve_candidates(
+  workspace_id, query_text, query_vector, embedding_configuration, retrieval_configuration
+)
   -> RetrievalCandidates
 ```
 
-The Postgres adapter owns the exact pgvector query and applies Workspace, Active Embedding Set and
-Embedding Configuration predicates inside SQL. Application code owns evidence selection and
+The application forwards normalized question text and its embedding vector but does not preprocess
+full-text input, create a PostgreSQL `tsquery`, select a retrieval branch, rank, deduplicate or
+fuse. The PostgreSQL adapter owns vector and full-text search, strategy selection from the immutable
+Retrieval Configuration, and applies Workspace, Active Embedding Set and Embedding Configuration
+predicates inside each branch before ranking and limits. Vector-only and hybrid configurations use
+this same seam; vector-only may ignore `query_text`. Application code owns Evidence Selection and
 candidate outcomes.
 
 ### Question trace store
