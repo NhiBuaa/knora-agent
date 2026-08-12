@@ -80,7 +80,9 @@ deployment-specific daemon or scheduler remains an operational concern.
 
 ### Milestone 3 — Hybrid retrieval và evaluation
 
-- Kết hợp vector search với PostgreSQL full-text search.
+- Đang thực hiện. M3.1 đã hoàn thành qua [Issue #49](https://github.com/NhiBuaa/knora-agent/issues/49): một retrieval seam dùng chung cho vector-only và hybrid `rrf-v1`, PostgreSQL full-text policy `fts-v1`, tenant/active-set/config filtering trong từng branch, và trace provenance có tương quan.
+- M3.3 đã hoàn thành qua [Issue #50](https://github.com/NhiBuaa/knora-agent/issues/50): versioned evaluation dataset và gold judgments.
+- M3.2 ([Issue #51](https://github.com/NhiBuaa/knora-agent/issues/51)) và M3.4 ([Issue #52](https://github.com/NhiBuaa/knora-agent/issues/52)) vẫn còn mở.
 - Đo Recall@k, MRR, citation correctness và latency.
 - Issue #50 đã hoàn thành bộ dữ liệu 50 case có versioned gold relevance, answer/evidence và
   refusal judgments; dataset/corpus manifests được checksum-bind.

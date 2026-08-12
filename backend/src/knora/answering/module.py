@@ -63,6 +63,7 @@ class AnswerQuestion:
         retrieval_started = perf_counter()
         candidates = self._store.retrieve_candidates(
             workspace_id=command.workspace_id,
+            query_text=command.question,
             query_vector=query_batch.vectors[0],
             embedding_configuration=self._embedding_configuration,
             retrieval_configuration=self._retrieval_configuration,
@@ -234,15 +235,27 @@ class AnswerQuestion:
             workspace_id=command.workspace_id,
             question=command.question,
             retrieval_configuration_id=self._retrieval_configuration.id,
+            fusion_policy_version=self._retrieval_configuration.fusion_policy_version,
             embedding_configuration_id=self._embedding_configuration.id,
             candidate_decisions=tuple(
                 {
                     "chunk_id": item.candidate.chunk_id,
-                    "cosine_distance": item.candidate.cosine_distance,
-                    "similarity": item.candidate.similarity,
-                    "outcome": item.outcome,
+                    "final_rank": index,
+                    "fusion_score": item.candidate.fusion_score,
+                    "final_decision": (
+                        "BUDGET_EXCEEDED"
+                        if item.outcome in {"CHUNK_COUNT_LIMIT", "TOKEN_BUDGET_EXCEEDED"}
+                        else item.outcome
+                    ),
+                    "decision_reason": (
+                        item.outcome
+                        if item.outcome in {"CHUNK_COUNT_LIMIT", "TOKEN_BUDGET_EXCEEDED"}
+                        else None
+                    ),
+                    "vector_contribution": item.candidate.vector_contribution,
+                    "fts_contribution": item.candidate.fts_contribution,
                 }
-                for item in selection.decisions
+                for index, item in enumerate(selection.decisions, start=1)
             ),
             retrieved_chunk_ids=tuple(candidate.chunk_id for candidate in retrieved),
             embedding_set_ids=tuple(dict.fromkeys(c.embedding_set_id for c in retrieved)),

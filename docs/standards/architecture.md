@@ -641,6 +641,12 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Workspace, Active Embedding Set and Embedding Configuration predicates must be applied inside
   every vector and full-text retrieval branch. Global retrieval followed by application filtering is
   forbidden.
+- Initial PostgreSQL FTS policy `fts-v1` explicitly uses `simple` for document and query:
+  `to_tsvector('simple', chunk_text)` and `plainto_tsquery('simple', query_text)`. Eligibility is
+  `tsquery @@ tsvector`; branch rank is `ts_rank_cd(tsvector, tsquery, 0) DESC`, then `chunk_id ASC`.
+  It must not depend on `default_text_search_config`, use `websearch_to_tsquery`, or apply
+  language-specific stemming/stop-word configuration. `fts-v1` is immutable/versioned Retrieval
+  Configuration policy; the PostgreSQL adapter must not provide an implicit FTS default.
 - Each retrieval branch has a deterministic total order before its rank is assigned and returns at
   most `candidate_k`; `candidate_k` is distinct from the final Evidence Set top-k/count limit.
 - Hybrid candidates are deduplicated by canonical Chunk identity and fused using the immutable
@@ -658,6 +664,9 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Evidence Selection continues to enforce its versioned chunk count, token budget and overlap
   policy after fusion. An empty Evidence Set returns the deterministic Refusal without generation;
   a non-empty Evidence Set may still yield a valid structured Generation Provider refusal.
+  Initial M3 has no independent numeric post-fusion threshold: `fusion_score` is ranking-only, and
+  a future post-fusion threshold requires an immutable/versioned policy with explicit metric and
+  semantics.
 - The Question Trace retains ordered rank, source contribution and raw/derived scores needed to
   analyze vector, full-text and fusion behavior, but SQL details do not cross the application seam.
 - Retrieval configuration ID, fusion-policy version, and embedding/chunk-set provenance are

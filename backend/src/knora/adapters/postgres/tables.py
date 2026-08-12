@@ -5,6 +5,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -16,6 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from knora.adapters.postgres.database import Base
@@ -444,6 +446,11 @@ class ChunkTable(Base):
     start_line: Mapped[int] = mapped_column(Integer, nullable=False)
     end_line: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    search_vector: Mapped[object] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('simple', content)", persisted=True),
+        nullable=False,
+    )
     content_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
     page_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -498,6 +505,7 @@ class QuestionTraceTable(Base):
     question: Mapped[str] = mapped_column(Text, nullable=False)
     trace_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     retrieval_configuration_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    fusion_policy_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     embedding_configuration_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     embedding_set_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     chunk_set_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

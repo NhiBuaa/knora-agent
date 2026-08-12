@@ -72,6 +72,10 @@ proposals.
   versioned `rrf-v1`: each branch returns at most `candidate_k`, ranks its own deterministically
   ordered results, and contributes `1 / (60 + rank)` to the canonical Chunk's fusion score; final
   ordering is `fusion_score DESC → chunk_id ASC`.
+- Initial PostgreSQL FTS policy `fts-v1` uses explicit `simple` configuration:
+  `to_tsvector('simple', chunk_text)`, `plainto_tsquery('simple', query_text)`, eligibility with
+  `@@`, and `ts_rank_cd(..., 0) DESC → chunk_id ASC`. It does not depend on database defaults,
+  `websearch_to_tsquery`, stemming or language-specific stop-word behavior.
 - **Candidate Budget** (`candidate_k`) is the per-branch retrieval limit and is distinct from the
   final Evidence Set top-k/count limit.
 - **Evidence Sufficiency Policy** is a separately versioned policy that decides whether retrieved
@@ -82,6 +86,9 @@ proposals.
   enter fusion. A canonical Chunk with an ineligible vector result and eligible full-text result is
   retained as a full-text-only candidate. An empty Evidence Set deterministically refuses, while a
   non-empty Evidence Set still permits a structured Generation Provider refusal.
+  Initial M3 has no independent numeric post-fusion threshold: after fusion, Evidence Selection
+  applies overlap, chunk-count and token-budget policies. A future post-fusion threshold requires
+  its own immutable/versioned policy with defined metric and semantics.
 - A **Retrieval Candidate Decision** records a candidate's raw score and whether it was selected or
   excluded by threshold, redundancy or token budget, together with ordered rank and retrieval
   provenance sufficient to analyze vector, full-text and fusion contributions without exposing SQL

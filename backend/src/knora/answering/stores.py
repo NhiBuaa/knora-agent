@@ -12,6 +12,9 @@ class RetrievalConfiguration:
     max_evidence_chunks: int
     max_evidence_tokens: int
     overlap_policy: str
+    strategy: str = "vector-only"
+    fusion_policy_version: str | None = None
+    fts_policy_version: str | None = None
 
     @classmethod
     def milestone_one(cls) -> "RetrievalConfiguration":
@@ -22,6 +25,20 @@ class RetrievalConfiguration:
             max_evidence_chunks=5,
             max_evidence_tokens=3000,
             overlap_policy="adjacent-token-overlap-v1",
+        )
+
+    @classmethod
+    def milestone_three_hybrid(cls) -> "RetrievalConfiguration":
+        return cls(
+            id="retrieval-m3-rrf-v1",
+            candidate_k=8,
+            min_similarity=0.65,
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-token-overlap-v1",
+            strategy="hybrid",
+            fusion_policy_version="rrf-v1",
+            fts_policy_version="fts-v1",
         )
 
 
@@ -42,8 +59,11 @@ class RetrievalCandidate:
     content: str
     content_checksum: str
     token_count: int
-    cosine_distance: float
-    similarity: float
+    cosine_distance: float | None
+    similarity: float | None
+    fusion_score: float = 0.0
+    vector_contribution: dict[str, object] | None = None
+    fts_contribution: dict[str, object] | None = None
     page_start: int | None = None
     page_end: int | None = None
     start_offset: int | None = None
@@ -64,6 +84,7 @@ class QuestionTraceRecord:
     answer: str | None
     refusal_reason: str | None
     generation_status: str
+    fusion_policy_version: str | None = None
     alias_mapping: dict[str, str] = field(default_factory=dict)
     parsed_markers: tuple[str, ...] = ()
     validation_outcome: str = "not_applicable"
@@ -76,6 +97,7 @@ class AnsweringStore(Protocol):
         self,
         *,
         workspace_id: str,
+        query_text: str,
         query_vector: tuple[float, ...],
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration,
