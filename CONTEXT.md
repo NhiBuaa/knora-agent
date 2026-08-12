@@ -241,8 +241,15 @@ proposals.
   valid Structured Generation Result reports insufficient evidence.
 - A **Question Trace** records retrieval and generation observations used for debugging and
   evaluation, including every Retrieval Candidate Decision; it is not conversation state.
-- An **Evaluation Case** is a versioned question fixture with expected behavior, acceptable source
-  documents/chunks and required facts when applicable.
+- An **Evaluation Case** is a versioned question fixture. Its contract separates retrieval
+  relevance applicability and acceptable relevant Chunks from answer expectations (including
+  non-empty required facts for an answerable case) and evidence expectations (expected source
+  Documents and acceptable cited Chunks). An insufficient-evidence case has explicit refusal
+  expectations and non-applicable retrieval relevance; it is not a retrieval miss.
+- The **Milestone 3 Evaluation Dataset V1** is the 50-case fixture set pinned by
+  `m3-dataset-v1` and `m3-corpus-v1`. It covers lexical/exact-match, semantic/paraphrase,
+  multi-source, and insufficient-evidence/refusal behavior. Its dataset and corpus/Chunk Set
+  manifests are immutable inputs; metric execution and reporting are separate later work.
 - An **Evaluation Report** separates structural pipeline checks, retrieval metrics, generation
   semantic metrics and system metrics with versioned dataset/configuration/scorer provenance.
 
@@ -310,3 +317,5 @@ proposals.
 - Serving state projection rationale: [ADR 0012](docs/adr/0012-serving-state-projection.md)
 - PDF source/derivation identity rationale: [ADR 0013](docs/adr/0013-pdf-source-versus-derivation-identity.md)
 - Issue #19 implementation and acceptance evidence: [.agents/issue-19-feature-delivery.json](.agents/issue-19-feature-delivery.json)
+- Issue #50 dataset contract and acceptance evidence:
+  [.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl](.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl)

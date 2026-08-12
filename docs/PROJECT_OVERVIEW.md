@@ -82,7 +82,10 @@ deployment-specific daemon or scheduler remains an operational concern.
 
 - Kết hợp vector search với PostgreSQL full-text search.
 - Đo Recall@k, MRR, citation correctness và latency.
-- Mở rộng dataset lên 50–100 cases.
+- Issue #50 đã hoàn thành bộ dữ liệu 50 case có versioned gold relevance, answer/evidence và
+  refusal judgments; dataset/corpus manifests được checksum-bind.
+- Runner, metric execution/reporting, baseline và failure analysis vẫn là các slice Milestone 3
+  riêng; #50 không thêm các behavior này.
 - Ghi lại baseline, failure taxonomy và một cải tiến có số liệu.
 
 ### Milestone 4 — Tools và human approval

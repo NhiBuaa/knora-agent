@@ -712,6 +712,20 @@ These rules are normative for Knora unless superseded by an approved Standard or
   before the first run.
 - A semantic metric may be claimed in portfolio material only after the dataset reaches at least
   50 cases and the report states dataset size and measurement method.
+- Milestone 3 Dataset V1 contains 50 version-controlled, corpus-grounded cases in the
+  `lexical_exact_match`, `semantic_paraphrase`, `multi_source`, and
+  `insufficient_evidence_refusal` quality categories. Security isolation is a separate pass/fail
+  authorization contract and must not be a dataset quality category.
+- A Milestone 3 case must explicitly separate retrieval relevance applicability and acceptable
+  relevant Chunks from answer expectations and evidence expectations. Every answerable case has
+  non-empty required facts. Every insufficient-evidence/refusal case explicitly expects
+  `INSUFFICIENT_EVIDENCE`, has non-applicable retrieval relevance, and must not be inferred as a
+  zero-recall or zero-MRR case.
+- Dataset and corpus/Chunk Set manifests checksum-bind released inputs. Validation rejects changed
+  bytes, duplicate or unresolved Chunk references, incompatible Workspace/source references, empty
+  answerable required facts, and citations outside expected source Documents before execution.
+- Dataset V1 is a data-contract boundary. It does not implement retrieval metrics, evaluation
+  execution, or report generation.
 
 ## Tool actions
 

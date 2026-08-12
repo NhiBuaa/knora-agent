@@ -366,12 +366,17 @@ Semantic metrics are baseline observations; CV claims require at least 50 cases 
 dataset size and measurement method. See [evaluation guidance](docs/evaluation.md) for provenance,
 repeatability and report boundaries.
 
+Milestone 3 now includes the 50-case `m3-dataset-v1` data contract, pinned to `m3-corpus-v1`.
+It records separate retrieval relevance, answer/evidence, and refusal expectations. It is not yet
+accepted by the Milestone 1 runner: metric execution and reporting remain later Milestone 3 work.
+
 ## Tài liệu liên quan
 
 - [Biến môi trường mẫu](.env.example)
 - [Current World Model](CONTEXT.md)
 - [Architecture Standard](docs/standards/architecture.md)
 - [Hướng dẫn evaluation Milestone 1](docs/evaluation.md)
+- [Issue #50 M3 evaluation dataset acceptance evidence](.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl)
 - [Spec Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - [Module seams Milestone 1](docs/design/milestone-1-module-seams.md)
 - [Module seams Milestone 2](docs/design/milestone-2-module-seams.md)
