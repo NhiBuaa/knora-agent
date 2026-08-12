@@ -1,4 +1,26 @@
-# Milestone 1 evaluation
+# Evaluation datasets and Milestone 1 runner
+
+## Milestone 3 dataset contract
+
+Issue #50 completed the versioned M3 evaluation dataset. It is a data contract, not an evaluation
+runner or report format.
+
+- Dataset: `evals/datasets/milestone_3.jsonl` with 50 corpus-grounded cases.
+- Dataset manifest: `evals/datasets/milestone_3.manifest.json` (`m3-dataset-v1`).
+- Corpus/Chunk Set manifest: `evals/corpora/milestone_3/manifest.json` (`m3-corpus-v1`).
+- Workspace: `evaluation-m3-v1`.
+
+Each case explicitly stores retrieval-relevance applicability and acceptable relevant Chunks,
+answer expectations, evidence expectations, and where applicable an
+`INSUFFICIENT_EVIDENCE` refusal expectation. Answerable cases must have non-empty required facts.
+Several acceptable relevant Chunks are valid. A refusal case has non-applicable retrieval relevance;
+a later metrics consumer must not infer a retrieval miss or a zero Recall/MRR value from it.
+
+The contract validates dataset and corpus digests, unique manifest Chunk references, Workspace and
+source compatibility, and gold references before execution. It does not add an M3 runner, metric
+calculation, or report generation. Those capabilities remain separate work.
+
+## Milestone 1 runner
 
 The Milestone 1 runner measures deterministic structural invariants, retrieval quality and system
 observations through the versioned `POST /v1/questions` HTTP seam. Deterministic-local mode does
