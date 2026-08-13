@@ -72,6 +72,12 @@ proposals.
   versioned `rrf-v1`: each branch returns at most `candidate_k`, ranks its own deterministically
   ordered results, and contributes `1 / (60 + rank)` to the canonical Chunk's fusion score; final
   ordering is `fusion_score DESC → chunk_id ASC`.
+- **Production Retrieval V2** is the Issue #56 configuration family. Both
+  `retrieval-m3-vector-v2` and `retrieval-m3-rrf-v2` use the calibrated vector threshold
+  `0.657410732025` and `vector_candidate_k = 8`; hybrid v2 additionally uses
+  `fts-m3-or-v2`, `fts_candidate_k = 8`, and `rrf-v2`. The paired configurations preserve the
+  same downstream Evidence Selection policy and differ only by strategy, FTS candidate budget,
+  lexical policy, and fusion policy.
 - Initial PostgreSQL FTS policy `fts-v1` uses explicit `simple` configuration:
   `to_tsvector('simple', chunk_text)`, `plainto_tsquery('simple', query_text)`, eligibility with
   `@@`, and `ts_rank_cd(..., 0) DESC → chunk_id ASC`. It does not depend on database defaults,
@@ -299,11 +305,20 @@ proposals.
 - A **Generation Provider** turns a Question and its Evidence Set into generated answer text.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
-  model, dimensions and distance metric.
+  model, dimensions, distance metric, provider/deployment contract, input normalization and input
+  policy. `embedding-gemini-m1-v1` is the Production Retrieval V2 identity: Gemini API `v1beta`
+  `models.embedContent`, model `gemini-embedding-2`, 1536 dimensions, cosine distance, and
+  `gemini-m3-qa-asymmetric-v1`. Document and query embeddings share one space but intentionally
+  use role-specific, NFKC-normalized inputs. Changing that policy creates a new configuration and
+  invalidates calibration.
 - A **Deterministic Local Provider** exercises orchestration, schemas, citation/refusal behavior
   and trace persistence without representing semantic quality.
 - An **OpenAI-compatible Provider** supplies model-backed generation or embeddings for demos and
   semantic evaluation when enabled by runtime configuration.
+- A **Gemini Embedding Provider** supplies Production Retrieval V2 embeddings through the native
+  Gemini API. It uses exactly one text Content per logical Chunk or query,
+  `EmbedContentConfig.outputDimensionality = 1536`, validates 1536 returned values, and stores
+  provider output without client normalization. Its credential exists only at runtime.
 
 ### System relationships
 

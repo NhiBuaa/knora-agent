@@ -97,18 +97,20 @@ Mở `.env` và điền các biến theo chế độ bạn muốn chạy:
 
 | Biến | Khi nào cần | Giá trị |
 |---|---|---|
-| `KNORA_PROVIDER_MODE` | Luôn cần | `deterministic-local` hoặc `openai-compatible` |
+| `KNORA_PROVIDER_MODE` | Luôn cần | `deterministic-local`, `openai-compatible` hoặc `google-gemini-api` |
 | `KNORA_API_CREDENTIALS_JSON` | Giữ mặc định | `[]`; bootstrap mỗi phiên sẽ ghi đè trong process |
 | `KNORA_OBJECT_STORE_ROOT` | PDF ingestion local | Thư mục lưu source object; mặc định `.knora-objects` |
 | `KNORA_OPENAI_API_KEY` | `openai-compatible` | OpenAI API key, chỉ giữ trong runtime/local `.env` |
 | `KNORA_OPENAI_GENERATION_MODEL` | `openai-compatible` | Model chat tương thích, ví dụ `gpt-4o-mini` |
 | `KNORA_OPENAI_PRICING_VERSION` và các biến cost | `openai-compatible` | Giá USD trên 1 triệu token của bảng giá đã chọn |
+| `KNORA_GEMINI_API_KEY` | `google-gemini-api` | Gemini API key, chỉ giữ trong runtime/local `.env` |
+| `KNORA_GEMINI_TIMEOUT_SECONDS` | `google-gemini-api` | Timeout dương; mặc định 60 giây |
 | `KNORA_SEMANTIC_SCORER_*` | `--mode model-backed` | Cấu hình riêng của semantic scorer |
 
-Embedding storage Milestone 1 cố định ở 1536 dimensions và cosine distance. Provider-backed
-embedding spaces được version hóa riêng: `embedding-openai-m1-v1` cho
-`text-embedding-3-small` và `embedding-gemini-m1-v1` cho `gemini-embedding-001`; Gemini space
-phải được re-embed/activate riêng và không được trộn với space khác.
+Embedding storage cố định ở 1536 dimensions và cosine distance. Provider-backed embedding spaces
+được version hóa riêng: `embedding-openai-m1-v1` cho `text-embedding-3-small` và
+`embedding-gemini-m1-v1` cho native Gemini API `v1beta` / `gemini-embedding-2`. Gemini space phải
+được re-embed/activate riêng và không được trộn với space khác.
 Không commit `.env`, raw API key hoặc raw evaluation key.
 
 ### Bootstrap mỗi phiên PowerShell
@@ -310,9 +312,9 @@ $env:KNORA_OPENAI_GENERATION_OUTPUT_COST_PER_MILLION_TOKENS = "<usd-rate>"
 
 Embedding Configuration của Milestone 1 vẫn khóa ở 1536 dimensions và cosine distance; model
 embedding là giá trị runtime phải được endpoint công bố và phải trả đúng 1536 phần tử. Khi dùng
-Gemini, đặt `KNORA_OPENAI_EMBEDDING_MODEL=gemini-embedding-001` cùng
-`KNORA_OPENAI_EMBEDDING_CONFIGURATION_ID=embedding-gemini-m1-v1` và ingest lại corpus dưới space
-mới. Prompt content và version `m1-cited-answer-v1` được khóa cùng nhau trong code để Question
+OpenAI-compatible mode, không dùng identity `embedding-gemini-m1-v1`; identity đó được dành cho
+native Gemini contract của Production Retrieval V2. Prompt content và version
+`m1-cited-answer-v1` được khóa cùng nhau trong code để Question
 Trace luôn có provenance chính xác. Có thể pin thêm
 `KNORA_OPENAI_EMBEDDING_CONFIGURATION_ID` và `KNORA_OPENAI_TIMEOUT_SECONDS`; xem
 [`.env.example`](.env.example) để biết toàn bộ tên biến. OpenAI-compatible mode fail khi startup
@@ -370,6 +372,11 @@ Milestone 3 now includes the 50-case `m3-dataset-v1` data contract, pinned to `m
 It records separate retrieval relevance, answer/evidence, and refusal expectations. It is not yet
 accepted by the Milestone 1 runner: metric execution and reporting remain later Milestone 3 work.
 
+Issue #56 đã hoàn thành Production Retrieval V2: native Gemini API `gemini-embedding-2` với input
+policy bất đối xứng bất biến, calibration threshold `0.657410732025`, re-embedding trên Chunk Sets
+hiện hữu, `fts-m3-or-v2`, `rrf-v2`, và paired vector/hybrid configurations với branch budget 8.
+Manual acceptance `issue-56-v5` đã PASS; final code review được gom vào release review toàn bộ M3.
+
 ## Tài liệu liên quan
 
 - [Biến môi trường mẫu](.env.example)
@@ -377,6 +384,8 @@ accepted by the Milestone 1 runner: metric execution and reporting remain later 
 - [Architecture Standard](docs/standards/architecture.md)
 - [Hướng dẫn evaluation Milestone 1](docs/evaluation.md)
 - [Issue #50 M3 evaluation dataset acceptance evidence](.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl)
+- [Issue #56 Production Retrieval V2 authority](docs/design/m3-retrieval-rrf-v2-authority-proposal-r9.md)
+- [Issue #56 accepted execution evidence](.agents/manual-tests/milestone-3/56-production-retrieval-v2.evaluations.jsonl)
 - [Spec Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - [Module seams Milestone 1](docs/design/milestone-1-module-seams.md)
 - [Module seams Milestone 2](docs/design/milestone-2-module-seams.md)
