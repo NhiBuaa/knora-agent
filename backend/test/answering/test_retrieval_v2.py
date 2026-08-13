@@ -3,6 +3,8 @@ import pytest
 from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2
 from knora.answering.stores import RetrievalConfiguration
 
+CALIBRATED_THRESHOLD = 0.657410732025
+
 
 def test_fts_m3_or_v2_normalizes_to_safe_sorted_or_lexemes() -> None:
     assert normalize_fts_m3_or_v2("What is the REFUND—period?") == ("period", "refund")
@@ -12,8 +14,12 @@ def test_fts_m3_or_v2_normalizes_to_safe_sorted_or_lexemes() -> None:
 
 
 def test_retrieval_v2_configs_have_exact_allowed_differences() -> None:
-    vector = RetrievalConfiguration.milestone_three_vector_v2(min_similarity=0.42)
-    hybrid = RetrievalConfiguration.milestone_three_hybrid_v2(min_similarity=0.42)
+    vector = RetrievalConfiguration.milestone_three_vector_v2(
+        min_similarity=CALIBRATED_THRESHOLD
+    )
+    hybrid = RetrievalConfiguration.milestone_three_hybrid_v2(
+        min_similarity=CALIBRATED_THRESHOLD
+    )
     vector_semantics = vector.parity_semantics()
     hybrid_semantics = hybrid.parity_semantics()
     differences = {
@@ -30,6 +36,7 @@ def test_retrieval_v2_configs_have_exact_allowed_differences() -> None:
     }
     assert vector.vector_candidate_k == hybrid.vector_candidate_k == 8
     assert hybrid.fts_candidate_k == 8
+    assert vector.min_similarity == hybrid.min_similarity == CALIBRATED_THRESHOLD
     assert vector.id == "retrieval-m3-vector-v2"
     assert hybrid.id == "retrieval-m3-rrf-v2"
 
