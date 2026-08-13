@@ -1,0 +1,1 @@
+Replacement devices ship only after the returned unit is scanned at the service depot. The depot scan is the controlling event.

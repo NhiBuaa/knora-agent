@@ -1,0 +1,1 @@
+Administrative audit events are retained for ninety days in the standard plan and cannot be extended per individual event.

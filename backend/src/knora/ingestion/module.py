@@ -63,7 +63,10 @@ class IngestDocument:
         ):
             raise KnoraError("DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION")
 
-        embedding_batch = self._embedding_provider.embed(
+        embed_documents = getattr(
+            self._embedding_provider, "embed_documents", self._embedding_provider.embed
+        )
+        embedding_batch = embed_documents(
             [chunk.content for chunk in processed.chunks],
             command.embedding_configuration,
         )

@@ -12,6 +12,7 @@ from knora.adapters.postgres.tables import (
     DocumentTable,
     EmbeddingSetTable,
     QuestionTraceTable,
+    RetrievalV2CutoverTable,
     WorkspaceTable,
 )
 from knora.answering.interface import QuestionCommand
@@ -191,6 +192,46 @@ def test_hybrid_requires_explicit_supported_versioned_policies() -> None:
             embedding_configuration=configuration,
             retrieval_configuration=invalid,
         )
+
+
+def test_rrf_v2_uses_independent_branch_budgets_and_source_ordinal_order() -> None:
+    workspace_id = f"rrf-v2-{uuid4()}"
+    configuration = EmbeddingConfiguration.milestone_one_local()
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="RRF v2"))
+    for ordinal in range(10):
+        ingest(
+            workspace_id,
+            f"support/{ordinal:02d}",
+            content=f"refund token {ordinal}".encode(),
+        )
+    query_vector = DeterministicEmbeddingProvider().embed(
+        ["refund token"], configuration
+    ).vectors[0]
+    retrieval = RetrievalConfiguration.milestone_three_hybrid_v2(min_similarity=-1.0)
+    with SessionFactory.begin() as session:
+        session.add(
+            RetrievalV2CutoverTable(
+                workspace_id=workspace_id,
+                embedding_configuration_id=configuration.id,
+                population_digest="a" * 64,
+                status="completed",
+            )
+        )
+
+    candidates = PostgresAnsweringStore(SessionFactory).retrieve_candidates(
+        workspace_id=workspace_id,
+        query_text="the and what",
+        query_vector=query_vector,
+        embedding_configuration=configuration,
+        retrieval_configuration=retrieval,
+    )
+
+    assert len(candidates) == 8
+    assert all(candidate.fts_contribution is None for candidate in candidates)
+    assert [candidate.fusion_score for candidate in candidates] == [
+        1 / (60 + rank) for rank in range(1, 9)
+    ]
 
 
 def test_fts_filters_before_limit_and_breaks_equal_ranks_by_chunk_id() -> None:

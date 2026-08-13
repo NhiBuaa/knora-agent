@@ -467,6 +467,12 @@ class EmbeddingConfigurationTable(Base):
     model: Mapped[str] = mapped_column(String(200), nullable=False)
     dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
     distance_metric: Mapped[str] = mapped_column(String(30), nullable=False)
+    deployment_identity: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    api_contract_version: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    input_normalization: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    input_policy_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    output_dimensionality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vector_normalization: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 class EmbeddingSetTable(Base):
@@ -481,6 +487,22 @@ class EmbeddingSetTable(Base):
         ForeignKey("embedding_configurations.id", ondelete="RESTRICT"), index=True
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False)
+
+
+class RetrievalV2CutoverTable(Base):
+    __tablename__ = "retrieval_v2_cutovers"
+
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), primary_key=True
+    )
+    embedding_configuration_id: Mapped[str] = mapped_column(
+        ForeignKey("embedding_configurations.id", ondelete="RESTRICT"), primary_key=True
+    )
+    population_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
 class ChunkEmbeddingTable(Base):

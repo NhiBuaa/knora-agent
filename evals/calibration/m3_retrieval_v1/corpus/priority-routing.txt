@@ -1,0 +1,1 @@
+Priority support tickets enter the specialist queue when the customer supplies an incident code and a recent diagnostic bundle.

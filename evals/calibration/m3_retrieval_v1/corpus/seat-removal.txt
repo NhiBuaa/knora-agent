@@ -1,0 +1,1 @@
+Removing a seat takes effect at the next billing renewal. The user loses workspace access immediately when an administrator removes membership.

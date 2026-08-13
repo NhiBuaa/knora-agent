@@ -4,6 +4,7 @@ from knora.infrastructure.settings import Settings
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
+from knora.providers.gemini.embedding import GeminiEmbeddingProvider
 from knora.providers.generation import GenerationProvider
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
@@ -35,6 +36,21 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
             embedding_provider=DeterministicEmbeddingProvider(),
             generation_provider=DeterministicGenerationProvider(),
             embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        )
+    if runtime_settings.provider_mode == "google-gemini-api":
+        api_key = runtime_settings.gemini_api_key
+        if api_key is None or not api_key.get_secret_value():
+            raise ValueError("invalid provider configuration: missing gemini_api_key")
+        if runtime_settings.gemini_timeout_seconds <= 0:
+            raise ValueError("invalid provider configuration: timeout must be positive")
+        generation = _build_openai_generation(runtime_settings)
+        return ProviderSelection(
+            embedding_provider=GeminiEmbeddingProvider(
+                api_key=api_key.get_secret_value(),
+                timeout_seconds=runtime_settings.gemini_timeout_seconds,
+            ),
+            generation_provider=generation,
+            embedding_configuration=EmbeddingConfiguration.gemini_m3(),
         )
     if runtime_settings.provider_mode != "openai-compatible":
         raise ValueError("invalid provider configuration: unsupported provider_mode")
@@ -109,4 +125,36 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
             timeout_seconds=runtime_settings.openai_timeout_seconds,
         ),
         embedding_configuration=configuration,
+    )
+
+
+def _build_openai_generation(runtime_settings: Settings) -> GenerationProvider:
+    required = {
+        "openai_base_url": runtime_settings.openai_base_url,
+        "openai_generation_model": runtime_settings.openai_generation_model,
+        "openai_pricing_version": runtime_settings.openai_pricing_version,
+        "openai_generation_input_cost_per_million_tokens": (
+            runtime_settings.openai_generation_input_cost_per_million_tokens
+        ),
+        "openai_generation_output_cost_per_million_tokens": (
+            runtime_settings.openai_generation_output_cost_per_million_tokens
+        ),
+    }
+    api_key = runtime_settings.openai_api_key
+    missing = [name for name, value in required.items() if value is None or value == ""]
+    if api_key is None or not api_key.get_secret_value():
+        missing.append("openai_api_key")
+    if missing:
+        raise ValueError("invalid provider configuration: missing " + ", ".join(sorted(missing)))
+    if runtime_settings.openai_timeout_seconds <= 0:
+        raise ValueError("invalid provider configuration: timeout must be positive")
+    assert api_key is not None
+    return OpenAICompatibleGenerationProvider(
+        base_url=str(runtime_settings.openai_base_url),
+        api_key=api_key.get_secret_value(),
+        model=str(runtime_settings.openai_generation_model),
+        input_cost_per_million_tokens=runtime_settings.openai_generation_input_cost_per_million_tokens,  # type: ignore[arg-type]
+        output_cost_per_million_tokens=runtime_settings.openai_generation_output_cost_per_million_tokens,  # type: ignore[arg-type]
+        pricing_version=str(runtime_settings.openai_pricing_version),
+        timeout_seconds=runtime_settings.openai_timeout_seconds,
     )
