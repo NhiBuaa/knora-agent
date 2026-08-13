@@ -54,7 +54,9 @@
   "integration": {
     "target_branch": "main",
     "base_commit": "b17d9b1f81f2294a7742ba36dbd80c7910ad94dc",
-    "publication_status": "pending_pull_request"
+    "pull_request": "https://github.com/NhiBuaa/knora-agent/pull/57",
+    "merge_commit": "c37e3d93b5eacbf932c9474782ae1e14fc62f91d",
+    "publication_status": "merged"
   },
   "remaining_issue_56_blockers": []
 }
