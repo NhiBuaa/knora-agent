@@ -2,7 +2,7 @@ from dataclasses import replace
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import event, select, update
 
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
@@ -232,6 +232,53 @@ def test_rrf_v2_uses_independent_branch_budgets_and_source_ordinal_order() -> No
     assert [candidate.fusion_score for candidate in candidates] == [
         1 / (60 + rank) for rank in range(1, 9)
     ]
+
+
+def test_fts_m3_or_v2_empty_query_executes_no_sql_and_adversarial_inputs_are_bound() -> None:
+    workspace_id = f"fts-v2-adversarial-{uuid4()}"
+    configuration = EmbeddingConfiguration.milestone_one_local()
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="FTS v2 adversarial"))
+    ingest(workspace_id, "support/refund", content=b"refund period is thirty days")
+    retrieval = RetrievalConfiguration.milestone_three_hybrid_v2(min_similarity=-1.0)
+    store = PostgresAnsweringStore(SessionFactory)
+    statements: list[str] = []
+
+    def capture(_connection, _cursor, statement, _parameters, _context, _many):
+        statements.append(statement)
+
+    engine = SessionFactory.kw["bind"]
+    event.listen(engine, "before_cursor_execute", capture)
+    try:
+        assert store._fts_candidates(
+            workspace_id=workspace_id,
+            query_text="the and what",
+            embedding_configuration=configuration,
+            retrieval_configuration=retrieval,
+        ) == ()
+        assert statements == []
+
+        operator_candidates = store._fts_candidates(
+            workspace_id=workspace_id,
+            query_text="' OR 1=1; refund refund",
+            embedding_configuration=configuration,
+            retrieval_configuration=retrieval,
+        )
+        long_token_candidates = store._fts_candidates(
+            workspace_id=workspace_id,
+            query_text="x" * 5000,
+            embedding_configuration=configuration,
+            retrieval_configuration=retrieval,
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+
+    assert {candidate.source_key for candidate in operator_candidates} == {
+        "support/refund"
+    }
+    assert long_token_candidates == ()
+    assert len(statements) == 2
+    assert all("%(to_tsquery_1)s" in statement for statement in statements)
 
 
 def test_fts_filters_before_limit_and_breaks_equal_ranks_by_chunk_id() -> None:
