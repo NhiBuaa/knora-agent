@@ -33,17 +33,21 @@ def _strings(value: object) -> Iterable[str]:
             yield from _strings(item)
 
 
-def _semantic_review(base: Path, artifact_digest: str) -> SemanticReview | None:
-    path = base / "semantic-review.json"
-    if not path.exists():
+def _semantic_review(
+    path: Path | None, artifact_digest: str, bundle_digest: str | None
+) -> SemanticReview | None:
+    if path is None:
         return None
     record = json.loads(path.read_text(encoding="utf-8"))
     expected_keys = {
         "schema_version",
+        "bundle_sha256",
+        "calibration_artifact_sha256",
         "reviewer_id",
         "reviewer_was_author",
-        "rephrase_or_derivation_found",
-        "calibration_artifact_sha256",
+        "reviewed_complete_population",
+        "verdict",
+        "rephrase_or_derivation_findings",
         "reviewed_at",
     }
     if set(record) != expected_keys or record["schema_version"] != 1:
@@ -52,10 +56,16 @@ def _semantic_review(base: Path, artifact_digest: str) -> SemanticReview | None:
         raise ValueError("invalid independent semantic reviewer identity")
     if record["reviewer_was_author"] is not False:
         raise ValueError("semantic reviewer is not independent")
-    if record["rephrase_or_derivation_found"] is not False:
+    if record["reviewed_complete_population"] is not True:
+        raise ValueError("semantic review did not cover the complete population")
+    if record["verdict"] != "PASS":
+        raise ValueError("semantic review did not pass")
+    if record["rephrase_or_derivation_findings"] != []:
         raise ValueError("semantic review found derivation")
     if record["calibration_artifact_sha256"] != artifact_digest:
         raise ValueError("semantic review is not bound to frozen calibration")
+    if bundle_digest is None or record["bundle_sha256"] != bundle_digest:
+        raise ValueError("semantic review is not bound to review bundle")
     try:
         datetime.fromisoformat(record["reviewed_at"].replace("Z", "+00:00"))
     except (AttributeError, ValueError) as error:
@@ -137,7 +147,7 @@ def validate(base: Path, development_dataset: Path) -> dict[str, object]:
         for record in documents
     )
     authored = authored_questions + authored_documents
-    semantic_review = _semantic_review(base, artifact_digest)
+    semantic_review = _semantic_review(None, artifact_digest, None)
     pending_review = SemanticReview(
         "pending-independent-review", True, False, artifact_digest
     )
@@ -162,5 +172,29 @@ def validate(base: Path, development_dataset: Path) -> dict[str, object]:
     }
 
 
+def validate_with_semantic_review(
+    base: Path,
+    development_dataset: Path,
+    semantic_review_path: Path,
+    bundle_sha256: str,
+) -> dict[str, object]:
+    result = validate(base, development_dataset)
+    artifact_digest = str(result["artifact_sha256"])
+    semantic_review = _semantic_review(
+        semantic_review_path, artifact_digest, bundle_sha256
+    )
+    if semantic_review is None:
+        raise ValueError("independent semantic review is missing")
+    result["independent_semantic_review"] = "PASS"
+    result["first_execution_allowed"] = True
+    return result
+
+
 if __name__ == "__main__":
-    print(json.dumps(validate(Path(sys.argv[1]), Path(sys.argv[2])), sort_keys=True))
+    if len(sys.argv) == 5:
+        outcome = validate_with_semantic_review(
+            Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4]
+        )
+    else:
+        outcome = validate(Path(sys.argv[1]), Path(sys.argv[2]))
+    print(json.dumps(outcome, sort_keys=True))
