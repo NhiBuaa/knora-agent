@@ -424,7 +424,12 @@ class PdfDerivationHandler:
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
 
         try:
-            batch = self._embedding_provider.embed(
+            embed_documents = getattr(
+                self._embedding_provider,
+                "embed_documents",
+                self._embedding_provider.embed,
+            )
+            batch = embed_documents(
                 [chunk.content for chunk in extraction.chunks],
                 profile.embedding_configuration,
             )

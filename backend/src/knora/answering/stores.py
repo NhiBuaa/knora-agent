@@ -15,6 +15,19 @@ class RetrievalConfiguration:
     strategy: str = "vector-only"
     fusion_policy_version: str | None = None
     fts_policy_version: str | None = None
+    vector_candidate_k: int | None = None
+    fts_candidate_k: int | None = None
+    lexical_policy_id: str | None = None
+    fusion_policy_id: str | None = None
+
+    def parity_semantics(self) -> dict[str, object]:
+        """Project strategy semantics for vector/hybrid parity review, excluding identity."""
+
+        return {
+            name: getattr(self, name)
+            for name in self.__dataclass_fields__
+            if name not in {"id", "fusion_policy_version", "fts_policy_version"}
+        }
 
     @classmethod
     def milestone_one(cls) -> "RetrievalConfiguration":
@@ -39,6 +52,37 @@ class RetrievalConfiguration:
             strategy="hybrid",
             fusion_policy_version="rrf-v1",
             fts_policy_version="fts-v1",
+        )
+
+    @classmethod
+    def milestone_three_vector_v2(cls, *, min_similarity: float) -> "RetrievalConfiguration":
+        return cls._milestone_three_v2(strategy="vector-only", min_similarity=min_similarity)
+
+    @classmethod
+    def milestone_three_hybrid_v2(cls, *, min_similarity: float) -> "RetrievalConfiguration":
+        return cls._milestone_three_v2(strategy="hybrid", min_similarity=min_similarity)
+
+    @classmethod
+    def _milestone_three_v2(
+        cls, *, strategy: str, min_similarity: float
+    ) -> "RetrievalConfiguration":
+        if not isinstance(min_similarity, (int, float)):
+            raise TypeError("calibrated min_similarity must be numeric")
+        if not -1.0 <= min_similarity <= 1.0:
+            raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
+        hybrid = strategy == "hybrid"
+        return cls(
+            id="retrieval-m3-rrf-v2" if hybrid else "retrieval-m3-vector-v2",
+            candidate_k=8,
+            min_similarity=float(min_similarity),
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-token-overlap-v1",
+            strategy=strategy,
+            vector_candidate_k=8,
+            fts_candidate_k=8 if hybrid else None,
+            lexical_policy_id="fts-m3-or-v2" if hybrid else None,
+            fusion_policy_id="rrf-v2" if hybrid else None,
         )
 
 

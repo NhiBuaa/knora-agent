@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "run_id": "issue-56-calibration-first-run-v1",
+  "execution_status": "authorized-before-first-execution",
+  "implementation_candidate_sha": "dab9fabb5205c6ab0953f231b4e1cb15049b6d97",
+  "pre_execution_evidence_sha": "d8a9f0ad59764a8965367ead107c5debd8f4ac55",
+  "frozen_calibration_sha256": "692eac26a4d4857bb7fd147213ca8b5691961b3b4878f7dc915bda55ef281f07",
+  "independent_attestation_sha256": "3c8b5d207e67c9f300056a6a97f7f23c9d5cbdf5987aeba16b93494fae8956cd",
+  "embedding_configuration": {
+    "id": "embedding-gemini-m1-v1",
+    "provider": "google-gemini-api",
+    "deployment_identity": "gemini-api-generativelanguage-googleapis-com-v1beta",
+    "api_contract_version": "gemini-api-v1beta-models.embedContent-v1",
+    "model": "gemini-embedding-2",
+    "dimensions": 1536,
+    "input_normalization": "utf8-nfkc-v1",
+    "input_policy_id": "gemini-m3-qa-asymmetric-v1",
+    "output_dimensionality": 1536,
+    "vector_normalization": "gemini-embedding-2-provider-auto-normalized-truncated-output-v1",
+    "distance_metric": "cosine"
+  },
+  "vector_candidate_k": 8,
+  "threshold_applied": false,
+  "result_path": ".agents/manual-tests/milestone-3/evidence/issue-56-calibration-first-run-v1.result.json",
+  "credential_policy": "runtime-only-not-retained"
+}

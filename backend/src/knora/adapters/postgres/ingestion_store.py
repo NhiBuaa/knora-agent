@@ -236,6 +236,12 @@ class PostgresIngestionStore(IngestionStore):
                 model=config.model,
                 dimensions=config.dimensions,
                 distance_metric=config.distance_metric,
+                deployment_identity=config.deployment_identity,
+                api_contract_version=config.api_contract_version,
+                input_normalization=config.input_normalization,
+                input_policy_id=config.input_policy_id,
+                output_dimensionality=config.output_dimensionality,
+                vector_normalization=config.vector_normalization,
             )
             session.add(row)
             session.flush()
@@ -244,6 +250,12 @@ class PostgresIngestionStore(IngestionStore):
             or row.model != config.model
             or row.dimensions != config.dimensions
             or row.distance_metric != config.distance_metric
+            or row.deployment_identity != config.deployment_identity
+            or row.api_contract_version != config.api_contract_version
+            or row.input_normalization != config.input_normalization
+            or row.input_policy_id != config.input_policy_id
+            or row.output_dimensionality != config.output_dimensionality
+            or row.vector_normalization != config.vector_normalization
         ):
             raise KnoraError("EMBEDDING_CONFIGURATION_IMMUTABLE")
         return row

@@ -82,13 +82,17 @@ deployment-specific daemon or scheduler remains an operational concern.
 
 - Đang thực hiện. M3.1 đã hoàn thành qua [Issue #49](https://github.com/NhiBuaa/knora-agent/issues/49): một retrieval seam dùng chung cho vector-only và hybrid `rrf-v1`, PostgreSQL full-text policy `fts-v1`, tenant/active-set/config filtering trong từng branch, và trace provenance có tương quan.
 - M3.3 đã hoàn thành qua [Issue #50](https://github.com/NhiBuaa/knora-agent/issues/50): versioned evaluation dataset và gold judgments.
-- M3.2 ([Issue #51](https://github.com/NhiBuaa/knora-agent/issues/51)) và M3.4 ([Issue #52](https://github.com/NhiBuaa/knora-agent/issues/52)) vẫn còn mở.
+- Production Retrieval V2 đã hoàn thành qua [Issue #56](https://github.com/NhiBuaa/knora-agent/issues/56): native Gemini embedding, frozen calibration, re-embedding không rechunk, `fts-m3-or-v2`, `rrf-v2`, và paired vector/hybrid retrieval configurations.
+- M3.2 ([Issue #51](https://github.com/NhiBuaa/knora-agent/issues/51)) nay đủ điều kiện tiếp tục TC-02/03/04; M3.4 ([Issue #52](https://github.com/NhiBuaa/knora-agent/issues/52)) vẫn còn mở.
 - Đo Recall@k, MRR, citation correctness và latency.
 - Issue #50 đã hoàn thành bộ dữ liệu 50 case có versioned gold relevance, answer/evidence và
   refusal judgments; dataset/corpus manifests được checksum-bind.
 - Runner, metric execution/reporting, baseline và failure analysis vẫn là các slice Milestone 3
   riêng; #50 không thêm các behavior này.
 - Ghi lại baseline, failure taxonomy và một cải tiến có số liệu.
+- Final code review được thực hiện ở release gate sau khi toàn bộ M3 hoàn tất, theo quyết định của
+  repository owner; Issue #56 đã hoàn tất implementation và manual acceptance nhưng không tự nhận
+  một review riêng là release review.
 
 ### Milestone 4 — Tools và human approval
 

@@ -1,0 +1,1 @@
+API rate limits use a rolling sixty-second window. Capacity returns as earlier requests leave that window.
