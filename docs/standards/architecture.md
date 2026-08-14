@@ -816,6 +816,85 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Reports provide aggregate metrics and breakdowns for lexical/exact-match, semantic/paraphrase,
   multi-source and refusal categories. Recall@k and MRR apply only to cases with compatible gold
   relevance semantics; refusal correctness is reported separately.
+- M3 distinguishes the production `ChunkSet.id` UUID, which identifies one persisted derivation
+  instance, from immutable `chunk_set_provenance_id` such as `chunk-set-m3-v1`, which identifies a
+  released corpus/Chunk Set derivation. A separate immutable M3 Evaluation Environment Binding
+  records dataset and corpus manifest identities, `chunk_set_provenance_id`, Workspace ID,
+  Retrieval Configuration ID, and exactly one per-source binding entry for every manifest source.
+  Each entry records `source_key`, production Document Version UUID and production Chunk Set UUID.
+  Before measured Q&A, bootstrap proves the entire retrieval-eligible active corpus source-key set
+  equals the manifest source-key set: every manifest source has exactly one active
+  manifest-matching Document Version and corresponding Chunk Set, and no extra active source or
+  document exists. Missing, extra, duplicate or multiple-active source/version is setup/provenance
+  failure. It proves the production derivation matches the manifest and must never infer a binding
+  from a current/latest/name lookup.
+- M3 Evaluation Chunk Identity is `(chunk_set_provenance_id, source_key, ordinal)`. A dataset gold
+  `source_key#ordinal` reference becomes canonical only when scoped by the corpus manifest's
+  `chunk_set_provenance_id`; it is not globally canonical. Before scoring, the evaluator verifies
+  that the exactly correlated trace candidate's exact `(source_key, persisted Document Version UUID,
+  persisted Chunk Set UUID)` triple equals one binding entry, then projects candidates to the
+  provenance-scoped identity. The trace/evaluation reader must project Document Version UUID; if
+  it cannot, it must establish an equivalent mandatory reader-side verified source → Document
+  Version → Chunk Set relation. Version verification may not be omitted. Unknown source,
+  UUID/version mismatch, duplicate/incomplete binding and provenance mismatch are observation
+  failures; unordered UUID-set membership and fallback inference are prohibited. Database
+  `chunk_id`, persisted Document Version UUID and persisted Chunk Set UUID are
+  operational/environment provenance only and never participate in portable gold matching.
+- M3 Retrieval Metrics V1 is `m3-retrieval-metrics-v1` and pins `k = 8`; both the metric-contract
+  identity and `k` are immutable report provenance and remain fixed between comparable runs.
+  Matching uses M3 Evaluation Chunk Identity against the ordered fused candidates of the exactly
+  correlated trace. For each successful observation with
+  `retrieval_relevance.applicable == true` and non-empty canonical gold set `G`, per-case
+  `Recall@k` is `|G ∩ top_k| / |G|`; `k` limits Recall only. Per-case reciprocal rank is `1 / r`,
+  where `r` is the rank of the first member of `G` in the entire ordered fused candidate sequence,
+  or `0` for a valid no-hit retrieval. Aggregate Recall@k and MRR are arithmetic macro-means of
+  their respective per-case values. Where fewer than `k` candidates exist, `top_k` is the
+  available ordered candidate sequence while `|G|` remains the Recall denominator. Valid retrieval
+  misses remain zero-valued members of the quality denominator; cases with non-applicable relevance
+  and every execution/observation failure have no quality score and are excluded from all
+  retrieval-quality denominators. Applicable cases require a non-empty gold-relevant set. MRR has
+  no cutoff; a cutoff metric must use an explicit name and version, such as `MRR@8`.
+- M3.2 projects independent per-successful-observation duration values and their provenance:
+  `retrieval_latency_ms` comes from the correlated trace and `end_to_end_latency_ms` comes from
+  the executor's Q&A interval. M3.2 defines no aggregate duration statistic or formula. Any
+  aggregation requires a separately approved and versioned metric contract.
+- `EvaluationEnvironmentBootstrap` is a control-plane application seam, not a public
+  acceptance-only admin endpoint. It provisions/reuses an isolated Workspace, creates a scoped API
+  credential under production credential invariants, loads/binds the manifest corpus and publishes
+  the verified Evaluation Environment Binding. Raw credentials are runtime-only and redacted. It
+  never performs measured Q&A or an evaluation-only retrieval path.
+- M3 Evaluation Bootstrap Lifecycle runs before the production API process starts. An idempotent
+  control-plane Workspace application seam provisions/reuses the isolated persisted Workspace;
+  bootstrap then uses the normal application/ingestion path to materialize and bind the corpus. It
+  generates a credential scoped to that persisted Workspace under the same API credential
+  invariants used in production. The raw credential is ephemeral bootstrap/launcher state only and
+  must never occur in an immutable binding, log, report, or committed evidence. The runtime launcher
+  writes its normal startup auth configuration (`KNORA_API_CREDENTIALS_JSON` or typed equivalent)
+  before `create_app()`. The subsequently started Q&A process uses only ordinary
+  `ApiKeyAuthenticator`; it has no evaluation-only auth path and receives no credential mutation
+  during a measured run. The evaluator consumes but never issues, activates, or revokes a
+  credential. Environment/process teardown ends the ephemeral credential lifecycle; #51 defines no
+  hot reload or revocation capability.
+- A Sealed M3 Evaluation Environment is an evaluation control-plane/orchestration ownership
+  boundary held exclusively by one run from before its authoritative closure snapshot until
+  teardown. Bootstrap may materialize the corpus before seal, but authoritative corpus-closure and
+  Binding V3/retrieval-configuration snapshot for measured Q&A occur only after successful seal
+  acquisition. The contract forbids corpus/retrieval-provenance mutation while sealed, while Q&A
+  and Question Trace persistence remain permitted. The guarantee may be provided by isolated
+  evaluation topology, exclusive run ownership, restricted actors/credentials, or an existing
+  centralized mutation guard; #51 does not require evaluation-specific seal checks retrofitted
+  into every ingestion/reprocess/delete/activation production path. TC-01 proves the supported
+  mutation paths and actors present in the evaluation topology cannot mutate the sealed
+  environment. If exclusive ownership cannot be established, setup/preflight fails before Q&A.
+  Post-run, while seal remains held, control plane re-verifies closure, V3 source bindings and
+  resolved Retrieval Configuration against the sealed snapshot. Drift invalidates the whole run as
+  an environment/observation failure and no quality score may publish. Seal and post-run checks
+  occur outside each Q&A interval and must not contribute to `end_to_end_latency_ms`.
+- `RetrievalConfigurationResolver` is the supported deployment/workspace composition seam used by
+  production Q&A. It resolves immutable configuration without a per-request evaluation override;
+  the resolved configuration ID is persisted in the trace. M3 #51 binds
+  `retrieval-m3-rrf-v1`; M3 #52 executes vector baseline and hybrid in separate configured
+  environments/runs through the same public Q&A HTTP contract.
 - Before observing results, an improvement claim requires comparable provenance, zero observation
   failures, improvement in pre-declared primary retrieval metrics, no citation/refusal guardrail
   regression beyond pre-declared policy, and disclosure of every latency trade-off. Selecting

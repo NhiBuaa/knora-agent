@@ -14,7 +14,11 @@ Each case explicitly stores retrieval-relevance applicability and acceptable rel
 answer expectations, evidence expectations, and where applicable an
 `INSUFFICIENT_EVIDENCE` refusal expectation. Answerable cases must have non-empty required facts.
 Several acceptable relevant Chunks are valid. A refusal case has non-applicable retrieval relevance;
-a later metrics consumer must not infer a retrieval miss or a zero Recall/MRR value from it.
+a later metrics consumer must not infer a retrieval miss or a zero Recall/MRR value from it. For
+M3 metrics, a gold `source_key#ordinal` reference resolves only through this manifest's pinned
+Chunk Set provenance identity; the evaluator compares the resulting
+`(chunk_set_provenance_id, source_key, ordinal)` identity with the projection of the exactly
+correlated trace, never with a database `chunk_id`.
 
 The contract validates dataset and corpus digests, unique manifest Chunk references, Workspace and
 source compatibility, and gold references before execution. It does not add an M3 runner, metric
@@ -36,6 +40,24 @@ rechunking. Paired configurations are `retrieval-m3-vector-v2` and `retrieval-m3
 `vector_candidate_k = 8`, while hybrid additionally pins `fts_candidate_k = 8`,
 `fts-m3-or-v2`, and `rrf-v2`. This completion makes Issue #51 eligible to resume its remaining
 acceptance cases; it does not itself execute the M3 evaluation runner.
+
+## Issue #51 production evaluation acceptance
+
+Issue #51 is accepted against locked guide `issue-51-v12` by run
+`m3-issue-51-20260814-acceptance-05`. The run used a sealed, isolated production topology and
+the normal `POST /v1/questions` seam. It passed closure and Binding V3 preflight, exact
+`(workspace_id, trace_id)` correlation, one non-empty manifest-bound candidate observation,
+public citation alias validation, public-only semantic scoring, post-run drift verification and
+independent latency capture. TC-02 recorded Recall@8 `1.0` and reciprocal rank `1.0` for the one
+applicable observed case; this is acceptance evidence, not an aggregate M3 quality claim.
+
+The append-only Evaluation record is
+`.agents/manual-tests/milestone-3/51-production-evaluation-correlation.evaluations.jsonl`.
+TC-01 and TC-05 evidence from prior accepted observations remain unchanged. The semantic scorer
+used version `m3-semantic-citation-v1` and method
+`public-answer-public-citation-only-v1`; its input contained only the public answer and public
+citation excerpt/source locator. Raw Gemini and scorer credentials are runtime-only and are not
+part of the record.
 
 ## Milestone 1 runner
 

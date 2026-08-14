@@ -1,0 +1,580 @@
+"""Production-observation contracts and metrics for Milestone 3 evaluation."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable
+from dataclasses import dataclass
+from time import perf_counter
+
+import httpx
+from evals.datasets.milestone_3 import Milestone3Case, Milestone3CorpusManifest
+
+METRIC_CONTRACT = "m3-retrieval-metrics-v1"
+RECALL_K = 8
+MARKER_PATTERN = re.compile(r"\[\[(E[1-9][0-9]*)\]\]")
+
+
+class ObservationFailure(ValueError):
+    """A trace/corpus observation cannot be used as a retrieval-quality score."""
+
+
+@dataclass(frozen=True, slots=True, order=True)
+class CanonicalChunkReference:
+    """Portable M3 identity, scoped to the corpus manifest's immutable Chunk Set."""
+
+    chunk_set_provenance_id: str
+    source_key: str
+    ordinal: int
+
+
+@dataclass(frozen=True, slots=True)
+class PublicCitation:
+    evidence_id: str
+    source_key: str
+    excerpt: str
+    source_locator: str
+
+
+@dataclass(frozen=True, slots=True)
+class M3Observation:
+    case_id: str
+    candidates: tuple[CanonicalChunkReference, ...] = ()
+    retrieval_latency_ms: float | None = None
+    end_to_end_latency_ms: float | None = None
+    retrieval_configuration_id: str | None = None
+    chunk_set_provenance_id: str | None = None
+    source_bindings: tuple[SourceBinding, ...] = ()
+    public_answer: str | None = None
+    public_citations: tuple[PublicCitation, ...] = ()
+    failure_code: str | None = None
+
+    @classmethod
+    def success(
+        cls,
+        *,
+        case_id: str,
+        candidates: tuple[CanonicalChunkReference, ...],
+        retrieval_latency_ms: float,
+        end_to_end_latency_ms: float,
+        retrieval_configuration_id: str,
+        chunk_set_provenance_id: str,
+        source_bindings: tuple[SourceBinding, ...],
+        public_answer: str | None = None,
+        public_citations: tuple[PublicCitation, ...] = (),
+    ) -> M3Observation:
+        if retrieval_latency_ms < 0 or end_to_end_latency_ms < 0:
+            raise ValueError("latency must be non-negative")
+        return cls(
+            case_id=case_id,
+            candidates=candidates,
+            retrieval_latency_ms=retrieval_latency_ms,
+            end_to_end_latency_ms=end_to_end_latency_ms,
+            retrieval_configuration_id=retrieval_configuration_id,
+            chunk_set_provenance_id=chunk_set_provenance_id,
+            source_bindings=source_bindings,
+            public_answer=public_answer,
+            public_citations=public_citations,
+        )
+
+    @classmethod
+    def failure(cls, case_id: str, code: str) -> M3Observation:
+        return cls(case_id=case_id, failure_code=code)
+
+    @property
+    def is_success(self) -> bool:
+        return self.failure_code is None
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluationEnvironmentBinding:
+    """Immutable verified manifest-to-production environment association."""
+
+    dataset_manifest_identity: str
+    corpus_manifest_identity: str
+    chunk_set_provenance_id: str
+    workspace_id: str
+    retrieval_configuration_id: str
+    source_bindings: tuple[SourceBinding, ...] = ()
+    schema_version: int = 3
+
+    @classmethod
+    def from_mapping(cls, value: object) -> EvaluationEnvironmentBinding:
+        fields = (
+            "dataset_manifest_identity",
+            "corpus_manifest_identity",
+            "chunk_set_provenance_id",
+            "workspace_id",
+            "retrieval_configuration_id",
+        )
+        raw_bindings = value.get("source_bindings") if isinstance(value, dict) else None
+        if (
+            not isinstance(value, dict)
+            or value.get("schema_version") != 3
+            or any(not isinstance(value.get(field), str) or not value[field] for field in fields)
+            or not isinstance(raw_bindings, list)
+        ):
+            raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
+        try:
+            bindings = tuple(SourceBinding.from_mapping(item) for item in raw_bindings)
+        except (TypeError, ValueError) as error:
+            raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID") from error
+        if not bindings or len({item.source_key for item in bindings}) != len(bindings):
+            raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
+        return cls(**{field: value[field] for field in fields}, source_bindings=bindings)
+
+    def provenance(self) -> dict[str, object]:
+        return {
+            "dataset_manifest_identity": self.dataset_manifest_identity,
+            "corpus_manifest_identity": self.corpus_manifest_identity,
+            "chunk_set_provenance_id": self.chunk_set_provenance_id,
+            "source_bindings": [item.as_mapping() for item in self.source_bindings],
+            "workspace_id": self.workspace_id,
+            "retrieval_configuration_id": self.retrieval_configuration_id,
+        }
+
+    def source_binding(self, source_key: str) -> SourceBinding:
+        matches = [item for item in self.source_bindings if item.source_key == source_key]
+        if len(matches) != 1:
+            raise ObservationFailure("SOURCE_BINDING_MISMATCH")
+        return matches[0]
+
+
+@dataclass(frozen=True, slots=True)
+class SourceBinding:
+    source_key: str
+    production_document_version_id: str
+    production_chunk_set_id: str
+
+    @classmethod
+    def from_mapping(cls, value: object) -> SourceBinding:
+        fields = ("source_key", "production_document_version_id", "production_chunk_set_id")
+        if not isinstance(value, dict) or any(
+            not isinstance(value.get(field), str) or not value[field] for field in fields
+        ):
+            raise ValueError("invalid source binding")
+        return cls(**{field: value[field] for field in fields})
+
+    def as_mapping(self) -> dict[str, str]:
+        return {
+            "source_key": self.source_key,
+            "production_document_version_id": self.production_document_version_id,
+            "production_chunk_set_id": self.production_chunk_set_id,
+        }
+
+
+def verify_corpus_closure(
+    *,
+    binding: EvaluationEnvironmentBinding,
+    corpus: object,
+    manifest: Milestone3CorpusManifest,
+) -> None:
+    """Reject an evaluation environment unless its complete active corpus matches its manifest."""
+    if (
+        getattr(corpus, "workspace_id", None) != binding.workspace_id
+        or binding.workspace_id != manifest.workspace_id
+        or binding.corpus_manifest_identity != manifest.version
+        or binding.chunk_set_provenance_id != manifest.chunk_set_id
+    ):
+        raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+    documents = getattr(corpus, "documents", None)
+    if not isinstance(documents, tuple):
+        raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+    expected_references: dict[str, set[str]] = {}
+    for reference in manifest.chunks:
+        source_key, _ = reference.rsplit("#", 1)
+        expected_references.setdefault(source_key, set()).add(reference)
+    source_keys = [getattr(document, "source_key", None) for document in documents]
+    if (
+        any(not isinstance(source_key, str) for source_key in source_keys)
+        or set(source_keys) != set(expected_references)
+        or len(source_keys) != len(set(source_keys))
+        or {item.source_key for item in binding.source_bindings} != set(expected_references)
+    ):
+        raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+    for document in documents:
+        source_key = document.source_key
+        source_binding = binding.source_binding(source_key)
+        if (
+            getattr(document, "document_version_id", None)
+            != source_binding.production_document_version_id
+            or getattr(document, "chunk_set_id", None)
+            != source_binding.production_chunk_set_id
+            or set(getattr(document, "chunk_references", ())) != expected_references[source_key]
+        ):
+            raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedM3Environment:
+    """A binding that has passed mandatory corpus-closure preflight."""
+
+    binding: EvaluationEnvironmentBinding
+
+    @classmethod
+    def prepare(
+        cls,
+        *,
+        binding: EvaluationEnvironmentBinding,
+        corpus: object,
+        manifest: Milestone3CorpusManifest,
+    ) -> VerifiedM3Environment:
+        verify_corpus_closure(binding=binding, corpus=corpus, manifest=manifest)
+        return cls(binding)
+
+
+@dataclass(frozen=True, slots=True)
+class SealedM3Environment:
+    """Evaluation-run ownership plus the authoritative post-acquire snapshot."""
+
+    run_id: str
+    environment: VerifiedM3Environment
+
+
+class EvaluationEnvironmentSeal:
+    """Orchestration boundary for exclusive evaluation ownership.
+
+    Production mutation paths remain owned by their normal application seams; the topology/owner
+    probe is the selected control-plane guarantee for this isolated run.
+    """
+
+    def __init__(self, *, ownership_probe) -> None:
+        self._ownership_probe = ownership_probe
+        self._sealed: SealedM3Environment | None = None
+
+    def acquire(self, *, run_id: str) -> None:
+        if self._sealed is not None or not run_id or not bool(self._ownership_probe(run_id)):
+            raise ObservationFailure("EVALUATION_SEAL_ACQUIRE_FAILED")
+        self._sealed = SealedM3Environment(run_id, environment=None)  # type: ignore[arg-type]
+
+    def capture_preflight(
+        self,
+        *,
+        binding: EvaluationEnvironmentBinding,
+        corpus: object,
+        manifest: Milestone3CorpusManifest,
+    ) -> VerifiedM3Environment:
+        if self._sealed is None:
+            raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+        environment = VerifiedM3Environment.prepare(
+            binding=binding, corpus=corpus, manifest=manifest
+        )
+        self._sealed = SealedM3Environment(self._sealed.run_id, environment)
+        return environment
+
+    def verify_unchanged(
+        self, *, corpus: object, manifest: Milestone3CorpusManifest,
+        binding: EvaluationEnvironmentBinding,
+    ) -> None:
+        if self._sealed is None or self._sealed.environment is None:
+            raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+        if binding != self._sealed.environment.binding:
+            raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT")
+        try:
+            verify_corpus_closure(
+                binding=binding, corpus=corpus, manifest=manifest
+            )
+        except ObservationFailure as error:
+            raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT") from error
+
+    def release(self) -> None:
+        self._sealed = None
+
+
+class ProductionM3Executor:
+    """Observe the production Q&A response and exactly its correlated persisted trace."""
+
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        api_key: str,
+        trace_reader: object,
+        client: httpx.AsyncClient,
+        environment: VerifiedM3Environment,
+    ) -> None:
+        self._endpoint = endpoint
+        self._api_key = api_key
+        self._trace_reader = trace_reader
+        self._client = client
+        self._binding = environment.binding
+
+    async def execute(self, case: Milestone3Case) -> M3Observation:
+        started = perf_counter()
+        try:
+            if case.workspace_id != self._binding.workspace_id:
+                raise ObservationFailure("EVALUATION_WORKSPACE_BINDING_MISMATCH")
+            response = await self._client.post(
+                self._endpoint,
+                headers={"X-API-Key": self._api_key},
+                json={"workspace_id": case.workspace_id, "question": case.question},
+            )
+            response.raise_for_status()
+            payload = response.json()
+            trace_id = payload["trace_id"]
+            trace = self._trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id)
+            if getattr(trace, "trace_id", None) != trace_id:
+                raise ObservationFailure("RESPONSE_TRACE_ID_MISMATCH")
+            if getattr(trace, "workspace_id", None) != case.workspace_id:
+                raise ObservationFailure("TRACE_WORKSPACE_MISMATCH")
+            if (
+                getattr(trace, "retrieval_configuration_id", None)
+                != self._binding.retrieval_configuration_id
+            ):
+                raise ObservationFailure("RETRIEVAL_CONFIGURATION_MISMATCH")
+            candidates = project_trace_candidates(
+                getattr(trace, "candidates", ()),
+                binding=self._binding,
+            )
+            public_citations = _public_citations(payload)
+            citation_ids = tuple(citation.evidence_id for citation in public_citations)
+            _validate_public_citation_aliases(
+                citation_ids=citation_ids,
+                alias_mapping=getattr(trace, "alias_mapping", None),
+                candidates=getattr(trace, "candidates", ()),
+            )
+            latency = getattr(trace, "retrieval_latency_ms", None)
+            if isinstance(latency, bool) or not isinstance(latency, (int, float)) or latency < 0:
+                raise ObservationFailure("RETRIEVAL_LATENCY_INVALID")
+            return M3Observation.success(
+                case_id=case.id,
+                candidates=candidates,
+                retrieval_latency_ms=float(latency),
+                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                retrieval_configuration_id=self._binding.retrieval_configuration_id,
+                chunk_set_provenance_id=self._binding.chunk_set_provenance_id,
+                source_bindings=self._binding.source_bindings,
+                public_answer=payload["answer"],
+                public_citations=public_citations,
+            )
+        except ObservationFailure as error:
+            return M3Observation.failure(case.id, str(error))
+        except (httpx.HTTPError, KeyError, TypeError, ValueError, LookupError):
+            return M3Observation.failure(case.id, "EVALUATION_OBSERVATION_FAILURE")
+
+
+def _public_citations(payload: object) -> tuple[PublicCitation, ...]:
+    """Validate public citation structure without filling it from trace data."""
+    if not isinstance(payload, dict):
+        raise ObservationFailure("PUBLIC_RESPONSE_INVALID")
+    decision = payload.get("decision")
+    citations = payload.get("citations")
+    answer = payload.get("answer")
+    if decision not in {"ANSWER", "REFUSAL"} or not isinstance(citations, list):
+        raise ObservationFailure("PUBLIC_RESPONSE_INVALID")
+    if decision == "ANSWER":
+        citations_projection: list[PublicCitation] = []
+        for citation in citations:
+            if not isinstance(citation, dict):
+                raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+            evidence_id = citation.get("evidence_id")
+            source_key = citation.get("source_key")
+            excerpt = citation.get("excerpt")
+            if not all(
+                isinstance(value, str) and value for value in (evidence_id, source_key, excerpt)
+            ):
+                raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+            source_locator = f"{source_key}:{citation.get('start_line')}:{citation.get('end_line')}"
+            citations_projection.append(
+                PublicCitation(evidence_id, source_key, excerpt, source_locator)
+            )
+        evidence_ids = tuple(item.evidence_id for item in citations_projection)
+        if (
+            not isinstance(answer, str)
+            or not evidence_ids
+            or len(evidence_ids) != len(set(evidence_ids))
+        ):
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        if tuple(MARKER_PATTERN.findall(answer)) != evidence_ids:
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        return tuple(citations_projection)
+    elif citations:
+        raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+    return ()
+
+
+def semantic_citation_input(observation: M3Observation) -> dict[str, object]:
+    """The only semantic-scorer input: public answer plus public citation projections."""
+    if not observation.is_success or observation.public_answer is None:
+        raise ObservationFailure("SEMANTIC_INPUT_UNAVAILABLE")
+    return {
+        "answer": observation.public_answer,
+        "citations": [
+            {
+                "evidence_id": citation.evidence_id,
+                "excerpt": citation.excerpt,
+                "source_locator": citation.source_locator,
+            }
+            for citation in observation.public_citations
+        ],
+    }
+
+
+def _validate_public_citation_aliases(
+    *,
+    citation_ids: tuple[str, ...],
+    alias_mapping: object,
+    candidates: Iterable[object],
+) -> None:
+    """Check public aliases against the trace without manufacturing response citations."""
+    if not citation_ids:
+        return
+    if not isinstance(alias_mapping, dict):
+        raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+    candidate_ids = {getattr(candidate, "chunk_id", None) for candidate in candidates}
+    if any(alias_mapping.get(evidence_id) not in candidate_ids for evidence_id in citation_ids):
+        raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+
+
+def project_trace_candidates(
+    candidates: Iterable[object], *, binding: EvaluationEnvironmentBinding
+) -> tuple[CanonicalChunkReference, ...]:
+    """Project an already-correlated production trace; this never retrieves candidates."""
+    projected: list[CanonicalChunkReference] = []
+    for candidate in candidates:
+        source_key = getattr(candidate, "source_key", None)
+        document_version_id = getattr(candidate, "document_version_id", None)
+        chunk_set_id = getattr(candidate, "chunk_set_id", None)
+        ordinal = getattr(candidate, "chunk_ordinal", None)
+        if not isinstance(source_key, str) or not source_key or not isinstance(ordinal, int):
+            raise ObservationFailure("CANONICAL_CHUNK_REFERENCE_INVALID")
+        source_binding = binding.source_binding(source_key)
+        if (
+            document_version_id != source_binding.production_document_version_id
+            or chunk_set_id != source_binding.production_chunk_set_id
+        ):
+            raise ObservationFailure("SOURCE_BINDING_MISMATCH")
+        projected.append(
+            CanonicalChunkReference(binding.chunk_set_provenance_id, source_key, ordinal)
+        )
+    if len(projected) != len(set(projected)):
+        raise ObservationFailure("DUPLICATE_CANONICAL_CHUNK_REFERENCE")
+    return tuple(projected)
+
+
+def _gold_references(
+    case: Milestone3Case, chunk_set_provenance_id: str
+) -> set[CanonicalChunkReference]:
+    if not case.retrieval_relevance.applicable:
+        return set()
+    gold: set[CanonicalChunkReference] = set()
+    for reference in case.retrieval_relevance.acceptable_relevant_chunks:
+        try:
+            source_key, raw_ordinal = reference.rsplit("#", 1)
+            ordinal = int(raw_ordinal)
+        except (AttributeError, ValueError):
+            raise ObservationFailure("GOLD_REFERENCE_INVALID") from None
+        gold.add(CanonicalChunkReference(chunk_set_provenance_id, source_key, ordinal))
+    if not gold:
+        raise ObservationFailure("GOLD_REFERENCE_MISSING")
+    return gold
+
+
+def score_retrieval(
+    cases: tuple[Milestone3Case, ...],
+    observations: tuple[M3Observation, ...],
+    *,
+    binding: EvaluationEnvironmentBinding,
+) -> dict[str, object]:
+    by_case = {observation.case_id: observation for observation in observations}
+    if len(by_case) != len(observations) or set(by_case) != {case.id for case in cases}:
+        raise ValueError("observations must contain exactly one result for every case")
+    recalls: list[float] = []
+    reciprocal_ranks: list[float] = []
+    case_results: list[dict[str, object]] = []
+    for case in sorted(cases, key=lambda item: item.id):
+        observation = by_case[case.id]
+        if not case.retrieval_relevance.applicable:
+            case_results.append(
+                {
+                    "id": case.id,
+                    "included": False,
+                    "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+                }
+            )
+            continue
+        if not observation.is_success:
+            case_results.append(
+                {
+                    "id": case.id,
+                    "included": False,
+                    "exclusion_reason": observation.failure_code,
+                }
+            )
+            continue
+        if observation.chunk_set_provenance_id != binding.chunk_set_provenance_id:
+            raise ObservationFailure("CHUNK_SET_MISMATCH")
+        if observation.source_bindings != binding.source_bindings:
+            raise ObservationFailure("SOURCE_BINDING_MISMATCH")
+        gold = _gold_references(case, binding.chunk_set_provenance_id)
+        candidates = observation.candidates
+        if any(
+            candidate.chunk_set_provenance_id != binding.chunk_set_provenance_id
+            for candidate in candidates
+        ):
+            raise ObservationFailure("CHUNK_SET_MISMATCH")
+        top_k = candidates[:RECALL_K]
+        recall = len(gold.intersection(top_k)) / len(gold)
+        first_rank = next(
+            (rank for rank, candidate in enumerate(candidates, start=1) if candidate in gold),
+            None,
+        )
+        rr = 0.0 if first_rank is None else 1.0 / first_rank
+        recalls.append(recall)
+        reciprocal_ranks.append(rr)
+        case_results.append(
+            {
+                "id": case.id,
+                "included": True,
+                "recall_at_8": recall,
+                "reciprocal_rank": rr,
+                "candidate_count": len(candidates),
+            }
+        )
+    denominator = len(recalls)
+    return {
+        "metric_contract": METRIC_CONTRACT,
+        "recall_k": RECALL_K,
+        "chunk_set_provenance_id": binding.chunk_set_provenance_id,
+        "denominator": denominator,
+        "recall_at_8": sum(recalls) / denominator if denominator else None,
+        "mrr": sum(reciprocal_ranks) / denominator if denominator else None,
+        "cases": case_results,
+    }
+
+
+def build_report(
+    cases: tuple[Milestone3Case, ...],
+    observations: tuple[M3Observation, ...],
+    *,
+    binding: EvaluationEnvironmentBinding,
+) -> dict[str, object]:
+    """Build the M3 report projection without defining latency aggregation semantics."""
+    return {
+        "schema_version": 1,
+        "provenance": {
+            "metric_contract": METRIC_CONTRACT,
+            "recall_k": RECALL_K,
+            **binding.provenance(),
+        },
+        "retrieval": score_retrieval(cases, observations, binding=binding),
+        "observations": [
+            _observation_projection(observation)
+            for observation in sorted(observations, key=lambda item: item.case_id)
+        ],
+    }
+
+
+def _observation_projection(observation: M3Observation) -> dict[str, object]:
+    projection: dict[str, object] = {
+        "case_id": observation.case_id,
+        "status": "observed" if observation.is_success else "failure",
+        "retrieval_latency_ms": observation.retrieval_latency_ms,
+        "end_to_end_latency_ms": observation.end_to_end_latency_ms,
+        "retrieval_configuration_id": observation.retrieval_configuration_id,
+        "chunk_set_provenance_id": observation.chunk_set_provenance_id,
+        "source_bindings": [item.as_mapping() for item in observation.source_bindings],
+    }
+    if observation.failure_code is not None:
+        projection["failure_code"] = observation.failure_code
+    return projection
