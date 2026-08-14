@@ -1,0 +1,531 @@
+{
+  "case_count": 50,
+  "clean_checkout_before_generation": false,
+  "expected_pair_cardinality": 100,
+  "hybrid": {
+    "cases": [
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-01",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-05",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-09",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-13",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-17",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-21",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-25",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-29",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-33",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-37",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-41",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-45",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-49",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-03",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-07",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-11",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-15",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-19",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-23",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-27",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-31",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-35",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-39",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-43",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-47",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-04",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-08",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-12",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-16",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-20",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-24",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-28",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-32",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-36",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-40",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-44",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-48",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-02",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-06",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-10",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-14",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-18",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-22",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-26",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-30",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-34",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-38",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-42",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-46",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-50",
+        "included": false
+      }
+    ],
+    "chunk_set_provenance_id": "chunk-set-m3-v1",
+    "denominator": 0,
+    "metric_contract": "m3-retrieval-metrics-v1",
+    "mrr": null,
+    "recall_at_8": null,
+    "recall_k": 8
+  },
+  "improvement_status": "NO_CLAIM",
+  "output_dir": "C:\\Users\\Nhi\\.codex\\worktrees\\43fa-issue52\\evals\\reports\\milestone_3\\m3-issue-52-20260814-120234",
+  "pair_cardinality": 100,
+  "publication_id": "1b3810ed1e78067b5ce4d91fdc0e6ef7f893f2697833c692057fad219f24029e",
+  "run_id": "m3-issue-52-20260814-120234",
+  "source_commit": "37c396637a66f3def4ccef3dcbda67f9072631e9",
+  "vector": {
+    "cases": [
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-01",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-05",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-09",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-13",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-17",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-21",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-25",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-29",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-33",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-37",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-41",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-45",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "lexical-49",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-03",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-07",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-11",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-15",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-19",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-23",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-27",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-31",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-35",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-39",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-43",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "multi-47",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-04",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-08",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-12",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-16",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-20",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-24",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-28",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-32",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-36",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-40",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-44",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-48",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-02",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-06",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-10",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-14",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-18",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-22",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-26",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-30",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-34",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-38",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-42",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-46",
+        "included": false
+      },
+      {
+        "exclusion_reason": "EVALUATION_OBSERVATION_FAILURE",
+        "id": "semantic-50",
+        "included": false
+      }
+    ],
+    "chunk_set_provenance_id": "chunk-set-m3-v1",
+    "denominator": 0,
+    "metric_contract": "m3-retrieval-metrics-v1",
+    "mrr": null,
+    "recall_at_8": null,
+    "recall_k": 8
+  }
+}

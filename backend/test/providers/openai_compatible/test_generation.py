@@ -87,6 +87,52 @@ async def test_openai_compatible_generation_returns_structured_result_and_safe_m
 
 
 @pytest.mark.asyncio
+async def test_generation_prompt_requires_citation_ids_to_follow_first_marker_order() -> None:
+    observed: dict[str, object] = {}
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        observed["payload"] = __import__("json").loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "model": "compatible-chat-model",
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": (
+                                '{"decision":"ANSWER","answer":"Refunds. [[E1]]",'
+                                '"cited_evidence_ids":["E1"],"refusal_reason":null}'
+                            )
+                        },
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleGenerationProvider(
+        base_url="https://provider.example/v1",
+        api_key="runtime-secret",
+        model="compatible-chat-model",
+        input_cost_per_million_tokens=Decimal("0"),
+        output_cost_per_million_tokens=Decimal("0"),
+        pricing_version="test-pricing-v1",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+
+    await provider.generate(
+        question="What is the refund policy?",
+        evidence=(GenerationEvidence(evidence_id="E1", content="Refunds."),),
+    )
+
+    payload = observed["payload"]
+    assert isinstance(payload, dict)
+    system_prompt = payload["messages"][0]["content"]
+    assert "cited_evidence_ids" in system_prompt
+    assert "same order that its marker first appears" in system_prompt
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["malformed", "http", "timeout"])
 async def test_openai_compatible_generation_normalizes_failures_without_retry(
     failure: str,

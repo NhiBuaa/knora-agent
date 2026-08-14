@@ -38,7 +38,9 @@ _STRUCTURED_RESULT_SCHEMA = {
 MILESTONE_ONE_PROMPT_VERSION = "m1-cited-answer-v1"
 MILESTONE_ONE_SYSTEM_PROMPT = (
     "Return only the requested JSON. Answer only from the supplied evidence and cite its opaque "
-    "aliases as inline markers such as [[E1]]. Refuse when the evidence is insufficient."
+    "aliases as inline markers such as [[E1]]. Refuse when the evidence is insufficient. "
+    "For an ANSWER, cited_evidence_ids MUST list each alias exactly once in the same order "
+    "that its marker first appears in answer text; never use evidence-list order when it differs."
 )
 
 

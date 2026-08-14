@@ -1,0 +1,31 @@
+{
+  "artifact_publication_id": "f836c8787d8934919d950ed7e21a2a2f33177dbf58fb9b9c5516332c90b7f406",
+  "artifacts": [
+    {
+      "path": "findings.json",
+      "schema_version": 1,
+      "sha256": "a135697c9440009838c550302a7308c8ba5a2e959d203fd9a8b797b6936bba84"
+    },
+    {
+      "path": "hybrid-report.json",
+      "schema_version": 1,
+      "sha256": "1f8476cf0b213d877f4d07b93c7233c015824c9626892636126725c3346d74b0"
+    },
+    {
+      "path": "improvement.json",
+      "schema_version": 1,
+      "sha256": "3c384547739581c5c57b1605d2027cd8571dd0f130c78fc507693f84de492968"
+    },
+    {
+      "path": "pair.json",
+      "schema_version": 1,
+      "sha256": "161068666b41abb87f75843b4c9f2ee502e61e0c7196918273b7fbbe47fe15d5"
+    },
+    {
+      "path": "vector-report.json",
+      "schema_version": 1,
+      "sha256": "fa67a62064fdab21857f74d223e8bebb8f0bd04cd9af6b84c954d5a70954d2d5"
+    }
+  ],
+  "schema_version": 1
+}
