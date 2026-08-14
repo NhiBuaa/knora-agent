@@ -129,7 +129,9 @@ async def test_generation_prompt_requires_citation_ids_to_follow_first_marker_or
     assert isinstance(payload, dict)
     system_prompt = payload["messages"][0]["content"]
     assert "cited_evidence_ids" in system_prompt
-    assert "same order that its marker first appears" in system_prompt
+    assert "same order that their markers first appear" in system_prompt
+    assert "use each inline marker at most once" in system_prompt
+    assert "Fact A [[E1]]; fact B [[E1]]" in system_prompt
 
 
 @pytest.mark.asyncio
