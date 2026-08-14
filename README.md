@@ -369,10 +369,8 @@ dataset size and measurement method. See [evaluation guidance](docs/evaluation.m
 repeatability and report boundaries.
 
 Milestone 3 now includes the 50-case `m3-dataset-v1` data contract, pinned to `m3-corpus-v1`.
-It records separate retrieval relevance, answer/evidence, and refusal expectations. Issue #51's
-production-correlation acceptance is complete under locked guide `issue-51-v12`; its one-case
-Recall@8/MRR observation is a release-gate observation, not an aggregate quality claim. Full M3
-metric execution and reporting remain owned by the later integrated Milestone 3 release gate.
+It records separate retrieval relevance, answer/evidence, and refusal expectations. It is not yet
+accepted by the Milestone 1 runner: metric execution and reporting remain later Milestone 3 work.
 
 Issue #56 đã hoàn thành Production Retrieval V2: native Gemini API `gemini-embedding-2` với input
 policy bất đối xứng bất biến, calibration threshold `0.657410732025`, re-embedding trên Chunk Sets
