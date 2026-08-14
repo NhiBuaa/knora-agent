@@ -1,0 +1,1 @@
+Domain verification succeeds after the required TXT record is visible to the verification service. DNS propagation can delay visibility.

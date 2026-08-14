@@ -12,7 +12,9 @@ from knora.adapters.postgres.tables import (
     DocumentVersionTable,
     EmbeddingSetTable,
     QuestionTraceTable,
+    RetrievalV2CutoverTable,
 )
+from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2
 from knora.answering.stores import (
     AnsweringStore,
     QuestionTraceRecord,
@@ -35,6 +37,14 @@ class PostgresAnsweringStore(AnsweringStore):
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration,
     ) -> tuple[RetrievalCandidate, ...]:
+        if retrieval_configuration.id in {
+            "retrieval-m3-vector-v2",
+            "retrieval-m3-rrf-v2",
+        }:
+            self._require_v2_cutover(
+                workspace_id=workspace_id,
+                embedding_configuration_id=embedding_configuration.id,
+            )
         if retrieval_configuration.strategy == "vector-only":
             return self._vector_candidates(
                 workspace_id=workspace_id,
@@ -44,9 +54,17 @@ class PostgresAnsweringStore(AnsweringStore):
             )
         if retrieval_configuration.strategy != "hybrid":
             raise ValueError("unsupported retrieval strategy")
-        if retrieval_configuration.fusion_policy_version != "rrf-v1":
+        fusion_policy = (
+            retrieval_configuration.fusion_policy_id
+            or retrieval_configuration.fusion_policy_version
+        )
+        lexical_policy = (
+            retrieval_configuration.lexical_policy_id
+            or retrieval_configuration.fts_policy_version
+        )
+        if fusion_policy not in {"rrf-v1", "rrf-v2"}:
             raise ValueError("unsupported fusion policy")
-        if retrieval_configuration.fts_policy_version != "fts-v1":
+        if lexical_policy not in {"fts-v1", "fts-m3-or-v2"}:
             raise ValueError("unsupported FTS policy")
         vector = self._vector_candidates(
             workspace_id=workspace_id,
@@ -60,7 +78,7 @@ class PostgresAnsweringStore(AnsweringStore):
             embedding_configuration=embedding_configuration,
             retrieval_configuration=retrieval_configuration,
         )
-        return self._fuse(vector, fts)
+        return self._fuse(vector, fts, policy=fusion_policy)
 
     def _vector_candidates(
         self,
@@ -107,7 +125,10 @@ class PostgresAnsweringStore(AnsweringStore):
                 ChunkTable.ordinal.asc(),
                 ChunkTable.id.asc(),
             )
-            .limit(retrieval_configuration.candidate_k)
+            .limit(
+                retrieval_configuration.vector_candidate_k
+                or retrieval_configuration.candidate_k
+            )
         )
         with self._session_factory() as session:
             rows = session.execute(statement).all()
@@ -158,8 +179,28 @@ class PostgresAnsweringStore(AnsweringStore):
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration,
     ) -> tuple[RetrievalCandidate, ...]:
-        query = func.plainto_tsquery("simple", query_text)
+        lexical_policy = (
+            retrieval_configuration.lexical_policy_id
+            or retrieval_configuration.fts_policy_version
+        )
+        if lexical_policy == "fts-m3-or-v2":
+            lexemes = normalize_fts_m3_or_v2(query_text)
+            if not lexemes:
+                return ()
+            query = func.to_tsquery("simple", " | ".join(lexemes))
+        else:
+            query = func.plainto_tsquery("simple", query_text)
         rank = func.ts_rank_cd(ChunkTable.search_vector, query, 0).label("native_rank")
+        order = (
+            (
+                rank.desc(),
+                DocumentTable.source_key.asc(),
+                ChunkTable.ordinal.asc(),
+                ChunkTable.id.asc(),
+            )
+            if lexical_policy == "fts-m3-or-v2"
+            else (rank.desc(), ChunkTable.id.asc())
+        )
         statement = (
             select(
                 DocumentTable,
@@ -180,8 +221,11 @@ class PostgresAnsweringStore(AnsweringStore):
                 EmbeddingSetTable.status == "completed",
                 ChunkTable.search_vector.op("@@")(query),
             )
-            .order_by(rank.desc(), ChunkTable.id.asc())
-            .limit(retrieval_configuration.candidate_k)
+            .order_by(*order)
+            .limit(
+                retrieval_configuration.fts_candidate_k
+                or retrieval_configuration.candidate_k
+            )
         )
         with self._session_factory() as session:
             rows = session.execute(statement).all()
@@ -212,7 +256,10 @@ class PostgresAnsweringStore(AnsweringStore):
 
     @staticmethod
     def _fuse(
-        vector: tuple[RetrievalCandidate, ...], fts: tuple[RetrievalCandidate, ...]
+        vector: tuple[RetrievalCandidate, ...],
+        fts: tuple[RetrievalCandidate, ...],
+        *,
+        policy: str = "rrf-v1",
     ) -> tuple[RetrievalCandidate, ...]:
         by_chunk: dict[str, RetrievalCandidate] = {
             candidate.chunk_id: candidate for candidate in vector
@@ -233,9 +280,27 @@ class PostgresAnsweringStore(AnsweringStore):
                 if contribution is not None
             )
             fused.append(replace(candidate, fusion_score=score))
-        return tuple(
-            sorted(fused, key=lambda candidate: (-candidate.fusion_score, candidate.chunk_id))
-        )
+        if policy == "rrf-v2":
+            key = lambda candidate: (  # noqa: E731
+                -candidate.fusion_score,
+                candidate.source_key,
+                candidate.chunk_ordinal,
+                candidate.chunk_id,
+            )
+        else:
+            key = lambda candidate: (-candidate.fusion_score, candidate.chunk_id)  # noqa: E731
+        return tuple(sorted(fused, key=key))
+
+    def _require_v2_cutover(
+        self, *, workspace_id: str, embedding_configuration_id: str
+    ) -> None:
+        with self._session_factory() as session:
+            cutover = session.get(
+                RetrievalV2CutoverTable,
+                (workspace_id, embedding_configuration_id),
+            )
+        if cutover is None or cutover.status != "completed":
+            raise ValueError("retrieval v2 production cutover is incomplete")
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str:
         trace_id = str(uuid4())

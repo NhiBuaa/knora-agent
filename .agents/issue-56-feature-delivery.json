@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "workflow_identity": "feature-delivery:issue-56-production-retrieval-v2",
+  "issue": "GitHub Issue #56",
+  "delivery_status": "accepted_and_ready_for_integration",
+  "authority": {
+    "commit": "a64f40745db87d9f1584188f2f1ad73829f80d1f",
+    "artifact": "docs/design/m3-retrieval-rrf-v2-authority-proposal-r9.md",
+    "git_blob": "7833e7c4100b20ca5e5de01d3702ae29e0b55e9a",
+    "blob_sha256": "F409277B54AA32E1A811D7B1D43ED3B0F993D7B715A14EEE3145FC9BBAAB5CF6"
+  },
+  "implementation": {
+    "status": "completed",
+    "approved_candidate": "eb1ce77d6b7f7165a59cd01ec6de588db032ce24",
+    "branch": "nhibuaa/issue-56-retrieval-v2",
+    "automated_verification": {
+      "pytest": "472 passed, 3 skipped",
+      "ruff": "PASS",
+      "docker_compose_config": "PASS",
+      "git_diff_check": "PASS"
+    }
+  },
+  "manual_acceptance": {
+    "status": "completed",
+    "guide": ".agents/manual-tests/milestone-3/56-production-retrieval-v2-v5.md",
+    "guide_revision": "issue-56-v5",
+    "guide_blob": "9e0d91c79b13d5f84042176d79979b1c45f75d00",
+    "evaluation_history": ".agents/manual-tests/milestone-3/56-production-retrieval-v2.evaluations.jsonl",
+    "run_id": "m3-issue-56-20260813-acceptance-passed-01",
+    "verdict": "PASSED",
+    "human_approval": "approved",
+    "closure": {
+      "seal_id": "issue-56-final-seal-v1",
+      "sealed_archive": ".agents/manual-tests/milestone-3/evidence/issue-56-final-sealed-evidence-v1.tar",
+      "sealed_archive_sha256": "de40be23ae7cc20ee562b3d67fb4953660af85f7d1f95f404a501bb168bfdcf0",
+      "closure_result": ".agents/manual-tests/milestone-3/evidence/issue-56-final-closure-result-v1.json",
+      "closure_result_sha256": "a0b84dd7189225cdfa16a08df3df4cdd5132f657c8c37e1d1054a2df90c905bb",
+      "aggregate_credential_match_count": 0
+    }
+  },
+  "dependency_handback": {
+    "issue": "GitHub Issue #51",
+    "status": "eligible_to_resume_tc_02_tc_03_tc_04",
+    "prior_tc_01_tc_05_evidence_unchanged": true,
+    "issue_51_execution_performed": false
+  },
+  "review": {
+    "status": "deferred_to_milestone_3_release_gate",
+    "decision_authority": "repository owner",
+    "decision_date": "2026-08-13",
+    "scope": "Review the complete integrated Milestone 3 fixed point after all M3 slices finish.",
+    "issue_56_standalone_review_claimed": false
+  },
+  "integration": {
+    "target_branch": "main",
+    "base_commit": "b17d9b1f81f2294a7742ba36dbd80c7910ad94dc",
+    "pull_request": "https://github.com/NhiBuaa/knora-agent/pull/57",
+    "merge_commit": "c37e3d93b5eacbf932c9474782ae1e14fc62f91d",
+    "publication_status": "merged"
+  },
+  "remaining_issue_56_blockers": []
+}

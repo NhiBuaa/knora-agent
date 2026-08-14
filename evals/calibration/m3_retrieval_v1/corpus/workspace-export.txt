@@ -1,0 +1,1 @@
+Workspace exports remain available for fourteen calendar days. A new export must be requested after the download expires.

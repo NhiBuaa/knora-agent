@@ -24,6 +24,23 @@ The contract validates dataset and corpus digests, unique manifest Chunk referen
 source compatibility, and gold references before execution. It does not add an M3 runner, metric
 calculation, or report generation. Those capabilities remain separate work.
 
+## Milestone 3 production retrieval calibration
+
+Issue #56 independently accepted the provider and retrieval configuration needed before the M3
+runner can execute. The immutable provider contract is `embedding-gemini-m1-v1`: native Gemini API
+`v1beta` `models.embedContent`, `gemini-embedding-2`, 1536 dimensions, cosine, NFKC normalization,
+and asymmetric input policy `gemini-m3-qa-asymmetric-v1`. Runtime uses
+`KNORA_PROVIDER_MODE=google-gemini-api` and `KNORA_GEMINI_API_KEY`; the credential must never enter
+artifacts, logs, traces, or provenance.
+
+Calibration `m3-retrieval-calibration-v1` passed its frozen-corpus independence and usefulness
+gates and selected literal vector similarity threshold `0.657410732025`. Production M3 retrieval
+uses the existing `m3-corpus-v1` Chunk Sets re-embedded under the Gemini configuration, without
+rechunking. Paired configurations are `retrieval-m3-vector-v2` and `retrieval-m3-rrf-v2`; both pin
+`vector_candidate_k = 8`, while hybrid additionally pins `fts_candidate_k = 8`,
+`fts-m3-or-v2`, and `rrf-v2`. This completion makes Issue #51 eligible to resume its remaining
+acceptance cases; it does not itself execute the M3 evaluation runner.
+
 ## Milestone 1 runner
 
 The Milestone 1 runner measures deterministic structural invariants, retrieval quality and system
@@ -164,19 +181,23 @@ scorer latency, token usage, cost and provider errors. The first 20-case run is 
 observation, not a portfolio claim: CV claims require at least 50 cases and an explicit dataset
 size and measurement method.
 
-### Gemini OpenAI-compatible temporary runtime
+### Historical Milestone 1 Gemini OpenAI-compatible runtime
 
-Gemini can be used through its OpenAI-compatible base URL for both application generation and
-embeddings. The approved Gemini embedding space is the separate, versioned
-`embedding-gemini-m1-v1` (`gemini-embedding-001`, 1536 dimensions, cosine). Keep the application
-embedding space at 1536 dimensions and use the provider-specific manifest
+The completed Milestone 1 baseline used Gemini through its OpenAI-compatible base URL for both
+application generation and embeddings. Its historical evidence records `gemini-embedding-001`.
+Final Issue #56 authority supersedes reuse of `embedding-gemini-m1-v1` for that runtime path; the
+canonical current meaning of that identity is native Gemini API `gemini-embedding-2`. To reproduce
+the closed historical observation, keep its embedding space at 1536 dimensions and use the
+provider-specific manifest
 `evals/corpora/milestone_1/manifest.gemini.json`, which pins that configuration. Re-embed and
 activate the corpus under this configuration; do not switch only an environment variable or mix
 its vectors with another configuration. The Gemini OpenAI-compatible embedding response may omit `data[*].index`;
 the adapter preserves wire order when that field is absent and rejects a response whose vector
 length is not 1536.
 
-Example runtime values (keep API keys only in process environment or an untracked `.env`):
+Historical runtime values below reproduce that closed Milestone 1 baseline only and must not be
+used for Production Retrieval V2 (keep API keys only in process environment or an untracked
+`.env`):
 
 ```text
 KNORA_PROVIDER_MODE=openai-compatible

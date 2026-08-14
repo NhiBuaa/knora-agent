@@ -23,7 +23,7 @@ from knora.adapters.postgres.operational_observability import PostgresOperationa
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
-    retrieval_configuration_for_id,
+    resolve_retrieval_configuration,
 )
 from knora.api.routes import router
 from knora.bootstrap import build_provider_selection
@@ -105,7 +105,10 @@ def create_app(
         store=PostgresAnsweringStore(SessionFactory),
         embedding_configuration=selected_embedding_configuration,
         retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
-            retrieval_configuration_for_id(settings.retrieval_configuration_id)
+            resolve_retrieval_configuration(
+                settings.retrieval_configuration_id,
+                vector_min_similarity=settings.vector_min_similarity,
+            )
         ),
     )
     application.state.ingest_document = ingest_document or IngestDocument(

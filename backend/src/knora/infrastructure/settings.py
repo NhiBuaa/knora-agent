@@ -56,9 +56,13 @@ class Settings(BaseSettings):
     operational_alert_configuration_json: str | None = None
     operational_metrics_retry_window_seconds: int = 300
     embedding_dimension: int = 1536
+    retrieval_configuration_id: str = "retrieval-m1-v1"
+    vector_min_similarity: float | None = None
     api_credentials_json: str = "[]"
     retrieval_configuration_id: str = "retrieval-m1-v1"
     provider_mode: str = "deterministic-local"
+    gemini_api_key: SecretStr | None = None
+    gemini_timeout_seconds: float = 60.0
     openai_base_url: str | None = None
     openai_api_key: SecretStr | None = None
     openai_embedding_model: str = "text-embedding-3-small"

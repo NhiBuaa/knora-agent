@@ -53,7 +53,7 @@ class AnswerQuestion:
             )
 
         query_batch = await asyncio.to_thread(
-            self._embedding_provider.embed,
+            getattr(self._embedding_provider, "embed_queries", self._embedding_provider.embed),
             [command.question],
             self._embedding_configuration,
         )
@@ -246,12 +246,11 @@ class AnswerQuestion:
         return QuestionTraceRecord(
             workspace_id=command.workspace_id,
             question=command.question,
-            retrieval_configuration_id=(
-                retrieval_configuration or self._retrieval_configuration
-            ).id,
+            retrieval_configuration_id=retrieval_configuration.id,
             fusion_policy_version=(
-                retrieval_configuration or self._retrieval_configuration
-            ).fusion_policy_version,
+                retrieval_configuration.fusion_policy_id
+                or retrieval_configuration.fusion_policy_version
+            ),
             embedding_configuration_id=self._embedding_configuration.id,
             candidate_decisions=tuple(
                 {

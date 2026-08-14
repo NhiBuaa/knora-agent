@@ -6,6 +6,8 @@ from knora.bootstrap import build_provider_selection
 from knora.infrastructure.settings import ObjectStoreSettings, Settings
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
+from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.gemini.embedding import GeminiEmbeddingProvider
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
@@ -98,6 +100,21 @@ def test_settings_repr_redacts_provider_api_key() -> None:
     runtime_settings = compatible_settings(openai_api_key="unique-runtime-canary")
 
     assert "unique-runtime-canary" not in repr(runtime_settings)
+
+
+def test_bootstrap_selects_exact_gemini_m3_embedding_contract() -> None:
+    selected = build_provider_selection(
+        compatible_settings(
+            provider_mode="google-gemini-api",
+            gemini_api_key="runtime-gemini-secret",
+        )
+    )
+
+    assert isinstance(selected.embedding_provider, GeminiEmbeddingProvider)
+    assert selected.embedding_configuration == EmbeddingConfiguration.gemini_m3()
+    assert "runtime-gemini-secret" not in repr(
+        Settings(_env_file=None, gemini_api_key="runtime-gemini-secret")
+    )
 
 
 def test_object_store_settings_are_typed_and_validate_backend() -> None:

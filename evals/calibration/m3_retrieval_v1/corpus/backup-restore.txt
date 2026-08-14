@@ -1,0 +1,1 @@
+A backup restore creates a separate recovery workspace and never overwrites the current workspace.

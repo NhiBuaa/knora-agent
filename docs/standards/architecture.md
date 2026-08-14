@@ -47,12 +47,13 @@ These rules are normative for Knora unless superseded by an approved Standard or
   Question Trace persistence. Their output must not be used to claim semantic-quality metrics.
 - Milestone 1 does not add provider fallback, multi-provider routing or a more general provider
   abstraction.
-- Milestone 1 uses `1536` dimensions, PostgreSQL `vector(1536)` and cosine distance. Approved
-  immutable Embedding Configurations are `embedding-local-m1-v2` for deterministic-local
-  structural tests (`text-embedding-3-small` as a model label), `embedding-openai-m1-v1` for
-  OpenAI-compatible `text-embedding-3-small`, and the separately versioned
-  `embedding-gemini-m1-v1` for OpenAI-compatible Gemini `gemini-embedding-001` semantic-baseline
-  runs.
+- Knora uses `1536` dimensions, PostgreSQL `vector(1536)` and cosine distance. Approved immutable
+  Embedding Configurations are `embedding-local-m1-v2` for deterministic-local structural tests
+  (`text-embedding-3-small` as a model label), `embedding-openai-m1-v1` for OpenAI-compatible
+  `text-embedding-3-small`, and `embedding-gemini-m1-v1` for the native Gemini API `v1beta`
+  `models.embedContent` contract with `gemini-embedding-2`. The completed Milestone 1 spec records
+  the historical Gemini semantic-baseline meaning; final Issue #56 authority R9 supersedes that
+  runtime meaning for this configuration ID.
 - An Embedding Configuration contains `provider`, `model`, `dimensions` and `distance_metric`.
   Embedding Sets reference it by `embedding_configuration_id`.
 - Immediately after an Embedding Provider response, the adapter must validate
@@ -66,6 +67,13 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - `embedding-gemini-m1-v1` is a distinct migration/storage identity. Its corpus must be re-embedded
   and activated as a new Embedding Set before retrieval; it must never reuse or mix vectors from
   another Embedding Configuration, even when dimensions match.
+- `embedding-gemini-m1-v1` pins deployment identity
+  `gemini-api-generativelanguage-googleapis-com-v1beta`, `utf8-nfkc-v1`, input policy
+  `gemini-m3-qa-asymmetric-v1`, and `EmbedContentConfig.outputDimensionality = 1536`. Query input is
+  exactly `task: question answering | query: {content}` and document input is exactly
+  `title: none | text: {content}` after NFKC normalization. Each logical Chunk or query uses
+  exactly one text Content; document identity and evaluation gold metadata are forbidden inputs.
+  The adapter validates 1536 returned values and must not client-normalize Gemini output.
 - The deterministic local Embedding Provider must emit 1536-dimensional vectors so integration
   tests exercise the production database schema.
 - Prompt, model, chunking and retrieval configurations must be versioned when they can affect an
@@ -630,8 +638,9 @@ These rules are normative for Knora unless superseded by an approved Standard or
   and evaluation code must not select vector and full-text paths separately. Hybrid retrieval is
   implemented behind that seam by the PostgreSQL adapter.
 - A versioned Retrieval Configuration is strategy-agnostic at the application interface and records
-  the retrieval strategy and fusion policy/version that determine candidate ordering. The vector-only
-  Milestone 1 configuration remains a reproducible baseline; Milestone 3 may add a hybrid version.
+  the retrieval strategy and fusion policy/version that determine candidate ordering. The
+  vector-only Milestone 1 configuration remains a reproducible baseline. Production Retrieval V2
+  adds paired `retrieval-m3-vector-v2` and `retrieval-m3-rrf-v2` configurations.
 - Score semantics are `similarity = 1 - cosine_distance`; the threshold applies to similarity.
   Question Trace records both raw cosine distance and derived similarity.
 - The versioned Retrieval Configuration baseline is `candidate_k = 8`,
@@ -647,12 +656,20 @@ These rules are normative for Knora unless superseded by an approved Standard or
   It must not depend on `default_text_search_config`, use `websearch_to_tsquery`, or apply
   language-specific stemming/stop-word configuration. `fts-v1` is immutable/versioned Retrieval
   Configuration policy; the PostgreSQL adapter must not provide an implicit FTS default.
+- `fts-m3-or-v2` deterministically NFKC-normalizes the query, extracts Unicode letter/number
+  lexemes, deduplicates them in first-occurrence order, and joins them with PostgreSQL OR semantics
+  through bound parameters. An input with no lexemes returns no lexical candidates without issuing
+  lexical SQL.
 - Each retrieval branch has a deterministic total order before its rank is assigned and returns at
   most `candidate_k`; `candidate_k` is distinct from the final Evidence Set top-k/count limit.
 - Hybrid candidates are deduplicated by canonical Chunk identity and fused using the immutable
   policy named by the Retrieval Configuration. `rrf-v1` contributes `1 / (60 + rank)` per branch
   and sums contributions for duplicate canonical Chunks. Final ordering is
   `fusion_score DESC → chunk_id ASC`, with all tie-breakers part of configuration semantics.
+- `rrf-v2` keeps the same contribution formula and deterministic final ordering while allowing
+  distinct branch budgets. Production Retrieval V2 pins both vector and FTS budgets to eight.
+  Its calibrated vector threshold is `0.657410732025`; it was selected only after the immutable
+  Issue #56 calibration gates passed and is not a post-fusion threshold.
 - RRF fusion score is a ranking/fusion signal, not a calibrated relevance score. Evidence
   sufficiency/refusal uses a separate versioned policy with explicit semantics; no magic RRF cutoff
   is permitted. Any threshold must be independently defined and calibrated.

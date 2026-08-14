@@ -3746,7 +3746,18 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
     ) -> None:
         config = prepared.configuration.embedding_configuration
         row = session.get(EmbeddingConfigurationTable, config.id)
-        values = (config.provider, config.model, config.dimensions, config.distance_metric)
+        values = (
+            config.provider,
+            config.model,
+            config.dimensions,
+            config.distance_metric,
+            config.deployment_identity,
+            config.api_contract_version,
+            config.input_normalization,
+            config.input_policy_id,
+            config.output_dimensionality,
+            config.vector_normalization,
+        )
         if row is None:
             session.add(
                 EmbeddingConfigurationTable(
@@ -3755,10 +3766,27 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
                     model=config.model,
                     dimensions=config.dimensions,
                     distance_metric=config.distance_metric,
+                    deployment_identity=config.deployment_identity,
+                    api_contract_version=config.api_contract_version,
+                    input_normalization=config.input_normalization,
+                    input_policy_id=config.input_policy_id,
+                    output_dimensionality=config.output_dimensionality,
+                    vector_normalization=config.vector_normalization,
                 )
             )
             session.flush()
             return
-        persisted = (row.provider, row.model, row.dimensions, row.distance_metric)
+        persisted = (
+            row.provider,
+            row.model,
+            row.dimensions,
+            row.distance_metric,
+            row.deployment_identity,
+            row.api_contract_version,
+            row.input_normalization,
+            row.input_policy_id,
+            row.output_dimensionality,
+            row.vector_normalization,
+        )
         if persisted != values:
             raise KnoraError("EMBEDDING_CONFIGURATION_IMMUTABLE")
