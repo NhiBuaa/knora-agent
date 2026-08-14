@@ -1,0 +1,683 @@
+{
+  "case_count": 50,
+  "clean_checkout_before_generation": true,
+  "expected_pair_cardinality": 100,
+  "hybrid": {
+    "cases": [
+      {
+        "candidate_count": 2,
+        "id": "lexical-01",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 0.5
+      },
+      {
+        "candidate_count": 2,
+        "id": "lexical-05",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-09",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-13",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-17",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "lexical-21",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-25",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-29",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "lexical-33",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 0.5
+      },
+      {
+        "candidate_count": 2,
+        "id": "lexical-37",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-41",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-45",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-49",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-03",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-07",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-11",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-15",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-19",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 3,
+        "id": "multi-23",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-27",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-31",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-35",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-39",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-43",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 3,
+        "id": "multi-47",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-04",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-08",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-12",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-16",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-20",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-24",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-28",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-32",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-36",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-40",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-44",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-48",
+        "included": false
+      },
+      {
+        "candidate_count": 2,
+        "id": "semantic-02",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-06",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-10",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-14",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-18",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-22",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-26",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-30",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "semantic-34",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-38",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-42",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-46",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-50",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      }
+    ],
+    "chunk_set_provenance_id": "chunk-set-m3-v1",
+    "denominator": 38,
+    "metric_contract": "m3-retrieval-metrics-v1",
+    "mrr": 0.9736842105263158,
+    "recall_at_8": 1.0,
+    "recall_k": 8
+  },
+  "improvement_status": "NO_CLAIM",
+  "output_dir": "C:\\Users\\Nhi\\.codex\\worktrees\\43fa-issue52\\evals\\reports\\milestone_3\\m3-issue-52-20260814-132055",
+  "pair_cardinality": 100,
+  "publication_id": "262d3fcd1376d2b9557d124a5bf0a38862e5cbc5b54ac031dbb6fafc7a0c9b37",
+  "run_id": "m3-issue-52-20260814-132055",
+  "source_commit": "22077c4ec45889cadfd3a6ba7c17f7dcd8d5e4b1",
+  "vector": {
+    "cases": [
+      {
+        "candidate_count": 1,
+        "id": "lexical-01",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-05",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-09",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-13",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-17",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-21",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-25",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-29",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-33",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-37",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-41",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-45",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "lexical-49",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-03",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-07",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-11",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-15",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-19",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-23",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-27",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-31",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-35",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "multi-39",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-43",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 2,
+        "id": "multi-47",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-04",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-08",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-12",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-16",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-20",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-24",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-28",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-32",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-36",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-40",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-44",
+        "included": false
+      },
+      {
+        "exclusion_reason": "RETRIEVAL_RELEVANCE_NOT_APPLICABLE",
+        "id": "refusal-48",
+        "included": false
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-02",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-06",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-10",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-14",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-18",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-22",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-26",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-30",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-34",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-38",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-42",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-46",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      },
+      {
+        "candidate_count": 1,
+        "id": "semantic-50",
+        "included": true,
+        "recall_at_8": 1.0,
+        "reciprocal_rank": 1.0
+      }
+    ],
+    "chunk_set_provenance_id": "chunk-set-m3-v1",
+    "denominator": 38,
+    "metric_contract": "m3-retrieval-metrics-v1",
+    "mrr": 1.0,
+    "recall_at_8": 1.0,
+    "recall_k": 8
+  }
+}
