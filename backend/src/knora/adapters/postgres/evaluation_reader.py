@@ -18,6 +18,8 @@ from knora.adapters.postgres.tables import (
 @dataclass(frozen=True, slots=True)
 class EvaluationCandidateProjection:
     chunk_id: str
+    document_version_id: str
+    chunk_set_id: str
     source_key: str
     chunk_ordinal: int
     workspace_id: str
@@ -39,6 +41,8 @@ class EvaluationTraceProjection:
 @dataclass(frozen=True, slots=True)
 class ActiveCorpusDocumentProjection:
     source_key: str
+    document_version_id: str
+    chunk_set_id: str
     normalized_content_checksum: str
     chunking_configuration_id: str
     embedding_configuration_id: str
@@ -69,9 +73,9 @@ class PostgresEvaluationReader:
             )
             if trace is None:
                 raise LookupError("evaluation trace not found")
-            chunk_ids = [decision["chunk_id"] for decision in trace.candidate_decisions]
+            chunk_ids = _ordered_candidate_ids(trace.candidate_decisions)
             rows = session.execute(
-                select(ChunkTable, DocumentTable)
+                select(ChunkTable, DocumentTable, DocumentVersionTable)
                 .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
                 .join(
                     DocumentVersionTable,
@@ -83,13 +87,15 @@ class PostgresEvaluationReader:
                     DocumentTable.workspace_id == workspace_id,
                 )
             ).all()
-        by_chunk = {chunk.id: (chunk, document) for chunk, document in rows}
+        by_chunk = {chunk.id: (chunk, document, version) for chunk, document, version in rows}
         missing_chunk_ids = [chunk_id for chunk_id in chunk_ids if chunk_id not in by_chunk]
         if missing_chunk_ids:
             raise LookupError("evaluation candidate not found")
         candidates = tuple(
             EvaluationCandidateProjection(
                 chunk_id=chunk_id,
+                chunk_set_id=by_chunk[chunk_id][0].chunk_set_id,
+                document_version_id=by_chunk[chunk_id][2].id,
                 source_key=by_chunk[chunk_id][1].source_key,
                 chunk_ordinal=by_chunk[chunk_id][0].ordinal,
                 workspace_id=by_chunk[chunk_id][1].workspace_id,
@@ -143,6 +149,8 @@ class PostgresEvaluationReader:
         documents = tuple(
             ActiveCorpusDocumentProjection(
                 source_key=source_key,
+                document_version_id=identities[source_key][0].id,
+                chunk_set_id=identities[source_key][1].id,
                 normalized_content_checksum=identities[source_key][0].normalized_content_checksum,
                 chunking_configuration_id=identities[source_key][1].chunking_configuration_id,
                 embedding_configuration_id=identities[source_key][2].embedding_configuration_id,
@@ -151,3 +159,16 @@ class PostgresEvaluationReader:
             for source_key in sorted(grouped)
         )
         return ActiveCorpusProjection(workspace_id=workspace_id, documents=documents)
+
+
+def _ordered_candidate_ids(decisions: list[dict[str, object]]) -> list[str]:
+    """Validate persisted fused ordering before it becomes evaluation provenance."""
+    chunk_ids: list[str] = []
+    for expected_rank, decision in enumerate(decisions, start=1):
+        chunk_id = decision.get("chunk_id")
+        if decision.get("final_rank") != expected_rank or not isinstance(chunk_id, str):
+            raise LookupError("evaluation candidate ordering is invalid")
+        chunk_ids.append(chunk_id)
+    if len(chunk_ids) != len(set(chunk_ids)):
+        raise LookupError("evaluation candidate ordering is invalid")
+    return chunk_ids

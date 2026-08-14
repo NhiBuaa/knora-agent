@@ -4,6 +4,7 @@ from time import perf_counter
 from knora.answering.evidence import EvidenceSelection, select_evidence
 from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
 from knora.answering.interface import CitationProjection, QuestionCommand, QuestionResult
+from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
 from knora.answering.stores import (
     AnsweringStore,
     QuestionTraceRecord,
@@ -26,6 +27,7 @@ class AnswerQuestion:
         store: AnsweringStore,
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration | None = None,
+        retrieval_configuration_resolver: RetrievalConfigurationResolver | None = None,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._generation_provider = generation_provider
@@ -34,6 +36,7 @@ class AnswerQuestion:
         self._retrieval_configuration = (
             retrieval_configuration or RetrievalConfiguration.milestone_one()
         )
+        self._retrieval_configuration_resolver = retrieval_configuration_resolver
 
     async def execute(
         self,
@@ -43,6 +46,11 @@ class AnswerQuestion:
         started = perf_counter()
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        retrieval_configuration = self._retrieval_configuration
+        if self._retrieval_configuration_resolver is not None:
+            retrieval_configuration = self._retrieval_configuration_resolver.resolve(
+                workspace_id=command.workspace_id
+            )
 
         query_batch = await asyncio.to_thread(
             self._embedding_provider.embed,
@@ -66,10 +74,10 @@ class AnswerQuestion:
             query_text=command.question,
             query_vector=query_batch.vectors[0],
             embedding_configuration=self._embedding_configuration,
-            retrieval_configuration=self._retrieval_configuration,
+            retrieval_configuration=retrieval_configuration,
         )
         retrieval_latency_ms = (perf_counter() - retrieval_started) * 1000
-        selection = select_evidence(candidates, self._retrieval_configuration)
+        selection = select_evidence(candidates, retrieval_configuration)
         if not selection.selected:
             trace_id = self._store.persist_trace(
                 self._trace(
@@ -82,6 +90,7 @@ class AnswerQuestion:
                     embedding=query_batch,
                     retrieval_latency_ms=retrieval_latency_ms,
                     started=started,
+                    retrieval_configuration=retrieval_configuration,
                 )
             )
             return QuestionResult(
@@ -129,6 +138,7 @@ class AnswerQuestion:
                     validation_outcome="invalid",
                     generation=generation,
                     started=started,
+                    retrieval_configuration=retrieval_configuration,
                 )
             )
             raise
@@ -164,6 +174,7 @@ class AnswerQuestion:
                 validation_outcome="valid",
                 generation=generation,
                 started=started,
+                retrieval_configuration=retrieval_configuration,
             )
         )
         return QuestionResult(
@@ -209,6 +220,7 @@ class AnswerQuestion:
         parsed_markers: tuple[str, ...] = (),
         validation_outcome: str = "not_applicable",
         generation: GenerationResult | None = None,
+        retrieval_configuration: RetrievalConfiguration | None = None,
     ) -> QuestionTraceRecord:
         retrieved = tuple(item.candidate for item in selection.decisions)
         provider_metadata: dict[str, object] = {
@@ -234,8 +246,12 @@ class AnswerQuestion:
         return QuestionTraceRecord(
             workspace_id=command.workspace_id,
             question=command.question,
-            retrieval_configuration_id=self._retrieval_configuration.id,
-            fusion_policy_version=self._retrieval_configuration.fusion_policy_version,
+            retrieval_configuration_id=(
+                retrieval_configuration or self._retrieval_configuration
+            ).id,
+            fusion_policy_version=(
+                retrieval_configuration or self._retrieval_configuration
+            ).fusion_policy_version,
             embedding_configuration_id=self._embedding_configuration.id,
             candidate_decisions=tuple(
                 {

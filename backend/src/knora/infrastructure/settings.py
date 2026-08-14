@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     operational_metrics_retry_window_seconds: int = 300
     embedding_dimension: int = 1536
     api_credentials_json: str = "[]"
+    retrieval_configuration_id: str = "retrieval-m1-v1"
     provider_mode: str = "deterministic-local"
     openai_base_url: str | None = None
     openai_api_key: SecretStr | None = None

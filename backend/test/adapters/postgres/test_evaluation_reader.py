@@ -4,7 +4,10 @@ import pytest
 
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
-from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
+from knora.adapters.postgres.evaluation_reader import (
+    PostgresEvaluationReader,
+    _ordered_candidate_ids,
+)
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import QuestionTraceTable, WorkspaceTable
 from knora.answering.interface import QuestionCommand
@@ -16,6 +19,16 @@ from knora.ingestion.processing import ChunkingConfiguration, DocumentProcessor
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration
+
+
+def test_evaluation_reader_rejects_inconsistent_fused_rank_provenance() -> None:
+    with pytest.raises(LookupError, match="candidate ordering is invalid"):
+        _ordered_candidate_ids(
+            [
+                {"chunk_id": "one", "final_rank": 1},
+                {"chunk_id": "two", "final_rank": 3},
+            ]
+        )
 
 
 @pytest.mark.asyncio
@@ -55,11 +68,15 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
     corpus = reader.read_active_corpus(workspace_id=workspace_id)
 
     assert trace.candidates[0].workspace_id == workspace_id
+    assert trace.candidates[0].document_version_id
+    assert trace.candidates[0].chunk_set_id
     assert trace.candidates[0].source_key == "support/refund-policy"
     assert trace.candidates[0].chunk_ordinal == 0
     assert trace.candidates[0].content == content.decode()
     assert trace.retrieval_latency_ms >= 0
     assert corpus.documents[0].normalized_content_checksum
+    assert corpus.documents[0].document_version_id
+    assert corpus.documents[0].chunk_set_id
     assert corpus.documents[0].chunking_configuration_id == "chunking-m1-v1"
     assert corpus.documents[0].embedding_configuration_id == "embedding-local-m1-v2"
     assert corpus.documents[0].chunk_references == ("support/refund-policy#0",)

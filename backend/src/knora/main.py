@@ -21,6 +21,10 @@ from knora.adapters.postgres.object_reconciliation import (
 )
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.answering.module import AnswerQuestion
+from knora.answering.retrieval_configuration import (
+    DeploymentRetrievalConfigurationResolver,
+    retrieval_configuration_for_id,
+)
 from knora.api.routes import router
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
@@ -100,6 +104,9 @@ def create_app(
         generation_provider=providers.generation_provider,
         store=PostgresAnsweringStore(SessionFactory),
         embedding_configuration=selected_embedding_configuration,
+        retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
+            retrieval_configuration_for_id(settings.retrieval_configuration_id)
+        ),
     )
     application.state.ingest_document = ingest_document or IngestDocument(
         processor=DocumentProcessor(),

@@ -14,7 +14,11 @@ Each case explicitly stores retrieval-relevance applicability and acceptable rel
 answer expectations, evidence expectations, and where applicable an
 `INSUFFICIENT_EVIDENCE` refusal expectation. Answerable cases must have non-empty required facts.
 Several acceptable relevant Chunks are valid. A refusal case has non-applicable retrieval relevance;
-a later metrics consumer must not infer a retrieval miss or a zero Recall/MRR value from it.
+a later metrics consumer must not infer a retrieval miss or a zero Recall/MRR value from it. For
+M3 metrics, a gold `source_key#ordinal` reference resolves only through this manifest's pinned
+Chunk Set provenance identity; the evaluator compares the resulting
+`(chunk_set_provenance_id, source_key, ordinal)` identity with the projection of the exactly
+correlated trace, never with a database `chunk_id`.
 
 The contract validates dataset and corpus digests, unique manifest Chunk references, Workspace and
 source compatibility, and gold references before execution. It does not add an M3 runner, metric

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "run_id": "m3-issue-51-20260812-acceptance-01",
+  "observed_at": "2026-08-12T11:16:23+07:00",
+  "executor": "Codex",
+  "guide_revision": "issue-51-v5",
+  "baseline": {
+    "commit_sha": "b17d9b1f81f2294a7742ba36dbd80c7910ad94dc",
+    "branch": "nhibuaa/issue-51-production-evaluation"
+  },
+  "test_results": [
+    {
+      "id": "TC-01",
+      "outcome": "BLOCKED",
+      "observation": "The dedicated production Q&A endpoint, evaluation Workspace corpus, and scoped API credential are unavailable; exact response-to-trace correlation cannot be observed.",
+      "evidence": ["KNORA_EVALUATION_ENDPOINT is not configured", "KNORA_EVALUATION_API_KEY is not configured", "docker compose ps shows no running services"]
+    },
+    {
+      "id": "TC-02",
+      "outcome": "BLOCKED",
+      "observation": "No correlated production observations exist from which to execute the locked Recall@8/MRR acceptance oracle.",
+      "evidence": ["TC-01 environment prerequisite is blocked"]
+    },
+    {
+      "id": "TC-03",
+      "outcome": "BLOCKED",
+      "observation": "No production public response and correlated trace are available for manual citation-contract observation.",
+      "evidence": ["TC-01 environment prerequisite is blocked"]
+    },
+    {
+      "id": "TC-04",
+      "outcome": "BLOCKED",
+      "observation": "No model-backed acceptance environment is available to observe semantic scorer input and provenance.",
+      "evidence": ["TC-01 environment prerequisite is blocked"]
+    },
+    {
+      "id": "TC-05",
+      "outcome": "BLOCKED",
+      "observation": "No production request can be made to observe correlated retrieval and executor end-to-end duration values.",
+      "evidence": ["TC-01 environment prerequisite is blocked"]
+    }
+  ],
+  "verdict": "BLOCKED",
+  "human_approval": "pending",
+  "blockers": ["Provide a running production Q&A endpoint, the M3 evaluation Workspace/corpus, and a scoped runtime API credential; then rerun this locked guide."],
+  "verification": {
+    "focused_tests": "15 passed",
+    "full_suite": "461 passed, 3 skipped",
+    "ruff": "passed",
+    "compose_config": "passed"
+  }
+}
