@@ -1,18 +1,26 @@
 import json
 import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from evals.runners.evaluation_ownership import SqliteEvaluationOwnershipStore
 from evals.runners.m3_bootstrap import (
     EphemeralEvaluationCredential,
     EvaluationEnvironmentBootstrap,
+    ProductionApiProcessLauncher,
     ProductionEvaluationWorkspaceProvisioner,
     ephemeral_minio_runtime,
     inject_minio_runtime,
     inject_startup_auth,
     teardown_evaluation_runtime,
 )
-from evals.runners.milestone_3 import EvaluationEnvironmentSeal
+from evals.runners.milestone_3 import (
+    EvaluationEnvironmentBinding,
+    EvaluationEnvironmentSeal,
+    ObservationFailure,
+)
 
 
 def _binding():
@@ -55,9 +63,14 @@ def test_credential_startup_config_contains_hash_only_and_not_raw_key(monkeypatc
     assert json.loads(config)[0]["workspace_id"] == "workspace"
 
 
-def test_bootstrap_acquires_seal_before_authoritative_preflight():
+def test_bootstrap_acquires_seal_before_authoritative_preflight(tmp_path: Path):
     events: list[str] = []
-    seal = EvaluationEnvironmentSeal(ownership_probe=lambda run_id: events.append("seal") or True)
+    seal = EvaluationEnvironmentSeal(
+        ownership_store=SqliteEvaluationOwnershipStore(
+            path=tmp_path / "ownership.sqlite3"
+        ),
+        owner_id="bootstrap",
+    )
     bootstrap = EvaluationEnvironmentBootstrap(
         workspace_provisioner=SimpleNamespace(
             provision_or_reuse=lambda **kwargs: events.append("workspace") or "workspace",
@@ -70,8 +83,44 @@ def test_bootstrap_acquires_seal_before_authoritative_preflight():
         endpoint="http://127.0.0.1:8000/v1/questions",
     )
     result = bootstrap.prepare(binding=_binding(), manifest=_manifest(), run_id="run-1")
-    assert events == ["workspace", "seal", "closure"]
+    assert events == ["workspace", "closure"]
+    assert seal.ownership_snapshot().owner_id == "bootstrap"
     assert result.endpoint.endswith("/v1/questions")
+    seal.release()
+
+
+def test_bootstrap_releases_ownership_when_binding_preflight_fails(tmp_path: Path):
+    path = tmp_path / "ownership.sqlite3"
+    seal = EvaluationEnvironmentSeal(
+        ownership_store=SqliteEvaluationOwnershipStore(path=path), owner_id="first"
+    )
+    bootstrap = EvaluationEnvironmentBootstrap(
+        workspace_provisioner=SimpleNamespace(
+            provision_or_reuse=lambda **kwargs: "workspace",
+            materialize_corpus=lambda **kwargs: None,
+        ),
+        corpus_reader=SimpleNamespace(read_active_corpus=lambda **kwargs: _corpus()),
+        seal=seal,
+        endpoint="http://127.0.0.1:8000/v1/questions",
+    )
+    mismatched = EvaluationEnvironmentBinding(
+        dataset_manifest_identity="m3-dataset-v1",
+        corpus_manifest_identity="wrong-corpus",
+        chunk_set_provenance_id="set-1",
+        workspace_id="workspace",
+        retrieval_configuration_id="retrieval-m3-rrf-v1",
+        source_bindings=(),
+    )
+
+    with pytest.raises(ObservationFailure, match="CORPUS_CLOSURE_MISMATCH"):
+        bootstrap.prepare(binding=mismatched, manifest=_manifest(), run_id="run-1")
+
+    second = EvaluationEnvironmentSeal(
+        ownership_store=SqliteEvaluationOwnershipStore(path=path), owner_id="second"
+    )
+    capability = second.acquire(run_id="run-1")
+    assert capability.fencing_version == 2
+    second.release()
 
 
 def test_production_provisioner_materializes_every_manifest_document(tmp_path: Path):
@@ -96,6 +145,30 @@ def test_production_provisioner_materializes_every_manifest_document(tmp_path: P
         ("support/shipping-policy", "text/plain"),
     ]
     teardown_evaluation_runtime()
+
+
+def test_launcher_stop_kills_uncooperative_process() -> None:
+    class StubbornProcess:
+        def __init__(self) -> None:
+            self.killed = False
+
+        def terminate(self) -> None:
+            pass
+
+        def wait(self, timeout: float) -> None:
+            if not self.killed:
+                raise subprocess.TimeoutExpired("test-process", timeout)
+
+        def kill(self) -> None:
+            self.killed = True
+
+    process = StubbornProcess()
+    launcher = ProductionApiProcessLauncher(process=process)
+
+    launcher.stop()
+
+    assert process.killed
+    assert launcher.process is None
 
 
 def test_minio_runtime_is_ephemeral_and_injected(monkeypatch):
