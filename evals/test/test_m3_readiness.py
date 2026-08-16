@@ -82,3 +82,29 @@ def test_blocking_http_request_process_is_terminated_on_lease_loss() -> None:
         server.shutdown()
         server.server_close()
         server_thread.join(timeout=5)
+
+
+def test_isolated_http_cleanup_escalates_to_kill() -> None:
+    class StubbornProcess:
+        def __init__(self) -> None:
+            self.killed = False
+
+        def join(self, timeout: float | None = None) -> None:
+            del timeout
+
+        def is_alive(self) -> bool:
+            return not self.killed
+
+        def terminate(self) -> None:
+            pass
+
+        def kill(self) -> None:
+            self.killed = True
+
+    request = _IsolatedHttpRequest("GET", "http://127.0.0.1:1", timeout=1)
+    process = StubbornProcess()
+    request.process = process  # type: ignore[assignment]
+
+    request._cleanup()
+
+    assert process.killed

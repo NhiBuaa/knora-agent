@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,6 +9,7 @@ from evals.runners.evaluation_ownership import SqliteEvaluationOwnershipStore
 from evals.runners.m3_bootstrap import (
     EphemeralEvaluationCredential,
     EvaluationEnvironmentBootstrap,
+    ProductionApiProcessLauncher,
     ProductionEvaluationWorkspaceProvisioner,
     ephemeral_minio_runtime,
     inject_minio_runtime,
@@ -143,6 +145,30 @@ def test_production_provisioner_materializes_every_manifest_document(tmp_path: P
         ("support/shipping-policy", "text/plain"),
     ]
     teardown_evaluation_runtime()
+
+
+def test_launcher_stop_kills_uncooperative_process() -> None:
+    class StubbornProcess:
+        def __init__(self) -> None:
+            self.killed = False
+
+        def terminate(self) -> None:
+            pass
+
+        def wait(self, timeout: float) -> None:
+            if not self.killed:
+                raise subprocess.TimeoutExpired("test-process", timeout)
+
+        def kill(self) -> None:
+            self.killed = True
+
+    process = StubbornProcess()
+    launcher = ProductionApiProcessLauncher(process=process)
+
+    launcher.stop()
+
+    assert process.killed
+    assert launcher.process is None
 
 
 def test_minio_runtime_is_ephemeral_and_injected(monkeypatch):

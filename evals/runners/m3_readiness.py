@@ -162,6 +162,9 @@ class _IsolatedHttpRequest:
             if process.is_alive():
                 process.terminate()
                 process.join(timeout=5)
+            if process.is_alive():
+                process.kill()
+                process.join()
         result_queue = self.result_queue
         if result_queue is not None:
             result_queue.close()

@@ -237,9 +237,17 @@ class ProductionApiProcessLauncher:
         return self.process
 
     def stop(self) -> None:
-        if self.process is not None:
-            self.process.terminate()
-            self.process.wait(timeout=30)
+        process = self.process
+        if process is None:
+            return
+        try:
+            process.terminate()
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            with suppress(ProcessLookupError):
+                process.kill()
+            process.wait(timeout=30)
+        finally:
             self.process = None
 
 
