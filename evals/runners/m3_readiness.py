@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from queue import Queue
+from threading import Thread
 from time import perf_counter
 from typing import Protocol
 
@@ -19,6 +22,7 @@ from evals.runners.m3_bootstrap import (
 from evals.runners.milestone_3 import (
     EvaluationEnvironmentBinding,
     EvaluationEnvironmentSeal,
+    EvaluationLeaseHeartbeat,
     ObservationFailure,
     SourceBinding,
 )
@@ -52,6 +56,31 @@ class ReadinessFailure(RuntimeError):
 
     def __str__(self) -> str:
         return f"readiness phase {self.phase} failed: {self.reason}"
+
+
+def _run_with_lease[ReadinessResult](
+    operation: Callable[[], ReadinessResult], heartbeat: EvaluationLeaseHeartbeat
+) -> ReadinessResult:
+    """Run one potentially blocking readiness operation while supervising lease loss."""
+    heartbeat.raise_if_failed()
+    result: Queue[tuple[ReadinessResult | None, BaseException | None]] = Queue(maxsize=1)
+
+    def invoke() -> None:
+        try:
+            result.put((operation(), None))
+        except BaseException as error:
+            result.put((None, error))
+
+    worker = Thread(target=invoke, name="m3-readiness-operation", daemon=True)
+    worker.start()
+    while worker.is_alive():
+        heartbeat.raise_if_failed()
+        worker.join(timeout=0.05)
+    heartbeat.raise_if_failed()
+    value, error = result.get()
+    if error is not None:
+        raise error
+    return value  # type: ignore[return-value]
 
 
 def binding_from_corpus(
@@ -96,15 +125,19 @@ def run_readiness(
         phases.append("bootstrap_closure_binding_snapshot")
         result = bootstrap.prepare(binding=binding, manifest=manifest, run_id="readiness")
         heartbeat = seal.start_heartbeat()
+        heartbeat.raise_if_failed()
         inject_evaluation_runtime(result.credential, result.endpoint)
         phases.append("production_api_startup")
         launcher.start(
             startup_auth_config=result.credential.startup_config(), endpoint=result.endpoint
         )
+        heartbeat.raise_if_failed()
         health_endpoint = result.endpoint.rsplit("/v1/questions", 1)[0] + "/health"
         for _ in range(30):
             try:
-                if httpx.get(health_endpoint, timeout=1).status_code == 200:
+                if _run_with_lease(
+                    lambda: httpx.get(health_endpoint, timeout=1), heartbeat
+                ).status_code == 200:
                     break
             except httpx.HTTPError:
                 pass
@@ -113,12 +146,16 @@ def run_readiness(
             raise ReadinessFailure("production_api_startup", "health endpoint did not become ready")
         phases.append("authenticated_question")
         request_started = perf_counter()
-        response = httpx.post(
-            result.endpoint,
-            headers={"X-API-Key": result.credential.raw_key},
-            json={"workspace_id": case.workspace_id, "question": case.question},
-            timeout=30,
+        response = _run_with_lease(
+            lambda: httpx.post(
+                result.endpoint,
+                headers={"X-API-Key": result.credential.raw_key},
+                json={"workspace_id": case.workspace_id, "question": case.question},
+                timeout=30,
+            ),
+            heartbeat,
         )
+        heartbeat.raise_if_failed()
         response.raise_for_status()
         end_to_end_latency_ms = (perf_counter() - request_started) * 1000
         payload = response.json()
@@ -128,7 +165,11 @@ def run_readiness(
         ) != case.workspace_id:
             raise ReadinessFailure("authenticated_question", "response correlation invalid")
         phases.append("trace_provenance_verification")
-        trace = trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id)
+        trace = _run_with_lease(
+            lambda: trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id),
+            heartbeat,
+        )
+        heartbeat.raise_if_failed()
         if getattr(trace, "trace_id", None) != trace_id:
             raise ReadinessFailure("trace_provenance_verification", "trace identity mismatch")
         if (
@@ -158,9 +199,13 @@ def run_readiness(
             if isinstance(item, dict)
         )
         phases.append("post_run_closure_verification")
-        corpus = bootstrap._corpus_reader.read_active_corpus(
-            workspace_id=result.binding.workspace_id
+        corpus = _run_with_lease(
+            lambda: bootstrap._corpus_reader.read_active_corpus(
+                workspace_id=result.binding.workspace_id
+            ),
+            heartbeat,
         )
+        heartbeat.raise_if_failed()
         seal.verify_unchanged(binding=result.binding, corpus=corpus, manifest=manifest)
         if heartbeat is not None:
             heartbeat.stop()
