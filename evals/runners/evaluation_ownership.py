@@ -63,6 +63,10 @@ class EvaluationOwnershipStore(Protocol):
 
     def assert_current(self, capability: EvaluationOwnershipCapability) -> None: ...
 
+    def renew(
+        self, capability: EvaluationOwnershipCapability, *, lease_duration: timedelta
+    ) -> EvaluationOwnershipCapability: ...
+
     def release(self, capability: EvaluationOwnershipCapability) -> None: ...
 
     def snapshot(self, *, run_id: str) -> EvaluationOwnershipSnapshot: ...
@@ -141,6 +145,32 @@ class SqliteEvaluationOwnershipStore:
             row = self._row(connection, capability.run_id)
             if not self._matches(row, capability, now):
                 raise EvaluationOwnershipError("EVALUATION_SEAL_FENCED")
+
+    def renew(
+        self, capability: EvaluationOwnershipCapability, *, lease_duration: timedelta
+    ) -> EvaluationOwnershipCapability:
+        if lease_duration <= timedelta(0):
+            raise EvaluationOwnershipError("EVALUATION_SEAL_RENEW_FAILED")
+        now = _normalise_time(self._clock())
+        expires_at = now + lease_duration
+        with self._transaction() as connection:
+            row = self._row(connection, capability.run_id)
+            if not self._matches(row, capability, now):
+                raise EvaluationOwnershipError("EVALUATION_SEAL_FENCED")
+            connection.execute(
+                """
+                UPDATE evaluation_ownership
+                SET lease_expires_at = ?, updated_at = ?
+                WHERE run_id = ?
+                """,
+                (_encode_time(expires_at), _encode_time(now), capability.run_id),
+            )
+        return EvaluationOwnershipCapability(
+            capability.run_id,
+            capability.owner_id,
+            capability.fencing_version,
+            expires_at,
+        )
 
     def release(self, capability: EvaluationOwnershipCapability) -> None:
         now = _normalise_time(self._clock())

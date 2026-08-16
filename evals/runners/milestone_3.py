@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
+from threading import Event, Lock, Thread
 from time import perf_counter
 from uuid import uuid4
 
@@ -259,14 +260,18 @@ class EvaluationEnvironmentSeal:
         self._capability: EvaluationOwnershipCapability | None = None
         self._sealed: SealedM3Environment | None = None
         self._last_operation_id: str | None = None
+        self._state_lock = Lock()
 
     @property
     def last_operation_id(self) -> str | None:
         """Identifier for the most recent control-plane operation, for acceptance evidence."""
-        return self._last_operation_id
+        with self._state_lock:
+            return self._last_operation_id
 
     def acquire(self, *, run_id: str) -> EvaluationOwnershipCapability:
-        self._last_operation_id = uuid4().hex
+        operation_id = uuid4().hex
+        with self._state_lock:
+            self._last_operation_id = operation_id
         try:
             capability = self._ownership_store.acquire(
                 run_id=run_id,
@@ -275,7 +280,8 @@ class EvaluationEnvironmentSeal:
             )
         except EvaluationOwnershipError as error:
             raise ObservationFailure(error.code) from error
-        self._capability = capability
+        with self._state_lock:
+            self._capability = capability
         self._sealed = SealedM3Environment(run_id, environment=None)
         return capability
 
@@ -314,30 +320,100 @@ class EvaluationEnvironmentSeal:
         self._assert_current(capability)
 
     def release(self) -> None:
-        capability = self._require_capability()
-        self._last_operation_id = uuid4().hex
-        try:
-            self._ownership_store.release(capability)
-        except EvaluationOwnershipError as error:
-            raise ObservationFailure(error.code) from error
-        self._capability = None
+        with self._state_lock:
+            capability = self._capability
+            if capability is None:
+                raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+            self._last_operation_id = uuid4().hex
+            try:
+                self._ownership_store.release(capability)
+            except EvaluationOwnershipError as error:
+                raise ObservationFailure(error.code) from error
+            self._capability = None
         self._sealed = None
+
+    def renew(self) -> EvaluationOwnershipCapability:
+        with self._state_lock:
+            capability = self._capability
+            if capability is None:
+                raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+            self._last_operation_id = uuid4().hex
+            try:
+                renewed = self._ownership_store.renew(
+                    capability, lease_duration=self._lease_duration
+                )
+            except EvaluationOwnershipError as error:
+                raise ObservationFailure(error.code) from error
+            self._capability = renewed
+            return renewed
+
+    def start_heartbeat(
+        self, *, interval: timedelta | None = None
+    ) -> EvaluationLeaseHeartbeat:
+        self._require_capability()
+        heartbeat_interval = interval or timedelta(
+            seconds=min(max(self._lease_duration.total_seconds() / 3, 0.01), 30)
+        )
+        heartbeat = EvaluationLeaseHeartbeat(self, heartbeat_interval)
+        heartbeat.start()
+        return heartbeat
 
     def ownership_snapshot(self) -> EvaluationOwnershipSnapshot:
         capability = self._require_capability()
         return self._ownership_store.snapshot(run_id=capability.run_id)
 
     def _require_capability(self) -> EvaluationOwnershipCapability:
-        if self._capability is None:
-            raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
-        return self._capability
+        with self._state_lock:
+            if self._capability is None:
+                raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+            return self._capability
 
     def _assert_current(self, capability: EvaluationOwnershipCapability) -> None:
-        self._last_operation_id = uuid4().hex
+        with self._state_lock:
+            self._last_operation_id = uuid4().hex
         try:
             self._ownership_store.assert_current(capability)
         except EvaluationOwnershipError as error:
             raise ObservationFailure(error.code) from error
+
+
+class EvaluationLeaseHeartbeat:
+    """Renews one sealed-run capability until the production run tears down."""
+
+    def __init__(self, seal: EvaluationEnvironmentSeal, interval: timedelta) -> None:
+        if interval <= timedelta(0):
+            raise ValueError("heartbeat interval must be positive")
+        self._seal = seal
+        self._interval_seconds = interval.total_seconds()
+        self._stop = Event()
+        self._thread = Thread(target=self._run, name="m3-evaluation-lease-heartbeat", daemon=True)
+        self._error: ObservationFailure | None = None
+
+    @property
+    def error(self) -> ObservationFailure | None:
+        return self._error
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=self._interval_seconds + 1)
+
+    def raise_if_failed(self) -> None:
+        if self._error is not None:
+            raise self._error
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._interval_seconds):
+            try:
+                self._seal.renew()
+            except ObservationFailure as error:
+                self._error = error
+                return
+            except Exception:
+                self._error = ObservationFailure("EVALUATION_SEAL_HEARTBEAT_FAILED")
+                return
 
 
 class ProductionM3Executor:

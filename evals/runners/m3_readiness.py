@@ -91,9 +91,11 @@ def run_readiness(
 ) -> ReadinessEvidence:
     phases: list[str] = ["dependency_startup"]
     result: BootstrapResult | None = None
+    heartbeat = None
     try:
         phases.append("bootstrap_closure_binding_snapshot")
         result = bootstrap.prepare(binding=binding, manifest=manifest, run_id="readiness")
+        heartbeat = seal.start_heartbeat()
         inject_evaluation_runtime(result.credential, result.endpoint)
         phases.append("production_api_startup")
         launcher.start(
@@ -160,6 +162,9 @@ def run_readiness(
             workspace_id=result.binding.workspace_id
         )
         seal.verify_unchanged(binding=result.binding, corpus=corpus, manifest=manifest)
+        if heartbeat is not None:
+            heartbeat.stop()
+            heartbeat.raise_if_failed()
         return ReadinessEvidence(
             tuple(phases), result.binding.workspace_id, trace_id,
             len(trace.candidates), trace.retrieval_configuration_id,
@@ -184,6 +189,8 @@ def run_readiness(
         phase = phases[-1] if phases else "dependency_startup"
         raise ReadinessFailure(phase, type(error).__name__) from error
     finally:
+        if heartbeat is not None:
+            heartbeat.stop()
         stop = getattr(launcher, "stop", None)
         if stop is not None:
             stop()

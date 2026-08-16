@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from queue import Empty
@@ -167,6 +168,49 @@ def test_expiry_transfer_fences_stale_mutation_and_release_then_reacquires(tmp_p
 
     assert reacquired.fencing_version > second_capability.fencing_version
     assert seal_a.ownership_snapshot().owner_id == "A"
+
+
+def test_renewal_extends_lease_without_changing_fencing_version(tmp_path) -> None:
+    clock = _clock()
+    path = tmp_path / "ownership.sqlite3"
+    store = _store(path, clock)
+
+    capability = store.acquire(
+        run_id="run-renew", owner_id="A", lease_duration=timedelta(seconds=10)
+    )
+    clock.advance(timedelta(seconds=9))
+
+    renewed = store.renew(capability, lease_duration=timedelta(seconds=10))
+
+    assert renewed.owner_id == capability.owner_id
+    assert renewed.fencing_version == capability.fencing_version
+    assert renewed.lease_expires_at == clock.value + timedelta(seconds=10)
+    clock.advance(timedelta(seconds=9))
+    store.assert_current(renewed)
+
+    clock.advance(timedelta(seconds=2))
+    with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_FENCED"):
+        store.renew(renewed, lease_duration=timedelta(seconds=10))
+
+
+def test_lease_heartbeat_renews_until_stopped(tmp_path) -> None:
+    clock = _clock()
+    path = tmp_path / "ownership.sqlite3"
+    store = _store(path, clock)
+    seal = EvaluationEnvironmentSeal(
+        ownership_store=store, owner_id="A", lease_duration=timedelta(seconds=10)
+    )
+    capability = seal.acquire(run_id="run-heartbeat")
+    heartbeat = seal.start_heartbeat(interval=timedelta(milliseconds=10))
+    try:
+        for _ in range(12):
+            clock.advance(timedelta(seconds=1))
+            time.sleep(0.02)
+        store.assert_current(capability)
+        heartbeat.raise_if_failed()
+    finally:
+        heartbeat.stop()
+        seal.release()
 
 
 def test_readiness_owner_and_binding_combinations_fail_closed(tmp_path) -> None:
