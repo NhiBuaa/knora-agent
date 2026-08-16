@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import time
-from threading import Event
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Event, Thread
 
 import pytest
-from evals.runners.m3_readiness import _run_with_lease
+from evals.runners.m3_readiness import _IsolatedHttpRequest, _run_with_lease
 from evals.runners.milestone_3 import ObservationFailure
 
 
@@ -15,6 +16,15 @@ class FailingHeartbeat:
     def raise_if_failed(self) -> None:
         self._checks += 1
         if self._checks > 1:
+            raise ObservationFailure("EVALUATION_SEAL_FENCED")
+
+
+class ToggleHeartbeat:
+    def __init__(self, failed: Event) -> None:
+        self.failed = failed
+
+    def raise_if_failed(self) -> None:
+        if self.failed.is_set():
             raise ObservationFailure("EVALUATION_SEAL_FENCED")
 
 
@@ -30,3 +40,45 @@ def test_readiness_guard_aborts_when_heartbeat_fails_during_operation() -> None:
 
     assert cancelled.is_set()
     assert time.monotonic() - started < 0.5
+
+
+def test_blocking_http_request_process_is_terminated_on_lease_loss() -> None:
+    started = Event()
+    release = Event()
+    heartbeat_failed = Event()
+
+    class BlockingHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            started.set()
+            heartbeat_failed.set()
+            release.wait(timeout=5)
+            try:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"ok")
+            except BrokenPipeError:
+                pass
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), BlockingHandler)
+    server_thread = Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    request = _IsolatedHttpRequest(
+        "GET", f"http://127.0.0.1:{server.server_port}/blocked", timeout=30
+    )
+    try:
+        with pytest.raises(ObservationFailure, match="EVALUATION_SEAL_FENCED"):
+            _run_with_lease(
+                request,
+                ToggleHeartbeat(heartbeat_failed),
+                cancel=request.cancel,
+            )
+        assert started.is_set()
+        assert not request.is_alive()
+    finally:
+        release.set()
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=5)

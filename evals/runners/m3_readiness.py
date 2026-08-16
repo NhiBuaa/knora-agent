@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import multiprocessing
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from queue import Queue
-from threading import Thread
+from queue import Empty, Queue
+from threading import Event, Thread
 from time import perf_counter
 from typing import Protocol
 
@@ -58,27 +59,113 @@ class ReadinessFailure(RuntimeError):
         return f"readiness phase {self.phase} failed: {self.reason}"
 
 
+def _http_request_child(
+    method: str,
+    url: str,
+    timeout: float,
+    headers: dict[str, str] | None,
+    payload: dict[str, str] | None,
+    result_queue: object,
+) -> None:
+    try:
+        response = httpx.request(
+            method, url, timeout=timeout, headers=headers, json=payload
+        )
+        result_queue.put(
+            ("ok", response.status_code, dict(response.headers), response.content)
+        )
+    except Exception as error:
+        result_queue.put(("error", type(error).__name__, str(error)))
+
+
 @dataclass(slots=True)
-class _CancellableHttpRequest:
+class _IsolatedHttpRequest:
     method: str
     url: str
     timeout: float
     headers: dict[str, str] | None = None
     json: dict[str, str] | None = None
-    client: httpx.Client | None = None
+    process: multiprocessing.Process | None = None
+    result_queue: object | None = None
+    cancelled: Event | None = None
 
     def __post_init__(self) -> None:
-        self.client = httpx.Client(timeout=self.timeout)
+        self.cancelled = Event()
 
     def __call__(self) -> httpx.Response:
-        assert self.client is not None
-        return self.client.request(
-            self.method, self.url, headers=self.headers, json=self.json
+        assert self.cancelled is not None
+        if self.cancelled.is_set():
+            raise httpx.RequestError(
+                "request cancelled", request=httpx.Request(self.method, self.url)
+            )
+        context = multiprocessing.get_context("spawn")
+        self.result_queue = context.Queue()
+        self.process = context.Process(
+            target=_http_request_child,
+            args=(
+                self.method,
+                self.url,
+                self.timeout,
+                self.headers,
+                self.json,
+                self.result_queue,
+            ),
         )
+        self.process.start()
+        try:
+            while True:
+                if self.cancelled.is_set():
+                    raise httpx.RequestError(
+                        "request cancelled", request=httpx.Request(self.method, self.url)
+                    )
+                try:
+                    result = self.result_queue.get(timeout=0.05)
+                except Empty:
+                    if not self.process.is_alive():
+                        raise httpx.RequestError(
+                            "request process exited without a response",
+                            request=httpx.Request(self.method, self.url),
+                        ) from None
+                    continue
+                if result[0] == "ok":
+                    return httpx.Response(
+                        result[1],
+                        headers=result[2],
+                        content=result[3],
+                        request=httpx.Request(self.method, self.url),
+                    )
+                raise httpx.RequestError(
+                    f"{result[1]}: {result[2]}",
+                    request=httpx.Request(self.method, self.url),
+                )
+        finally:
+            self._cleanup()
 
     def cancel(self) -> None:
-        if self.client is not None:
-            self.client.close()
+        if self.cancelled is not None:
+            self.cancelled.set()
+        process = self.process
+        if process is not None and process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
+            if process.is_alive():
+                process.kill()
+                process.join()
+
+    def is_alive(self) -> bool:
+        return self.process is not None and self.process.is_alive()
+
+    def _cleanup(self) -> None:
+        process = self.process
+        if process is not None:
+            process.join(timeout=1)
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+        result_queue = self.result_queue
+        if result_queue is not None:
+            result_queue.close()
+            result_queue.join_thread()
 
 
 def _run_with_lease[ReadinessResult](
@@ -171,7 +258,7 @@ def run_readiness(
         heartbeat.raise_if_failed()
         health_endpoint = result.endpoint.rsplit("/v1/questions", 1)[0] + "/health"
         for _ in range(30):
-            health_request = _CancellableHttpRequest("GET", health_endpoint, timeout=1)
+            health_request = _IsolatedHttpRequest("GET", health_endpoint, timeout=1)
             try:
                 health_response = _run_with_lease(
                     health_request, heartbeat, cancel=health_request.cancel
@@ -187,7 +274,7 @@ def run_readiness(
             raise ReadinessFailure("production_api_startup", "health endpoint did not become ready")
         phases.append("authenticated_question")
         request_started = perf_counter()
-        question_request = _CancellableHttpRequest(
+        question_request = _IsolatedHttpRequest(
             "POST",
             result.endpoint,
             timeout=30,
