@@ -268,8 +268,10 @@ class EvaluationEnvironmentSeal:
         with self._state_lock:
             return self._last_operation_id
 
-    def acquire(self, *, run_id: str) -> EvaluationOwnershipCapability:
-        operation_id = uuid4().hex
+    def acquire(
+        self, *, run_id: str, operation_id: str | None = None
+    ) -> EvaluationOwnershipCapability:
+        operation_id = operation_id or uuid4().hex
         with self._state_lock:
             self._last_operation_id = operation_id
         try:
@@ -277,6 +279,7 @@ class EvaluationEnvironmentSeal:
                 run_id=run_id,
                 owner_id=self._owner_id,
                 lease_duration=self._lease_duration,
+                operation_id=operation_id,
             )
         except EvaluationOwnershipError as error:
             raise ObservationFailure(error.code) from error
@@ -319,28 +322,34 @@ class EvaluationEnvironmentSeal:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT") from error
         self._assert_current(capability)
 
-    def release(self) -> None:
+    def release(self, *, operation_id: str | None = None) -> None:
         with self._state_lock:
             capability = self._capability
             if capability is None:
                 raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
-            self._last_operation_id = uuid4().hex
+            mutation_id = operation_id or uuid4().hex
+            self._last_operation_id = mutation_id
             try:
-                self._ownership_store.release(capability)
+                self._ownership_store.release(
+                    capability, operation_id=mutation_id
+                )
             except EvaluationOwnershipError as error:
                 raise ObservationFailure(error.code) from error
             self._capability = None
         self._sealed = None
 
-    def renew(self) -> EvaluationOwnershipCapability:
+    def renew(self, *, operation_id: str | None = None) -> EvaluationOwnershipCapability:
         with self._state_lock:
             capability = self._capability
             if capability is None:
                 raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
-            self._last_operation_id = uuid4().hex
+            mutation_id = operation_id or uuid4().hex
+            self._last_operation_id = mutation_id
             try:
                 renewed = self._ownership_store.renew(
-                    capability, lease_duration=self._lease_duration
+                    capability,
+                    lease_duration=self._lease_duration,
+                    operation_id=mutation_id,
                 )
             except EvaluationOwnershipError as error:
                 raise ObservationFailure(error.code) from error
@@ -386,6 +395,7 @@ class EvaluationLeaseHeartbeat:
         self._seal = seal
         self._interval_seconds = interval.total_seconds()
         self._stop = Event()
+        self._failed = Event()
         self._thread = Thread(target=self._run, name="m3-evaluation-lease-heartbeat", daemon=True)
         self._error: ObservationFailure | None = None
 
@@ -404,15 +414,30 @@ class EvaluationLeaseHeartbeat:
         if self._error is not None:
             raise self._error
 
+    def wait(self, seconds: float) -> None:
+        """Wait briefly while making heartbeat failure observable to the caller."""
+        deadline = perf_counter() + max(seconds, 0)
+        while True:
+            self.raise_if_failed()
+            remaining = deadline - perf_counter()
+            if remaining <= 0:
+                return
+            if self._failed.wait(min(remaining, 0.05)):
+                self.raise_if_failed()
+            if self._stop.is_set():
+                return
+
     def _run(self) -> None:
         while not self._stop.wait(self._interval_seconds):
             try:
                 self._seal.renew()
             except ObservationFailure as error:
                 self._error = error
+                self._failed.set()
                 return
             except Exception:
                 self._error = ObservationFailure("EVALUATION_SEAL_HEARTBEAT_FAILED")
+                self._failed.set()
                 return
 
 

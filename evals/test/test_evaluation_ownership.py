@@ -76,11 +76,12 @@ def _store(path, clock: MutableClock) -> SqliteEvaluationOwnershipStore:
 def _hold_process_ownership(path: str, ready, release) -> None:
     store = SqliteEvaluationOwnershipStore(path=path)
     capability = store.acquire(
-        run_id="run-process", owner_id="process-a", lease_duration=timedelta(seconds=30)
+        run_id="run-process", owner_id="process-a", lease_duration=timedelta(seconds=30),
+        operation_id="process-a-acquire",
     )
     ready.put(capability.fencing_version)
     release.wait(timeout=10)
-    store.release(capability)
+    store.release(capability, operation_id="process-a-release")
 
 
 def test_durable_store_rejects_second_live_owner_and_preserves_owner(tmp_path) -> None:
@@ -90,15 +91,55 @@ def test_durable_store_rejects_second_live_owner_and_preserves_owner(tmp_path) -
     second = _store(path, clock)
 
     first_capability = first.acquire(
-        run_id="run-1", owner_id="A", lease_duration=timedelta(seconds=10)
+        run_id="run-1", owner_id="A", lease_duration=timedelta(seconds=10),
+        operation_id="first-acquire",
     )
 
     with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
-        second.acquire(run_id="run-1", owner_id="B", lease_duration=timedelta(seconds=10))
+        second.acquire(
+            run_id="run-1", owner_id="B", lease_duration=timedelta(seconds=10),
+            operation_id="second-acquire",
+        )
+    with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
+        second.acquire(
+            run_id="run-1", owner_id="B", lease_duration=timedelta(seconds=10),
+            operation_id="second-acquire",
+        )
 
     snapshot = first.snapshot(run_id="run-1")
     assert snapshot.owner_id == "A"
     assert snapshot.fencing_version == first_capability.fencing_version
+
+
+def test_mutation_operation_replay_reuses_durable_result(tmp_path) -> None:
+    clock = _clock()
+    path = tmp_path / "ownership.sqlite3"
+    store = _store(path, clock)
+
+    first = store.acquire(
+        run_id="run-replay",
+        owner_id="A",
+        lease_duration=timedelta(seconds=10),
+        operation_id="acquire-1",
+    )
+    replay = store.acquire(
+        run_id="run-replay",
+        owner_id="A",
+        lease_duration=timedelta(seconds=10),
+        operation_id="acquire-1",
+    )
+
+    assert replay == first
+    store.release(first, operation_id="release-1")
+    store.release(first, operation_id="release-1")
+
+    with pytest.raises(EvaluationOwnershipError, match="EVALUATION_OPERATION_REPLAY_MISMATCH"):
+        store.acquire(
+            run_id="run-replay",
+            owner_id="B",
+            lease_duration=timedelta(seconds=10),
+            operation_id="acquire-1",
+        )
 
 
 def test_independent_processes_share_the_exclusive_lease(tmp_path) -> None:
@@ -116,7 +157,8 @@ def test_independent_processes_share_the_exclusive_lease(tmp_path) -> None:
         second = SqliteEvaluationOwnershipStore(path=path)
         with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
             second.acquire(
-                run_id="run-process", owner_id="process-b", lease_duration=timedelta(seconds=30)
+                run_id="run-process", owner_id="process-b", lease_duration=timedelta(seconds=30),
+                operation_id="process-b-acquire",
             )
     except Empty as error:
         raise AssertionError("independent owner process did not acquire the lease") from error
@@ -176,11 +218,14 @@ def test_renewal_extends_lease_without_changing_fencing_version(tmp_path) -> Non
     store = _store(path, clock)
 
     capability = store.acquire(
-        run_id="run-renew", owner_id="A", lease_duration=timedelta(seconds=10)
+        run_id="run-renew", owner_id="A", lease_duration=timedelta(seconds=10),
+        operation_id="renew-acquire",
     )
     clock.advance(timedelta(seconds=9))
 
-    renewed = store.renew(capability, lease_duration=timedelta(seconds=10))
+    renewed = store.renew(
+        capability, lease_duration=timedelta(seconds=10), operation_id="renew-1"
+    )
 
     assert renewed.owner_id == capability.owner_id
     assert renewed.fencing_version == capability.fencing_version
@@ -190,7 +235,9 @@ def test_renewal_extends_lease_without_changing_fencing_version(tmp_path) -> Non
 
     clock.advance(timedelta(seconds=2))
     with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_FENCED"):
-        store.renew(renewed, lease_duration=timedelta(seconds=10))
+        store.renew(
+            renewed, lease_duration=timedelta(seconds=10), operation_id="renew-expired"
+        )
 
 
 def test_lease_heartbeat_renews_until_stopped(tmp_path) -> None:

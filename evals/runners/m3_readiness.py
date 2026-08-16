@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Queue
@@ -141,7 +141,7 @@ def run_readiness(
                     break
             except httpx.HTTPError:
                 pass
-            time.sleep(0.5)
+            heartbeat.wait(0.5)
         else:
             raise ReadinessFailure("production_api_startup", "health endpoint did not become ready")
         phases.append("authenticated_question")
@@ -240,5 +240,11 @@ def run_readiness(
         if stop is not None:
             stop()
         if result is not None:
-            seal.release()
+            primary_error = sys.exc_info()[1]
+            try:
+                seal.release()
+            except ObservationFailure as cleanup_error:
+                if primary_error is None:
+                    raise
+                primary_error.add_note(f"seal teardown failed: {cleanup_error}")
         teardown_evaluation_runtime()
