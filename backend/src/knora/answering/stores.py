@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, overload
 
 from knora.providers.embedding import EmbeddingConfiguration
+
+BRANCH_OBSERVATION_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +117,64 @@ class RetrievalCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class BranchObservation:
+    """One branch-local retrieval observation, separate from fused candidates."""
+
+    branch: str
+    status: str
+    chunk_id: str | None = None
+    branch_rank: int | None = None
+    cosine_distance: float | None = None
+    similarity: float | None = None
+    native_rank: float | None = None
+    lexical_policy_id: str | None = None
+    normalized_lexemes: tuple[str, ...] = ()
+    omitted_lexemes: tuple[str, ...] = ()
+
+    def as_mapping(self) -> dict[str, object]:
+        return {
+            "schema_version": BRANCH_OBSERVATION_SCHEMA_VERSION,
+            "branch": self.branch,
+            "status": self.status,
+            "chunk_id": self.chunk_id,
+            "branch_rank": self.branch_rank,
+            "cosine_distance": self.cosine_distance,
+            "similarity": self.similarity,
+            "native_rank": self.native_rank,
+            "lexical_policy_id": self.lexical_policy_id,
+            "normalized_lexemes": list(self.normalized_lexemes),
+            "omitted_lexemes": list(self.omitted_lexemes),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalResult:
+    """Candidates plus branch observations from one production retrieval invocation."""
+
+    candidates: tuple[RetrievalCandidate, ...]
+    branch_observations: tuple[BranchObservation, ...] = ()
+    embedding_set_ids: tuple[str, ...] = ()
+    chunk_set_ids: tuple[str, ...] = ()
+
+    def __iter__(self):
+        return iter(self.candidates)
+
+    def __len__(self) -> int:
+        return len(self.candidates)
+
+    @overload
+    def __getitem__(self, index: int) -> RetrievalCandidate: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> tuple[RetrievalCandidate, ...]: ...
+
+    def __getitem__(
+        self, index: int | slice
+    ) -> RetrievalCandidate | tuple[RetrievalCandidate, ...]:
+        return self.candidates[index]
+
+
+@dataclass(frozen=True, slots=True)
 class QuestionTraceRecord:
     workspace_id: str
     question: str
@@ -134,6 +194,9 @@ class QuestionTraceRecord:
     validation_outcome: str = "not_applicable"
     provider_metadata: dict[str, object] = field(default_factory=dict)
     latency_ms: float = 0.0
+    trace_schema_version: int = 2
+    branch_observation_schema_version: int = BRANCH_OBSERVATION_SCHEMA_VERSION
+    branch_observations: tuple[dict[str, object], ...] = ()
 
 
 class AnsweringStore(Protocol):
@@ -145,6 +208,6 @@ class AnsweringStore(Protocol):
         query_vector: tuple[float, ...],
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration,
-    ) -> tuple[RetrievalCandidate, ...]: ...
+    ) -> RetrievalResult: ...
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...

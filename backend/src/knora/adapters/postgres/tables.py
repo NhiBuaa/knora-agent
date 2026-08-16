@@ -525,7 +525,10 @@ class QuestionTraceTable(Base):
         ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
     )
     question: Mapped[str] = mapped_column(Text, nullable=False)
-    trace_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    trace_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    branch_observation_schema_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )
     retrieval_configuration_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     fusion_policy_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
     embedding_configuration_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -533,6 +536,7 @@ class QuestionTraceTable(Base):
     chunk_set_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     retrieved_chunk_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     candidate_decisions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    branch_observations: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     decision: Mapped[str] = mapped_column(String(20), nullable=False)
     answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     refused: Mapped[bool] = mapped_column(Boolean, nullable=False)

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from evals.runners.m3_bootstrap import (
     EphemeralEvaluationCredential,
     EvaluationEnvironmentBootstrap,
@@ -24,6 +25,7 @@ def _binding():
         chunk_set_provenance_id="set-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
         source_bindings=(SourceBinding("support/a", "version-1", "set-1"),),
     )
 
@@ -40,6 +42,7 @@ def _corpus():
         workspace_id="workspace",
         documents=(SimpleNamespace(
             source_key="support/a", document_version_id="version-1", chunk_set_id="set-1",
+            embedding_configuration_id="embedding-local-m1-v2",
             chunk_references=("support/a#0",),
         ),),
     )
@@ -72,6 +75,41 @@ def test_bootstrap_acquires_seal_before_authoritative_preflight():
     result = bootstrap.prepare(binding=_binding(), manifest=_manifest(), run_id="run-1")
     assert events == ["workspace", "seal", "closure"]
     assert result.endpoint.endswith("/v1/questions")
+    assert result.binding.embedding_configuration_id == "embedding-local-m1-v2"
+
+
+def test_bootstrap_releases_seal_when_preflight_fails() -> None:
+    bad_corpus = SimpleNamespace(
+        workspace_id="workspace",
+        documents=(SimpleNamespace(
+            source_key="support/a",
+            document_version_id="version-1",
+            chunk_set_id="set-1",
+            embedding_configuration_id="embedding-other",
+            chunk_references=("support/a#0",),
+        ),),
+    )
+    state = {"corpus": bad_corpus}
+    seal = EvaluationEnvironmentSeal(ownership_probe=lambda _run_id: True)
+    bootstrap = EvaluationEnvironmentBootstrap(
+        workspace_provisioner=SimpleNamespace(
+            provision_or_reuse=lambda **kwargs: "workspace",
+            materialize_corpus=lambda **kwargs: None,
+        ),
+        corpus_reader=SimpleNamespace(
+            read_active_corpus=lambda **kwargs: state["corpus"]
+        ),
+        seal=seal,
+        endpoint="http://127.0.0.1:8000/v1/questions",
+    )
+
+    with pytest.raises(Exception, match="EVALUATION_ENVIRONMENT_BINDING_MISMATCH"):
+        bootstrap.prepare(binding=_binding(), manifest=_manifest(), run_id="run-1")
+
+    state["corpus"] = _corpus()
+    result = bootstrap.prepare(binding=_binding(), manifest=_manifest(), run_id="run-2")
+    assert result.binding.embedding_configuration_id == "embedding-local-m1-v2"
+    seal.release()
 
 
 def test_production_provisioner_materializes_every_manifest_document(tmp_path: Path):

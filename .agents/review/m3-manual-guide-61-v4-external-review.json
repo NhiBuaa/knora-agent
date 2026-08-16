@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "ticket_id": "#61",
+  "guide_revision": "m3-remediation-61-v4",
+  "verdict": "APPROVE",
+  "reviewer": "repository-owner (user-confirmed external reviewer)",
+  "reviewed_at": "2026-08-16T04:18:31.1696285Z",
+  "scope": "Read-only external review of the Issue #61 manual guide against the Issue #61 acceptance criteria and fixed-point remediation findings.",
+  "findings": [],
+  "checks": [
+    {
+      "requirement": "TC-61-01 keeps branch observations separate from fused-candidate fields and forms fused fields only from eligible contributions.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md:29"
+    },
+    {
+      "requirement": "TC-61-03 distinguishes valid refusal retention from malformed-refusal observation failure and quality-score exclusion.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md:80"
+    },
+    {
+      "requirement": "TC-61-04 pins the retrieval-latency boundary and deterministic clock/tolerance rule.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md:118"
+    },
+    {
+      "requirement": "TC-61-06 uses the pinned authority for decision/reason values, fails closed on unknown values, and does not invent precedence or a generic compatibility matrix.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md:163"
+    },
+    {
+      "requirement": "The guide remains within Issue #61 scope and is not executed during external review.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md:1"
+    }
+  ],
+  "authoritative_sources": [
+    "https://github.com/NhiBuaa/knora-agent/issues/48",
+    "https://github.com/NhiBuaa/knora-agent/issues/61",
+    "D:/Developer/Projects/knora-agent/CONTEXT.md",
+    "D:/Developer/Projects/knora-agent/docs/standards/architecture.md",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-fixed-point-review-v1.json",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-spec-axis-v1.json"
+  ],
+  "human_approval": "APPROVED m3-remediation-61-v4"
+}

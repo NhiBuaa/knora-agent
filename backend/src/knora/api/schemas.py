@@ -32,8 +32,9 @@ class CitationResponse(BaseModel):
 
 
 class QuestionResponse(BaseModel):
+    workspace_id: str
     decision: str
-    answer: str
+    answer: str | None
     citations: list[CitationResponse]
     refusal_reason: str | None
     trace_id: str

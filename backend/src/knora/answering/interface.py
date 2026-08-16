@@ -28,7 +28,8 @@ class CitationProjection:
 @dataclass(frozen=True, slots=True)
 class QuestionResult:
     decision: str
-    answer: str
+    answer: str | None
     citations: tuple[CitationProjection, ...]
     refusal_reason: str | None
     trace_id: str
+    workspace_id: str

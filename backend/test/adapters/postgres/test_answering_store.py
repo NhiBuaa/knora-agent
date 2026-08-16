@@ -1,4 +1,6 @@
 from dataclasses import replace
+from types import SimpleNamespace
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -17,7 +19,7 @@ from knora.adapters.postgres.tables import (
 )
 from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
-from knora.answering.stores import RetrievalConfiguration
+from knora.answering.stores import BranchObservation, RetrievalConfiguration
 from knora.domain.access import WorkspacePrincipal
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.module import IngestDocument
@@ -192,6 +194,81 @@ def test_hybrid_requires_explicit_supported_versioned_policies() -> None:
             embedding_configuration=configuration,
             retrieval_configuration=invalid,
         )
+
+
+def test_hybrid_observes_explicit_fts_ineligibility_for_evaluated_below_threshold_chunk() -> None:
+    store = PostgresAnsweringStore(SessionFactory)
+    configuration = EmbeddingConfiguration.milestone_one_local()
+    retrieval_configuration = RetrievalConfiguration.milestone_three_hybrid()
+    below_chunk = "below-threshold-chunk"
+    with patch.object(
+        store,
+        "_vector_observations",
+        return_value=(
+            BranchObservation(
+                branch="vector",
+                status="BELOW_THRESHOLD",
+                chunk_id=below_chunk,
+                cosine_distance=0.9,
+                similarity=0.1,
+            ),
+        ),
+    ), patch.object(store, "_fts_eligible_chunk_ids", return_value=set()):
+        observations = store._hybrid_observations(
+            vector=(),
+            fts=(),
+            query_text="refund",
+            lexical_policy="fts-v1",
+            workspace_id="workspace",
+            query_vector=(),
+            embedding_configuration=configuration,
+            retrieval_configuration=retrieval_configuration,
+        )
+
+    assert any(
+        item.branch == "fts"
+        and item.status == "INELIGIBLE"
+        and item.chunk_id == below_chunk
+        for item in observations
+    )
+
+
+def test_hybrid_checks_fts_eligibility_for_vector_candidate_without_fts_contribution() -> None:
+    store = PostgresAnsweringStore(SessionFactory)
+    configuration = EmbeddingConfiguration.milestone_one_local()
+    retrieval_configuration = RetrievalConfiguration.milestone_three_hybrid()
+    vector_candidate = SimpleNamespace(chunk_id="vector-only")
+    with patch.object(
+        store,
+        "_vector_observations",
+        return_value=(
+            BranchObservation(
+                branch="vector",
+                status="ELIGIBLE",
+                chunk_id="vector-only",
+                branch_rank=1,
+                cosine_distance=0.1,
+                similarity=0.9,
+            ),
+        ),
+    ), patch.object(store, "_fts_eligible_chunk_ids", return_value=set()) as eligibility:
+        observations = store._hybrid_observations(
+            vector=(vector_candidate,),
+            fts=(),
+            query_text="refund",
+            lexical_policy="fts-v1",
+            workspace_id="workspace",
+            query_vector=(),
+            embedding_configuration=configuration,
+            retrieval_configuration=retrieval_configuration,
+        )
+
+    eligibility.assert_called_once()
+    assert [
+        item.status
+        for item in observations
+        if item.branch == "fts" and item.chunk_id == "vector-only"
+    ] == ["INELIGIBLE"]
 
 
 def test_rrf_v2_uses_independent_branch_budgets_and_source_ordinal_order() -> None:

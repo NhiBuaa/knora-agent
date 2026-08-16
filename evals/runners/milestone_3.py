@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from time import perf_counter
+from math import isfinite
+from time import get_clock_info, perf_counter
 
 import httpx
 from evals.datasets.milestone_3 import Milestone3Case, Milestone3CorpusManifest
@@ -13,6 +14,8 @@ from evals.datasets.milestone_3 import Milestone3Case, Milestone3CorpusManifest
 METRIC_CONTRACT = "m3-retrieval-metrics-v1"
 RECALL_K = 8
 MARKER_PATTERN = re.compile(r"\[\[(E[1-9][0-9]*)\]\]")
+_MARKER_TOKEN_PATTERN = re.compile(r"\[\[([^\]]*)\]\]")
+_VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
 
 
 class ObservationFailure(ValueError):
@@ -37,6 +40,16 @@ class PublicCitation:
 
 
 @dataclass(frozen=True, slots=True)
+class PublicResponseProjection:
+    decision: str
+    answer: str | None
+    refusal_reason: str | None
+    citations: tuple[PublicCitation, ...]
+    answer_marker_ids: tuple[str, ...]
+    citation_evidence_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class M3Observation:
     case_id: str
     candidates: tuple[CanonicalChunkReference, ...] = ()
@@ -47,6 +60,11 @@ class M3Observation:
     source_bindings: tuple[SourceBinding, ...] = ()
     public_answer: str | None = None
     public_citations: tuple[PublicCitation, ...] = ()
+    decision: str | None = None
+    refusal_reason: str | None = None
+    answer_marker_ids: tuple[str, ...] = ()
+    citation_evidence_ids: tuple[str, ...] = ()
+    refusal_correctness: bool | None = None
     failure_code: str | None = None
 
     @classmethod
@@ -62,9 +80,28 @@ class M3Observation:
         source_bindings: tuple[SourceBinding, ...],
         public_answer: str | None = None,
         public_citations: tuple[PublicCitation, ...] = (),
+        decision: str | None = None,
+        refusal_reason: str | None = None,
+        answer_marker_ids: tuple[str, ...] = (),
+        citation_evidence_ids: tuple[str, ...] = (),
+        refusal_correctness: bool | None = None,
     ) -> M3Observation:
-        if retrieval_latency_ms < 0 or end_to_end_latency_ms < 0:
+        if (
+            not isfinite(float(retrieval_latency_ms))
+            or not isfinite(float(end_to_end_latency_ms))
+            or retrieval_latency_ms < 0
+            or end_to_end_latency_ms < 0
+        ):
             raise ValueError("latency must be non-negative")
+        _validate_observation_response(
+            decision=decision,
+            public_answer=public_answer,
+            public_citations=public_citations,
+            refusal_reason=refusal_reason,
+            answer_marker_ids=answer_marker_ids,
+            citation_evidence_ids=citation_evidence_ids,
+            refusal_correctness=refusal_correctness,
+        )
         return cls(
             case_id=case_id,
             candidates=candidates,
@@ -75,6 +112,11 @@ class M3Observation:
             source_bindings=source_bindings,
             public_answer=public_answer,
             public_citations=public_citations,
+            decision=decision,
+            refusal_reason=refusal_reason,
+            answer_marker_ids=answer_marker_ids,
+            citation_evidence_ids=citation_evidence_ids,
+            refusal_correctness=refusal_correctness,
         )
 
     @classmethod
@@ -83,7 +125,89 @@ class M3Observation:
 
     @property
     def is_success(self) -> bool:
-        return self.failure_code is None
+        if self.failure_code is not None:
+            return False
+        try:
+            _validate_observation_response(
+                decision=self.decision,
+                public_answer=self.public_answer,
+                public_citations=self.public_citations,
+                refusal_reason=self.refusal_reason,
+                answer_marker_ids=self.answer_marker_ids,
+                citation_evidence_ids=self.citation_evidence_ids,
+                refusal_correctness=self.refusal_correctness,
+            )
+        except (AttributeError, TypeError, ValueError):
+            return False
+        return True
+
+
+def _validate_observation_response(
+    *,
+    decision: str | None,
+    public_answer: str | None,
+    public_citations: tuple[PublicCitation, ...],
+    refusal_reason: str | None,
+    answer_marker_ids: tuple[str, ...],
+    citation_evidence_ids: tuple[str, ...],
+    refusal_correctness: bool | None,
+) -> None:
+    if decision not in {"ANSWER", "REFUSAL"}:
+        raise ValueError("public response is invalid")
+    if refusal_correctness is not None and type(refusal_correctness) is not bool:
+        raise ValueError("public response is invalid")
+    if decision == "REFUSAL":
+        if (
+            public_answer is not None
+            or public_citations
+            or refusal_reason != "INSUFFICIENT_EVIDENCE"
+            or answer_marker_ids
+            or citation_evidence_ids
+        ):
+            raise ValueError("public response is invalid")
+        return
+    if (
+        not isinstance(public_answer, str)
+        or not public_answer.strip()
+        or refusal_reason is not None
+        or not public_citations
+        or not answer_marker_ids
+        or tuple(answer_marker_ids) != tuple(citation_evidence_ids)
+        or tuple(item.evidence_id for item in public_citations)
+        != tuple(citation_evidence_ids)
+        or any(
+            not isinstance(item, str)
+            or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
+            for item in citation_evidence_ids
+        )
+        or len(set(citation_evidence_ids)) != len(citation_evidence_ids)
+        or any(
+            not isinstance(item, PublicCitation)
+            or not all(
+                isinstance(value, str) and value.strip()
+                for value in (
+                    item.evidence_id,
+                    item.source_key,
+                    item.excerpt,
+                    item.source_locator,
+                )
+            )
+            or _VALID_MARKER_ID_PATTERN.fullmatch(item.evidence_id) is None
+            for item in public_citations
+        )
+        or any(
+            not isinstance(item, str)
+            or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
+            for item in answer_marker_ids
+        )
+    ):
+        raise ValueError("public response is invalid")
+    try:
+        parsed_markers = _parse_public_markers(public_answer)
+    except ObservationFailure as error:
+        raise ValueError("public response is invalid") from error
+    if parsed_markers != tuple(answer_marker_ids):
+        raise ValueError("public response is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,8 +219,16 @@ class EvaluationEnvironmentBinding:
     chunk_set_provenance_id: str
     workspace_id: str
     retrieval_configuration_id: str
+    embedding_configuration_id: str | None = None
     source_bindings: tuple[SourceBinding, ...] = ()
     schema_version: int = 3
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.embedding_configuration_id, str)
+            or not self.embedding_configuration_id
+        ):
+            raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
 
     @classmethod
     def from_mapping(cls, value: object) -> EvaluationEnvironmentBinding:
@@ -108,11 +240,16 @@ class EvaluationEnvironmentBinding:
             "retrieval_configuration_id",
         )
         raw_bindings = value.get("source_bindings") if isinstance(value, dict) else None
+        raw_embedding_configuration_id = (
+            value.get("embedding_configuration_id") if isinstance(value, dict) else None
+        )
         if (
             not isinstance(value, dict)
             or value.get("schema_version") != 3
             or any(not isinstance(value.get(field), str) or not value[field] for field in fields)
             or not isinstance(raw_bindings, list)
+            or not isinstance(raw_embedding_configuration_id, str)
+            or not raw_embedding_configuration_id
         ):
             raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
         try:
@@ -121,10 +258,14 @@ class EvaluationEnvironmentBinding:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID") from error
         if not bindings or len({item.source_key for item in bindings}) != len(bindings):
             raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
-        return cls(**{field: value[field] for field in fields}, source_bindings=bindings)
+        return cls(
+            **{field: value[field] for field in fields},
+            embedding_configuration_id=raw_embedding_configuration_id,
+            source_bindings=bindings,
+        )
 
     def provenance(self) -> dict[str, object]:
-        return {
+        provenance = {
             "dataset_manifest_identity": self.dataset_manifest_identity,
             "corpus_manifest_identity": self.corpus_manifest_identity,
             "chunk_set_provenance_id": self.chunk_set_provenance_id,
@@ -132,6 +273,9 @@ class EvaluationEnvironmentBinding:
             "workspace_id": self.workspace_id,
             "retrieval_configuration_id": self.retrieval_configuration_id,
         }
+        if self.embedding_configuration_id is not None:
+            provenance["embedding_configuration_id"] = self.embedding_configuration_id
+        return provenance
 
     def source_binding(self, source_key: str) -> SourceBinding:
         matches = [item for item in self.source_bindings if item.source_key == source_key]
@@ -278,7 +422,12 @@ class EvaluationEnvironmentSeal:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT") from error
 
     def release(self) -> None:
-        self._sealed = None
+        try:
+            release = getattr(self._ownership_probe, "release", None)
+            if release is not None:
+                release()
+        finally:
+            self._sealed = None
 
 
 class ProductionM3Executor:
@@ -292,26 +441,49 @@ class ProductionM3Executor:
         trace_reader: object,
         client: httpx.AsyncClient,
         environment: VerifiedM3Environment,
+        clock: Callable[[], float] | None = None,
+        clock_resolution_ms: float | None = None,
     ) -> None:
         self._endpoint = endpoint
         self._api_key = api_key
         self._trace_reader = trace_reader
         self._client = client
         self._binding = environment.binding
+        self._clock = clock or perf_counter
+        self._clock_resolution_ms = (
+            get_clock_info("perf_counter").resolution * 1000
+            if clock_resolution_ms is None
+            else clock_resolution_ms
+        )
+        if not isinstance(self._clock_resolution_ms, (int, float)) or not isfinite(
+            float(self._clock_resolution_ms)
+        ) or self._clock_resolution_ms <= 0:
+            raise ValueError("clock resolution must be a finite positive number")
 
     async def execute(self, case: Milestone3Case) -> M3Observation:
-        started = perf_counter()
+        started = self._clock()
+        response_completed: float | None = None
         try:
             if case.workspace_id != self._binding.workspace_id:
                 raise ObservationFailure("EVALUATION_WORKSPACE_BINDING_MISMATCH")
+            expected_embedding_configuration_id = getattr(
+                self._binding, "embedding_configuration_id", None
+            )
+            if (
+                not isinstance(expected_embedding_configuration_id, str)
+                or not expected_embedding_configuration_id
+            ):
+                raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
             response = await self._client.post(
                 self._endpoint,
                 headers={"X-API-Key": self._api_key},
                 json={"workspace_id": case.workspace_id, "question": case.question},
             )
+            response_completed = self._clock()
             response.raise_for_status()
             payload = response.json()
             trace_id = payload["trace_id"]
+            public = validate_public_response(payload)
             trace = self._trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id)
             if getattr(trace, "trace_id", None) != trace_id:
                 raise ObservationFailure("RESPONSE_TRACE_ID_MISMATCH")
@@ -322,47 +494,93 @@ class ProductionM3Executor:
                 != self._binding.retrieval_configuration_id
             ):
                 raise ObservationFailure("RETRIEVAL_CONFIGURATION_MISMATCH")
+            if (
+                getattr(trace, "embedding_configuration_id", None)
+                != expected_embedding_configuration_id
+            ):
+                raise ObservationFailure("EMBEDDING_CONFIGURATION_MISMATCH")
+            if getattr(trace, "decision", None) != public.decision:
+                raise ObservationFailure("RESPONSE_TRACE_DECISION_MISMATCH")
+            if getattr(trace, "refusal_reason", None) != public.refusal_reason:
+                raise ObservationFailure("RESPONSE_TRACE_REFUSAL_REASON_MISMATCH")
+            if getattr(trace, "answer", None) != public.answer:
+                raise ObservationFailure("RESPONSE_TRACE_ANSWER_MISMATCH")
+            trace_markers = getattr(trace, "parsed_markers", None)
+            if not isinstance(trace_markers, (list, tuple)) or (
+                tuple(trace_markers) != public.answer_marker_ids
+            ):
+                raise ObservationFailure("RESPONSE_TRACE_MARKERS_MISMATCH")
             candidates = project_trace_candidates(
                 getattr(trace, "candidates", ()),
                 binding=self._binding,
             )
-            public_citations = _public_citations(payload)
-            citation_ids = tuple(citation.evidence_id for citation in public_citations)
+            citation_ids = public.citation_evidence_ids
             _validate_public_citation_aliases(
                 citation_ids=citation_ids,
                 alias_mapping=getattr(trace, "alias_mapping", None),
                 candidates=getattr(trace, "candidates", ()),
             )
             latency = getattr(trace, "retrieval_latency_ms", None)
-            if isinstance(latency, bool) or not isinstance(latency, (int, float)) or latency < 0:
+            if (
+                isinstance(latency, bool)
+                or not isinstance(latency, (int, float))
+                or not isfinite(float(latency))
+                or latency < 0
+            ):
                 raise ObservationFailure("RETRIEVAL_LATENCY_INVALID")
             return M3Observation.success(
                 case_id=case.id,
                 candidates=candidates,
                 retrieval_latency_ms=float(latency),
-                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                end_to_end_latency_ms=(
+                    (response_completed if response_completed is not None else self._clock())
+                    - started
+                )
+                * 1000,
                 retrieval_configuration_id=self._binding.retrieval_configuration_id,
                 chunk_set_provenance_id=self._binding.chunk_set_provenance_id,
                 source_bindings=self._binding.source_bindings,
-                public_answer=payload["answer"],
-                public_citations=public_citations,
+                public_answer=public.answer,
+                public_citations=public.citations,
+                decision=public.decision,
+                refusal_reason=public.refusal_reason,
+                answer_marker_ids=public.answer_marker_ids,
+                citation_evidence_ids=public.citation_evidence_ids,
+                refusal_correctness=(
+                    None
+                    if case.refusal_expectation is None
+                    else (
+                        public.decision == "REFUSAL"
+                        and public.refusal_reason == case.refusal_expectation
+                    )
+                ),
             )
         except ObservationFailure as error:
             return M3Observation.failure(case.id, str(error))
-        except (httpx.HTTPError, KeyError, TypeError, ValueError, LookupError):
+        except (httpx.HTTPError, KeyError, PermissionError, TypeError, ValueError, LookupError):
             return M3Observation.failure(case.id, "EVALUATION_OBSERVATION_FAILURE")
 
 
-def _public_citations(payload: object) -> tuple[PublicCitation, ...]:
-    """Validate public citation structure without filling it from trace data."""
+def validate_public_response(payload: object) -> PublicResponseProjection:
+    """Validate the complete public ANSWER/REFUSAL contract."""
     if not isinstance(payload, dict):
         raise ObservationFailure("PUBLIC_RESPONSE_INVALID")
     decision = payload.get("decision")
     citations = payload.get("citations")
     answer = payload.get("answer")
-    if decision not in {"ANSWER", "REFUSAL"} or not isinstance(citations, list):
+    refusal_reason = payload.get("refusal_reason")
+    trace_id = payload.get("trace_id")
+    if (
+        decision not in {"ANSWER", "REFUSAL"}
+        or not isinstance(citations, list)
+        or not isinstance(trace_id, str)
+        or not trace_id
+        or "answer" not in payload
+    ):
         raise ObservationFailure("PUBLIC_RESPONSE_INVALID")
     if decision == "ANSWER":
+        if not isinstance(answer, str) or not answer.strip() or refusal_reason is not None:
+            raise ObservationFailure("PUBLIC_RESPONSE_INVALID")
         citations_projection: list[PublicCitation] = []
         for citation in citations:
             if not isinstance(citation, dict):
@@ -371,26 +589,70 @@ def _public_citations(payload: object) -> tuple[PublicCitation, ...]:
             source_key = citation.get("source_key")
             excerpt = citation.get("excerpt")
             if not all(
-                isinstance(value, str) and value for value in (evidence_id, source_key, excerpt)
+                isinstance(value, str) and value.strip()
+                for value in (evidence_id, source_key, excerpt)
             ):
                 raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-            source_locator = f"{source_key}:{citation.get('start_line')}:{citation.get('end_line')}"
+            start_line = citation.get("start_line")
+            end_line = citation.get("end_line")
+            if (
+                type(start_line) is not int
+                or type(end_line) is not int
+                or start_line < 1
+                or end_line < start_line
+            ):
+                raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+            source_locator = f"{source_key}:{start_line}:{end_line}"
             citations_projection.append(
                 PublicCitation(evidence_id, source_key, excerpt, source_locator)
             )
         evidence_ids = tuple(item.evidence_id for item in citations_projection)
-        if (
-            not isinstance(answer, str)
-            or not evidence_ids
-            or len(evidence_ids) != len(set(evidence_ids))
-        ):
+        if not evidence_ids or len(evidence_ids) != len(set(evidence_ids)):
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-        if tuple(MARKER_PATTERN.findall(answer)) != evidence_ids:
+        answer_markers = _parse_public_markers(answer)
+        if answer_markers != evidence_ids:
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-        return tuple(citations_projection)
-    elif citations:
-        raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-    return ()
+        return PublicResponseProjection(
+            decision="ANSWER",
+            answer=answer,
+            refusal_reason=None,
+            citations=tuple(citations_projection),
+            answer_marker_ids=answer_markers,
+            citation_evidence_ids=evidence_ids,
+        )
+    if answer is not None or citations or refusal_reason != "INSUFFICIENT_EVIDENCE":
+        raise ObservationFailure("PUBLIC_RESPONSE_INVALID")
+    return PublicResponseProjection(
+        decision="REFUSAL",
+        answer=None,
+        refusal_reason=refusal_reason,
+        citations=(),
+        answer_marker_ids=(),
+        citation_evidence_ids=(),
+    )
+
+
+def _public_citations(payload: object) -> tuple[PublicCitation, ...]:
+    """Backward-compatible projection for callers that need only public citations."""
+    return validate_public_response(payload).citations
+
+
+def _parse_public_markers(answer: str) -> tuple[str, ...]:
+    markers: list[str] = []
+    cursor = 0
+    while True:
+        start = answer.find("[[", cursor)
+        if start < 0:
+            break
+        end = answer.find("]]", start + 2)
+        if end < 0:
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        marker = answer[start + 2 : end]
+        if _VALID_MARKER_ID_PATTERN.fullmatch(marker) is None:
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        markers.append(marker)
+        cursor = end + 2
+    return tuple(markers)
 
 
 def semantic_citation_input(observation: M3Observation) -> dict[str, object]:
@@ -410,7 +672,7 @@ def semantic_citation_input(observation: M3Observation) -> dict[str, object]:
     }
 
 
-def _validate_public_citation_aliases(
+def validate_public_citation_aliases(
     *,
     citation_ids: tuple[str, ...],
     alias_mapping: object,
@@ -421,9 +683,31 @@ def _validate_public_citation_aliases(
         return
     if not isinstance(alias_mapping, dict):
         raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-    candidate_ids = {getattr(candidate, "chunk_id", None) for candidate in candidates}
-    if any(alias_mapping.get(evidence_id) not in candidate_ids for evidence_id in citation_ids):
+    selected_ids = {
+        getattr(candidate, "chunk_id", None)
+        for candidate in candidates
+        if getattr(candidate, "final_decision", None) == "SELECTED"
+    }
+    mapped_ids = tuple(alias_mapping.get(evidence_id) for evidence_id in citation_ids)
+    if (
+        any(chunk_id not in selected_ids for chunk_id in mapped_ids)
+        or len(mapped_ids) != len(set(mapped_ids))
+    ):
         raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+
+
+def _validate_public_citation_aliases(
+    *,
+    citation_ids: tuple[str, ...],
+    alias_mapping: object,
+    candidates: Iterable[object],
+) -> None:
+    """Backward-compatible private alias for the public evaluation seam."""
+    validate_public_citation_aliases(
+        citation_ids=citation_ids,
+        alias_mapping=alias_mapping,
+        candidates=candidates,
+    )
 
 
 def project_trace_candidates(
@@ -574,7 +858,24 @@ def _observation_projection(observation: M3Observation) -> dict[str, object]:
         "retrieval_configuration_id": observation.retrieval_configuration_id,
         "chunk_set_provenance_id": observation.chunk_set_provenance_id,
         "source_bindings": [item.as_mapping() for item in observation.source_bindings],
+        "decision": observation.decision,
+        "public_answer": observation.public_answer,
+        "refusal_reason": observation.refusal_reason,
+        "answer_marker_ids": list(observation.answer_marker_ids),
+        "citation_evidence_ids": list(observation.citation_evidence_ids),
+        "refusal_correctness": observation.refusal_correctness,
+        "public_citations": [
+            {
+                "evidence_id": citation.evidence_id,
+                "source_key": citation.source_key,
+                "excerpt": citation.excerpt,
+                "source_locator": citation.source_locator,
+            }
+            for citation in observation.public_citations
+        ],
     }
     if observation.failure_code is not None:
         projection["failure_code"] = observation.failure_code
+    elif not observation.is_success:
+        projection["failure_code"] = "PUBLIC_RESPONSE_INVALID"
     return projection

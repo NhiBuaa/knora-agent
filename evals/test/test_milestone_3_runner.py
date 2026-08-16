@@ -34,7 +34,8 @@ def _binding() -> EvaluationEnvironmentBinding:
         source_bindings=(SourceBinding("support/a", "version-1", "set-1"),),
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
-    )
+        embedding_configuration_id="embedding-local-m1-v2",
+        )
 
 
 def _case(*, case_id: str = "case", applicable: bool = True) -> Milestone3Case:
@@ -115,6 +116,23 @@ def test_seal_captures_snapshot_only_after_exclusive_acquire_and_detects_drift()
     seal.release()
 
 
+def test_seal_releases_external_ownership_probe() -> None:
+    events: list[str] = []
+
+    class Owner:
+        def __call__(self, run_id: str) -> bool:
+            events.append(f"acquire:{run_id}")
+            return True
+
+        def release(self) -> None:
+            events.append("release")
+
+    seal = EvaluationEnvironmentSeal(ownership_probe=Owner())
+    seal.acquire(run_id="run-1")
+    seal.release()
+    assert events == ["acquire:run-1", "release"]
+
+
 def test_metric_contract_uses_scoped_canonical_identity_and_uncut_mrr() -> None:
     chunk_set = "set-1"
     case = _case()
@@ -129,6 +147,11 @@ def test_metric_contract_uses_scoped_canonical_identity_and_uncut_mrr() -> None:
         retrieval_configuration_id="retrieval-m3-rrf-v1",
         chunk_set_provenance_id=chunk_set,
         source_bindings=_binding().source_bindings,
+        decision="ANSWER",
+        public_answer="fact [[E1]]",
+        public_citations=(PublicCitation("E1", "support/a", "fact", "support/a:1:1"),),
+        answer_marker_ids=("E1",),
+        citation_evidence_ids=("E1",),
     )
 
     report = score_retrieval((case,), (observation,), binding=_binding())
@@ -152,6 +175,8 @@ def test_metric_contract_keeps_valid_miss_but_excludes_inapplicable_and_failure(
         retrieval_configuration_id="retrieval-m3-rrf-v1",
         chunk_set_provenance_id=chunk_set,
         source_bindings=_binding().source_bindings,
+        decision="REFUSAL",
+        refusal_reason="INSUFFICIENT_EVIDENCE",
     )
     failed = M3Observation.failure("applicable", "TRACE_PROVENANCE_INVALID")
 
@@ -167,6 +192,8 @@ def test_metric_contract_keeps_valid_miss_but_excludes_inapplicable_and_failure(
                 retrieval_configuration_id="retrieval-m3-rrf-v1",
                 chunk_set_provenance_id=chunk_set,
                 source_bindings=_binding().source_bindings,
+                decision="REFUSAL",
+                refusal_reason="INSUFFICIENT_EVIDENCE",
             ),
         ),
         binding=_binding(),
@@ -190,6 +217,11 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
         retrieval_configuration_id="retrieval-m3-rrf-v1",
         chunk_set_provenance_id="set-1",
         source_bindings=_binding().source_bindings,
+        decision="ANSWER",
+        public_answer="fact [[E1]]",
+        public_citations=(PublicCitation("E1", "support/a", "fact", "support/a:1:1"),),
+        answer_marker_ids=("E1",),
+        citation_evidence_ids=("E1",),
     )
 
     report = build_report((case,), (observation,), binding=_binding())
@@ -203,15 +235,29 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
             "end_to_end_latency_ms": 9.5,
             "retrieval_configuration_id": "retrieval-m3-rrf-v1",
             "chunk_set_provenance_id": "set-1",
-            "source_bindings": [
-                {
-                    "source_key": "support/a",
-                    "production_document_version_id": "version-1",
-                    "production_chunk_set_id": "set-1",
-                }
-            ],
-        }
-    ]
+                "source_bindings": [
+                    {
+                        "source_key": "support/a",
+                        "production_document_version_id": "version-1",
+                        "production_chunk_set_id": "set-1",
+                    }
+                ],
+                "decision": "ANSWER",
+                "public_answer": "fact [[E1]]",
+                "refusal_reason": None,
+                "answer_marker_ids": ["E1"],
+                "citation_evidence_ids": ["E1"],
+                "refusal_correctness": None,
+                "public_citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "fact",
+                        "source_locator": "support/a:1:1",
+                    }
+                ],
+            }
+        ]
 
 
 def test_trace_projection_requires_single_matching_chunk_set_and_unique_identity() -> None:
@@ -251,6 +297,13 @@ def test_binding_requires_every_manifest_and_environment_identity() -> None:
     with pytest.raises(ObservationFailure, match="EVALUATION_ENVIRONMENT_BINDING_INVALID"):
         EvaluationEnvironmentBinding.from_mapping(
             {"schema_version": 1, "workspace_id": "workspace"}
+        )
+
+    missing_embedding = _binding().provenance()
+    missing_embedding.pop("embedding_configuration_id")
+    with pytest.raises(ObservationFailure, match="EVALUATION_ENVIRONMENT_BINDING_INVALID"):
+        EvaluationEnvironmentBinding.from_mapping(
+            {"schema_version": 3, **missing_embedding}
         )
 
     binding = EvaluationEnvironmentBinding.from_mapping(
@@ -324,6 +377,11 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
         trace_id="trace-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="ANSWER",
+        answer="answer [[E1]]",
+        refusal_reason=None,
+        parsed_markers=["E1"],
         candidates=(
             SimpleNamespace(
                 chunk_id="chunk-1",
@@ -331,6 +389,7 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
+                final_decision="SELECTED",
             ),
         ),
         retrieval_latency_ms=4.0,
@@ -357,6 +416,91 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
     assert observation.candidates == (CanonicalChunkReference("set-1", "support/a", 0),)
     assert observation.retrieval_latency_ms == 4.0
     assert observation.end_to_end_latency_ms is not None
+    assert observation.refusal_correctness is None
+
+
+@pytest.mark.asyncio
+async def test_production_executor_retains_valid_refusal_for_refusal_correctness() -> None:
+    case = _case(case_id="refusal", applicable=False)
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "REFUSAL",
+                "answer": None,
+                "citations": [],
+                "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                "trace_id": "trace-refusal",
+            },
+        )
+
+    trace = SimpleNamespace(
+        trace_id="trace-refusal",
+        workspace_id="workspace",
+        retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="REFUSAL",
+        answer=None,
+        refusal_reason="INSUFFICIENT_EVIDENCE",
+        parsed_markers=[],
+        candidates=(),
+        retrieval_latency_ms=4.0,
+        alias_mapping={},
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(read_trace=lambda **_kwargs: trace),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.is_success
+    assert observation.decision == "REFUSAL"
+    assert observation.public_answer is None
+    assert observation.refusal_reason == "INSUFFICIENT_EVIDENCE"
+    assert observation.refusal_correctness is True
+    report = build_report((case,), (observation,), binding=_binding())
+    assert report["observations"][0]["refusal_correctness"] is True
+
+
+@pytest.mark.asyncio
+async def test_malformed_refusal_is_an_observation_failure_without_quality_score() -> None:
+    case = _case(case_id="refusal", applicable=False)
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "REFUSAL",
+                "answer": "provider text",
+                "citations": [],
+                "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                "trace_id": "trace-refusal",
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(
+            read_trace=lambda **_kwargs: pytest.fail("trace must not be read")
+        ),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.is_success is False
+    assert observation.failure_code == "PUBLIC_RESPONSE_INVALID"
+    assert observation.refusal_correctness is None
+    report = build_report((case,), (observation,), binding=_binding())
+    assert report["retrieval"]["denominator"] == 0
+    assert report["observations"][0]["refusal_correctness"] is None
 
 
 @pytest.mark.asyncio
@@ -366,6 +510,7 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
         ({"trace_id": "other"}, "RESPONSE_TRACE_ID_MISMATCH"),
         ({"workspace_id": "other"}, "TRACE_WORKSPACE_MISMATCH"),
         ({"retrieval_configuration_id": "other"}, "RETRIEVAL_CONFIGURATION_MISMATCH"),
+        ({"answer": "different [[E1]]"}, "RESPONSE_TRACE_ANSWER_MISMATCH"),
         ({"retrieval_latency_ms": None}, "RETRIEVAL_LATENCY_INVALID"),
     ],
 )
@@ -398,6 +543,11 @@ async def test_production_executor_excludes_invalid_trace_observations(
         "trace_id": "trace-1",
         "workspace_id": "workspace",
         "retrieval_configuration_id": "retrieval-m3-rrf-v1",
+        "embedding_configuration_id": "embedding-local-m1-v2",
+        "decision": "ANSWER",
+        "answer": "answer [[E1]]",
+        "refusal_reason": None,
+        "parsed_markers": ["E1"],
         "candidates": (
             SimpleNamespace(
                 chunk_id="chunk-1",
@@ -405,7 +555,8 @@ async def test_production_executor_excludes_invalid_trace_observations(
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
-            ),
+                final_decision="SELECTED",
+                ),
         ),
         "retrieval_latency_ms": 4.0,
         "alias_mapping": {"E1": "chunk-1"},
@@ -449,6 +600,10 @@ async def test_production_executor_never_repairs_invalid_public_citations_from_t
             trace_id="trace-1",
             workspace_id="workspace",
             retrieval_configuration_id="retrieval-m3-rrf-v1",
+            decision="ANSWER",
+            answer="answer [[E1]]",
+            refusal_reason=None,
+            parsed_markers=["E1"],
             candidates=(),
             retrieval_latency_ms=1.0,
             alias_mapping={},
@@ -507,6 +662,11 @@ async def test_public_alias_must_map_to_evidence_of_correlated_trace(
         trace_id="trace-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="ANSWER",
+        answer="answer [[E1]]",
+        refusal_reason=None,
+        parsed_markers=["E1"],
         retrieval_latency_ms=1.0,
         candidates=(
             SimpleNamespace(
@@ -515,6 +675,7 @@ async def test_public_alias_must_map_to_evidence_of_correlated_trace(
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
+                final_decision="SELECTED",
             ),
         ),
         alias_mapping=alias_mapping,
@@ -532,6 +693,90 @@ async def test_public_alias_must_map_to_evidence_of_correlated_trace(
     assert observation.failure_code == "CITATION_STRUCTURAL_ERROR"
 
 
+@pytest.mark.asyncio
+async def test_production_executor_fails_closed_on_unauthorized_trace() -> None:
+    case = _case()
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "ANSWER",
+                "answer": "answer [[E1]]",
+                "citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "public",
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ],
+                "refusal_reason": None,
+                "trace_id": "trace-unauthorized",
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(
+            read_trace=lambda **_kwargs: (_ for _ in ()).throw(PermissionError("denied"))
+        ),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.is_success is False
+    assert observation.failure_code == "EVALUATION_OBSERVATION_FAILURE"
+    assert observation.retrieval_latency_ms is None
+    assert observation.refusal_correctness is None
+
+
+@pytest.mark.asyncio
+async def test_production_executor_fails_closed_when_trace_is_missing() -> None:
+    case = _case()
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "ANSWER",
+                "answer": "answer [[E1]]",
+                "citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "public",
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ],
+                "refusal_reason": None,
+                "trace_id": "trace-missing",
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(
+            read_trace=lambda **_kwargs: (_ for _ in ()).throw(LookupError("missing"))
+        ),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.is_success is False
+    assert observation.failure_code == "EVALUATION_OBSERVATION_FAILURE"
+    assert observation.retrieval_latency_ms is None
+    assert observation.refusal_correctness is None
+
+
 def test_semantic_input_uses_only_public_answer_and_citation_projection() -> None:
     observation = M3Observation.success(
         case_id="case",
@@ -541,12 +786,15 @@ def test_semantic_input_uses_only_public_answer_and_citation_projection() -> Non
         retrieval_configuration_id="retrieval-m3-rrf-v1",
         chunk_set_provenance_id="set-1",
         source_bindings=_binding().source_bindings,
-        public_answer="public answer",
+        decision="ANSWER",
+        public_answer="public answer [[E1]]",
         public_citations=(PublicCitation("E1", "support/a", "public excerpt", "support/a:1:2"),),
+        answer_marker_ids=("E1",),
+        citation_evidence_ids=("E1",),
     )
 
     assert semantic_citation_input(observation) == {
-        "answer": "public answer",
+        "answer": "public answer [[E1]]",
         "citations": [
             {
                 "evidence_id": "E1",
