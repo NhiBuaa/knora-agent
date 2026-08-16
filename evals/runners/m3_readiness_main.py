@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from evals.datasets.milestone_3 import (
     load_milestone_3_corpus_manifest,
     load_milestone_3_dataset,
 )
+from evals.runners.evaluation_ownership import SqliteEvaluationOwnershipStore
 from evals.runners.m3_bootstrap import (
     ProductionApiProcessLauncher,
     ProductionEvaluationWorkspaceProvisioner,
@@ -127,7 +129,15 @@ def main() -> int:
             retrieval_configuration_id="retrieval-m3-rrf-v1",
         )
         reader = PostgresEvaluationReader(session_factory)
-        seal = EvaluationEnvironmentSeal(ownership_probe=lambda run_id: True)
+        ownership_path = Path(
+            os.environ.get(
+                "KNORA_M3_OWNERSHIP_STORE",
+                str(Path(tempfile.gettempdir()) / f"{args.project}-ownership.sqlite3"),
+            )
+        )
+        seal = EvaluationEnvironmentSeal(
+            ownership_store=SqliteEvaluationOwnershipStore(path=ownership_path)
+        )
         from evals.runners.m3_bootstrap import EvaluationEnvironmentBootstrap
         bootstrap = EvaluationEnvironmentBootstrap(
             workspace_provisioner=gateway, corpus_reader=reader, seal=seal,

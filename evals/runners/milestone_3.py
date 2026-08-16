@@ -5,10 +5,18 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import timedelta
 from time import perf_counter
+from uuid import uuid4
 
 import httpx
 from evals.datasets.milestone_3 import Milestone3Case, Milestone3CorpusManifest
+from evals.runners.evaluation_ownership import (
+    EvaluationOwnershipCapability,
+    EvaluationOwnershipError,
+    EvaluationOwnershipSnapshot,
+    EvaluationOwnershipStore,
+)
 
 METRIC_CONTRACT = "m3-retrieval-metrics-v1"
 RECALL_K = 8
@@ -228,24 +236,48 @@ class SealedM3Environment:
     """Evaluation-run ownership plus the authoritative post-acquire snapshot."""
 
     run_id: str
-    environment: VerifiedM3Environment
+    environment: VerifiedM3Environment | None
 
 
 class EvaluationEnvironmentSeal:
     """Orchestration boundary for exclusive evaluation ownership.
 
-    Production mutation paths remain owned by their normal application seams; the topology/owner
-    probe is the selected control-plane guarantee for this isolated run.
+    Production mutation paths remain owned by their normal application seams; the injected durable
+    ownership store is the selected control-plane guarantee for this isolated run.
     """
 
-    def __init__(self, *, ownership_probe) -> None:
-        self._ownership_probe = ownership_probe
+    def __init__(
+        self,
+        *,
+        ownership_store: EvaluationOwnershipStore,
+        owner_id: str | None = None,
+        lease_duration: timedelta = timedelta(minutes=2),
+    ) -> None:
+        self._ownership_store = ownership_store
+        self._owner_id = owner_id or uuid4().hex
+        self._lease_duration = lease_duration
+        self._capability: EvaluationOwnershipCapability | None = None
         self._sealed: SealedM3Environment | None = None
+        self._last_operation_id: str | None = None
 
-    def acquire(self, *, run_id: str) -> None:
-        if self._sealed is not None or not run_id or not bool(self._ownership_probe(run_id)):
-            raise ObservationFailure("EVALUATION_SEAL_ACQUIRE_FAILED")
-        self._sealed = SealedM3Environment(run_id, environment=None)  # type: ignore[arg-type]
+    @property
+    def last_operation_id(self) -> str | None:
+        """Identifier for the most recent control-plane operation, for acceptance evidence."""
+        return self._last_operation_id
+
+    def acquire(self, *, run_id: str) -> EvaluationOwnershipCapability:
+        self._last_operation_id = uuid4().hex
+        try:
+            capability = self._ownership_store.acquire(
+                run_id=run_id,
+                owner_id=self._owner_id,
+                lease_duration=self._lease_duration,
+            )
+        except EvaluationOwnershipError as error:
+            raise ObservationFailure(error.code) from error
+        self._capability = capability
+        self._sealed = SealedM3Environment(run_id, environment=None)
+        return capability
 
     def capture_preflight(
         self,
@@ -254,18 +286,21 @@ class EvaluationEnvironmentSeal:
         corpus: object,
         manifest: Milestone3CorpusManifest,
     ) -> VerifiedM3Environment:
-        if self._sealed is None:
-            raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+        capability = self._require_capability()
+        self._assert_current(capability)
         environment = VerifiedM3Environment.prepare(
             binding=binding, corpus=corpus, manifest=manifest
         )
-        self._sealed = SealedM3Environment(self._sealed.run_id, environment)
+        self._assert_current(capability)
+        self._sealed = SealedM3Environment(capability.run_id, environment)
         return environment
 
     def verify_unchanged(
         self, *, corpus: object, manifest: Milestone3CorpusManifest,
         binding: EvaluationEnvironmentBinding,
     ) -> None:
+        capability = self._require_capability()
+        self._assert_current(capability)
         if self._sealed is None or self._sealed.environment is None:
             raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
         if binding != self._sealed.environment.binding:
@@ -276,9 +311,33 @@ class EvaluationEnvironmentSeal:
             )
         except ObservationFailure as error:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT") from error
+        self._assert_current(capability)
 
     def release(self) -> None:
+        capability = self._require_capability()
+        self._last_operation_id = uuid4().hex
+        try:
+            self._ownership_store.release(capability)
+        except EvaluationOwnershipError as error:
+            raise ObservationFailure(error.code) from error
+        self._capability = None
         self._sealed = None
+
+    def ownership_snapshot(self) -> EvaluationOwnershipSnapshot:
+        capability = self._require_capability()
+        return self._ownership_store.snapshot(run_id=capability.run_id)
+
+    def _require_capability(self) -> EvaluationOwnershipCapability:
+        if self._capability is None:
+            raise ObservationFailure("EVALUATION_SEAL_REQUIRED")
+        return self._capability
+
+    def _assert_current(self, capability: EvaluationOwnershipCapability) -> None:
+        self._last_operation_id = uuid4().hex
+        try:
+            self._ownership_store.assert_current(capability)
+        except EvaluationOwnershipError as error:
+            raise ObservationFailure(error.code) from error
 
 
 class ProductionM3Executor:

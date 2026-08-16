@@ -7,6 +7,7 @@ import os
 import secrets
 import socket
 import subprocess
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -161,47 +162,55 @@ class EvaluationEnvironmentBootstrap:
         manifest: Milestone3CorpusManifest,
         run_id: str,
     ) -> BootstrapResult:
-        workspace_id = self._workspace_provisioner.provision_or_reuse(
-            workspace_id=binding.workspace_id, name="Milestone 3 evaluation"
-        )
-        if workspace_id != binding.workspace_id:
-            raise ObservationFailure("EVALUATION_WORKSPACE_BINDING_MISMATCH")
-        self._workspace_provisioner.materialize_corpus(
-            workspace_id=workspace_id, manifest=manifest
-        )
-        self._seal.acquire(run_id=run_id)
-        corpus = self._corpus_reader.read_active_corpus(workspace_id=workspace_id)
-        if not binding.source_bindings:
-            expected_sources = {reference.rsplit("#", 1)[0] for reference in manifest.chunks}
-            documents = getattr(corpus, "documents", ())
-            if {getattr(item, "source_key", None) for item in documents} != expected_sources:
-                raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
-            binding = EvaluationEnvironmentBinding(
-                dataset_manifest_identity=binding.dataset_manifest_identity,
-                corpus_manifest_identity=binding.corpus_manifest_identity,
-                chunk_set_provenance_id=binding.chunk_set_provenance_id,
-                workspace_id=binding.workspace_id,
-                retrieval_configuration_id=binding.retrieval_configuration_id,
-                source_bindings=tuple(
-                    SourceBinding(
-                        source_key=item.source_key,
-                        production_document_version_id=item.document_version_id,
-                        production_chunk_set_id=item.chunk_set_id,
-                    )
-                    for item in sorted(documents, key=lambda value: value.source_key)
-                ),
+        acquired = False
+        try:
+            workspace_id = self._workspace_provisioner.provision_or_reuse(
+                workspace_id=binding.workspace_id, name="Milestone 3 evaluation"
             )
-        self._seal.capture_preflight(binding=binding, corpus=corpus, manifest=manifest)
-        key_id = f"m3-{run_id}"
-        raw_key = (
-            self._credential_issuer.issue(workspace_id=workspace_id, key_id=key_id)
-            if self._credential_issuer is not None
-            else secrets.token_urlsafe(32)
-        )
-        credential = EphemeralEvaluationCredential(
-            workspace_id=workspace_id, key_id=key_id, raw_key=raw_key
-        )
-        return BootstrapResult(binding=binding, credential=credential, endpoint=self._endpoint)
+            if workspace_id != binding.workspace_id:
+                raise ObservationFailure("EVALUATION_WORKSPACE_BINDING_MISMATCH")
+            self._workspace_provisioner.materialize_corpus(
+                workspace_id=workspace_id, manifest=manifest
+            )
+            self._seal.acquire(run_id=run_id)
+            acquired = True
+            corpus = self._corpus_reader.read_active_corpus(workspace_id=workspace_id)
+            if not binding.source_bindings:
+                expected_sources = {reference.rsplit("#", 1)[0] for reference in manifest.chunks}
+                documents = getattr(corpus, "documents", ())
+                if {getattr(item, "source_key", None) for item in documents} != expected_sources:
+                    raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+                binding = EvaluationEnvironmentBinding(
+                    dataset_manifest_identity=binding.dataset_manifest_identity,
+                    corpus_manifest_identity=binding.corpus_manifest_identity,
+                    chunk_set_provenance_id=binding.chunk_set_provenance_id,
+                    workspace_id=binding.workspace_id,
+                    retrieval_configuration_id=binding.retrieval_configuration_id,
+                    source_bindings=tuple(
+                        SourceBinding(
+                            source_key=item.source_key,
+                            production_document_version_id=item.document_version_id,
+                            production_chunk_set_id=item.chunk_set_id,
+                        )
+                        for item in sorted(documents, key=lambda value: value.source_key)
+                    ),
+                )
+            self._seal.capture_preflight(binding=binding, corpus=corpus, manifest=manifest)
+            key_id = f"m3-{run_id}"
+            raw_key = (
+                self._credential_issuer.issue(workspace_id=workspace_id, key_id=key_id)
+                if self._credential_issuer is not None
+                else secrets.token_urlsafe(32)
+            )
+            credential = EphemeralEvaluationCredential(
+                workspace_id=workspace_id, key_id=key_id, raw_key=raw_key
+            )
+            return BootstrapResult(binding=binding, credential=credential, endpoint=self._endpoint)
+        except Exception:
+            if acquired:
+                with suppress(ObservationFailure):
+                    self._seal.release()
+            raise
 
 
 class ProductionRuntimeLauncher(Protocol):
