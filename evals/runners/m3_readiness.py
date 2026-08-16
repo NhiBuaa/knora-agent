@@ -234,17 +234,28 @@ def run_readiness(
         phase = phases[-1] if phases else "dependency_startup"
         raise ReadinessFailure(phase, type(error).__name__) from error
     finally:
+        primary_error = sys.exc_info()[1]
+        cleanup_errors: list[Exception] = []
         if heartbeat is not None:
             heartbeat.stop()
         stop = getattr(launcher, "stop", None)
         if stop is not None:
-            stop()
+            try:
+                stop()
+            except Exception as cleanup_error:
+                cleanup_errors.append(cleanup_error)
         if result is not None:
-            primary_error = sys.exc_info()[1]
             try:
                 seal.release()
-            except ObservationFailure as cleanup_error:
-                if primary_error is None:
-                    raise
-                primary_error.add_note(f"seal teardown failed: {cleanup_error}")
-        teardown_evaluation_runtime()
+            except Exception as cleanup_error:
+                cleanup_errors.append(cleanup_error)
+        try:
+            teardown_evaluation_runtime()
+        except Exception as cleanup_error:
+            cleanup_errors.append(cleanup_error)
+        if cleanup_errors:
+            if primary_error is not None:
+                for cleanup_error in cleanup_errors:
+                    primary_error.add_note(f"readiness teardown failed: {cleanup_error}")
+            else:
+                raise cleanup_errors[0]

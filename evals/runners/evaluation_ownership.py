@@ -119,7 +119,10 @@ class SqliteEvaluationOwnershipStore:
                 lease_duration=lease_duration,
             )
             if replay is not _NO_REPLAY:
-                return self._capability_from_operation(replay, run_id, owner_id)
+                replayed = self._capability_from_operation(replay, run_id, owner_id)
+                if not self._matches(self._row(connection, run_id), replayed, now):
+                    raise EvaluationOwnershipError("EVALUATION_SEAL_FENCED")
+                return replayed
             if not run_id or not owner_id or lease_duration <= timedelta(0):
                 error_code = "EVALUATION_SEAL_ACQUIRE_FAILED"
             row = connection.execute(
@@ -216,9 +219,14 @@ class SqliteEvaluationOwnershipStore:
                 lease_duration=lease_duration,
             )
             if replay is not _NO_REPLAY:
-                return self._capability_from_operation(
+                replayed = self._capability_from_operation(
                     replay, capability.run_id, capability.owner_id
                 )
+                if not self._matches(
+                    self._row(connection, capability.run_id), replayed, now
+                ):
+                    raise EvaluationOwnershipError("EVALUATION_SEAL_FENCED")
+                return replayed
             if lease_duration <= timedelta(0):
                 error_code = "EVALUATION_SEAL_RENEW_FAILED"
             row = self._row(connection, capability.run_id)
