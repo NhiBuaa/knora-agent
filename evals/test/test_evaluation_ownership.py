@@ -172,6 +172,30 @@ def test_replayed_acquire_is_fenced_after_expiry_transfer(tmp_path) -> None:
     assert second.fencing_version > first.fencing_version
 
 
+def test_replayed_release_is_fenced_after_reacquisition(tmp_path) -> None:
+    clock = _clock()
+    path = tmp_path / "ownership.sqlite3"
+    store = _store(path, clock)
+
+    first = store.acquire(
+        run_id="run-release-replay",
+        owner_id="A",
+        lease_duration=timedelta(seconds=10),
+        operation_id="acquire-a",
+    )
+    store.release(first, operation_id="release-a")
+    second = store.acquire(
+        run_id="run-release-replay",
+        owner_id="B",
+        lease_duration=timedelta(seconds=10),
+        operation_id="acquire-b",
+    )
+
+    with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_FENCED"):
+        store.release(first, operation_id="release-a")
+    store.release(second, operation_id="release-b")
+
+
 def test_independent_processes_share_the_exclusive_lease(tmp_path) -> None:
     context = multiprocessing.get_context("spawn")
     path = tmp_path / "ownership.sqlite3"

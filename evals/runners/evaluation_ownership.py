@@ -279,7 +279,16 @@ class SqliteEvaluationOwnershipStore:
                 lease_duration=None,
             )
             if replay is not _NO_REPLAY:
-                return None
+                current = self._row(connection, capability.run_id)
+                if self._matches(current, capability, now):
+                    return None
+                if (
+                    current is not None
+                    and current[0] is None
+                    and int(current[1]) == capability.fencing_version
+                ):
+                    return None
+                raise EvaluationOwnershipError("EVALUATION_SEAL_FENCED")
             row = self._row(connection, capability.run_id)
             if not self._matches(row, capability, now):
                 error_code = "EVALUATION_SEAL_FENCED"
