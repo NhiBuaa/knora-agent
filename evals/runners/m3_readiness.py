@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import time
+import multiprocessing
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from math import isfinite
+from queue import Empty, Queue
+from threading import Event, Thread
 from time import perf_counter
 from typing import Protocol
 
@@ -21,6 +24,7 @@ from evals.runners.m3_bootstrap import (
 from evals.runners.milestone_3 import (
     EvaluationEnvironmentBinding,
     EvaluationEnvironmentSeal,
+    EvaluationLeaseHeartbeat,
     ObservationFailure,
     SourceBinding,
     validate_public_citation_aliases,
@@ -62,6 +66,157 @@ class ReadinessFailure(RuntimeError):
 
     def __str__(self) -> str:
         return f"readiness phase {self.phase} failed: {self.reason}"
+
+
+def _http_request_child(
+    method: str,
+    url: str,
+    timeout: float,
+    headers: dict[str, str] | None,
+    payload: dict[str, str] | None,
+    result_queue: object,
+) -> None:
+    try:
+        response = httpx.request(
+            method, url, timeout=timeout, headers=headers, json=payload
+        )
+        result_queue.put(
+            ("ok", response.status_code, dict(response.headers), response.content)
+        )
+    except Exception as error:
+        result_queue.put(("error", type(error).__name__, str(error)))
+
+
+@dataclass(slots=True)
+class _IsolatedHttpRequest:
+    method: str
+    url: str
+    timeout: float
+    headers: dict[str, str] | None = None
+    json: dict[str, str] | None = None
+    process: multiprocessing.Process | None = None
+    result_queue: object | None = None
+    cancelled: Event | None = None
+
+    def __post_init__(self) -> None:
+        self.cancelled = Event()
+
+    def __call__(self) -> httpx.Response:
+        assert self.cancelled is not None
+        if self.cancelled.is_set():
+            raise httpx.RequestError(
+                "request cancelled", request=httpx.Request(self.method, self.url)
+            )
+        context = multiprocessing.get_context("spawn")
+        self.result_queue = context.Queue()
+        self.process = context.Process(
+            target=_http_request_child,
+            args=(
+                self.method,
+                self.url,
+                self.timeout,
+                self.headers,
+                self.json,
+                self.result_queue,
+            ),
+        )
+        self.process.start()
+        try:
+            while True:
+                if self.cancelled.is_set():
+                    raise httpx.RequestError(
+                        "request cancelled", request=httpx.Request(self.method, self.url)
+                    )
+                try:
+                    result = self.result_queue.get(timeout=0.05)
+                except Empty:
+                    if not self.process.is_alive():
+                        raise httpx.RequestError(
+                            "request process exited without a response",
+                            request=httpx.Request(self.method, self.url),
+                        ) from None
+                    continue
+                if result[0] == "ok":
+                    return httpx.Response(
+                        result[1],
+                        headers=result[2],
+                        content=result[3],
+                        request=httpx.Request(self.method, self.url),
+                    )
+                raise httpx.RequestError(
+                    f"{result[1]}: {result[2]}",
+                    request=httpx.Request(self.method, self.url),
+                )
+        finally:
+            self._cleanup()
+
+    def cancel(self) -> None:
+        if self.cancelled is not None:
+            self.cancelled.set()
+        process = self.process
+        if process is not None and process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
+            if process.is_alive():
+                process.kill()
+                process.join()
+
+    def is_alive(self) -> bool:
+        return self.process is not None and self.process.is_alive()
+
+    def _cleanup(self) -> None:
+        process = self.process
+        if process is not None:
+            process.join(timeout=1)
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=5)
+            if process.is_alive():
+                process.kill()
+                process.join()
+        result_queue = self.result_queue
+        if result_queue is not None:
+            result_queue.close()
+            result_queue.join_thread()
+
+
+def _run_with_lease[ReadinessResult](
+    operation: Callable[[], ReadinessResult], heartbeat: EvaluationLeaseHeartbeat,
+    *,
+    cancel: Callable[[], None] | None = None,
+) -> ReadinessResult:
+    """Run one potentially blocking readiness operation while supervising lease loss."""
+    heartbeat.raise_if_failed()
+    result: Queue[tuple[ReadinessResult | None, BaseException | None]] = Queue(maxsize=1)
+
+    def invoke() -> None:
+        try:
+            result.put((operation(), None))
+        except BaseException as error:
+            result.put((None, error))
+
+    worker = Thread(target=invoke, name="m3-readiness-operation", daemon=True)
+    worker.start()
+    while worker.is_alive():
+        try:
+            heartbeat.raise_if_failed()
+        except ObservationFailure as lease_error:
+            if cancel is not None:
+                cancel()
+                worker.join(timeout=5)
+            else:
+                worker.join()
+            if worker.is_alive():
+                raise ReadinessFailure(
+                    "lease_supervision", "readiness operation cancellation did not complete"
+                ) from lease_error
+            raise
+        worker.join(timeout=0.05)
+    heartbeat.raise_if_failed()
+    value, error = result.get()
+    if error is not None:
+        raise error
+    return value  # type: ignore[return-value]
 
 
 def binding_from_corpus(
@@ -118,32 +273,64 @@ def run_readiness(
 ) -> ReadinessEvidence:
     phases: list[str] = ["dependency_startup"]
     result: BootstrapResult | None = None
+    heartbeat = None
     try:
         phases.append("bootstrap_closure_binding_snapshot")
         result = bootstrap.prepare(binding=binding, manifest=manifest, run_id="readiness")
+        heartbeat = seal.start_heartbeat()
+        heartbeat.raise_if_failed()
         inject_evaluation_runtime(result.credential, result.endpoint)
         phases.append("production_api_startup")
         launcher.start(
             startup_auth_config=result.credential.startup_config(), endpoint=result.endpoint
         )
+        heartbeat.raise_if_failed()
         health_endpoint = result.endpoint.rsplit("/v1/questions", 1)[0] + "/health"
         for _ in range(30):
+            health_request = _IsolatedHttpRequest("GET", health_endpoint, timeout=1)
             try:
-                if httpx.get(health_endpoint, timeout=1).status_code == 200:
+                health_response = _run_with_lease(
+                    health_request, heartbeat, cancel=health_request.cancel
+                )
+                if health_response.status_code == 200:
                     break
             except httpx.HTTPError:
                 pass
-            time.sleep(0.5)
+            finally:
+                health_request.cancel()
+            heartbeat.wait(0.5)
         else:
             raise ReadinessFailure("production_api_startup", "health endpoint did not become ready")
         phases.append("authenticated_question")
         request_started = perf_counter()
-        response = post_question(
-            result.endpoint,
-            headers={"X-API-Key": result.credential.raw_key},
-            json={"workspace_id": case.workspace_id, "question": case.question},
-            timeout=30,
-        )
+        transform_response = getattr(post_question, "transform_response", None)
+        if post_question is httpx.post or callable(transform_response):
+            question_request = _IsolatedHttpRequest(
+                "POST",
+                result.endpoint,
+                timeout=30,
+                headers={"X-API-Key": result.credential.raw_key},
+                json={"workspace_id": case.workspace_id, "question": case.question},
+            )
+            try:
+                response = _run_with_lease(
+                    question_request, heartbeat, cancel=question_request.cancel
+                )
+            finally:
+                question_request.cancel()
+            if callable(transform_response):
+                response = transform_response(response)
+        else:
+            response = _run_with_lease(
+                lambda: post_question(
+                    result.endpoint,
+                    headers={"X-API-Key": result.credential.raw_key},
+                    json={"workspace_id": case.workspace_id, "question": case.question},
+                    timeout=30,
+                ),
+                heartbeat,
+            )
+        heartbeat.raise_if_failed()
         response.raise_for_status()
         end_to_end_latency_ms = (perf_counter() - request_started) * 1000
         payload = response.json()
@@ -162,7 +349,11 @@ def run_readiness(
         if public.decision != case.expected_behavior:
             raise ReadinessFailure("trace_provenance_verification", "response behavior mismatch")
         phases.append("trace_provenance_verification")
-        trace = trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id)
+        trace = _run_with_lease(
+            lambda: trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id),
+            heartbeat,
+        )
+        heartbeat.raise_if_failed()
         if getattr(trace, "trace_id", None) != trace_id:
             raise ReadinessFailure("trace_provenance_verification", "trace identity mismatch")
         if getattr(trace, "workspace_id", None) != case.workspace_id:
@@ -223,10 +414,17 @@ def run_readiness(
             if isinstance(item, dict)
         )
         phases.append("post_run_closure_verification")
-        corpus = bootstrap._corpus_reader.read_active_corpus(
-            workspace_id=result.binding.workspace_id
+        corpus = _run_with_lease(
+            lambda: bootstrap._corpus_reader.read_active_corpus(
+                workspace_id=result.binding.workspace_id
+            ),
+            heartbeat,
         )
+        heartbeat.raise_if_failed()
         seal.verify_unchanged(binding=result.binding, corpus=corpus, manifest=manifest)
+        if heartbeat is not None:
+            heartbeat.stop()
+            heartbeat.raise_if_failed()
         return ReadinessEvidence(
             tuple(phases), result.binding.workspace_id, trace_id,
             len(trace.candidates), trace.retrieval_configuration_id,
@@ -257,9 +455,28 @@ def run_readiness(
         phase = phases[-1] if phases else "dependency_startup"
         raise ReadinessFailure(phase, type(error).__name__) from error
     finally:
+        primary_error = sys.exc_info()[1]
+        cleanup_errors: list[Exception] = []
+        if heartbeat is not None:
+            heartbeat.stop()
         stop = getattr(launcher, "stop", None)
         if stop is not None:
-            stop()
+            try:
+                stop()
+            except Exception as cleanup_error:
+                cleanup_errors.append(cleanup_error)
         if result is not None:
-            seal.release()
-        teardown_evaluation_runtime()
+            try:
+                seal.release()
+            except Exception as cleanup_error:
+                cleanup_errors.append(cleanup_error)
+        try:
+            teardown_evaluation_runtime()
+        except Exception as cleanup_error:
+            cleanup_errors.append(cleanup_error)
+        if cleanup_errors:
+            if primary_error is not None:
+                for cleanup_error in cleanup_errors:
+                    primary_error.add_note(f"readiness teardown failed: {cleanup_error}")
+            else:
+                raise cleanup_errors[0]

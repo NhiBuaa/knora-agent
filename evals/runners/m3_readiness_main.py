@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -24,6 +24,7 @@ from evals.datasets.milestone_3 import (  # noqa: E402, I001
     load_milestone_3_corpus_manifest,
     load_milestone_3_dataset,
 )
+from evals.runners.evaluation_ownership import SqliteEvaluationOwnershipStore  # noqa: E402
 from evals.runners.m3_bootstrap import (  # noqa: E402
     ProductionApiProcessLauncher,
     ProductionEvaluationWorkspaceProvisioner,
@@ -32,7 +33,7 @@ from evals.runners.m3_bootstrap import (  # noqa: E402
 )
 from evals.runners.m3_readiness import ReadinessFailure, run_readiness  # noqa: E402
 from evals.runners.milestone_3 import EvaluationEnvironmentBinding, EvaluationEnvironmentSeal  # noqa: E402
-from sqlalchemy import create_engine, text  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402
 
 from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader  # noqa: E402
@@ -119,7 +120,9 @@ class ResponseFaultInjectingPost:
         self._mode = mode
 
     def __call__(self, url: str, **kwargs: object) -> httpx.Response:
-        response = self._post(url, **kwargs)
+        return self.transform_response(self._post(url, **kwargs))
+
+    def transform_response(self, response: httpx.Response) -> httpx.Response:
         if self._mode == "none":
             return response
         payload = response.json()
@@ -138,58 +141,6 @@ class ResponseFaultInjectingPost:
             json=malformed,
             request=response.request,
         )
-
-
-class PostgresEvaluationOwnershipProbe:
-    """Hold a PostgreSQL session-level advisory lock for one evaluation run."""
-
-    def __init__(self, engine) -> None:
-        self._engine = engine
-        self._connection = None
-        self._lock_key: int | None = None
-
-    def __call__(self, run_id: str) -> bool:
-        if not run_id or self._connection is not None:
-            return False
-        connection = self._engine.connect()
-        lock_key = int.from_bytes(
-            hashlib.sha256(b"knora-m3-evaluation-seal").digest()[:8],
-            byteorder="big",
-            signed=True,
-        )
-        try:
-            acquired = bool(
-                connection.execute(
-                    text("SELECT pg_try_advisory_lock(:lock_key)"),
-                    {"lock_key": lock_key},
-                ).scalar()
-            )
-            connection.commit()
-        except Exception:
-            connection.close()
-            raise
-        if not acquired:
-            connection.close()
-            return False
-        self._connection = connection
-        self._lock_key = lock_key
-        return True
-
-    def release(self) -> None:
-        connection = self._connection
-        self._connection = None
-        lock_key = self._lock_key
-        self._lock_key = None
-        if connection is None:
-            return
-        try:
-            connection.execute(
-                text("SELECT pg_advisory_unlock(:lock_key)"),
-                {"lock_key": lock_key},
-            )
-            connection.commit()
-        finally:
-            connection.close()
 
 
 def _migration(topology: RuntimeTopology) -> None:
@@ -363,7 +314,15 @@ def main() -> int:
             embedding_configuration_id=providers.embedding_configuration.id,
         )
         reader = PostgresEvaluationReader(session_factory)
-        seal = EvaluationEnvironmentSeal(ownership_probe=PostgresEvaluationOwnershipProbe(engine))
+        ownership_path = Path(
+            os.environ.get(
+                "KNORA_M3_OWNERSHIP_STORE",
+                str(Path(tempfile.gettempdir()) / f"{args.project}-ownership.sqlite3"),
+            )
+        )
+        seal = EvaluationEnvironmentSeal(
+            ownership_store=SqliteEvaluationOwnershipStore(path=ownership_path)
+        )
         from evals.runners.m3_bootstrap import EvaluationEnvironmentBootstrap
         bootstrap = EvaluationEnvironmentBootstrap(
             workspace_provisioner=gateway, corpus_reader=reader, seal=seal,

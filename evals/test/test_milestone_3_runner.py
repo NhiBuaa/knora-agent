@@ -8,6 +8,7 @@ from evals.datasets.milestone_3 import (
     Milestone3Case,
     RetrievalRelevance,
 )
+from evals.runners.evaluation_ownership import SqliteEvaluationOwnershipStore
 from evals.runners.milestone_3 import (
     CanonicalChunkReference,
     EvaluationEnvironmentBinding,
@@ -98,14 +99,21 @@ def test_corpus_closure_requires_exact_active_source_set_and_bound_version() -> 
         verify_corpus_closure(binding=_binding(), corpus=_corpus(extra=True), manifest=_manifest())
 
 
-def test_seal_captures_snapshot_only_after_exclusive_acquire_and_detects_drift() -> None:
-    seal = EvaluationEnvironmentSeal(ownership_probe=lambda run_id: run_id == "run-1")
-    with pytest.raises(ObservationFailure, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
-        seal.acquire(run_id="run-2")
+def test_seal_captures_snapshot_only_after_exclusive_acquire_and_detects_drift(tmp_path) -> None:
+    seal = EvaluationEnvironmentSeal(
+        ownership_store=SqliteEvaluationOwnershipStore(path=tmp_path / "ownership.sqlite3"),
+        owner_id="runner",
+    )
     with pytest.raises(ObservationFailure, match="EVALUATION_SEAL_REQUIRED"):
         seal.capture_preflight(binding=_binding(), corpus=_corpus(), manifest=_manifest())
 
     seal.acquire(run_id="run-1")
+    with pytest.raises(ObservationFailure, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
+        EvaluationEnvironmentSeal(
+            ownership_store=SqliteEvaluationOwnershipStore(path=tmp_path / "ownership.sqlite3"),
+            owner_id="other",
+        ).acquire(run_id="run-1")
+
     environment = seal.capture_preflight(
         binding=_binding(), corpus=_corpus(), manifest=_manifest()
     )
@@ -114,23 +122,6 @@ def test_seal_captures_snapshot_only_after_exclusive_acquire_and_detects_drift()
     with pytest.raises(ObservationFailure, match="EVALUATION_ENVIRONMENT_DRIFT"):
         seal.verify_unchanged(binding=_binding(), corpus=_corpus(extra=True), manifest=_manifest())
     seal.release()
-
-
-def test_seal_releases_external_ownership_probe() -> None:
-    events: list[str] = []
-
-    class Owner:
-        def __call__(self, run_id: str) -> bool:
-            events.append(f"acquire:{run_id}")
-            return True
-
-        def release(self) -> None:
-            events.append("release")
-
-    seal = EvaluationEnvironmentSeal(ownership_probe=Owner())
-    seal.acquire(run_id="run-1")
-    seal.release()
-    assert events == ["acquire:run-1", "release"]
 
 
 def test_metric_contract_uses_scoped_canonical_identity_and_uncut_mrr() -> None:
