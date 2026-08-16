@@ -32,6 +32,7 @@ def _binding():
         chunk_set_provenance_id="set-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
         source_bindings=(SourceBinding("support/a", "version-1", "set-1"),),
     )
 
@@ -48,6 +49,7 @@ def _corpus():
         workspace_id="workspace",
         documents=(SimpleNamespace(
             source_key="support/a", document_version_id="version-1", chunk_set_id="set-1",
+            embedding_configuration_id="embedding-local-m1-v2",
             chunk_references=("support/a#0",),
         ),),
     )
@@ -86,7 +88,44 @@ def test_bootstrap_acquires_seal_before_authoritative_preflight(tmp_path: Path):
     assert events == ["workspace", "closure"]
     assert seal.ownership_snapshot().owner_id == "bootstrap"
     assert result.endpoint.endswith("/v1/questions")
+    assert result.binding.embedding_configuration_id == "embedding-local-m1-v2"
     seal.release()
+
+
+def test_bootstrap_releases_ownership_when_embedding_preflight_fails(tmp_path: Path) -> None:
+    path = tmp_path / "ownership.sqlite3"
+    bad_corpus = SimpleNamespace(
+        workspace_id="workspace",
+        documents=(SimpleNamespace(
+            source_key="support/a",
+            document_version_id="version-1",
+            chunk_set_id="set-1",
+            embedding_configuration_id="embedding-other",
+            chunk_references=("support/a#0",),
+        ),),
+    )
+    seal = EvaluationEnvironmentSeal(
+        ownership_store=SqliteEvaluationOwnershipStore(path=path), owner_id="first"
+    )
+    bootstrap = EvaluationEnvironmentBootstrap(
+        workspace_provisioner=SimpleNamespace(
+            provision_or_reuse=lambda **kwargs: "workspace",
+            materialize_corpus=lambda **kwargs: None,
+        ),
+        corpus_reader=SimpleNamespace(read_active_corpus=lambda **kwargs: bad_corpus),
+        seal=seal,
+        endpoint="http://127.0.0.1:8000/v1/questions",
+    )
+
+    with pytest.raises(ObservationFailure, match="EVALUATION_ENVIRONMENT_BINDING_MISMATCH"):
+        bootstrap.prepare(binding=_binding(), manifest=_manifest(), run_id="run-1")
+
+    second = EvaluationEnvironmentSeal(
+        ownership_store=SqliteEvaluationOwnershipStore(path=path), owner_id="second"
+    )
+    capability = second.acquire(run_id="run-1")
+    assert capability.fencing_version == 2
+    second.release()
 
 
 def test_bootstrap_releases_ownership_when_binding_preflight_fails(tmp_path: Path):
@@ -109,6 +148,7 @@ def test_bootstrap_releases_ownership_when_binding_preflight_fails(tmp_path: Pat
         chunk_set_provenance_id="set-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
         source_bindings=(),
     )
 

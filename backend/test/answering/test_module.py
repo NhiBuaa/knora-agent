@@ -162,6 +162,19 @@ class InvalidAliasGenerator:
         )
 
 
+class InvalidAnswerTypeGenerator:
+    async def generate(self, *, question, evidence):
+        return GenerationResult(
+            decision="ANSWER",
+            answer=123,
+            cited_evidence_ids=("E1",),
+            refusal_reason=None,
+            provider="deterministic-local",
+            model="controlled-test",
+            prompt_version="test-v1",
+        )
+
+
 class RefusalGenerator:
     async def generate(self, *, question, evidence):
         return GenerationResult(
@@ -248,32 +261,37 @@ async def test_answer_projects_citations_in_first_marker_order() -> None:
     ]
     assert store.traces[0].alias_mapping == {"E1": "chunk-1", "E2": "chunk-2"}
     assert store.traces[0].validation_outcome == "valid"
-    assert store.traces[0].provider_metadata == {
-        "retrieval": {"latency_ms": pytest.approx(0.0, abs=1000.0)},
-        "embedding": {
-            "provider": "deterministic-local",
-            "model": "text-embedding-3-small",
-            "provider_request_id": "embedding-request-1",
-            "usage": {"prompt_tokens": 4, "total_tokens": 4},
-            "cost": {
-                "amount_usd": "0.00000008",
-                "currency": "USD",
-                "pricing_version": "test-pricing-v1",
-            },
+    metadata = store.traces[0].provider_metadata
+    assert metadata["retrieval"] == {"latency_ms": pytest.approx(0.0, abs=1000.0)}
+    assert metadata["embedding"] == {
+        "provider": "deterministic-local",
+        "model": "text-embedding-3-small",
+        "provider_request_id": "embedding-request-1",
+        "usage": {"prompt_tokens": 4, "total_tokens": 4},
+        "cost": {
+            "amount_usd": "0.00000008",
+            "currency": "USD",
+            "pricing_version": "test-pricing-v1",
         },
-        "generation": {
-            "provider": "deterministic-local",
-            "model": "controlled-test",
-            "prompt_version": "test-v1",
-            "finish_reason": "stop",
-            "provider_request_id": "generation-request-1",
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-            "cost": {
-                "amount_usd": "0.00002",
-                "currency": "USD",
-                "pricing_version": "test-pricing-v1",
-            },
+    }
+    assert metadata["generation"] == {
+        "provider": "deterministic-local",
+        "model": "controlled-test",
+        "prompt_version": "test-v1",
+        "finish_reason": "stop",
+        "provider_request_id": "generation-request-1",
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        "cost": {
+            "amount_usd": "0.00002",
+            "currency": "USD",
+            "pricing_version": "test-pricing-v1",
         },
+    }
+    assert set(metadata["timing"]["phases"]) == {
+        "query_embedding",
+        "candidate_retrieval",
+        "evidence_selection",
+        "generation",
     }
 
 
@@ -298,7 +316,27 @@ async def test_invalid_generation_is_traced_then_raises_explicit_error() -> None
 
 
 @pytest.mark.asyncio
-async def test_valid_provider_refusal_uses_application_message_and_persists_generation() -> None:
+async def test_invalid_generation_type_is_traced_then_raises_explicit_error() -> None:
+    store = CandidateStore(candidates=(retrieval_candidate("chunk-1", 0),))
+    service = AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=InvalidAnswerTypeGenerator(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    with pytest.raises(Exception, match="GENERATION_OUTPUT_INVALID"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="What is the refund policy?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert store.traces[0].validation_outcome == "invalid"
+    assert store.traces[0].parsed_markers == ()
+
+
+@pytest.mark.asyncio
+async def test_valid_provider_refusal_uses_nullable_public_answer_and_persists_generation() -> None:
     store = CandidateStore(candidates=(retrieval_candidate("chunk-1", 0),))
     service = AnswerQuestion(
         embedding_provider=QueryEmbeddingProvider(),
@@ -315,7 +353,7 @@ async def test_valid_provider_refusal_uses_application_message_and_persists_gene
     assert result.decision == "REFUSAL"
     assert result.refusal_reason == "INSUFFICIENT_EVIDENCE"
     assert result.citations == ()
-    assert "knowledge base" in result.answer
+    assert result.answer is None
     assert store.traces[0].generation_status == "completed"
     assert store.traces[0].validation_outcome == "valid"
 

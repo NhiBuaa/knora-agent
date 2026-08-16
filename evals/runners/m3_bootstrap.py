@@ -8,7 +8,7 @@ import secrets
 import socket
 import subprocess
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -175,6 +175,29 @@ class EvaluationEnvironmentBootstrap:
             self._seal.acquire(run_id=run_id)
             acquired = True
             corpus = self._corpus_reader.read_active_corpus(workspace_id=workspace_id)
+            corpus_embedding_configuration_ids = {
+                item
+                for item in (
+                    getattr(document, "embedding_configuration_id", None)
+                    for document in getattr(corpus, "documents", ())
+                )
+                if isinstance(item, str) and item
+            }
+            if (
+                not corpus_embedding_configuration_ids
+                or len(corpus_embedding_configuration_ids) > 1
+            ):
+                raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+            corpus_embedding_configuration_id = next(iter(corpus_embedding_configuration_ids))
+            if (
+                binding.embedding_configuration_id is not None
+                and binding.embedding_configuration_id != corpus_embedding_configuration_id
+            ):
+                raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_MISMATCH")
+            binding = replace(
+                binding,
+                embedding_configuration_id=corpus_embedding_configuration_id,
+            )
             if not binding.source_bindings:
                 expected_sources = {reference.rsplit("#", 1)[0] for reference in manifest.chunks}
                 documents = getattr(corpus, "documents", ())
@@ -186,6 +209,7 @@ class EvaluationEnvironmentBootstrap:
                     chunk_set_provenance_id=binding.chunk_set_provenance_id,
                     workspace_id=binding.workspace_id,
                     retrieval_configuration_id=binding.retrieval_configuration_id,
+                    embedding_configuration_id=binding.embedding_configuration_id,
                     source_bindings=tuple(
                         SourceBinding(
                             source_key=item.source_key,

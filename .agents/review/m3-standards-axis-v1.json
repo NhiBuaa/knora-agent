@@ -1,0 +1,47 @@
+{
+  "status": "completed",
+  "axis": "standards",
+  "findings": [
+    {
+      "severity": "major",
+      "location": "backend/src/knora/answering/stores.py:118-136; backend/src/knora/answering/module.py:255-274",
+      "evidence": "QuestionTraceRecord has no branch-observation field; _trace persists only candidate_decisions derived from EvidenceSelection. PostgresAnsweringStore filters vector candidates with distance <= 1 - min_similarity and FTS candidates with @@ before returning them, without persisting BELOW_THRESHOLD/INELIGIBLE observations.",
+      "problem": "The required trace contract says branch observations are separate from fused outcomes, with vector ELIGIBLE/BELOW_THRESHOLD/no contribution and FTS ELIGIBLE/INELIGIBLE/no contribution. The implementation drops every pre-fusion loss and cannot distinguish no contribution from threshold/ineligibility.",
+      "harm": "Evaluation and failure taxonomy cannot attribute lexical/semantic branch misses or prove that only eligible contributions entered fusion; pre-fusion retrieval behavior is not reproducible from the persisted observation.",
+      "fix": "Add a typed, versioned branch-observation collection to the trace contract and persist one observation per branch/candidate outcome before fusion; keep pre-fusion losses out of fused candidate decisions."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/milestone_3.py:413-426",
+      "evidence": "_validate_public_citation_aliases builds candidate_ids from every trace candidate and accepts an alias when it maps to any candidate; it never checks the candidate fused final_decision/selection status.",
+      "problem": "The acceptance seam validates public aliases against the entire fused candidate set, not the selected Evidence Set.",
+      "harm": "A response citing a retrieved-but-excluded chunk can pass deterministic citation validation, violating the no-citation-outside-Evidence-Set hard gate and contaminating citation/refusal guardrail results.",
+      "fix": "Project final decision/selection status into the trace reader and require every cited alias to map one-to-one to a SELECTED candidate; reject excluded candidates and duplicate chunk mappings."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/milestone_3.py:546-580",
+      "evidence": "build_report emits only metric-contract/binding provenance, retrieval metrics, and status/latency observations. M3Observation stores no public decision/refusal result, citation correctness, or scorer/generation/Git/artifact provenance.",
+      "problem": "The canonical M3 report path does not produce the required refusal_correctness metric, deterministic/public citation correctness metric, category breakdowns, or immutable reproducibility metadata.",
+      "harm": "A report can claim a paired retrieval result without measuring the required citation/refusal guardrails or retaining enough metadata to reproduce the run, so improvement gating is unsound even if retrieval scores are valid.",
+      "fix": "Extend M3Observation and build_report to persist public decision/answer/citations, refusal and deterministic citation outcomes, category aggregates, and complete immutable dataset/corpus/retrieval/generation/scorer/Git/artifact metadata; fail closed when any required field is absent."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/milestone_3_comparison.py:105-108",
+      "evidence": "select_improvement defaults hybrid_report.get('guardrails', {}) and computes all(value is True for value in guardrails.values()). With no guardrails key, guardrails_pass is True.",
+      "problem": "Missing citation/refusal/structural guardrails are treated as passing because all([]) is true.",
+      "harm": "The improvement record can be selected without proving required guardrails or detecting regressions, directly violating the pre-declared improvement gate.",
+      "fix": "Require a closed set of required guardrail keys, validate each is present and boolean, compare baseline/hybrid guardrail values under the declared policy, and treat missing/invalid guardrails as GUARDRAIL_FAILURE."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/m3_readiness_main.py:129-133; evals/runners/milestone_3.py:234-248",
+      "evidence": "The canonical readiness composition passes ownership_probe=lambda run_id: True. EvaluationEnvironmentSeal only stores ownership in process-local self._sealed; two independent seal instances can both acquire the same run_id.",
+      "problem": "The sealed evaluation environment has no real inter-process/exclusive ownership check or lock.",
+      "harm": "Concurrent runs or actors can mutate/reuse the supposedly sealed corpus/configuration, invalidating provenance and paired metric comparisons while readiness still reports a valid seal.",
+      "fix": "Use a durable/OS-level exclusive run lease or topology-backed ownership probe with fencing/expiry, and fail before Q&A when acquisition is not exclusive; do not wire an unconditional lambda True."
+    }
+  ],
+  "report": "Five major Standards-axis findings; no critical findings. Review was read-only and covered the pinned diff against AGENTS.md, CONTEXT.md, docs/standards/architecture.md, and Milestone 1/2 module-seam standards."
+}

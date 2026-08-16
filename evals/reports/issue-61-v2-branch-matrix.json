@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "report_id": "issue-61-v2-branch-matrix",
+  "guide_revision": "m3-remediation-61-v4",
+  "workspace_id": "evaluation-m3-v1",
+  "retrieval_configuration_id": "retrieval-m3-rrf-v2",
+  "trace_ids": [
+    "217ae29e-fcac-4257-ad28-37ab9d7bfa8a",
+    "e01ca4bf-21a6-445d-ac5d-4066cb920f55",
+    "f13ffbf1-8b0c-4ff8-8adb-d5f953a5b497",
+    "02ea24b0-80ea-42e7-a4c5-aee10c1a3d97"
+  ],
+  "matrix": [
+    {
+      "pair": [
+        "ELIGIBLE",
+        "ELIGIBLE"
+      ],
+      "trace_id": "217ae29e-fcac-4257-ad28-37ab9d7bfa8a",
+      "chunk_id": "6d12e972-3a71-4e8d-b283-19023a7e0e9c",
+      "fused": true,
+      "vector_contribution": true,
+      "fts_contribution": true
+    },
+    {
+      "pair": [
+        "BELOW_THRESHOLD",
+        "ELIGIBLE"
+      ],
+      "trace_id": "f13ffbf1-8b0c-4ff8-8adb-d5f953a5b497",
+      "chunk_id": "d909904b-1389-4e32-8477-924d5efdfb21",
+      "fused": true,
+      "vector_contribution": false,
+      "fts_contribution": true
+    },
+    {
+      "pair": [
+        "ELIGIBLE",
+        "INELIGIBLE"
+      ],
+      "trace_id": "e01ca4bf-21a6-445d-ac5d-4066cb920f55",
+      "chunk_id": "545486ac-7362-4399-b10f-a886b6faf499",
+      "fused": true,
+      "vector_contribution": true,
+      "fts_contribution": false
+    },
+    {
+      "pair": [
+        "BELOW_THRESHOLD",
+        "INELIGIBLE"
+      ],
+      "trace_id": "e01ca4bf-21a6-445d-ac5d-4066cb920f55",
+      "chunk_id": "6d12e972-3a71-4e8d-b283-19023a7e0e9c",
+      "fused": false,
+      "vector_contribution": false,
+      "fts_contribution": false
+    }
+  ],
+  "assertions": {
+    "all_traces_accepted_by_postgres_evaluation_reader": true,
+    "branch_records_omit_final_rank_and_fusion_score": true,
+    "fused_records_have_final_rank_and_fusion_score": true,
+    "fused_records_have_at_least_one_eligible_contribution": true,
+    "ineligible_or_no_contribution_records_not_fabricated_as_fused": true,
+    "tc_61_01_complete": true
+  },
+  "source": "PostgresEvaluationReader.read_trace against the running issue61-m3-v2-cutover PostgreSQL container"
+}
+

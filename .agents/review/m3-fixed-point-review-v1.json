@@ -1,0 +1,28 @@
+{
+  "status": "completed",
+  "pass": false,
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 14,
+  "fixed_point": {
+    "base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "merge_base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "head_commit": "511023428202e77e2e981dc8f25ab191cb3c86ab",
+    "merge_base_semantics": true,
+    "diff_command": "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..511023428202e77e2e981dc8f25ab191cb3c86ab",
+    "commit_count": 35
+  },
+  "axis_artifacts": {
+    "standards": ".agents/review/m3-standards-axis-v1.json",
+    "spec": ".agents/review/m3-spec-axis-v1.json"
+  },
+  "finding_summary": [
+    "Persist branch-local vector/FTS observations separately from fused candidates.",
+    "Reject public citations that map to excluded fused candidates rather than selected Evidence Set members.",
+    "Generate refusal/citation/category/latency guardrails and complete immutable report provenance.",
+    "Fail closed on missing guardrails and incomplete paired provenance.",
+    "Persist lexical policy observations and enforce exclusive evaluation-environment ownership.",
+    "Include evidence-selection time in retrieval latency and preserve the locked decision_reason taxonomy."
+  ],
+  "report": "REQUEST_CHANGES: 14 Major findings, zero Critical findings, plus one Minor finding. The review is read-only; remediation requires a separate approved implementation workflow."
+}

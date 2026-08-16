@@ -6,6 +6,7 @@ import multiprocessing
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from math import isfinite
 from queue import Empty, Queue
 from threading import Event, Thread
 from time import perf_counter
@@ -26,6 +27,8 @@ from evals.runners.milestone_3 import (
     EvaluationLeaseHeartbeat,
     ObservationFailure,
     SourceBinding,
+    validate_public_citation_aliases,
+    validate_public_response,
 )
 
 
@@ -48,6 +51,12 @@ class ReadinessEvidence:
     semantic_input: dict[str, object]
     retrieval_provenance: dict[str, object]
     active_corpus: tuple[dict[str, object], ...]
+    candidate_decisions: tuple[dict[str, object], ...]
+    branch_observations: tuple[dict[str, object], ...]
+    decision: str
+    answer: str | None
+    refusal_reason: str | None
+    parsed_markers: tuple[str, ...]
 
 
 @dataclass(slots=True)
@@ -225,12 +234,28 @@ def binding_from_corpus(
         )
         for item in sorted(documents, key=lambda value: value.source_key)
     )
+    embedding_configuration_ids = {
+        item
+        for item in (
+            getattr(document, "embedding_configuration_id", None)
+            for document in documents
+        )
+        if isinstance(item, str) and item
+    }
+    if len(embedding_configuration_ids) > 1:
+        raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
+    embedding_configuration_id = (
+        next(iter(embedding_configuration_ids))
+        if embedding_configuration_ids
+        else base.embedding_configuration_id
+    )
     return EvaluationEnvironmentBinding(
         dataset_manifest_identity=base.dataset_manifest_identity,
         corpus_manifest_identity=manifest.version,
         chunk_set_provenance_id=manifest.chunk_set_id,
         workspace_id=base.workspace_id,
         retrieval_configuration_id=base.retrieval_configuration_id,
+        embedding_configuration_id=embedding_configuration_id,
         source_bindings=bindings,
     )
 
@@ -244,6 +269,7 @@ def run_readiness(
     trace_reader: TraceReader,
     seal: EvaluationEnvironmentSeal,
     launcher: ProductionRuntimeLauncher,
+    post_question: Callable[..., httpx.Response] = httpx.post,
 ) -> ReadinessEvidence:
     phases: list[str] = ["dependency_startup"]
     result: BootstrapResult | None = None
@@ -277,28 +303,51 @@ def run_readiness(
             raise ReadinessFailure("production_api_startup", "health endpoint did not become ready")
         phases.append("authenticated_question")
         request_started = perf_counter()
-        question_request = _IsolatedHttpRequest(
-            "POST",
-            result.endpoint,
-            timeout=30,
-            headers={"X-API-Key": result.credential.raw_key},
-            json={"workspace_id": case.workspace_id, "question": case.question},
-        )
-        try:
-            response = _run_with_lease(
-                question_request, heartbeat, cancel=question_request.cancel
+        transform_response = getattr(post_question, "transform_response", None)
+        if post_question is httpx.post or callable(transform_response):
+            question_request = _IsolatedHttpRequest(
+                "POST",
+                result.endpoint,
+                timeout=30,
+                headers={"X-API-Key": result.credential.raw_key},
+                json={"workspace_id": case.workspace_id, "question": case.question},
             )
-        finally:
-            question_request.cancel()
+            try:
+                response = _run_with_lease(
+                    question_request, heartbeat, cancel=question_request.cancel
+                )
+            finally:
+                question_request.cancel()
+            if callable(transform_response):
+                response = transform_response(response)
+        else:
+            response = _run_with_lease(
+                lambda: post_question(
+                    result.endpoint,
+                    headers={"X-API-Key": result.credential.raw_key},
+                    json={"workspace_id": case.workspace_id, "question": case.question},
+                    timeout=30,
+                ),
+                heartbeat,
+            )
         heartbeat.raise_if_failed()
         response.raise_for_status()
         end_to_end_latency_ms = (perf_counter() - request_started) * 1000
         payload = response.json()
         trace_id = payload.get("trace_id")
-        if not isinstance(trace_id, str) or payload.get(
-            "workspace_id", case.workspace_id
-        ) != case.workspace_id:
+        response_workspace_id = payload.get("workspace_id")
+        if (
+            not isinstance(trace_id, str)
+            or not isinstance(response_workspace_id, str)
+            or response_workspace_id != case.workspace_id
+        ):
             raise ReadinessFailure("authenticated_question", "response correlation invalid")
+        try:
+            public = validate_public_response(payload)
+        except ObservationFailure as error:
+            raise ReadinessFailure("trace_provenance_verification", str(error)) from error
+        if public.decision != case.expected_behavior:
+            raise ReadinessFailure("trace_provenance_verification", "response behavior mismatch")
         phases.append("trace_provenance_verification")
         trace = _run_with_lease(
             lambda: trace_reader.read_trace(trace_id=trace_id, workspace_id=case.workspace_id),
@@ -307,6 +356,8 @@ def run_readiness(
         heartbeat.raise_if_failed()
         if getattr(trace, "trace_id", None) != trace_id:
             raise ReadinessFailure("trace_provenance_verification", "trace identity mismatch")
+        if getattr(trace, "workspace_id", None) != case.workspace_id:
+            raise ReadinessFailure("trace_provenance_verification", "trace workspace mismatch")
         if (
             getattr(trace, "retrieval_configuration_id", None)
             != result.binding.retrieval_configuration_id
@@ -314,6 +365,19 @@ def run_readiness(
             raise ReadinessFailure(
                 "trace_provenance_verification", "retrieval configuration mismatch"
             )
+        if getattr(trace, "embedding_configuration_id", None) != (
+            result.binding.embedding_configuration_id
+        ):
+            raise ReadinessFailure(
+                "trace_provenance_verification", "embedding configuration mismatch"
+            )
+        if (
+            getattr(trace, "decision", None) != public.decision
+            or getattr(trace, "answer", None) != public.answer
+            or getattr(trace, "refusal_reason", None) != public.refusal_reason
+            or tuple(getattr(trace, "parsed_markers", ())) != public.answer_marker_ids
+        ):
+            raise ReadinessFailure("trace_provenance_verification", "response trace mismatch")
         for candidate in getattr(trace, "candidates", ()):
             source = result.binding.source_binding(candidate.source_key)
             if (candidate.document_version_id, candidate.chunk_set_id) != (
@@ -322,6 +386,22 @@ def run_readiness(
                 raise ReadinessFailure(
                     "trace_provenance_verification", "candidate binding mismatch"
                 )
+        try:
+            validate_public_citation_aliases(
+                citation_ids=public.citation_evidence_ids,
+                alias_mapping=getattr(trace, "alias_mapping", None),
+                candidates=getattr(trace, "candidates", ()),
+            )
+        except ObservationFailure as error:
+            raise ReadinessFailure("trace_provenance_verification", str(error)) from error
+        retrieval_latency_ms = getattr(trace, "retrieval_latency_ms", None)
+        if (
+            isinstance(retrieval_latency_ms, bool)
+            or not isinstance(retrieval_latency_ms, (int, float))
+            or not isfinite(float(retrieval_latency_ms))
+            or retrieval_latency_ms < 0
+        ):
+            raise ReadinessFailure("trace_provenance_verification", "retrieval latency invalid")
         citations = payload.get("citations", [])
         citation_matrix = tuple(
             (
@@ -349,7 +429,7 @@ def run_readiness(
             tuple(phases), result.binding.workspace_id, trace_id,
             len(trace.candidates), trace.retrieval_configuration_id,
             len(result.binding.source_bindings),
-            float(trace.retrieval_latency_ms), end_to_end_latency_ms,
+            float(retrieval_latency_ms), end_to_end_latency_ms,
             tuple((candidate.source_key, candidate.document_version_id, candidate.chunk_set_id)
                   for candidate in trace.candidates),
             citation_matrix,
@@ -361,7 +441,13 @@ def run_readiness(
                 "chunk_set_id": item.chunk_set_id,
                 "chunk_count": len(item.chunk_references),
                 "embedding_configuration_id": item.embedding_configuration_id,
-            } for item in corpus.documents),
+             } for item in corpus.documents),
+            tuple(dict(item) for item in getattr(trace, "candidate_decisions", ())),
+            tuple(dict(item) for item in getattr(trace, "branch_observations", ())),
+            str(getattr(trace, "decision", "")),
+            getattr(trace, "answer", None),
+            getattr(trace, "refusal_reason", None),
+            tuple(str(item) for item in getattr(trace, "parsed_markers", ())),
         )
     except ReadinessFailure:
         raise

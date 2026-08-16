@@ -86,6 +86,66 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
 
 
 @pytest.mark.asyncio
+async def test_evaluation_reader_rejects_unresolvable_branch_observation_identity() -> None:
+    workspace_id = f"evaluation-reader-branch-{uuid4()}"
+    content = b"Refund requests are accepted within 30 days."
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="Evaluation Branch Reader"))
+    IngestDocument(
+        processor=DocumentProcessor(),
+        embedding_provider=DeterministicEmbeddingProvider(),
+        store=PostgresIngestionStore(SessionFactory),
+    ).execute(
+        IngestDocumentCommand(
+            workspace_id=workspace_id,
+            source_key="support/refund-policy",
+            source_name="refund-policy.txt",
+            media_type="text/plain",
+            raw_content=content,
+            chunking_configuration=ChunkingConfiguration.milestone_one(),
+            embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        ),
+        WorkspacePrincipal(workspace_id=workspace_id, key_id="test"),
+    )
+    result = await AnswerQuestion(
+        embedding_provider=DeterministicEmbeddingProvider(),
+        generation_provider=DeterministicGenerationProvider(),
+        store=PostgresAnsweringStore(SessionFactory),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    ).execute(
+        QuestionCommand(workspace_id=workspace_id, question=content.decode()),
+        WorkspacePrincipal(workspace_id=workspace_id, key_id="test"),
+    )
+
+    with SessionFactory.begin() as session:
+        trace = session.get(QuestionTraceTable, result.trace_id)
+        assert trace is not None
+        branch_observations = list(trace.branch_observations)
+        branch_observations.append(
+            {
+                "schema_version": 1,
+                "branch": "vector",
+                "status": "NO_CONTRIBUTION",
+                "chunk_id": "fabricated-branch-chunk",
+                "branch_rank": None,
+                "cosine_distance": None,
+                "similarity": None,
+                "native_rank": None,
+                "lexical_policy_id": None,
+                "normalized_lexemes": [],
+                "omitted_lexemes": [],
+            }
+        )
+        trace.branch_observations = branch_observations
+
+    with pytest.raises(LookupError, match="evaluation branch candidate not found"):
+        PostgresEvaluationReader(SessionFactory).read_trace(
+            trace_id=result.trace_id,
+            workspace_id=workspace_id,
+        )
+
+
+@pytest.mark.asyncio
 async def test_evaluation_reader_rejects_cross_workspace_candidate_reference() -> None:
     owner_workspace_id = f"evaluation-reader-owner-{uuid4()}"
     foreign_workspace_id = f"evaluation-reader-foreign-{uuid4()}"
@@ -130,6 +190,8 @@ async def test_evaluation_reader_rejects_cross_workspace_candidate_reference() -
         embedding_set_ids = list(foreign_trace.embedding_set_ids)
         chunk_set_ids = list(foreign_trace.chunk_set_ids)
         retrieved_chunk_ids = list(foreign_trace.retrieved_chunk_ids)
+        branch_observations = list(foreign_trace.branch_observations)
+        provider_metadata = dict(foreign_trace.provider_metadata)
 
     owner_trace_id = str(uuid4())
     with SessionFactory.begin() as session:
@@ -151,12 +213,13 @@ async def test_evaluation_reader_rejects_cross_workspace_candidate_reference() -
                 alias_mapping={},
                 parsed_markers=[],
                 validation_outcome="valid",
-                provider_metadata={},
-                latency_ms=0,
-            )
+                    provider_metadata=provider_metadata,
+                    latency_ms=0,
+                    branch_observations=branch_observations,
+                )
         )
 
-    with pytest.raises(LookupError, match="evaluation candidate not found"):
+    with pytest.raises(LookupError, match="evaluation trace provenance is invalid"):
         PostgresEvaluationReader(SessionFactory).read_trace(
             trace_id=owner_trace_id,
             workspace_id=owner_workspace_id,

@@ -53,6 +53,7 @@ class RecordingAnswerQuestion:
             ),
             refusal_reason=None,
             trace_id="trace-1",
+            workspace_id="workspace-a",
         )
 
 
@@ -82,6 +83,7 @@ class LegacyCitationService:
             ),
             refusal_reason=None,
             trace_id="trace-legacy",
+            workspace_id="workspace-a",
         )
 
 
@@ -140,6 +142,7 @@ def test_question_http_contract_projects_validated_citations() -> None:
 
     assert response.status_code == 200
     assert response.json() == {
+        "workspace_id": "workspace-a",
         "decision": "ANSWER",
         "answer": "Refunds are available for thirty days. [[E1]]",
         "citations": [
@@ -242,7 +245,7 @@ def test_invalid_generation_maps_to_explicit_http_502() -> None:
     assert response.json() == {"error": {"code": "GENERATION_OUTPUT_INVALID"}}
 
 
-def test_no_qualified_evidence_returns_deterministic_http_refusal() -> None:
+def test_no_qualified_evidence_returns_nullable_http_refusal() -> None:
     store = EmptyAnsweringStore()
     generation_provider = CountingGenerationProvider()
     service = AnswerQuestion(
@@ -260,8 +263,9 @@ def test_no_qualified_evidence_returns_deterministic_http_refusal() -> None:
 
     assert response.status_code == 200
     assert response.json() == {
+        "workspace_id": "workspace-a",
         "decision": "REFUSAL",
-        "answer": "Tôi không tìm thấy đủ thông tin trong knowledge base để trả lời câu hỏi này.",
+        "answer": None,
         "citations": [],
         "refusal_reason": "INSUFFICIENT_EVIDENCE",
         "trace_id": "trace-refusal",

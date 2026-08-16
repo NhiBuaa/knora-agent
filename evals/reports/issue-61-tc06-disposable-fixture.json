@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "report_id": "issue-61-tc06-disposable-fixture",
+  "guide_revision": "m3-remediation-61-v4",
+  "fixture_project": "issue61-m3-tc06",
+  "postgres_port": 15433,
+  "workspace_id": "issue61-m3-tc06-fixture",
+  "provider_mode": "deterministic-local",
+  "retrieval_configuration_id": "retrieval-m3-rrf-v1",
+  "embedding_configuration_id": "embedding-local-m1-v2",
+  "traces": [
+    {
+      "purpose": "REDUNDANT_OVERLAP",
+      "trace_id": "35414539-bcad-4325-93f7-7647a05100fa",
+      "candidate_decisions": [
+        {
+          "final_rank": 1,
+          "final_decision": "SELECTED",
+          "decision_reason": null
+        },
+        {
+          "final_rank": 2,
+          "final_decision": "REDUNDANT_OVERLAP",
+          "decision_reason": null
+        }
+      ],
+      "reader_accepted": true
+    },
+    {
+      "purpose": "CHUNK_COUNT_LIMIT",
+      "trace_id": "89c68de6-73e7-418f-97be-443e22a7e4e2",
+      "candidate_count": 6,
+      "excluded_candidate": {
+        "final_rank": 6,
+        "final_decision": "BUDGET_EXCEEDED",
+        "decision_reason": "CHUNK_COUNT_LIMIT"
+      },
+      "reader_accepted": true
+    },
+    {
+      "purpose": "TOKEN_BUDGET",
+      "trace_id": "57587d98-76e5-45b8-96a7-3001241013ee",
+      "candidate_count": 5,
+      "excluded_candidate": {
+        "final_rank": 5,
+        "final_decision": "BUDGET_EXCEEDED",
+        "decision_reason": "TOKEN_BUDGET"
+      },
+      "reader_accepted": true
+    }
+  ],
+  "unknown_value_probes": [
+    {
+      "mode": "unknown-final",
+      "injected_value": "UNKNOWN_FINAL_DECISION",
+      "result": "EXPECTED_OBSERVATION_FAILURE",
+      "error_type": "LookupError",
+      "error": "evaluation candidate decision is invalid"
+    },
+    {
+      "mode": "unknown-reason",
+      "injected_value": "UNKNOWN_DECISION_REASON",
+      "result": "EXPECTED_OBSERVATION_FAILURE",
+      "error_type": "LookupError",
+      "error": "evaluation candidate decision is invalid"
+    }
+  ],
+  "assertions": {
+    "exact_authority_enum_values_accepted": [
+      "SELECTED",
+      "REDUNDANT_OVERLAP",
+      "BUDGET_EXCEEDED",
+      "ELIGIBLE_NOT_SELECTED"
+    ],
+    "exact_authority_budget_reasons_accepted": [
+      "TOKEN_BUDGET",
+      "CHUNK_COUNT_LIMIT"
+    ],
+    "unknown_final_decision_fails_closed": true,
+    "unknown_decision_reason_fails_closed": true,
+    "trace_original_after_fault_probes_accepted": true,
+    "fault_probes_are_in_memory_only": true,
+    "database_rows_mutated": false,
+    "competing_condition_precedence_asserted": false,
+    "tc_61_06_complete": true
+  },
+  "source": "AnswerQuestion and PostgresEvaluationReader against a disposable PostgreSQL/pgvector project; unknown probes used a rollback-only in-memory session wrapper"
+}
+

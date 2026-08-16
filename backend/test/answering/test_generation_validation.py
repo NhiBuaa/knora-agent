@@ -37,6 +37,18 @@ def test_answer_rejects_unknown_duplicate_or_missing_markers(answer, cited_ids) 
         validate_generation(result, available_evidence_ids=("E1", "E2"))
 
 
+def test_malformed_marker_tokens_fail_closed() -> None:
+    result = GenerationResult(
+        decision="ANSWER",
+        answer="fact [[E1]] trailing [[",
+        cited_evidence_ids=("E1",),
+        refusal_reason=None,
+    )
+
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(result, available_evidence_ids=("E1",))
+
+
 def test_structured_refusal_requires_empty_answer_and_citations() -> None:
     valid = GenerationResult(
         decision="REFUSAL",
@@ -54,3 +66,15 @@ def test_structured_refusal_requires_empty_answer_and_citations() -> None:
     assert validate_generation(valid, available_evidence_ids=("E1",)).parsed_markers == ()
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
         validate_generation(invalid, available_evidence_ids=("E1",))
+
+
+def test_non_string_answer_fails_as_generation_contract_error() -> None:
+    result = GenerationResult(
+        decision="ANSWER",
+        answer=123,  # type: ignore[arg-type]
+        cited_evidence_ids=("E1",),
+        refusal_reason=None,
+    )
+
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(result, available_evidence_ids=("E1",))

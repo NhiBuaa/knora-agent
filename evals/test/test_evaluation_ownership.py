@@ -42,6 +42,7 @@ def _binding() -> EvaluationEnvironmentBinding:
         chunk_set_provenance_id="set-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
         source_bindings=(SourceBinding("support/a", "version-1", "set-1"),),
     )
 
@@ -63,6 +64,7 @@ def _corpus() -> SimpleNamespace:
                 source_key="support/a",
                 document_version_id="version-1",
                 chunk_set_id="set-1",
+                embedding_configuration_id="embedding-local-m1-v2",
                 chunk_references=("support/a#0",),
             ),
         ),
@@ -328,6 +330,7 @@ def test_readiness_owner_and_binding_combinations_fail_closed(tmp_path) -> None:
         chunk_set_provenance_id="set-1",
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
         source_bindings=_binding().source_bindings,
     )
     with pytest.raises(ObservationFailure, match="CORPUS_CLOSURE_MISMATCH"):

@@ -1,16 +1,27 @@
 import pytest
 
-from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2
+from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2, normalize_fts_m3_or_v2_details
 from knora.answering.stores import RetrievalConfiguration
 
 CALIBRATED_THRESHOLD = 0.657410732025
 
 
 def test_fts_m3_or_v2_normalizes_to_safe_sorted_or_lexemes() -> None:
-    assert normalize_fts_m3_or_v2("What is the REFUND—period?") == ("period", "refund")
+    assert normalize_fts_m3_or_v2("What is the REFUND—period?") == ("refund", "period")
     assert normalize_fts_m3_or_v2("30 days") == ("30", "days")
     assert normalize_fts_m3_or_v2("' OR 1=1; refund refund") == ("1", "refund")
     assert normalize_fts_m3_or_v2("the and what") == ()
+
+
+def test_fts_m3_or_v2_details_retain_normalized_and_omitted_lexemes() -> None:
+    details = normalize_fts_m3_or_v2_details("What is the REFUND—period?")
+
+    assert details.normalized_lexemes == ("refund", "period")
+    assert details.omitted_lexemes == ("what", "is", "the")
+
+    empty = normalize_fts_m3_or_v2_details("the and what")
+    assert empty.normalized_lexemes == ()
+    assert empty.omitted_lexemes == ("the", "and", "what")
 
 
 def test_retrieval_v2_configs_have_exact_allowed_differences() -> None:
