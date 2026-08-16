@@ -58,8 +58,33 @@ class ReadinessFailure(RuntimeError):
         return f"readiness phase {self.phase} failed: {self.reason}"
 
 
+@dataclass(slots=True)
+class _CancellableHttpRequest:
+    method: str
+    url: str
+    timeout: float
+    headers: dict[str, str] | None = None
+    json: dict[str, str] | None = None
+    client: httpx.Client | None = None
+
+    def __post_init__(self) -> None:
+        self.client = httpx.Client(timeout=self.timeout)
+
+    def __call__(self) -> httpx.Response:
+        assert self.client is not None
+        return self.client.request(
+            self.method, self.url, headers=self.headers, json=self.json
+        )
+
+    def cancel(self) -> None:
+        if self.client is not None:
+            self.client.close()
+
+
 def _run_with_lease[ReadinessResult](
-    operation: Callable[[], ReadinessResult], heartbeat: EvaluationLeaseHeartbeat
+    operation: Callable[[], ReadinessResult], heartbeat: EvaluationLeaseHeartbeat,
+    *,
+    cancel: Callable[[], None] | None = None,
 ) -> ReadinessResult:
     """Run one potentially blocking readiness operation while supervising lease loss."""
     heartbeat.raise_if_failed()
@@ -74,7 +99,19 @@ def _run_with_lease[ReadinessResult](
     worker = Thread(target=invoke, name="m3-readiness-operation", daemon=True)
     worker.start()
     while worker.is_alive():
-        heartbeat.raise_if_failed()
+        try:
+            heartbeat.raise_if_failed()
+        except ObservationFailure as lease_error:
+            if cancel is not None:
+                cancel()
+                worker.join(timeout=5)
+            else:
+                worker.join()
+            if worker.is_alive():
+                raise ReadinessFailure(
+                    "lease_supervision", "readiness operation cancellation did not complete"
+                ) from lease_error
+            raise
         worker.join(timeout=0.05)
     heartbeat.raise_if_failed()
     value, error = result.get()
@@ -134,27 +171,35 @@ def run_readiness(
         heartbeat.raise_if_failed()
         health_endpoint = result.endpoint.rsplit("/v1/questions", 1)[0] + "/health"
         for _ in range(30):
+            health_request = _CancellableHttpRequest("GET", health_endpoint, timeout=1)
             try:
-                if _run_with_lease(
-                    lambda: httpx.get(health_endpoint, timeout=1), heartbeat
-                ).status_code == 200:
+                health_response = _run_with_lease(
+                    health_request, heartbeat, cancel=health_request.cancel
+                )
+                if health_response.status_code == 200:
                     break
             except httpx.HTTPError:
                 pass
+            finally:
+                health_request.cancel()
             heartbeat.wait(0.5)
         else:
             raise ReadinessFailure("production_api_startup", "health endpoint did not become ready")
         phases.append("authenticated_question")
         request_started = perf_counter()
-        response = _run_with_lease(
-            lambda: httpx.post(
-                result.endpoint,
-                headers={"X-API-Key": result.credential.raw_key},
-                json={"workspace_id": case.workspace_id, "question": case.question},
-                timeout=30,
-            ),
-            heartbeat,
+        question_request = _CancellableHttpRequest(
+            "POST",
+            result.endpoint,
+            timeout=30,
+            headers={"X-API-Key": result.credential.raw_key},
+            json={"workspace_id": case.workspace_id, "question": case.question},
         )
+        try:
+            response = _run_with_lease(
+                question_request, heartbeat, cancel=question_request.cancel
+            )
+        finally:
+            question_request.cancel()
         heartbeat.raise_if_failed()
         response.raise_for_status()
         end_to_end_latency_ms = (perf_counter() - request_started) * 1000
