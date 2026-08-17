@@ -698,6 +698,8 @@ def _provenance_without_allowed_differences(
         value = provenance.get(key)
         if key == "report_artifact_schema_version":
             valid = type(value) is int and value == 1
+        elif key == "recall_k":
+            valid = type(value) is int and value == 8
         else:
             valid = isinstance(value, str) and bool(value)
             if key in {"source_commit", "evaluation_commit"}:

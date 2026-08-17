@@ -64,6 +64,7 @@ EQUAL_PROVENANCE_FIELDS = (
     "scorer_policy",
     "scorer_stochasticity",
     "metric_contract",
+    "recall_k",
     "source_commit",
     "evaluation_commit",
     "report_artifact_schema_version",

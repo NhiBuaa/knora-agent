@@ -32,6 +32,7 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
             "scorer_policy": "policy-1",
             "scorer_stochasticity": "deterministic",
             "metric_contract": "m3-retrieval-metrics-v1",
+            "recall_k": 8,
             "source_commit": "1" * 40,
             "evaluation_commit": "2" * 40,
             "report_artifact_schema_version": 1,
