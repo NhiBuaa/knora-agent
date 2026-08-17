@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
+from fractions import Fraction
 from math import isfinite
 from threading import Event, Lock, Thread
 from time import get_clock_info, perf_counter
@@ -231,6 +232,28 @@ class EvaluationEnvironmentBinding:
     embedding_configuration_id: str | None = None
     source_bindings: tuple[SourceBinding, ...] = ()
     schema_version: int = 3
+    dataset_version: str | None = None
+    dataset_digest: str | None = None
+    corpus_id: str | None = None
+    corpus_digest: str | None = None
+    chunk_set_id: str | None = None
+    chunk_set_digest: str | None = None
+    workspace: str | None = None
+    chunking_configuration: str | None = None
+    generation_configuration: str | None = None
+    scorer_configuration: str | None = None
+    scorer_model: str | None = None
+    scorer_prompt: str | None = None
+    scorer_policy: str | None = None
+    scorer_stochasticity: str | None = None
+    source_commit: str | None = None
+    evaluation_commit: str | None = None
+    report_artifact_schema_version: int = 1
+    strategy: str | None = None
+    fusion_policy_id: str | None = None
+    fusion_policy_version: str | None = None
+    lexical_policy_id: str | None = None
+    fts_candidate_k: int | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -267,13 +290,87 @@ class EvaluationEnvironmentBinding:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID") from error
         if not bindings or len({item.source_key for item in bindings}) != len(bindings):
             raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
+        optional_fields = (
+            "dataset_version",
+            "dataset_digest",
+            "corpus_id",
+            "corpus_digest",
+            "chunk_set_id",
+            "chunk_set_digest",
+            "workspace",
+            "chunking_configuration",
+            "generation_configuration",
+            "scorer_configuration",
+            "scorer_model",
+            "scorer_prompt",
+            "scorer_policy",
+            "scorer_stochasticity",
+            "source_commit",
+            "evaluation_commit",
+            "report_artifact_schema_version",
+            "strategy",
+            "fusion_policy_id",
+            "fusion_policy_version",
+            "lexical_policy_id",
+            "fts_candidate_k",
+        )
         return cls(
             **{field: value[field] for field in fields},
             embedding_configuration_id=raw_embedding_configuration_id,
             source_bindings=bindings,
+            **{
+                field: value[field]
+                for field in optional_fields
+                if field in value
+            },
         )
 
     def provenance(self) -> dict[str, object]:
+        modern = (
+            self.dataset_version,
+            self.dataset_digest,
+            self.corpus_id,
+            self.corpus_digest,
+            self.chunk_set_id,
+            self.chunk_set_digest,
+            self.chunking_configuration,
+            self.generation_configuration,
+            self.scorer_configuration,
+            self.scorer_model,
+            self.scorer_prompt,
+            self.scorer_policy,
+            self.scorer_stochasticity,
+            self.source_commit,
+            self.evaluation_commit,
+        )
+        if all(isinstance(value, str) and value for value in modern):
+            return {
+                "dataset_version": self.dataset_version,
+                "dataset_digest": self.dataset_digest,
+                "corpus_id": self.corpus_id,
+                "corpus_digest": self.corpus_digest,
+                "chunk_set_id": self.chunk_set_id,
+                "chunk_set_digest": self.chunk_set_digest,
+                "workspace": self.workspace or self.workspace_id,
+                "chunking_configuration": self.chunking_configuration,
+                "embedding_configuration": self.embedding_configuration_id,
+                "generation_configuration": self.generation_configuration,
+                "scorer_configuration": self.scorer_configuration,
+                "scorer_model": self.scorer_model,
+                "scorer_prompt": self.scorer_prompt,
+                "scorer_policy": self.scorer_policy,
+                "scorer_stochasticity": self.scorer_stochasticity,
+                "metric_contract": METRIC_CONTRACT,
+                "source_commit": self.source_commit,
+                "evaluation_commit": self.evaluation_commit,
+                "report_artifact_schema_version": self.report_artifact_schema_version,
+                "retrieval_configuration_id": self.retrieval_configuration_id,
+                "strategy": self.strategy,
+                "fusion_policy_id": self.fusion_policy_id,
+                "fusion_policy_version": self.fusion_policy_version,
+                "lexical_policy_id": self.lexical_policy_id,
+                "fts_candidate_k": self.fts_candidate_k,
+            }
         provenance = {
             "dataset_manifest_identity": self.dataset_manifest_identity,
             "corpus_manifest_identity": self.corpus_manifest_identity,
@@ -918,8 +1015,8 @@ def score_retrieval(
     by_case = {observation.case_id: observation for observation in observations}
     if len(by_case) != len(observations) or set(by_case) != {case.id for case in cases}:
         raise ValueError("observations must contain exactly one result for every case")
-    recalls: list[float] = []
-    reciprocal_ranks: list[float] = []
+    recalls: list[Fraction] = []
+    reciprocal_ranks: list[Fraction] = []
     case_results: list[dict[str, object]] = []
     for case in sorted(cases, key=lambda item: item.id):
         observation = by_case[case.id]
@@ -953,31 +1050,57 @@ def score_retrieval(
         ):
             raise ObservationFailure("CHUNK_SET_MISMATCH")
         top_k = candidates[:RECALL_K]
-        recall = len(gold.intersection(top_k)) / len(gold)
+        recall_fraction = Fraction(len(gold.intersection(top_k)), len(gold))
         first_rank = next(
             (rank for rank, candidate in enumerate(candidates, start=1) if candidate in gold),
             None,
         )
-        rr = 0.0 if first_rank is None else 1.0 / first_rank
-        recalls.append(recall)
-        reciprocal_ranks.append(rr)
+        reciprocal_rank_fraction = Fraction(0, 1) if first_rank is None else Fraction(1, first_rank)
+        recalls.append(recall_fraction)
+        reciprocal_ranks.append(reciprocal_rank_fraction)
         case_results.append(
             {
                 "id": case.id,
                 "included": True,
-                "recall_at_8": recall,
-                "reciprocal_rank": rr,
+                "recall_at_8": float(recall_fraction),
+                "reciprocal_rank": float(reciprocal_rank_fraction),
+                "metric_decision_values": {
+                    "recall_at_8": {
+                        "numerator": recall_fraction.numerator,
+                        "denominator": recall_fraction.denominator,
+                    },
+                    "mrr": {
+                        "numerator": reciprocal_rank_fraction.numerator,
+                        "denominator": reciprocal_rank_fraction.denominator,
+                    },
+                },
                 "candidate_count": len(candidates),
             }
         )
     denominator = len(recalls)
+    recall_mean = sum(recalls, Fraction(0, 1)) / denominator if denominator else None
+    mrr_mean = sum(reciprocal_ranks, Fraction(0, 1)) / denominator if denominator else None
     return {
         "metric_contract": METRIC_CONTRACT,
         "recall_k": RECALL_K,
         "chunk_set_provenance_id": binding.chunk_set_provenance_id,
         "denominator": denominator,
-        "recall_at_8": sum(recalls) / denominator if denominator else None,
-        "mrr": sum(reciprocal_ranks) / denominator if denominator else None,
+        "recall_at_8": float(recall_mean) if recall_mean is not None else None,
+        "mrr": float(mrr_mean) if mrr_mean is not None else None,
+        "metric_decision_values": (
+            {
+                "recall_at_8": {
+                    "numerator": recall_mean.numerator,
+                    "denominator": recall_mean.denominator,
+                },
+                "mrr": {
+                    "numerator": mrr_mean.numerator,
+                    "denominator": mrr_mean.denominator,
+                },
+            }
+            if recall_mean is not None and mrr_mean is not None
+            else {}
+        ),
         "cases": case_results,
     }
 
@@ -987,9 +1110,12 @@ def build_report(
     observations: tuple[M3Observation, ...],
     *,
     binding: EvaluationEnvironmentBinding,
+    guardrails: dict[str, bool] | None = None,
+    latency_tradeoffs: dict[str, object] | None = None,
+    remaining_regressions: list[object] | None = None,
 ) -> dict[str, object]:
     """Build the M3 report projection without defining latency aggregation semantics."""
-    return {
+    report: dict[str, object] = {
         "schema_version": 1,
         "provenance": {
             "metric_contract": METRIC_CONTRACT,
@@ -1001,7 +1127,24 @@ def build_report(
             _observation_projection(observation)
             for observation in sorted(observations, key=lambda item: item.case_id)
         ],
+        "observation_failure_count": sum(
+            not observation.is_success for observation in observations
+        ),
     }
+    # Keep category reconciliation beside the report rather than asking callers to recompute it
+    # from display values.  The import is local to preserve the runner/comparison module seam.
+    from evals.runners.milestone_3_comparison import build_category_breakdown
+
+    report["category_breakdown"] = build_category_breakdown(cases, report)
+    if guardrails is not None:
+        from evals.runners.milestone_3_comparison import validate_guardrail_shape
+
+        report["guardrails"] = validate_guardrail_shape(guardrails)
+    if latency_tradeoffs is not None:
+        report["latency_tradeoffs"] = dict(latency_tradeoffs)
+    if remaining_regressions is not None:
+        report["remaining_regressions"] = list(remaining_regressions)
+    return report
 
 
 def _observation_projection(observation: M3Observation) -> dict[str, object]:

@@ -152,6 +152,10 @@ def test_metric_contract_uses_scoped_canonical_identity_and_uncut_mrr() -> None:
     assert report["recall_at_8"] == 0.0
     assert report["mrr"] == pytest.approx(1 / 9)
     assert report["denominator"] == 1
+    assert report["metric_decision_values"] == {
+        "recall_at_8": {"numerator": 0, "denominator": 1},
+        "mrr": {"numerator": 1, "denominator": 9},
+    }
 
 
 def test_metric_contract_keeps_valid_miss_but_excludes_inapplicable_and_failure() -> None:
@@ -218,6 +222,7 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
     report = build_report((case,), (observation,), binding=_binding())
 
     assert report["retrieval"]["recall_at_8"] == 1.0
+    assert report["category_breakdown"]["aggregate"]["recall_at_8"]["denominator"] == 1
     assert report["observations"] == [
         {
             "case_id": "case",

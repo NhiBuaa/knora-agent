@@ -190,6 +190,8 @@ class OpenAICompatibleSemanticScorer:
                 cost_usd=cost,
                 latency_ms=(perf_counter() - started) * 1000,
             )
+        except SemanticScorerError:
+            raise
         except httpx.HTTPError:
             raise SemanticScorerError("SCORER_REQUEST_FAILED") from None
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -214,37 +216,39 @@ _SYSTEM_PROMPT = (
 
 
 def _user_prompt(case: EvaluationCase, observation: EvaluationObservation) -> str:
-    evidence = [
-        {"evidence_id": evidence_id, "reference": reference, "content": content}
+    # Semantic citation scoring is deliberately a public-only boundary.  The scorer must not see
+    # hidden retrieved/excluded candidates or gold metadata; an opaque evidence alias may only
+    # correlate a public citation with its public excerpt and source locator.
+    evidence_ids = [item[0] for item in observation.evidence]
+    if len(evidence_ids) != len(set(evidence_ids)):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    evidence_by_id = {
+        evidence_id: (reference, content)
         for evidence_id, reference, content in observation.evidence
-    ]
-    cited_references = {
-        evidence_id: reference for evidence_id, reference, _content in observation.evidence
     }
+    citation_ids = tuple(observation.citation_evidence_ids)
+    if (
+        any(not isinstance(evidence_id, str) or not evidence_id for evidence_id in citation_ids)
+        or len(citation_ids) != len(set(citation_ids))
+    ):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    citations = []
+    for evidence_id in citation_ids:
+        public = evidence_by_id.get(evidence_id)
+        if public is None:
+            raise SemanticScorerError("SCORER_INPUT_INVALID")
+        reference, content = public
+        citations.append(
+            {
+                "evidence_id": evidence_id,
+                "excerpt": content,
+                "source_locator": reference,
+            }
+        )
     return json.dumps(
         {
-            "case": {
-                "id": case.id,
-                "category": case.category,
-                "question": case.question,
-                "expected_behavior": case.expected_behavior,
-                "expected_source_documents": list(case.expected_source_documents),
-                "required_facts": list(case.required_facts),
-                "reference_answer": case.reference_answer,
-            },
-            "response": {
-                "decision": observation.decision,
-                "answer": observation.answer,
-                "refusal_reason": observation.refusal_reason,
-                "citations": [
-                    {
-                        "evidence_id": evidence_id,
-                        "reference": cited_references.get(evidence_id),
-                    }
-                    for evidence_id in observation.citation_evidence_ids
-                ],
-            },
-            "evidence_set": evidence,
+            "answer": observation.answer,
+            "citations": citations,
         },
         ensure_ascii=False,
         sort_keys=True,
