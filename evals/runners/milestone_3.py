@@ -1119,7 +1119,6 @@ def build_report(
         "schema_version": 1,
         "provenance": {
             "metric_contract": METRIC_CONTRACT,
-            "recall_k": RECALL_K,
             **binding.provenance(),
         },
         "retrieval": score_retrieval(cases, observations, binding=binding),
