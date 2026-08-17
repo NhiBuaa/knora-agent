@@ -156,6 +156,40 @@ def test_denominator_reconciliation_keeps_applicable_observation_failure_auditab
     assert aggregate["denominator"] == 1
 
 
+def test_category_breakdown_reads_successful_mrr_from_retrieval_case_projection() -> None:
+    class Relevance:
+        applicable = True
+
+    class Case:
+        id = "case-a"
+        category = "lexical_exact_match"
+        retrieval_relevance = Relevance()
+
+    report = {
+        "observations": [{"case_id": "case-a", "status": "observed"}],
+        "retrieval": {
+            "cases": [
+                {
+                    "id": "case-a",
+                    "recall_at_8": 1.0,
+                    "reciprocal_rank": 0.5,
+                }
+            ]
+        },
+    }
+
+    result = build_category_breakdown((Case(),), report)
+
+    assert result["aggregate"]["mrr"] == {
+        "applicable_count": 1,
+        "inapplicable_count": 0,
+        "observation_failure_count": 0,
+        "numerator": 0.5,
+        "denominator": 1,
+        "value": 0.5,
+    }
+
+
 def test_paired_provenance_rejects_mutation_outside_declared_configuration_fields() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2")

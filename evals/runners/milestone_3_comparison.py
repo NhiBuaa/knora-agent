@@ -480,7 +480,12 @@ def _metric_observation_value(
 ) -> float | bool | None:
     value = observation.get(metric)
     if value is None:
-        value = report_cases.get(case_id, {}).get(metric)
+        report_case = report_cases.get(case_id, {})
+        value = report_case.get(metric)
+        if value is None and metric == "mrr":
+            # The retrieval report names each per-case MRR value reciprocal_rank;
+            # preserve that value when reconciling category denominators.
+            value = report_case.get("reciprocal_rank")
     if value is None:
         return None
     if isinstance(value, bool):
