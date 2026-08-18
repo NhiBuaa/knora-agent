@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "blocked",
+  "plan": ".agents/review/m3-final-cadence-v2.json",
+  "external_review_aggregation": ".agents/review/m3-remediation-external-review-aggregation-v1.json",
+  "closure_allowed": false,
+  "blocking_reasons": [
+    "Remediation spec/design external review returned REQUEST_CHANGES with a Major finding.",
+    "Issue #63 ticket external review returned REQUEST_CHANGES with four Major findings.",
+    "Issue #63 guide v6 external review returned REQUEST_CHANGES with three Major and one Minor finding.",
+    "Reviewer identity is the generic independent-reviewer-id string and is not yet bound to an independently verifiable reviewer identity artifact.",
+    "The previously recorded final APPROVE review must be rerun after remediation changes and acceptance evidence."
+  ],
+  "missing_or_invalid_evidence": [
+    "authority independent-review binding",
+    "immutable M3 dataset/case-population binding",
+    "pair-level latency trade-off retention",
+    "sole-source policy projection",
+    "guide v6 coverage and authority semantics"
+  ],
+  "source_artifacts": [
+    ".agents/review/m3-remediation-spec-design-external-review-v1.json",
+    ".agents/review/m3-issue-61-ticket-review-v2.json",
+    ".agents/review/m3-issue-63-ticket-review-v2.json",
+    ".agents/review/m3-manual-guide-63-v6-external-review-v1.json"
+  ]
+}

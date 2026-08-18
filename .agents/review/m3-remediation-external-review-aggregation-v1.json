@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "fixed_point": {
+    "base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "head_commit": "749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "merge_base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "merge_base_semantics": true,
+    "diff_command": "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3"
+  },
+  "source_artifacts": [
+    ".agents/review/m3-remediation-spec-design-external-review-v1.json",
+    ".agents/review/m3-issue-61-ticket-review-v2.json",
+    ".agents/review/m3-issue-63-ticket-review-v2.json",
+    ".agents/review/m3-manual-guide-63-v6-external-review-v1.json"
+  ],
+  "raw_finding_counts": {
+    "critical": 0,
+    "major": 8,
+    "minor": 1
+  },
+  "distinct_major_themes": [
+    "Independent-review binding and rejection of self-authored/self-approved authority.",
+    "Immutable M3 dataset manifest and exact case-population binding at production selection.",
+    "Pair-level vector-versus-hybrid latency trade-off retention in selected artifacts.",
+    "Sole-source policy projection without duplicated normative Python policy values.",
+    "Guide v6 authority and selected-artifact coverage must be revised; refusal semantic applicability needs clarification."
+  ],
+  "closure_allowed": false,
+  "next_transition": "remediation design and implementation are required before acceptance and final review can be rerun",
+  "note": "The prior APPROVE fixed-point review is not sufficient for closure because the required external review surfaces returned REQUEST_CHANGES. The source artifacts are preserved verbatim; no code, test, guide or Issue #48 content was changed by the reviewer."
+}

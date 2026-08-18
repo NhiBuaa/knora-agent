@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "independent-reviewer-id",
+  "reviewed_at": "2026-08-18T10:41:18.648Z",
+  "scope": "Read-only external review of the Milestone 3 remediation specification/design package for Issues #61, #62 and #63 at base 3cf8358414a536f7411a183f6bc43fad05f1aad3 and head 749301030ad50a70e339a5d0b1ebba8ae3a681f3, including Issue #48, repository standards, M3 design documents and accepted remediation evidence.",
+  "findings": [
+    {
+      "severity": "major",
+      "location": "docs/design/m3-improvement-claim-rule-v3.md:34-49, 187-205, 425-447; .agents/review/m3-improvement-claim-v1-approval.json",
+      "evidence": "The claim-rule design requires an independent reviewer, complete-policy review and external review before approval/effectiveness. The pinned approval payload records reviewer_id=NhiBuaa and approved_by=NhiBuaa while asserting reviewer_was_author=false; the pinned source commit 82f8f5193b658310e73e9f2fb4abf13ebb954076 is authored by NhiBuaa. The fixed-point evidence envelope contains the approval/seal chain but no separate independent review record for this authority. Issue #48 also records that the remediation spec/design external-review gate was missing.",
+      "problem": "The effective claim-rule authority is backed by a self-attested identity assertion that is not independently evidenced and is inconsistent with the source commit author, while the design makes independent review a precondition of effectiveness.",
+      "harm": "A central fail-closed improvement gate can be treated as APPROVED_EFFECTIVE without proving the required independent review. This undermines the authority lifecycle and makes the claim decision evidence non-auditable under its own design.",
+      "fix": "Bind an actual independent-review artifact and reviewer identity to the authority seal/closure, verify the reviewer is not the authority author or approver as required by the policy, and reject an approval payload whose independence assertion cannot be proved. Re-run the authority and remediation cadence gates after the corrected chain is sealed."
+    }
+  ],
+  "checks": [
+    {
+      "requirement": "Issue #61 preserves the single production retrieval seam while making branch observations, provenance, public response validation, citation membership, latency and lexical observations explicit.",
+      "result": "PASS",
+      "evidence": "GitHub Issue #61; .agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md; accepted run m3-issue-61-20260816-acceptance-10."
+    },
+    {
+      "requirement": "Issue #62 uses exclusive durable ownership with fencing, expiry/recovery, release and fail-closed readiness without changing the measured Q&A seam.",
+      "result": "PASS",
+      "evidence": "GitHub Issue #62; docs/design/m3-evaluation-sealed-environment-v2.md; evals/runners/evaluation_ownership.py; evals/runners/milestone_3.py."
+    },
+    {
+      "requirement": "Issue #63 defines closed guardrails, typed paired provenance, exact metric decisions, taxonomy stages, public-only semantic input and authority-separated NO_CLAIM/SELECTED outcomes.",
+      "result": "PASS_WITH_FINDING",
+      "evidence": "GitHub Issue #63; docs/design/m3-improvement-claim-rule-v3.md; docs/design/m3-improvement-claim-rule-v1.policy.json; .agents/manual-tests/m3-remediation-issue-63-v6.md. The policy is internally coherent, but its required independent-review precondition is not evidenced by the pinned authority chain."
+    },
+    {
+      "requirement": "The remediation mapping and dependency direction are consistent with Issue #48: #61 and #62 are prerequisites for #63.",
+      "result": "PASS",
+      "evidence": "GitHub Issue #48 comments and the authoritative Issue #61/#62/#63 bodies; docs/design/m3-evaluation-environment-binding-v3.md; docs/design/m3-evaluation-sealed-environment-v2.md."
+    }
+  ],
+  "authoritative_sources": [
+    "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "https://github.com/NhiBuaa/knora-agent/issues/48",
+    "https://github.com/NhiBuaa/knora-agent/issues/61",
+    "https://github.com/NhiBuaa/knora-agent/issues/62",
+    "https://github.com/NhiBuaa/knora-agent/issues/63",
+    "D:/Developer/Projects/knora-agent/CONTEXT.md",
+    "D:/Developer/Projects/knora-agent/docs/standards/architecture.md",
+    "D:/Developer/Projects/knora-agent/docs/evaluation.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-bootstrap-lifecycle-v1.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-environment-binding-v3.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-sealed-environment-v2.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-improvement-claim-rule-v3.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-improvement-claim-rule-v1.policy.json",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-improvement-claim-v1-approval.json",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-improvement-claim-v1-approval-closure-v2.json",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/m3-remediation-issue-63-v6.md",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/m3-remediation-issue-63.evaluations.jsonl"
+  ]
+}

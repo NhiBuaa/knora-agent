@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "independent-reviewer-id",
+  "reviewed_at": "2026-08-18T10:41:18.648Z",
+  "scope": "Read-only external review of .agents/manual-tests/m3-remediation-issue-63-v6.md against Issue #63, the locked M3 report/claim-rule design, repository standards, accepted Issue #63 evidence and the requested fixed point.",
+  "findings": [
+    {
+      "severity": "major",
+      "location": ".agents/manual-tests/m3-remediation-issue-63-v6.md:200-251 (TC-04)",
+      "evidence": "Issue #63 requires selected-improvement records to retain metric deltas, guardrails, latency trade-offs and all remaining regressions. The v6 TC-04 expected results assert claim-rule version/digest, exact decision deltas and authority/provenance references, but do not require inspection of retained latency trade-offs or remaining_regressions. The fixed-point selector also stores only hybrid_report['latency_tradeoffs'] at evals/runners/milestone_3_comparison.py:1631-1640.",
+      "problem": "The locked acceptance guide can pass a qualifying selection without proving that the selected artifact preserves the complete paired latency/regression evidence required by the ticket.",
+      "harm": "A selected improvement may be accepted without an auditable baseline-versus-hybrid latency trade-off or complete regression disclosure.",
+      "fix": "Create the next guide revision and require TC-04 to inspect vector and hybrid latency projections, the explicit pair-level trade-off, guardrail values and remaining_regressions in the selected artifact and evidence manifest."
+    },
+    {
+      "severity": "major",
+      "location": ".agents/manual-tests/m3-remediation-issue-63-v6.md:171-185 (TC-02) and 218-247 (TC-04)",
+      "evidence": "TC-02 tests presence, equality and out-of-set mutations of provenance fields but does not bind dataset_version/dataset_digest/corpus/chunk-set digests to the immutable manifests or assert the exact pinned M3 case-ID population. The production comparator accepts caller-supplied expected_case_ids and the production selector has no manifest input.",
+      "problem": "The guide does not exercise the favorable-subset or same-shaped-but-wrong-digest failure mode at the canonical production boundary.",
+      "harm": "Manual acceptance can report complete provenance_match and a qualifying claim without proving that both reports used the immutable 50-case M3 dataset and its actual corpus/Chunk Set artifacts.",
+      "fix": "Add a locked negative case that mutates the case population and recomputes/forges a same-shaped digest, and require production selection to reject it through a verified manifest/population binding."
+    },
+    {
+      "severity": "major",
+      "location": ".agents/manual-tests/m3-remediation-issue-63-v6.md:47-90 (authority binding) and .agents/review/m3-improvement-claim-v1-approval.json",
+      "evidence": "The guide treats the exact chain as APPROVED_EFFECTIVE and records reviewer and approver as NhiBuaa. TC-04 tests placeholder identities and changed sealed identities, but does not require a separately sealed independent-review record or verify reviewer independence against the authority source author. The claim-rule design makes independent review a precondition of effectiveness.",
+      "problem": "The guide's authority precondition checks byte identity but not the independence assertion on which effectiveness depends.",
+      "harm": "A self-authored/self-approved claim rule can satisfy the manual authority gate even though the required external-review control is absent.",
+      "fix": "In the next guide revision, bind and inspect the external-review artifact, source-commit coverage and reviewer/author/approver separation before accepting APPROVED_EFFECTIVE."
+    },
+    {
+      "severity": "minor",
+      "location": ".agents/manual-tests/m3-remediation-issue-63-v6.md:158-165; evals/runners/milestone_3.py:1214-1229 and 1077-1082",
+      "evidence": "The guide says every successful observation records a semantic citation result, but the report builder requires semantic_citation_correctness only for successful ANSWER observations and treats REFUSAL as inapplicable in category metrics. A valid refusal therefore has no semantic citation result field.",
+      "problem": "The expected result is broader than the implemented metric applicability contract.",
+      "harm": "A valid refusal-only or refusal-containing run could be judged incomplete by the guide even though omission of a semantic citation score for refusal is intentional.",
+      "fix": "Clarify the next guide revision to require semantic citation correctness for applicable ANSWER observations and an explicit inapplicable treatment for REFUSAL observations."
+    }
+  ],
+  "checks": [
+    {
+      "requirement": "The v6 guide is clearly locked, identifies its authority inputs, supersedes earlier unapproved revisions and keeps execution separate from the lock transition.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/m3-remediation-issue-63-v6.md:3-15 and 305-306."
+    },
+    {
+      "requirement": "TC-01 covers public outcomes, denominator equations, independent latency boundaries and public-only semantic citation input.",
+      "result": "PASS_WITH_FINDING",
+      "evidence": ".agents/manual-tests/m3-remediation-issue-63-v6.md:148-169. The semantic-result wording needs the refusal applicability clarification recorded above."
+    },
+    {
+      "requirement": "TC-02 covers typed paired provenance and the six allowed configuration differences.",
+      "result": "PARTIAL",
+      "evidence": ".agents/manual-tests/m3-remediation-issue-63-v6.md:171-185. Equality and mutation cases are present, but manifest/dataset-population binding is not tested."
+    },
+    {
+      "requirement": "TC-03, TC-05 and TC-06 cover closed guardrails, taxonomy stages, applicability, denominator reconciliation and public citation boundaries.",
+      "result": "PASS",
+      "evidence": ".agents/manual-tests/m3-remediation-issue-63-v6.md:186-199 and 253-285; accepted v6 Evaluation records TC-03, TC-05 and TC-06 evidence."
+    },
+    {
+      "requirement": "TC-04 and TC-07 cover authority validation, no-claim/selected paths and complete selected-artifact retention.",
+      "result": "PARTIAL",
+      "evidence": ".agents/manual-tests/m3-remediation-issue-63-v6.md:200-251 and 287-303. Authority mutation and outcome paths are covered, but reviewer independence, exact dataset binding and selected latency/regression retention are not."
+    }
+  ],
+  "authoritative_sources": [
+    "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "https://github.com/NhiBuaa/knora-agent/issues/48",
+    "https://github.com/NhiBuaa/knora-agent/issues/63",
+    "https://github.com/NhiBuaa/knora-agent/pull/66",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/m3-remediation-issue-63-v6.md",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/m3-remediation-issue-63.evaluations.jsonl",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-improvement-claim-rule-v3.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-improvement-claim-rule-v1.policy.json",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-environment-binding-v3.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-sealed-environment-v2.md",
+    "D:/Developer/Projects/knora-agent/CONTEXT.md",
+    "D:/Developer/Projects/knora-agent/docs/standards/architecture.md",
+    "D:/Developer/Projects/knora-agent/docs/evaluation.md",
+    "D:/Developer/Projects/knora-agent/evals/runners/milestone_3_comparison.py",
+    "D:/Developer/Projects/knora-agent/evals/runners/milestone_3.py",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-improvement-claim-v1-approval.json",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-improvement-claim-v1-approval-closure-v2.json"
+  ]
+}

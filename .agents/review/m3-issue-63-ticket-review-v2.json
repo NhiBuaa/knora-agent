@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "independent-reviewer-id",
+  "reviewed_at": "2026-08-18T10:41:18.648Z",
+  "scope": "Read-only external review of GitHub Issue #63 and PR #66 at the requested Milestone 3 fixed point, including report construction/comparison, authority binding, selection output, tests and accepted v6 remediation evidence.",
+  "findings": [
+    {
+      "severity": "major",
+      "location": "evals/runners/milestone_3_comparison.py:1920-1959, 2077-2134, 1655-1675",
+      "evidence": "The paired comparator accepts caller-supplied expected_case_ids and only checks pair equality; _provenance_without_allowed_differences validates dataset/corpus/chunk-set digests by shape and equality, not against the immutable M3 manifest. select_production_improvement has no dataset/manifest input and does not resolve the reported dataset digest or case population to the committed m3-dataset-v1. The dataset contract itself requires 50 to 100 cases in evals/datasets/milestone_3.py:173-176.",
+      "problem": "The canonical production selection boundary can accept a favorable subset or an arbitrary same-shaped dataset digest when both reports and the pair are internally consistent.",
+      "harm": "A SELECTED improvement claim can be emitted without the pinned M3 population, enabling metric cherry-picking while still reporting provenance_match=true.",
+      "fix": "Bind production selection to the immutable dataset/corpus manifests or a verified report-population attestation, require the exact pinned case-ID population and recomputed digest, and keep reduced case sets available only through an explicit non-production fixture seam."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/milestone_3_comparison.py:1244-1251 and 1631-1640",
+      "evidence": "The selector validates latency disclosure on both reports, but the selected-improvement record stores only hybrid_report['latency_tradeoffs']; no vector/baseline latency disclosure or pair-level latency delta is retained in the selected artifact.",
+      "problem": "The retained field is per-report disclosure, not an auditable vector-versus-hybrid trade-off.",
+      "harm": "A selected claim cannot show whether the hybrid changed retrieval or end-to-end latency relative to its baseline, contrary to Issue #63's requirement to retain latency trade-offs and the claim-rule requirement to disclose them.",
+      "fix": "Persist a pair-level latency projection containing both vector and hybrid observations and explicit trade-off/delta data, and assert its presence in the qualifying selection path."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/m3_claim_authority.py:119-208 and docs/design/m3-improvement-claim-rule-v3.md:231-241",
+      "evidence": "The design declares docs/design/m3-improvement-claim-rule-v1.policy.json the sole canonical semantic projection, but validate_policy_projection compares every value against a second full policy copy returned by _canonical_projection(). Production therefore depends on duplicated normative values in Python as well as the approved Git blob.",
+      "problem": "The implementation does not use the approved JSON projection as the sole policy source; it hard-codes a second policy that must stay synchronized.",
+      "harm": "A future approved/sealed projection can be rejected unless production code is changed in lockstep, and policy meaning can drift between the sealed artifact and the executable authority validator.",
+      "fix": "Parse and strictly validate the approved Git projection's schema/types, bind its exact blob digest and authority identity, and remove the duplicated value-level policy block from the production validator."
+    },
+    {
+      "severity": "major",
+      "location": "evals/runners/m3_claim_authority.py:25, 345-398, 519-541; .agents/review/m3-improvement-claim-v1-approval.json",
+      "evidence": "Production authority validation checks that reviewer_id and approved_by are non-placeholder and equal the hard-coded NhiBuaa identity, and trusts the payload's reviewer_was_author=false assertion. It does not verify reviewer independence against the source commit or an external review artifact. The pinned payload names NhiBuaa for both reviewer and approver, while the pinned authority source commit is authored by NhiBuaa.",
+      "problem": "The PR makes an authority chain effective without enforcing the independent-review precondition stated by the claim-rule design.",
+      "harm": "The fail-closed selection gate can be authorized by the same identity that authored the policy, so the authority evidence is not independently auditable.",
+      "fix": "Require and validate a separately sealed external-review record, bind its reviewer identity and source-commit coverage, reject self-authored/self-approved authority where the policy requires independence, and add a regression test for the current self-authored chain."
+    }
+  ],
+  "checks": [
+    {
+      "requirement": "Closed guardrails, observation-failure handling, category applicability and denominator reconciliation are implemented and exercised by focused tests.",
+      "result": "PASS",
+      "evidence": "evals/runners/milestone_3_comparison.py:761-1200; evals/test/test_issue_63_remediation.py; accepted v6 Evaluation records report 78 focused tests and later 99-test revalidation."
+    },
+    {
+      "requirement": "Public-only semantic citation input rejects hidden candidates, excluded evidence and forged public projections.",
+      "result": "PASS",
+      "evidence": "evals/scorers/openai_compatible.py:221-309; evals/runners/milestone_3.py:996-1039; evals/test/test_semantic_scorer.py; accepted fixed-point verification records the hidden/excluded-evidence regressions."
+    },
+    {
+      "requirement": "Taxonomy stages, optional contributing enums and the non-failure refusal outcome are closed.",
+      "result": "PASS",
+      "evidence": "evals/runners/milestone_3_comparison.py:172-203 and 586-690; evals/test/test_issue_63_remediation.py; accepted v6 TC-05 evidence."
+    },
+    {
+      "requirement": "Authority mutation, caller override, malformed seal/closure and unverified Binding V3 paths fail closed.",
+      "result": "PASS_WITH_FINDINGS",
+      "evidence": "evals/runners/m3_claim_authority.py:438-642; evals/runners/milestone_3_comparison.py:458-583; focused authority tests. The exact current chain is mechanically sealed, but independent-review enforcement and sole-projection binding remain deficient."
+    },
+    {
+      "requirement": "Selected-improvement artifacts retain the complete paired evidence required by Issue #63.",
+      "result": "FAIL",
+      "evidence": "evals/runners/milestone_3_comparison.py:1631-1640 retains hybrid latency disclosure only; no production population binding is performed before selection."
+    }
+  ],
+  "authoritative_sources": [
+    "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "https://github.com/NhiBuaa/knora-agent/issues/48",
+    "https://github.com/NhiBuaa/knora-agent/issues/63",
+    "https://github.com/NhiBuaa/knora-agent/pull/66",
+    "D:/Developer/Projects/knora-agent/CONTEXT.md",
+    "D:/Developer/Projects/knora-agent/docs/standards/architecture.md",
+    "D:/Developer/Projects/knora-agent/docs/evaluation.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-improvement-claim-rule-v3.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-improvement-claim-rule-v1.policy.json",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-environment-binding-v3.md",
+    "D:/Developer/Projects/knora-agent/docs/design/m3-evaluation-sealed-environment-v2.md",
+    "D:/Developer/Projects/knora-agent/evals/runners/m3_claim_authority.py",
+    "D:/Developer/Projects/knora-agent/evals/runners/milestone_3_comparison.py",
+    "D:/Developer/Projects/knora-agent/evals/runners/milestone_3.py",
+    "D:/Developer/Projects/knora-agent/evals/test/test_issue_63_remediation.py",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/m3-remediation-issue-63-v6.md",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/m3-remediation-issue-63.evaluations.jsonl",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-improvement-claim-v1-approval.json",
+    "D:/Developer/Projects/knora-agent/.agents/review/m3-improvement-claim-v1-approval-closure-v2.json"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "independent-reviewer-id",
+  "reviewed_at": "2026-08-18T10:41:18.648Z",
+  "scope": "Read-only external review of GitHub Issue #61 and PR #65, including the PR merge result and its accepted Issue #61 remediation evidence at the requested Milestone 3 fixed point.",
+  "findings": [],
+  "checks": [
+    {
+      "requirement": "Branch-local vector/FTS observations remain separate from fused candidate rank, score and final-decision fields, including below-threshold, ineligible and no-contribution cases.",
+      "result": "PASS",
+      "evidence": "backend/src/knora/answering/stores.py; backend/src/knora/adapters/postgres/answering_store.py; backend/src/knora/adapters/postgres/evaluation_reader.py; evals/reports/issue-61-v2-branch-matrix.json."
+    },
+    {
+      "requirement": "Trace provenance and exact response correlation fail closed across missing, malformed, unauthorized, cross-Workspace and mismatched trace cases.",
+      "result": "PASS",
+      "evidence": "backend/src/knora/adapters/postgres/evaluation_reader.py:123-255; evals/runners/milestone_3.py:759-857; accepted Evaluation m3-issue-61-20260816-acceptance-10 records source-pinned fault probes and no fallback score/latency."
+    },
+    {
+      "requirement": "Public ANSWER/REFUSAL validation and citation aliases enforce selected Evidence Set membership and retain refusal correctness without scoring malformed responses.",
+      "result": "PASS",
+      "evidence": "evals/runners/milestone_3.py:861-1039; backend/src/knora/answering/generation_validation.py; evals/test/test_issue_61_observation_contract.py; accepted run m3-issue-61-20260816-acceptance-10 TC-61-03."
+    },
+    {
+      "requirement": "Retrieval latency includes candidate retrieval plus Evidence Selection and remains independent from client end-to-end latency.",
+      "result": "PASS",
+      "evidence": "backend/src/knora/answering/module.py:84-115 and 371-395; backend/test/answering/test_issue_61_trace_contract.py; accepted run m3-issue-61-20260816-acceptance-10 TC-61-04."
+    },
+    {
+      "requirement": "Lexical policy/version, normalized and omitted lexemes, empty-lexeme behavior and the closed decision/reason taxonomy are observable and fail closed.",
+      "result": "PASS",
+      "evidence": "backend/src/knora/adapters/postgres/answering_store.py:403-613; backend/src/knora/adapters/postgres/evaluation_reader.py:398-615; evals/reports/issue-61-v2-retrieval.json; evals/reports/issue-61-tc06-disposable-fixture.json."
+    },
+    {
+      "requirement": "The PR's accepted evidence covers the complete locked Issue #61 guide, with focused verification and the documented full-suite environment limitation kept separate.",
+      "result": "PASS",
+      "evidence": "PR #65; .agents/manual-tests/milestone-3/61-remediation-production-observation.evaluations.jsonl run m3-issue-61-20260816-acceptance-10; focused Issue #61 tests 97 passed; the known DB-backed CLI-ingest stall is explicitly recorded rather than claimed green."
+    }
+  ],
+  "authoritative_sources": [
+    "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "https://github.com/NhiBuaa/knora-agent/issues/48",
+    "https://github.com/NhiBuaa/knora-agent/issues/61",
+    "https://github.com/NhiBuaa/knora-agent/pull/65",
+    "D:/Developer/Projects/knora-agent/CONTEXT.md",
+    "D:/Developer/Projects/knora-agent/docs/standards/architecture.md",
+    "D:/Developer/Projects/knora-agent/docs/evaluation.md",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/milestone-3/61-remediation-production-observation-v4.md",
+    "D:/Developer/Projects/knora-agent/.agents/manual-tests/milestone-3/61-remediation-production-observation.evaluations.jsonl",
+    "D:/Developer/Projects/knora-agent/evals/reports/issue-61-v2-branch-matrix.json",
+    "D:/Developer/Projects/knora-agent/evals/reports/issue-61-tc06-disposable-fixture.json",
+    "D:/Developer/Projects/knora-agent/evals/reports/issue-61-v2-cutover.json",
+    "D:/Developer/Projects/knora-agent/evals/reports/issue-61-v2-retrieval.json"
+  ]
+}
