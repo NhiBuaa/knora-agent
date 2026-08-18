@@ -327,10 +327,10 @@ def _validate_binding_attestations(
     vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
 ) -> dict[str, dict[str, object]] | None:
-    if not isinstance(vector_report, Mapping) or not isinstance(hybrid_report, Mapping):
-        raise ComparisonError("PROVENANCE_MISMATCH")
     if attestation is None:
         return None
+    if not isinstance(vector_report, Mapping) or not isinstance(hybrid_report, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
     if isinstance(attestation, Mapping):
         if set(attestation) != {"vector", "hybrid"}:
             raise ComparisonError("PROVENANCE_MISMATCH")
