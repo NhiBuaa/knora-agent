@@ -652,6 +652,25 @@ def test_binding_attestation_rejects_archive_mutation_against_committed_closure(
         )
 
 
+def test_non_mapping_report_fails_closed_before_binding_access(tmp_path: Path) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    attestation = _binding_attestation(hybrid, tmp_path, "hybrid")
+
+    result = select_improvement(
+        pair,
+        vector_report=None,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+        binding_attestation={"vector": attestation, "hybrid": attestation},
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
+
+
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
