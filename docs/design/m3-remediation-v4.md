@@ -52,10 +52,10 @@ The sorted requirement IDs are `authority_independent_review`, `exact_manifest_p
 `native_dependency_graph`, `no_evaluation_only_retrieval`, `pair_latency_boundary`,
 `paired_generation_scorer_invariants`, `public_citation_and_trace_failure`, and
 `sole_source_policy_projection`. With subject commit
-`4f7d024f1df41b6a7e7b3b413a3e6cc33c3ef3c8`, subject blob
-`3b9ad5ba6562b0b2e87cbe2ebc7253035a421e30`, and the canonical serialization above, the
+`523a248cca33d202e295edb3ee791dedac6f5654`, subject blob
+`4317d18b65b52239963cfabd2f9bd978b572fa17`, and the canonical serialization above, the
 complete `scope_digest` is
-`sha256:583e56fcb9fddd65407dc462abd620e88c0060c59eb02b1796892b2f8e2619e4`.
+`sha256:f5166381e4dd4316b486f546f8ae82880130005b6cd5042eefbc95a43a552b0f`.
 
 ## R1 — authority chain and sole-source policy projection
 
