@@ -916,6 +916,18 @@ These rules are normative for Knora unless superseded by an approved Standard or
   version. A selected-improvement record retains metric deltas, guardrail results, latency
   trade-offs, and remaining regressions.
 
+### M3 remediation v2 boundary
+
+The remediation preserves the M3 contracts while tightening the claim boundary. Production
+authority must bind a concrete independent-review artifact covering the exact source commit and
+approved JSON policy projection; reviewer identity must differ from source author and approver, and
+self-attested assertions are not evidence. The approved JSON projection is the sole normative policy
+value source. Production selection resolves the immutable M3 manifest and exact 50-case population
+itself; caller-supplied expected IDs or same-shaped digests are non-production fixtures only. A
+selected improvement retains both vector and hybrid latency observations plus explicit pair-level
+deltas and remaining regressions. The revised Issue #63 guide is blocked by the authority and
+population/latency remediation slices through native GitHub dependencies.
+
 ## Tool actions
 
 - Tools are classified as read-only or write/destructive.

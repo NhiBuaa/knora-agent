@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m3-remediation-design-v2",
+  "status": "approved",
+  "approved_at": "2026-08-18T00:00:00Z",
+  "source": "m3-remediation-external-review-aggregation-v1",
+  "slices": [
+    {
+      "id": "R1",
+      "title": "authority-chain-and-policy-projection",
+      "seam": "canonical_authority_validation",
+      "depends_on": []
+    },
+    {
+      "id": "R2",
+      "title": "immutable-population-and-paired-latency",
+      "seam": "select_production_improvement",
+      "depends_on": []
+    },
+    {
+      "id": "R3",
+      "title": "guide-v7-and-final-acceptance",
+      "seam": "issue-63-manual-acceptance",
+      "depends_on": ["R1", "R2"]
+    }
+  ],
+  "invariants": {
+    "production_retrieval_seam": "AnsweringStore.retrieve_candidates",
+    "evaluation_executor": "HttpEvaluationExecutor",
+    "raw_rrf_is_threshold": false,
+    "trace_is_observation_only": true,
+    "latency_metrics_independent": true,
+    "dataset_population": "exact-m3-dataset-v1-50-case-set",
+    "native_blocking_edges": true,
+    "historical_artifacts_immutable": true
+  }
+}
