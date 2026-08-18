@@ -4,7 +4,7 @@ Make production improvement selection bind the immutable M3 population and retai
 vector-versus-hybrid latency trade-off.
 
 Authoritative design: `docs/design/m3-remediation-v4.md`.
-Locked guide: `.agents/manual-tests/milestone-3/69-remediation-population-latency-v3.md`.
+Locked guide: `.agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md`.
 
 ## Acceptance
 
@@ -18,6 +18,9 @@ Locked guide: `.agents/manual-tests/milestone-3/69-remediation-population-latenc
   boundaries, stores both vector/hybrid values and explicit deltas, and never applies a hard cutoff.
 - Public `HttpEvaluationExecutor` evidence proves exact trace correlation and no evaluation-only
   retrieval path. Tests/lint/diff/hygiene pass.
+- Canonical M3 symbol is `evals.runners.milestone_3.HttpEvaluationExecutor`; the legacy
+  `ProductionM3Executor` name is only a compatibility alias. Response-completion clock capture
+  occurs before trace loading/citation processing.
 
 ## Dependency
 
