@@ -90,11 +90,11 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
         "schema_version": 1,
         "provenance": {
             "dataset_version": "dataset-1",
-            "dataset_digest": "sha256:dataset",
+            "dataset_digest": "sha256:" + "a" * 64,
             "corpus_id": corpus,
-            "corpus_digest": "sha256:corpus",
+            "corpus_digest": "sha256:" + "b" * 64,
             "chunk_set_id": "chunk-set-1",
-            "chunk_set_digest": "sha256:chunk-set",
+            "chunk_set_digest": "sha256:" + "c" * 64,
             "workspace": "workspace-1",
             "chunking_configuration": "chunking-1",
             "embedding_configuration": "embedding-1",
@@ -124,6 +124,24 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
                 "retrieval_configuration_id": configuration,
                 "chunk_set_provenance_id": "chunk-set-1",
                 "decision": "ANSWER",
+                "public_answer": "answer [[E1]]",
+                "public_citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "public excerpt",
+                        "source_locator": "support/a:1:1",
+                    }
+                ],
+                "answer_marker_ids": ["E1"],
+                "citation_evidence_ids": ["E1"],
+                "source_bindings": [
+                    {
+                        "source_key": "support/a",
+                        "production_document_version_id": "version-1",
+                        "production_chunk_set_id": "chunk-set-1",
+                    }
+                ],
                 "structural_validity": True,
                 "citation_correctness": True,
                 "refusal_correctness": True,

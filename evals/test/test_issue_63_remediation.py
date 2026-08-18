@@ -116,11 +116,11 @@ def _modern_report(
             category_projection[metric_name] = guard_metric(category_projection["case_count"])
     provenance = {
         "dataset_version": "m3-dataset-v1",
-        "dataset_digest": "sha256:dataset",
+        "dataset_digest": "sha256:" + "a" * 64,
         "corpus_id": "m3-corpus-v1",
-        "corpus_digest": "sha256:corpus",
+        "corpus_digest": "sha256:" + "b" * 64,
         "chunk_set_id": "chunk-set-m3-v1",
-        "chunk_set_digest": "sha256:chunk-set",
+        "chunk_set_digest": "sha256:" + "c" * 64,
         "workspace": "evaluation-m3-v1",
         "chunking_configuration": "chunking-m3-v1",
         "embedding_configuration": "embedding-m3-v1",
@@ -153,6 +153,24 @@ def _modern_report(
                 "retrieval_configuration_id": configuration,
                 "chunk_set_provenance_id": "chunk-set-m3-v1",
                 "decision": "ANSWER",
+                "public_answer": "answer [[E1]]",
+                "public_citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "public excerpt",
+                        "source_locator": "support/a:1:1",
+                    }
+                ],
+                "answer_marker_ids": ["E1"],
+                "citation_evidence_ids": ["E1"],
+                "source_bindings": [
+                    {
+                        "source_key": "support/a",
+                        "production_document_version_id": "version-1",
+                        "production_chunk_set_id": "chunk-set-m3-v1",
+                    }
+                ],
                 "structural_validity": True,
                 "citation_correctness": True,
                 "refusal_correctness": True,
@@ -349,6 +367,54 @@ def test_paired_provenance_rejects_mutation_outside_declared_configuration_field
         compare_paired_reports(vector, missing, expected_case_ids=("case-a", "case-b"))
 
 
+def test_paired_provenance_rejects_matching_malformed_digest_values() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    vector["provenance"]["corpus_digest"] = "bad-digest"
+    hybrid["provenance"]["corpus_digest"] = "bad-digest"
+
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
+def test_selection_rejects_observation_source_binding_mutation() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    hybrid["observations"][0]["source_bindings"][0]["production_document_version_id"] = (
+        "tampered-version"
+    )
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
+
+
+def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    hybrid["observations"][0]["citation_correctness"] = False
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "GUARDRAIL_FAILURE"
+
+
 def test_exact_rational_selection_uses_unrounded_metric_contract_values() -> None:
     vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 3), mrr=(1, 2))
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 3), mrr=(2, 3))
@@ -374,7 +440,8 @@ def test_exact_rational_selection_uses_unrounded_metric_contract_values() -> Non
         authority=test_claim_rule_authority_fixture(),
         production=False,
     )
-    assert rounded_mutation["status"] == "SELECTED"
+    assert rounded_mutation["status"] == "NO_CLAIM"
+    assert rounded_mutation["reason"] == "METRIC_DECISION_RECONCILIATION_FAILED"
 
 
 @pytest.mark.parametrize(
@@ -520,6 +587,17 @@ def test_taxonomy_stage_preconditions_and_optional_categories_are_closed() -> No
         contributing_enums=("LEXICAL_MISS",),
     )
     assert finding["primary_enum"] == "FUSION_RANKING_ERROR"
+    optional_only = classify_finding(
+        "fixture-answer-refused",
+        evidence=["evidence"],
+        stage_evidence={
+            "contributing_stage_evidence": {
+                "CORPUS_OR_CONFIGURATION_MISMATCH": {"stage_proven": True},
+            }
+        },
+        contributing_enums=("CORPUS_OR_CONFIGURATION_MISMATCH",),
+    )
+    assert optional_only["contributing_enums"] == ["CORPUS_OR_CONFIGURATION_MISMATCH"]
     with pytest.raises(ComparisonError, match="CATEGORY_INVALID"):
         classify_finding(
             "fixture-fusion-union-ranked-low",
@@ -627,6 +705,43 @@ def test_selection_reconciles_metric_projection_and_latency_disclosure() -> None
     )
     assert missing_latency["status"] == "NO_CLAIM"
     assert missing_latency["reason"] == "LATENCY_DISCLOSURE_INVALID"
+
+
+@pytest.mark.parametrize("field", ["metric_contract", "recall_k"])
+def test_selection_rejects_metric_contract_mutation_even_with_valid_pair(field: str) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    hybrid["retrieval"][field] = "mutated" if field == "metric_contract" else 7
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "METRIC_CONTRACT_MISMATCH"
+
+
+def test_selection_rejects_incomplete_fabricated_pair_contract() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    del pair["pair_records"]
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PAIR_CONTRACT_INVALID"
 
 
 def test_latency_disclosure_count_must_match_successful_observations() -> None:

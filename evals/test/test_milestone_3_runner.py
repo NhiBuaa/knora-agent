@@ -260,8 +260,20 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
                         "source_locator": "support/a:1:1",
                     }
                 ],
-            }
-        ]
+        }
+    ]
+    with pytest.raises(ObservationFailure, match="GUARDRAIL_RECONCILIATION_FAILED"):
+        build_report(
+            (case,),
+            (observation,),
+            binding=_binding(),
+            guardrails={
+                "structural_validity": True,
+                "citation_correctness": False,
+                "refusal_correctness": True,
+            },
+            semantic_citation_results={"case": True},
+        )
 
 
 def test_trace_projection_requires_single_matching_chunk_set_and_unique_identity() -> None:
@@ -623,6 +635,66 @@ async def test_production_executor_never_repairs_invalid_public_citations_from_t
     )
 
     observation = await executor.execute(case)
+    await client.aclose()
+
+    assert observation.failure_code == "CITATION_STRUCTURAL_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_production_executor_rejects_forged_public_excerpt_for_selected_candidate() -> None:
+    case = _case()
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "ANSWER",
+                "answer": "answer [[E1]]",
+                "citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "forged excerpt",
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ],
+                "refusal_reason": None,
+                "trace_id": "trace-1",
+            },
+        )
+
+    trace = SimpleNamespace(
+        trace_id="trace-1",
+        workspace_id="workspace",
+        retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="ANSWER",
+        answer="answer [[E1]]",
+        refusal_reason=None,
+        parsed_markers=["E1"],
+        candidates=(
+            SimpleNamespace(
+                chunk_id="chunk-1",
+                document_version_id="version-1",
+                chunk_set_id="set-1",
+                source_key="support/a",
+                chunk_ordinal=0,
+                content="authoritative trace excerpt",
+                final_decision="SELECTED",
+            ),
+        ),
+        retrieval_latency_ms=1.0,
+        alias_mapping={"E1": "chunk-1"},
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(read_trace=lambda **_kwargs: trace),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
     await client.aclose()
 
     assert observation.failure_code == "CITATION_STRUCTURAL_ERROR"

@@ -279,6 +279,43 @@ async def test_semantic_scorer_rejects_public_alias_projection_mismatch() -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda observation: replace(observation, decision=None),
+        lambda observation: replace(observation, answer=None),
+        lambda observation: replace(observation, answer="answer [[E1]]", answer_marker_ids=("E2",)),
+        lambda observation: replace(
+            observation,
+            decision="REFUSAL",
+            answer="must not be sent",
+            public_citations=(),
+            citation_evidence_ids=(),
+            answer_marker_ids=(),
+            refusal_reason="INSUFFICIENT_EVIDENCE",
+        ),
+    ),
+)
+async def test_semantic_scorer_rejects_malformed_public_response_contract(mutation) -> None:
+    observation = mutation(_observation())
+    scorer = OpenAICompatibleSemanticScorer(
+        SemanticScorerConfiguration(
+            base_url="https://judge.example/v1",
+            api_key="runtime-judge-key",
+            model="judge-model",
+            version="semantic-scorer-v1",
+            measurement_method="llm-judge-v1",
+        ),
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: pytest.fail("no request"))
+        ),
+    )
+    with pytest.raises(SemanticScorerError, match="SCORER_INPUT_INVALID"):
+        await scorer.score(case=_case(), observation=observation)
+    await scorer.aclose()
+
+
+@pytest.mark.asyncio
 async def test_semantic_scorer_sanitizes_invalid_responses() -> None:
     async def endpoint(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

@@ -789,9 +789,8 @@ class ProductionM3Executor:
                 getattr(trace, "candidates", ()),
                 binding=self._binding,
             )
-            citation_ids = public.citation_evidence_ids
-            _validate_public_citation_aliases(
-                citation_ids=citation_ids,
+            validate_public_citations_against_trace(
+                citations=public.citations,
                 alias_mapping=getattr(trace, "alias_mapping", None),
                 candidates=getattr(trace, "candidates", ()),
             )
@@ -971,6 +970,45 @@ def validate_public_citation_aliases(
         or len(mapped_ids) != len(set(mapped_ids))
     ):
         raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+
+
+def validate_public_citations_against_trace(
+    *,
+    citations: Iterable[PublicCitation],
+    alias_mapping: object,
+    candidates: Iterable[object],
+) -> None:
+    citations = tuple(citations)
+    validate_public_citation_aliases(
+        citation_ids=tuple(citation.evidence_id for citation in citations),
+        alias_mapping=alias_mapping,
+        candidates=candidates,
+    )
+    if not isinstance(alias_mapping, dict):
+        raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+    candidates_by_id = {
+        getattr(candidate, "chunk_id", None): candidate for candidate in candidates
+    }
+    for citation in citations:
+        candidate = candidates_by_id.get(alias_mapping.get(citation.evidence_id))
+        if candidate is None or citation.source_key != getattr(candidate, "source_key", None):
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        content = getattr(candidate, "content", None)
+        if content is not None and (
+            not isinstance(content, str) or citation.excerpt != content[:500]
+        ):
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        expected_locator = getattr(candidate, "source_locator", None)
+        if expected_locator is None:
+            start_line = getattr(candidate, "start_line", None)
+            end_line = getattr(candidate, "end_line", None)
+            if type(start_line) is int and type(end_line) is int:
+                expected_locator = f"{citation.source_key}:{start_line}:{end_line}"
+        if expected_locator is not None:
+            if citation.source_locator != expected_locator:
+                raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+        elif not citation.source_locator.startswith(f"{citation.source_key}:"):
+            raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
 
 
 def _validate_public_citation_aliases(
@@ -1183,32 +1221,36 @@ def build_report(
     report["category_breakdown"] = build_category_breakdown(cases, report)
     from evals.runners.milestone_3_comparison import validate_guardrail_shape
 
-    if guardrails is None:
-        successful = [observation for observation in observations if observation.is_success]
-        answer_observations = [
-            observation for observation in successful if observation.decision == "ANSWER"
-        ]
-        refusal_checks = [
-            (
-                observation.refusal_correctness
-                if observation.refusal_correctness is not None
-                else observation.decision == "ANSWER"
-            )
-            for observation in successful
-        ]
-        guardrails = {
-            "structural_validity": bool(successful)
-            and len(successful) == len(observations)
-            and all(observation.structural_validity is True for observation in successful),
-            "citation_correctness": bool(answer_observations)
-            and all(
-                observation.citation_correctness is True
-                for observation in answer_observations
-            ),
-            "refusal_correctness": bool(refusal_checks)
-            and all(value is True for value in refusal_checks),
-        }
-    report["guardrails"] = validate_guardrail_shape(guardrails)
+    successful = [observation for observation in observations if observation.is_success]
+    answer_observations = [
+        observation for observation in successful if observation.decision == "ANSWER"
+    ]
+    refusal_checks = [
+        (
+            observation.refusal_correctness
+            if observation.refusal_correctness is not None
+            else observation.decision == "ANSWER"
+        )
+        for observation in successful
+    ]
+    expected_guardrails = {
+        "structural_validity": bool(successful)
+        and len(successful) == len(observations)
+        and all(observation.structural_validity is True for observation in successful),
+        "citation_correctness": bool(answer_observations)
+        and all(
+            observation.citation_correctness is True
+            for observation in answer_observations
+        ),
+        "refusal_correctness": bool(refusal_checks)
+        and all(value is True for value in refusal_checks),
+    }
+    shaped_guardrails = validate_guardrail_shape(
+        expected_guardrails if guardrails is None else guardrails
+    )
+    if shaped_guardrails != expected_guardrails:
+        raise ObservationFailure("GUARDRAIL_RECONCILIATION_FAILED")
+    report["guardrails"] = shaped_guardrails
     if latency_tradeoffs is None:
         successful = [observation for observation in observations if observation.is_success]
         observed = bool(successful) and len(successful) == len(observations) and all(

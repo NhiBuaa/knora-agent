@@ -26,7 +26,11 @@ from evals.runners.evaluation import (
     verify_active_corpus,
     write_report_atomic,
 )
-from evals.runners.milestone_3 import ObservationFailure, validate_public_response
+from evals.runners.milestone_3 import (
+    ObservationFailure,
+    validate_public_citations_against_trace,
+    validate_public_response,
+)
 from evals.scorers.openai_compatible import (
     OpenAICompatibleSemanticScorer,
     SemanticScorerConfiguration,
@@ -101,7 +105,17 @@ class HttpEvaluationExecutor:
                 for candidate in trace.candidates
             }
             candidates_by_id = {candidate.chunk_id: candidate for candidate in trace.candidates}
+            selected_candidate_ids = {
+                candidate.chunk_id
+                for candidate in trace.candidates
+                if getattr(candidate, "final_decision", None) == "SELECTED"
+            }
             citation_ids = public.citation_evidence_ids
+            validate_public_citations_against_trace(
+                citations=public.citations,
+                alias_mapping=trace.alias_mapping,
+                candidates=trace.candidates,
+            )
             public_citations = tuple(
                 (
                     citation.evidence_id,
@@ -113,9 +127,11 @@ class HttpEvaluationExecutor:
             alias_mapping = trace.alias_mapping
             if not isinstance(alias_mapping, dict) or any(
                 evidence_id not in alias_mapping
-                or alias_mapping[evidence_id] not in references_by_id
+                or alias_mapping[evidence_id] not in selected_candidate_ids
                 for evidence_id in citation_ids
-            ):
+            ) or len(
+                {alias_mapping[evidence_id] for evidence_id in citation_ids}
+            ) != len(citation_ids):
                 raise ValueError("PUBLIC_CITATION_ALIAS_INVALID")
             cited_chunks = tuple(
                 references_by_id[alias_mapping[evidence_id]] for evidence_id in citation_ids

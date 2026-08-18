@@ -96,6 +96,8 @@ APPROVED_RETRIEVAL_CONFIGURATIONS = MappingProxyType(
 )
 
 TAXONOMY_VERSION = "m3-failure-taxonomy-v1"
+_VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
+_SHA256_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}\Z")
 TAXONOMY_FIXTURE_MAP = MappingProxyType({
     "fixture-lexical-branch-miss": "LEXICAL_MISS",
     "fixture-semantic-branch-miss": "SEMANTIC_MISS",
@@ -147,12 +149,12 @@ def classify_finding(
     if any(not isinstance(item, str) or not item for item in normalized_evidence):
         raise ComparisonError("FINDING_EVIDENCE_INVALID")
     expected_stage = _FIXTURE_STAGES.get(fixture_id)
+    if stage_evidence is not None and not isinstance(stage_evidence, Mapping):
+        raise ComparisonError("STAGE_PRECONDITION_INVALID")
+    details = stage_evidence or {}
     if expected_stage is not None:
         if stage != expected_stage:
             raise ComparisonError("STAGE_PRECONDITION_INVALID")
-        if stage_evidence is not None and not isinstance(stage_evidence, Mapping):
-            raise ComparisonError("STAGE_PRECONDITION_INVALID")
-        details = stage_evidence or {}
         if expected_stage == "branch":
             expected_branch = "lexical" if fixture_id.startswith("fixture-lexical") else "semantic"
             if (
@@ -189,9 +191,7 @@ def classify_finding(
     if len(set(contributing)) != len(contributing):
         raise ComparisonError("CATEGORY_INVALID")
     if contributing:
-        contributing_evidence = (
-            details.get("contributing_stage_evidence") if expected_stage else None
-        )
+        contributing_evidence = details.get("contributing_stage_evidence")
         if not isinstance(contributing_evidence, Mapping):
             raise ComparisonError("STAGE_PRECONDITION_INVALID")
         for enum in contributing:
@@ -373,6 +373,39 @@ def _validate_observation_set(
                     raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
             if observation.get("decision") not in {"ANSWER", "REFUSAL"}:
                 raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+            _validate_public_observation_projection(observation)
+            if any(
+                type(observation.get(field)) is not bool
+                for field in REQUIRED_GUARDRAIL_KEYS
+            ):
+                raise ComparisonError("GUARDRAIL_FAILURE")
+            provenance = report.get("provenance")
+            if not isinstance(provenance, Mapping):
+                raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+            if (
+                observation.get("retrieval_configuration_id")
+                != provenance.get("retrieval_configuration_id")
+                or observation.get("chunk_set_provenance_id")
+                != provenance.get("chunk_set_id")
+            ):
+                raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+            bindings = observation.get("source_bindings")
+            if not isinstance(bindings, list) or not bindings:
+                raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+            for binding in bindings:
+                if not isinstance(binding, Mapping) or set(binding) != {
+                    "source_key",
+                    "production_document_version_id",
+                    "production_chunk_set_id",
+                } or any(
+                    not isinstance(binding[field], str) or not binding[field]
+                    for field in (
+                        "source_key",
+                        "production_document_version_id",
+                        "production_chunk_set_id",
+                    )
+                ):
+                    raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
         else:
             failure_code = observation.get("failure_code")
             if not isinstance(failure_code, str) or not failure_code:
@@ -382,6 +415,65 @@ def _validate_observation_set(
         raise ComparisonError("CASE_SET_MISMATCH")
     _has_observation_failure(report)
     return tuple(by_id[case_id] for case_id in expected_case_ids)
+
+
+def _validate_public_observation_projection(observation: Mapping[str, Any]) -> None:
+    decision = observation.get("decision")
+    answer = observation.get("public_answer")
+    refusal_reason = observation.get("refusal_reason")
+    citations = observation.get("public_citations")
+    markers = observation.get("answer_marker_ids")
+    citation_ids = observation.get("citation_evidence_ids")
+    if not isinstance(citations, list) or not isinstance(markers, list) or not isinstance(
+        citation_ids, list
+    ):
+        raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+    if any(
+        not isinstance(item, str) or not _VALID_MARKER_ID_PATTERN.fullmatch(item)
+        for item in (*markers, *citation_ids)
+    ) or len(set(markers)) != len(markers) or len(set(citation_ids)) != len(citation_ids):
+        raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+    public_ids: list[str] = []
+    for citation in citations:
+        if not isinstance(citation, Mapping) or set(citation) != {
+            "evidence_id",
+            "source_key",
+            "excerpt",
+            "source_locator",
+        }:
+            raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+        if any(
+            not isinstance(citation[field], str) or not citation[field].strip()
+            for field in ("evidence_id", "source_key", "excerpt", "source_locator")
+        ) or _VALID_MARKER_ID_PATTERN.fullmatch(citation["evidence_id"]) is None:
+            raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+        public_ids.append(citation["evidence_id"])
+    if len(public_ids) != len(set(public_ids)) or tuple(public_ids) != tuple(citation_ids):
+        raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+    if decision == "ANSWER":
+        if not isinstance(answer, str) or not answer.strip() or refusal_reason is not None:
+            raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+        parsed_markers = tuple(re.findall(r"\[\[(E[1-9][0-9]*)\]\]", answer))
+        if (
+            parsed_markers != tuple(markers)
+            or tuple(markers) != tuple(citation_ids)
+            or answer.count("[[") != len(parsed_markers)
+            or answer.count("]]") != len(parsed_markers)
+        ):
+            raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+    elif decision == "REFUSAL":
+        if (
+            answer is not None
+            or citations
+            or markers
+            or citation_ids
+            or refusal_reason != "INSUFFICIENT_EVIDENCE"
+        ):
+            raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+    else:
+        raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+    if type(observation.get("refusal_correctness")) is not bool:
+        raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
 
 
 def _validate_latency_disclosure(report: Mapping[str, Any]) -> None:
@@ -410,6 +502,32 @@ def _validate_latency_disclosure(report: Mapping[str, Any]) -> None:
             or observation.get("observed_per_case") is not (successful_count > 0)
         ):
             raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+
+
+def _validate_report_guardrails(report: Mapping[str, Any]) -> dict[str, bool]:
+    observations = report.get("observations")
+    if not isinstance(observations, list):
+        raise ComparisonError("GUARDRAIL_FAILURE")
+    observed = [item for item in observations if isinstance(item, Mapping)]
+    answer_observations = [item for item in observed if item.get("decision") == "ANSWER"]
+    refusal_values = [item.get("refusal_correctness") for item in observed]
+    expected = {
+        "structural_validity": bool(observed)
+        and len(observed) == len(observations)
+        and all(item.get("status") == "observed" for item in observed)
+        and all(item.get("structural_validity") is True for item in observed),
+        "citation_correctness": bool(answer_observations)
+        and all(item.get("citation_correctness") is True for item in answer_observations),
+        "refusal_correctness": bool(refusal_values)
+        and all(value is True for value in refusal_values),
+    }
+    try:
+        shaped = validate_guardrail_shape(report.get("guardrails"))
+    except ComparisonError:
+        raise ComparisonError("GUARDRAIL_FAILURE") from None
+    if shaped != expected:
+        raise ComparisonError("GUARDRAIL_FAILURE")
+    return shaped
 
 
 def _validate_category_metric(value: object, *, case_count: int) -> None:
@@ -675,9 +793,106 @@ def _selection_provenance_matches(
         return False
     return (
         vector_shared == hybrid_shared
+        and pair.get("shared_provenance") == vector_shared
         and pair.get("vector_configuration_id") == vector_configuration
         and pair.get("hybrid_configuration_id") == hybrid_configuration
+        and _observation_source_bindings(vector_report)
+        == _observation_source_bindings(hybrid_report)
     )
+
+
+def _observation_source_bindings(
+    report: Mapping[str, Any],
+) -> dict[str, tuple[tuple[str, str, str], ...]]:
+    observations = report.get("observations")
+    if not isinstance(observations, list):
+        raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+    result: dict[str, tuple[tuple[str, str, str], ...]] = {}
+    for observation in observations:
+        if not isinstance(observation, Mapping) or not isinstance(
+            observation.get("case_id"), str
+        ):
+            raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+        if observation.get("status") != "observed":
+            continue
+        bindings = observation.get("source_bindings")
+        if not isinstance(bindings, list):
+            raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+        result[observation["case_id"]] = tuple(
+            sorted(
+                (
+                    binding["source_key"],
+                    binding["production_document_version_id"],
+                    binding["production_chunk_set_id"],
+                )
+                for binding in bindings
+                if isinstance(binding, Mapping)
+                and set(binding)
+                == {
+                    "source_key",
+                    "production_document_version_id",
+                    "production_chunk_set_id",
+                }
+            )
+        )
+    return result
+
+
+def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
+    required_keys = {
+        "schema_version",
+        "case_ids",
+        "pair_cardinality",
+        "expected_pair_cardinality",
+        "pair_key",
+        "pair_records",
+        "provenance_match",
+        "vector_configuration_id",
+        "hybrid_configuration_id",
+        "shared_provenance",
+    }
+    if not isinstance(pair, Mapping) or set(pair) != required_keys:
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    if pair.get("schema_version") != 1 or pair.get("pair_key") != (
+        "(case_id, retrieval_configuration_id)"
+    ):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    case_ids = pair.get("case_ids")
+    if not isinstance(case_ids, list) or not case_ids or any(
+        not isinstance(case_id, str) or not case_id for case_id in case_ids
+    ):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    if len(case_ids) != len(set(case_ids)) or tuple(case_ids) != tuple(sorted(case_ids)):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    vector_configuration = pair.get("vector_configuration_id")
+    hybrid_configuration = pair.get("hybrid_configuration_id")
+    if (
+        vector_configuration != "retrieval-m3-vector-v2"
+        or hybrid_configuration != "retrieval-m3-rrf-v2"
+        or pair.get("provenance_match") is not True
+    ):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    pair_records = pair.get("pair_records")
+    expected_records = [
+        {"case_id": case_id, "retrieval_configuration_id": vector_configuration}
+        for case_id in case_ids
+    ] + [
+        {"case_id": case_id, "retrieval_configuration_id": hybrid_configuration}
+        for case_id in case_ids
+    ]
+    if pair_records != expected_records:
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    expected_cardinality = 2 * len(case_ids)
+    if (
+        type(pair.get("pair_cardinality")) is not int
+        or type(pair.get("expected_pair_cardinality")) is not int
+        or pair["pair_cardinality"] != expected_cardinality
+        or pair["expected_pair_cardinality"] != expected_cardinality
+    ):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    if not isinstance(pair.get("shared_provenance"), Mapping):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    return tuple(case_ids)
 
 
 def _decision_metrics(
@@ -758,8 +973,8 @@ def _policy_gate_reason(
     deltas: tuple[Fraction, ...],
 ) -> tuple[str | None, dict[str, bool]]:
     try:
-        validate_guardrails(vector_report.get("guardrails"))
-        hybrid_guardrails = validate_guardrails(hybrid_report.get("guardrails"))
+        _validate_report_guardrails(vector_report)
+        hybrid_guardrails = validate_guardrails(_validate_report_guardrails(hybrid_report))
     except ComparisonError:
         return "GUARDRAIL_FAILURE", {}
     for report in (vector_report, hybrid_report):
@@ -817,18 +1032,19 @@ def select_improvement(
     projection = bound_authority.validated_projection()
     primary_metrics = tuple(projection["primary_metric_set"]["ordered"])
     common = _selection_common(bound_authority, hybrid_report)
-    if pair.get("provenance_match") is not True:
-        return _no_claim(common, "PROVENANCE_MISMATCH")
-    expected_case_ids = tuple(pair.get("case_ids", ()))
-    if not expected_case_ids or any(
-        not isinstance(item, str) or not item for item in expected_case_ids
-    ):
-        return _no_claim(common, "CASE_SET_MISMATCH")
+    try:
+        expected_case_ids = _validate_pair_contract(pair)
+    except ComparisonError as error:
+        return _no_claim(common, str(error))
     try:
         _validate_observation_set(vector_report, expected_case_ids)
         _validate_observation_set(hybrid_report, expected_case_ids)
         if _has_observation_failure(vector_report) or _has_observation_failure(hybrid_report):
             return _no_claim(common, "OBSERVATION_FAILURE")
+        _validate_report_guardrails(vector_report)
+        _validate_report_guardrails(hybrid_report)
+        _validate_metric_contract(vector_report, expected_case_ids)
+        _validate_metric_contract(hybrid_report, expected_case_ids)
         _validate_category_breakdown(
             vector_report, expected_case_ids=expected_case_ids
         )
@@ -1169,6 +1385,8 @@ def _provenance_without_allowed_differences(
         value = provenance.get(key)
         if key == "report_artifact_schema_version":
             valid = type(value) is int and value == 1
+        elif key in {"dataset_digest", "corpus_digest", "chunk_set_digest"}:
+            valid = isinstance(value, str) and _SHA256_DIGEST_PATTERN.fullmatch(value) is not None
         else:
             valid = isinstance(value, str) and bool(value)
             if key in {"source_commit", "evaluation_commit"}:
@@ -1220,6 +1438,16 @@ def _validate_configuration_semantics(report: Mapping[str, Any]) -> str:
     return configuration
 
 
+def _validate_metric_display(value: object, decision: Fraction) -> None:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or (isinstance(value, float) and not isfinite(value))
+        or abs(float(value) - float(decision)) > 1e-12
+    ):
+        raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
+
+
 def _validate_metric_contract(
     report: Mapping[str, Any], expected_case_ids: tuple[str, ...] | None = None
 ) -> None:
@@ -1247,8 +1475,14 @@ def _validate_metric_contract(
             "mrr",
         }:
             raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
-        for value in metric_values.values():
-            _rational(value)
+        for name, value in metric_values.items():
+            decision = _rational(value)
+            _validate_metric_display(
+                retrieval.get("recall_at_8" if name == "recall_at_8" else "mrr")
+                if name in {"recall_at_8", "mrr"}
+                else None,
+                decision,
+            )
     case_ids: list[str] = []
     for item in retrieval["cases"]:
         if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
@@ -1261,8 +1495,12 @@ def _validate_metric_contract(
             values = item.get("metric_decision_values")
             if not isinstance(values, Mapping) or set(values) != {"recall_at_8", "mrr"}:
                 raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
-            for value in values.values():
-                _rational(value)
+            for name, value in values.items():
+                decision = _rational(value)
+                _validate_metric_display(
+                    item.get("recall_at_8" if name == "recall_at_8" else "reciprocal_rank"),
+                    decision,
+                )
         elif not isinstance(item.get("exclusion_reason"), str) or not item["exclusion_reason"]:
             raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
     if len(case_ids) != len(set(case_ids)):
@@ -1320,6 +1558,10 @@ def compare_paired_reports(
     hybrid_config = _validate_configuration_semantics(hybrid_report)
     _validate_observation_set(vector_report, canonical_expected)
     _validate_observation_set(hybrid_report, canonical_expected)
+    if _observation_source_bindings(vector_report) != _observation_source_bindings(
+        hybrid_report
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
     _validate_metric_contract(vector_report, canonical_expected)
     _validate_metric_contract(hybrid_report, canonical_expected)
     _validate_category_breakdown(
