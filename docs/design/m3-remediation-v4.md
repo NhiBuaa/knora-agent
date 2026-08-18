@@ -83,6 +83,19 @@ must not reuse this metric silently.
 The selected record retains both latency sides, metric deltas, guardrails and
 `remaining_regressions`.
 
+### Canonical executor seam
+
+The canonical M3 executor symbol is `evals.runners.milestone_3.HttpEvaluationExecutor`, which
+calls the production Q&A HTTP endpoint and reads the exact trace returned by that response.
+`ProductionM3Executor` remains only a compatibility alias to that class; it is not a second
+evaluation path. The compatibility `evals.runners.run_http_eval.HttpEvaluationExecutor` must
+enforce the same contract when used by the generic runner: after the response body is received it
+captures the completion clock, validates the public payload, and then requires
+`trace.trace_id == response.trace_id` and `trace.workspace_id == request.workspace_id` before
+any trace-derived observation. `end_to_end_latency_ms` uses the captured response-completion
+clock and excludes trace loading, citation validation and scoring. Fault probes for both exact
+correlation mismatches and the response-completion timestamp are mandatory acceptance evidence.
+
 ## R3 — guide v8 and final integrated acceptance
 
 R3 remains directly blocked by #68 and #69 through native GitHub dependency edges. Guide v8

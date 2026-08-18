@@ -48,6 +48,16 @@
     "end_to_end_end": "after_complete_non_streaming_response_body_received",
     "streaming_requires_new_contract": true
   },
+  "executor_contract": {
+    "canonical_symbol": "evals.runners.milestone_3.HttpEvaluationExecutor",
+    "compatibility_alias": "ProductionM3Executor",
+    "generic_symbol_must_match_contract": "evals.runners.run_http_eval.HttpEvaluationExecutor",
+    "trace_id_must_equal_response_trace_id": true,
+    "trace_workspace_must_equal_request_workspace": true,
+    "end_to_end_clock_capture": "immediately_after_complete_response_body_before_trace_loading",
+    "trace_loading_excluded_from_end_to_end": true,
+    "fault_probes_required": ["RESPONSE_TRACE_ID_MISMATCH", "TRACE_WORKSPACE_MISMATCH", "response_completion_clock"]
+  },
   "evaluation_seam": "HttpEvaluationExecutor -> public Q&A endpoint -> exact (workspace_id, trace_id)",
   "native_blocking_edges": {"r3": ["r1", "r2"]}
 }
