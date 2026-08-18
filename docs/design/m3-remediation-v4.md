@@ -40,7 +40,6 @@ paths: `.agents/design/m3-remediation-v4.json`,
 `.agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md`,
 `.agents/review/m3-remediation-cadence-input-v3.json`,
 `.agents/review/m3-remediation-cadence-v3.json`,
-`.agents/review/identities/codex-agent-m3-remediation-external-review-v2.json`,
 `.agents/review/identities/codex-agent-m3-remediation-external-review-v3.json`,
 `.agents/tickets/m3-remediation-67-active-v4.md`,
 `.agents/tickets/m3-remediation-68-active-v4.md`,
@@ -55,7 +54,7 @@ The sorted requirement IDs are `authority_independent_review`, `exact_manifest_p
 `49dc554a449920cefd0cd5fef2937967a89cf951`, subject blob
 `c7bbd46217d98b56da717cf14728baef6e6796e2`, and the canonical serialization above, the
 complete `scope_digest` is
-`sha256:4cd86b403bf5d0b9e35b808cffe3ac0d166c155f360d278ce234fe06be98ac2d`.
+`sha256:77202bd3ea8c09fd313dcff8a8df4ce9f14a5a2f275f51b8bdbcd9efed629c98`.
 
 ## R1 — authority chain and sole-source policy projection
 

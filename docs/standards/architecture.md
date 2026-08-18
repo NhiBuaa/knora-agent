@@ -703,8 +703,10 @@ These rules are normative for Knora unless superseded by an approved Standard or
   plans, and other database implementation details must not be persisted in the trace.
 - Evidence selection scans that order after thresholding and removes strongly overlapping adjacent
   Chunks from the same Chunk Set. It does not merge Chunks.
-- Each candidate is traced with exactly one outcome: `SELECTED`, `BELOW_THRESHOLD`,
-  `REDUNDANT_OVERLAP` or `TOKEN_BUDGET_EXCEEDED`.
+- **M3 taxonomy correction (remediation v4):** branch observations and fused outcomes are
+  separate. `BELOW_THRESHOLD` is vector-branch status only. A fused candidate has exactly one
+  of `SELECTED`, `REDUNDANT_OVERLAP`, `BUDGET_EXCEEDED`, or `ELIGIBLE_NOT_SELECTED`, and
+  `decision_reason` distinguishes `TOKEN_BUDGET` from `CHUNK_COUNT_LIMIT`.
 - An Evidence Set is bounded by both `max_evidence_chunks` and `max_evidence_tokens`.
 - When no candidate qualifies, Knora returns the deterministic Refusal without calling the
   Generation Provider. When evidence exists, the Generation Provider may still return a

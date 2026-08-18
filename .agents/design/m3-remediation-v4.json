@@ -29,7 +29,6 @@
       ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
       ".agents/manual-tests/milestone-3/68-remediation-authority-v3.md",
       ".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md",
-      ".agents/review/identities/codex-agent-m3-remediation-external-review-v2.json",
       ".agents/review/identities/codex-agent-m3-remediation-external-review-v3.json",
       ".agents/review/m3-remediation-cadence-input-v3.json",
       ".agents/review/m3-remediation-cadence-v3.json",
@@ -51,7 +50,7 @@
       "public_citation_and_trace_failure",
       "sole_source_policy_projection"
     ],
-    "scope_digest": "sha256:4cd86b403bf5d0b9e35b808cffe3ac0d166c155f360d278ce234fe06be98ac2d"
+    "scope_digest": "sha256:77202bd3ea8c09fd313dcff8a8df4ce9f14a5a2f275f51b8bdbcd9efed629c98"
   },
   "immutable_population": {
     "dataset_manifest_path": "evals/datasets/milestone_3.manifest.json",
