@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "status": "pending_external_review",
-  "subject_commit": "49dc554a449920cefd0cd5fef2937967a89cf951",
-  "subject_blob": "c7bbd46217d98b56da717cf14728baef6e6796e2",
+  "subject_commit": "168e8501deec133b5e0c8fd7fd4bc5b1de72d994",
+  "subject_blob": "c593a4f6a1abc7cd769848167ebae0bdbfba1ac8",
   "subject_paths": [
     ".agents/design/m3-remediation-v4.json",
     ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
