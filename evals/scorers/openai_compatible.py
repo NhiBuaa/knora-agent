@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from time import perf_counter
@@ -36,6 +38,7 @@ _SCORE_SCHEMA = {
         "additionalProperties": False,
     },
 }
+_VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
 
 
 class SemanticScorerError(ValueError):
@@ -190,6 +193,8 @@ class OpenAICompatibleSemanticScorer:
                 cost_usd=cost,
                 latency_ms=(perf_counter() - started) * 1000,
             )
+        except SemanticScorerError:
+            raise
         except httpx.HTTPError:
             raise SemanticScorerError("SCORER_REQUEST_FAILED") from None
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -214,37 +219,90 @@ _SYSTEM_PROMPT = (
 
 
 def _user_prompt(case: EvaluationCase, observation: EvaluationObservation) -> str:
-    evidence = [
-        {"evidence_id": evidence_id, "reference": reference, "content": content}
-        for evidence_id, reference, content in observation.evidence
-    ]
-    cited_references = {
-        evidence_id: reference for evidence_id, reference, _content in observation.evidence
-    }
+    # The scorer accepts only a server-resolved public projection.  In particular, it must not
+    # resolve citation aliases through ``evidence`` because that collection may contain excluded
+    # trace candidates, database identifiers, or hidden chunk content.
+    raw_public = getattr(observation, "public_citations", None)
+    if not isinstance(raw_public, (tuple, list)):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    citations = []
+    evidence_ids: list[str] = []
+    for item in raw_public:
+        if isinstance(item, Mapping):
+            evidence_id = item.get("evidence_id")
+            excerpt = item.get("excerpt")
+            source_locator = item.get("source_locator")
+        elif isinstance(item, (tuple, list)) and len(item) == 3:
+            evidence_id, excerpt, source_locator = item
+        else:
+            evidence_id = getattr(item, "evidence_id", None)
+            excerpt = getattr(item, "excerpt", None)
+            source_locator = getattr(item, "source_locator", None)
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (evidence_id, excerpt, source_locator)
+        ):
+            raise SemanticScorerError("SCORER_INPUT_INVALID")
+        evidence_ids.append(evidence_id)
+        citations.append(
+            {
+                "evidence_id": evidence_id,
+                "excerpt": excerpt,
+                "source_locator": source_locator,
+            }
+        )
+    if len(evidence_ids) != len(set(evidence_ids)):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    expected_raw = getattr(observation, "citation_evidence_ids", ())
+    markers_raw = getattr(observation, "answer_marker_ids", ())
+    if not isinstance(expected_raw, (tuple, list)) or not isinstance(
+        markers_raw, (tuple, list)
+    ):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    expected_ids = tuple(expected_raw)
+    answer_marker_ids = tuple(markers_raw)
+    for ids in (expected_ids, answer_marker_ids):
+        if any(
+            not isinstance(item, str)
+            or not item
+            or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
+            for item in ids
+        ) or len(ids) != len(set(ids)):
+            raise SemanticScorerError("SCORER_INPUT_INVALID")
+    if tuple(evidence_ids) != expected_ids:
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    answer = getattr(observation, "public_answer", None)
+    if answer is None:
+        answer = getattr(observation, "answer", None)
+    decision = getattr(observation, "decision", None)
+    if decision not in {"ANSWER", "REFUSAL"}:
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    refusal_reason = getattr(observation, "refusal_reason", None)
+    if decision == "ANSWER":
+        if (
+            not isinstance(answer, str)
+            or not answer.strip()
+            or not citations
+            or tuple(answer_marker_ids) != expected_ids
+            or answer.count("[[") != len(answer_marker_ids)
+            or answer.count("]]") != len(answer_marker_ids)
+        ):
+            raise SemanticScorerError("SCORER_INPUT_INVALID")
+        parsed_markers = tuple(re.findall(r"\[\[(E[1-9][0-9]*)\]\]", answer))
+        if parsed_markers != answer_marker_ids:
+            raise SemanticScorerError("SCORER_INPUT_INVALID")
+    elif (
+        answer is not None
+        or citations
+        or expected_ids
+        or answer_marker_ids
+        or refusal_reason != "INSUFFICIENT_EVIDENCE"
+    ):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
     return json.dumps(
         {
-            "case": {
-                "id": case.id,
-                "category": case.category,
-                "question": case.question,
-                "expected_behavior": case.expected_behavior,
-                "expected_source_documents": list(case.expected_source_documents),
-                "required_facts": list(case.required_facts),
-                "reference_answer": case.reference_answer,
-            },
-            "response": {
-                "decision": observation.decision,
-                "answer": observation.answer,
-                "refusal_reason": observation.refusal_reason,
-                "citations": [
-                    {
-                        "evidence_id": evidence_id,
-                        "reference": cited_references.get(evidence_id),
-                    }
-                    for evidence_id in observation.citation_evidence_ids
-                ],
-            },
-            "evidence_set": evidence,
+            "answer": answer,
+            "citations": citations,
         },
         ensure_ascii=False,
         sort_keys=True,

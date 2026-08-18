@@ -78,6 +78,10 @@ class EvaluationObservation:
     generation_provider: str = ""
     generation_model: str = ""
     generation_prompt_version: str = ""
+    # Public-only semantic scorer projection: (opaque evidence_id, excerpt, source_locator).
+    # Raw trace candidates remain in ``evidence`` only for legacy structural reporting and are
+    # never accepted by the semantic scorer seam.
+    public_citations: tuple[tuple[str, str, str], ...] = ()
     evidence: tuple[tuple[str, str, str], ...] = ()
 
 

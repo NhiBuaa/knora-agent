@@ -357,6 +357,8 @@ async def test_executor_measures_end_to_end_only_through_http_response() -> None
                         chunk_set_id="set-1",
                         source_key="support/a",
                         chunk_ordinal=0,
+                        start_line=1,
+                        end_line=1,
                         final_decision="SELECTED",
                     ),
                 ),
