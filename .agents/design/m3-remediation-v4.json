@@ -3,7 +3,7 @@
   "artifact_id": "m3-remediation-design-v4",
   "status": "pending_external_review",
   "supersedes": "m3-remediation-design-v3",
-  "subject_commit": "b16d81c69bd93849da91e6fbff3fc5e62bc1da34",
+  "subject_commit": "08b0b814679bda94631f61d6333fc8f4f320b45c",
   "canonical_json": "UTF-8(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\\n')",
   "digest_algorithm": "sha256",
   "case_id_digest": {
