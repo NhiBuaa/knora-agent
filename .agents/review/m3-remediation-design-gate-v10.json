@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer_id": "codex-agent:/root/m3_remediation_design_gate_v10",
+  "reviewed_commit": "fc975214b00aea69c4fe059fe79551f262f35bf2",
+  "scope": "design/tickets/manual guides only; production code not scored",
+  "findings": [
+    {"severity":"major","id":"ACTIVE_REVIEW_NOT_BOUND_TO_CURRENT_PACKAGE","summary":"Bind the approval review to the final package subject commit/blob and current scope."},
+    {"severity":"major","id":"GUIDE_CASE_ID_PROJECTION_REFERENCE","summary":"Guide 69 must verify the immutable raw case-ID projection instead of the obsolete derived formula."},
+    {"severity":"major","id":"GUIDE_RESPONSE_PROJECTION_REFERENCE","summary":"Guides 68 and 63 must verify the active raw response projection and digest."}
+  ],
+  "projection_hashes": {
+    "identity": "sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907",
+    "scope": "sha256:5c41070cf0f17829d03a32c5f003b3a05d961a368dbe1cc86b6235c9ef1f061d",
+    "response": "sha256:6d7dec28a5818137e688eb1055fddbd6a7ebddaa29d6b48a65513f8a9faae344",
+    "case_ids": "sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253"
+  }
+}

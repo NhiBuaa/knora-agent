@@ -24,8 +24,9 @@
 ### TC-02: Authority and exact policy provenance
 
 - Purpose: prove independent identity/scope/response digests and sole JSON projection.
-- Steps: verify identity record/blob/raw/canonical digests, source author/approver separation, policy
-  blob/digest, seal/closure and mutation negatives.
+- Steps: verify identity projection/raw digest, scope projection/raw digest, active response
+  projection/raw digest, source author/approver separation, policy blob/digest, seal/closure and
+  mutation negatives.
 - Expected results: valid chain passes; generic/assertion-only/self-authored/self-approved/mutated chains fail.
 - Evidence: authority matrix and recomputation output.
 

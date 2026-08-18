@@ -15,10 +15,12 @@
 ### TC-01: Exact manifest and case-ID canonicalization
 
 - Purpose: bind production selection to immutable M3 data.
-- Steps: verify exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values and recompute
-  `sha256(UTF-8(json.dumps(sorted(case_ids), ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n'))`.
-- Expected results: all values match; repository-state substitutes fail.
-- Evidence: capability, serialization formula/version and digest.
+- Steps: verify exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values and read
+  `.agents/review/m3-dataset-v1-case-ids.json` as the immutable case-ID projection.
+- Expected results: the projection raw UTF-8 SHA-256 is
+  `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253`; no alternate
+  serialization or repository-state substitute is accepted.
+- Evidence: capability, projection bytes and digest.
 
 ### TC-02: Population and paired-field mutation failures
 

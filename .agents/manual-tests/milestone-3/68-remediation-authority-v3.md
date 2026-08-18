@@ -38,8 +38,10 @@
 ### TC-03: Independent review scope/response chain passes
 
 - Purpose: prove exact subject and complete-scope review.
-- Steps: recompute `scope_digest` from sorted subject paths/requirements and `response_sha256`
-  from canonical response payload; verify source commit/blob, seal and closure; validate production.
+- Steps: verify the immutable scope projection raw digest, active response projection
+  `.agents/review/m3-remediation-v4-response-projection.json` and raw digest
+  `sha256:6d7dec28a5818137e688eb1055fddbd6a7ebddaa29d6b48a65513f8a9faae344`; verify source
+  commit/blob, seal and closure; validate production.
 - Expected results: reviewer differs from source author and approver; status is `APPROVED_EFFECTIVE`.
 - Evidence: review artifact, sealed response/closure, scope/hash recomputation and validator result.
 
