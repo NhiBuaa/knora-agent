@@ -1,0 +1,59 @@
+{
+  "status": "completed",
+  "pass": true,
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "findings": [],
+  "axes": {
+    "standards": {
+      "status": "completed",
+      "axis": "standards",
+      "fixed_point": {
+        "base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+        "merge_base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+        "head_commit": "749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+        "merge_base_semantics": true,
+        "diff_command": "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3"
+      },
+      "findings": [],
+      "report": "Standards-axis bounded audit passed with no findings."
+    },
+    "spec": {
+      "status": "completed",
+      "axis": "spec",
+      "fixed_point": {
+        "base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+        "merge_base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+        "head_commit": "749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+        "merge_base_semantics": true,
+        "diff_command": "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3"
+      },
+      "findings": [],
+      "report": "Spec-axis bounded audit passed with no findings."
+    }
+  },
+  "fixed_point": {
+    "base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "merge_base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "head_commit": "749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "merge_base_semantics": true,
+    "commit_count": 74,
+    "diff_command": "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3"
+  },
+  "axis_artifacts": {
+    "standards": ".agents/review/m3-final-standards-axis-v2.json",
+    "spec": ".agents/review/m3-final-spec-axis-v2.json"
+  },
+  "structural_evidence": {
+    "focused_tests": "112 passed",
+    "ruff": "passed",
+    "compileall": "passed",
+    "docker_compose_config": "passed",
+    "git_diff_check": "passed",
+    "known_environment_limitations": [
+      "Two Windows core.autocrlf calibration checksum failures remain outside the focused M3 gate."
+    ]
+  },
+  "report": "Final aggregate M3 fixed-point review approved the 74-commit diff across Standards and Spec axes with zero Critical and zero Major findings. Both axis results are persisted separately."
+}

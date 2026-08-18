@@ -1,0 +1,64 @@
+{
+  "spec_design_external_review": {
+    "status": "not_required",
+    "reference": "No remediation spec/design external-review artifact was recorded before the #61/#62/#63 acceptance transitions."
+  },
+  "tickets": [
+    {
+      "ticket_id": "#61",
+      "ticket_external_review": {
+        "status": "not_required",
+        "reference": "No separate #61 ticket external-review artifact is present in the authoritative repository artifacts."
+      },
+      "manual_guide_external_review": {
+        "status": "completed",
+        "reference": ".agents/review/m3-manual-guide-61-v4-external-review.json",
+        "sequence": 2
+      },
+      "human_acceptance": {
+        "status": "approved",
+        "reference": ".agents/manual-tests/milestone-3/61-remediation-production-observation.evaluations.jsonl",
+        "sequence": 5
+      }
+    },
+    {
+      "ticket_id": "#62",
+      "ticket_external_review": {
+        "status": "completed",
+        "reference": "https://github.com/NhiBuaa/knora-agent/issues/62#issuecomment-5305929026",
+        "sequence": 3
+      },
+      "manual_guide_external_review": {
+        "status": "completed",
+        "reference": "https://github.com/NhiBuaa/knora-agent/issues/62#issuecomment-5305675196",
+        "sequence": 4
+      },
+      "human_acceptance": {
+        "status": "approved",
+        "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m3-remediation-issue-62-complete.json",
+        "sequence": 6
+      }
+    },
+    {
+      "ticket_id": "#63",
+      "ticket_external_review": {
+        "status": "not_required",
+        "reference": "No separate #63 ticket external-review artifact is present in the authoritative repository artifacts."
+      },
+      "manual_guide_external_review": {
+        "status": "not_required",
+        "reference": "No separate #63 manual-guide external-review artifact is present in the authoritative repository artifacts."
+      },
+      "human_acceptance": {
+        "status": "approved",
+        "reference": ".agents/manual-tests/m3-remediation-issue-63.evaluations.jsonl",
+        "sequence": 7
+      }
+    }
+  ],
+  "final_feature_review": {
+    "status": "APPROVE",
+    "reference": ".agents/review/m3-final-fixed-point-review-v2.json",
+    "sequence": 8
+  }
+}

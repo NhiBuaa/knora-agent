@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "blocked",
+  "plan": ".agents/review/m3-final-cadence-v2.json",
+  "evidence": ".agents/review/m3-final-cadence-evidence-v2.json",
+  "effective_risk_level": "high",
+  "required_external_review_count": 7,
+  "satisfied_external_review_count": 3,
+  "missing_evidence": [
+    "spec/design external review evidence is required",
+    "ticket-1 external review evidence is required",
+    "ticket-3 external review evidence is required",
+    "ticket-3 manual guide external review evidence is required"
+  ],
+  "evidence_digest": "sha256:d7c055a2274e458de0217bbef9a49e4ce9b8ff85ab2bed9ba6fb591df526b1f0",
+  "review_result": ".agents/review/m3-final-fixed-point-review-v2.json",
+  "closure_allowed": false,
+  "note": "The final aggregate code review passed, but the high-risk cadence gate fails closed because four required pre-acceptance external-review records are not present in the authoritative evidence envelope. Issue #48 must remain open."
+}

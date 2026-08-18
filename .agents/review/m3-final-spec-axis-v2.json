@@ -1,0 +1,13 @@
+{
+  "status": "completed",
+  "axis": "spec",
+  "fixed_point": {
+    "base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "merge_base_commit": "3cf8358414a536f7411a183f6bc43fad05f1aad3",
+    "head_commit": "749301030ad50a70e339a5d0b1ebba8ae3a681f3",
+    "merge_base_semantics": true,
+    "diff_command": "git diff 3cf8358414a536f7411a183f6bc43fad05f1aad3..749301030ad50a70e339a5d0b1ebba8ae3a681f3"
+  },
+  "findings": [],
+  "report": "Spec-axis bounded audit of the aggregate M3 fixed point against Issue #48, locked retrieval/trace/correlation/dataset/failure-taxonomy decisions, docs/evaluation.md, the M3 design artifacts, and accepted remediation guides. Current behavior preserves the single production retrieval seam, exact trace correlation and provenance, public-only citation scoring, independent latency semantics, complete paired report provenance, fail-closed guardrails/authority, stage-correct failure taxonomy, and the versioned improvement claim rule. Focused M3/remediation suite: 112 passed. No Critical, Major, Minor, or Nit Spec finding was identified at this pinned head."
+}
