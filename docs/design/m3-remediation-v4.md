@@ -46,15 +46,16 @@ paths: `.agents/design/m3-remediation-v4.json`,
 `.agents/tickets/m3-remediation-69-active-v4.md`,
 `.agents/tickets/m3-remediation-r1-v3.md`,
 `.agents/tickets/m3-remediation-r2-v4.md`,
-`.agents/tickets/m3-remediation-r3-v4.md`, and `docs/design/m3-remediation-v4.md`.
+`.agents/tickets/m3-remediation-r3-v4.md`, `docs/design/m3-remediation-v4.md`, and
+`docs/standards/architecture.md`.
 The sorted requirement IDs are `authority_independent_review`, `exact_manifest_population`,
 `native_dependency_graph`, `no_evaluation_only_retrieval`, `pair_latency_boundary`,
 `paired_generation_scorer_invariants`, `public_citation_and_trace_failure`, and
-`sole_source_policy_projection`. With subject commit
-`49dc554a449920cefd0cd5fef2937967a89cf951`, subject blob
-`c7bbd46217d98b56da717cf14728baef6e6796e2`, and the canonical serialization above, the
+`sole_source_policy_projection`, and `two_layer_taxonomy`. With subject commit
+`168e8501deec133b5e0c8fd7fd4bc5b1de72d994`, subject blob
+`c593a4f6a1abc7cd769848167ebae0bdbfba1ac8`, and the canonical serialization above, the
 complete `scope_digest` is
-`sha256:77202bd3ea8c09fd313dcff8a8df4ce9f14a5a2f275f51b8bdbcd9efed629c98`.
+`sha256:b1af99762070d2520161c9d5f3b8f650396b50355ee3b5df278a4a7b1d4c5062`.
 
 ## R1 — authority chain and sole-source policy projection
 
