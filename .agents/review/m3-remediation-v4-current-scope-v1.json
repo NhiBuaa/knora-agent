@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "status": "pending_external_review",
-  "subject_commit": "523a248cca33d202e295edb3ee791dedac6f5654",
-  "subject_blob": "4317d18b65b52239963cfabd2f9bd978b572fa17",
+  "subject_commit": "49dc554a449920cefd0cd5fef2937967a89cf951",
+  "subject_blob": "c7bbd46217d98b56da717cf14728baef6e6796e2",
   "subject_paths": [
     ".agents/design/m3-remediation-v4.json",
     ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
@@ -30,6 +30,6 @@
     "public_citation_and_trace_failure",
     "sole_source_policy_projection"
   ],
-  "scope_digest": "sha256:f5166381e4dd4316b486f546f8ae82880130005b6cd5042eefbc95a43a552b0f",
+  "scope_digest": "sha256:4cd86b403bf5d0b9e35b808cffe3ac0d166c155f360d278ce234fe06be98ac2d",
   "canonicalization": "m3-remediation-design-v4"
 }
