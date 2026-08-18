@@ -453,6 +453,25 @@ def test_selection_rejects_identical_forged_binding_triples() -> None:
     assert result["reason"] == "PROVENANCE_MISMATCH"
 
 
+def test_selection_rejects_mutated_binding_snapshot_metadata() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    vector["binding_v3"]["workspace_id"] = "forged-workspace"
+    hybrid["binding_v3"]["workspace_id"] = "forged-workspace"
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
+
+
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))

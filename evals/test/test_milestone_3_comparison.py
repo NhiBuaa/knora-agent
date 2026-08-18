@@ -90,8 +90,8 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
         "schema_version": 1,
         "binding_v3": {
             "schema_version": 3,
-            "dataset_manifest_identity": "m3-dataset-v1",
-            "corpus_manifest_identity": "m3-corpus-v1",
+            "dataset_manifest_identity": "dataset-1",
+            "corpus_manifest_identity": corpus,
             "chunk_set_provenance_id": "chunk-set-1",
             "workspace_id": "workspace-1",
             "retrieval_configuration_id": configuration,

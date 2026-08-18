@@ -195,11 +195,19 @@ def _validate_binding_v3(report: Mapping[str, Any]) -> tuple[tuple[str, str, str
     provenance = report.get("provenance")
     if not isinstance(provenance, Mapping):
         raise ComparisonError("PROVENANCE_MISMATCH")
-    if (
-        binding["retrieval_configuration_id"]
-        != provenance.get("retrieval_configuration_id")
-    ):
-        raise ComparisonError("PROVENANCE_MISMATCH")
+    identity_aliases = {
+        "dataset_manifest_identity": ("dataset_manifest_identity", "dataset_version"),
+        "corpus_manifest_identity": ("corpus_manifest_identity", "corpus_id"),
+        "chunk_set_provenance_id": ("chunk_set_provenance_id", "chunk_set_id"),
+        "workspace_id": ("workspace_id", "workspace"),
+        "retrieval_configuration_id": ("retrieval_configuration_id",),
+    }
+    for binding_field, aliases in identity_aliases.items():
+        projected_values = [provenance.get(alias) for alias in aliases if alias in provenance]
+        if not projected_values or any(
+            value != binding[binding_field] for value in projected_values
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
     normalized = _normalize_source_bindings(binding.get("source_bindings"))
     canonical_bindings = [
         {
@@ -219,6 +227,17 @@ def _validate_binding_v3(report: Mapping[str, Any]) -> tuple[tuple[str, str, str
     if not isinstance(observations, list):
         raise ComparisonError("OBSERVATIONS_INVALID")
     for observation in observations:
+        if (
+            isinstance(observation, Mapping)
+            and observation.get("status") == "observed"
+            and (
+                observation.get("chunk_set_provenance_id")
+                != binding["chunk_set_provenance_id"]
+                or observation.get("retrieval_configuration_id")
+                != binding["retrieval_configuration_id"]
+            )
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
         if (
             isinstance(observation, Mapping)
             and observation.get("status") == "observed"
@@ -908,6 +927,9 @@ def _selection_provenance_matches(
         and pair.get("vector_configuration_id") == vector_configuration
         and pair.get("hybrid_configuration_id") == hybrid_configuration
         and vector_binding == hybrid_binding
+        and pair.get("environment_binding_digest")
+        == vector_report["binding_v3"]["environment_binding_digest"]
+        == hybrid_report["binding_v3"]["environment_binding_digest"]
         and vector_bindings == hybrid_bindings
     )
 
@@ -972,6 +994,7 @@ def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
         "vector_configuration_id",
         "hybrid_configuration_id",
         "shared_provenance",
+        "environment_binding_digest",
     }
     if not isinstance(pair, Mapping) or set(pair) != required_keys:
         raise ComparisonError("PAIR_CONTRACT_INVALID")
@@ -1013,6 +1036,11 @@ def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
     ):
         raise ComparisonError("PAIR_CONTRACT_INVALID")
     if not isinstance(pair.get("shared_provenance"), Mapping):
+        raise ComparisonError("PAIR_CONTRACT_INVALID")
+    if (
+        not isinstance(pair.get("environment_binding_digest"), str)
+        or _SHA256_DIGEST_PATTERN.fullmatch(pair["environment_binding_digest"]) is None
+    ):
         raise ComparisonError("PAIR_CONTRACT_INVALID")
     return tuple(case_ids)
 
@@ -1732,4 +1760,7 @@ def compare_paired_reports(
         "vector_configuration_id": vector_config,
         "hybrid_configuration_id": hybrid_config,
         "shared_provenance": _provenance_without_allowed_differences(vector_report),
+        "environment_binding_digest": vector_report["binding_v3"][
+            "environment_binding_digest"
+        ],
     }
