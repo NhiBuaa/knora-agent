@@ -38,6 +38,8 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
                 chunk_id="chunk-1",
                 source_key="support/refund-policy",
                 chunk_ordinal=0,
+                start_line=1,
+                end_line=1,
                 workspace_id="evaluation-m1",
                 final_decision="SELECTED",
             ),
