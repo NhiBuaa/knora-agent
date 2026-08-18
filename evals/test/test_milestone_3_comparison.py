@@ -258,6 +258,20 @@ def test_findings_use_closed_taxonomy_and_correct_refusal_is_not_a_failure():
         assert finding["evidence"] == ["fixture evidence"]
 
 
+def test_taxonomy_stage_evidence_requires_exact_boolean_values() -> None:
+    with pytest.raises(ComparisonError, match="STAGE_PRECONDITION_INVALID"):
+        classify_finding(
+            "fixture-fusion-union-ranked-low",
+            evidence=["fixture evidence"],
+            stage="fusion",
+            stage_evidence={
+                "branches_completed": {"lexical": 1, "semantic": True},
+                "eligible_branch_union": True,
+                "post_fusion_rank_incorrect": True,
+            },
+        )
+
+
 def test_no_claim_is_explicit_when_pair_has_no_qualifying_delta_or_guardrail_fails():
     vector = _report("retrieval-m3-vector-v2")
     hybrid = _report("retrieval-m3-rrf-v2")

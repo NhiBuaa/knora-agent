@@ -405,6 +405,8 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
+                start_line=1,
+                end_line=2,
                 final_decision="SELECTED",
             ),
         ),
@@ -571,6 +573,8 @@ async def test_production_executor_excludes_invalid_trace_observations(
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
+                start_line=1,
+                end_line=2,
                 final_decision="SELECTED",
                 ),
         ),
@@ -755,6 +759,66 @@ async def test_public_alias_must_map_to_evidence_of_correlated_trace(
             ),
         ),
         alias_mapping=alias_mapping,
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(read_trace=lambda **_kwargs: trace),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.failure_code == "CITATION_STRUCTURAL_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_public_citation_requires_server_resolved_candidate_locator() -> None:
+    case = _case()
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "ANSWER",
+                "answer": "answer [[E1]]",
+                "citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "authoritative trace excerpt",
+                        "start_line": 999,
+                        "end_line": 999,
+                    }
+                ],
+                "trace_id": "trace-1",
+                "refusal_reason": None,
+            },
+        )
+
+    trace = SimpleNamespace(
+        trace_id="trace-1",
+        workspace_id="workspace",
+        retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="ANSWER",
+        answer="answer [[E1]]",
+        refusal_reason=None,
+        parsed_markers=["E1"],
+        candidates=(
+            SimpleNamespace(
+                chunk_id="chunk-1",
+                document_version_id="version-1",
+                chunk_set_id="set-1",
+                source_key="support/a",
+                chunk_ordinal=0,
+                content="authoritative trace excerpt",
+                final_decision="SELECTED",
+            ),
+        ),
+        retrieval_latency_ms=1.0,
+        alias_mapping={"E1": "chunk-1"},
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
     observation = await ProductionM3Executor(

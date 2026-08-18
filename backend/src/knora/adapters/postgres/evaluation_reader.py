@@ -63,6 +63,8 @@ class EvaluationCandidateProjection:
     chunk_ordinal: int
     workspace_id: str
     content: str
+    start_line: int
+    end_line: int
     final_rank: int
     fusion_score: float
     final_decision: str
@@ -217,6 +219,8 @@ class PostgresEvaluationReader:
                 chunk_ordinal=by_chunk[chunk_id][0].ordinal,
                 workspace_id=by_chunk[chunk_id][1].workspace_id,
                 content=by_chunk[chunk_id][0].content,
+                start_line=by_chunk[chunk_id][0].start_line,
+                end_line=by_chunk[chunk_id][0].end_line,
                 final_rank=int(decision["final_rank"]),
                 fusion_score=float(decision["fusion_score"]),
                 final_decision=str(decision["final_decision"]),

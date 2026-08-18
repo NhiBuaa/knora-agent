@@ -129,6 +129,15 @@ _FIXTURE_STAGES = {
 }
 
 
+def _exact_bool_mapping(value: object, expected: Mapping[str, bool]) -> bool:
+    return (
+        isinstance(value, Mapping)
+        and set(value) == set(expected)
+        and all(type(value[key]) is bool for key in expected)
+        and all(value[key] is expected[key] for key in expected)
+    )
+
+
 def classify_finding(
     fixture_id: str,
     *,
@@ -165,8 +174,10 @@ def classify_finding(
             ):
                 raise ComparisonError("STAGE_PRECONDITION_INVALID")
         if expected_stage == "fusion" and (
-            details.get("branches_completed")
-            != {"lexical": True, "semantic": True}
+            not _exact_bool_mapping(
+                details.get("branches_completed"),
+                {"lexical": True, "semantic": True},
+            )
             or details.get("eligible_branch_union") is not True
             or details.get("post_fusion_rank_incorrect") is not True
         ):
@@ -206,8 +217,10 @@ def classify_finding(
                 )
             elif enum == "FUSION_RANKING_ERROR":
                 valid = (
-                    contribution.get("branches_completed")
-                    == {"lexical": True, "semantic": True}
+                    _exact_bool_mapping(
+                        contribution.get("branches_completed"),
+                        {"lexical": True, "semantic": True},
+                    )
                     and contribution.get("eligible_branch_union") is True
                     and contribution.get("post_fusion_rank_incorrect") is True
                 )
@@ -392,6 +405,7 @@ def _validate_observation_set(
             bindings = observation.get("source_bindings")
             if not isinstance(bindings, list) or not bindings:
                 raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+            source_keys: list[str] = []
             for binding in bindings:
                 if not isinstance(binding, Mapping) or set(binding) != {
                     "source_key",
@@ -406,6 +420,9 @@ def _validate_observation_set(
                     )
                 ):
                     raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+                source_keys.append(binding["source_key"])
+            if len(source_keys) != len(set(source_keys)):
+                raise ComparisonError("PROVENANCE_MISMATCH")
         else:
             failure_code = observation.get("failure_code")
             if not isinstance(failure_code, str) or not failure_code:
@@ -569,7 +586,7 @@ def _validate_category_metric(value: object, *, case_count: int) -> None:
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
         if isinstance(projected, float) and not isfinite(projected):
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        if abs(float(projected) - float(numerator) / denominator) > 1e-12:
+        if float(projected) != float(numerator) / denominator:
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
 
 
@@ -659,14 +676,14 @@ def _assert_metric_projection_matches(
     ):
         if actual.get(field) != expected[field]:
             raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
-    if abs(float(actual["numerator"]) - float(expected["numerator"])) > 1e-12:
+    if float(actual["numerator"]) != float(expected["numerator"]):
         raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
     actual_value = actual.get("value")
     expected_value = expected["value"]
     if actual_value is None or expected_value is None:
         if actual_value is not expected_value:
             raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
-    elif abs(float(actual_value) - float(expected_value)) > 1e-12:
+    elif float(actual_value) != float(expected_value):
         raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
 
 
@@ -789,6 +806,8 @@ def _selection_provenance_matches(
         hybrid_shared = _provenance_without_allowed_differences(hybrid_report)
         vector_configuration = _validate_configuration_semantics(vector_report)
         hybrid_configuration = _validate_configuration_semantics(hybrid_report)
+        vector_bindings = _observation_source_bindings(vector_report)
+        hybrid_bindings = _observation_source_bindings(hybrid_report)
     except ComparisonError:
         return False
     return (
@@ -796,8 +815,7 @@ def _selection_provenance_matches(
         and pair.get("shared_provenance") == vector_shared
         and pair.get("vector_configuration_id") == vector_configuration
         and pair.get("hybrid_configuration_id") == hybrid_configuration
-        and _observation_source_bindings(vector_report)
-        == _observation_source_bindings(hybrid_report)
+        and vector_bindings == hybrid_bindings
     )
 
 
@@ -818,23 +836,34 @@ def _observation_source_bindings(
         bindings = observation.get("source_bindings")
         if not isinstance(bindings, list):
             raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
-        result[observation["case_id"]] = tuple(
-            sorted(
+        normalized: list[tuple[str, str, str]] = []
+        for binding in bindings:
+            if not isinstance(binding, Mapping) or set(binding) != {
+                "source_key",
+                "production_document_version_id",
+                "production_chunk_set_id",
+            } or any(
+                not isinstance(binding[field], str) or not binding[field]
+                for field in (
+                    "source_key",
+                    "production_document_version_id",
+                    "production_chunk_set_id",
+                )
+            ):
+                raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+            normalized.append(
                 (
                     binding["source_key"],
                     binding["production_document_version_id"],
                     binding["production_chunk_set_id"],
                 )
-                for binding in bindings
-                if isinstance(binding, Mapping)
-                and set(binding)
-                == {
-                    "source_key",
-                    "production_document_version_id",
-                    "production_chunk_set_id",
-                }
             )
-        )
+        if len({item[0] for item in normalized}) != len(normalized):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        result[observation["case_id"]] = tuple(sorted(normalized))
+    observed_sets = {bindings for bindings in result.values()}
+    if len(observed_sets) > 1:
+        raise ComparisonError("PROVENANCE_MISMATCH")
     return result
 
 
@@ -1443,7 +1472,7 @@ def _validate_metric_display(value: object, decision: Fraction) -> None:
         isinstance(value, bool)
         or not isinstance(value, (int, float))
         or (isinstance(value, float) and not isfinite(value))
-        or abs(float(value) - float(decision)) > 1e-12
+        or float(value) != float(decision)
     ):
         raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
 

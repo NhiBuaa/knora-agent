@@ -397,6 +397,19 @@ def test_selection_rejects_observation_source_binding_mutation() -> None:
     assert result["reason"] == "PROVENANCE_MISMATCH"
 
 
+def test_paired_provenance_rejects_duplicate_source_bindings() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    for report in (vector, hybrid):
+        for observation in report["observations"]:
+            observation["source_bindings"].append(
+                deepcopy(observation["source_bindings"][0])
+            )
+
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
@@ -705,6 +718,24 @@ def test_selection_reconciles_metric_projection_and_latency_disclosure() -> None
     )
     assert missing_latency["status"] == "NO_CLAIM"
     assert missing_latency["reason"] == "LATENCY_DISCLOSURE_INVALID"
+
+
+def test_selection_rejects_display_metric_mutation_without_epsilon() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    hybrid["retrieval"]["mrr"] += 5e-13
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "METRIC_DECISION_RECONCILIATION_FAILED"
 
 
 @pytest.mark.parametrize("field", ["metric_contract", "recall_k"])

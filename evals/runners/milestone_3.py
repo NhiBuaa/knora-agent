@@ -1002,12 +1002,18 @@ def validate_public_citations_against_trace(
         if expected_locator is None:
             start_line = getattr(candidate, "start_line", None)
             end_line = getattr(candidate, "end_line", None)
-            if type(start_line) is int and type(end_line) is int:
-                expected_locator = f"{citation.source_key}:{start_line}:{end_line}"
-        if expected_locator is not None:
-            if citation.source_locator != expected_locator:
+            if (
+                type(start_line) is not int
+                or type(end_line) is not int
+                or start_line < 1
+                or end_line < start_line
+            ):
                 raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-        elif not citation.source_locator.startswith(f"{citation.source_key}:"):
+            expected_locator = f"{citation.source_key}:{start_line}:{end_line}"
+        if (
+            not isinstance(expected_locator, str)
+            or citation.source_locator != expected_locator
+        ):
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
 
 
