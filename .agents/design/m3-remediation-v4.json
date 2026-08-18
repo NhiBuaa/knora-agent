@@ -16,6 +16,7 @@
     "identity_digest": "sha256(canonical_json({reviewer_id,identity_kind,task_path,provider,source_authority}))",
     "scope_digest": "sha256(canonical_json({subject_commit,subject_blob,subject_paths,requirements}))",
     "response_digest": "sha256(canonical_json(response_without_response_sha256))",
+    "active_response_record": ".agents/review/m3-remediation-v4-external-review-v3-current-response-v2.json",
     "generic_identity_forbidden": true,
     "reviewer_must_differ_from_source_author": true,
     "reviewer_must_differ_from_approver": true,
