@@ -21,6 +21,38 @@
     "reviewer_must_differ_from_approver": true,
     "git_blob_and_raw_sha_required": true
   },
+  "review_scope": {
+    "subject_commit": "08b0b814679bda94631f61d6333fc8f4f320b45c",
+    "subject_blob": "ff6a069f5f543b715c90e73864e4052bbdcf6952",
+    "subject_paths": [
+      ".agents/design/m3-remediation-v4.json",
+      ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
+      ".agents/manual-tests/milestone-3/68-remediation-authority-v3.md",
+      ".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md",
+      ".agents/review/identities/codex-agent-m3-remediation-external-review-v2.json",
+      ".agents/review/identities/codex-agent-m3-remediation-external-review-v3.json",
+      ".agents/review/m3-remediation-cadence-input-v3.json",
+      ".agents/review/m3-remediation-cadence-v3.json",
+      ".agents/tickets/m3-remediation-67-active-v4.md",
+      ".agents/tickets/m3-remediation-68-active-v4.md",
+      ".agents/tickets/m3-remediation-69-active-v4.md",
+      ".agents/tickets/m3-remediation-r1-v3.md",
+      ".agents/tickets/m3-remediation-r2-v4.md",
+      ".agents/tickets/m3-remediation-r3-v4.md",
+      "docs/design/m3-remediation-v4.md"
+    ],
+    "requirements": [
+      "authority_independent_review",
+      "exact_manifest_population",
+      "native_dependency_graph",
+      "no_evaluation_only_retrieval",
+      "pair_latency_boundary",
+      "paired_generation_scorer_invariants",
+      "public_citation_and_trace_failure",
+      "sole_source_policy_projection"
+    ],
+    "scope_digest": "sha256:0a40b085f6b39e1cf80492ed39ca17cf4018853793847d9aae9df4dcf40fdac9"
+  },
   "immutable_population": {
     "dataset_manifest_path": "evals/datasets/milestone_3.manifest.json",
     "dataset_manifest_blob": "08061b4a26b1d10b9720769828bb179264d99fec",

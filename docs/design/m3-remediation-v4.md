@@ -5,8 +5,8 @@ Revision: `m3-remediation-design-v4`
 Supersedes: `m3-remediation-design-v3`
 
 This append-only revision closes the remaining review ambiguities. The authoritative subject
-commit is the commit that contains this document, its JSON projection, ticket v3 files, and
-guides 68-v3, 69-v3 and 63-v8. Historical designs, guides, issue Evaluations and review
+commit is the commit that contains this document, its JSON projection, ticket v3/v4 files, and
+guides 68-v3, 69-v4 and 63-v9. Historical designs, guides, issue Evaluations and review
 artifacts are not rewritten.
 
 ## Canonical serialization and identity proof
@@ -32,6 +32,30 @@ canonical JSON response payload excluding the digest field itself. `scope_digest
 "requirements"}))`, with both arrays sorted. The production validator resolves the identity
 record and source-commit author from Git, verifies all digests and rejects generic,
 missing, assertion-only, self-authored or self-approved identities.
+
+The complete review subject scope is immutable and is represented by the following sorted
+paths: `.agents/design/m3-remediation-v4.json`,
+`.agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md`,
+`.agents/manual-tests/milestone-3/68-remediation-authority-v3.md`,
+`.agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md`,
+`.agents/review/m3-remediation-cadence-input-v3.json`,
+`.agents/review/m3-remediation-cadence-v3.json`,
+`.agents/review/identities/codex-agent-m3-remediation-external-review-v2.json`,
+`.agents/review/identities/codex-agent-m3-remediation-external-review-v3.json`,
+`.agents/tickets/m3-remediation-67-active-v4.md`,
+`.agents/tickets/m3-remediation-68-active-v4.md`,
+`.agents/tickets/m3-remediation-69-active-v4.md`,
+`.agents/tickets/m3-remediation-r1-v3.md`,
+`.agents/tickets/m3-remediation-r2-v4.md`,
+`.agents/tickets/m3-remediation-r3-v4.md`, and `docs/design/m3-remediation-v4.md`.
+The sorted requirement IDs are `authority_independent_review`, `exact_manifest_population`,
+`native_dependency_graph`, `no_evaluation_only_retrieval`, `pair_latency_boundary`,
+`paired_generation_scorer_invariants`, `public_citation_and_trace_failure`, and
+`sole_source_policy_projection`. With subject commit
+`08b0b814679bda94631f61d6333fc8f4f320b45c`, subject blob
+`ff6a069f5f543b715c90e73864e4052bbdcf6952`, and the canonical serialization above, the
+complete `scope_digest` is
+`sha256:0a40b085f6b39e1cf80492ed39ca17cf4018853793847d9aae9df4dcf40fdac9`.
 
 ## R1 — authority chain and sole-source policy projection
 
@@ -96,9 +120,9 @@ any trace-derived observation. `end_to_end_latency_ms` uses the captured respons
 clock and excludes trace loading, citation validation and scoring. Fault probes for both exact
 correlation mismatches and the response-completion timestamp are mandatory acceptance evidence.
 
-## R3 — guide v8 and final integrated acceptance
+## R3 — guide v9 and final integrated acceptance
 
-R3 remains directly blocked by #68 and #69 through native GitHub dependency edges. Guide v8
+R3 remains directly blocked by #68 and #69 through native GitHub dependency edges. Guide v9
 explicitly tests the final public `answer`, citation marker/order, alias mapping and same-request
 binding for deterministic citation correctness. Semantic citation tests supply only public answer
 and public citation excerpts/source locators; hidden retrieved chunks from the trace are forbidden.
