@@ -625,6 +625,33 @@ def test_binding_attestation_requires_git_committed_closure(tmp_path: Path) -> N
         )
 
 
+def test_binding_attestation_rejects_archive_mutation_against_committed_closure(
+    tmp_path: Path,
+) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    _binding_attestation(vector, tmp_path, "vector")
+    archive_path = tmp_path / "vector.tar"
+    archive_path.write_bytes(archive_path.read_bytes() + b"mutable-forge")
+    repository_root = tmp_path / "vector-git"
+    closure_path = repository_root / "closure.json"
+    closure_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        verify_binding_v3_attestation(
+            archive_path,
+            closure_path,
+            expected_report=vector,
+            repository_root=repository_root,
+            closure_commit=closure_commit,
+            closure_git_path="closure.json",
+        )
+
+
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
