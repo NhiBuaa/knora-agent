@@ -3,7 +3,7 @@
   "artifact_id": "m3-remediation-design-v3",
   "status": "pending_external_review",
   "supersedes": "m3-remediation-design-v2",
-  "subject_commit": "9eb27781002ab0fcd07086f05b11671f99d1ea37",
+  "subject_commit": "bf23b677eb717dfa0ca51faa60ff61623433a10c",
   "subject_paths": [
     "docs/design/m3-remediation-v3.md",
     ".agents/tickets/m3-remediation-r1-v2.md",

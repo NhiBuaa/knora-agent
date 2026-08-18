@@ -11,7 +11,7 @@ old ticket bodies, v6 guide, and all historical Evaluation/review artifacts are 
 ## Immutable design subject and review binding
 
 The design subject is this document and the ticket/guide package at source commit
-`9eb27781002ab0fcd07086f05b11671f99d1ea37`. A later approval artifact must bind that exact
+`bf23b677eb717dfa0ca51faa60ff61623433a10c`. A later approval artifact must bind that exact
 commit, its Git blob for this document, the complete package scope, and a concrete reviewer
 identity. The reviewer identity contract is:
 
