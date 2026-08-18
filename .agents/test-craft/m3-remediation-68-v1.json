@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "mode": "test-cases",
+  "requirement_source": "docs/design/m3-remediation-v2.md#r1",
+  "scope": "Issue #68 authority chain and sole-source policy projection",
+  "known_seams": ["canonical_authority_validation", "ClaimRuleAuthority"],
+  "coverage": {
+    "included_axes": ["data shape and contract", "security and bounds", "state and lifecycle"],
+    "omitted_axes": [
+      {"axis": "async and concurrency", "reason": "authority validation is synchronous and content-addressed"},
+      {"axis": "UI and observable transitions", "reason": "no UI surface is changed"}
+    ]
+  },
+  "test_cases": ["TC-01", "TC-02", "TC-03", "TC-04", "TC-05", "TC-06"],
+  "artifacts": [".agents/manual-tests/milestone-3/68-remediation-authority-v1.md"],
+  "red_observed": null,
+  "failure_reason": null
+}

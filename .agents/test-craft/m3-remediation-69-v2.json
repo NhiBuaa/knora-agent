@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "status": "completed",
+  "mode": "test-cases",
+  "requirement_source": "docs/design/m3-remediation-v3.md#r2",
+  "scope": "Issue #69 exact manifests, paired equal fields and latency/seam evidence",
+  "known_seams": ["select_production_improvement", "compare_paired_reports", "HttpEvaluationExecutor"],
+  "included_axes": ["data shape and contract", "security and bounds", "state and lifecycle", "performance"],
+  "omitted_axes": [{"axis": "async and concurrency", "reason": "deterministic manifest/report validation"}, {"axis": "UI", "reason": "no UI surface"}],
+  "test_cases": ["TC-01", "TC-02", "TC-03", "TC-04", "TC-05", "TC-06", "TC-07"],
+  "artifacts": [".agents/manual-tests/milestone-3/69-remediation-population-latency-v2.md"],
+  "red_observed": null,
+  "failure_reason": null
+}

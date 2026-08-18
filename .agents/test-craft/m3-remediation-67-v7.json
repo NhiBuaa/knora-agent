@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "status": "completed",
+  "mode": "test-cases",
+  "requirement_source": "docs/design/m3-remediation-v3.md#r3",
+  "scope": "Issue #67 final integrated M3 guide and cadence gate",
+  "known_seams": ["HttpEvaluationExecutor", "select_production_improvement", "validate_review_cadence_evidence"],
+  "included_axes": ["data shape and contract", "security and bounds", "state and lifecycle", "performance"],
+  "omitted_axes": [{"axis": "UI", "reason": "no UI surface"}],
+  "test_cases": ["TC-01", "TC-02", "TC-03", "TC-04", "TC-05", "TC-06"],
+  "artifacts": [".agents/manual-tests/milestone-3/63-remediation-issue-63-v7.md"],
+  "red_observed": null,
+  "failure_reason": null
+}
