@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -434,6 +436,25 @@ class SourceBinding:
             "production_document_version_id": self.production_document_version_id,
             "production_chunk_set_id": self.production_chunk_set_id,
         }
+
+
+def _binding_v3_projection(binding: EvaluationEnvironmentBinding) -> dict[str, object]:
+    """Project the verified Binding V3 snapshot with a deterministic source-map digest."""
+    source_bindings = [
+        item.as_mapping()
+        for item in sorted(binding.source_bindings, key=lambda item: item.source_key)
+    ]
+    canonical = json.dumps(source_bindings, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "schema_version": binding.schema_version,
+        "dataset_manifest_identity": binding.dataset_manifest_identity,
+        "corpus_manifest_identity": binding.corpus_manifest_identity,
+        "chunk_set_provenance_id": binding.chunk_set_provenance_id,
+        "workspace_id": binding.workspace_id,
+        "retrieval_configuration_id": binding.retrieval_configuration_id,
+        "source_bindings": source_bindings,
+        "environment_binding_digest": "sha256:" + hashlib.sha256(canonical).hexdigest(),
+    }
 
 
 def verify_corpus_closure(
@@ -1210,6 +1231,7 @@ def build_report(
         raise ObservationFailure("SEMANTIC_CITATION_RESULT_CASE_MISMATCH")
     report: dict[str, object] = {
         "schema_version": 1,
+        "binding_v3": _binding_v3_projection(binding),
         "provenance": {
             "metric_contract": METRIC_CONTRACT,
             **binding.provenance(),

@@ -88,6 +88,24 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
     }
     return {
         "schema_version": 1,
+        "binding_v3": {
+            "schema_version": 3,
+            "dataset_manifest_identity": "m3-dataset-v1",
+            "corpus_manifest_identity": "m3-corpus-v1",
+            "chunk_set_provenance_id": "chunk-set-1",
+            "workspace_id": "workspace-1",
+            "retrieval_configuration_id": configuration,
+            "source_bindings": [
+                {
+                    "source_key": "support/a",
+                    "production_document_version_id": "version-1",
+                    "production_chunk_set_id": "chunk-set-1",
+                }
+            ],
+            "environment_binding_digest": (
+                "sha256:b2b12549d0602ea6f86613f482b47425c6c3d686a66d8cdb13a18194f6ee7f65"
+            ),
+        },
         "provenance": {
             "dataset_version": "dataset-1",
             "dataset_digest": "sha256:" + "a" * 64,

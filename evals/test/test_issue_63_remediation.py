@@ -143,6 +143,24 @@ def _modern_report(
     }
     return {
         "schema_version": 1,
+        "binding_v3": {
+            "schema_version": 3,
+            "dataset_manifest_identity": "m3-dataset-v1",
+            "corpus_manifest_identity": "m3-corpus-v1",
+            "chunk_set_provenance_id": "chunk-set-m3-v1",
+            "workspace_id": "evaluation-m3-v1",
+            "retrieval_configuration_id": configuration,
+            "source_bindings": [
+                {
+                    "source_key": "support/a",
+                    "production_document_version_id": "version-1",
+                    "production_chunk_set_id": "chunk-set-m3-v1",
+                }
+            ],
+            "environment_binding_digest": (
+                "sha256:4869691d5edda6650fd2d407f975ec63917b36db8e4912db9ff9d444ea55d34e"
+            ),
+        },
         "provenance": provenance,
         "observations": [
             {
@@ -408,6 +426,31 @@ def test_paired_provenance_rejects_duplicate_source_bindings() -> None:
 
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
         compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
+def test_selection_rejects_identical_forged_binding_triples() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    for report in (vector, hybrid):
+        for observation in report["observations"]:
+            observation["source_bindings"][0].update(
+                {
+                    "production_document_version_id": "forged-version",
+                    "production_chunk_set_id": "forged-chunk-set",
+                }
+            )
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
 
 
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:

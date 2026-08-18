@@ -228,6 +228,9 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
 
     assert report["retrieval"]["recall_at_8"] == 1.0
     assert report["category_breakdown"]["aggregate"]["recall_at_8"]["denominator"] == 1
+    assert report["binding_v3"]["environment_binding_digest"] == (
+        "sha256:2b8143d5f38ede18bbb48b9fe0f3124335b3eb6424730aaf1570d82a1981a3d8"
+    )
     assert report["observations"] == [
         {
             "case_id": "case",

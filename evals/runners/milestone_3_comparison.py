@@ -127,6 +127,21 @@ _FIXTURE_STAGES = {
     "fixture-fusion-union-ranked-low": "fusion",
     "fixture-evidence-selection-excluded": "evidence_selection",
 }
+_BINDING_V3_KEYS = {
+    "schema_version",
+    "dataset_manifest_identity",
+    "corpus_manifest_identity",
+    "chunk_set_provenance_id",
+    "workspace_id",
+    "retrieval_configuration_id",
+    "source_bindings",
+    "environment_binding_digest",
+}
+_SOURCE_BINDING_KEYS = {
+    "source_key",
+    "production_document_version_id",
+    "production_chunk_set_id",
+}
 
 
 def _exact_bool_mapping(value: object, expected: Mapping[str, bool]) -> bool:
@@ -136,6 +151,81 @@ def _exact_bool_mapping(value: object, expected: Mapping[str, bool]) -> bool:
         and all(type(value[key]) is bool for key in expected)
         and all(value[key] is expected[key] for key in expected)
     )
+
+
+def _normalize_source_bindings(bindings: object) -> tuple[tuple[str, str, str], ...]:
+    if not isinstance(bindings, list) or not bindings:
+        raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+    normalized: list[tuple[str, str, str]] = []
+    for binding in bindings:
+        if not isinstance(binding, Mapping) or set(binding) != _SOURCE_BINDING_KEYS:
+            raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+        if any(
+            not isinstance(binding[field], str) or not binding[field]
+            for field in _SOURCE_BINDING_KEYS
+        ):
+            raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+        normalized.append(
+            (
+                binding["source_key"],
+                binding["production_document_version_id"],
+                binding["production_chunk_set_id"],
+            )
+        )
+    if len({item[0] for item in normalized}) != len(normalized):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    return tuple(sorted(normalized))
+
+
+def _validate_binding_v3(report: Mapping[str, Any]) -> tuple[tuple[str, str, str], ...]:
+    binding = report.get("binding_v3")
+    if not isinstance(binding, Mapping) or set(binding) != _BINDING_V3_KEYS:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if binding.get("schema_version") != 3 or any(
+        not isinstance(binding.get(field), str) or not binding[field]
+        for field in (
+            "dataset_manifest_identity",
+            "corpus_manifest_identity",
+            "chunk_set_provenance_id",
+            "workspace_id",
+            "retrieval_configuration_id",
+        )
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    provenance = report.get("provenance")
+    if not isinstance(provenance, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if (
+        binding["retrieval_configuration_id"]
+        != provenance.get("retrieval_configuration_id")
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    normalized = _normalize_source_bindings(binding.get("source_bindings"))
+    canonical_bindings = [
+        {
+            "source_key": source_key,
+            "production_document_version_id": document_version_id,
+            "production_chunk_set_id": chunk_set_id,
+        }
+        for source_key, document_version_id, chunk_set_id in normalized
+    ]
+    digest = binding.get("environment_binding_digest")
+    expected_digest = "sha256:" + hashlib.sha256(
+        json.dumps(canonical_bindings, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    if digest != expected_digest:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    observations = report.get("observations")
+    if not isinstance(observations, list):
+        raise ComparisonError("OBSERVATIONS_INVALID")
+    for observation in observations:
+        if (
+            isinstance(observation, Mapping)
+            and observation.get("status") == "observed"
+            and _normalize_source_bindings(observation.get("source_bindings")) != normalized
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+    return normalized
 
 
 def classify_finding(
@@ -806,6 +896,8 @@ def _selection_provenance_matches(
         hybrid_shared = _provenance_without_allowed_differences(hybrid_report)
         vector_configuration = _validate_configuration_semantics(vector_report)
         hybrid_configuration = _validate_configuration_semantics(hybrid_report)
+        vector_binding = _validate_binding_v3(vector_report)
+        hybrid_binding = _validate_binding_v3(hybrid_report)
         vector_bindings = _observation_source_bindings(vector_report)
         hybrid_bindings = _observation_source_bindings(hybrid_report)
     except ComparisonError:
@@ -815,6 +907,7 @@ def _selection_provenance_matches(
         and pair.get("shared_provenance") == vector_shared
         and pair.get("vector_configuration_id") == vector_configuration
         and pair.get("hybrid_configuration_id") == hybrid_configuration
+        and vector_binding == hybrid_binding
         and vector_bindings == hybrid_bindings
     )
 
@@ -1587,6 +1680,10 @@ def compare_paired_reports(
     hybrid_config = _validate_configuration_semantics(hybrid_report)
     _validate_observation_set(vector_report, canonical_expected)
     _validate_observation_set(hybrid_report, canonical_expected)
+    vector_binding = _validate_binding_v3(vector_report)
+    hybrid_binding = _validate_binding_v3(hybrid_report)
+    if vector_binding != hybrid_binding:
+        raise ComparisonError("PROVENANCE_MISMATCH")
     if _observation_source_bindings(vector_report) != _observation_source_bindings(
         hybrid_report
     ):
