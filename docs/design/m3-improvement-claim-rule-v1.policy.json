@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "authority_identifier": "m3-improvement-claim-v1",
+  "claim_rule_version": "m3-improvement-claim-v1",
+  "metric_contract": "m3-retrieval-metrics-v1",
+  "recall_k": 8,
+  "primary_metric_set": {
+    "closed": true,
+    "ordered": [
+      "recall_at_8",
+      "mrr"
+    ]
+  },
+  "qualification": {
+    "delta_definition": "hybrid_minus_vector",
+    "all_non_regressing": {
+      "operator": ">=",
+      "threshold": "0"
+    },
+    "any_strictly_improving": {
+      "operator": ">",
+      "threshold": "0"
+    },
+    "epsilon": null,
+    "minimum_positive_delta": null
+  },
+  "numeric_decision_representation": {
+    "kind": "reduced_rational",
+    "source": "metric_contract_numerators_and_denominators",
+    "serialization": "p/q",
+    "denominator": "positive_integer",
+    "comparison": "cross_multiply_signed_difference",
+    "binary_float": "forbidden",
+    "display_rounding": "non_authoritative"
+  },
+  "observation_failure_requirement": {
+    "field": "observation_failure_count",
+    "required_zero": true,
+    "failure_is_inapplicable": false,
+    "failure_is_zero_quality": false,
+    "policy_outcome": "NO_CLAIM"
+  },
+  "guardrail_requirement": {
+    "closed": true,
+    "required_keys": [
+      "structural_validity",
+      "citation_correctness",
+      "refusal_correctness"
+    ],
+    "value_type": "boolean",
+    "all_values_must_be": true,
+    "unknown_keys": "reject",
+    "missing_keys": "reject",
+    "malformed_values": "reject"
+  },
+  "latency_policy": {
+    "mode": "retain_and_disclose",
+    "required_observations": [
+      "retrieval",
+      "end_to_end"
+    ],
+    "hard_threshold": null
+  },
+  "remaining_regressions": {
+    "required": true,
+    "empty_allowed": true
+  },
+  "provenance": {
+    "required": true,
+    "equal_fields": [
+      "dataset_version",
+      "dataset_digest",
+      "corpus_id",
+      "corpus_digest",
+      "chunk_set_id",
+      "chunk_set_digest",
+      "workspace",
+      "chunking_configuration",
+      "embedding_configuration",
+      "generation_configuration",
+      "scorer_configuration",
+      "scorer_model",
+      "scorer_prompt",
+      "scorer_policy",
+      "scorer_stochasticity",
+      "metric_contract",
+      "source_commit",
+      "evaluation_commit",
+      "report_artifact_schema_version"
+    ],
+    "allowed_differences": [
+      "retrieval_configuration_id",
+      "strategy",
+      "fusion_policy_id",
+      "fusion_policy_version",
+      "lexical_policy_id",
+      "fts_candidate_k"
+    ],
+    "all_other_differences": "reject",
+    "missing_or_malformed": "reject"
+  },
+  "override_policy": {
+    "production": "forbidden",
+    "caller_override": "reject",
+    "runtime_override": "reject",
+    "projection_source": "approved_git_blob_only",
+    "focused_tests": "explicit_authority_fixture_only"
+  },
+  "claim_scope": "retrieval_quality_improvement_only"
+}

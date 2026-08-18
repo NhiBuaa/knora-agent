@@ -152,6 +152,10 @@ def test_metric_contract_uses_scoped_canonical_identity_and_uncut_mrr() -> None:
     assert report["recall_at_8"] == 0.0
     assert report["mrr"] == pytest.approx(1 / 9)
     assert report["denominator"] == 1
+    assert report["metric_decision_values"] == {
+        "recall_at_8": {"numerator": 0, "denominator": 1},
+        "mrr": {"numerator": 1, "denominator": 9},
+    }
 
 
 def test_metric_contract_keeps_valid_miss_but_excludes_inapplicable_and_failure() -> None:
@@ -215,9 +219,18 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
         citation_evidence_ids=("E1",),
     )
 
-    report = build_report((case,), (observation,), binding=_binding())
+    report = build_report(
+        (case,),
+        (observation,),
+        binding=_binding(),
+        semantic_citation_results={"case": True},
+    )
 
     assert report["retrieval"]["recall_at_8"] == 1.0
+    assert report["category_breakdown"]["aggregate"]["recall_at_8"]["denominator"] == 1
+    assert report["binding_v3"]["environment_binding_digest"] == (
+        "sha256:2b8143d5f38ede18bbb48b9fe0f3124335b3eb6424730aaf1570d82a1981a3d8"
+    )
     assert report["observations"] == [
         {
             "case_id": "case",
@@ -238,7 +251,10 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
                 "refusal_reason": None,
                 "answer_marker_ids": ["E1"],
                 "citation_evidence_ids": ["E1"],
-                "refusal_correctness": None,
+                "structural_validity": True,
+                "citation_correctness": True,
+                "refusal_correctness": True,
+                "semantic_citation_correctness": True,
                 "public_citations": [
                     {
                         "evidence_id": "E1",
@@ -247,8 +263,20 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
                         "source_locator": "support/a:1:1",
                     }
                 ],
-            }
-        ]
+        }
+    ]
+    with pytest.raises(ObservationFailure, match="GUARDRAIL_RECONCILIATION_FAILED"):
+        build_report(
+            (case,),
+            (observation,),
+            binding=_binding(),
+            guardrails={
+                "structural_validity": True,
+                "citation_correctness": False,
+                "refusal_correctness": True,
+            },
+            semantic_citation_results={"case": True},
+        )
 
 
 def test_trace_projection_requires_single_matching_chunk_set_and_unique_identity() -> None:
@@ -380,6 +408,8 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
+                start_line=1,
+                end_line=2,
                 final_decision="SELECTED",
             ),
         ),
@@ -407,7 +437,7 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
     assert observation.candidates == (CanonicalChunkReference("set-1", "support/a", 0),)
     assert observation.retrieval_latency_ms == 4.0
     assert observation.end_to_end_latency_ms is not None
-    assert observation.refusal_correctness is None
+    assert observation.refusal_correctness is True
 
 
 @pytest.mark.asyncio
@@ -546,6 +576,8 @@ async def test_production_executor_excludes_invalid_trace_observations(
                 chunk_set_id="set-1",
                 source_key="support/a",
                 chunk_ordinal=0,
+                start_line=1,
+                end_line=2,
                 final_decision="SELECTED",
                 ),
         ),
@@ -616,6 +648,66 @@ async def test_production_executor_never_repairs_invalid_public_citations_from_t
 
 
 @pytest.mark.asyncio
+async def test_production_executor_rejects_forged_public_excerpt_for_selected_candidate() -> None:
+    case = _case()
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "ANSWER",
+                "answer": "answer [[E1]]",
+                "citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "forged excerpt",
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ],
+                "refusal_reason": None,
+                "trace_id": "trace-1",
+            },
+        )
+
+    trace = SimpleNamespace(
+        trace_id="trace-1",
+        workspace_id="workspace",
+        retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="ANSWER",
+        answer="answer [[E1]]",
+        refusal_reason=None,
+        parsed_markers=["E1"],
+        candidates=(
+            SimpleNamespace(
+                chunk_id="chunk-1",
+                document_version_id="version-1",
+                chunk_set_id="set-1",
+                source_key="support/a",
+                chunk_ordinal=0,
+                content="authoritative trace excerpt",
+                final_decision="SELECTED",
+            ),
+        ),
+        retrieval_latency_ms=1.0,
+        alias_mapping={"E1": "chunk-1"},
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(read_trace=lambda **_kwargs: trace),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.failure_code == "CITATION_STRUCTURAL_ERROR"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "alias_mapping",
     [
@@ -670,6 +762,66 @@ async def test_public_alias_must_map_to_evidence_of_correlated_trace(
             ),
         ),
         alias_mapping=alias_mapping,
+    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await ProductionM3Executor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="secret",
+        trace_reader=SimpleNamespace(read_trace=lambda **_kwargs: trace),
+        client=client,
+        environment=_environment(),
+    ).execute(case)
+    await client.aclose()
+
+    assert observation.failure_code == "CITATION_STRUCTURAL_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_public_citation_requires_server_resolved_candidate_locator() -> None:
+    case = _case()
+
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "ANSWER",
+                "answer": "answer [[E1]]",
+                "citations": [
+                    {
+                        "evidence_id": "E1",
+                        "source_key": "support/a",
+                        "excerpt": "authoritative trace excerpt",
+                        "start_line": 999,
+                        "end_line": 999,
+                    }
+                ],
+                "trace_id": "trace-1",
+                "refusal_reason": None,
+            },
+        )
+
+    trace = SimpleNamespace(
+        trace_id="trace-1",
+        workspace_id="workspace",
+        retrieval_configuration_id="retrieval-m3-rrf-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        decision="ANSWER",
+        answer="answer [[E1]]",
+        refusal_reason=None,
+        parsed_markers=["E1"],
+        candidates=(
+            SimpleNamespace(
+                chunk_id="chunk-1",
+                document_version_id="version-1",
+                chunk_set_id="set-1",
+                source_key="support/a",
+                chunk_ordinal=0,
+                content="authoritative trace excerpt",
+                final_decision="SELECTED",
+            ),
+        ),
+        retrieval_latency_ms=1.0,
+        alias_mapping={"E1": "chunk-1"},
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
     observation = await ProductionM3Executor(

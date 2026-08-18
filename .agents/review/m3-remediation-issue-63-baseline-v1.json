@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m3-remediation-issue-63",
+  "ticket_id": "#63",
+  "recorded_at": "2026-08-16T22:49:13.7496013+07:00",
+  "integration_branch": "nhibuaa/m3-remediation-integration",
+  "integration_head": "48fcc99e1873d4bae4936e8f2297e6902381c26c",
+  "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-63-m3-remediation-report",
+  "commands": [
+    {
+      "command": "D:/Developer/Projects/knora-agent/.venv/Scripts/python.exe -m pytest -q",
+      "status": "incomplete",
+      "result": "11 passed; interrupted after 72.77s while PostgreSQL/psycopg migration setup remained blocked; full-suite green status is not claimed."
+    },
+    {
+      "command": "D:/Developer/Projects/knora-agent/.venv/Scripts/ruff.exe check .",
+      "status": "passed",
+      "result": "All checks passed."
+    },
+    {
+      "command": "docker compose config --quiet",
+      "status": "passed",
+      "result": "Configuration valid; only unset local secret-variable warnings were emitted."
+    },
+    {
+      "command": "plan_review_cadence.py --input .agents/review/m3-remediation-cadence-input.json",
+      "status": "passed",
+      "result": "High-risk plan retained with required spec/design, per-ticket, per-guide, human acceptance, and final review gates."
+    }
+  ],
+  "status": "baseline_recorded_with_environment_limitation",
+  "clean_worktree_at_recording": true
+}

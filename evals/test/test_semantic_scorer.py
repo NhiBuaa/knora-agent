@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from decimal import Decimal
 
 import httpx
@@ -47,6 +48,13 @@ def _observation() -> EvaluationObservation:
         trace_id="trace-1",
         generation_provider="openai-compatible",
         generation_model="answer-model",
+        public_citations=(
+            (
+                "E1",
+                "Refund requests are accepted within 30 days of purchase.",
+                "support/refund-policy#0",
+            ),
+        ),
         evidence=(
             (
                 "E1",
@@ -137,6 +145,174 @@ async def test_semantic_scorer_sends_aliases_and_returns_four_scores() -> None:
         "total_tokens": 140,
     }
     assert result.cost_usd == "0.00018"
+
+
+@pytest.mark.asyncio
+async def test_semantic_scorer_excludes_hidden_candidates_and_gold_metadata() -> None:
+    observed: dict[str, object] = {}
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        observed["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    metric: {"score": 0.5, "rationale": "ok"}
+                                    for metric in (
+                                        "citation_entailment",
+                                        "faithfulness",
+                                        "answer_relevance",
+                                        "refusal_correctness",
+                                    )
+                                }
+                            )
+                        }
+                    }
+                ]
+            },
+        )
+
+    observation = _observation()
+    observation = replace(
+        observation,
+        evidence=observation.evidence
+        + (("E2", "hidden/chunk#9", "hidden evidence must not be scored"),),
+    )
+    scorer = OpenAICompatibleSemanticScorer(
+        SemanticScorerConfiguration(
+            base_url="https://judge.example/v1",
+            api_key="runtime-judge-key",
+            model="judge-model",
+            version="semantic-scorer-v1",
+            measurement_method="llm-judge-v1",
+        ),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+    await scorer.score(case=_case(), observation=observation)
+    await scorer.aclose()
+
+    user_content = observed["payload"]["messages"][1]["content"]
+    assert "hidden evidence must not be scored" not in user_content
+    assert "reference_answer" not in user_content
+    assert "required_facts" not in user_content
+    assert "evidence_set" not in user_content
+    assert "public/refund-policy#0" not in user_content
+    assert "support/refund-policy#0" in user_content
+
+
+@pytest.mark.asyncio
+async def test_semantic_scorer_rejects_duplicate_public_aliases_before_request() -> None:
+    observation = replace(
+        _observation(),
+        public_citations=(
+            _observation().public_citations[0],
+            ("E1", "hidden replacement", "hidden/chunk#9"),
+        ),
+    )
+    scorer = OpenAICompatibleSemanticScorer(
+        SemanticScorerConfiguration(
+            base_url="https://judge.example/v1",
+            api_key="runtime-judge-key",
+            model="judge-model",
+            version="semantic-scorer-v1",
+            measurement_method="llm-judge-v1",
+        ),
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: pytest.fail("no request"))
+        ),
+    )
+    with pytest.raises(SemanticScorerError, match="SCORER_INPUT_INVALID"):
+        await scorer.score(case=_case(), observation=observation)
+    await scorer.aclose()
+
+
+@pytest.mark.asyncio
+async def test_semantic_scorer_rejects_duplicate_citation_aliases_before_request() -> None:
+    observation = replace(
+        _observation(),
+        public_citations=(
+            _observation().public_citations[0],
+            _observation().public_citations[0],
+        ),
+        citation_evidence_ids=("E1", "E1"),
+        answer_marker_ids=("E1", "E1"),
+    )
+    scorer = OpenAICompatibleSemanticScorer(
+        SemanticScorerConfiguration(
+            base_url="https://judge.example/v1",
+            api_key="runtime-judge-key",
+            model="judge-model",
+            version="semantic-scorer-v1",
+            measurement_method="llm-judge-v1",
+        ),
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: pytest.fail("no request"))
+        ),
+    )
+    with pytest.raises(SemanticScorerError, match="SCORER_INPUT_INVALID"):
+        await scorer.score(case=_case(), observation=observation)
+    await scorer.aclose()
+
+
+@pytest.mark.asyncio
+async def test_semantic_scorer_rejects_public_alias_projection_mismatch() -> None:
+    observation = replace(_observation(), citation_evidence_ids=("E2",))
+    scorer = OpenAICompatibleSemanticScorer(
+        SemanticScorerConfiguration(
+            base_url="https://judge.example/v1",
+            api_key="runtime-judge-key",
+            model="judge-model",
+            version="semantic-scorer-v1",
+            measurement_method="llm-judge-v1",
+        ),
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: pytest.fail("no request"))
+        ),
+    )
+    with pytest.raises(SemanticScorerError, match="SCORER_INPUT_INVALID"):
+        await scorer.score(case=_case(), observation=observation)
+    await scorer.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda observation: replace(observation, decision=None),
+        lambda observation: replace(observation, answer=None),
+        lambda observation: replace(observation, answer="answer [[E1]]", answer_marker_ids=("E2",)),
+        lambda observation: replace(
+            observation,
+            decision="REFUSAL",
+            answer="must not be sent",
+            public_citations=(),
+            citation_evidence_ids=(),
+            answer_marker_ids=(),
+            refusal_reason="INSUFFICIENT_EVIDENCE",
+        ),
+    ),
+)
+async def test_semantic_scorer_rejects_malformed_public_response_contract(mutation) -> None:
+    observation = mutation(_observation())
+    scorer = OpenAICompatibleSemanticScorer(
+        SemanticScorerConfiguration(
+            base_url="https://judge.example/v1",
+            api_key="runtime-judge-key",
+            model="judge-model",
+            version="semantic-scorer-v1",
+            measurement_method="llm-judge-v1",
+        ),
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _request: pytest.fail("no request"))
+        ),
+    )
+    with pytest.raises(SemanticScorerError, match="SCORER_INPUT_INVALID"):
+        await scorer.score(case=_case(), observation=observation)
+    await scorer.aclose()
 
 
 @pytest.mark.asyncio
