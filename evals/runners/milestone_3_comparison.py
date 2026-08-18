@@ -8,6 +8,7 @@ import re
 from collections.abc import Iterable, Mapping
 from fractions import Fraction
 from math import isfinite
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
@@ -34,6 +35,7 @@ from evals.runners.m3_claim_authority import (
 
 __all__ = [
     "ALLOWED_CONFIGURATION_FIELDS",
+    "APPROVED_RETRIEVAL_CONFIGURATIONS",
     "APPROVED_HUMAN_IDENTITY",
     "AUTHORITY_IDENTIFIER",
     "AUTHORITY_VALIDATION_FAILURE",
@@ -52,6 +54,7 @@ __all__ = [
     "compare_paired_reports",
     "is_non_placeholder_identity",
     "select_improvement",
+    "select_production_improvement",
     "test_claim_rule_authority_fixture",
     "validate_guardrails",
     "validate_guardrail_shape",
@@ -69,6 +72,29 @@ class ComparisonError(ValueError):
 
 _ALLOWED_CONFIGURATION_FIELD_SET = set(ALLOWED_CONFIGURATION_FIELDS)
 
+APPROVED_RETRIEVAL_CONFIGURATIONS = MappingProxyType(
+    {
+        "retrieval-m3-vector-v2": MappingProxyType(
+            {
+                "strategy": "vector-only",
+                "fusion_policy_id": None,
+                "fusion_policy_version": None,
+                "lexical_policy_id": None,
+                "fts_candidate_k": None,
+            }
+        ),
+        "retrieval-m3-rrf-v2": MappingProxyType(
+            {
+                "strategy": "hybrid",
+                "fusion_policy_id": "rrf-v2",
+                "fusion_policy_version": "rrf-v2",
+                "lexical_policy_id": "fts-m3-or-v2",
+                "fts_candidate_k": 8,
+            }
+        ),
+    }
+)
+
 TAXONOMY_VERSION = "m3-failure-taxonomy-v1"
 TAXONOMY_FIXTURE_MAP = MappingProxyType({
     "fixture-lexical-branch-miss": "LEXICAL_MISS",
@@ -85,6 +111,14 @@ TAXONOMY_FIXTURE_MAP = MappingProxyType({
     "fixture-insufficient-evidence-correct": "INSUFFICIENT_EVIDENCE_CORRECT",
 })
 TAXONOMY_ENUMS = tuple(TAXONOMY_FIXTURE_MAP.values())
+REPORT_CATEGORY_METRICS = (
+    "recall_at_8",
+    "mrr",
+    "structural_validity",
+    "citation_correctness",
+    "refusal_correctness",
+    "semantic_citation_correctness",
+)
 _FIXTURE_STAGES = {
     "fixture-lexical-branch-miss": "branch",
     "fixture-semantic-branch-miss": "branch",
@@ -119,13 +153,26 @@ def classify_finding(
         if stage_evidence is not None and not isinstance(stage_evidence, Mapping):
             raise ComparisonError("STAGE_PRECONDITION_INVALID")
         details = stage_evidence or {}
+        if expected_stage == "branch":
+            expected_branch = "lexical" if fixture_id.startswith("fixture-lexical") else "semantic"
+            if (
+                details.get("branch") != expected_branch
+                or details.get("gold_evidence_present") is not True
+                or details.get("eligible_gold_evidence") is not False
+                or details.get("miss_confirmed") is not True
+            ):
+                raise ComparisonError("STAGE_PRECONDITION_INVALID")
         if expected_stage == "fusion" and (
-            details.get("eligible_branch_union") is not True
+            details.get("branches_completed")
+            != {"lexical": True, "semantic": True}
+            or details.get("eligible_branch_union") is not True
             or details.get("post_fusion_rank_incorrect") is not True
         ):
             raise ComparisonError("STAGE_PRECONDITION_INVALID")
         if expected_stage == "evidence_selection" and (
-            details.get("post_fusion_excluded") is not True
+            details.get("fused_ordering_available") is not True
+            or details.get("fused_ordering_version") != "rrf-v2"
+            or details.get("post_fusion_excluded") is not True
         ):
             raise ComparisonError("STAGE_PRECONDITION_INVALID")
     elif stage is not None:
@@ -141,6 +188,39 @@ def classify_finding(
         raise ComparisonError("CATEGORY_INVALID")
     if len(set(contributing)) != len(contributing):
         raise ComparisonError("CATEGORY_INVALID")
+    if contributing:
+        contributing_evidence = (
+            details.get("contributing_stage_evidence") if expected_stage else None
+        )
+        if not isinstance(contributing_evidence, Mapping):
+            raise ComparisonError("STAGE_PRECONDITION_INVALID")
+        for enum in contributing:
+            contribution = contributing_evidence.get(enum)
+            if not isinstance(contribution, Mapping):
+                raise ComparisonError("STAGE_PRECONDITION_INVALID")
+            if enum in {"LEXICAL_MISS", "SEMANTIC_MISS"}:
+                valid = (
+                    contribution.get("gold_evidence_present") is True
+                    and contribution.get("eligible_gold_evidence") is False
+                    and contribution.get("miss_confirmed") is True
+                )
+            elif enum == "FUSION_RANKING_ERROR":
+                valid = (
+                    contribution.get("branches_completed")
+                    == {"lexical": True, "semantic": True}
+                    and contribution.get("eligible_branch_union") is True
+                    and contribution.get("post_fusion_rank_incorrect") is True
+                )
+            elif enum == "EVIDENCE_SELECTION_ERROR":
+                valid = (
+                    contribution.get("fused_ordering_available") is True
+                    and contribution.get("fused_ordering_version") == "rrf-v2"
+                    and contribution.get("post_fusion_excluded") is True
+                )
+            else:
+                valid = contribution.get("stage_proven") is True
+            if not valid:
+                raise ComparisonError("STAGE_PRECONDITION_INVALID")
     return {
         "taxonomy_version": TAXONOMY_VERSION,
         "fixture_id": fixture_id,
@@ -238,19 +318,304 @@ def validate_guardrails(guardrails: object) -> dict[str, bool]:
 
 
 def _has_observation_failure(report: Mapping[str, Any]) -> bool:
+    if "observation_failure_count" not in report:
+        raise ComparisonError("OBSERVATION_FAILURE_COUNT_MISSING")
     reported_count = report.get("observation_failure_count")
-    if reported_count is not None:
-        if type(reported_count) is not int or reported_count < 0:
-            raise ComparisonError("OBSERVATION_FAILURE_COUNT_INVALID")
-        if reported_count > 0:
-            return True
-    observations = report.get("observations", [])
+    if type(reported_count) is not int or reported_count < 0:
+        raise ComparisonError("OBSERVATION_FAILURE_COUNT_INVALID")
+    observations = report.get("observations")
     if not isinstance(observations, list):
         raise ComparisonError("OBSERVATIONS_INVALID")
-    return any(
+    observed_count = sum(
         isinstance(item, Mapping) and item.get("status") in {"failure", "observation_failure"}
         for item in observations
     )
+    if observed_count != reported_count:
+        raise ComparisonError("OBSERVATION_FAILURE_COUNT_MISMATCH")
+    return reported_count > 0
+
+
+def _validate_observation_set(
+    report: Mapping[str, Any], expected_case_ids: tuple[str, ...]
+) -> tuple[dict[str, Any], ...]:
+    observations = report.get("observations")
+    if not isinstance(observations, list):
+        raise ComparisonError("OBSERVATIONS_INVALID")
+    by_id: dict[str, Any] = {}
+    for observation in observations:
+        if not isinstance(observation, Mapping) or not isinstance(
+            observation.get("case_id"), str
+        ):
+            raise ComparisonError("OBSERVATIONS_INVALID")
+        case_id = observation["case_id"]
+        if case_id in by_id:
+            raise ComparisonError("DUPLICATE_CASE_ID")
+        if case_id not in expected_case_ids:
+            raise ComparisonError("CASE_SET_MISMATCH")
+        status = observation.get("status")
+        if status not in {"observed", "failure", "observation_failure"}:
+            raise ComparisonError("OBSERVATION_STATUS_INVALID")
+        if status == "observed":
+            for field in ("retrieval_latency_ms", "end_to_end_latency_ms"):
+                value = observation.get(field)
+                if (
+                    isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not isfinite(float(value))
+                    or value < 0
+                ):
+                    raise ComparisonError("OBSERVATION_LATENCY_INVALID")
+            if observation.get("failure_code") is not None:
+                raise ComparisonError("OBSERVATION_FAILURE_CODE_INVALID")
+            for field in ("retrieval_configuration_id", "chunk_set_provenance_id"):
+                value = observation.get(field)
+                if not isinstance(value, str) or not value:
+                    raise ComparisonError("OBSERVATION_PROVENANCE_INVALID")
+            if observation.get("decision") not in {"ANSWER", "REFUSAL"}:
+                raise ComparisonError("OBSERVATION_RESPONSE_INVALID")
+        else:
+            failure_code = observation.get("failure_code")
+            if not isinstance(failure_code, str) or not failure_code:
+                raise ComparisonError("OBSERVATION_FAILURE_CODE_INVALID")
+        by_id[case_id] = observation
+    if tuple(sorted(by_id)) != expected_case_ids:
+        raise ComparisonError("CASE_SET_MISMATCH")
+    _has_observation_failure(report)
+    return tuple(by_id[case_id] for case_id in expected_case_ids)
+
+
+def _validate_latency_disclosure(report: Mapping[str, Any]) -> None:
+    latency = report.get("latency_tradeoffs")
+    if not isinstance(latency, Mapping):
+        raise ComparisonError("LATENCY_DISCLOSURE_MISSING")
+    required = {"retrieval", "end_to_end"}
+    if set(latency) != required:
+        raise ComparisonError("LATENCY_DISCLOSURE_MISSING")
+    observations = report.get("observations")
+    if not isinstance(observations, list):
+        raise ComparisonError("OBSERVATIONS_INVALID")
+    successful_count = sum(
+        isinstance(item, Mapping) and item.get("status") == "observed"
+        for item in observations
+    )
+    for name in sorted(required):
+        observation = latency.get(name)
+        if not isinstance(observation, Mapping):
+            raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+        count = observation.get("count")
+        if (
+            type(count) is not int
+            or count < 0
+            or count != successful_count
+            or observation.get("observed_per_case") is not (successful_count > 0)
+        ):
+            raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+
+
+def _validate_category_metric(value: object, *, case_count: int) -> None:
+    if not isinstance(value, Mapping) or set(value) != {
+        "applicable_count",
+        "inapplicable_count",
+        "observation_failure_count",
+        "numerator",
+        "denominator",
+        "value",
+    }:
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    applicable = value["applicable_count"]
+    inapplicable = value["inapplicable_count"]
+    failures = value["observation_failure_count"]
+    denominator = value["denominator"]
+    if any(
+        type(item) is not int or item < 0
+        for item in (applicable, inapplicable, failures, denominator)
+    ):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    if applicable + inapplicable != case_count or failures > applicable:
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    if denominator != applicable - failures:
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    numerator = value["numerator"]
+    if isinstance(numerator, bool) or not isinstance(numerator, (int, float)):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    if isinstance(numerator, float) and not isfinite(numerator):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    if numerator < 0 or numerator > denominator:
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    projected = value["value"]
+    if denominator == 0:
+        if projected is not None or numerator != 0:
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    else:
+        if isinstance(projected, bool) or not isinstance(projected, (int, float)):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        if isinstance(projected, float) and not isfinite(projected):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        if abs(float(projected) - float(numerator) / denominator) > 1e-12:
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+
+
+def _expected_report_metric(
+    report: Mapping[str, Any], case_ids: tuple[str, ...], metric: str
+) -> dict[str, Any]:
+    observations = report.get("observations")
+    retrieval = report.get("retrieval")
+    if not isinstance(observations, list) or not isinstance(retrieval, Mapping):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    observation_by_id = {
+        item["case_id"]: item
+        for item in observations
+        if isinstance(item, Mapping) and isinstance(item.get("case_id"), str)
+    }
+    retrieval_cases = retrieval.get("cases")
+    if not isinstance(retrieval_cases, list):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    retrieval_by_id = {
+        item["id"]: item
+        for item in retrieval_cases
+        if isinstance(item, Mapping) and isinstance(item.get("id"), str)
+    }
+    applicable = inapplicable = failures = denominator = 0
+    numerator: float | int = 0
+    for case_id in case_ids:
+        observation = observation_by_id.get(case_id)
+        if observation is None:
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        if metric in {"recall_at_8", "mrr"}:
+            retrieval_case = retrieval_by_id.get(case_id)
+            if not isinstance(retrieval_case, Mapping):
+                raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+            included = retrieval_case.get("included")
+            if included is False and retrieval_case.get("exclusion_reason") == (
+                "RETRIEVAL_RELEVANCE_NOT_APPLICABLE"
+            ):
+                inapplicable += 1
+                continue
+            if type(included) is not bool:
+                raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        else:
+            if (
+                metric == "semantic_citation_correctness"
+                and observation.get("decision") == "REFUSAL"
+            ):
+                inapplicable += 1
+                continue
+        applicable += 1
+        if observation.get("status") in {"failure", "observation_failure"}:
+            failures += 1
+            continue
+        if metric in {"recall_at_8", "mrr"}:
+            retrieval_case = retrieval_by_id[case_id]
+            if retrieval_case.get("included") is not True:
+                raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+            decision = retrieval_case.get("metric_decision_values")
+            if not isinstance(decision, Mapping) or metric not in decision:
+                raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+            value = _rational(decision[metric])
+            contribution: float | int = float(value)
+        else:
+            value = observation.get(metric)
+            if type(value) is not bool:
+                raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+            contribution = int(value)
+        denominator += 1
+        numerator += contribution
+    return {
+        "applicable_count": applicable,
+        "inapplicable_count": inapplicable,
+        "observation_failure_count": failures,
+        "numerator": numerator,
+        "denominator": denominator,
+        "value": numerator / denominator if denominator else None,
+    }
+
+
+def _assert_metric_projection_matches(
+    actual: Mapping[str, Any], expected: Mapping[str, Any]
+) -> None:
+    for field in (
+        "applicable_count",
+        "inapplicable_count",
+        "observation_failure_count",
+        "denominator",
+    ):
+        if actual.get(field) != expected[field]:
+            raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
+    if abs(float(actual["numerator"]) - float(expected["numerator"])) > 1e-12:
+        raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
+    actual_value = actual.get("value")
+    expected_value = expected["value"]
+    if actual_value is None or expected_value is None:
+        if actual_value is not expected_value:
+            raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
+    elif abs(float(actual_value) - float(expected_value)) > 1e-12:
+        raise ComparisonError("CATEGORY_BREAKDOWN_RECONCILIATION_FAILED")
+
+
+def _validate_category_breakdown(
+    report: Mapping[str, Any],
+    *,
+    expected_case_ids: tuple[str, ...] | None = None,
+    require_all_categories: bool = True,
+) -> None:
+    breakdown = report.get("category_breakdown")
+    if not isinstance(breakdown, Mapping) or set(breakdown) != {"categories", "aggregate"}:
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    categories = breakdown.get("categories")
+    aggregate = breakdown.get("aggregate")
+    if not isinstance(categories, Mapping) or not isinstance(aggregate, Mapping):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    if require_all_categories and set(categories) != {
+        "lexical_exact_match",
+        "semantic_paraphrase",
+        "multi_source",
+        "insufficient_evidence_refusal",
+    }:
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    all_category_ids: list[str] = []
+    metric_names: set[str] | None = None
+    for _category, projection in categories.items():
+        if not isinstance(projection, Mapping):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        case_count = projection.get("case_count")
+        case_ids = projection.get("case_ids")
+        if type(case_count) is not int or case_count < 0 or not isinstance(case_ids, list):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        if any(not isinstance(case_id, str) or not case_id for case_id in case_ids):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        if case_count != len(case_ids) or len(case_ids) != len(set(case_ids)):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        all_category_ids.extend(case_ids)
+        projection_metrics = set(projection) - {"case_ids", "case_count"}
+        if metric_names is None:
+            metric_names = projection_metrics
+        elif projection_metrics != metric_names:
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        if metric_names != set(REPORT_CATEGORY_METRICS):
+            raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+        for metric in REPORT_CATEGORY_METRICS:
+            _validate_category_metric(projection.get(metric), case_count=case_count)
+    if expected_case_ids is not None and (
+        len(all_category_ids) != len(set(all_category_ids))
+        or tuple(sorted(all_category_ids)) != expected_case_ids
+    ):
+        raise ComparisonError("CATEGORY_CASE_SET_MISMATCH")
+    if metric_names != set(REPORT_CATEGORY_METRICS):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    aggregate_metrics = set(aggregate)
+    if aggregate_metrics != set(REPORT_CATEGORY_METRICS):
+        raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    aggregate_case_ids = tuple(sorted(all_category_ids))
+    for metric in REPORT_CATEGORY_METRICS:
+        _validate_category_metric(aggregate.get(metric), case_count=sum(
+            projection["case_count"] for projection in categories.values()
+        ))
+        expected = _expected_report_metric(report, aggregate_case_ids, metric)
+        _assert_metric_projection_matches(aggregate[metric], expected)
+        for _category, projection in categories.items():
+            category_ids = tuple(sorted(projection["case_ids"]))
+            expected = _expected_report_metric(report, category_ids, metric)
+            _assert_metric_projection_matches(projection[metric], expected)
 
 
 def _selection_common(
@@ -304,10 +669,8 @@ def _selection_provenance_matches(
     try:
         vector_shared = _provenance_without_allowed_differences(vector_report)
         hybrid_shared = _provenance_without_allowed_differences(hybrid_report)
-        vector_configuration = _configuration_id(vector_report)
-        hybrid_configuration = _configuration_id(hybrid_report)
-        _validate_metric_contract(vector_report)
-        _validate_metric_contract(hybrid_report)
+        vector_configuration = _validate_configuration_semantics(vector_report)
+        hybrid_configuration = _validate_configuration_semantics(hybrid_report)
     except ComparisonError:
         return False
     return (
@@ -321,14 +684,59 @@ def _decision_metrics(
     primary_metrics: tuple[str, ...],
     vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...],
 ) -> tuple[dict[str, dict[str, int]], dict[str, Fraction], dict[str, float], str | None]:
+    def recompute(report: Mapping[str, Any], metric: str) -> Fraction:
+        retrieval = report.get("retrieval")
+        if not isinstance(retrieval, Mapping) or not isinstance(retrieval.get("cases"), list):
+            raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
+        observations = report.get("observations")
+        if not isinstance(observations, list):
+            raise ComparisonError("OBSERVATIONS_INVALID")
+        observation_by_id = {
+            item["case_id"]: item
+            for item in observations
+            if isinstance(item, Mapping) and isinstance(item.get("case_id"), str)
+        }
+        cases = {
+            item.get("id"): item
+            for item in retrieval["cases"]
+            if isinstance(item, Mapping) and isinstance(item.get("id"), str)
+        }
+        if set(cases) != set(expected_case_ids) or len(cases) != len(expected_case_ids):
+            raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+        included: list[Fraction] = []
+        for case_id in expected_case_ids:
+            item = cases[case_id]
+            if item.get("included") is False:
+                continue
+            if item.get("included") is not True:
+                raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+            if observation_by_id.get(case_id, {}).get("status") != "observed":
+                raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+            decisions = item.get("metric_decision_values")
+            if not isinstance(decisions, Mapping) or metric not in decisions:
+                raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
+            included.append(_rational(decisions[metric]))
+        if not included:
+            raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
+        result = sum(included, Fraction(0, 1)) / len(included)
+        retrieval_decisions = retrieval.get("metric_decision_values")
+        if not isinstance(retrieval_decisions, Mapping) or metric not in retrieval_decisions:
+            raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
+        if _rational(retrieval_decisions[metric]) != result:
+            raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
+        if retrieval.get("denominator") != len(included):
+            raise ComparisonError("METRIC_DENOMINATOR_INVALID")
+        return result
+
     values: dict[str, dict[str, int]] = {}
     deltas: dict[str, Fraction] = {}
     display_deltas: dict[str, float] = {}
     for name in primary_metrics:
         try:
-            vector_value = _metric_decision_value(vector_report, name)
-            hybrid_value = _metric_decision_value(hybrid_report, name)
+            vector_value = recompute(vector_report, name)
+            hybrid_value = recompute(hybrid_report, name)
         except ComparisonError as error:
             return values, deltas, display_deltas, str(error)
         values[name] = {
@@ -357,11 +765,10 @@ def _policy_gate_reason(
     for report in (vector_report, hybrid_report):
         if not isinstance(report.get("remaining_regressions"), list):
             return "REMAINING_REGRESSIONS_MISSING", hybrid_guardrails
-        latency = report.get("latency_tradeoffs")
-        if not isinstance(latency, Mapping) or not all(
-            key in latency for key in projection["latency_policy"]["required_observations"]
-        ):
-            return "LATENCY_DISCLOSURE_MISSING", hybrid_guardrails
+        try:
+            _validate_latency_disclosure(report)
+        except ComparisonError as error:
+            return str(error), hybrid_guardrails
     if not (all(delta >= 0 for delta in deltas) and any(delta > 0 for delta in deltas)):
         return "NO_QUALIFYING_DELTA", hybrid_guardrails
     return None, hybrid_guardrails
@@ -375,6 +782,9 @@ def select_improvement(
     claim_rule: Mapping[str, Any] | None = None,
     authority: ClaimRuleAuthority | Mapping[str, Any] | None = None,
     production: bool = True,
+    repository_root: Path | None = None,
+    sealed_archive_path: Path | None = None,
+    closure_path: Path | None = None,
 ) -> dict[str, Any]:
     """Apply the approved V1 rule only after authority validation succeeds.
 
@@ -389,7 +799,13 @@ def select_improvement(
             "reason": "CALLER_POLICY_OVERRIDE",
             "selected_improvement": None,
         }
-    authority_result = canonical_authority_validation(authority, production=production)
+    authority_result = canonical_authority_validation(
+        authority,
+        production=production,
+        repository_root=repository_root,
+        sealed_archive_path=sealed_archive_path,
+        closure_path=closure_path,
+    )
     if authority_result["status"] != "APPROVED_EFFECTIVE":
         return {
             "schema_version": 1,
@@ -403,12 +819,33 @@ def select_improvement(
     common = _selection_common(bound_authority, hybrid_report)
     if pair.get("provenance_match") is not True:
         return _no_claim(common, "PROVENANCE_MISMATCH")
+    expected_case_ids = tuple(pair.get("case_ids", ()))
+    if not expected_case_ids or any(
+        not isinstance(item, str) or not item for item in expected_case_ids
+    ):
+        return _no_claim(common, "CASE_SET_MISMATCH")
+    try:
+        _validate_observation_set(vector_report, expected_case_ids)
+        _validate_observation_set(hybrid_report, expected_case_ids)
+        if _has_observation_failure(vector_report) or _has_observation_failure(hybrid_report):
+            return _no_claim(common, "OBSERVATION_FAILURE")
+        _validate_category_breakdown(
+            vector_report, expected_case_ids=expected_case_ids
+        )
+        _validate_category_breakdown(
+            hybrid_report, expected_case_ids=expected_case_ids
+        )
+    except ComparisonError as error:
+        reason = (
+            "OBSERVATION_FAILURE"
+            if str(error).startswith("OBSERVATION_FAILURE")
+            else str(error)
+        )
+        return _no_claim(common, reason)
     if not _selection_provenance_matches(pair, vector_report, hybrid_report):
         return _no_claim(common, "PROVENANCE_MISMATCH")
-    if _has_observation_failure(vector_report) or _has_observation_failure(hybrid_report):
-        return _no_claim(common, "OBSERVATION_FAILURE")
     metric_values, decision_deltas, metric_deltas, metric_failure = _decision_metrics(
-        primary_metrics, vector_report, hybrid_report
+        primary_metrics, vector_report, hybrid_report, expected_case_ids
     )
     common = {
         **common,
@@ -456,6 +893,27 @@ def select_improvement(
     }
 
 
+def select_production_improvement(
+    pair: Mapping[str, Any],
+    *,
+    vector_report: Mapping[str, Any],
+    hybrid_report: Mapping[str, Any],
+    repository_root: Path,
+    sealed_archive_path: Path | None = None,
+    closure_path: Path | None = None,
+) -> dict[str, Any]:
+    """Canonical production entry point with no caller-supplied policy or authority seam."""
+    return select_improvement(
+        pair,
+        vector_report=vector_report,
+        hybrid_report=hybrid_report,
+        production=True,
+        repository_root=repository_root,
+        sealed_archive_path=sealed_archive_path,
+        closure_path=closure_path,
+    )
+
+
 def _case_field(case: object, name: str, default: Any = None) -> Any:
     if isinstance(case, Mapping):
         return case.get(name, default)
@@ -463,6 +921,14 @@ def _case_field(case: object, name: str, default: Any = None) -> Any:
 
 
 def _metric_applicable(case: object, metric: str) -> bool:
+    if metric == "semantic_citation_correctness":
+        return _case_field(case, "expected_behavior") == "ANSWER"
+    if metric in {
+        "structural_validity",
+        "citation_correctness",
+        "refusal_correctness",
+    }:
+        return True
     relevance = _case_field(case, "retrieval_relevance")
     if metric in {"recall_at_8", "mrr", "hit_rate"} and relevance is not None:
         return bool(_case_field(relevance, "applicable", False))
@@ -563,7 +1029,7 @@ def build_category_breakdown(
     cases: Iterable[object],
     report: Mapping[str, Any],
     *,
-    metrics: Iterable[str] = ("recall_at_8", "mrr"),
+    metrics: Iterable[str] = REPORT_CATEGORY_METRICS,
 ) -> dict[str, Any]:
     """Reconcile each metric against its own category membership and applicability set."""
     try:
@@ -740,7 +1206,23 @@ def _configuration_id(report: Mapping[str, Any]) -> str:
     return configuration
 
 
-def _validate_metric_contract(report: Mapping[str, Any]) -> None:
+def _validate_configuration_semantics(report: Mapping[str, Any]) -> str:
+    configuration = _configuration_id(report)
+    expected = APPROVED_RETRIEVAL_CONFIGURATIONS.get(configuration)
+    if expected is None:
+        raise ComparisonError("RETRIEVAL_CONFIGURATION_INVALID")
+    provenance = report.get("provenance")
+    if not isinstance(provenance, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    for field, expected_value in expected.items():
+        if provenance.get(field) != expected_value:
+            raise ComparisonError("RETRIEVAL_CONFIGURATION_SEMANTICS_MISMATCH")
+    return configuration
+
+
+def _validate_metric_contract(
+    report: Mapping[str, Any], expected_case_ids: tuple[str, ...] | None = None
+) -> None:
     retrieval = report.get("retrieval")
     if not isinstance(retrieval, Mapping):
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
@@ -748,6 +1230,63 @@ def _validate_metric_contract(report: Mapping[str, Any]) -> None:
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
     if retrieval.get("recall_k") != 8:
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
+    if not isinstance(retrieval.get("cases"), list) or not retrieval["cases"]:
+        raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+    metric_values = retrieval.get("metric_decision_values")
+    denominator = retrieval.get("denominator")
+    if type(denominator) is not int or denominator < 0:
+        raise ComparisonError("METRIC_DENOMINATOR_INVALID")
+    if denominator == 0:
+        if retrieval.get("recall_at_8") is not None or retrieval.get("mrr") is not None:
+            raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
+        if metric_values != {}:
+            raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
+    else:
+        if not isinstance(metric_values, Mapping) or set(metric_values) != {
+            "recall_at_8",
+            "mrr",
+        }:
+            raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
+        for value in metric_values.values():
+            _rational(value)
+    case_ids: list[str] = []
+    for item in retrieval["cases"]:
+        if not isinstance(item, Mapping) or not isinstance(item.get("id"), str):
+            raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+        case_ids.append(item["id"])
+        included = item.get("included")
+        if type(included) is not bool:
+            raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+        if included:
+            values = item.get("metric_decision_values")
+            if not isinstance(values, Mapping) or set(values) != {"recall_at_8", "mrr"}:
+                raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+            for value in values.values():
+                _rational(value)
+        elif not isinstance(item.get("exclusion_reason"), str) or not item["exclusion_reason"]:
+            raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+    if len(case_ids) != len(set(case_ids)):
+        raise ComparisonError("DUPLICATE_CASE_ID")
+    if expected_case_ids is not None and tuple(sorted(case_ids)) != expected_case_ids:
+        raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+    observations = report.get("observations")
+    if isinstance(observations, list):
+        observation_by_id = {
+            item["case_id"]: item
+            for item in observations
+            if isinstance(item, Mapping) and isinstance(item.get("case_id"), str)
+        }
+        for item in retrieval["cases"]:
+            observation = observation_by_id.get(item["id"])
+            if not isinstance(observation, Mapping):
+                raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+            if item.get("included") is True or item.get("exclusion_reason") == (
+                "RETRIEVAL_RELEVANCE_NOT_APPLICABLE"
+            ):
+                if observation.get("status") != "observed":
+                    raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
+            elif observation.get("status") not in {"failure", "observation_failure"}:
+                raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
 
 
 def compare_paired_reports(
@@ -765,22 +1304,37 @@ def compare_paired_reports(
     hybrid_cases = _observed_case_ids(hybrid_report)
     if vector_cases != hybrid_cases:
         raise ComparisonError("CASE_SET_MISMATCH")
-    if expected_case_ids is not None:
-        raw_expected = tuple(expected_case_ids)
-        if len(raw_expected) != len(set(raw_expected)):
-            raise ComparisonError("CASE_SET_MISMATCH")
-        canonical_expected = tuple(sorted(raw_expected))
-    else:
-        canonical_expected = vector_cases
+    if expected_case_ids is None:
+        raise ComparisonError("EXPECTED_CASE_SET_REQUIRED")
+    raw_expected = tuple(expected_case_ids)
+    if (
+        len(raw_expected) != len(set(raw_expected))
+        or any(not isinstance(item, str) or not item for item in raw_expected)
+    ):
+        raise ComparisonError("CASE_SET_MISMATCH")
+    canonical_expected = tuple(sorted(raw_expected))
     if len(canonical_expected) != len(vector_cases) or canonical_expected != vector_cases:
         raise ComparisonError("CASE_SET_MISMATCH")
 
-    vector_config = _configuration_id(vector_report)
-    hybrid_config = _configuration_id(hybrid_report)
-    _validate_metric_contract(vector_report)
-    _validate_metric_contract(hybrid_report)
+    vector_config = _validate_configuration_semantics(vector_report)
+    hybrid_config = _validate_configuration_semantics(hybrid_report)
+    _validate_observation_set(vector_report, canonical_expected)
+    _validate_observation_set(hybrid_report, canonical_expected)
+    _validate_metric_contract(vector_report, canonical_expected)
+    _validate_metric_contract(hybrid_report, canonical_expected)
+    _validate_category_breakdown(
+        vector_report, expected_case_ids=canonical_expected
+    )
+    _validate_category_breakdown(
+        hybrid_report, expected_case_ids=canonical_expected
+    )
     if vector_config == hybrid_config:
         raise ComparisonError("RETRIEVAL_CONFIGURATION_NOT_PAIRED")
+    if (
+        vector_config != "retrieval-m3-vector-v2"
+        or hybrid_config != "retrieval-m3-rrf-v2"
+    ):
+        raise ComparisonError("RETRIEVAL_CONFIGURATION_NOT_APPROVED")
     if _provenance_without_allowed_differences(
         vector_report
     ) != _provenance_without_allowed_differences(hybrid_report):

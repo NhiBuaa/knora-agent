@@ -5,7 +5,6 @@ import asyncio
 import hashlib
 import json
 import os
-import re
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -27,6 +26,7 @@ from evals.runners.evaluation import (
     verify_active_corpus,
     write_report_atomic,
 )
+from evals.runners.milestone_3 import ObservationFailure, validate_public_response
 from evals.scorers.openai_compatible import (
     OpenAICompatibleSemanticScorer,
     SemanticScorerConfiguration,
@@ -35,8 +35,6 @@ from evals.scorers.openai_compatible import (
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
 from knora.infrastructure.settings import settings
-
-MARKER_PATTERN = re.compile(r"\[\[(E[1-9][0-9]*)\]\]")
 
 
 class TraceReader(Protocol):
@@ -75,10 +73,18 @@ class HttpEvaluationExecutor:
             )
             response.raise_for_status()
             payload = response.json()
+            public = validate_public_response(payload)
             trace = self._trace_reader.read_trace(
                 trace_id=payload["trace_id"], workspace_id=case.workspace_id
             )
-        except (httpx.HTTPError, KeyError, TypeError, ValueError, LookupError) as error:
+        except (
+            httpx.HTTPError,
+            KeyError,
+            TypeError,
+            ValueError,
+            LookupError,
+            ObservationFailure,
+        ) as error:
             return EvaluationObservation(
                 case_id=case.id,
                 retrieved_chunks=(),
@@ -89,46 +95,69 @@ class HttpEvaluationExecutor:
                 provider_error=type(error).__name__,
             )
 
-        references_by_id = {
-            candidate.chunk_id: f"{candidate.source_key}#{candidate.chunk_ordinal}"
-            for candidate in trace.candidates
-        }
-        candidates_by_id = {candidate.chunk_id: candidate for candidate in trace.candidates}
-        citation_ids = tuple(item["evidence_id"] for item in payload["citations"])
-        cited_chunks = tuple(
-            references_by_id[trace.alias_mapping[evidence_id]]
-            for evidence_id in citation_ids
-            if evidence_id in trace.alias_mapping
-            and trace.alias_mapping[evidence_id] in references_by_id
-        )
-        usage, cost = _system_observations(trace.provider_metadata)
-        generation = trace.provider_metadata.get("generation", {})
-        if not isinstance(generation, dict):
-            generation = {}
-        embedding = trace.provider_metadata.get("embedding", {})
-        if not isinstance(embedding, dict):
-            embedding = {}
-        evidence = tuple(
-            (
-                evidence_id,
-                references_by_id[chunk_id],
-                getattr(candidates_by_id[chunk_id], "content", ""),
+        try:
+            references_by_id = {
+                candidate.chunk_id: f"{candidate.source_key}#{candidate.chunk_ordinal}"
+                for candidate in trace.candidates
+            }
+            candidates_by_id = {candidate.chunk_id: candidate for candidate in trace.candidates}
+            citation_ids = public.citation_evidence_ids
+            public_citations = tuple(
+                (
+                    citation.evidence_id,
+                    citation.excerpt,
+                    citation.source_locator,
+                )
+                for citation in public.citations
             )
-            for evidence_id, chunk_id in trace.alias_mapping.items()
-            if chunk_id in references_by_id
-        )
+            alias_mapping = trace.alias_mapping
+            if not isinstance(alias_mapping, dict) or any(
+                evidence_id not in alias_mapping
+                or alias_mapping[evidence_id] not in references_by_id
+                for evidence_id in citation_ids
+            ):
+                raise ValueError("PUBLIC_CITATION_ALIAS_INVALID")
+            cited_chunks = tuple(
+                references_by_id[alias_mapping[evidence_id]] for evidence_id in citation_ids
+            )
+            usage, cost = _system_observations(trace.provider_metadata)
+            generation = trace.provider_metadata.get("generation", {})
+            if not isinstance(generation, dict):
+                generation = {}
+            embedding = trace.provider_metadata.get("embedding", {})
+            if not isinstance(embedding, dict):
+                embedding = {}
+            evidence = tuple(
+                (
+                    evidence_id,
+                    references_by_id[chunk_id],
+                    getattr(candidates_by_id[chunk_id], "content", ""),
+                )
+                for evidence_id, chunk_id in alias_mapping.items()
+                if chunk_id in references_by_id
+            )
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            return EvaluationObservation(
+                case_id=case.id,
+                retrieved_chunks=(),
+                retrieval_latency_ms=0.0,
+                decision="ERROR",
+                refusal_reason=None,
+                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                provider_error=type(error).__name__,
+            )
         return EvaluationObservation(
             case_id=case.id,
             retrieved_chunks=tuple(
                 references_by_id[candidate.chunk_id] for candidate in trace.candidates
             ),
             retrieval_latency_ms=trace.retrieval_latency_ms,
-            decision=payload["decision"],
-            answer=payload["answer"],
-            refusal_reason=payload["refusal_reason"],
+            decision=public.decision,
+            answer=public.answer,
+            refusal_reason=public.refusal_reason,
             cited_chunks=cited_chunks,
             citation_evidence_ids=citation_ids,
-            answer_marker_ids=tuple(MARKER_PATTERN.findall(payload["answer"])),
+            answer_marker_ids=public.answer_marker_ids,
             candidate_workspaces=tuple(
                 candidate.workspace_id for candidate in trace.candidates
             ),
@@ -142,6 +171,7 @@ class HttpEvaluationExecutor:
             generation_provider=str(generation.get("provider", "")),
             generation_model=str(generation.get("model", "")),
             generation_prompt_version=str(generation.get("prompt_version", "")),
+            public_citations=public_citations,
             evidence=evidence,
         )
 

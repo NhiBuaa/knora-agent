@@ -19,6 +19,7 @@ from evals.runners.milestone_3_comparison import (
     classify_finding,
     compare_paired_reports,
     select_improvement,
+    select_production_improvement,
     test_claim_rule_authority_fixture,
     validate_guardrail_shape,
     validate_guardrails,
@@ -39,6 +40,80 @@ def _modern_report(
     mrr: tuple[int, int] = (1, 2),
     case_ids: tuple[str, ...] = ("case-a", "case-b"),
 ) -> dict[str, object]:
+    def category_metric(numerator: float, denominator: int, case_count: int) -> dict[str, object]:
+        return {
+            "applicable_count": case_count,
+            "inapplicable_count": 0,
+            "observation_failure_count": 0,
+            "numerator": numerator * case_count / denominator if denominator else 0,
+            "denominator": case_count,
+            "value": numerator / denominator if denominator else None,
+        }
+
+    def guard_metric(case_count: int) -> dict[str, object]:
+        return {
+            "applicable_count": case_count,
+            "inapplicable_count": 0,
+            "observation_failure_count": 0,
+            "numerator": case_count,
+            "denominator": case_count,
+            "value": 1.0 if case_count else None,
+        }
+
+    retrieval_cases = [
+        {
+            "id": case_id,
+            "included": True,
+            "recall_at_8": recall[0] / recall[1],
+            "reciprocal_rank": mrr[0] / mrr[1],
+            "metric_decision_values": {
+                "recall_at_8": {"numerator": recall[0], "denominator": recall[1]},
+                "mrr": {"numerator": mrr[0], "denominator": mrr[1]},
+            },
+        }
+        for case_id in case_ids
+    ]
+    category_template = {
+        "lexical_exact_match": (list(case_ids), len(case_ids)),
+        "semantic_paraphrase": ([], 0),
+        "multi_source": ([], 0),
+        "insufficient_evidence_refusal": ([], 0),
+    }
+    categories = {
+        category: {
+            "case_ids": ids,
+            "case_count": count,
+            "recall_at_8": category_metric(recall[0] / recall[1], 1, count)
+            if count
+            else {
+                "applicable_count": 0,
+                "inapplicable_count": 0,
+                "observation_failure_count": 0,
+                "numerator": 0,
+                "denominator": 0,
+                "value": None,
+            },
+            "mrr": category_metric(mrr[0] / mrr[1], 1, count)
+            if count
+            else {
+                "applicable_count": 0,
+                "inapplicable_count": 0,
+                "observation_failure_count": 0,
+                "numerator": 0,
+                "denominator": 0,
+                "value": None,
+            },
+        }
+        for category, (ids, count) in category_template.items()
+    }
+    for category_projection in categories.values():
+        for metric_name in (
+            "structural_validity",
+            "citation_correctness",
+            "refusal_correctness",
+            "semantic_citation_correctness",
+        ):
+            category_projection[metric_name] = guard_metric(category_projection["case_count"])
     provenance = {
         "dataset_version": "m3-dataset-v1",
         "dataset_digest": "sha256:dataset",
@@ -60,30 +135,59 @@ def _modern_report(
         "evaluation_commit": "2" * 40,
         "report_artifact_schema_version": 1,
         "retrieval_configuration_id": configuration,
-        "strategy": "vector" if "vector" in configuration else "hybrid",
-        "fusion_policy_id": "none" if "vector" in configuration else "rrf-v2",
-        "fusion_policy_version": "none" if "vector" in configuration else "2",
-        "lexical_policy_id": "none" if "vector" in configuration else "fts-v2",
-        "fts_candidate_k": 0 if "vector" in configuration else 8,
+        "strategy": "vector-only" if "vector" in configuration else "hybrid",
+        "fusion_policy_id": None if "vector" in configuration else "rrf-v2",
+        "fusion_policy_version": None if "vector" in configuration else "rrf-v2",
+        "lexical_policy_id": None if "vector" in configuration else "fts-m3-or-v2",
+        "fts_candidate_k": None if "vector" in configuration else 8,
     }
     return {
         "schema_version": 1,
         "provenance": provenance,
-        "observations": [{"case_id": case_id, "status": "observed"} for case_id in case_ids],
+        "observations": [
+            {
+                "case_id": case_id,
+                "status": "observed",
+                "retrieval_latency_ms": 1.0,
+                "end_to_end_latency_ms": 2.0,
+                "retrieval_configuration_id": configuration,
+                "chunk_set_provenance_id": "chunk-set-m3-v1",
+                "decision": "ANSWER",
+                "structural_validity": True,
+                "citation_correctness": True,
+                "refusal_correctness": True,
+                "semantic_citation_correctness": True,
+            }
+            for case_id in case_ids
+        ],
+        "observation_failure_count": 0,
         "retrieval": {
             "metric_contract": "m3-retrieval-metrics-v1",
             "recall_k": 8,
             "recall_at_8": recall[0] / recall[1],
             "mrr": mrr[0] / mrr[1],
+            "denominator": len(case_ids),
+            "cases": retrieval_cases,
             "metric_decision_values": {
                 "recall_at_8": {"numerator": recall[0], "denominator": recall[1]},
                 "mrr": {"numerator": mrr[0], "denominator": mrr[1]},
             },
         },
         "guardrails": deepcopy(REQUIRED_GUARDRAILS),
+        "category_breakdown": {
+            "categories": categories,
+            "aggregate": {
+                "recall_at_8": category_metric(recall[0] / recall[1], 1, len(case_ids)),
+                "mrr": category_metric(mrr[0] / mrr[1], 1, len(case_ids)),
+                "structural_validity": guard_metric(len(case_ids)),
+                "citation_correctness": guard_metric(len(case_ids)),
+                "refusal_correctness": guard_metric(len(case_ids)),
+                "semantic_citation_correctness": guard_metric(len(case_ids)),
+            },
+        },
         "latency_tradeoffs": {
-            "retrieval": {"vector": 10, "hybrid": 12},
-            "end_to_end": {"vector": 20, "hybrid": 22},
+            "retrieval": {"count": len(case_ids), "observed_per_case": True},
+            "end_to_end": {"count": len(case_ids), "observed_per_case": True},
         },
         "remaining_regressions": [],
     }
@@ -190,26 +294,65 @@ def test_category_breakdown_reads_successful_mrr_from_retrieval_case_projection(
     }
 
 
+def test_category_breakdown_reconciles_against_per_case_metric_projections() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    hybrid["category_breakdown"]["categories"]["lexical_exact_match"]["mrr"].update(
+        {"numerator": 0.0, "value": 0.0}
+    )
+    with pytest.raises(ComparisonError, match="CATEGORY_BREAKDOWN_RECONCILIATION_FAILED"):
+        compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
+def test_observed_latency_is_required_for_qualifying_selection() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    del hybrid["observations"][0]["retrieval_latency_ms"]
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "OBSERVATION_LATENCY_INVALID"
+
+
+def test_category_case_ids_require_nonempty_strings() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    hybrid["category_breakdown"]["categories"]["lexical_exact_match"]["case_ids"] = [
+        "case-a",
+        1,
+    ]
+    with pytest.raises(ComparisonError, match="CATEGORY_BREAKDOWN_INVALID"):
+        compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
 def test_paired_provenance_rejects_mutation_outside_declared_configuration_fields() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2")
-    assert compare_paired_reports(vector, hybrid)["provenance_match"] is True
+    assert compare_paired_reports(
+        vector, hybrid, expected_case_ids=("case-a", "case-b")
+    )["provenance_match"] is True
 
     tampered = deepcopy(hybrid)
     tampered["provenance"]["scorer_model"] = "other-judge"
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
-        compare_paired_reports(vector, tampered)
+        compare_paired_reports(vector, tampered, expected_case_ids=("case-a", "case-b"))
 
     missing = deepcopy(hybrid)
     del missing["provenance"]["evaluation_commit"]
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
-        compare_paired_reports(vector, missing)
+        compare_paired_reports(vector, missing, expected_case_ids=("case-a", "case-b"))
 
 
 def test_exact_rational_selection_uses_unrounded_metric_contract_values() -> None:
     vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 3), mrr=(1, 2))
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 3), mrr=(2, 3))
-    pair = compare_paired_reports(vector, hybrid)
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
     result = select_improvement(
         pair,
         vector_report=vector,
@@ -249,7 +392,7 @@ def test_selection_maps_every_malformed_guardrail_to_policy_no_claim(mutated_gua
     vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 2), mrr=(1, 2))
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
     hybrid["guardrails"] = mutated_guardrails
-    pair = compare_paired_reports(vector, hybrid)
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
     result = select_improvement(
         pair,
         vector_report=vector,
@@ -265,7 +408,7 @@ def test_selection_maps_every_malformed_guardrail_to_policy_no_claim(mutated_gua
 def test_observation_failure_and_non_qualifying_pair_are_distinct_no_claim_paths() -> None:
     vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 2), mrr=(1, 2))
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(1, 2))
-    pair = compare_paired_reports(vector, hybrid)
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
     authority = test_claim_rule_authority_fixture()
 
     no_delta = select_improvement(
@@ -297,7 +440,7 @@ def test_observation_failure_and_non_qualifying_pair_are_distinct_no_claim_paths
 def test_placeholder_human_identity_is_authority_failure(placeholder: str) -> None:
     authority = test_claim_rule_authority_fixture()
     tampered = replace(authority, reviewer_id=placeholder, approved_by=placeholder)
-    result = canonical_authority_validation(tampered, production=True)
+    result = canonical_authority_validation(tampered, production=False)
     assert result["status"] == AUTHORITY_VALIDATION_FAILURE
     assert result["reason"] == "HUMAN_IDENTITY_PLACEHOLDER"
 
@@ -307,7 +450,7 @@ def test_policy_projection_mutation_fails_authority_validation() -> None:
     projection = deepcopy(authority.projection)
     projection["recall_k"] = 7
     tampered = replace(authority, projection=projection)
-    result = canonical_authority_validation(tampered, production=True)
+    result = canonical_authority_validation(tampered, production=False)
     assert result["status"] == AUTHORITY_VALIDATION_FAILURE
     assert result["reason"] == "POLICY_PROJECTION_INVALID"
 
@@ -317,12 +460,19 @@ def test_approval_payload_mutation_fails_attestation_digest_validation() -> None
     payload = deepcopy(authority.approval_payload)
     payload["approved_at"] = "2026-08-17T03:34:44Z"
     tampered = replace(authority, approval_payload=payload)
-    result = canonical_authority_validation(tampered, production=True)
+    result = canonical_authority_validation(tampered, production=False)
     assert result["status"] == AUTHORITY_VALIDATION_FAILURE
     assert result["reason"] == "ATTESTATION_PAYLOAD_DIGEST_MISMATCH"
 
 
 def test_taxonomy_stage_preconditions_and_optional_categories_are_closed() -> None:
+    with pytest.raises(ComparisonError, match="STAGE_PRECONDITION_INVALID"):
+        classify_finding(
+            "fixture-lexical-branch-miss",
+            evidence=["evidence"],
+            stage="branch",
+            stage_evidence={},
+        )
     with pytest.raises(ComparisonError, match="STAGE_PRECONDITION_INVALID"):
         classify_finding("fixture-fusion-union-ranked-low", evidence=["evidence"])
     with pytest.raises(ComparisonError, match="STAGE_PRECONDITION_INVALID"):
@@ -332,13 +482,40 @@ def test_taxonomy_stage_preconditions_and_optional_categories_are_closed() -> No
             stage="fusion",
             stage_evidence={"eligible_branch_union": True},
         )
+    with pytest.raises(ComparisonError, match="STAGE_PRECONDITION_INVALID"):
+        classify_finding(
+            "fixture-fusion-union-ranked-low",
+            evidence=["evidence"],
+            stage="fusion",
+            stage_evidence={
+                "branches_completed": {"lexical": True, "semantic": False},
+                "eligible_branch_union": True,
+                "post_fusion_rank_incorrect": True,
+            },
+        )
+    with pytest.raises(ComparisonError, match="STAGE_PRECONDITION_INVALID"):
+        classify_finding(
+            "fixture-evidence-selection-excluded",
+            evidence=["evidence"],
+            stage="evidence_selection",
+            stage_evidence={"post_fusion_excluded": True},
+        )
     finding = classify_finding(
         "fixture-fusion-union-ranked-low",
         evidence=["evidence"],
         stage="fusion",
         stage_evidence={
+            "branches_completed": {"lexical": True, "semantic": True},
             "eligible_branch_union": True,
             "post_fusion_rank_incorrect": True,
+            "contributing_stage_evidence": {
+                "branches_completed": {"lexical": True, "semantic": True},
+                "LEXICAL_MISS": {
+                    "gold_evidence_present": True,
+                    "eligible_gold_evidence": False,
+                    "miss_confirmed": True,
+                }
+            },
         },
         contributing_enums=("LEXICAL_MISS",),
     )
@@ -349,6 +526,7 @@ def test_taxonomy_stage_preconditions_and_optional_categories_are_closed() -> No
             evidence=["evidence"],
             stage="fusion",
             stage_evidence={
+                "branches_completed": {"lexical": True, "semantic": True},
                 "eligible_branch_union": True,
                 "post_fusion_rank_incorrect": True,
             },
@@ -360,7 +538,7 @@ def test_authority_validation_failure_is_not_policy_no_claim_and_caller_override
 ) -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2")
-    pair = compare_paired_reports(vector, hybrid)
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
 
     result = select_improvement(
         pair,
@@ -384,23 +562,89 @@ def test_identity_syntax_fixture_is_not_production_authorization() -> None:
     )
     assert (
         canonical_authority_validation(authority, production=True)["reason"]
-        == "AUTHORITY_CHAIN_UNVERIFIED"
-    )
-    approved = replace(authority, chain_verified=True, verification_method="git-seal")
-    assert (
-        canonical_authority_validation(approved, production=True)["status"]
-        == "APPROVED_EFFECTIVE"
+        == "CALLER_AUTHORITY_OVERRIDE"
     )
 
-    alternate = replace(approved, attestation_blob="0" * 40)
+    alternate = replace(authority, attestation_blob="0" * 40)
     result = canonical_authority_validation(alternate, production=True)
     assert result["status"] == AUTHORITY_VALIDATION_FAILURE
-    assert result["reason"] == "ATTESTATION_IDENTITY_MISMATCH"
+    assert result["reason"] == "CALLER_AUTHORITY_OVERRIDE"
 
-    other_human = replace(approved, reviewer_id="AnotherHuman", approved_by="AnotherHuman")
+    other_human = replace(authority, reviewer_id="AnotherHuman", approved_by="AnotherHuman")
     other_result = canonical_authority_validation(other_human, production=True)
     assert other_result["status"] == AUTHORITY_VALIDATION_FAILURE
-    assert other_result["reason"] == "APPROVAL_IDENTITY_MISMATCH"
+    assert other_result["reason"] == "CALLER_AUTHORITY_OVERRIDE"
+
+
+def test_canonical_production_entry_point_requires_git_bound_authority(tmp_path: Path) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    result = select_production_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        repository_root=tmp_path,
+    )
+
+    assert result["status"] == AUTHORITY_VALIDATION_FAILURE
+    assert result["reason"] != "NO_QUALIFYING_DELTA"
+    assert result.get("selected_improvement") is None
+
+
+def test_selection_reconciles_metric_projection_and_latency_disclosure() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    authority = test_claim_rule_authority_fixture()
+
+    hybrid["retrieval"]["metric_decision_values"]["mrr"] = {
+        "numerator": 1,
+        "denominator": 2,
+    }
+    fabricated = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=authority,
+        production=False,
+    )
+    assert fabricated["status"] == "NO_CLAIM"
+    assert fabricated["reason"] == "METRIC_DECISION_RECONCILIATION_FAILED"
+
+    hybrid["retrieval"]["metric_decision_values"]["mrr"] = {
+        "numerator": 2,
+        "denominator": 3,
+    }
+    hybrid["latency_tradeoffs"] = {"retrieval": {}, "end_to_end": {}}
+    missing_latency = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=authority,
+        production=False,
+    )
+    assert missing_latency["status"] == "NO_CLAIM"
+    assert missing_latency["reason"] == "LATENCY_DISCLOSURE_INVALID"
+
+
+def test_latency_disclosure_count_must_match_successful_observations() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    hybrid["latency_tradeoffs"]["retrieval"]["count"] = 1
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "LATENCY_DISCLOSURE_INVALID"
 
 
 def test_sealed_archive_accepts_issue_56_member_prefixes_and_exact_inventory(

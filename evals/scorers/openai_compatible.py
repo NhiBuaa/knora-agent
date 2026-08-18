@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from time import perf_counter
@@ -216,38 +217,59 @@ _SYSTEM_PROMPT = (
 
 
 def _user_prompt(case: EvaluationCase, observation: EvaluationObservation) -> str:
-    # Semantic citation scoring is deliberately a public-only boundary.  The scorer must not see
-    # hidden retrieved/excluded candidates or gold metadata; an opaque evidence alias may only
-    # correlate a public citation with its public excerpt and source locator.
-    evidence_ids = [item[0] for item in observation.evidence]
-    if len(evidence_ids) != len(set(evidence_ids)):
-        raise SemanticScorerError("SCORER_INPUT_INVALID")
-    evidence_by_id = {
-        evidence_id: (reference, content)
-        for evidence_id, reference, content in observation.evidence
-    }
-    citation_ids = tuple(observation.citation_evidence_ids)
-    if (
-        any(not isinstance(evidence_id, str) or not evidence_id for evidence_id in citation_ids)
-        or len(citation_ids) != len(set(citation_ids))
-    ):
+    # The scorer accepts only a server-resolved public projection.  In particular, it must not
+    # resolve citation aliases through ``evidence`` because that collection may contain excluded
+    # trace candidates, database identifiers, or hidden chunk content.
+    raw_public = getattr(observation, "public_citations", None)
+    if raw_public is None:
         raise SemanticScorerError("SCORER_INPUT_INVALID")
     citations = []
-    for evidence_id in citation_ids:
-        public = evidence_by_id.get(evidence_id)
-        if public is None:
+    evidence_ids: list[str] = []
+    for item in raw_public:
+        if isinstance(item, Mapping):
+            evidence_id = item.get("evidence_id")
+            excerpt = item.get("excerpt")
+            source_locator = item.get("source_locator")
+        elif isinstance(item, (tuple, list)) and len(item) == 3:
+            evidence_id, excerpt, source_locator = item
+        else:
+            evidence_id = getattr(item, "evidence_id", None)
+            excerpt = getattr(item, "excerpt", None)
+            source_locator = getattr(item, "source_locator", None)
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (evidence_id, excerpt, source_locator)
+        ):
             raise SemanticScorerError("SCORER_INPUT_INVALID")
-        reference, content = public
+        evidence_ids.append(evidence_id)
         citations.append(
             {
                 "evidence_id": evidence_id,
-                "excerpt": content,
-                "source_locator": reference,
+                "excerpt": excerpt,
+                "source_locator": source_locator,
             }
         )
+    if len(evidence_ids) != len(set(evidence_ids)):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    expected_ids = tuple(getattr(observation, "citation_evidence_ids", ()))
+    if (
+        any(not isinstance(item, str) or not item for item in expected_ids)
+        or tuple(evidence_ids) != expected_ids
+    ):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    answer = getattr(observation, "public_answer", None)
+    if answer is None:
+        answer = getattr(observation, "answer", None)
+    if answer is not None and (not isinstance(answer, str) or not answer.strip()):
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    decision = getattr(observation, "decision", None)
+    if decision == "ANSWER" and not citations:
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
+    if decision == "REFUSAL" and citations:
+        raise SemanticScorerError("SCORER_INPUT_INVALID")
     return json.dumps(
         {
-            "answer": observation.answer,
+            "answer": answer,
             "citations": citations,
         },
         ensure_ascii=False,

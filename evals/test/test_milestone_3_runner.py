@@ -219,7 +219,12 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
         citation_evidence_ids=("E1",),
     )
 
-    report = build_report((case,), (observation,), binding=_binding())
+    report = build_report(
+        (case,),
+        (observation,),
+        binding=_binding(),
+        semantic_citation_results={"case": True},
+    )
 
     assert report["retrieval"]["recall_at_8"] == 1.0
     assert report["category_breakdown"]["aggregate"]["recall_at_8"]["denominator"] == 1
@@ -243,7 +248,10 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
                 "refusal_reason": None,
                 "answer_marker_ids": ["E1"],
                 "citation_evidence_ids": ["E1"],
-                "refusal_correctness": None,
+                "structural_validity": True,
+                "citation_correctness": True,
+                "refusal_correctness": True,
+                "semantic_citation_correctness": True,
                 "public_citations": [
                     {
                         "evidence_id": "E1",
@@ -412,7 +420,7 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
     assert observation.candidates == (CanonicalChunkReference("set-1", "support/a", 0),)
     assert observation.retrieval_latency_ms == 4.0
     assert observation.end_to_end_latency_ms is not None
-    assert observation.refusal_correctness is None
+    assert observation.refusal_correctness is True
 
 
 @pytest.mark.asyncio

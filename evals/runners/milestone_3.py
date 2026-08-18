@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from fractions import Fraction
@@ -74,6 +74,9 @@ class M3Observation:
     refusal_reason: str | None = None
     answer_marker_ids: tuple[str, ...] = ()
     citation_evidence_ids: tuple[str, ...] = ()
+    structural_validity: bool | None = None
+    citation_correctness: bool | None = None
+    semantic_citation_correctness: bool | None = None
     refusal_correctness: bool | None = None
     failure_code: str | None = None
 
@@ -94,6 +97,9 @@ class M3Observation:
         refusal_reason: str | None = None,
         answer_marker_ids: tuple[str, ...] = (),
         citation_evidence_ids: tuple[str, ...] = (),
+        structural_validity: bool | None = True,
+        citation_correctness: bool | None = True,
+        semantic_citation_correctness: bool | None = None,
         refusal_correctness: bool | None = None,
     ) -> M3Observation:
         if (
@@ -112,6 +118,13 @@ class M3Observation:
             citation_evidence_ids=citation_evidence_ids,
             refusal_correctness=refusal_correctness,
         )
+        for value in (
+            structural_validity,
+            citation_correctness,
+            semantic_citation_correctness,
+        ):
+            if value is not None and type(value) is not bool:
+                raise ValueError("observation guardrail is invalid")
         return cls(
             case_id=case_id,
             candidates=candidates,
@@ -126,6 +139,9 @@ class M3Observation:
             refusal_reason=refusal_reason,
             answer_marker_ids=answer_marker_ids,
             citation_evidence_ids=citation_evidence_ids,
+            structural_validity=structural_validity,
+            citation_correctness=citation_correctness,
+            semantic_citation_correctness=semantic_citation_correctness,
             refusal_correctness=refusal_correctness,
         )
 
@@ -149,7 +165,14 @@ class M3Observation:
             )
         except (AttributeError, TypeError, ValueError):
             return False
-        return True
+        return not any(
+            value is not None and type(value) is not bool
+            for value in (
+                self.structural_validity,
+                self.citation_correctness,
+                self.semantic_citation_correctness,
+            )
+        )
 
 
 def _validate_observation_response(
@@ -798,8 +821,10 @@ class ProductionM3Executor:
                 refusal_reason=public.refusal_reason,
                 answer_marker_ids=public.answer_marker_ids,
                 citation_evidence_ids=public.citation_evidence_ids,
+                structural_validity=True,
+                citation_correctness=True,
                 refusal_correctness=(
-                    None
+                    public.decision == "ANSWER"
                     if case.refusal_expectation is None
                     else (
                         public.decision == "REFUSAL"
@@ -1113,8 +1138,32 @@ def build_report(
     guardrails: dict[str, bool] | None = None,
     latency_tradeoffs: dict[str, object] | None = None,
     remaining_regressions: list[object] | None = None,
+    semantic_citation_results: Mapping[str, bool] | None = None,
 ) -> dict[str, object]:
-    """Build the M3 report projection without defining latency aggregation semantics."""
+    """Build a complete M3 report projection with explicit audit/guardrail defaults.
+
+    The per-case latency values remain the authoritative observations; the ``count`` and
+    ``observed_per_case`` fields are disclosure metadata, not an invented aggregate latency
+    statistic.
+    """
+    semantic_results = dict(semantic_citation_results or {})
+    report_observations: list[dict[str, object]] = []
+    for observation in sorted(observations, key=lambda item: item.case_id):
+        semantic_result = observation.semantic_citation_correctness
+        if observation.is_success and observation.decision == "ANSWER":
+            if semantic_result is None:
+                semantic_result = semantic_results.get(observation.case_id)
+            if type(semantic_result) is not bool:
+                raise ObservationFailure("SEMANTIC_CITATION_RESULT_MISSING")
+        elif observation.is_success:
+            semantic_result = None
+        report_observations.append(
+            _observation_projection(
+                observation, semantic_citation_correctness=semantic_result
+            )
+        )
+    if set(semantic_results) - {observation.case_id for observation in observations}:
+        raise ObservationFailure("SEMANTIC_CITATION_RESULT_CASE_MISMATCH")
     report: dict[str, object] = {
         "schema_version": 1,
         "provenance": {
@@ -1122,10 +1171,7 @@ def build_report(
             **binding.provenance(),
         },
         "retrieval": score_retrieval(cases, observations, binding=binding),
-        "observations": [
-            _observation_projection(observation)
-            for observation in sorted(observations, key=lambda item: item.case_id)
-        ],
+        "observations": report_observations,
         "observation_failure_count": sum(
             not observation.is_success for observation in observations
         ),
@@ -1135,18 +1181,58 @@ def build_report(
     from evals.runners.milestone_3_comparison import build_category_breakdown
 
     report["category_breakdown"] = build_category_breakdown(cases, report)
-    if guardrails is not None:
-        from evals.runners.milestone_3_comparison import validate_guardrail_shape
+    from evals.runners.milestone_3_comparison import validate_guardrail_shape
 
-        report["guardrails"] = validate_guardrail_shape(guardrails)
-    if latency_tradeoffs is not None:
-        report["latency_tradeoffs"] = dict(latency_tradeoffs)
-    if remaining_regressions is not None:
-        report["remaining_regressions"] = list(remaining_regressions)
+    if guardrails is None:
+        successful = [observation for observation in observations if observation.is_success]
+        answer_observations = [
+            observation for observation in successful if observation.decision == "ANSWER"
+        ]
+        refusal_checks = [
+            (
+                observation.refusal_correctness
+                if observation.refusal_correctness is not None
+                else observation.decision == "ANSWER"
+            )
+            for observation in successful
+        ]
+        guardrails = {
+            "structural_validity": bool(successful)
+            and len(successful) == len(observations)
+            and all(observation.structural_validity is True for observation in successful),
+            "citation_correctness": bool(answer_observations)
+            and all(
+                observation.citation_correctness is True
+                for observation in answer_observations
+            ),
+            "refusal_correctness": bool(refusal_checks)
+            and all(value is True for value in refusal_checks),
+        }
+    report["guardrails"] = validate_guardrail_shape(guardrails)
+    if latency_tradeoffs is None:
+        successful = [observation for observation in observations if observation.is_success]
+        observed = bool(successful) and len(successful) == len(observations) and all(
+            observation.retrieval_latency_ms is not None
+            and observation.end_to_end_latency_ms is not None
+            for observation in successful
+        )
+        latency_tradeoffs = {
+            "retrieval": {"count": len(successful), "observed_per_case": observed},
+            "end_to_end": {"count": len(successful), "observed_per_case": observed},
+        }
+    report["latency_tradeoffs"] = dict(latency_tradeoffs)
+    report["remaining_regressions"] = list(remaining_regressions or [])
     return report
 
 
-def _observation_projection(observation: M3Observation) -> dict[str, object]:
+def _observation_projection(
+    observation: M3Observation,
+    *,
+    semantic_citation_correctness: bool | None = None,
+) -> dict[str, object]:
+    refusal_correctness = observation.refusal_correctness
+    if refusal_correctness is None and observation.is_success:
+        refusal_correctness = observation.decision == "ANSWER"
     projection: dict[str, object] = {
         "case_id": observation.case_id,
         "status": "observed" if observation.is_success else "failure",
@@ -1160,7 +1246,7 @@ def _observation_projection(observation: M3Observation) -> dict[str, object]:
         "refusal_reason": observation.refusal_reason,
         "answer_marker_ids": list(observation.answer_marker_ids),
         "citation_evidence_ids": list(observation.citation_evidence_ids),
-        "refusal_correctness": observation.refusal_correctness,
+        "refusal_correctness": refusal_correctness,
         "public_citations": [
             {
                 "evidence_id": citation.evidence_id,
@@ -1171,6 +1257,18 @@ def _observation_projection(observation: M3Observation) -> dict[str, object]:
             for citation in observation.public_citations
         ],
     }
+    for field in (
+        "structural_validity",
+        "citation_correctness",
+        "semantic_citation_correctness",
+    ):
+        value = (
+            semantic_citation_correctness
+            if field == "semantic_citation_correctness"
+            else getattr(observation, field)
+        )
+        if value is not None:
+            projection[field] = value
     if observation.failure_code is not None:
         projection["failure_code"] = observation.failure_code
     elif not observation.is_success:

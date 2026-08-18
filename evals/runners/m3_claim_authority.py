@@ -444,6 +444,22 @@ def canonical_authority_validation(
     closure_path: Path | None = None,
 ) -> dict[str, Any]:
     """Validate the exact authority identity before a policy decision is made."""
+    # Production authority is a Git/seal capability, never a caller-provided object.  A
+    # non-placeholder identity is only a syntax fixture; accepting it here would let a mutable
+    # working-tree object self-assert APPROVED_EFFECTIVE without resolving the approved blobs.
+    if production and authority is not None:
+        try:
+            supplied_bundle = _coerce_authority(authority)
+        except (TypeError, ValueError) as error:
+            return {"status": AUTHORITY_VALIDATION_FAILURE, "reason": str(error)}
+        for identity in (supplied_bundle.reviewer_id, supplied_bundle.approved_by):
+            failure = _identity_failure(identity)
+            if failure:
+                return {"status": AUTHORITY_VALIDATION_FAILURE, "reason": failure}
+        return {
+            "status": AUTHORITY_VALIDATION_FAILURE,
+            "reason": "CALLER_AUTHORITY_OVERRIDE",
+        }
     if authority is None:
         if repository_root is None:
             return {"status": AUTHORITY_VALIDATION_FAILURE, "reason": "AUTHORITY_MISSING"}
@@ -455,7 +471,14 @@ def canonical_authority_validation(
                 sealed_archive_path=sealed_archive_path,
                 closure_path=closure_path,
             )
-        except (OSError, RuntimeError, ValueError, json.JSONDecodeError, tarfile.TarError) as error:
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            json.JSONDecodeError,
+            subprocess.CalledProcessError,
+            tarfile.TarError,
+        ) as error:
             reason = str(error) or "AUTHORITY_VALIDATION_FAILURE"
             return {"status": AUTHORITY_VALIDATION_FAILURE, "reason": reason}
     try:
