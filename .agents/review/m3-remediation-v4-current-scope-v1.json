@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "status": "pending_external_review",
-  "subject_commit": "168e8501deec133b5e0c8fd7fd4bc5b1de72d994",
-  "subject_blob": "c593a4f6a1abc7cd769848167ebae0bdbfba1ac8",
+  "subject_commit": "82647d4f3568fe5eebebffbf053e5dc5bda5f103",
+  "subject_blob": "353fdc415817feb8ae4fdae68d54e7ebb1ad1f9d",
   "subject_paths": [
     ".agents/design/m3-remediation-v4.json",
     ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
@@ -32,6 +32,6 @@
     "two_layer_taxonomy"
   ],
   "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection.json",
-  "scope_digest": "sha256:5c41070cf0f17829d03a32c5f003b3a05d961a368dbe1cc86b6235c9ef1f061d",
+  "scope_digest": "sha256:f3cae9dd38b64f4d826b373939976f6efd00f680f5908bb1d2f0a272bd55ec7c",
   "canonicalization": "raw-immutable-projection-v1"
 }
