@@ -33,8 +33,8 @@ canonical JSON response payload excluding the digest field itself. `scope_digest
 record and source-commit author from Git, verifies all digests and rejects generic,
 missing, assertion-only, self-authored or self-approved identities.
 The active review response binding is
-`.agents/review/m3-remediation-v4-external-review-v3-current-response-v2.json`; the earlier
-v1 record remains preserved as superseded evidence.
+`.agents/review/m3-remediation-v4-external-review-v3-current-response-v3.json`; earlier
+response revisions remain preserved as superseded evidence.
 
 The complete review subject scope is immutable and is represented by the following sorted
 paths: `.agents/design/m3-remediation-v4.json`,
