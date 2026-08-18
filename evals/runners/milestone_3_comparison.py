@@ -864,8 +864,11 @@ def _validate_category_breakdown(
 
 def _selection_common(
     authority: ClaimRuleAuthority,
+    vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
 ) -> dict[str, Any]:
+    vector_binding = vector_report.get("binding_v3")
+    hybrid_binding = hybrid_report.get("binding_v3")
     return {
         "schema_version": 1,
         "authority_identifier": AUTHORITY_IDENTIFIER,
@@ -881,6 +884,23 @@ def _selection_common(
         "sealed_manifest_sha256": authority.sealed_manifest_sha256,
         "sealed_archive_sha256": authority.sealed_archive_sha256,
         "closure_sha256": authority.closure_sha256,
+        "comparable_provenance": {
+            "vector": dict(vector_report.get("provenance", {}))
+            if isinstance(vector_report.get("provenance"), Mapping)
+            else {},
+            "hybrid": dict(hybrid_report.get("provenance", {}))
+            if isinstance(hybrid_report.get("provenance"), Mapping)
+            else {},
+        },
+        "binding_v3": {
+            "vector": dict(vector_binding) if isinstance(vector_binding, Mapping) else {},
+            "hybrid": dict(hybrid_binding) if isinstance(hybrid_binding, Mapping) else {},
+        },
+        "environment_binding_digest": (
+            hybrid_binding.get("environment_binding_digest")
+            if isinstance(hybrid_binding, Mapping)
+            else None
+        ),
         "latency_tradeoffs": hybrid_report.get("latency_tradeoffs"),
         "remaining_regressions": hybrid_report.get("remaining_regressions"),
     }
@@ -1181,7 +1201,7 @@ def select_improvement(
     bound_authority = authority_result["authority"]
     projection = bound_authority.validated_projection()
     primary_metrics = tuple(projection["primary_metric_set"]["ordered"])
-    common = _selection_common(bound_authority, hybrid_report)
+    common = _selection_common(bound_authority, vector_report, hybrid_report)
     try:
         expected_case_ids = _validate_pair_contract(pair)
     except ComparisonError as error:
@@ -1247,6 +1267,9 @@ def select_improvement(
         "guardrails": hybrid_guardrails,
         "latency_tradeoffs": hybrid_report["latency_tradeoffs"],
         "remaining_regressions": hybrid_report["remaining_regressions"],
+        "comparable_provenance": common["comparable_provenance"],
+        "binding_v3": common["binding_v3"],
+        "environment_binding_digest": common["environment_binding_digest"],
         "claim_scope": projection["claim_scope"],
         "claim_rule_version": CLAIM_RULE_VERSION,
         "claim_rule_digest": CLAIM_RULE_DIGEST,

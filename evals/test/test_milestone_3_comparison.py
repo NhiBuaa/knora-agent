@@ -311,6 +311,13 @@ def test_no_claim_is_explicit_when_pair_has_no_qualifying_delta_or_guardrail_fai
     assert result["status"] == "NO_CLAIM"
     assert result["selected_improvement"] is None
     assert result["reason"]
+    assert result["comparable_provenance"] == {
+        "vector": vector["provenance"],
+        "hybrid": hybrid["provenance"],
+    }
+    assert result["environment_binding_digest"] == hybrid["binding_v3"][
+        "environment_binding_digest"
+    ]
 
 
 def test_category_breakdown_separates_membership_applicability_and_observation_failures():

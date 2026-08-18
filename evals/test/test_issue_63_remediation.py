@@ -505,6 +505,19 @@ def test_exact_rational_selection_uses_unrounded_metric_contract_values() -> Non
     assert result["metric_decision_deltas"]["recall_at_8"] == "0/1"
     assert result["metric_decision_deltas"]["mrr"] == "1/6"
     assert result["claim_rule_digest"].startswith("sha256:")
+    assert result["comparable_provenance"] == {
+        "vector": vector["provenance"],
+        "hybrid": hybrid["provenance"],
+    }
+    assert result["environment_binding_digest"] == hybrid["binding_v3"][
+        "environment_binding_digest"
+    ]
+    assert result["selected_improvement"]["comparable_provenance"] == result[
+        "comparable_provenance"
+    ]
+    assert result["selected_improvement"]["environment_binding_digest"] == result[
+        "environment_binding_digest"
+    ]
 
     vector["retrieval"]["recall_at_8"] = 0.999999
     hybrid["retrieval"]["recall_at_8"] = 0.000001
