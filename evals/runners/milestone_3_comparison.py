@@ -867,8 +867,14 @@ def _selection_common(
     vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
 ) -> dict[str, Any]:
-    vector_binding = vector_report.get("binding_v3")
-    hybrid_binding = hybrid_report.get("binding_v3")
+    vector_binding = vector_report.get("binding_v3") if isinstance(vector_report, Mapping) else None
+    hybrid_binding = hybrid_report.get("binding_v3") if isinstance(hybrid_report, Mapping) else None
+    vector_provenance = (
+        vector_report.get("provenance") if isinstance(vector_report, Mapping) else None
+    )
+    hybrid_provenance = (
+        hybrid_report.get("provenance") if isinstance(hybrid_report, Mapping) else None
+    )
     return {
         "schema_version": 1,
         "authority_identifier": AUTHORITY_IDENTIFIER,
@@ -885,12 +891,8 @@ def _selection_common(
         "sealed_archive_sha256": authority.sealed_archive_sha256,
         "closure_sha256": authority.closure_sha256,
         "comparable_provenance": {
-            "vector": dict(vector_report.get("provenance", {}))
-            if isinstance(vector_report.get("provenance"), Mapping)
-            else {},
-            "hybrid": dict(hybrid_report.get("provenance", {}))
-            if isinstance(hybrid_report.get("provenance"), Mapping)
-            else {},
+            "vector": dict(vector_provenance) if isinstance(vector_provenance, Mapping) else {},
+            "hybrid": dict(hybrid_provenance) if isinstance(hybrid_provenance, Mapping) else {},
         },
         "binding_v3": {
             "vector": dict(vector_binding) if isinstance(vector_binding, Mapping) else {},
@@ -901,8 +903,16 @@ def _selection_common(
             if isinstance(hybrid_binding, Mapping)
             else None
         ),
-        "latency_tradeoffs": hybrid_report.get("latency_tradeoffs"),
-        "remaining_regressions": hybrid_report.get("remaining_regressions"),
+        "latency_tradeoffs": (
+            hybrid_report.get("latency_tradeoffs")
+            if isinstance(hybrid_report, Mapping)
+            else None
+        ),
+        "remaining_regressions": (
+            hybrid_report.get("remaining_regressions")
+            if isinstance(hybrid_report, Mapping)
+            else None
+        ),
     }
 
 
@@ -1528,6 +1538,8 @@ def validate_publication_manifest(manifest: Mapping[str, Any]) -> bool:
 
 
 def _observed_case_ids(report: Mapping[str, Any]) -> tuple[str, ...]:
+    if not isinstance(report, Mapping):
+        raise ComparisonError("OBSERVATIONS_INVALID")
     observations = report.get("observations")
     if not isinstance(observations, list):
         raise ComparisonError("OBSERVATIONS_INVALID")

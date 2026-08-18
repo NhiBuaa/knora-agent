@@ -249,6 +249,26 @@ def test_closed_guardrails_require_exact_schema_keys_and_true_booleans() -> None
     assert validate_guardrail_shape(observed_failure) == observed_failure
 
 
+def test_malformed_non_mapping_reports_fail_closed() -> None:
+    valid_hybrid = _modern_report("retrieval-m3-rrf-v2")
+    with pytest.raises(ComparisonError, match="OBSERVATIONS_INVALID"):
+        compare_paired_reports(
+            None,
+            valid_hybrid,
+            expected_case_ids=("case-a", "case-b"),
+        )
+
+    result = select_improvement(
+        {},
+        vector_report=None,
+        hybrid_report=valid_hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PAIR_CONTRACT_INVALID"
+
+
 def test_denominator_reconciliation_keeps_applicable_observation_failure_auditable() -> None:
     class Relevance:
         def __init__(self, applicable: bool):
