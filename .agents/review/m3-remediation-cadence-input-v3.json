@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "risk_level": "high",
+  "change_kinds": ["logic", "schema", "public-api", "security", "performance", "testing", "configuration"],
+  "escalation_triggers": ["approved_seam_conflict", "authority_lifecycle_change", "metric_boundary_change"],
+  "ticket_count": 3,
+  "ticket_ids": ["#68", "#69", "#67"],
+  "ticket_risk_levels": ["high", "high", "high"]
+}

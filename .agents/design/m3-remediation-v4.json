@@ -1,0 +1,53 @@
+{
+  "schema_version": 3,
+  "artifact_id": "m3-remediation-design-v4",
+  "status": "pending_external_review",
+  "supersedes": "m3-remediation-design-v3",
+  "subject_commit": "PENDING_COMMIT_CONTAINING_V4_PACKAGE",
+  "canonical_json": "UTF-8(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\\n')",
+  "digest_algorithm": "sha256",
+  "case_id_digest": {
+    "algorithm": "sha256(canonical_json(sorted(case_ids)))",
+    "value": "sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0",
+    "case_count": 50
+  },
+  "review_identity_contract": {
+    "identity_record_required": true,
+    "identity_digest": "sha256(canonical_json({reviewer_id,identity_kind,task_path,provider,source_authority}))",
+    "scope_digest": "sha256(canonical_json({subject_commit,subject_blob,subject_paths,requirements}))",
+    "response_digest": "sha256(canonical_json(response_without_response_sha256))",
+    "generic_identity_forbidden": true,
+    "reviewer_must_differ_from_source_author": true,
+    "reviewer_must_differ_from_approver": true,
+    "git_blob_and_raw_sha_required": true
+  },
+  "immutable_population": {
+    "dataset_manifest_path": "evals/datasets/milestone_3.manifest.json",
+    "dataset_manifest_blob": "08061b4a26b1d10b9720769828bb179264d99fec",
+    "dataset_manifest_sha256": "sha256:f42bb8aa0fe064ab172bac7aa1c8603e9d23b9d3e41ccadbf38d4fbc06c0b41b",
+    "dataset_content_sha256": "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50",
+    "dataset_version": "m3-dataset-v1",
+    "case_count": 50,
+    "case_id_digest": "sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0",
+    "corpus_manifest_path": "evals/corpora/milestone_3/manifest.json",
+    "corpus_manifest_blob": "5b8ff82769239f253d31424606205a9e74828d71",
+    "corpus_manifest_sha256": "sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326",
+    "corpus_version": "m3-corpus-v1",
+    "workspace_id": "evaluation-m3-v1",
+    "chunk_set_provenance_id": "chunk-set-m3-v1"
+  },
+  "paired_equal_fields": ["dataset_version", "dataset_digest", "corpus_id", "corpus_digest", "chunk_set_id", "chunk_set_digest", "workspace", "chunking_configuration", "embedding_configuration", "generation_configuration", "scorer_configuration", "scorer_model", "scorer_prompt", "scorer_policy", "scorer_stochasticity", "metric_contract", "source_commit", "evaluation_commit", "report_artifact_schema_version"],
+  "paired_allowed_differences": ["retrieval_configuration_id", "strategy", "fusion_policy_id", "fusion_policy_version", "lexical_policy_id", "fts_candidate_k"],
+  "latency_projection": {
+    "version": "m3-paired-latency-v1",
+    "clock_boundary_version": "m3-latency-boundary-v1",
+    "streaming": false,
+    "retrieval_start": "after_authenticated_request_validation_before_AnsweringStore.retrieve_candidates",
+    "retrieval_end": "after_Evidence_Selection_before_generation",
+    "end_to_end_start": "executor_perf_counter_immediately_before_HTTP_send",
+    "end_to_end_end": "after_complete_non_streaming_response_body_received",
+    "streaming_requires_new_contract": true
+  },
+  "evaluation_seam": "HttpEvaluationExecutor -> public Q&A endpoint -> exact (workspace_id, trace_id)",
+  "native_blocking_edges": {"r3": ["r1", "r2"]}
+}
