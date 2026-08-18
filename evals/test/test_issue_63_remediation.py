@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import subprocess
 import tarfile
 from copy import deepcopy
 from dataclasses import replace
@@ -12,6 +13,7 @@ import evals.runners.m3_claim_authority as authority_module
 import pytest
 from evals.runners.milestone_3_comparison import (
     AUTHORITY_VALIDATION_FAILURE,
+    BindingV3Attestation,
     ClaimRuleAuthority,
     ComparisonError,
     build_category_breakdown,
@@ -24,6 +26,7 @@ from evals.runners.milestone_3_comparison import (
     validate_guardrail_shape,
     validate_guardrails,
     validate_human_identity,
+    verify_binding_v3_attestation,
 )
 
 REQUIRED_GUARDRAILS = {
@@ -31,6 +34,91 @@ REQUIRED_GUARDRAILS = {
     "citation_correctness": True,
     "refusal_correctness": True,
 }
+
+
+def _binding_attestation(
+    report: dict[str, object],
+    tmp_path: Path,
+    name: str,
+) -> BindingV3Attestation:
+    archive_path = tmp_path / f"{name}.tar"
+    closure_path = tmp_path / f"{name}-closure.json"
+    snapshot_bytes = (
+        json.dumps(report["binding_v3"], sort_keys=True, separators=(",", ":")).encode("utf-8")
+        + b"\n"
+    )
+    manifest = {
+        "schema_version": 1,
+        "seal_id": f"{name}-seal",
+        "candidate_sha": report["provenance"]["source_commit"],
+        "sealed_at": "2026-08-18T00:00:00Z",
+        "items": [
+            {
+                "reference": "binding-v3.json",
+                "byte_count": len(snapshot_bytes),
+                "sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
+            }
+        ],
+    }
+    manifest_bytes = (
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+    )
+    archive_buffer = io.BytesIO()
+    with tarfile.open(fileobj=archive_buffer, mode="w") as archive:
+        for member_name, content in (
+            ("SEALED-MANIFEST.json", manifest_bytes),
+            ("binding-v3.json", snapshot_bytes),
+        ):
+            info = tarfile.TarInfo(member_name)
+            info.size = len(content)
+            info.mtime = 0
+            archive.addfile(info, io.BytesIO(content))
+    archive_path.write_bytes(archive_buffer.getvalue())
+    closure = {
+        "schema_version": 1,
+        "seal_id": manifest["seal_id"],
+        "status": "PASS",
+        "binding_member": "binding-v3.json",
+        "binding_digest": report["binding_v3"]["environment_binding_digest"],
+        "sealed_manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "sealed_archive_sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+    }
+    closure_path.write_bytes(
+        json.dumps(closure, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+    )
+    repository_root = tmp_path / f"{name}-git"
+    repository_root.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repository_root, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=repository_root,
+        check=True,
+    )
+    subprocess.run(["git", "config", "user.name", "Issue 63 test"], cwd=repository_root, check=True)
+    # The verifier requires the closure file itself to be a committed, immutable Git blob.
+    committed_closure = repository_root / "closure.json"
+    committed_closure.write_bytes(closure_path.read_bytes())
+    subprocess.run(["git", "add", "closure.json"], cwd=repository_root, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "seal binding fixture"],
+        cwd=repository_root,
+        check=True,
+    )
+    closure_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return verify_binding_v3_attestation(
+        archive_path,
+        committed_closure,
+        expected_report=report,
+        repository_root=repository_root,
+        closure_commit=closure_commit,
+        closure_git_path="closure.json",
+    )
 
 
 def _modern_report(
@@ -492,6 +580,51 @@ def test_selection_rejects_mutated_binding_snapshot_metadata() -> None:
     assert result["reason"] == "PROVENANCE_MISMATCH"
 
 
+def test_binding_attestation_requires_verified_capability() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    unverified = BindingV3Attestation(
+        schema_version=1,
+        seal_id="self-declared",
+        binding_digest=vector["binding_v3"]["environment_binding_digest"],
+        sealed_manifest_sha256="a" * 64,
+        sealed_archive_sha256="b" * 64,
+        closure_sha256="c" * 64,
+        closure_status="PASS",
+        closure_commit="1" * 40,
+        closure_blob="2" * 40,
+        closure_path="closure.json",
+    )
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+        binding_attestation={"vector": unverified, "hybrid": unverified},
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
+
+
+def test_binding_attestation_requires_git_committed_closure(tmp_path: Path) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    closure = tmp_path / "closure.json"
+    closure.write_text("{}", encoding="utf-8")
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        verify_binding_v3_attestation(
+            tmp_path / "missing.tar",
+            closure,
+            expected_report=vector,
+            repository_root=tmp_path,
+            closure_commit="1" * 40,
+            closure_git_path="closure.json",
+        )
+
+
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
@@ -510,16 +643,21 @@ def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     assert result["reason"] == "GUARDRAIL_FAILURE"
 
 
-def test_exact_rational_selection_uses_unrounded_metric_contract_values() -> None:
+def test_exact_rational_selection_uses_unrounded_metric_contract_values(tmp_path: Path) -> None:
     vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 3), mrr=(1, 2))
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 3), mrr=(2, 3))
     pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    binding_attestation = {
+        "vector": _binding_attestation(vector, tmp_path, "vector"),
+        "hybrid": _binding_attestation(hybrid, tmp_path, "hybrid"),
+    }
     result = select_improvement(
         pair,
         vector_report=vector,
         hybrid_report=hybrid,
         authority=test_claim_rule_authority_fixture(),
         production=False,
+        binding_attestation=binding_attestation,
     )
     assert result["status"] == "SELECTED"
     assert result["metric_decision_deltas"]["recall_at_8"] == "0/1"
@@ -538,6 +676,7 @@ def test_exact_rational_selection_uses_unrounded_metric_contract_values() -> Non
     assert result["selected_improvement"]["environment_binding_digest"] == result[
         "environment_binding_digest"
     ]
+    assert result["binding_attestation"]["vector"]["seal_id"] == "vector-seal"
 
     vector["retrieval"]["recall_at_8"] = 0.999999
     hybrid["retrieval"]["recall_at_8"] = 0.000001

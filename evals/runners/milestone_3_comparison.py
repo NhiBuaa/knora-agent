@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
+import subprocess
+import tarfile
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from fractions import Fraction
 from math import isfinite
 from pathlib import Path
@@ -39,6 +44,7 @@ __all__ = [
     "APPROVED_HUMAN_IDENTITY",
     "AUTHORITY_IDENTIFIER",
     "AUTHORITY_VALIDATION_FAILURE",
+    "BindingV3Attestation",
     "CLAIM_RULE_DIGEST",
     "CLAIM_RULE_VERSION",
     "ClaimRuleAuthority",
@@ -55,6 +61,7 @@ __all__ = [
     "is_non_placeholder_identity",
     "select_improvement",
     "select_production_improvement",
+    "verify_binding_v3_attestation",
     "test_claim_rule_authority_fixture",
     "validate_guardrails",
     "validate_guardrail_shape",
@@ -68,6 +75,73 @@ __all__ = [
 
 class ComparisonError(ValueError):
     """A paired comparison cannot produce a valid, reproducible result."""
+
+
+_BINDING_ATTESTATION_TOKEN = object()
+
+
+@dataclass(frozen=True, slots=True)
+class BindingV3Attestation:
+    """Verified capability emitted by sealed Binding V3/archive validation."""
+
+    schema_version: int
+    seal_id: str
+    binding_digest: str
+    sealed_manifest_sha256: str
+    sealed_archive_sha256: str
+    closure_sha256: str
+    closure_status: str
+    closure_commit: str
+    closure_blob: str
+    closure_path: str
+    _verified_token: object = dataclass_field(repr=False, compare=False, default=None)
+
+    @classmethod
+    def _from_verified_archive(
+        cls,
+        *,
+        seal_id: str,
+        binding_digest: str,
+        sealed_manifest_sha256: str,
+        sealed_archive_sha256: str,
+        closure_sha256: str,
+        closure_status: str,
+        closure_commit: str,
+        closure_blob: str,
+        closure_path: str,
+    ) -> BindingV3Attestation:
+        """Create the capability only after the archive validator has passed."""
+        return cls(
+            schema_version=1,
+            seal_id=seal_id,
+            binding_digest=binding_digest,
+            sealed_manifest_sha256=sealed_manifest_sha256,
+            sealed_archive_sha256=sealed_archive_sha256,
+            closure_sha256=closure_sha256,
+            closure_status=closure_status,
+            closure_commit=closure_commit,
+            closure_blob=closure_blob,
+            closure_path=closure_path,
+            _verified_token=_BINDING_ATTESTATION_TOKEN,
+        )
+
+    @property
+    def verified(self) -> bool:
+        return self._verified_token is _BINDING_ATTESTATION_TOKEN
+
+    def as_mapping(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "seal_id": self.seal_id,
+            "binding_digest": self.binding_digest,
+            "sealed_manifest_sha256": self.sealed_manifest_sha256,
+            "sealed_archive_sha256": self.sealed_archive_sha256,
+            "closure_sha256": self.closure_sha256,
+            "closure_status": self.closure_status,
+            "closure_commit": self.closure_commit,
+            "closure_blob": self.closure_blob,
+            "closure_path": self.closure_path,
+        }
 
 
 _ALLOWED_CONFIGURATION_FIELD_SET = set(ALLOWED_CONFIGURATION_FIELDS)
@@ -245,6 +319,266 @@ def _validate_binding_v3(report: Mapping[str, Any]) -> tuple[tuple[str, str, str
         ):
             raise ComparisonError("PROVENANCE_MISMATCH")
     return normalized
+
+
+def _validate_binding_attestations(
+    attestation: object,
+    *,
+    vector_report: Mapping[str, Any],
+    hybrid_report: Mapping[str, Any],
+) -> dict[str, dict[str, object]] | None:
+    if attestation is None:
+        return None
+    if isinstance(attestation, Mapping):
+        if set(attestation) != {"vector", "hybrid"}:
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        raw_pair = (attestation["vector"], attestation["hybrid"])
+    elif isinstance(attestation, (tuple, list)) and len(attestation) == 2:
+        raw_pair = (attestation[0], attestation[1])
+    else:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if not all(isinstance(item, BindingV3Attestation) and item.verified for item in raw_pair):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    vector_attestation, hybrid_attestation = raw_pair
+    expected_digests = (
+        vector_report.get("binding_v3", {}).get("environment_binding_digest")
+        if isinstance(vector_report.get("binding_v3"), Mapping)
+        else None,
+        hybrid_report.get("binding_v3", {}).get("environment_binding_digest")
+        if isinstance(hybrid_report.get("binding_v3"), Mapping)
+        else None,
+    )
+    if (
+        vector_attestation.schema_version != 1
+        or hybrid_attestation.schema_version != 1
+        or vector_attestation.closure_status != "PASS"
+        or hybrid_attestation.closure_status != "PASS"
+        or vector_attestation.binding_digest != expected_digests[0]
+        or hybrid_attestation.binding_digest != expected_digests[1]
+        or vector_attestation.binding_digest != hybrid_attestation.binding_digest
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    for item in raw_pair:
+        if (
+            not item.seal_id
+            or _SHA256_DIGEST_PATTERN.fullmatch(item.binding_digest) is None
+            or not re.fullmatch(r"[0-9a-f]{64}", item.sealed_manifest_sha256)
+            or not re.fullmatch(r"[0-9a-f]{64}", item.sealed_archive_sha256)
+            or not re.fullmatch(r"[0-9a-f]{64}", item.closure_sha256)
+            or not re.fullmatch(r"[0-9a-f]{40}", item.closure_commit)
+            or not re.fullmatch(r"[0-9a-f]{40}", item.closure_blob)
+            or not item.closure_path
+            or "\\" in item.closure_path
+            or ".." in Path(item.closure_path).parts
+            or Path(item.closure_path).is_absolute()
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+    return {
+        "vector": vector_attestation.as_mapping(),
+        "hybrid": hybrid_attestation.as_mapping(),
+    }
+
+
+_BINDING_ARCHIVE_MANIFEST_KEYS = {
+    "schema_version",
+    "seal_id",
+    "candidate_sha",
+    "sealed_at",
+    "items",
+}
+_BINDING_ARCHIVE_CLOSURE_KEYS = {
+    "schema_version",
+    "seal_id",
+    "status",
+    "binding_member",
+    "binding_digest",
+    "sealed_manifest_sha256",
+    "sealed_archive_sha256",
+}
+_BINDING_ARCHIVE_MEMBER = "binding-v3.json"
+
+
+def _read_binding_archive_member(archive_bytes: bytes) -> tuple[dict[str, Any], bytes]:
+    """Read one strict Binding V3 archive and return its manifest and snapshot bytes."""
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as archive:
+            members = archive.getmembers()
+            names = [member.name for member in members]
+            expected_names = {"SEALED-MANIFEST.json", _BINDING_ARCHIVE_MEMBER}
+            if (
+                len(names) != len(set(names))
+                or set(names) != expected_names
+                or any(not member.isfile() for member in members)
+            ):
+                raise ComparisonError("PROVENANCE_MISMATCH")
+            manifest_member = archive.extractfile("SEALED-MANIFEST.json")
+            snapshot_member = archive.extractfile(_BINDING_ARCHIVE_MEMBER)
+            if manifest_member is None or snapshot_member is None:
+                raise ComparisonError("PROVENANCE_MISMATCH")
+            manifest_bytes = manifest_member.read()
+            snapshot_bytes = snapshot_member.read()
+    except (tarfile.TarError, OSError) as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    try:
+        manifest = json.loads(manifest_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    if not isinstance(manifest, Mapping) or set(manifest) != _BINDING_ARCHIVE_MANIFEST_KEYS:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if (
+        manifest.get("schema_version") != 1
+        or not isinstance(manifest.get("seal_id"), str)
+        or not manifest["seal_id"].strip()
+        or not isinstance(manifest.get("candidate_sha"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", manifest["candidate_sha"]) is None
+        or not isinstance(manifest.get("sealed_at"), str)
+        or not manifest["sealed_at"].strip()
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    items = manifest.get("items")
+    if not isinstance(items, list) or len(items) != 1:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    item = items[0]
+    if not isinstance(item, Mapping) or set(item) != {"reference", "byte_count", "sha256"}:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if (
+        item.get("reference") != _BINDING_ARCHIVE_MEMBER
+        or type(item.get("byte_count")) is not int
+        or item["byte_count"] != len(snapshot_bytes)
+        or not isinstance(item.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) is None
+        or hashlib.sha256(snapshot_bytes).hexdigest() != item["sha256"]
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    return dict(manifest), snapshot_bytes
+
+
+def verify_binding_v3_attestation(
+    archive_path: Path,
+    closure_path: Path,
+    *,
+    expected_report: Mapping[str, Any],
+    repository_root: Path,
+    closure_commit: str,
+    closure_git_path: str,
+) -> BindingV3Attestation:
+    """Validate an immutable Binding V3 archive/closure before issuing a capability.
+
+    The returned object is intentionally the only accepted production attestation type.  A
+    caller cannot turn a mutable mapping or a self-declared ``PASS`` record into a capability:
+    the archive member, manifest inventory, report projection, and external closure bytes must
+    all reconcile before the private capability token is issued.
+    """
+    if (
+        not isinstance(archive_path, Path)
+        or not isinstance(closure_path, Path)
+        or not isinstance(repository_root, Path)
+        or not isinstance(closure_commit, str)
+        or re.fullmatch(r"[0-9a-f]{40}", closure_commit) is None
+        or not isinstance(closure_git_path, str)
+        or not closure_git_path
+        or "\\" in closure_git_path
+        or ".." in Path(closure_git_path).parts
+        or Path(closure_git_path).is_absolute()
+        or closure_path.resolve() != (repository_root / Path(closure_git_path)).resolve()
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    try:
+        archive_bytes = archive_path.read_bytes()
+        closure_bytes = closure_path.read_bytes()
+    except OSError as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    try:
+        closure_blob = subprocess.run(
+            ["git", "rev-parse", f"{closure_commit}:{closure_git_path}"],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        committed_closure = subprocess.run(
+            ["git", "cat-file", "blob", closure_blob],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    if (
+        re.fullmatch(r"[0-9a-f]{40}", closure_blob) is None
+        or committed_closure != closure_bytes
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    manifest, snapshot_bytes = _read_binding_archive_member(archive_bytes)
+    try:
+        snapshot = json.loads(snapshot_bytes.decode("utf-8"))
+        closure = json.loads(closure_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    if not isinstance(snapshot, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    try:
+        _validate_binding_v3(
+            {
+                "binding_v3": snapshot,
+                "provenance": expected_report.get("provenance"),
+                "observations": expected_report.get("observations"),
+            }
+        )
+    except (ComparisonError, AttributeError) as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    expected_binding = expected_report.get("binding_v3")
+    if not isinstance(expected_binding, Mapping) or dict(snapshot) != dict(expected_binding):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    expected_provenance = expected_report.get("provenance")
+    if not isinstance(expected_provenance, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if manifest["candidate_sha"] != expected_provenance.get("source_commit"):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+    manifest_sha256 = hashlib.sha256(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    # The manifest hash is over the exact archive member bytes, not a re-serialized mapping.
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as archive:
+            manifest_member = archive.extractfile("SEALED-MANIFEST.json")
+            if manifest_member is None:
+                raise ComparisonError("PROVENANCE_MISMATCH")
+            manifest_bytes = manifest_member.read()
+    except (tarfile.TarError, OSError) as error:
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    snapshot_digest = snapshot.get("environment_binding_digest")
+    if (
+        not isinstance(snapshot_digest, str)
+        or _SHA256_DIGEST_PATTERN.fullmatch(snapshot_digest) is None
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if (
+        not isinstance(closure, Mapping)
+        or set(closure) != _BINDING_ARCHIVE_CLOSURE_KEYS
+        or closure.get("schema_version") != 1
+        or closure.get("seal_id") != manifest["seal_id"]
+        or closure.get("status") != "PASS"
+        or closure.get("binding_member") != _BINDING_ARCHIVE_MEMBER
+        or closure.get("binding_digest") != snapshot_digest
+        or closure.get("sealed_manifest_sha256") != manifest_sha256
+        or closure.get("sealed_archive_sha256") != archive_sha256
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    closure_sha256 = hashlib.sha256(closure_bytes).hexdigest()
+    return BindingV3Attestation._from_verified_archive(
+        seal_id=manifest["seal_id"],
+        binding_digest=snapshot_digest,
+        sealed_manifest_sha256=manifest_sha256,
+        sealed_archive_sha256=archive_sha256,
+        closure_sha256=closure_sha256,
+        closure_status="PASS",
+        closure_commit=closure_commit,
+        closure_blob=closure_blob,
+        closure_path=closure_git_path,
+    )
 
 
 def classify_finding(
@@ -866,6 +1200,7 @@ def _selection_common(
     authority: ClaimRuleAuthority,
     vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
+    binding_attestation: Mapping[str, dict[str, object]] | None,
 ) -> dict[str, Any]:
     vector_binding = vector_report.get("binding_v3") if isinstance(vector_report, Mapping) else None
     hybrid_binding = hybrid_report.get("binding_v3") if isinstance(hybrid_report, Mapping) else None
@@ -903,6 +1238,7 @@ def _selection_common(
             if isinstance(hybrid_binding, Mapping)
             else None
         ),
+        "binding_attestation": binding_attestation,
         "latency_tradeoffs": (
             hybrid_report.get("latency_tradeoffs")
             if isinstance(hybrid_report, Mapping)
@@ -1180,6 +1516,7 @@ def select_improvement(
     repository_root: Path | None = None,
     sealed_archive_path: Path | None = None,
     closure_path: Path | None = None,
+    binding_attestation: object | None = None,
 ) -> dict[str, Any]:
     """Apply the approved V1 rule only after authority validation succeeds.
 
@@ -1211,7 +1548,25 @@ def select_improvement(
     bound_authority = authority_result["authority"]
     projection = bound_authority.validated_projection()
     primary_metrics = tuple(projection["primary_metric_set"]["ordered"])
-    common = _selection_common(bound_authority, vector_report, hybrid_report)
+    try:
+        validated_binding_attestation = _validate_binding_attestations(
+            binding_attestation,
+            vector_report=vector_report,
+            hybrid_report=hybrid_report,
+        )
+    except ComparisonError:
+        validated_binding_attestation = None
+        binding_attestation_invalid = True
+    else:
+        binding_attestation_invalid = False
+    common = _selection_common(
+        bound_authority,
+        vector_report,
+        hybrid_report,
+        validated_binding_attestation,
+    )
+    if binding_attestation_invalid or (production and validated_binding_attestation is None):
+        return _no_claim(common, "PROVENANCE_MISMATCH")
     try:
         expected_case_ids = _validate_pair_contract(pair)
     except ComparisonError as error:
@@ -1280,6 +1635,7 @@ def select_improvement(
         "comparable_provenance": common["comparable_provenance"],
         "binding_v3": common["binding_v3"],
         "environment_binding_digest": common["environment_binding_digest"],
+        "binding_attestation": common["binding_attestation"],
         "claim_scope": projection["claim_scope"],
         "claim_rule_version": CLAIM_RULE_VERSION,
         "claim_rule_digest": CLAIM_RULE_DIGEST,
@@ -1300,6 +1656,7 @@ def select_production_improvement(
     repository_root: Path,
     sealed_archive_path: Path | None = None,
     closure_path: Path | None = None,
+    binding_attestation: object | None = None,
 ) -> dict[str, Any]:
     """Canonical production entry point with no caller-supplied policy or authority seam."""
     return select_improvement(
@@ -1310,6 +1667,7 @@ def select_production_improvement(
         repository_root=repository_root,
         sealed_archive_path=sealed_archive_path,
         closure_path=closure_path,
+        binding_attestation=binding_attestation,
     )
 
 
