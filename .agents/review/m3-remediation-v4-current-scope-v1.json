@@ -31,6 +31,7 @@
     "sole_source_policy_projection",
     "two_layer_taxonomy"
   ],
-  "scope_digest": "sha256:b1af99762070d2520161c9d5f3b8f650396b50355ee3b5df278a4a7b1d4c5062",
-  "canonicalization": "m3-remediation-design-v4"
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection.json",
+  "scope_digest": "sha256:5c41070cf0f17829d03a32c5f003b3a05d961a368dbe1cc86b6235c9ef1f061d",
+  "canonicalization": "raw-immutable-projection-v1"
 }

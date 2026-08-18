@@ -11,30 +11,32 @@ artifacts are not rewritten.
 
 ## Canonical serialization and identity proof
 
-All digest values in this contract use SHA-256 over UTF-8 bytes and are written with the
-`sha256:` prefix. `canonical_json(value)` is exactly:
+All digest values in this contract use SHA-256 over immutable UTF-8 bytes and are written with
+the `sha256:` prefix. The identity, scope, case-population and review-response projection files
+listed below are the authoritative bytes; a verifier hashes those files directly. This removes
+serialization ambiguity from the active gate. For any derived fixture, `canonical_json(value)` is:
 
 ```text
 UTF-8(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\n')
 ```
 
-The M3 case-ID digest is `sha256(canonical_json(sorted(case_ids)))`. The released value is
-`sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0` for the exact 50
-IDs in `m3-dataset-v1`. Manifest file and dataset-content digests remain SHA-256 over their
-raw committed bytes; no newline normalization is applied to those file digests.
+The M3 case-ID projection is `.agents/review/m3-dataset-v1-case-ids.json`; its raw-byte digest
+is `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253` for the exact 50
+IDs in `m3-dataset-v1`. Manifest file and dataset-content digests remain SHA-256 over their raw
+committed bytes; no newline normalization is applied to those file digests.
 
 Reviewer identity is independently addressable through a committed identity record. Its
-`identity_digest` is `sha256(canonical_json({"reviewer_id", "identity_kind", "task_path",
-"provider", "source_authority"}))`; the record path, Git blob and raw-byte SHA-256 are
-bound in the review artifact. The review artifact's `response_sha256` is the digest of its
-canonical JSON response payload excluding the digest field itself. `scope_digest` is
-`sha256(canonical_json({"subject_commit", "subject_blob", "subject_paths",
-"requirements"}))`, with both arrays sorted. The production validator resolves the identity
-record and source-commit author from Git, verifies all digests and rejects generic,
+The identity projection `.agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json`
+has raw-byte digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907`.
+The review response projection `.agents/review/m3-remediation-v4-response-projection.json`
+has raw-byte digest `sha256:6d7dec28a5818137e688eb1055fddbd6a7ebddaa29d6b48a65513f8a9faae344`.
+The complete scope projection `.agents/review/m3-remediation-v4-scope-projection.json` has
+raw-byte digest `sha256:5c41070cf0f17829d03a32c5f003b3a05d961a368dbe1cc86b6235c9ef1f061d`.
+The production validator resolves these projections and the source-commit author from Git,
+verifies all digests and rejects generic,
 missing, assertion-only, self-authored or self-approved identities.
-The active review response binding is
-`.agents/review/m3-remediation-v4-external-review-v3-current-response-v3.json`; earlier
-response revisions remain preserved as superseded evidence.
+The active review response binding is the response projection above; response revisions remain
+preserved as historical evidence.
 
 The complete review subject scope is immutable and is represented by the following sorted
 paths: `.agents/design/m3-remediation-v4.json`,
@@ -58,7 +60,7 @@ The sorted requirement IDs are `authority_independent_review`, `exact_manifest_p
 `168e8501deec133b5e0c8fd7fd4bc5b1de72d994`, subject blob
 `c593a4f6a1abc7cd769848167ebae0bdbfba1ac8`, and the canonical serialization above, the
 complete `scope_digest` is
-`sha256:b1af99762070d2520161c9d5f3b8f650396b50355ee3b5df278a4a7b1d4c5062`.
+The scope projection's raw digest is the authoritative scope identity.
 
 ## R1 — authority chain and sole-source policy projection
 
@@ -81,7 +83,7 @@ Production resolves the immutable M3 capability from exact committed paths and i
 - dataset content SHA-256
   `sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50`;
 - version `m3-dataset-v1`, 50 exact sorted IDs, case-ID digest
-  `sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0`;
+  `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253`;
 - `evals/corpora/milestone_3/manifest.json`, Git blob
   `5b8ff82769239f253d31424606205a9e74828d71`, raw SHA-256
   `sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326`;

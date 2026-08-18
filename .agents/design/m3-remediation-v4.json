@@ -7,16 +7,19 @@
   "canonical_json": "UTF-8(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\\n')",
   "digest_algorithm": "sha256",
   "case_id_digest": {
-    "algorithm": "sha256(canonical_json(sorted(case_ids)))",
-    "value": "sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0",
+    "algorithm": "sha256(raw UTF-8 bytes of .agents/review/m3-dataset-v1-case-ids.json)",
+    "projection_path": ".agents/review/m3-dataset-v1-case-ids.json",
+    "value": "sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253",
     "case_count": 50
   },
   "review_identity_contract": {
     "identity_record_required": true,
-    "identity_digest": "sha256(canonical_json({reviewer_id,identity_kind,task_path,provider,source_authority}))",
-    "scope_digest": "sha256(canonical_json({subject_commit,subject_blob,subject_paths,requirements}))",
-    "response_digest": "sha256(canonical_json(response_without_response_sha256))",
-    "active_response_record": ".agents/review/m3-remediation-v4-external-review-v3-current-response-v3.json",
+    "identity_digest": "sha256(raw UTF-8 bytes of identity projection)",
+    "identity_projection_path": ".agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json",
+    "scope_digest": "sha256(raw UTF-8 bytes of scope projection)",
+    "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection.json",
+    "response_digest": "sha256(raw UTF-8 bytes of response projection)",
+    "active_response_record": ".agents/review/m3-remediation-v4-response-projection.json",
     "generic_identity_forbidden": true,
     "reviewer_must_differ_from_source_author": true,
     "reviewer_must_differ_from_approver": true,
@@ -53,7 +56,8 @@
       "sole_source_policy_projection",
       "two_layer_taxonomy"
     ],
-    "scope_digest": "sha256:b1af99762070d2520161c9d5f3b8f650396b50355ee3b5df278a4a7b1d4c5062"
+    "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection.json",
+    "scope_digest": "sha256:5c41070cf0f17829d03a32c5f003b3a05d961a368dbe1cc86b6235c9ef1f061d"
   },
   "immutable_population": {
     "dataset_manifest_path": "evals/datasets/milestone_3.manifest.json",
@@ -62,7 +66,7 @@
     "dataset_content_sha256": "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50",
     "dataset_version": "m3-dataset-v1",
     "case_count": 50,
-    "case_id_digest": "sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0",
+    "case_id_digest": "sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253",
     "corpus_manifest_path": "evals/corpora/milestone_3/manifest.json",
     "corpus_manifest_blob": "5b8ff82769239f253d31424606205a9e74828d71",
     "corpus_manifest_sha256": "sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326",
