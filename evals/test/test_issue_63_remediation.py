@@ -671,6 +671,23 @@ def test_non_mapping_report_fails_closed_before_binding_access(tmp_path: Path) -
     assert result["reason"] == "PROVENANCE_MISMATCH"
 
 
+def test_non_mapping_report_without_attestation_fails_closed() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    result = select_improvement(
+        pair,
+        vector_report=None,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
+
+
 def test_selection_reconciles_top_level_guardrails_with_observations() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(1, 2), mrr=(2, 3))
@@ -962,6 +979,33 @@ def test_canonical_production_entry_point_requires_git_bound_authority(tmp_path:
     assert result["status"] == AUTHORITY_VALIDATION_FAILURE
     assert result["reason"] != "NO_QUALIFYING_DELTA"
     assert result.get("selected_improvement") is None
+
+
+def test_canonical_production_entry_point_validates_approved_chain(tmp_path: Path) -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 2), mrr=(1, 2))
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(2, 3), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+    binding_attestation = {
+        "vector": _binding_attestation(vector, tmp_path, "vector-production"),
+        "hybrid": _binding_attestation(hybrid, tmp_path, "hybrid-production"),
+    }
+
+    result = select_production_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        repository_root=repository_root,
+        sealed_archive_path=repository_root
+        / ".agents/review/m3-improvement-claim-v1-approval-sealed-v2.tar",
+        closure_path=repository_root
+        / ".agents/review/m3-improvement-claim-v1-approval-closure-v2.json",
+        binding_attestation=binding_attestation,
+    )
+
+    assert result["status"] == "SELECTED"
+    assert result["claim_rule_version"] == "m3-improvement-claim-v1"
+    assert result["claim_rule_digest"].startswith("sha256:")
 
 
 def test_selection_reconciles_metric_projection_and_latency_disclosure() -> None:

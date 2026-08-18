@@ -1573,6 +1573,8 @@ def select_improvement(
         expected_case_ids = _validate_pair_contract(pair)
     except ComparisonError as error:
         return _no_claim(common, str(error))
+    if not isinstance(vector_report, Mapping) or not isinstance(hybrid_report, Mapping):
+        return _no_claim(common, "PROVENANCE_MISMATCH")
     try:
         _validate_observation_set(vector_report, expected_case_ids)
         _validate_observation_set(hybrid_report, expected_case_ids)
