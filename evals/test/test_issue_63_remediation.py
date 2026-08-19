@@ -1003,9 +1003,53 @@ def test_canonical_production_entry_point_validates_approved_chain(tmp_path: Pat
         binding_attestation=binding_attestation,
     )
 
-    assert result["status"] == "SELECTED"
-    assert result["claim_rule_version"] == "m3-improvement-claim-v1"
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "CASE_SET_MISMATCH"
     assert result["claim_rule_digest"].startswith("sha256:")
+
+
+def test_production_selection_binds_the_immutable_m3_population(tmp_path: Path) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 2), mrr=(1, 2))
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(2, 3), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    result = select_production_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        repository_root=Path(__file__).resolve().parents[2],
+        binding_attestation={
+            "vector": _binding_attestation(vector, tmp_path, "vector-population"),
+            "hybrid": _binding_attestation(hybrid, tmp_path, "hybrid-population"),
+        },
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "CASE_SET_MISMATCH"
+
+
+def test_selected_improvement_retains_paired_latency_values_and_deltas() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(2, 3), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    latency = result["selected_improvement"]["latency_tradeoffs"]
+    assert latency["version"] == "m3-paired-latency-v1"
+    assert latency["clock_boundary_version"] == "m3-latency-boundary-v1"
+    assert latency["vector"]["retrieval_latency_ms"] == {"case-a": 1.0, "case-b": 1.0}
+    assert latency["hybrid"]["retrieval_latency_ms"] == {"case-a": 1.0, "case-b": 1.0}
+    assert latency["hybrid_minus_vector"]["retrieval_latency_ms"] == {
+        "case-a": 0.0,
+        "case-b": 0.0,
+    }
 
 
 def test_selection_reconciles_metric_projection_and_latency_disclosure() -> None:

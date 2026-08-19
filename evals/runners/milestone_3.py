@@ -726,7 +726,7 @@ class EvaluationLeaseHeartbeat:
                 return
 
 
-class ProductionM3Executor:
+class HttpEvaluationExecutor:
     """Observe the production Q&A response and exactly its correlated persisted trace."""
 
     def __init__(
@@ -757,7 +757,7 @@ class ProductionM3Executor:
             raise ValueError("clock resolution must be a finite positive number")
 
     async def execute(self, case: Milestone3Case) -> M3Observation:
-        started = self._clock()
+        started: float | None = None
         response_completed: float | None = None
         try:
             if case.workspace_id != self._binding.workspace_id:
@@ -770,6 +770,7 @@ class ProductionM3Executor:
                 or not expected_embedding_configuration_id
             ):
                 raise ObservationFailure("EVALUATION_ENVIRONMENT_BINDING_INVALID")
+            started = self._clock()
             response = await self._client.post(
                 self._endpoint,
                 headers={"X-API-Key": self._api_key},
@@ -829,7 +830,7 @@ class ProductionM3Executor:
                 retrieval_latency_ms=float(latency),
                 end_to_end_latency_ms=(
                     (response_completed if response_completed is not None else self._clock())
-                    - started
+                    - (started if started is not None else self._clock())
                 )
                 * 1000,
                 retrieval_configuration_id=self._binding.retrieval_configuration_id,
@@ -856,6 +857,10 @@ class ProductionM3Executor:
             return M3Observation.failure(case.id, str(error))
         except (httpx.HTTPError, KeyError, PermissionError, TypeError, ValueError, LookupError):
             return M3Observation.failure(case.id, "EVALUATION_OBSERVATION_FAILURE")
+
+
+# Compatibility name retained for existing callers; there is one M3 HTTP evaluation seam.
+ProductionM3Executor = HttpEvaluationExecutor
 
 
 def validate_public_response(payload: object) -> PublicResponseProjection:
