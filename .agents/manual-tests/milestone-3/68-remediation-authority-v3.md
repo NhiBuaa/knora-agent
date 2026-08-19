@@ -38,7 +38,7 @@
 ### TC-03: Independent review scope/response chain passes
 
 - Purpose: prove exact subject and complete-scope review.
-- Steps: load the approved closure `.agents/review/m3-remediation-v4-review-closure.json`,
+- Steps: load the approved closure `.agents/review/m3-remediation-v4-review-closure-v2.json`,
   recompute its Git blob/raw digest and the scope/response projection bytes it names, then verify
   the source commit/blob, seal and closure. Assert both response `subject_commit` and
   `reviewed_commit` equal the closure's exact package subject; a response that reviewed a

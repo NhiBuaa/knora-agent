@@ -4,10 +4,10 @@ Status: pending independent external review
 Revision: `m3-remediation-design-v4`
 Supersedes: `m3-remediation-design-v3`
 
-This append-only revision closes the remaining review ambiguities. The authoritative subject
-commit is the commit that contains this document, its JSON projection, ticket v3/v4 files, and
-guides 68-v3, 69-v4 and 63-v9. Historical designs, guides, issue Evaluations and review
-artifacts are not rewritten.
+This append-only revision closes the remaining review ambiguities. The package is frozen first at
+an immutable subject commit `P`; the post-package scope projection and review closure are the
+only sources of the exact subject identity. Historical designs, guides, issue Evaluations and
+review artifacts are not rewritten.
 
 ## Canonical serialization and identity proof
 
@@ -28,15 +28,10 @@ committed bytes; no newline normalization is applied to those file digests.
 Reviewer identity is independently addressable through a committed identity record. Its
 The identity projection `.agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json`
 has raw-byte digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907`.
-The review response projection `.agents/review/m3-remediation-v4-response-projection.json`
-has raw-byte digest `sha256:24b1079f8dbb8c7ddbfae54616a168ff7b82bdfe2b547f15f83bb8b8457c3997`.
-The complete scope projection `.agents/review/m3-remediation-v4-scope-projection.json` has
-raw-byte digest `sha256:a8ecab79449c52992cef094510d0ede66b1f62beb4e3f605c2093482ba207432`.
-The production validator resolves these projections and the source-commit author from Git,
-verifies all digests and rejects generic,
-missing, assertion-only, self-authored or self-approved identities.
-The active review response binding is the response projection above; response revisions remain
-preserved as historical evidence.
+The scope and response projections are post-package artifacts. Their Git blobs and raw SHA-256
+values are recorded in the review closure; the production validator resolves that closure and
+rejects any generic, missing, assertion-only, self-authored, self-approved, stale or
+caller-substituted identity. Response revisions remain preserved as historical evidence.
 
 ### Exact package-subject binding (revision v4.2)
 
@@ -70,11 +65,10 @@ paths: `.agents/design/m3-remediation-v4.json`,
 The sorted requirement IDs are `authority_independent_review`, `exact_manifest_population`,
 `native_dependency_graph`, `no_evaluation_only_retrieval`, `pair_latency_boundary`,
 `paired_generation_scorer_invariants`, `public_citation_and_trace_failure`, and
-`sole_source_policy_projection`, and `two_layer_taxonomy`. With subject commit
-`688732d70ca5e3604e3a4d44509be8850add68fe`, subject blob
-`9ba863a4cc2e20e805345f47272bc903ad612315`, and the canonical serialization above, the
-complete `scope_digest` is `sha256:a8ecab79449c52992cef094510d0ede66b1f62beb4e3f605c2093482ba207432`.
-The scope projection's raw digest is the authoritative scope identity.
+`sole_source_policy_projection`, and `two_layer_taxonomy`. The closure's scope record is the
+authoritative subject identity and stores the exact package commit, design blob, sorted path set,
+and recomputable scope projection digest. No historical subject hash or projection digest in an
+older revision is active.
 
 ## R1 — authority chain and sole-source policy projection
 
