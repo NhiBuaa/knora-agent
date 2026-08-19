@@ -27,7 +27,7 @@
 - Steps: verify the stable identity projection
   `.agents/review/identities/codex-agent-m3-final-package-review-v4-projection.json` raw
   digest `sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda`; load the
-  approved closure `.agents/review/m3-remediation-v4-review-closure-v3.json`, recompute its Git
+  approved closure `.agents/review/m3-remediation-v4-review-closure-v5.json`, recompute its Git
   blob/raw digest plus the scope and response projection bytes it names, and assert both response
   `subject_commit` and `reviewed_commit` equal the closure's exact package subject. Caller-supplied
   or latest/path-substituted closure data is invalid.
