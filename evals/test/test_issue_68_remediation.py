@@ -19,8 +19,8 @@ def test_production_authority_binds_the_independent_m3_review_chain() -> None:
     assert result["status"] == "APPROVED_EFFECTIVE"
     authority = result["authority"]
     assert authority.external_reviewer_id == "codex-agent:/root/m3_remediation_external_review_v3"
-    assert authority.review_subject_commit == "688732d70ca5e3604e3a4d44509be8850add68fe"
-    assert authority.review_subject_blob == "9ba863a4cc2e20e805345f47272bc903ad612315"
+    assert authority.review_subject_commit == "f6956025d7fd3a4961e2bb6de7a14eab5120d513"
+    assert authority.review_subject_blob == "e8224b30f42998b7b0cec96530a1c09ce3e20d0f"
     assert authority.review_scope_digest.startswith("sha256:")
     assert authority.review_response_digest.startswith("sha256:")
     assert authority.external_reviewer_id != authority.approved_by
