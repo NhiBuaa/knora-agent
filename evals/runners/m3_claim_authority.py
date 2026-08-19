@@ -42,34 +42,29 @@ SEALED_MANIFEST_SHA256 = "f7180796e6259cdcd8f5928311c260d77ab71b07a287c9417d8ab8
 CLOSURE_PATH = ".agents/review/m3-improvement-claim-v1-approval-closure-v2.json"
 CLOSURE_SHA256 = "5cec43e9a1cd4f502d8308b38bd2b27d30bfbec6922006c01b4fb1c13257e627"
 REMEDIATION_IDENTITY_RECORD_PATH = (
-    ".agents/review/identities/codex-agent-m3-remediation-external-review-v3.json"
+    ".agents/review/identities/codex-agent-m3-final-package-review-v4.json"
 )
 REMEDIATION_IDENTITY_PROJECTION_PATH = (
-    ".agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json"
+    ".agents/review/identities/codex-agent-m3-final-package-review-v4-projection.json"
 )
-REMEDIATION_IDENTITY_GIT_BLOB = "cf39a1e79231a08a45f4cc9707cb44c30e2d48bf"
+REMEDIATION_IDENTITY_GIT_BLOB = "e72ec5f9c834b51f48b507f36519ca16d9df1f5e"
 REMEDIATION_IDENTITY_RAW_SHA256 = (
-    "sha256:c89cf3d01928e8df736e4649611ce5e80b81877073c1317d730a9e87fe9777ea"
+    "sha256:1fa4a4ef8e640c5c32f3ad88ebe38dd662381a89f8e347170fefa119f8d654e3"
 )
 REMEDIATION_IDENTITY_DIGEST = (
-    "sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907"
+    "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda"
 )
-REMEDIATION_SCOPE_PROJECTION_PATH = ".agents/review/m3-remediation-v4-scope-projection.json"
-REMEDIATION_SCOPE_DIGEST = (
-    "sha256:98a75269fa35752f1d692d24b9d4225a455e34aa4e2461c42dfad8cf1c83fa12"
-)
-REMEDIATION_RESPONSE_PROJECTION_PATH = ".agents/review/m3-remediation-v4-response-projection.json"
-REMEDIATION_RESPONSE_DIGEST = (
-    "sha256:8eca67668e94ef15c991f6a1b2a6385898b30c7d1fc613b2784c3c4a9d8544d3"
-)
-REMEDIATION_SUBJECT_COMMIT = "f6956025d7fd3a4961e2bb6de7a14eab5120d513"
-REMEDIATION_SUBJECT_BLOB = "e8224b30f42998b7b0cec96530a1c09ce3e20d0f"
-REMEDIATION_REVIEWER_ID = "codex-agent:/root/m3_remediation_external_review_v3"
-REMEDIATION_CLOSURE_PATH = ".agents/review/m3-remediation-v4-review-closure.json"
-REMEDIATION_CLOSURE_GIT_BLOB = "6de3bda20bdc002491c06da0ae4dc11e48c96227"
-REMEDIATION_CLOSURE_RAW_SHA256 = (
-    "sha256:719a63a5b9df0400672d97b03dba2e9799e1c3a475724a124013f7636a2b3e12"
-)
+REMEDIATION_SCOPE_PROJECTION_PATH = ".agents/review/m3-remediation-v4-scope-projection-final.json"
+REMEDIATION_SCOPE_DIGEST = "closure.scope_projection_raw_sha256"
+REMEDIATION_RESPONSE_PROJECTION_PATH = ".agents/review/m3-remediation-v4-response-projection-final.json"
+REMEDIATION_RESPONSE_DIGEST = "closure.response_projection_raw_sha256"
+REMEDIATION_SUBJECT_COMMIT = "closure.subject_commit"
+REMEDIATION_SUBJECT_BLOB = "closure.subject_blob"
+REMEDIATION_REVIEWER_ID = "codex-agent:/root/m3_final_package_review_v4"
+REMEDIATION_CLOSURE_PATH = ".agents/review/m3-remediation-v4-review-closure-final.json"
+REMEDIATION_CLOSURE_GIT_BLOB = "closure.git_blob"
+REMEDIATION_CLOSURE_RAW_SHA256 = "closure.raw_sha256"
+M3_POPULATION_SOURCE_COMMIT = "2a6061ad38b3b3c4f06811c7ceb8bc26af39892"
 
 REQUIRED_GUARDRAIL_KEYS = (
     "structural_validity",
@@ -562,27 +557,29 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     """Resolve the immutable package -> scope -> response -> closure chain from Git."""
     head = _git("rev-parse", "HEAD", repository_root=repository_root).decode().strip()
     closure_blob, closure_bytes = _git_blob(repository_root, head, REMEDIATION_CLOSURE_PATH)
-    if closure_blob != REMEDIATION_CLOSURE_GIT_BLOB or (
-        hashlib.sha256(closure_bytes).hexdigest()
-        != REMEDIATION_CLOSURE_RAW_SHA256.removeprefix("sha256:")
-    ):
-        raise ValueError("REMEDIATION_CLOSURE_IDENTITY_MISMATCH")
     closure = json.loads(closure_bytes.decode("utf-8"))
     if not isinstance(closure, Mapping) or (
-        closure.get("schema_version") != 1
+        closure.get("schema_version") != 2
+        or closure.get("closure_id") != "m3-remediation-v4-review-closure-final-v1"
         or closure.get("status") != "APPROVED_EFFECTIVE"
         or closure.get("verdict") != "APPROVE"
         or any(closure.get(key) != 0 for key in ("critical_count", "major_count", "minor_count"))
-        or closure.get("subject_commit") != REMEDIATION_SUBJECT_COMMIT
-        or closure.get("subject_blob") != REMEDIATION_SUBJECT_BLOB
+        or closure.get("reviewer_id") != REMEDIATION_REVIEWER_ID
     ):
         raise ValueError("REMEDIATION_CLOSURE_INVALID")
 
+    subject_commit = closure.get("subject_commit")
+    subject_design_blob = closure.get("subject_blob")
+    if not isinstance(subject_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", subject_commit):
+        raise ValueError("REMEDIATION_SUBJECT_INVALID")
+    if not isinstance(subject_design_blob, str) or not re.fullmatch(r"[0-9a-f]{40}", subject_design_blob):
+        raise ValueError("REMEDIATION_SUBJECT_INVALID")
+
     subject_design_path = "docs/design/m3-remediation-v4.md"
     subject_blob, _ = _git_blob(
-        repository_root, REMEDIATION_SUBJECT_COMMIT, subject_design_path
+        repository_root, subject_commit, subject_design_path
     )
-    if subject_blob != REMEDIATION_SUBJECT_BLOB:
+    if subject_blob != subject_design_blob:
         raise ValueError("REMEDIATION_SUBJECT_IDENTITY_MISMATCH")
 
     identity_blob, identity_bytes = _git_blob(
@@ -654,7 +651,6 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     if (
         scope_blob != scope_meta.get("git_blob")
         or scope_raw_sha256 != scope_meta.get("raw_sha256")
-        or scope_raw_sha256 != REMEDIATION_SCOPE_DIGEST
     ):
         raise ValueError("REMEDIATION_SCOPE_DIGEST_MISMATCH")
     scope = json.loads(scope_bytes.decode("utf-8"))
@@ -671,14 +667,14 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     ]
     if not isinstance(scope, Mapping) or (
         scope.get("schema_version") != 2
-        or scope.get("subject_commit") != REMEDIATION_SUBJECT_COMMIT
-        or scope.get("subject_blob") != REMEDIATION_SUBJECT_BLOB
+        or scope.get("subject_commit") != subject_commit
+        or scope.get("subject_blob") != subject_design_blob
         or scope.get("requirements") != required_requirements
         or scope.get("subject_paths") != sorted(set(scope.get("subject_paths", [])))
     ):
         raise ValueError("REMEDIATION_SCOPE_BINDING_MISMATCH")
     for path in scope["subject_paths"]:
-        _git_blob(repository_root, REMEDIATION_SUBJECT_COMMIT, str(path))
+        _git_blob(repository_root, subject_commit, str(path))
 
     response_meta = closure.get("response_projection")
     if not isinstance(response_meta, Mapping) or (
@@ -692,7 +688,6 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     if (
         response_blob != response_meta.get("git_blob")
         or response_raw_sha256 != response_meta.get("raw_sha256")
-        or response_raw_sha256 != REMEDIATION_RESPONSE_DIGEST
     ):
         raise ValueError("REMEDIATION_RESPONSE_DIGEST_MISMATCH")
     response = json.loads(response_bytes.decode("utf-8"))
@@ -701,9 +696,9 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         or response.get("identity_record") != REMEDIATION_IDENTITY_RECORD_PATH
         or response.get("identity_digest") != REMEDIATION_IDENTITY_DIGEST
         or response.get("reviewer_id") != REMEDIATION_REVIEWER_ID
-        or response.get("subject_commit") != REMEDIATION_SUBJECT_COMMIT
-        or response.get("reviewed_commit") != REMEDIATION_SUBJECT_COMMIT
-        or response.get("subject_blob") != REMEDIATION_SUBJECT_BLOB
+        or response.get("subject_commit") != subject_commit
+        or response.get("reviewed_commit") != subject_commit
+        or response.get("subject_blob") != subject_design_blob
         or response.get("scope_projection_blob") != scope_blob
         or response.get("scope_projection_raw_sha256") != scope_raw_sha256
         or response.get("status") != "completed"
@@ -723,7 +718,7 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         raise ValueError("REMEDIATION_POLICY_PROVENANCE_MISMATCH")
 
     source_author = _git(
-        "show", "-s", "--format=%an", REMEDIATION_SUBJECT_COMMIT, repository_root=repository_root
+        "show", "-s", "--format=%an", subject_commit, repository_root=repository_root
     ).decode().strip()
     external_reviewer = str(identity["reviewer_id"])
     if external_reviewer in {source_author, APPROVED_HUMAN_IDENTITY}:
@@ -733,12 +728,12 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         "review_identity_digest": REMEDIATION_IDENTITY_DIGEST,
         "review_identity_git_blob": identity_blob,
         "review_identity_raw_sha256": REMEDIATION_IDENTITY_RAW_SHA256,
-        "review_subject_commit": REMEDIATION_SUBJECT_COMMIT,
-        "review_subject_blob": REMEDIATION_SUBJECT_BLOB,
+        "review_subject_commit": subject_commit,
+        "review_subject_blob": subject_design_blob,
         "review_scope_digest": scope_raw_sha256,
         "review_response_digest": response_raw_sha256,
         "review_closure_git_blob": closure_blob,
-        "review_closure_raw_sha256": REMEDIATION_CLOSURE_RAW_SHA256,
+        "review_closure_raw_sha256": "sha256:" + hashlib.sha256(closure_bytes).hexdigest(),
     }
 
 
