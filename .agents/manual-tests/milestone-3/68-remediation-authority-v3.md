@@ -13,7 +13,7 @@
 ## Prerequisites
 
 - Historical authority artifacts remain immutable.
-- Identity record `.agents/review/identities/codex-agent-m3-remediation-external-review-v3.json`
+- Identity record `.agents/review/identities/codex-agent-m3-final-package-review-v2.json`
   is committed and its Git blob/raw digest are available.
 - Canonical serialization and identity/scope/response digest formulas are available from design v4.
 

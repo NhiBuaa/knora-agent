@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v2",
+  "identity_kind": "execution-task",
+  "task_path": "/root/m3_final_package_review_v2",
+  "provider": "codex",
+  "source_authority": "collaboration-agent-task",
+  "identity_digest": "sha256:356531040abe8f3726fc72187e1c4289b9d61f350bc6c206647b1cb853a2055a",
+  "purpose": "independent M3 remediation package review P3",
+  "created_at": "2026-08-19T00:00:00Z"
+}

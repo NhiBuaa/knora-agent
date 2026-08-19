@@ -25,9 +25,11 @@ is `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253` for
 IDs in `m3-dataset-v1`. Manifest file and dataset-content digests remain SHA-256 over their raw
 committed bytes; no newline normalization is applied to those file digests.
 
-Reviewer identity is independently addressable through a committed identity record. Its
-The identity projection `.agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json`
-has raw-byte digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907`.
+Reviewer identity is independently addressable through the committed record
+`.agents/review/identities/codex-agent-m3-final-package-review-v2.json` and projection
+`.agents/review/identities/codex-agent-m3-final-package-review-v2-projection.json`; the projection
+digest is `sha256:356531040abe8f3726fc72187e1c4289b9d61f350bc6c206647b1cb853a2055a` and the record
+raw digest is `sha256:1c11ca827e1d9df3a7e9eb39219ee3504cd8a76e8c8b77288ce24df3fd5c9f32`.
 The scope and response projections are post-package artifacts. Their Git blobs and raw SHA-256
 values are recorded in the review closure; the production validator resolves that closure and
 rejects any generic, missing, assertion-only, self-authored, self-approved, stale or
@@ -54,7 +56,7 @@ paths: `.agents/design/m3-remediation-v4.json`,
 `.agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md`,
 `.agents/review/m3-remediation-cadence-input-v3.json`,
 `.agents/review/m3-remediation-cadence-v3.json`,
-`.agents/review/identities/codex-agent-m3-remediation-external-review-v3.json`,
+`.agents/review/identities/codex-agent-m3-final-package-review-v2.json`,
 `.agents/tickets/m3-remediation-67-active-v4.md`,
 `.agents/tickets/m3-remediation-68-active-v4.md`,
 `.agents/tickets/m3-remediation-69-active-v4.md`,
