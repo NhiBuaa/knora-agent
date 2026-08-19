@@ -38,14 +38,12 @@
 ### TC-03: Independent review scope/response chain passes
 
 - Purpose: prove exact subject and complete-scope review.
-- Steps: verify the immutable scope projection
-  `.agents/review/m3-remediation-v4-scope-projection.json` raw digest
-  `sha256:a8ecab79449c52992cef094510d0ede66b1f62beb4e3f605c2093482ba207432`, active response
-  projection `.agents/review/m3-remediation-v4-response-projection.json` and raw digest
-  `sha256:24b1079f8dbb8c7ddbfae54616a168ff7b82bdfe2b547f15f83bb8b8457c3997`; verify source
-  commit/blob, seal and closure; validate production. The scope and response subject/reviewed
-  commit fields must be the same exact package subject; a response that reviewed a descendant or
-  parent is invalid even when its verdict is `APPROVE`.
+- Steps: load the approved closure `.agents/review/m3-remediation-v4-review-closure.json`,
+  recompute its Git blob/raw digest and the scope/response projection bytes it names, then verify
+  the source commit/blob, seal and closure. Assert both response `subject_commit` and
+  `reviewed_commit` equal the closure's exact package subject; a response that reviewed a
+  descendant or parent is invalid even when its verdict is `APPROVE`. Caller-supplied or latest
+  closure paths are invalid.
 - Expected results: reviewer differs from source author and approver; status is `APPROVED_EFFECTIVE`.
 - Evidence: review artifact, sealed response/closure, scope/hash recomputation and validator result.
 

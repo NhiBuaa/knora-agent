@@ -1,9 +1,14 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "artifact_id": "m3-remediation-design-v4",
   "status": "pending_external_review",
   "supersedes": "m3-remediation-design-v3",
-  "subject_commit": "688732d70ca5e3604e3a4d44509be8850add68fe",
+  "subject_binding": {
+    "mode": "post_package_closure",
+    "closure_path": ".agents/review/m3-remediation-v4-review-closure.json",
+    "subject_commit_source": "closure.subject_commit",
+    "self_reference_forbidden": true
+  },
   "canonical_json": "UTF-8(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')) + '\\n')",
   "digest_algorithm": "sha256",
   "case_id_digest": {
@@ -16,18 +21,17 @@
     "identity_record_required": true,
     "identity_digest": "sha256(raw UTF-8 bytes of identity projection)",
     "identity_projection_path": ".agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json",
-    "scope_digest": "sha256(raw UTF-8 bytes of scope projection)",
+    "scope_digest": "closure.scope_projection_raw_sha256",
     "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection.json",
-    "response_digest": "sha256(raw UTF-8 bytes of response projection)",
+    "response_digest": "closure.response_projection_raw_sha256",
     "active_response_record": ".agents/review/m3-remediation-v4-response-projection.json",
     "generic_identity_forbidden": true,
     "reviewer_must_differ_from_source_author": true,
     "reviewer_must_differ_from_approver": true,
-    "git_blob_and_raw_sha_required": true
+    "git_blob_and_raw_sha_required": true,
+    "closure_required": true
   },
   "review_scope": {
-    "subject_commit": "688732d70ca5e3604e3a4d44509be8850add68fe",
-    "subject_blob": "9ba863a4cc2e20e805345f47272bc903ad612315",
     "subject_paths": [
       ".agents/design/m3-remediation-v4.json",
       ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
@@ -57,7 +61,8 @@
       "two_layer_taxonomy"
     ],
     "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection.json",
-    "scope_digest": "sha256:a8ecab79449c52992cef094510d0ede66b1f62beb4e3f605c2093482ba207432"
+    "scope_digest": "closure.scope_projection_raw_sha256",
+    "closure_path": ".agents/review/m3-remediation-v4-review-closure.json"
   },
   "immutable_population": {
     "dataset_manifest_path": "evals/datasets/milestone_3.manifest.json",

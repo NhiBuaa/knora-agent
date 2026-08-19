@@ -38,14 +38,19 @@ missing, assertion-only, self-authored or self-approved identities.
 The active review response binding is the response projection above; response revisions remain
 preserved as historical evidence.
 
-### Exact package-subject binding (revision v4.1)
+### Exact package-subject binding (revision v4.2)
 
-The active review package is always the immutable commit named by the active scope projection.
-The external response is valid only when both `subject_commit` and `reviewed_commit` equal that
-same commit; a parent/descendant review is not an exact review of the package. Guide revisions
-must pin the scope and response projection raw digests they execute. Any later guide or design
-change creates a new append-only package revision and requires a new independent response; prior
-responses remain historical evidence and are never rewritten.
+The review package is frozen first at package commit `P`; it cannot contain its own commit hash.
+The post-package scope projection `S` then records `P`, the exact design blob and sorted subject
+paths. A fresh independent response `R` must record both `subject_commit=P` and
+`reviewed_commit=P`, plus the Git blob/raw digest of `S`. Finally, the review closure `C` pins the
+Git blob/raw digest of `S` and `R`, the identity record, policy projection, reviewer/author/
+approver separation, and the approval outcome. `C` is the only active authority input; callers
+cannot substitute a path, latest artifact, or assertion-only response. Guides execute closure
+validation and recompute every listed raw digest, while stable identity/case-population digests
+remain literal inputs. Any later guide or design change creates a new append-only package `P` and
+requires a new `S → R → C` chain; prior responses remain historical evidence and are never
+rewritten.
 
 The complete review subject scope is immutable and is represented by the following sorted
 paths: `.agents/design/m3-remediation-v4.json`,

@@ -24,15 +24,15 @@
 ### TC-02: Authority and exact policy provenance
 
 - Purpose: prove independent identity/scope/response digests and sole JSON projection.
-- Steps: verify identity projection
+- Steps: verify the stable identity projection
   `.agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json` raw
-  digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907`, scope
-  projection `.agents/review/m3-remediation-v4-scope-projection.json` raw digest
-  `sha256:a8ecab79449c52992cef094510d0ede66b1f62beb4e3f605c2093482ba207432`, active response
-  projection `.agents/review/m3-remediation-v4-response-projection.json` raw digest
-  `sha256:24b1079f8dbb8c7ddbfae54616a168ff7b82bdfe2b547f15f83bb8b8457c3997`, source
-  author/approver separation, policy blob/digest, seal/closure and mutation negatives.
-- Expected results: valid chain passes; generic/assertion-only/self-authored/self-approved/mutated chains fail.
+  digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907`; load the
+  approved closure `.agents/review/m3-remediation-v4-review-closure.json`, recompute its Git
+  blob/raw digest plus the scope and response projection bytes it names, and assert both response
+  `subject_commit` and `reviewed_commit` equal the closure's exact package subject. Caller-supplied
+  or latest/path-substituted closure data is invalid.
+- Expected results: valid closure passes; generic/assertion-only/self-authored/self-approved,
+  subject mismatch, mutated projection or mutated closure chains fail.
 - Evidence: authority matrix and recomputation output.
 
 ### TC-03: Exact population and paired settings
