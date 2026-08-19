@@ -38,6 +38,15 @@ missing, assertion-only, self-authored or self-approved identities.
 The active review response binding is the response projection above; response revisions remain
 preserved as historical evidence.
 
+### Exact package-subject binding (revision v4.1)
+
+The active review package is always the immutable commit named by the active scope projection.
+The external response is valid only when both `subject_commit` and `reviewed_commit` equal that
+same commit; a parent/descendant review is not an exact review of the package. Guide revisions
+must pin the scope and response projection raw digests they execute. Any later guide or design
+change creates a new append-only package revision and requires a new independent response; prior
+responses remain historical evidence and are never rewritten.
+
 The complete review subject scope is immutable and is represented by the following sorted
 paths: `.agents/design/m3-remediation-v4.json`,
 `.agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md`,

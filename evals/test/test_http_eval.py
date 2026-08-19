@@ -33,6 +33,8 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
         )
 
     trace = SimpleNamespace(
+        trace_id="trace-1",
+        workspace_id="evaluation-m1",
         candidates=(
             SimpleNamespace(
                 chunk_id="chunk-1",
