@@ -29,7 +29,7 @@ Reviewer identity is independently addressable through a committed identity reco
 The identity projection `.agents/review/identities/codex-agent-m3-remediation-external-review-v3-projection.json`
 has raw-byte digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907`.
 The review response projection `.agents/review/m3-remediation-v4-response-projection.json`
-has raw-byte digest `sha256:809f0d50c257842d10352a74daf0e7100417fd4b9c5efc364b464ad98a8fe4ae`.
+has raw-byte digest `sha256:24b1079f8dbb8c7ddbfae54616a168ff7b82bdfe2b547f15f83bb8b8457c3997`.
 The complete scope projection `.agents/review/m3-remediation-v4-scope-projection.json` has
 raw-byte digest `sha256:f3cae9dd38b64f4d826b373939976f6efd00f680f5908bb1d2f0a272bd55ec7c`.
 The production validator resolves these projections and the source-commit author from Git,

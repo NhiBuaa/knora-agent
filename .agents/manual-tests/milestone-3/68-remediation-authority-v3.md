@@ -40,7 +40,7 @@
 - Purpose: prove exact subject and complete-scope review.
 - Steps: verify the immutable scope projection raw digest, active response projection
   `.agents/review/m3-remediation-v4-response-projection.json` and raw digest
-  `sha256:809f0d50c257842d10352a74daf0e7100417fd4b9c5efc364b464ad98a8fe4ae`; verify source
+  `sha256:24b1079f8dbb8c7ddbfae54616a168ff7b82bdfe2b547f15f83bb8b8457c3997`; verify source
   commit/blob, seal and closure; validate production.
 - Expected results: reviewer differs from source author and approver; status is `APPROVED_EFFECTIVE`.
 - Evidence: review artifact, sealed response/closure, scope/hash recomputation and validator result.
