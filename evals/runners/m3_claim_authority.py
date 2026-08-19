@@ -56,7 +56,9 @@ REMEDIATION_IDENTITY_DIGEST = (
 )
 REMEDIATION_SCOPE_PROJECTION_PATH = ".agents/review/m3-remediation-v4-scope-projection-final.json"
 REMEDIATION_SCOPE_DIGEST = "closure.scope_projection_raw_sha256"
-REMEDIATION_RESPONSE_PROJECTION_PATH = ".agents/review/m3-remediation-v4-response-projection-final.json"
+REMEDIATION_RESPONSE_PROJECTION_PATH = (
+    ".agents/review/m3-remediation-v4-response-projection-final.json"
+)
 REMEDIATION_RESPONSE_DIGEST = "closure.response_projection_raw_sha256"
 REMEDIATION_SUBJECT_COMMIT = "closure.subject_commit"
 REMEDIATION_SUBJECT_BLOB = "closure.subject_blob"
@@ -572,7 +574,9 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     subject_design_blob = closure.get("subject_blob")
     if not isinstance(subject_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", subject_commit):
         raise ValueError("REMEDIATION_SUBJECT_INVALID")
-    if not isinstance(subject_design_blob, str) or not re.fullmatch(r"[0-9a-f]{40}", subject_design_blob):
+    if not isinstance(subject_design_blob, str) or not re.fullmatch(
+        r"[0-9a-f]{40}", subject_design_blob
+    ):
         raise ValueError("REMEDIATION_SUBJECT_INVALID")
 
     subject_design_path = "docs/design/m3-remediation-v4.md"

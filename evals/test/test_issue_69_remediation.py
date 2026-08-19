@@ -2,11 +2,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from evals.runners.milestone_3 import HttpEvaluationExecutor, ProductionM3Executor
 from evals.runners.milestone_3_comparison import (
-    ComparisonError,
     M3_POPULATION_SOURCE_COMMIT,
+    ComparisonError,
     _validate_m3_manifest_source_commit,
 )
 
@@ -24,7 +23,7 @@ def test_m3_population_manifests_bind_to_immutable_source_commit() -> None:
     }
     for path, blob in expected.items():
         actual = subprocess.run(
-            ["git", "rev-parse", f"{_M3_MANIFEST_SOURCE_COMMIT}:{path}"],
+            ["git", "rev-parse", f"{M3_POPULATION_SOURCE_COMMIT}:{path}"],
             cwd=repository_root,
             check=True,
             capture_output=True,
@@ -33,4 +32,6 @@ def test_m3_population_manifests_bind_to_immutable_source_commit() -> None:
         assert actual == blob
 
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
-        _validate_m3_manifest_source_commit(repository_root, "ab8abd88fdce0dccead869b27416fee260bc135e")
+        _validate_m3_manifest_source_commit(
+            repository_root, "ab8abd88fdce0dccead869b27416fee260bc135e"
+        )
