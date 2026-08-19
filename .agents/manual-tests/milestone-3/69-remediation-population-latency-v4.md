@@ -28,7 +28,9 @@
 
 - Purpose: reject subset/extra/replacement/wrong binding and generation/scorer drift.
 - Steps: mutate each manifest/path/blob/digest/case-ID and every equal paired field; invoke canonical selector.
-- Expected results: every mutation fails closed; only six retrieval fields may differ.
+- Expected results: every mutation fails closed; specifically, substituting a different
+  `manifest_source_commit` whose manifest blob happens to be same-shaped is rejected before
+  selection; only six retrieval fields may differ.
 - Evidence: mutation matrix and reasons.
 
 ### TC-03: Canonical M3 executor identity and compatibility alias
