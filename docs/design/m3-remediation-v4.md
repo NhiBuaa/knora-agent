@@ -63,7 +63,11 @@ paths: `.agents/design/m3-remediation-v4.json`,
 `.agents/tickets/m3-remediation-r1-v3.md`,
 `.agents/tickets/m3-remediation-r2-v4.md`,
 `.agents/tickets/m3-remediation-r3-v4.md`, `docs/design/m3-remediation-v4.md`, and
-`docs/standards/architecture.md`.
+`docs/standards/architecture.md`, plus the production authority/comparison seams and their
+focused remediation tests (`evals/runners/m3_claim_authority.py`,
+`evals/runners/milestone_3_comparison.py`, `evals/test/test_http_eval.py`,
+`evals/test/test_issue_63_remediation.py`, `evals/test/test_issue_68_remediation.py`, and
+`evals/test/test_issue_69_remediation.py`).
 The sorted requirement IDs are `authority_independent_review`, `exact_manifest_population`,
 `native_dependency_graph`, `no_evaluation_only_retrieval`, `pair_latency_boundary`,
 `paired_generation_scorer_invariants`, `public_citation_and_trace_failure`, and
@@ -131,7 +135,9 @@ Branch observations and fused outcomes are separate acceptance data: vector
 `ELIGIBLE`/`BELOW_THRESHOLD`/no-contribution and FTS `ELIGIBLE`/`INELIGIBLE`/no-contribution are
 pre-fusion statuses; only fused candidates may use `SELECTED`, `REDUNDANT_OVERLAP`,
 `BUDGET_EXCEEDED` or `ELIGIBLE_NOT_SELECTED` with `final_rank`/`fusion_score`. Pre-fusion losses
-never receive a fused rank or RRF score.
+never receive a fused rank or RRF score. A fused `BUDGET_EXCEEDED` decision must carry a closed
+`decision_reason` of either `TOKEN_BUDGET` or `CHUNK_COUNT_LIMIT`; the two reasons are not
+interchangeable.
 
 ### Canonical executor seam
 

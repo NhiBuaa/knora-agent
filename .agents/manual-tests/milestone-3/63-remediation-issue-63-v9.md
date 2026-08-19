@@ -46,7 +46,9 @@
 - Additional taxonomy assertion: inspect branch observations before fusion. Vector statuses are
   `ELIGIBLE`, `BELOW_THRESHOLD` or no contribution; FTS statuses are `ELIGIBLE`, `INELIGIBLE` or
   no contribution. Only fused candidates may carry `SELECTED`, `REDUNDANT_OVERLAP`,
-  `BUDGET_EXCEEDED` or `ELIGIBLE_NOT_SELECTED` with `final_rank`/`fusion_score`.
+  `BUDGET_EXCEEDED` or `ELIGIBLE_NOT_SELECTED` with `final_rank`/`fusion_score`; a fused
+  `BUDGET_EXCEEDED` candidate must distinguish `decision_reason=TOKEN_BUDGET` from
+  `decision_reason=CHUNK_COUNT_LIMIT`. Pre-fusion statuses never receive fused rank/score.
 
 ### TC-04: Public citation and refusal semantics
 

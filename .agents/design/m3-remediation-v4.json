@@ -51,6 +51,12 @@
       ".agents/tickets/m3-remediation-r1-v3.md",
       ".agents/tickets/m3-remediation-r2-v4.md",
       ".agents/tickets/m3-remediation-r3-v4.md",
+      "evals/runners/m3_claim_authority.py",
+      "evals/runners/milestone_3_comparison.py",
+      "evals/test/test_http_eval.py",
+      "evals/test/test_issue_63_remediation.py",
+      "evals/test/test_issue_68_remediation.py",
+      "evals/test/test_issue_69_remediation.py",
       "docs/design/m3-remediation-v4.md",
       "docs/standards/architecture.md"
     ],
