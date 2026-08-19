@@ -31,7 +31,7 @@ has raw-byte digest `sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee21
 The review response projection `.agents/review/m3-remediation-v4-response-projection.json`
 has raw-byte digest `sha256:24b1079f8dbb8c7ddbfae54616a168ff7b82bdfe2b547f15f83bb8b8457c3997`.
 The complete scope projection `.agents/review/m3-remediation-v4-scope-projection.json` has
-raw-byte digest `sha256:f3cae9dd38b64f4d826b373939976f6efd00f680f5908bb1d2f0a272bd55ec7c`.
+raw-byte digest `sha256:a8ecab79449c52992cef094510d0ede66b1f62beb4e3f605c2093482ba207432`.
 The production validator resolves these projections and the source-commit author from Git,
 verifies all digests and rejects generic,
 missing, assertion-only, self-authored or self-approved identities.
