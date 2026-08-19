@@ -69,18 +69,25 @@ class HttpEvaluationExecutor:
 
     async def execute(self, case: EvaluationCase) -> EvaluationObservation:
         started = perf_counter()
+        response_completed: float | None = None
         try:
             response = await self._client.post(
                 self._endpoint,
                 headers={"X-API-Key": self._api_key},
                 json={"workspace_id": case.workspace_id, "question": case.question},
             )
+            response_completed = perf_counter()
             response.raise_for_status()
             payload = response.json()
             public = validate_public_response(payload)
+            response_trace_id = payload["trace_id"]
             trace = self._trace_reader.read_trace(
-                trace_id=payload["trace_id"], workspace_id=case.workspace_id
+                trace_id=response_trace_id, workspace_id=case.workspace_id
             )
+            if getattr(trace, "trace_id", None) != response_trace_id:
+                raise ObservationFailure("RESPONSE_TRACE_ID_MISMATCH")
+            if getattr(trace, "workspace_id", None) != case.workspace_id:
+                raise ObservationFailure("TRACE_WORKSPACE_MISMATCH")
         except (
             httpx.HTTPError,
             KeyError,
@@ -95,7 +102,11 @@ class HttpEvaluationExecutor:
                 retrieval_latency_ms=0.0,
                 decision="ERROR",
                 refusal_reason=None,
-                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                end_to_end_latency_ms=(
+                    (response_completed if response_completed is not None else perf_counter())
+                    - started
+                )
+                * 1000,
                 provider_error=type(error).__name__,
             )
 
@@ -159,7 +170,11 @@ class HttpEvaluationExecutor:
                 retrieval_latency_ms=0.0,
                 decision="ERROR",
                 refusal_reason=None,
-                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                end_to_end_latency_ms=(
+                    (response_completed if response_completed is not None else perf_counter())
+                    - started
+                )
+                * 1000,
                 provider_error=type(error).__name__,
             )
         return EvaluationObservation(
@@ -177,8 +192,12 @@ class HttpEvaluationExecutor:
             candidate_workspaces=tuple(
                 candidate.workspace_id for candidate in trace.candidates
             ),
-            trace_id=payload["trace_id"],
-            end_to_end_latency_ms=(perf_counter() - started) * 1000,
+            trace_id=response_trace_id,
+            end_to_end_latency_ms=(
+                (response_completed if response_completed is not None else perf_counter())
+                - started
+            )
+            * 1000,
             token_usage=usage,
             cost_usd=cost,
             retrieval_configuration_id=trace.retrieval_configuration_id,

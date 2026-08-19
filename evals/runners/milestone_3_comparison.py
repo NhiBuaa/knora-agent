@@ -17,7 +17,13 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
-from evals.datasets.milestone_3 import QUALITY_CATEGORIES
+from evals.datasets.milestone_3 import (
+    QUALITY_CATEGORIES,
+    load_milestone_3_corpus_manifest,
+    load_milestone_3_dataset,
+    load_milestone_3_dataset_manifest,
+    validate_milestone_3_references,
+)
 from evals.runners.m3_claim_authority import (
     ALLOWED_CONFIGURATION_FIELDS,
     APPROVED_HUMAN_IDENTITY,
@@ -168,6 +174,27 @@ APPROVED_RETRIEVAL_CONFIGURATIONS = MappingProxyType(
         ),
     }
 )
+
+_M3_DATASET_MANIFEST = "evals/datasets/milestone_3.manifest.json"
+_M3_DATASET_PATH = "evals/datasets/milestone_3.jsonl"
+_M3_CORPUS_MANIFEST = "evals/corpora/milestone_3/manifest.json"
+_M3_CASE_ID_PROJECTION = ".agents/review/m3-dataset-v1-case-ids.json"
+_M3_DATASET_MANIFEST_BLOB = "08061b4a26b1d10b9720769828bb179264d99fec"
+_M3_DATASET_MANIFEST_SHA256 = (
+    "sha256:f42bb8aa0fe064ab172bac7aa1c8603e9d23b9d3e41ccadbf38d4fbc06c0b41b"
+)
+_M3_DATASET_SHA256 = "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50"
+_M3_CORPUS_MANIFEST_BLOB = "5b8ff82769239f253d31424606205a9e74828d71"
+_M3_CORPUS_MANIFEST_SHA256 = (
+    "sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326"
+)
+_M3_CASE_ID_PROJECTION_SHA256 = (
+    "sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253"
+)
+_M3_DATASET_VERSION = "m3-dataset-v1"
+_M3_CORPUS_VERSION = "m3-corpus-v1"
+_M3_WORKSPACE_ID = "evaluation-m3-v1"
+_M3_CHUNK_SET_PROVENANCE_ID = "chunk-set-m3-v1"
 
 TAXONOMY_VERSION = "m3-failure-taxonomy-v1"
 _VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
@@ -1350,7 +1377,81 @@ def _observation_source_bindings(
     return result
 
 
-def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
+def _production_m3_case_ids(repository_root: Path) -> tuple[str, ...]:
+    """Resolve the only production comparison population from immutable M3 manifests."""
+    root = repository_root.resolve()
+    dataset_manifest = root / _M3_DATASET_MANIFEST
+    dataset_path = root / _M3_DATASET_PATH
+    corpus_manifest = root / _M3_CORPUS_MANIFEST
+    case_projection = root / _M3_CASE_ID_PROJECTION
+    try:
+        if not all(
+            path.is_file()
+            for path in (dataset_manifest, dataset_path, corpus_manifest, case_projection)
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(dataset_manifest.read_bytes()).hexdigest() != (
+            _M3_DATASET_MANIFEST_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(dataset_path.read_bytes()).hexdigest() != (
+            _M3_DATASET_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(corpus_manifest.read_bytes()).hexdigest() != (
+            _M3_CORPUS_MANIFEST_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(case_projection.read_bytes()).hexdigest() != (
+            _M3_CASE_ID_PROJECTION_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+        ).stdout.strip()
+        for path, expected_blob in (
+            (_M3_DATASET_MANIFEST, _M3_DATASET_MANIFEST_BLOB),
+            (_M3_CORPUS_MANIFEST, _M3_CORPUS_MANIFEST_BLOB),
+        ):
+            actual_blob = subprocess.run(
+                ["git", "rev-parse", f"{commit}:{path}"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if actual_blob != expected_blob:
+                raise ComparisonError("PROVENANCE_MISMATCH")
+        dataset_identity = load_milestone_3_dataset_manifest(dataset_manifest, dataset_path)
+        dataset = load_milestone_3_dataset(dataset_path)
+        corpus = load_milestone_3_corpus_manifest(corpus_manifest)
+        validate_milestone_3_references(dataset, corpus)
+        projection = json.loads(case_projection.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
+        if isinstance(error, ComparisonError):
+            raise
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    case_ids = tuple(sorted(case.id for case in dataset.cases))
+    projected_ids = projection.get("case_ids") if isinstance(projection, Mapping) else None
+    if (
+        dataset_identity.version != _M3_DATASET_VERSION
+        or dataset_identity.checksum != _M3_DATASET_SHA256
+        or corpus.version != _M3_CORPUS_VERSION
+        or corpus.workspace_id != _M3_WORKSPACE_ID
+        or corpus.chunk_set_id != _M3_CHUNK_SET_PROVENANCE_ID
+        or len(case_ids) != 50
+        or len(set(case_ids)) != 50
+        or projected_ids != list(case_ids)
+        or projection.get("dataset_version") != _M3_DATASET_VERSION
+        or projection.get("schema_version") != 1
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    return case_ids
+
+
+def _validate_pair_contract(
+    pair: Mapping[str, Any], *, expected_case_ids: tuple[str, ...] | None = None
+) -> tuple[str, ...]:
     required_keys = {
         "schema_version",
         "case_ids",
@@ -1377,6 +1478,8 @@ def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
         raise ComparisonError("PAIR_CONTRACT_INVALID")
     if len(case_ids) != len(set(case_ids)) or tuple(case_ids) != tuple(sorted(case_ids)):
         raise ComparisonError("PAIR_CONTRACT_INVALID")
+    if expected_case_ids is not None and tuple(case_ids) != expected_case_ids:
+        raise ComparisonError("CASE_SET_MISMATCH")
     vector_configuration = pair.get("vector_configuration_id")
     hybrid_configuration = pair.get("hybrid_configuration_id")
     if (
@@ -1507,6 +1610,63 @@ def _policy_gate_reason(
     return None, hybrid_guardrails
 
 
+def _paired_latency_projection(
+    vector_report: Mapping[str, Any],
+    hybrid_report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...],
+) -> dict[str, Any]:
+    """Retain both observed latency series and explicit hybrid-minus-vector deltas."""
+    def values(report: Mapping[str, Any], field: str) -> dict[str, float]:
+        observations = report.get("observations")
+        if not isinstance(observations, list):
+            raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+        by_id = {
+            item.get("case_id"): item
+            for item in observations
+            if isinstance(item, Mapping) and isinstance(item.get("case_id"), str)
+        }
+        if set(by_id) != set(expected_case_ids):
+            raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+        result: dict[str, float] = {}
+        for case_id in expected_case_ids:
+            value = by_id[case_id].get(field)
+            if (
+                by_id[case_id].get("status") != "observed"
+                or isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(float(value))
+                or value < 0
+            ):
+                raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+            result[case_id] = float(value)
+        return result
+
+    vector_values = {
+        "retrieval_latency_ms": values(vector_report, "retrieval_latency_ms"),
+        "end_to_end_latency_ms": values(vector_report, "end_to_end_latency_ms"),
+    }
+    hybrid_values = {
+        "retrieval_latency_ms": values(hybrid_report, "retrieval_latency_ms"),
+        "end_to_end_latency_ms": values(hybrid_report, "end_to_end_latency_ms"),
+    }
+    deltas = {
+        metric: {
+            case_id: hybrid_values[metric][case_id] - vector_values[metric][case_id]
+            for case_id in expected_case_ids
+        }
+        for metric in vector_values
+    }
+    return {
+        "version": "m3-paired-latency-v1",
+        "clock_boundary_version": "m3-latency-boundary-v1",
+        "streaming": False,
+        "case_ids": list(expected_case_ids),
+        "vector": vector_values,
+        "hybrid": hybrid_values,
+        "hybrid_minus_vector": deltas,
+    }
+
+
 def select_improvement(
     pair: Mapping[str, Any],
     *,
@@ -1519,6 +1679,7 @@ def select_improvement(
     sealed_archive_path: Path | None = None,
     closure_path: Path | None = None,
     binding_attestation: object | None = None,
+    expected_case_ids: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Apply the approved V1 rule only after authority validation succeeds.
 
@@ -1569,8 +1730,13 @@ def select_improvement(
     )
     if binding_attestation_invalid or (production and validated_binding_attestation is None):
         return _no_claim(common, "PROVENANCE_MISMATCH")
+    if production and expected_case_ids is None:
+        try:
+            expected_case_ids = _production_m3_case_ids(repository_root)
+        except ComparisonError as error:
+            return _no_claim(common, str(error))
     try:
-        expected_case_ids = _validate_pair_contract(pair)
+        expected_case_ids = _validate_pair_contract(pair, expected_case_ids=expected_case_ids)
     except ComparisonError as error:
         return _no_claim(common, str(error))
     if not isinstance(vector_report, Mapping) or not isinstance(hybrid_report, Mapping):
@@ -1628,13 +1794,25 @@ def select_improvement(
             "reason": blocked_reason,
             "selected_improvement": None,
         }
+    try:
+        paired_latency = _paired_latency_projection(
+            vector_report, hybrid_report, expected_case_ids
+        )
+    except ComparisonError as error:
+        return _no_claim(
+            common,
+            str(error),
+            metric_deltas=metric_deltas,
+            metric_decision_values=metric_values,
+            metric_decision_deltas=common["metric_decision_deltas"],
+        )
     selected = {
         "vector_configuration_id": pair["vector_configuration_id"],
         "hybrid_configuration_id": pair["hybrid_configuration_id"],
         "metric_deltas": metric_deltas,
         "metric_decision_deltas": common["metric_decision_deltas"],
         "guardrails": hybrid_guardrails,
-        "latency_tradeoffs": hybrid_report["latency_tradeoffs"],
+        "latency_tradeoffs": paired_latency,
         "remaining_regressions": hybrid_report["remaining_regressions"],
         "comparable_provenance": common["comparable_provenance"],
         "binding_v3": common["binding_v3"],
@@ -1672,6 +1850,7 @@ def select_production_improvement(
         sealed_archive_path=sealed_archive_path,
         closure_path=closure_path,
         binding_attestation=binding_attestation,
+        expected_case_ids=None,
     )
 
 
