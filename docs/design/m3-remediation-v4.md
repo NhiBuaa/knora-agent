@@ -72,6 +72,11 @@ authoritative subject identity and stores the exact package commit, design blob,
 and recomputable scope projection digest. No historical subject hash or projection digest in an
 older revision is active.
 
+The immutable dataset and corpus manifests are additionally bound to source commit
+`2a6061ad38b3b3c4f06811c7ceb8bc26af39892`; production verifies the expected manifest blobs at that
+commit and at the measured checkout. A current `HEAD` alone, or a caller-supplied same-shaped
+manifest, cannot authorize the M3 population.
+
 ## R1 — authority chain and sole-source policy projection
 
 The `canonical_authority_validation` → `ClaimRuleAuthority` seam binds the exact source
@@ -121,6 +126,12 @@ must not reuse this metric silently.
 
 The selected record retains both latency sides, metric deltas, guardrails and
 `remaining_regressions`.
+
+Branch observations and fused outcomes are separate acceptance data: vector
+`ELIGIBLE`/`BELOW_THRESHOLD`/no-contribution and FTS `ELIGIBLE`/`INELIGIBLE`/no-contribution are
+pre-fusion statuses; only fused candidates may use `SELECTED`, `REDUNDANT_OVERLAP`,
+`BUDGET_EXCEEDED` or `ELIGIBLE_NOT_SELECTED` with `final_rank`/`fusion_score`. Pre-fusion losses
+never receive a fused rank or RRF score.
 
 ### Canonical executor seam
 

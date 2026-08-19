@@ -15,9 +15,11 @@
 ### TC-01: Exact manifest and case-ID canonicalization
 
 - Purpose: bind production selection to immutable M3 data.
-- Steps: verify exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values and read
+- Steps: verify immutable source commit
+  `2a6061ad38b3b3c4f06811c7ceb8bc26af39892` contains the expected manifest Git blobs, then verify
+  exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values and read
   `.agents/review/m3-dataset-v1-case-ids.json` as the immutable case-ID projection.
-- Expected results: the projection raw UTF-8 SHA-256 is
+- Expected results: the source-commit manifest binding and projection raw UTF-8 SHA-256 are
   `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253`; no alternate
   serialization or repository-state substitute is accepted.
 - Evidence: capability, projection bytes and digest.

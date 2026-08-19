@@ -191,6 +191,7 @@ _M3_CORPUS_MANIFEST_SHA256 = (
 _M3_CASE_ID_PROJECTION_SHA256 = (
     "sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253"
 )
+_M3_MANIFEST_SOURCE_COMMIT = "2a6061ad38b3b3c4f06811c7ceb8bc26af39892"
 _M3_DATASET_VERSION = "m3-dataset-v1"
 _M3_CORPUS_VERSION = "m3-corpus-v1"
 _M3_WORKSPACE_ID = "evaluation-m3-v1"
@@ -1413,6 +1414,15 @@ def _production_m3_case_ids(repository_root: Path) -> tuple[str, ...]:
             (_M3_DATASET_MANIFEST, _M3_DATASET_MANIFEST_BLOB),
             (_M3_CORPUS_MANIFEST, _M3_CORPUS_MANIFEST_BLOB),
         ):
+            source_blob = subprocess.run(
+                ["git", "rev-parse", f"{_M3_MANIFEST_SOURCE_COMMIT}:{path}"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if source_blob != expected_blob:
+                raise ComparisonError("PROVENANCE_MISMATCH")
             actual_blob = subprocess.run(
                 ["git", "rev-parse", f"{commit}:{path}"],
                 cwd=root,
