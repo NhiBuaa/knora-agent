@@ -28,7 +28,7 @@
     ".agents/tickets/m3-remediation-67-active-v4.md",
     ".agents/tickets/m3-remediation-68-active-v4.md",
     ".agents/tickets/m3-remediation-69-active-v4.md",
-    ".agents/tickets/m3-remediation-r1-v3.md",
+    ".agents/tickets/m3-remediation-r1-v4.md",
     ".agents/tickets/m3-remediation-r2-v4.md",
     ".agents/tickets/m3-remediation-r3-v4.md",
     "backend/src/knora/adapters/postgres/evaluation_reader.py",

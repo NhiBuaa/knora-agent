@@ -16,8 +16,8 @@
   },
   "response_projection": {
     "path": ".agents/review/m3-remediation-v4-response-projection-final.json",
-    "git_blob": "58736c5163fde555708e0f14c41c0d4dbe63b864",
-    "raw_sha256": "sha256:9f0e2e2ee72eb4b888768e0d8728842db445c0c4814dec733140ec0eb41f1a1e"
+    "git_blob": "3aba4091ab357c5666cc573864a299dd8c8dddde",
+    "raw_sha256": "sha256:3038cbbc0f57466087c3b50241257bfe9f6d420e68fc56912ab2996792a3b9de"
   },
   "identity": {
     "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
