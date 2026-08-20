@@ -59,3 +59,47 @@ def test_approved_review_response_requires_evidence_projection() -> None:
 
     with pytest.raises(ValueError, match="REMEDIATION_RESPONSE_SCHEMA_INVALID"):
         authority_module._validate_review_response_contract(response)
+
+
+def test_approved_review_response_requires_exact_typed_scope_coverage() -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+    scope = json.loads(
+        (repository_root / ".agents/review/m3-remediation-v4-scope-projection-final.json")
+        .read_text(encoding="utf-8")
+    )
+    subject_paths = tuple(scope["subject_paths"])
+    requirements = tuple(scope["requirements"])
+    response = {
+        "schema_version": 3,
+        "status": "completed",
+        "verdict": "APPROVE",
+        "critical_count": 0,
+        "major_count": 0,
+        "minor_count": 0,
+        "finding": None,
+        "findings": [],
+        "review_basis": "exact subject and scope review",
+        "reviewed_paths": list(subject_paths),
+        "requirement_coverage": [
+            {
+                "requirement": requirement,
+                "result": "PASS",
+                "evidence_paths": [subject_paths[0]],
+            }
+            for requirement in requirements
+        ],
+    }
+
+    authority_module._validate_review_response_contract(
+        response,
+        required_requirements=requirements,
+        subject_paths=subject_paths,
+    )
+
+    response["requirement_coverage"].pop()
+    with pytest.raises(ValueError, match="REMEDIATION_RESPONSE_REQUIREMENT_COVERAGE_INVALID"):
+        authority_module._validate_review_response_contract(
+            response,
+            required_requirements=requirements,
+            subject_paths=subject_paths,
+        )

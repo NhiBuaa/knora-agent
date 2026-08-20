@@ -42,7 +42,9 @@
   recompute its Git blob/raw digest and the scope/response projection bytes it names, then verify
   the source commit/blob, seal and closure. Assert both response `subject_commit` and
   `reviewed_commit` equal the closure's exact package subject; a response that reviewed a
-  descendant or parent is invalid even when its verdict is `APPROVE`. Caller-supplied or latest
+  descendant or parent is invalid even when its verdict is `APPROVE`. Validate response schema 3:
+  every scope requirement appears exactly once as typed `PASS` coverage with non-empty evidence
+  paths, and `reviewed_paths` exactly covers the sorted scope path set. Caller-supplied or latest
   closure paths are invalid.
 - Expected results: reviewer differs from source author and approver; status is `APPROVED_EFFECTIVE`.
 - Evidence: review artifact, sealed response/closure, scope/hash recomputation and validator result.

@@ -51,6 +51,7 @@ def test_m3_population_provenance_binds_exact_manifest_and_source_set() -> None:
             ),
             "chunk_set_id": "chunk-set-m3-v1",
             "workspace": "evaluation-m3-v1",
+            "source_commit": M3_POPULATION_SOURCE_COMMIT,
         },
         "binding_v3": {
             "schema_version": 3,
@@ -80,3 +81,8 @@ def test_m3_population_provenance_binds_exact_manifest_and_source_set() -> None:
     validate_m3_population_provenance(
         report, repository_root=Path(__file__).resolve().parents[2]
     )
+    report["provenance"]["source_commit"] = "1" * 40
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        validate_m3_population_provenance(
+            report, repository_root=Path(__file__).resolve().parents[2]
+        )

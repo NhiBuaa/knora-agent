@@ -17,7 +17,8 @@
 - Purpose: bind production selection to immutable M3 data.
 - Steps: verify immutable source commit
   `2a6061ad38b3b3c4f06811c7ceb8bc26af39892` contains the expected manifest Git blobs, then verify
-  exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values and read
+  exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values. Assert every production
+  report carries this exact value as `provenance.source_commit`, and read
   `.agents/review/m3-dataset-v1-case-ids.json` as the immutable case-ID projection.
 - Expected results: the source-commit manifest binding and projection raw UTF-8 SHA-256 are
   `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253`; no alternate

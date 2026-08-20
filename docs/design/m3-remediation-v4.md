@@ -92,6 +92,13 @@ The approved JSON projection is the sole normative value source. Production pars
 strictly validates its schema/types and bound Git blob; it does not contain a duplicated
 value-level policy map. Focused fixtures remain explicit `production=False` only.
 
+An effective independent-review response uses schema version 3. In addition to the exact
+subject/scope bindings and zero finding counts, it contains typed `requirement_coverage` entries
+with `requirement`, `result: PASS` and non-empty `evidence_paths`, and a sorted `reviewed_paths`
+list that covers every path in the bound scope projection. Evidence paths must belong to that
+reviewed-path set, and every scope requirement must occur exactly once. A free-form review-basis
+assertion without this complete typed coverage is invalid.
+
 ## R2 — immutable population, paired fields and latency
 
 Production resolves the immutable M3 capability from exact committed paths and identities:
@@ -108,9 +115,11 @@ Production resolves the immutable M3 capability from exact committed paths and i
   `sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326`;
 - corpus `m3-corpus-v1`, Workspace `evaluation-m3-v1`, Chunk Set provenance `chunk-set-m3-v1`.
 
-The capability also binds the exact source commit containing these paths. Subsets, extras,
-replacements, wrong path/blob/digest, corpus/Chunk Set drift and caller-provided expected IDs
-fail closed. Reduced populations remain only in the explicit non-production comparison seam.
+The capability also binds the exact source commit containing these paths. Every production report
+must carry `2a6061ad38b3b3c4f06811c7ceb8bc26af39892` as `provenance.source_commit`; matching
+dataset/corpus values with a different source commit are invalid. Subsets, extras, replacements,
+wrong path/blob/digest, corpus/Chunk Set drift and caller-provided expected IDs fail closed.
+Reduced populations remain only in the explicit non-production comparison seam.
 
 Paired reports must be equal for every field in the equal-provenance contract: dataset version/
 digest, corpus ID/digest, Chunk Set ID/digest, Workspace, chunking, embedding, generation,

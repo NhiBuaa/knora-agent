@@ -23,7 +23,6 @@ AUTHORITY_VALIDATION_FAILURE = "AUTHORITY_VALIDATION_FAILURE"
 AUTHORITY_IDENTIFIER = "m3-improvement-claim-v1"
 CLAIM_RULE_VERSION = AUTHORITY_IDENTIFIER
 APPROVED_HUMAN_IDENTITY = "NhiBuaa"
-METRIC_CONTRACT = "m3-retrieval-metrics-v1"
 CLAIM_RULE_DIGEST = "sha256:5f44d27602a6a9819d857a15f8cee201deea0f21385b01789777b4ef7bf83c7e"
 SOURCE_COMMIT = "82f8f5193b658310e73e9f2fb4abf13ebb954076"
 AUTHORITY_DOCUMENT_PATH = "docs/design/m3-improvement-claim-rule-v3.md"
@@ -95,6 +94,12 @@ _EXPECTED_APPROVAL_KEYS = {
     "approved_by",
     "approved_at",
 }
+_REMEDIATION_RESPONSE_SCHEMA_VERSION = 3
+_REMEDIATION_RESPONSE_COVERAGE_KEYS = {
+    "requirement",
+    "result",
+    "evidence_paths",
+}
 _PLACEHOLDER_NORMALIZED = {
     "",
     "youridentity",
@@ -141,6 +146,35 @@ def policy_provenance_field_names(projection: Mapping[str, Any], field: str) -> 
     ):
         raise ValueError("POLICY_PROJECTION_INVALID")
     return tuple(values)
+
+
+def policy_metric_fields(projection: Mapping[str, Any]) -> tuple[str, int, tuple[str, ...]]:
+    """Read and validate the M3 metric contract from the approved policy projection."""
+    if not isinstance(projection, Mapping):
+        raise ValueError("POLICY_PROJECTION_INVALID")
+    metric_contract = projection.get("metric_contract")
+    recall_k = projection.get("recall_k")
+    primary_metric_set = projection.get("primary_metric_set")
+    primary_metrics = (
+        primary_metric_set.get("ordered")
+        if isinstance(primary_metric_set, Mapping)
+        else None
+    )
+    if (
+        not isinstance(metric_contract, str)
+        or not metric_contract
+        or type(recall_k) is not int
+        or recall_k < 1
+        or not isinstance(primary_metric_set, Mapping)
+        or primary_metric_set.get("closed") is not True
+        or not isinstance(primary_metrics, list)
+        or len(primary_metrics) != 2
+        or any(not isinstance(metric, str) or not metric for metric in primary_metrics)
+        or len(set(primary_metrics)) != len(primary_metrics)
+        or primary_metrics[0] != f"recall_at_{recall_k}"
+    ):
+        raise ValueError("POLICY_PROJECTION_INVALID")
+    return metric_contract, recall_k, tuple(primary_metrics)
 
 
 def _strict_equal(left: object, right: object) -> bool:
@@ -539,12 +573,17 @@ def _git_blob(repository_root: Path, commit: str, path: str) -> tuple[str, bytes
     return blob, content
 
 
-def _validate_review_response_contract(response: object) -> None:
-    """Require substantive, typed evidence before an APPROVE response can close authority."""
+def _validate_review_response_contract(
+    response: object,
+    *,
+    required_requirements: tuple[str, ...] | None = None,
+    subject_paths: tuple[str, ...] | None = None,
+) -> None:
+    """Require typed evidence for every requirement and every reviewed subject path."""
     if not isinstance(response, Mapping):
         raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
     if (
-        response.get("schema_version") != 2
+        response.get("schema_version") != _REMEDIATION_RESPONSE_SCHEMA_VERSION
         or response.get("status") != "completed"
         or response.get("verdict") != "APPROVE"
         or response.get("finding") is not None
@@ -558,6 +597,47 @@ def _validate_review_response_contract(response: object) -> None:
         value = response.get(field)
         if type(value) is not int or value < 0 or value != 0:
             raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+    reviewed_paths = response.get("reviewed_paths")
+    if (
+        not isinstance(reviewed_paths, list)
+        or not reviewed_paths
+        or any(not isinstance(path, str) or not path for path in reviewed_paths)
+        or len(reviewed_paths) != len(set(reviewed_paths))
+        or reviewed_paths != sorted(reviewed_paths)
+    ):
+        raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+    if subject_paths is not None and tuple(reviewed_paths) != subject_paths:
+        raise ValueError("REMEDIATION_RESPONSE_PATH_COVERAGE_INVALID")
+
+    coverage = response.get("requirement_coverage")
+    if not isinstance(coverage, list) or not coverage:
+        raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+    requirement_ids: list[str] = []
+    for item in coverage:
+        if not isinstance(item, Mapping) or set(item) != _REMEDIATION_RESPONSE_COVERAGE_KEYS:
+            raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+        requirement = item.get("requirement")
+        evidence_paths = item.get("evidence_paths")
+        if (
+            not isinstance(requirement, str)
+            or not requirement
+            or item.get("result") != "PASS"
+            or not isinstance(evidence_paths, list)
+            or not evidence_paths
+            or any(not isinstance(path, str) or not path for path in evidence_paths)
+            or len(evidence_paths) != len(set(evidence_paths))
+            or evidence_paths != sorted(evidence_paths)
+        ):
+            raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+        if any(path not in reviewed_paths for path in evidence_paths):
+            raise ValueError("REMEDIATION_RESPONSE_PATH_EVIDENCE_INVALID")
+        requirement_ids.append(requirement)
+    if (
+        len(requirement_ids) != len(set(requirement_ids))
+        or required_requirements is not None
+        and tuple(requirement_ids) != required_requirements
+    ):
+        raise ValueError("REMEDIATION_RESPONSE_REQUIREMENT_COVERAGE_INVALID")
 
 
 def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
@@ -663,7 +743,7 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     ):
         raise ValueError("REMEDIATION_SCOPE_DIGEST_MISMATCH")
     scope = json.loads(scope_bytes.decode("utf-8"))
-    required_requirements = [
+    required_requirements = (
         "authority_independent_review",
         "exact_manifest_population",
         "native_dependency_graph",
@@ -673,17 +753,22 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         "public_citation_and_trace_failure",
         "sole_source_policy_projection",
         "two_layer_taxonomy",
-    ]
+    )
+    scope_requirements = scope.get("requirements") if isinstance(scope, Mapping) else None
+    subject_paths = scope.get("subject_paths") if isinstance(scope, Mapping) else None
     if not isinstance(scope, Mapping) or (
         scope.get("schema_version") != 2
         or scope.get("subject_commit") != subject_commit
         or scope.get("subject_blob") != subject_design_blob
-        or scope.get("requirements") != required_requirements
-        or scope.get("subject_paths") != sorted(set(scope.get("subject_paths", [])))
+        or not isinstance(scope_requirements, list)
+        or tuple(scope_requirements) != required_requirements
+        or not isinstance(subject_paths, list)
+        or any(not isinstance(path, str) or not path for path in subject_paths)
+        or subject_paths != sorted(set(subject_paths))
     ):
         raise ValueError("REMEDIATION_SCOPE_BINDING_MISMATCH")
-    for path in scope["subject_paths"]:
-        _git_blob(repository_root, subject_commit, str(path))
+    for path in subject_paths:
+        _git_blob(repository_root, subject_commit, path)
 
     response_meta = closure.get("response_projection")
     if not isinstance(response_meta, Mapping) or (
@@ -700,9 +785,13 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     ):
         raise ValueError("REMEDIATION_RESPONSE_DIGEST_MISMATCH")
     response = json.loads(response_bytes.decode("utf-8"))
-    _validate_review_response_contract(response)
+    _validate_review_response_contract(
+        response,
+        required_requirements=required_requirements,
+        subject_paths=tuple(subject_paths),
+    )
     if not isinstance(response, Mapping) or (
-        response.get("schema_version") != 2
+        response.get("schema_version") != _REMEDIATION_RESPONSE_SCHEMA_VERSION
         or response.get("identity_record") != REMEDIATION_IDENTITY_RECORD_PATH
         or response.get("identity_digest") != REMEDIATION_IDENTITY_DIGEST
         or response.get("reviewer_id") != REMEDIATION_REVIEWER_ID

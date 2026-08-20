@@ -22,12 +22,24 @@ from evals.runners.evaluation_ownership import (
     EvaluationOwnershipSnapshot,
     EvaluationOwnershipStore,
 )
+from evals.runners.m3_claim_authority import (
+    canonical_policy_projection,
+    policy_metric_fields,
+)
 
-METRIC_CONTRACT = "m3-retrieval-metrics-v1"
-RECALL_K = 8
 MARKER_PATTERN = re.compile(r"\[\[(E[1-9][0-9]*)\]\]")
 _MARKER_TOKEN_PATTERN = re.compile(r"\[\[([^\]]*)\]\]")
 _VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
+
+
+def _metric_contract_projection() -> tuple[str, int, tuple[str, str]]:
+    try:
+        metric_contract, recall_k, primary_metrics = policy_metric_fields(
+            canonical_policy_projection()
+        )
+    except ValueError as error:
+        raise ObservationFailure("METRIC_POLICY_INVALID") from error
+    return metric_contract, recall_k, (primary_metrics[0], primary_metrics[1])
 
 
 class ObservationFailure(ValueError):
@@ -351,6 +363,7 @@ class EvaluationEnvironmentBinding:
         )
 
     def provenance(self) -> dict[str, object]:
+        metric_contract, _, _ = _metric_contract_projection()
         modern = (
             self.dataset_version,
             self.dataset_digest,
@@ -385,7 +398,7 @@ class EvaluationEnvironmentBinding:
                 "scorer_prompt": self.scorer_prompt,
                 "scorer_policy": self.scorer_policy,
                 "scorer_stochasticity": self.scorer_stochasticity,
-                "metric_contract": METRIC_CONTRACT,
+                "metric_contract": metric_contract,
                 "source_commit": self.source_commit,
                 "evaluation_commit": self.evaluation_commit,
                 "report_artifact_schema_version": self.report_artifact_schema_version,
@@ -1107,6 +1120,8 @@ def score_retrieval(
     *,
     binding: EvaluationEnvironmentBinding,
 ) -> dict[str, object]:
+    metric_contract, recall_k, primary_metrics = _metric_contract_projection()
+    recall_metric, mrr_metric = primary_metrics
     by_case = {observation.case_id: observation for observation in observations}
     if len(by_case) != len(observations) or set(by_case) != {case.id for case in cases}:
         raise ValueError("observations must contain exactly one result for every case")
@@ -1144,7 +1159,7 @@ def score_retrieval(
             for candidate in candidates
         ):
             raise ObservationFailure("CHUNK_SET_MISMATCH")
-        top_k = candidates[:RECALL_K]
+        top_k = candidates[:recall_k]
         recall_fraction = Fraction(len(gold.intersection(top_k)), len(gold))
         first_rank = next(
             (rank for rank, candidate in enumerate(candidates, start=1) if candidate in gold),
@@ -1157,14 +1172,14 @@ def score_retrieval(
             {
                 "id": case.id,
                 "included": True,
-                "recall_at_8": float(recall_fraction),
+                recall_metric: float(recall_fraction),
                 "reciprocal_rank": float(reciprocal_rank_fraction),
                 "metric_decision_values": {
-                    "recall_at_8": {
+                    recall_metric: {
                         "numerator": recall_fraction.numerator,
                         "denominator": recall_fraction.denominator,
                     },
-                    "mrr": {
+                    mrr_metric: {
                         "numerator": reciprocal_rank_fraction.numerator,
                         "denominator": reciprocal_rank_fraction.denominator,
                     },
@@ -1176,19 +1191,19 @@ def score_retrieval(
     recall_mean = sum(recalls, Fraction(0, 1)) / denominator if denominator else None
     mrr_mean = sum(reciprocal_ranks, Fraction(0, 1)) / denominator if denominator else None
     return {
-        "metric_contract": METRIC_CONTRACT,
-        "recall_k": RECALL_K,
+        "metric_contract": metric_contract,
+        "recall_k": recall_k,
         "chunk_set_provenance_id": binding.chunk_set_provenance_id,
         "denominator": denominator,
-        "recall_at_8": float(recall_mean) if recall_mean is not None else None,
-        "mrr": float(mrr_mean) if mrr_mean is not None else None,
+        recall_metric: float(recall_mean) if recall_mean is not None else None,
+        mrr_metric: float(mrr_mean) if mrr_mean is not None else None,
         "metric_decision_values": (
             {
-                "recall_at_8": {
+                recall_metric: {
                     "numerator": recall_mean.numerator,
                     "denominator": recall_mean.denominator,
                 },
-                "mrr": {
+                mrr_metric: {
                     "numerator": mrr_mean.numerator,
                     "denominator": mrr_mean.denominator,
                 },
@@ -1234,11 +1249,12 @@ def build_report(
         )
     if set(semantic_results) - {observation.case_id for observation in observations}:
         raise ObservationFailure("SEMANTIC_CITATION_RESULT_CASE_MISMATCH")
+    metric_contract, _, _ = _metric_contract_projection()
     report: dict[str, object] = {
         "schema_version": 1,
         "binding_v3": _binding_v3_projection(binding),
         "provenance": {
-            "metric_contract": METRIC_CONTRACT,
+            "metric_contract": metric_contract,
             **binding.provenance(),
         },
         "retrieval": score_retrieval(cases, observations, binding=binding),

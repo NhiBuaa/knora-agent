@@ -36,6 +36,7 @@ from evals.runners.m3_claim_authority import (
     canonical_authority_validation,
     canonical_policy_projection,
     is_non_placeholder_identity,
+    policy_metric_fields,
     policy_provenance_field_names,
     test_claim_rule_authority_fixture,
     validate_approved_authority,
@@ -212,13 +213,15 @@ TAXONOMY_FIXTURE_MAP = MappingProxyType({
     "fixture-insufficient-evidence-correct": "INSUFFICIENT_EVIDENCE_CORRECT",
 })
 TAXONOMY_ENUMS = tuple(TAXONOMY_FIXTURE_MAP.values())
-REPORT_CATEGORY_METRICS = (
-    "recall_at_8",
-    "mrr",
+_REPORT_NON_RETRIEVAL_METRICS = (
     "structural_validity",
     "citation_correctness",
     "refusal_correctness",
     "semantic_citation_correctness",
+)
+REPORT_CATEGORY_METRICS = (
+    *policy_metric_fields(canonical_policy_projection())[2],
+    *_REPORT_NON_RETRIEVAL_METRICS,
 )
 _FIXTURE_STAGES = {
     "fixture-lexical-branch-miss": "branch",
@@ -1061,7 +1064,11 @@ def _validate_category_metric(value: object, *, case_count: int) -> None:
 
 
 def _expected_report_metric(
-    report: Mapping[str, Any], case_ids: tuple[str, ...], metric: str
+    report: Mapping[str, Any],
+    case_ids: tuple[str, ...],
+    metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
 ) -> dict[str, Any]:
     observations = report.get("observations")
     retrieval = report.get("retrieval")
@@ -1086,7 +1093,7 @@ def _expected_report_metric(
         observation = observation_by_id.get(case_id)
         if observation is None:
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        if metric in {"recall_at_8", "mrr"}:
+        if metric in retrieval_metrics:
             retrieval_case = retrieval_by_id.get(case_id)
             if not isinstance(retrieval_case, Mapping):
                 raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
@@ -1109,7 +1116,7 @@ def _expected_report_metric(
         if observation.get("status") in {"failure", "observation_failure"}:
             failures += 1
             continue
-        if metric in {"recall_at_8", "mrr"}:
+        if metric in retrieval_metrics:
             retrieval_case = retrieval_by_id[case_id]
             if retrieval_case.get("included") is not True:
                 raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
@@ -1162,6 +1169,7 @@ def _validate_category_breakdown(
     *,
     expected_case_ids: tuple[str, ...] | None = None,
     require_all_categories: bool = True,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> None:
     breakdown = report.get("category_breakdown")
     if not isinstance(breakdown, Mapping) or set(breakdown) != {"categories", "aggregate"}:
@@ -1170,6 +1178,8 @@ def _validate_category_breakdown(
     aggregate = breakdown.get("aggregate")
     if not isinstance(categories, Mapping) or not isinstance(aggregate, Mapping):
         raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    category_metrics = _report_category_metrics(policy_projection)
+    retrieval_metrics = _metric_contract_fields(policy_projection)[2]
     if require_all_categories and set(categories) != {
         "lexical_exact_match",
         "semantic_paraphrase",
@@ -1196,30 +1206,40 @@ def _validate_category_breakdown(
             metric_names = projection_metrics
         elif projection_metrics != metric_names:
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        if metric_names != set(REPORT_CATEGORY_METRICS):
+        if metric_names != set(category_metrics):
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        for metric in REPORT_CATEGORY_METRICS:
+        for metric in category_metrics:
             _validate_category_metric(projection.get(metric), case_count=case_count)
     if expected_case_ids is not None and (
         len(all_category_ids) != len(set(all_category_ids))
         or tuple(sorted(all_category_ids)) != expected_case_ids
     ):
         raise ComparisonError("CATEGORY_CASE_SET_MISMATCH")
-    if metric_names != set(REPORT_CATEGORY_METRICS):
+    if metric_names != set(category_metrics):
         raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
     aggregate_metrics = set(aggregate)
-    if aggregate_metrics != set(REPORT_CATEGORY_METRICS):
+    if aggregate_metrics != set(category_metrics):
         raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
     aggregate_case_ids = tuple(sorted(all_category_ids))
-    for metric in REPORT_CATEGORY_METRICS:
+    for metric in category_metrics:
         _validate_category_metric(aggregate.get(metric), case_count=sum(
             projection["case_count"] for projection in categories.values()
         ))
-        expected = _expected_report_metric(report, aggregate_case_ids, metric)
+        expected = _expected_report_metric(
+            report,
+            aggregate_case_ids,
+            metric,
+            retrieval_metrics=retrieval_metrics,
+        )
         _assert_metric_projection_matches(aggregate[metric], expected)
         for _category, projection in categories.items():
             category_ids = tuple(sorted(projection["case_ids"]))
-            expected = _expected_report_metric(report, category_ids, metric)
+            expected = _expected_report_metric(
+                report,
+                category_ids,
+                metric,
+                retrieval_metrics=retrieval_metrics,
+            )
             _assert_metric_projection_matches(projection[metric], expected)
 
 
@@ -1488,6 +1508,7 @@ def validate_m3_population_provenance(
         "corpus_digest": _M3_CORPUS_MANIFEST_SHA256,
         "chunk_set_id": _M3_CHUNK_SET_PROVENANCE_ID,
         "workspace": _M3_WORKSPACE_ID,
+        "source_commit": M3_POPULATION_SOURCE_COMMIT,
     }
     if any(provenance.get(field) != expected for field, expected in expected_provenance.items()):
         raise ComparisonError("PROVENANCE_MISMATCH")
@@ -1502,10 +1523,32 @@ def validate_m3_population_provenance(
         raise ComparisonError("PROVENANCE_MISMATCH")
     if repository_root is not None:
         try:
+            root = repository_root.resolve()
+            _validate_m3_manifest_source_commit(root, M3_POPULATION_SOURCE_COMMIT)
+            measured_commit = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            for path, expected_blob in (
+                (_M3_DATASET_MANIFEST, _M3_DATASET_MANIFEST_BLOB),
+                (_M3_CORPUS_MANIFEST, _M3_CORPUS_MANIFEST_BLOB),
+            ):
+                measured_blob = subprocess.run(
+                    ["git", "rev-parse", f"{measured_commit}:{path}"],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+                if measured_blob != expected_blob:
+                    raise ComparisonError("PROVENANCE_MISMATCH")
             corpus = load_milestone_3_corpus_manifest(
-                repository_root.resolve() / _M3_CORPUS_MANIFEST
+                root / _M3_CORPUS_MANIFEST
             )
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
             raise ComparisonError("PROVENANCE_MISMATCH") from error
         expected_sources = {reference.rsplit("#", 1)[0] for reference in corpus.chunks}
         source_bindings = binding.get("source_bindings")
@@ -1829,13 +1872,25 @@ def select_improvement(
             return _no_claim(common, "OBSERVATION_FAILURE")
         _validate_report_guardrails(vector_report)
         _validate_report_guardrails(hybrid_report)
-        _validate_metric_contract(vector_report, expected_case_ids)
-        _validate_metric_contract(hybrid_report, expected_case_ids)
-        _validate_category_breakdown(
-            vector_report, expected_case_ids=expected_case_ids
+        _validate_metric_contract(
+            vector_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_metric_contract(
+            hybrid_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
         )
         _validate_category_breakdown(
-            hybrid_report, expected_case_ids=expected_case_ids
+            vector_report,
+            expected_case_ids=expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_category_breakdown(
+            hybrid_report,
+            expected_case_ids=expected_case_ids,
+            policy_projection=bound_authority.projection,
         )
     except ComparisonError as error:
         reason = (
@@ -1946,7 +2001,12 @@ def _case_field(case: object, name: str, default: Any = None) -> Any:
     return getattr(case, name, default)
 
 
-def _metric_applicable(case: object, metric: str) -> bool:
+def _metric_applicable(
+    case: object,
+    metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
+) -> bool:
     if metric == "semantic_citation_correctness":
         return _case_field(case, "expected_behavior") == "ANSWER"
     if metric in {
@@ -1956,7 +2016,7 @@ def _metric_applicable(case: object, metric: str) -> bool:
     }:
         return True
     relevance = _case_field(case, "retrieval_relevance")
-    if metric in {"recall_at_8", "mrr", "hit_rate"} and relevance is not None:
+    if metric in retrieval_metrics and relevance is not None:
         return bool(_case_field(relevance, "applicable", False))
     applicability = _case_field(case, "metric_applicability", {})
     if isinstance(applicability, Mapping) and metric in applicability:
@@ -1969,12 +2029,14 @@ def _metric_observation_value(
     report_cases: Mapping[str, Mapping[str, Any]],
     case_id: str,
     metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
 ) -> float | bool | None:
     value = observation.get(metric)
     if value is None:
         report_case = report_cases.get(case_id, {})
         value = report_case.get(metric)
-        if value is None and metric == "mrr":
+        if value is None and retrieval_metrics and metric == retrieval_metrics[-1]:
             # The retrieval report names each per-case MRR value reciprocal_rank;
             # preserve that value when reconciling category denominators.
             value = report_case.get("reciprocal_rank")
@@ -1993,6 +2055,8 @@ def _category_metric(
     case_list: list[object],
     report: Mapping[str, Any],
     metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
 ) -> dict[str, Any]:
     raw_observations = report.get("observations", [])
     if not isinstance(raw_observations, list):
@@ -2025,7 +2089,11 @@ def _category_metric(
     for case in case_list:
         case_id = _case_field(case, "id")
         observation = observations.get(case_id, {})
-        if not _metric_applicable(case, metric):
+        if not _metric_applicable(
+            case,
+            metric,
+            retrieval_metrics=retrieval_metrics,
+        ):
             inapplicable_count += 1
             continue
         applicable_count += 1
@@ -2035,7 +2103,13 @@ def _category_metric(
         if observation.get("status") in {"failure", "observation_failure"}:
             observation_failure_count += 1
             continue
-        value = _metric_observation_value(observation, retrieval_cases, case_id, metric)
+        value = _metric_observation_value(
+            observation,
+            retrieval_cases,
+            case_id,
+            metric,
+            retrieval_metrics=retrieval_metrics,
+        )
         if value is None:
             observation_failure_count += 1
             continue
@@ -2055,9 +2129,13 @@ def build_category_breakdown(
     cases: Iterable[object],
     report: Mapping[str, Any],
     *,
-    metrics: Iterable[str] = REPORT_CATEGORY_METRICS,
+    metrics: Iterable[str] | None = None,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Reconcile each metric against its own category membership and applicability set."""
+    retrieval_metrics = _metric_contract_fields(policy_projection)[2]
+    if metrics is None:
+        metrics = _report_category_metrics(policy_projection)
     try:
         metric_names = tuple(metrics)
     except TypeError:
@@ -2081,7 +2159,12 @@ def build_category_breakdown(
             "case_ids": sorted(_case_field(case, "id") for case in category_cases),
             "case_count": len(category_cases),
             **{
-                metric: _category_metric(category_cases, report, metric)
+                metric: _category_metric(
+                    category_cases,
+                    report,
+                    metric,
+                    retrieval_metrics=retrieval_metrics,
+                )
                 for metric in metric_names
             },
         }
@@ -2089,7 +2172,12 @@ def build_category_breakdown(
     return {
         "categories": categories,
         "aggregate": {
-            metric: _category_metric(all_cases, report, metric)
+            metric: _category_metric(
+                all_cases,
+                report,
+                metric,
+                retrieval_metrics=retrieval_metrics,
+            )
             for metric in metric_names
         },
     }
@@ -2275,15 +2363,47 @@ def _validate_metric_display(value: object, decision: Fraction) -> None:
         raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
 
 
+def _metric_contract_fields(
+    policy_projection: Mapping[str, Any] | None = None,
+) -> tuple[str, int, tuple[str, str]]:
+    projection = (
+        canonical_policy_projection() if policy_projection is None else policy_projection
+    )
+    try:
+        metric_contract, recall_k, primary_metrics = policy_metric_fields(projection)
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+    return metric_contract, recall_k, (primary_metrics[0], primary_metrics[1])
+
+
+def _report_category_metrics(
+    policy_projection: Mapping[str, Any] | None = None,
+) -> tuple[str, ...]:
+    try:
+        primary_metrics = policy_metric_fields(
+            canonical_policy_projection()
+            if policy_projection is None
+            else policy_projection
+        )[2]
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+    return (*primary_metrics, *_REPORT_NON_RETRIEVAL_METRICS)
+
+
 def _validate_metric_contract(
-    report: Mapping[str, Any], expected_case_ids: tuple[str, ...] | None = None
+    report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...] | None = None,
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> None:
+    metric_contract, recall_k, primary_metrics = _metric_contract_fields(policy_projection)
+    recall_metric, mrr_metric = primary_metrics
     retrieval = report.get("retrieval")
     if not isinstance(retrieval, Mapping):
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
-    if retrieval.get("metric_contract") != "m3-retrieval-metrics-v1":
+    if retrieval.get("metric_contract") != metric_contract:
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
-    if retrieval.get("recall_k") != 8:
+    if retrieval.get("recall_k") != recall_k:
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
     if not isinstance(retrieval.get("cases"), list) or not retrieval["cases"]:
         raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
@@ -2292,22 +2412,17 @@ def _validate_metric_contract(
     if type(denominator) is not int or denominator < 0:
         raise ComparisonError("METRIC_DENOMINATOR_INVALID")
     if denominator == 0:
-        if retrieval.get("recall_at_8") is not None or retrieval.get("mrr") is not None:
+        if retrieval.get(recall_metric) is not None or retrieval.get(mrr_metric) is not None:
             raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
         if metric_values != {}:
             raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
     else:
-        if not isinstance(metric_values, Mapping) or set(metric_values) != {
-            "recall_at_8",
-            "mrr",
-        }:
+        if not isinstance(metric_values, Mapping) or set(metric_values) != set(primary_metrics):
             raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
         for name, value in metric_values.items():
             decision = _rational(value)
             _validate_metric_display(
-                retrieval.get("recall_at_8" if name == "recall_at_8" else "mrr")
-                if name in {"recall_at_8", "mrr"}
-                else None,
+                retrieval.get(recall_metric if name == recall_metric else mrr_metric),
                 decision,
             )
     case_ids: list[str] = []
@@ -2320,12 +2435,12 @@ def _validate_metric_contract(
             raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
         if included:
             values = item.get("metric_decision_values")
-            if not isinstance(values, Mapping) or set(values) != {"recall_at_8", "mrr"}:
+            if not isinstance(values, Mapping) or set(values) != set(primary_metrics):
                 raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
             for name, value in values.items():
                 decision = _rational(value)
                 _validate_metric_display(
-                    item.get("recall_at_8" if name == "recall_at_8" else "reciprocal_rank"),
+                    item.get(recall_metric if name == recall_metric else "reciprocal_rank"),
                     decision,
                 )
         elif not isinstance(item.get("exclusion_reason"), str) or not item["exclusion_reason"]:
@@ -2393,13 +2508,26 @@ def compare_paired_reports(
         hybrid_report
     ):
         raise ComparisonError("PROVENANCE_MISMATCH")
-    _validate_metric_contract(vector_report, canonical_expected)
-    _validate_metric_contract(hybrid_report, canonical_expected)
-    _validate_category_breakdown(
-        vector_report, expected_case_ids=canonical_expected
+    policy_projection = canonical_policy_projection()
+    _validate_metric_contract(
+        vector_report,
+        canonical_expected,
+        policy_projection=policy_projection,
+    )
+    _validate_metric_contract(
+        hybrid_report,
+        canonical_expected,
+        policy_projection=policy_projection,
     )
     _validate_category_breakdown(
-        hybrid_report, expected_case_ids=canonical_expected
+        vector_report,
+        expected_case_ids=canonical_expected,
+        policy_projection=policy_projection,
+    )
+    _validate_category_breakdown(
+        hybrid_report,
+        expected_case_ids=canonical_expected,
+        policy_projection=policy_projection,
     )
     if vector_config == hybrid_config:
         raise ComparisonError("RETRIEVAL_CONFIGURATION_NOT_PAIRED")
@@ -2409,8 +2537,12 @@ def compare_paired_reports(
     ):
         raise ComparisonError("RETRIEVAL_CONFIGURATION_NOT_APPROVED")
     if _provenance_without_allowed_differences(
-        vector_report
-    ) != _provenance_without_allowed_differences(hybrid_report):
+        vector_report,
+        policy_projection=policy_projection,
+    ) != _provenance_without_allowed_differences(
+        hybrid_report,
+        policy_projection=policy_projection,
+    ):
         raise ComparisonError("PROVENANCE_MISMATCH")
 
     pair_records = [
