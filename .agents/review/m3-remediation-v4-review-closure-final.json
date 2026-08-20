@@ -6,18 +6,18 @@
   "critical_count": 0,
   "major_count": 0,
   "minor_count": 0,
-  "subject_commit": "c6215e2ca5f6bd0f379578f9227a22b4677c8a00",
-  "subject_blob": "46335efc0abcbaf8fe74677269923571c64e7ca1",
+  "subject_commit": "33c513d66d41793306dd139234b76270c0da9185",
+  "subject_blob": "a25bf92b71d28eddc56351046518d95c989f3173",
   "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
   "scope_projection": {
     "path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
-    "git_blob": "47beb218725b5fffd3150867ce23fe768d1dad14",
-    "raw_sha256": "sha256:ccc2d6b50c60ee8bb4abc8cfaaa03011d5ee098495134b0cda138caf55d609bc"
+    "git_blob": "9604f4d948c540d6c7598fc5e40b43845d4be523",
+    "raw_sha256": "sha256:4fcc255072699591c4b56b138d9bec11c9e5006930a87fea2c4e5f6a47f540a8"
   },
   "response_projection": {
     "path": ".agents/review/m3-remediation-v4-response-projection-final.json",
-    "git_blob": "a84b521bc552b0eb10e198a73145ee4652069b69",
-    "raw_sha256": "sha256:dbe7026a2a9ce76e89c9b73a70d5b5b8a8d6d6070ee160b36a5e357684e2303a"
+    "git_blob": "58736c5163fde555708e0f14c41c0d4dbe63b864",
+    "raw_sha256": "sha256:9f0e2e2ee72eb4b888768e0d8728842db445c0c4814dec733140ec0eb41f1a1e"
   },
   "identity": {
     "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
