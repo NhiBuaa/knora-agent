@@ -13,14 +13,14 @@ def test_production_authority_binds_the_independent_m3_review_chain() -> None:
         sealed_archive_path=repository_root
         / ".agents/review/m3-improvement-claim-v1-approval-sealed-v2.tar",
         closure_path=repository_root
-        / ".agents/review/m3-improvement-claim-v1-approval-closure-v2.json",
+        / ".agents/review/m3-remediation-v4-review-closure-final.json",
     )
 
     assert result["status"] == "APPROVED_EFFECTIVE"
     authority = result["authority"]
-    assert authority.external_reviewer_id == "codex-agent:/root/m3_remediation_external_review_v3"
-    assert authority.review_subject_commit == "f6956025d7fd3a4961e2bb6de7a14eab5120d513"
-    assert authority.review_subject_blob == "e8224b30f42998b7b0cec96530a1c09ce3e20d0f"
+    assert authority.external_reviewer_id == "codex-agent:/root/m3_final_package_review_v4"
+    assert authority.review_subject_commit == "c27613cc8124802bafcf24263809564796a94454"
+    assert authority.review_subject_blob == "138979a2893d8f1784267241f1153f3001af6044"
     assert authority.review_scope_digest.startswith("sha256:")
     assert authority.review_response_digest.startswith("sha256:")
     assert authority.external_reviewer_id != authority.approved_by
