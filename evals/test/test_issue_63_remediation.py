@@ -1043,12 +1043,12 @@ def test_canonical_production_entry_point_validates_approved_chain(tmp_path: Pat
         sealed_archive_path=repository_root
         / ".agents/review/m3-improvement-claim-v1-approval-sealed-v2.tar",
         closure_path=repository_root
-        / ".agents/review/m3-improvement-claim-v1-approval-closure-v2.json",
+        / ".agents/review/m3-remediation-v4-review-closure-final.json",
         binding_attestation=binding_attestation,
     )
 
     assert result["status"] == "NO_CLAIM"
-    assert result["reason"] == "CASE_SET_MISMATCH"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
     assert result["claim_rule_digest"].startswith("sha256:")
 
 
@@ -1069,7 +1069,7 @@ def test_production_selection_binds_the_immutable_m3_population(tmp_path: Path) 
     )
 
     assert result["status"] == "NO_CLAIM"
-    assert result["reason"] == "CASE_SET_MISMATCH"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
 
 
 def test_selected_improvement_retains_paired_latency_values_and_deltas() -> None:
