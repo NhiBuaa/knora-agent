@@ -71,9 +71,16 @@
 ### TC-06: Pair latency projection
 
 - Purpose: retain auditable vector/hybrid trade-offs.
-- Steps: verify `m3-paired-latency-v1` and `m3-latency-boundary-v1`; recompute both deltas.
-- Expected results: both independent metrics and explicit deltas reconcile; streaming=false; no hard cutoff.
-- Evidence: per-case projection and recomputation.
+- Steps: verify `m3-paired-latency-v1` and `m3-latency-boundary-v1`; inspect server phase evidence
+  proving `retrieval_start` occurs after authenticated request validation and immediately before
+  `AnsweringStore.retrieve_candidates`, while `retrieval_end` occurs after Evidence Selection and
+  before generation. Recompute both vector/hybrid deltas and separately inspect the executor's
+  response-completion boundary.
+- Expected results: server retrieval latency includes exactly candidate retrieval plus Evidence
+  Selection and excludes generation; end-to-end ends after the complete non-streaming response
+  body; both independent metrics and explicit deltas reconcile; `streaming=false`; no hard cutoff.
+- Evidence: server phase markers/call-path projection, per-case pair projection and recomputation,
+  and executor clock-boundary observation.
 
 ### TC-07: Artifact hygiene and verification
 

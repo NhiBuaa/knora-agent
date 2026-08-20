@@ -16,10 +16,16 @@
 
 - Purpose: require the production `HttpEvaluationExecutor` seam.
 - Steps: use `evals.runners.milestone_3.HttpEvaluationExecutor`; assert compatibility alias;
-  inject response trace-ID and Workspace mismatches; capture response-completion clock before trace work.
-- Expected results: only public Q&A path runs; mismatches are observation failures; end-to-end excludes
-  trace loading/scoring and uses the response-completion boundary.
-- Evidence: symbol/call-path assertion, fault matrix and clock observation.
+  record the HTTP method, public Q&A route, request Workspace and response trace ID; prove the
+  executor sends the request to the public Q&A endpoint and reads the exact `(workspace_id,
+  trace_id)` trace. Inject response trace-ID and Workspace mismatches; capture response-completion
+  clock before trace work; inspect the call path to prove no evaluation-only retrieval function is
+  invoked.
+- Expected results: route/request evidence identifies the public Q&A seam; only that path runs;
+  mismatches are observation failures; end-to-end excludes trace loading/scoring and uses the
+  response-completion boundary.
+- Evidence: route/request projection or digest, symbol/call-path assertion, no-evaluation-only
+  retrieval proof, fault matrix and clock observation.
 
 ### TC-02: Authority and exact policy provenance
 
