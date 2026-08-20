@@ -7,8 +7,8 @@
 - Authoritative specification: `docs/design/m3-remediation-v4.md`, R2 canonical executor seam
 - Guide revision: `m3-remediation-69-v4`
 - Supersedes: `m3-remediation-69-v3`
-- Approved by: pending independent external review
-- Approved at: pending external review
+- Approved by: NhiBuaa (explicit repository-owner authorization in the active M3 completion task)
+- Approved at: 2026-08-20; immutable after external review and this approval
 
 ## Locked Test Cases
 

@@ -7,8 +7,8 @@
 - Authoritative specification: `docs/design/m3-remediation-v4.md`, R1
 - Guide revision: `m3-remediation-68-v3`
 - Supersedes: `m3-remediation-68-v2`
-- Approved by: pending independent external guide review
-- Approved at: pending external review
+- Approved by: NhiBuaa (explicit repository-owner authorization in the active M3 completion task)
+- Approved at: 2026-08-20; immutable after external review and this approval
 
 ## Prerequisites
 
