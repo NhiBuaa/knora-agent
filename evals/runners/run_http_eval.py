@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import sys
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from time import perf_counter
@@ -61,14 +62,16 @@ class HttpEvaluationExecutor:
         api_key: str,
         trace_reader: TraceReader,
         client: httpx.AsyncClient,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._endpoint = endpoint
         self._api_key = api_key
         self._trace_reader = trace_reader
         self._client = client
+        self._clock = clock or perf_counter
 
     async def execute(self, case: EvaluationCase) -> EvaluationObservation:
-        started = perf_counter()
+        started = self._clock()
         response_completed: float | None = None
         try:
             response = await self._client.post(
@@ -76,7 +79,7 @@ class HttpEvaluationExecutor:
                 headers={"X-API-Key": self._api_key},
                 json={"workspace_id": case.workspace_id, "question": case.question},
             )
-            response_completed = perf_counter()
+            response_completed = self._clock()
             response.raise_for_status()
             payload = response.json()
             public = validate_public_response(payload)
@@ -103,7 +106,7 @@ class HttpEvaluationExecutor:
                 decision="ERROR",
                 refusal_reason=None,
                 end_to_end_latency_ms=(
-                    (response_completed if response_completed is not None else perf_counter())
+                    (response_completed if response_completed is not None else self._clock())
                     - started
                 )
                 * 1000,
@@ -171,7 +174,7 @@ class HttpEvaluationExecutor:
                 decision="ERROR",
                 refusal_reason=None,
                 end_to_end_latency_ms=(
-                    (response_completed if response_completed is not None else perf_counter())
+                    (response_completed if response_completed is not None else self._clock())
                     - started
                 )
                 * 1000,
@@ -194,7 +197,7 @@ class HttpEvaluationExecutor:
             ),
             trace_id=response_trace_id,
             end_to_end_latency_ms=(
-                (response_completed if response_completed is not None else perf_counter())
+                (response_completed if response_completed is not None else self._clock())
                 - started
             )
             * 1000,

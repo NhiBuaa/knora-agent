@@ -48,9 +48,12 @@
   no contribution. Only fused candidates may carry `SELECTED`, `REDUNDANT_OVERLAP`,
   `BUDGET_EXCEEDED` or `ELIGIBLE_NOT_SELECTED` with `final_rank`/`fusion_score`; a fused
   `BUDGET_EXCEEDED` candidate must distinguish `decision_reason=TOKEN_BUDGET` from
-  `decision_reason=CHUNK_COUNT_LIMIT`. Negative cases mutate a pre-fusion status into a fused
-  decision, assign `final_rank`/`fusion_score` to a branch loss, or swap the two budget reasons;
-  each must fail closed. Pre-fusion statuses never receive fused rank/score.
+  `decision_reason=CHUNK_COUNT_LIMIT` using persisted typed budget evidence (configured chunk/token
+  limits, selected counts/tokens, candidate token count and total). The reader must bind candidate
+  token count to the persisted chunk and reject a reason that does not match the actual condition.
+  Negative cases swap both budget reasons, mutate a pre-fusion status into a fused decision, assign
+  `final_rank`/`fusion_score` to a branch loss, or swap the two budget reasons; each must fail
+  closed. Pre-fusion statuses never receive fused rank/score.
 
 ### TC-04: Public citation and refusal semantics
 

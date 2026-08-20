@@ -76,13 +76,25 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
         retrieval_configuration_id="retrieval-m1-v1",
         embedding_configuration_id="embedding-local-m1-v2",
     )
-    reader = SimpleNamespace(read_trace=lambda **kwargs: trace)
+    clock_events: list[str] = []
+    clock_values = iter((20.0, 20.25))
+
+    def clock() -> float:
+        clock_events.append("clock")
+        return next(clock_values)
+
+    def read_trace(**_kwargs: object) -> SimpleNamespace:
+        clock_events.append("trace")
+        return trace
+
+    reader = SimpleNamespace(read_trace=read_trace)
     client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
     executor = HttpEvaluationExecutor(
         endpoint="http://knora.test/v1/questions",
         api_key="runtime-secret",
         trace_reader=reader,
         client=client,
+        clock=clock,
     )
     case = EvaluationCase(
         "refund",
@@ -110,6 +122,8 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
     assert observation.retrieval_configuration_id == "retrieval-m1-v1"
     assert observation.embedding_provider == "deterministic-local"
     assert observation.generation_prompt_version == "deterministic-m1-v1"
+    assert observation.end_to_end_latency_ms == 250.0
+    assert clock_events == ["clock", "clock", "trace"]
 
 
 @pytest.mark.asyncio

@@ -331,6 +331,7 @@ class AnswerQuestion:
                     "fusion_score": item.candidate.fusion_score,
                     "final_decision": final_decision,
                     "decision_reason": decision_reason,
+                    "budget_evidence": item.budget_evidence,
                     "vector_contribution": item.candidate.vector_contribution,
                     "fts_contribution": item.candidate.fts_contribution,
                 }

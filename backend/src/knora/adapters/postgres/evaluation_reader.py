@@ -210,6 +210,7 @@ class PostgresEvaluationReader:
             for chunk, document, _ in by_chunk.values()
         ):
             raise LookupError("evaluation candidate provenance mismatch")
+        _validate_candidate_budget_evidence(decisions, by_chunk)
         candidates = tuple(
             EvaluationCandidateProjection(
                 chunk_id=chunk_id,
@@ -298,6 +299,22 @@ class PostgresEvaluationReader:
         )
         return ActiveCorpusProjection(workspace_id=workspace_id, documents=documents)
 
+def _validate_candidate_budget_evidence(
+    decisions: list[dict[str, object]],
+    by_chunk: dict[str, tuple[object, object, object]],
+) -> None:
+    """Bind persisted budget evidence to the authoritative chunk token counts."""
+    for decision in decisions:
+        evidence = decision.get("budget_evidence")
+        if evidence is None:
+            continue
+        chunk_id = decision.get("chunk_id")
+        resolved = by_chunk.get(chunk_id) if isinstance(chunk_id, str) else None
+        chunk = resolved[0] if resolved is not None else None
+        token_count = getattr(chunk, "token_count", None)
+        if not isinstance(evidence, dict) or evidence.get("candidate_token_count") != token_count:
+            raise LookupError("evaluation candidate budget evidence is invalid")
+
 
 def _ordered_candidate_ids(
     decisions: list[dict[str, object]], *, fusion_policy_version: str | None = None
@@ -321,13 +338,18 @@ def _ordered_candidate_ids(
         fts_contribution = decision.get("fts_contribution")
         final_decision = decision.get("final_decision")
         decision_reason = decision.get("decision_reason")
+        budget_evidence = decision.get("budget_evidence")
         if (
             not isinstance(decision.get("fusion_score"), (int, float))
             or isinstance(decision.get("fusion_score"), bool)
             or not isfinite(float(decision["fusion_score"]))
             or not isinstance(final_decision, str)
             or final_decision not in _VALID_FINAL_DECISIONS
-            or not _valid_decision_reason(final_decision, decision_reason)
+            or not _valid_decision_reason(
+                final_decision,
+                decision_reason,
+                budget_evidence,
+            )
             or not _valid_contribution(vector_contribution, branch="vector")
             or not _valid_contribution(fts_contribution, branch="fts")
             or (vector_contribution is None and fts_contribution is None)
@@ -342,12 +364,61 @@ def _ordered_candidate_ids(
     return chunk_ids
 
 
-def _valid_decision_reason(final_decision: str, decision_reason: object) -> bool:
+def _valid_decision_reason(
+    final_decision: str,
+    decision_reason: object,
+    budget_evidence: object,
+) -> bool:
     if final_decision == "BUDGET_EXCEEDED":
-        return isinstance(decision_reason, str) and decision_reason in _VALID_DECISION_REASONS
-    if decision_reason is None:
-        return True
-    return isinstance(decision_reason, str) and decision_reason in _VALID_DECISION_REASONS
+        return (
+            isinstance(decision_reason, str)
+            and decision_reason in _VALID_DECISION_REASONS
+            and _valid_budget_evidence(decision_reason, budget_evidence)
+        )
+    return decision_reason is None and budget_evidence is None
+
+
+def _valid_budget_evidence(reason: str, evidence: object) -> bool:
+    if not isinstance(evidence, dict) or set(evidence) != {
+        "max_evidence_chunks",
+        "max_evidence_tokens",
+        "selected_chunk_count",
+        "selected_token_count",
+        "candidate_token_count",
+        "token_total",
+    }:
+        return False
+    max_chunks = evidence.get("max_evidence_chunks")
+    max_tokens = evidence.get("max_evidence_tokens")
+    selected_chunks = evidence.get("selected_chunk_count")
+    selected_tokens = evidence.get("selected_token_count")
+    candidate_tokens = evidence.get("candidate_token_count")
+    token_total = evidence.get("token_total")
+    if (
+        any(
+            type(value) is not int
+            for value in (
+                max_chunks,
+                max_tokens,
+                selected_chunks,
+                selected_tokens,
+                candidate_tokens,
+                token_total,
+            )
+        )
+        or max_chunks < 1
+        or max_tokens < 1
+        or selected_chunks < 0
+        or selected_chunks > max_chunks
+        or selected_tokens < 0
+        or selected_tokens > max_tokens
+        or candidate_tokens < 1
+        or token_total != selected_tokens + candidate_tokens
+    ):
+        return False
+    if reason == "TOKEN_BUDGET":
+        return selected_chunks < max_chunks and token_total > max_tokens
+    return selected_chunks >= max_chunks
 
 
 def _valid_contribution(value: object, *, branch: str) -> bool:

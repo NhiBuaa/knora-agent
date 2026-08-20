@@ -36,6 +36,7 @@ from evals.runners.m3_claim_authority import (
     canonical_authority_validation,
     canonical_policy_projection,
     is_non_placeholder_identity,
+    policy_guardrail_keys,
     policy_metric_fields,
     policy_provenance_field_names,
     test_claim_rule_authority_fixture,
@@ -786,19 +787,39 @@ def _fraction_text(value: Fraction) -> str:
     return f"{value.numerator}/{value.denominator}"
 
 
-def validate_guardrail_shape(guardrails: object) -> dict[str, bool]:
+def _guardrail_keys(policy_projection: Mapping[str, Any] | None = None) -> tuple[str, ...]:
+    projection = (
+        canonical_policy_projection() if policy_projection is None else policy_projection
+    )
+    try:
+        return policy_guardrail_keys(projection)
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+
+
+def validate_guardrail_shape(
+    guardrails: object,
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
     """Validate the immutable closed key/type contract, retaining false observations."""
-    if not isinstance(guardrails, Mapping) or set(guardrails) != set(REQUIRED_GUARDRAIL_KEYS):
+    keys = _guardrail_keys(policy_projection)
+    if not isinstance(guardrails, Mapping) or set(guardrails) != set(keys):
         raise ComparisonError("GUARDRAIL_FAILURE")
-    if any(type(guardrails[key]) is not bool for key in REQUIRED_GUARDRAIL_KEYS):
+    if any(type(guardrails[key]) is not bool for key in keys):
         raise ComparisonError("GUARDRAIL_FAILURE")
-    return {key: guardrails[key] for key in REQUIRED_GUARDRAIL_KEYS}
+    return {key: guardrails[key] for key in keys}
 
 
-def validate_guardrails(guardrails: object) -> dict[str, bool]:
+def validate_guardrails(
+    guardrails: object,
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
     """Validate the immutable closed guardrail contract and require all values true."""
-    shaped = validate_guardrail_shape(guardrails)
-    if any(shaped[key] is not True for key in REQUIRED_GUARDRAIL_KEYS):
+    keys = _guardrail_keys(policy_projection)
+    shaped = validate_guardrail_shape(guardrails, policy_projection=policy_projection)
+    if any(shaped[key] is not True for key in keys):
         raise ComparisonError("GUARDRAIL_FAILURE")
     return shaped
 
@@ -822,8 +843,12 @@ def _has_observation_failure(report: Mapping[str, Any]) -> bool:
 
 
 def _validate_observation_set(
-    report: Mapping[str, Any], expected_case_ids: tuple[str, ...]
+    report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...],
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], ...]:
+    guardrail_keys = _guardrail_keys(policy_projection)
     observations = report.get("observations")
     if not isinstance(observations, list):
         raise ComparisonError("OBSERVATIONS_INVALID")
@@ -862,7 +887,7 @@ def _validate_observation_set(
             _validate_public_observation_projection(observation)
             if any(
                 type(observation.get(field)) is not bool
-                for field in REQUIRED_GUARDRAIL_KEYS
+                for field in guardrail_keys
             ):
                 raise ComparisonError("GUARDRAIL_FAILURE")
             provenance = report.get("provenance")
@@ -994,14 +1019,19 @@ def _validate_latency_disclosure(report: Mapping[str, Any]) -> None:
             raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
 
 
-def _validate_report_guardrails(report: Mapping[str, Any]) -> dict[str, bool]:
+def _validate_report_guardrails(
+    report: Mapping[str, Any],
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
+    guardrail_keys = _guardrail_keys(policy_projection)
     observations = report.get("observations")
     if not isinstance(observations, list):
         raise ComparisonError("GUARDRAIL_FAILURE")
     observed = [item for item in observations if isinstance(item, Mapping)]
     answer_observations = [item for item in observed if item.get("decision") == "ANSWER"]
     refusal_values = [item.get("refusal_correctness") for item in observed]
-    expected = {
+    expected_by_name = {
         "structural_validity": bool(observed)
         and len(observed) == len(observations)
         and all(item.get("status") == "observed" for item in observed)
@@ -1011,8 +1041,14 @@ def _validate_report_guardrails(report: Mapping[str, Any]) -> dict[str, bool]:
         "refusal_correctness": bool(refusal_values)
         and all(value is True for value in refusal_values),
     }
+    if set(guardrail_keys) != set(expected_by_name):
+        raise ComparisonError("POLICY_PROJECTION_INVALID")
+    expected = {key: expected_by_name[key] for key in guardrail_keys}
     try:
-        shaped = validate_guardrail_shape(report.get("guardrails"))
+        shaped = validate_guardrail_shape(
+            report.get("guardrails"),
+            policy_projection=policy_projection,
+        )
     except ComparisonError:
         raise ComparisonError("GUARDRAIL_FAILURE") from None
     if shaped != expected:
@@ -1710,8 +1746,11 @@ def _policy_gate_reason(
     deltas: tuple[Fraction, ...],
 ) -> tuple[str | None, dict[str, bool]]:
     try:
-        _validate_report_guardrails(vector_report)
-        hybrid_guardrails = validate_guardrails(_validate_report_guardrails(hybrid_report))
+        _validate_report_guardrails(vector_report, policy_projection=projection)
+        hybrid_guardrails = validate_guardrails(
+            _validate_report_guardrails(hybrid_report, policy_projection=projection),
+            policy_projection=projection,
+        )
     except ComparisonError:
         return "GUARDRAIL_FAILURE", {}
     for report in (vector_report, hybrid_report):
@@ -1866,12 +1905,26 @@ def select_improvement(
     if not isinstance(vector_report, Mapping) or not isinstance(hybrid_report, Mapping):
         return _no_claim(common, "PROVENANCE_MISMATCH")
     try:
-        _validate_observation_set(vector_report, expected_case_ids)
-        _validate_observation_set(hybrid_report, expected_case_ids)
+        _validate_observation_set(
+            vector_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_observation_set(
+            hybrid_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
         if _has_observation_failure(vector_report) or _has_observation_failure(hybrid_report):
             return _no_claim(common, "OBSERVATION_FAILURE")
-        _validate_report_guardrails(vector_report)
-        _validate_report_guardrails(hybrid_report)
+        _validate_report_guardrails(
+            vector_report,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_report_guardrails(
+            hybrid_report,
+            policy_projection=bound_authority.projection,
+        )
         _validate_metric_contract(
             vector_report,
             expected_case_ids,
@@ -2498,8 +2551,17 @@ def compare_paired_reports(
 
     vector_config = _validate_configuration_semantics(vector_report)
     hybrid_config = _validate_configuration_semantics(hybrid_report)
-    _validate_observation_set(vector_report, canonical_expected)
-    _validate_observation_set(hybrid_report, canonical_expected)
+    policy_projection = canonical_policy_projection()
+    _validate_observation_set(
+        vector_report,
+        canonical_expected,
+        policy_projection=policy_projection,
+    )
+    _validate_observation_set(
+        hybrid_report,
+        canonical_expected,
+        policy_projection=policy_projection,
+    )
     vector_binding = _validate_binding_v3(vector_report)
     hybrid_binding = _validate_binding_v3(hybrid_report)
     if vector_binding != hybrid_binding:
@@ -2508,7 +2570,6 @@ def compare_paired_reports(
         hybrid_report
     ):
         raise ComparisonError("PROVENANCE_MISMATCH")
-    policy_projection = canonical_policy_projection()
     _validate_metric_contract(
         vector_report,
         canonical_expected,

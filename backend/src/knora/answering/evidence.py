@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from knora.answering.stores import RetrievalCandidate, RetrievalConfiguration
 
@@ -7,6 +8,7 @@ from knora.answering.stores import RetrievalCandidate, RetrievalConfiguration
 class CandidateDecision:
     candidate: RetrievalCandidate
     outcome: str
+    budget_evidence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,15 +40,36 @@ def select_evidence(
     decisions: list[CandidateDecision] = []
     selected_tokens = 0
     for candidate in candidates:
+        budget_evidence: dict[str, Any] | None = None
         if any(_is_redundant(candidate, item.candidate) for item in selected):
             outcome = "REDUNDANT_OVERLAP"
         elif len(selected) >= configuration.max_evidence_chunks:
             outcome = "CHUNK_COUNT_LIMIT"
+            budget_evidence = {
+                "max_evidence_chunks": configuration.max_evidence_chunks,
+                "max_evidence_tokens": configuration.max_evidence_tokens,
+                "selected_chunk_count": len(selected),
+                "selected_token_count": selected_tokens,
+                "candidate_token_count": candidate.token_count,
+                "token_total": selected_tokens + candidate.token_count,
+            }
         elif selected_tokens + candidate.token_count > configuration.max_evidence_tokens:
             outcome = "TOKEN_BUDGET_EXCEEDED"
+            budget_evidence = {
+                "max_evidence_chunks": configuration.max_evidence_chunks,
+                "max_evidence_tokens": configuration.max_evidence_tokens,
+                "selected_chunk_count": len(selected),
+                "selected_token_count": selected_tokens,
+                "candidate_token_count": candidate.token_count,
+                "token_total": selected_tokens + candidate.token_count,
+            }
         else:
             outcome = "SELECTED"
-        decision = CandidateDecision(candidate=candidate, outcome=outcome)
+        decision = CandidateDecision(
+            candidate=candidate,
+            outcome=outcome,
+            budget_evidence=budget_evidence,
+        )
         decisions.append(decision)
         if outcome == "SELECTED":
             selected.append(decision)

@@ -63,9 +63,13 @@ paths: `.agents/design/m3-remediation-v4.json`,
 `.agents/tickets/m3-remediation-r1-v3.md`,
 `.agents/tickets/m3-remediation-r2-v4.md`,
 `.agents/tickets/m3-remediation-r3-v4.md`, `docs/design/m3-remediation-v4.md`, and
-`docs/standards/architecture.md`, plus the production authority/comparison seams and their
-focused remediation tests (`evals/runners/m3_claim_authority.py`,
-`evals/runners/milestone_3_comparison.py`, `evals/test/test_http_eval.py`,
+`docs/standards/architecture.md`, plus the production authority/comparison/seam implementations
+and focused remediation tests (`backend/src/knora/adapters/postgres/evaluation_reader.py`,
+`backend/src/knora/answering/evidence.py`, `backend/src/knora/answering/module.py`,
+`backend/test/adapters/postgres/test_issue_61_reader_contract.py`,
+`backend/test/answering/test_issue_61_trace_contract.py`,
+`evals/runners/m3_claim_authority.py`, `evals/runners/milestone_3_comparison.py`,
+`evals/runners/run_http_eval.py`, `evals/test/test_http_eval.py`,
 `evals/test/test_issue_63_remediation.py`, `evals/test/test_issue_68_remediation.py`, and
 `evals/test/test_issue_69_remediation.py`).
 The sorted requirement IDs are `authority_independent_review`, `exact_manifest_population`,
@@ -98,6 +102,11 @@ with `requirement`, `result: PASS` and non-empty `evidence_paths`, and a sorted 
 list that covers every path in the bound scope projection. Evidence paths must belong to that
 reviewed-path set, and every scope requirement must occur exactly once. A free-form review-basis
 assertion without this complete typed coverage is invalid.
+
+The same projection binding applies to the closed guardrail key set: production passes the
+bound `guardrail_requirement.required_keys` into guardrail and observation validators. A
+projection mutation is either reflected by those validators or rejected as an invalid policy;
+the compatibility fixture export is not a production policy source.
 
 ## R2 — immutable population, paired fields and latency
 
@@ -146,7 +155,11 @@ pre-fusion statuses; only fused candidates may use `SELECTED`, `REDUNDANT_OVERLA
 `BUDGET_EXCEEDED` or `ELIGIBLE_NOT_SELECTED` with `final_rank`/`fusion_score`. Pre-fusion losses
 never receive a fused rank or RRF score. A fused `BUDGET_EXCEEDED` decision must carry a closed
 `decision_reason` of either `TOKEN_BUDGET` or `CHUNK_COUNT_LIMIT`; the two reasons are not
-interchangeable.
+interchangeable. It also carries typed `budget_evidence` with the configured maximum chunk/token
+budgets, selected chunk/token counts, candidate token count and total token count. The reader
+binds the candidate token count to the persisted chunk and verifies that `TOKEN_BUDGET` means
+the token total exceeds its budget before the chunk-count limit, while `CHUNK_COUNT_LIMIT` means
+the selected chunk count has reached its limit. Swapping either reason fails closed.
 
 ### Canonical executor seam
 
@@ -160,6 +173,9 @@ captures the completion clock, validates the public payload, and then requires
 any trace-derived observation. `end_to_end_latency_ms` uses the captured response-completion
 clock and excludes trace loading, citation validation and scoring. Fault probes for both exact
 correlation mismatches and the response-completion timestamp are mandatory acceptance evidence.
+Both the canonical and generic compatibility executors expose an injectable monotonic clock for
+deterministic tests that prove the tick order: request start, complete response body, then trace
+loading. The measured interval ends at the second tick.
 
 ## R3 — guide v9 and final integrated acceptance
 

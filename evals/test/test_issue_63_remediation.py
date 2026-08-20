@@ -338,6 +338,21 @@ def test_closed_guardrails_require_exact_schema_keys_and_true_booleans() -> None
     assert validate_guardrail_shape(observed_failure) == observed_failure
 
 
+def test_guardrail_shape_reads_required_keys_from_bound_policy_projection() -> None:
+    projection = comparison_module.canonical_policy_projection()
+    projection["guardrail_requirement"]["required_keys"] = ["projection_guardrail"]
+
+    assert comparison_module.validate_guardrail_shape(
+        {"projection_guardrail": True},
+        policy_projection=projection,
+    ) == {"projection_guardrail": True}
+    with pytest.raises(ComparisonError, match="GUARDRAIL_FAILURE"):
+        comparison_module.validate_guardrail_shape(
+            REQUIRED_GUARDRAILS,
+            policy_projection=projection,
+        )
+
+
 def test_malformed_non_mapping_reports_fail_closed() -> None:
     valid_hybrid = _modern_report("retrieval-m3-rrf-v2")
     with pytest.raises(ComparisonError, match="OBSERVATIONS_INVALID"):

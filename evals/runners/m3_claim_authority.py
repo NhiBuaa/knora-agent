@@ -67,11 +67,6 @@ REMEDIATION_CLOSURE_GIT_BLOB = "closure.git_blob"
 REMEDIATION_CLOSURE_RAW_SHA256 = "closure.raw_sha256"
 M3_POPULATION_SOURCE_COMMIT = "2a6061ad38b3b3c4f06811c7ceb8bc26af39892"
 
-REQUIRED_GUARDRAIL_KEYS = (
-    "structural_validity",
-    "citation_correctness",
-    "refusal_correctness",
-)
 _EXPECTED_APPROVAL_KEYS = {
     "schema_version",
     "attestation_type",
@@ -175,6 +170,29 @@ def policy_metric_fields(projection: Mapping[str, Any]) -> tuple[str, int, tuple
     ):
         raise ValueError("POLICY_PROJECTION_INVALID")
     return metric_contract, recall_k, tuple(primary_metrics)
+
+
+def policy_guardrail_keys(projection: Mapping[str, Any]) -> tuple[str, ...]:
+    """Read the closed guardrail field contract from the approved projection."""
+    if not isinstance(projection, Mapping):
+        raise ValueError("POLICY_PROJECTION_INVALID")
+    requirement = projection.get("guardrail_requirement")
+    keys = requirement.get("required_keys") if isinstance(requirement, Mapping) else None
+    if (
+        not isinstance(requirement, Mapping)
+        or requirement.get("closed") is not True
+        or not isinstance(keys, list)
+        or not keys
+        or any(not isinstance(key, str) or not key for key in keys)
+        or len(keys) != len(set(keys))
+    ):
+        raise ValueError("POLICY_PROJECTION_INVALID")
+    return tuple(keys)
+
+
+# Compatibility export for focused fixtures; production validation resolves this list from the
+# bound projection through ``policy_guardrail_keys``.
+REQUIRED_GUARDRAIL_KEYS = policy_guardrail_keys(_canonical_projection())
 
 
 def _strict_equal(left: object, right: object) -> bool:

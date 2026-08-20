@@ -46,9 +46,11 @@
 
 - Purpose: enforce `(workspace_id, trace_id)` and independent latency semantics.
 - Steps: inject response trace-ID mismatch and trace Workspace mismatch; record the monotonic clock
-  immediately after complete HTTP response body and before trace loading/citation processing.
+  immediately after complete HTTP response body and before trace loading/citation processing using
+  deterministic clock injection for both canonical and generic compatibility executors.
 - Expected results: each mismatch is an observation failure; end-to-end latency uses the captured
-  response-completion timestamp and excludes trace loading/scoring.
+  response-completion timestamp and excludes trace loading/scoring; the observed tick order is
+  request start, response completion, trace loading.
 - Evidence: fault matrix, clock-boundary observation and structured failure reasons.
 
 ### TC-05: Public seam and no evaluation-only retrieval
