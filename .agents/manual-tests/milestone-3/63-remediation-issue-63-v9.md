@@ -30,7 +30,11 @@
   approved closure `.agents/review/m3-remediation-v4-review-closure-final.json`, recompute its Git
   blob/raw digest plus the scope and response projection bytes it names, and assert both response
   `subject_commit` and `reviewed_commit` equal the closure's exact package subject. Caller-supplied
-  or latest/path-substituted closure data is invalid.
+  or latest/path-substituted closure data is invalid. Load the exact approved policy projection
+  `docs/design/m3-improvement-claim-rule-v1.policy.json`, recompute its bound Git blob/raw digest,
+  and inspect `evals/runners/m3_claim_authority.py` to prove production reads that projection
+  rather than a duplicated full value-level policy map; compatibility fixture exports are not
+  production authority.
 - Expected results: valid closure passes; generic/assertion-only/self-authored/self-approved,
   subject mismatch, mutated projection or mutated closure chains fail.
 - Evidence: authority matrix and recomputation output.
@@ -39,8 +43,12 @@
 
 - Purpose: prevent dataset/configuration cherry-picking.
 - Steps: verify canonical 50-case digest and manifest bindings; compare every equal field including
-  generation/scorer model/prompt/policy/stochasticity; run mutations.
-- Expected results: exact values match and only retrieval configuration fields differ.
+  generation/scorer model/prompt/policy/stochasticity. The only permitted differences are exactly
+  `retrieval_configuration_id`, `strategy`, `fusion_policy_id`, `fusion_policy_version`,
+  `lexical_policy_id` and `fts_candidate_k`; record a field matrix for both reports. Run one
+  mutation for each equal field and verify the comparator fails closed.
+- Expected results: exact values match and only those six retrieval configuration fields differ;
+  every equal-field mutation fails closed.
 - Evidence: capability/serialization output and field matrix.
 
 - Additional taxonomy assertion: inspect branch observations before fusion. Vector statuses are
@@ -68,8 +76,13 @@
 ### TC-05: Selected artifact and latency retention
 
 - Purpose: retain metric deltas, guardrails, both latency sides/deltas, boundary version and regressions.
-- Steps: inspect and recompute selected record.
-- Expected results: no raw RRF threshold/cherry-pick; all evidence reconciles.
+- Steps: inspect `selected_improvement.latency_tradeoffs`, `guardrails` and
+  `remaining_regressions`. For each case and both metrics, recompute
+  `hybrid_minus_vector[metric][case_id] = hybrid[metric][case_id] - vector[metric][case_id]`;
+  verify `version=m3-paired-latency-v1`, `clock_boundary_version=m3-latency-boundary-v1`,
+  `streaming=false`, and that both vector and hybrid observations are retained.
+- Expected results: no raw RRF threshold/cherry-pick; both latency sides, explicit deltas,
+  guardrails and all remaining regressions reconcile exactly.
 - Evidence: selected record and normalized manifest.
 
 ### TC-06: Final review/cadence/isolation

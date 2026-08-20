@@ -19,7 +19,9 @@
   `2a6061ad38b3b3c4f06811c7ceb8bc26af39892` contains the expected manifest Git blobs, then verify
   exact paths/Git blobs/raw/content hashes/version/50 IDs/corpus values. Assert every production
   report carries this exact value as `provenance.source_commit`, and read
-  `.agents/review/m3-dataset-v1-case-ids.json` as the immutable case-ID projection.
+  `.agents/review/m3-dataset-v1-case-ids.json` as the immutable case-ID projection. Assert the
+  exact production values `workspace=evaluation-m3-v1` and
+  `chunk_set_provenance_id=chunk-set-m3-v1` in both report provenance and Binding V3 data.
 - Expected results: the source-commit manifest binding and projection raw UTF-8 SHA-256 are
   `sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253`; no alternate
   serialization or repository-state substitute is accepted.
@@ -28,11 +30,16 @@
 ### TC-02: Population and paired-field mutation failures
 
 - Purpose: reject subset/extra/replacement/wrong binding and generation/scorer drift.
-- Steps: mutate each manifest/path/blob/digest/case-ID and every equal paired field; invoke canonical selector.
+- Steps: mutate each manifest/path/blob/content digest, case-ID projection, dataset/corpus/chunk-set
+  provenance, `manifest_source_commit`, and every equal paired field; invoke canonical selector.
+  Include a caller-supplied expected-ID override and a corpus/Chunk Set drift mutation. Record the
+  six and only six permitted retrieval differences explicitly:
+  `retrieval_configuration_id`, `strategy`, `fusion_policy_id`, `fusion_policy_version`,
+  `lexical_policy_id`, `fts_candidate_k`.
 - Expected results: every mutation fails closed; specifically, substituting a different
-  `manifest_source_commit` whose manifest blob happens to be same-shaped is rejected before
-  selection; only six retrieval fields may differ.
-- Evidence: mutation matrix and reasons.
+  `manifest_source_commit` whose manifest blob happens to be same-shaped, caller expected IDs,
+  corpus drift and Chunk Set drift are rejected before selection.
+- Evidence: named mutation matrix and reasons.
 
 ### TC-03: Canonical M3 executor identity and compatibility alias
 

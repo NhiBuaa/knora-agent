@@ -44,18 +44,22 @@
   `reviewed_commit` equal the closure's exact package subject; a response that reviewed a
   descendant or parent is invalid even when its verdict is `APPROVE`. Validate response schema 3:
   every scope requirement appears exactly once as typed `PASS` coverage with non-empty evidence
-  paths, and `reviewed_paths` exactly covers the sorted scope path set. Caller-supplied or latest
-  closure paths are invalid.
+  paths, and `reviewed_paths` exactly covers the sorted scope path set. Derive the source author
+  with `git show -s --format=%an <subject_commit>` and compare it independently with the reviewer
+  identity and `approved_by`; caller-supplied or latest closure paths are invalid.
 - Expected results: reviewer differs from source author and approver; status is `APPROVED_EFFECTIVE`.
 - Evidence: review artifact, sealed response/closure, scope/hash recomputation and validator result.
 
 ### TC-04: Identity/projection mutations fail closed
 
 - Purpose: reject assertion-only or mutated authority.
-- Steps: mutate identity ID/kind/source/digest, subject/scope/response, reviewer/approver flags,
-  policy fields and bound Git blob/digest.
+- Steps: execute an explicit mutation matrix covering missing/empty closure; generic or placeholder
+  reviewer identity; assertion-only response; self-authored/self-approved reviewer; derived
+  source-author mismatch; caller authority/policy override; each identity record blob/raw digest;
+  subject/reviewed parent and descendant; scope blob/raw digest; response blob/raw digest; policy
+  projection mutation; seal/archive/manifest/closure digest; and each bound Git identity.
 - Expected results: every mutation returns `AUTHORITY_VALIDATION_FAILURE` before policy evaluation.
-- Evidence: complete mutation matrix and reasons.
+- Evidence: complete named mutation matrix, source-author derivation and failure reasons.
 
 ### TC-05: Caller override and fixture boundary
 
@@ -67,8 +71,12 @@
 ### TC-06: Artifact hygiene and verification
 
 - Purpose: retain only normalized authority metadata.
-- Steps: run focused tests, Ruff, diff checks and artifact inventory.
-- Expected results: green verification; no raw traces, credentials or secrets committed.
+- Steps: run focused tests, Ruff, diff checks and artifact inventory. Inspect the production
+  authority module and prove its normative values come from the bound
+  `docs/design/m3-improvement-claim-rule-v1.policy.json` projection; any static compatibility
+  fixture export must be clearly non-production and must not be the production validation input.
+- Expected results: green verification; no duplicated full policy map controls production, and no
+  raw traces, credentials or secrets are committed.
 - Evidence: test/lint/diff summary and clean worktree.
 
 Observations append to `.agents/manual-tests/milestone-3/68-remediation-authority.evaluations.jsonl`.
