@@ -5,6 +5,7 @@ independent authority chain and reads the approved JSON projection as its sole n
 
 Authoritative design: `docs/design/m3-remediation-v4.md`.
 Locked guide: `.agents/manual-tests/milestone-3/68-remediation-authority-v3.md`.
+Current append-only R1 revision: `.agents/tickets/m3-remediation-r1-v4.md`.
 
 ## Acceptance
 
