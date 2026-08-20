@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "closure_id": "m3-remediation-v4-review-closure-final-v1",
+  "status": "APPROVED_EFFECTIVE",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "subject_commit": "c6215e2ca5f6bd0f379578f9227a22b4677c8a00",
+  "subject_blob": "46335efc0abcbaf8fe74677269923571c64e7ca1",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "scope_projection": {
+    "path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+    "git_blob": "47beb218725b5fffd3150867ce23fe768d1dad14",
+    "raw_sha256": "sha256:ccc2d6b50c60ee8bb4abc8cfaaa03011d5ee098495134b0cda138caf55d609bc"
+  },
+  "response_projection": {
+    "path": ".agents/review/m3-remediation-v4-response-projection-final.json",
+    "git_blob": "a84b521bc552b0eb10e198a73145ee4652069b69",
+    "raw_sha256": "sha256:dbe7026a2a9ce76e89c9b73a70d5b5b8a8d6d6070ee160b36a5e357684e2303a"
+  },
+  "identity": {
+    "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+    "record_path": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+    "record_git_blob": "e72ec5f9c834b51f48b507f36519ca16d9df1f5e",
+    "record_raw_sha256": "sha256:1fa4a4ef8e640c5c32f3ad88ebe38dd662381a89f8e347170fefa119f8d654e3",
+    "projection_path": ".agents/review/identities/codex-agent-m3-final-package-review-v4-projection.json",
+    "projection_raw_sha256": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda"
+  },
+  "policy_projection": {
+    "path": "docs/design/m3-improvement-claim-rule-v1.policy.json",
+    "git_blob": "6a79bfe367dc1af95a0f50613dcbaa6d3dc868b9",
+    "raw_sha256": "sha256:5f44d27602a6a9819d857a15f8cee201deea0f21385b01789777b4ef7bf83c7e"
+  },
+  "reviewer_source_authority": "collaboration-agent-task",
+  "reviewer_must_differ_from_source_author": true,
+  "reviewer_must_differ_from_approver": true,
+  "approved_by": "NhiBuaa",
+  "response_subject_equality": {
+    "subject_commit_equals_reviewed_commit": true,
+    "parent_or_descendant_review_rejected": true
+  }
+}
