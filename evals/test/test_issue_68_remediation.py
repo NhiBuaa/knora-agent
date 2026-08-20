@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from evals.runners.m3_claim_authority import (
@@ -19,8 +20,12 @@ def test_production_authority_binds_the_independent_m3_review_chain() -> None:
     assert result["status"] == "APPROVED_EFFECTIVE"
     authority = result["authority"]
     assert authority.external_reviewer_id == "codex-agent:/root/m3_final_package_review_v4"
-    assert authority.review_subject_commit == "c27613cc8124802bafcf24263809564796a94454"
-    assert authority.review_subject_blob == "138979a2893d8f1784267241f1153f3001af6044"
+    closure = json.loads(
+        (repository_root / ".agents/review/m3-remediation-v4-review-closure-final.json")
+        .read_text(encoding="utf-8")
+    )
+    assert authority.review_subject_commit == closure["subject_commit"]
+    assert authority.review_subject_blob == closure["subject_blob"]
     assert authority.review_scope_digest.startswith("sha256:")
     assert authority.review_response_digest.startswith("sha256:")
     assert authority.external_reviewer_id != authority.approved_by

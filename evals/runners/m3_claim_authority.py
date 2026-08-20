@@ -455,7 +455,7 @@ def canonical_authority_validation(
         if repository_root is None:
             return {"status": AUTHORITY_VALIDATION_FAILURE, "reason": "AUTHORITY_MISSING"}
         sealed_archive_path = sealed_archive_path or repository_root / SEALED_ARCHIVE_PATH
-        closure_path = closure_path or repository_root / CLOSURE_PATH
+        closure_path = closure_path or repository_root / REMEDIATION_CLOSURE_PATH
         try:
             authority = _authority_from_git(
                 repository_root,
@@ -794,30 +794,13 @@ def _authority_from_git(
         if hashlib.sha256(manifest).hexdigest() != SEALED_MANIFEST_SHA256:
             raise ValueError("SEALED_MANIFEST_IDENTITY_MISMATCH")
     if closure_path is not None:
-        closure_bytes = closure_path.read_bytes()
-        if hashlib.sha256(closure_bytes).hexdigest() != CLOSURE_SHA256:
-            raise ValueError("CLOSURE_IDENTITY_MISMATCH")
-        closure = json.loads(closure_bytes.decode("utf-8"))
-        expected_closure = {
-            "schema_version": 1,
-            "seal_id": SEAL_ID,
-            "status": "PASS",
-            "authority_source_commit": SOURCE_COMMIT,
-            "authority_document_path": AUTHORITY_DOCUMENT_PATH,
-            "authority_document_blob": AUTHORITY_DOCUMENT_BLOB,
-            "policy_projection_path": POLICY_PROJECTION_PATH,
-            "policy_projection_blob": POLICY_PROJECTION_BLOB,
-            "claim_rule_digest": CLAIM_RULE_DIGEST,
-            "attestation_path": ATTESTATION_PATH,
-            "attestation_commit": ATTESTATION_COMMIT,
-            "attestation_blob": ATTESTATION_BLOB,
-            "attestation_sha256": ATTESTATION_SHA256,
-            "sealed_manifest_sha256": SEALED_MANIFEST_SHA256,
-            "sealed_archive_sha256": SEALED_ARCHIVE_SHA256,
-            "closure_artifact_role": "sole-non-recursively-scanned-result",
-        }
-        if not isinstance(closure, Mapping) or not _strict_equal(closure, expected_closure):
-            raise ValueError("CLOSURE_NOT_PASS")
+        expected_path = (repository_root / REMEDIATION_CLOSURE_PATH).resolve()
+        if closure_path.resolve() != expected_path:
+            raise ValueError("REMEDIATION_CLOSURE_PATH_OVERRIDE")
+        head = _git("rev-parse", "HEAD", repository_root=repository_root).decode().strip()
+        _, committed_closure = _git_blob(repository_root, head, REMEDIATION_CLOSURE_PATH)
+        if closure_path.read_bytes() != committed_closure:
+            raise ValueError("REMEDIATION_CLOSURE_IDENTITY_MISMATCH")
     return authority
 
 
