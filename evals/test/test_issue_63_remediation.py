@@ -10,6 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import evals.runners.m3_claim_authority as authority_module
+import evals.runners.milestone_3_comparison as comparison_module
 import pytest
 from evals.runners.milestone_3_comparison import (
     AUTHORITY_VALIDATION_FAILURE,
@@ -501,6 +502,34 @@ def test_paired_provenance_rejects_matching_malformed_digest_values() -> None:
 
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
         compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
+def test_paired_provenance_reads_field_lists_from_approved_policy_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    for report in (vector, hybrid):
+        report["provenance"]["projection_defined_equal_field"] = "same"
+    projection = comparison_module.canonical_policy_projection()
+    projection["provenance"]["equal_fields"].append("projection_defined_equal_field")
+    monkeypatch.setattr(
+        comparison_module,
+        "canonical_policy_projection",
+        lambda: deepcopy(projection),
+    )
+
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    assert pair["provenance_match"] is True
+
+
+def test_production_population_rejects_forged_manifest_provenance() -> None:
+    report = _modern_report("retrieval-m3-vector-v2")
+    report["provenance"]["dataset_digest"] = "sha256:" + "a" * 64
+
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        comparison_module.validate_m3_population_provenance(report)
 
 
 def test_selection_rejects_observation_source_binding_mutation() -> None:

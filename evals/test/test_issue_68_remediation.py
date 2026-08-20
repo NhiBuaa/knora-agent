@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import evals.runners.m3_claim_authority as authority_module
+import pytest
 from evals.runners.m3_claim_authority import (
     canonical_authority_validation,
     canonical_policy_projection,
@@ -42,3 +44,18 @@ def test_policy_projection_is_loaded_from_the_committed_json_document() -> None:
         "lexical_policy_id",
         "fts_candidate_k",
     ]
+
+
+def test_approved_review_response_requires_evidence_projection() -> None:
+    response = {
+        "schema_version": 2,
+        "status": "completed",
+        "verdict": "APPROVE",
+        "critical_count": 0,
+        "major_count": 0,
+        "minor_count": 0,
+        "finding": None,
+    }
+
+    with pytest.raises(ValueError, match="REMEDIATION_RESPONSE_SCHEMA_INVALID"):
+        authority_module._validate_review_response_contract(response)

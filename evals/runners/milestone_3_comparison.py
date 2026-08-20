@@ -25,19 +25,18 @@ from evals.datasets.milestone_3 import (
     validate_milestone_3_references,
 )
 from evals.runners.m3_claim_authority import (
-    ALLOWED_CONFIGURATION_FIELDS,
     APPROVED_HUMAN_IDENTITY,
     AUTHORITY_IDENTIFIER,
     AUTHORITY_VALIDATION_FAILURE,
     CLAIM_RULE_DIGEST,
     CLAIM_RULE_VERSION,
-    EQUAL_PROVENANCE_FIELDS,
     M3_POPULATION_SOURCE_COMMIT,
     REQUIRED_GUARDRAIL_KEYS,
     ClaimRuleAuthority,
     canonical_authority_validation,
     canonical_policy_projection,
     is_non_placeholder_identity,
+    policy_provenance_field_names,
     test_claim_rule_authority_fixture,
     validate_approved_authority,
     validate_claim_rule_authority,
@@ -46,7 +45,6 @@ from evals.runners.m3_claim_authority import (
 )
 
 __all__ = [
-    "ALLOWED_CONFIGURATION_FIELDS",
     "APPROVED_RETRIEVAL_CONFIGURATIONS",
     "APPROVED_HUMAN_IDENTITY",
     "AUTHORITY_IDENTIFIER",
@@ -68,6 +66,7 @@ __all__ = [
     "is_non_placeholder_identity",
     "select_improvement",
     "select_production_improvement",
+    "validate_m3_population_provenance",
     "verify_binding_v3_attestation",
     "test_claim_rule_authority_fixture",
     "validate_guardrails",
@@ -150,8 +149,6 @@ class BindingV3Attestation:
             "closure_path": self.closure_path,
         }
 
-
-_ALLOWED_CONFIGURATION_FIELD_SET = set(ALLOWED_CONFIGURATION_FIELDS)
 
 APPROVED_RETRIEVAL_CONFIGURATIONS = MappingProxyType(
     {
@@ -1305,10 +1302,16 @@ def _selection_provenance_matches(
     pair: Mapping[str, Any],
     vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
+    *,
+    policy_projection: Mapping[str, Any],
 ) -> bool:
     try:
-        vector_shared = _provenance_without_allowed_differences(vector_report)
-        hybrid_shared = _provenance_without_allowed_differences(hybrid_report)
+        vector_shared = _provenance_without_allowed_differences(
+            vector_report, policy_projection=policy_projection
+        )
+        hybrid_shared = _provenance_without_allowed_differences(
+            hybrid_report, policy_projection=policy_projection
+        )
         vector_configuration = _validate_configuration_semantics(vector_report)
         hybrid_configuration = _validate_configuration_semantics(hybrid_report)
         vector_binding = _validate_binding_v3(vector_report)
@@ -1468,6 +1471,55 @@ def _production_m3_case_ids(repository_root: Path) -> tuple[str, ...]:
     ):
         raise ComparisonError("PROVENANCE_MISMATCH")
     return case_ids
+
+
+def validate_m3_population_provenance(
+    report: Mapping[str, Any], *, repository_root: Path | None = None
+) -> None:
+    """Require a production report to name the immutable M3 population exactly."""
+    provenance = report.get("provenance") if isinstance(report, Mapping) else None
+    binding = report.get("binding_v3") if isinstance(report, Mapping) else None
+    if not isinstance(provenance, Mapping) or not isinstance(binding, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    expected_provenance = {
+        "dataset_version": _M3_DATASET_VERSION,
+        "dataset_digest": _M3_DATASET_SHA256,
+        "corpus_id": _M3_CORPUS_VERSION,
+        "corpus_digest": _M3_CORPUS_MANIFEST_SHA256,
+        "chunk_set_id": _M3_CHUNK_SET_PROVENANCE_ID,
+        "workspace": _M3_WORKSPACE_ID,
+    }
+    if any(provenance.get(field) != expected for field, expected in expected_provenance.items()):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    expected_binding = {
+        "schema_version": 3,
+        "dataset_manifest_identity": _M3_DATASET_VERSION,
+        "corpus_manifest_identity": _M3_CORPUS_VERSION,
+        "chunk_set_provenance_id": _M3_CHUNK_SET_PROVENANCE_ID,
+        "workspace_id": _M3_WORKSPACE_ID,
+    }
+    if any(binding.get(field) != expected for field, expected in expected_binding.items()):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if repository_root is not None:
+        try:
+            corpus = load_milestone_3_corpus_manifest(
+                repository_root.resolve() / _M3_CORPUS_MANIFEST
+            )
+        except (OSError, ValueError) as error:
+            raise ComparisonError("PROVENANCE_MISMATCH") from error
+        expected_sources = {reference.rsplit("#", 1)[0] for reference in corpus.chunks}
+        source_bindings = binding.get("source_bindings")
+        actual_sources = (
+            {
+                item.get("source_key")
+                for item in source_bindings
+                if isinstance(item, Mapping)
+            }
+            if isinstance(source_bindings, list)
+            else set()
+        )
+        if actual_sources != expected_sources:
+            raise ComparisonError("PROVENANCE_MISMATCH")
 
 
 def _validate_pair_contract(
@@ -1751,9 +1803,17 @@ def select_improvement(
     )
     if binding_attestation_invalid or (production and validated_binding_attestation is None):
         return _no_claim(common, "PROVENANCE_MISMATCH")
-    if production and expected_case_ids is None:
+    if production and expected_case_ids is not None:
+        return _no_claim(common, "CALLER_POPULATION_OVERRIDE")
+    if production:
         try:
             expected_case_ids = _production_m3_case_ids(repository_root)
+            validate_m3_population_provenance(
+                vector_report, repository_root=repository_root
+            )
+            validate_m3_population_provenance(
+                hybrid_report, repository_root=repository_root
+            )
         except ComparisonError as error:
             return _no_claim(common, str(error))
     try:
@@ -1784,7 +1844,12 @@ def select_improvement(
             else str(error)
         )
         return _no_claim(common, reason)
-    if not _selection_provenance_matches(pair, vector_report, hybrid_report):
+    if not _selection_provenance_matches(
+        pair,
+        vector_report,
+        hybrid_report,
+        policy_projection=bound_authority.projection,
+    ):
         return _no_claim(common, "PROVENANCE_MISMATCH")
     metric_values, decision_deltas, metric_deltas, metric_failure = _decision_metrics(
         primary_metrics, vector_report, hybrid_report, expected_case_ids
@@ -2119,16 +2184,28 @@ def _observed_case_ids(report: Mapping[str, Any]) -> tuple[str, ...]:
 
 def _provenance_without_allowed_differences(
     report: Mapping[str, Any],
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     provenance = report.get("provenance")
     if not isinstance(provenance, Mapping):
         raise ComparisonError("PROVENANCE_INVALID")
     if report.get("schema_version") != 1:
         raise ComparisonError("PROVENANCE_MISMATCH")
-    expected_keys = set(EQUAL_PROVENANCE_FIELDS) | _ALLOWED_CONFIGURATION_FIELD_SET
+    projection = (
+        canonical_policy_projection() if policy_projection is None else policy_projection
+    )
+    try:
+        equal_fields = policy_provenance_field_names(projection, "equal_fields")
+        allowed_fields = policy_provenance_field_names(projection, "allowed_differences")
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+    if set(equal_fields) & set(allowed_fields):
+        raise ComparisonError("POLICY_PROJECTION_INVALID")
+    expected_keys = set(equal_fields) | set(allowed_fields)
     if set(provenance) != expected_keys:
         raise ComparisonError("PROVENANCE_MISMATCH")
-    for key in EQUAL_PROVENANCE_FIELDS:
+    for key in equal_fields:
         value = provenance.get(key)
         if key == "report_artifact_schema_version":
             valid = type(value) is int and value == 1
@@ -2140,7 +2217,7 @@ def _provenance_without_allowed_differences(
                 valid = valid and bool(re.fullmatch(r"[0-9a-f]{40}", value))
         if not valid:
             raise ComparisonError("PROVENANCE_MISMATCH")
-    for key in ALLOWED_CONFIGURATION_FIELDS:
+    for key in allowed_fields:
         value = provenance.get(key)
         if key in {"retrieval_configuration_id", "strategy"}:
             valid = isinstance(value, str) and bool(value)
@@ -2150,12 +2227,15 @@ def _provenance_without_allowed_differences(
             valid = value is None or (isinstance(value, str) and bool(value))
         if not valid:
             raise ComparisonError("PROVENANCE_MISMATCH")
-    if provenance["metric_contract"] != "m3-retrieval-metrics-v1":
+    metric_contract = projection.get("metric_contract")
+    if not isinstance(metric_contract, str) or not metric_contract:
+        raise ComparisonError("POLICY_PROJECTION_INVALID")
+    if provenance["metric_contract"] != metric_contract:
         raise ComparisonError("PROVENANCE_MISMATCH")
     return {
         key: value
         for key, value in provenance.items()
-        if key not in _ALLOWED_CONFIGURATION_FIELD_SET
+        if key not in set(allowed_fields)
     }
 
 

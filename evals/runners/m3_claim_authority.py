@@ -73,36 +73,6 @@ REQUIRED_GUARDRAIL_KEYS = (
     "citation_correctness",
     "refusal_correctness",
 )
-EQUAL_PROVENANCE_FIELDS = (
-    "dataset_version",
-    "dataset_digest",
-    "corpus_id",
-    "corpus_digest",
-    "chunk_set_id",
-    "chunk_set_digest",
-    "workspace",
-    "chunking_configuration",
-    "embedding_configuration",
-    "generation_configuration",
-    "scorer_configuration",
-    "scorer_model",
-    "scorer_prompt",
-    "scorer_policy",
-    "scorer_stochasticity",
-    "metric_contract",
-    "source_commit",
-    "evaluation_commit",
-    "report_artifact_schema_version",
-)
-ALLOWED_CONFIGURATION_FIELDS = (
-    "retrieval_configuration_id",
-    "strategy",
-    "fusion_policy_id",
-    "fusion_policy_version",
-    "lexical_policy_id",
-    "fts_candidate_k",
-)
-
 _EXPECTED_APPROVAL_KEYS = {
     "schema_version",
     "attestation_type",
@@ -157,6 +127,20 @@ def _canonical_projection() -> dict[str, Any]:
 def canonical_policy_projection() -> dict[str, Any]:
     """Return a copy of the approved projection for an explicit focused-test fixture."""
     return deepcopy(_canonical_projection())
+
+
+def policy_provenance_field_names(projection: Mapping[str, Any], field: str) -> tuple[str, ...]:
+    """Read the paired-report field contract from the approved JSON projection."""
+    provenance = projection.get("provenance")
+    values = provenance.get(field) if isinstance(provenance, Mapping) else None
+    if (
+        not isinstance(values, list)
+        or not values
+        or any(not isinstance(value, str) or not value for value in values)
+        or len(values) != len(set(values))
+    ):
+        raise ValueError("POLICY_PROJECTION_INVALID")
+    return tuple(values)
 
 
 def _strict_equal(left: object, right: object) -> bool:
@@ -555,6 +539,27 @@ def _git_blob(repository_root: Path, commit: str, path: str) -> tuple[str, bytes
     return blob, content
 
 
+def _validate_review_response_contract(response: object) -> None:
+    """Require substantive, typed evidence before an APPROVE response can close authority."""
+    if not isinstance(response, Mapping):
+        raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+    if (
+        response.get("schema_version") != 2
+        or response.get("status") != "completed"
+        or response.get("verdict") != "APPROVE"
+        or response.get("finding") is not None
+        or not isinstance(response.get("findings"), list)
+        or response["findings"]
+        or not isinstance(response.get("review_basis"), str)
+        or not response["review_basis"].strip()
+    ):
+        raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+    for field in ("critical_count", "major_count", "minor_count"):
+        value = response.get(field)
+        if type(value) is not int or value < 0 or value != 0:
+            raise ValueError("REMEDIATION_RESPONSE_SCHEMA_INVALID")
+
+
 def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     """Resolve the immutable package -> scope -> response -> closure chain from Git."""
     head = _git("rev-parse", "HEAD", repository_root=repository_root).decode().strip()
@@ -695,6 +700,7 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     ):
         raise ValueError("REMEDIATION_RESPONSE_DIGEST_MISMATCH")
     response = json.loads(response_bytes.decode("utf-8"))
+    _validate_review_response_contract(response)
     if not isinstance(response, Mapping) or (
         response.get("schema_version") != 2
         or response.get("identity_record") != REMEDIATION_IDENTITY_RECORD_PATH
@@ -707,8 +713,6 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         or response.get("scope_projection_raw_sha256") != scope_raw_sha256
         or response.get("status") != "completed"
         or response.get("verdict") != "APPROVE"
-        or any(response.get(key) != 0 for key in ("critical_count", "major_count", "minor_count"))
-        or response.get("finding") is not None
     ):
         raise ValueError("REMEDIATION_RESPONSE_BINDING_MISMATCH")
 

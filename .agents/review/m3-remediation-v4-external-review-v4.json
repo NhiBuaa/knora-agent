@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "identity_record": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+  "identity_git_blob": "e72ec5f9c834b51f48b507f36519ca16d9df1f5e",
+  "identity_raw_sha256": "sha256:1fa4a4ef8e640c5c32f3ad88ebe38dd662381a89f8e347170fefa119f8d654e3",
+  "identity_digest": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda",
+  "response_record": ".agents/review/m3-remediation-v4-external-review-v4-response.json",
+  "response_sha256": "sha256:b024566aa6e5db8fe34b779a9d32f29cd9742e6b622d2780a21417bd5c41b8c5",
+  "reviewed_commit": "399de6311f155f93b609b47d257343240a088973",
+  "subject_commit": "399de6311f155f93b609b47d257343240a088973",
+  "subject_blob": "138979a2893d8f1784267241f1153f3001af6044",
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_projection_blob": "cc350f3e4d7a5ca552100a0053849881eb6b3351",
+  "scope_projection_raw_sha256": "sha256:a9fc47607582bd5362fad47b703983bf5ec0069c5e608b661e2acdaa1c9e57b6",
+  "critical_count": 0,
+  "major_count": 6,
+  "minor_count": 0,
+  "reviewer_source_authority": "collaboration-agent-task",
+  "source_author": "NhiBuaa",
+  "approved_by": "NhiBuaa",
+  "reviewer_must_differ_from_source_author": true,
+  "reviewer_must_differ_from_approver": true,
+  "response_subject_equality": {
+    "subject_commit_equals_reviewed_commit": true,
+    "parent_or_descendant_review_rejected": true
+  },
+  "next_transition": "remediation"
+}

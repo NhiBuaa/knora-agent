@@ -7,6 +7,7 @@ from evals.runners.milestone_3_comparison import (
     M3_POPULATION_SOURCE_COMMIT,
     ComparisonError,
     _validate_m3_manifest_source_commit,
+    validate_m3_population_provenance,
 )
 
 
@@ -35,3 +36,47 @@ def test_m3_population_manifests_bind_to_immutable_source_commit() -> None:
         _validate_m3_manifest_source_commit(
             repository_root, "ab8abd88fdce0dccead869b27416fee260bc135e"
         )
+
+
+def test_m3_population_provenance_binds_exact_manifest_and_source_set() -> None:
+    report = {
+        "provenance": {
+            "dataset_version": "m3-dataset-v1",
+            "dataset_digest": (
+                "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50"
+            ),
+            "corpus_id": "m3-corpus-v1",
+            "corpus_digest": (
+                "sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326"
+            ),
+            "chunk_set_id": "chunk-set-m3-v1",
+            "workspace": "evaluation-m3-v1",
+        },
+        "binding_v3": {
+            "schema_version": 3,
+            "dataset_manifest_identity": "m3-dataset-v1",
+            "corpus_manifest_identity": "m3-corpus-v1",
+            "chunk_set_provenance_id": "chunk-set-m3-v1",
+            "workspace_id": "evaluation-m3-v1",
+            "source_bindings": [
+                {
+                    "source_key": source_key,
+                    "production_document_version_id": f"version-{index}",
+                    "production_chunk_set_id": f"chunk-set-{index}",
+                }
+                for index, source_key in enumerate(
+                    (
+                        "support/account-security",
+                        "support/billing-policy",
+                        "support/refund-policy",
+                        "support/shipping-policy",
+                    ),
+                    start=1,
+                )
+            ],
+        },
+    }
+
+    validate_m3_population_provenance(
+        report, repository_root=Path(__file__).resolve().parents[2]
+    )
