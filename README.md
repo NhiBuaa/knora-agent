@@ -7,10 +7,22 @@ cấp PDF ingestion production-shaped: upload tạo durable job, worker xử lý
 HTTP có polling/retry/serving projection, và Document Version hiện tại có thể được reprocess với
 idempotency, audit và supersession semantics đã được phê duyệt.
 
+Knora is a workspace-scoped AI support and knowledge agent. It answers questions from uploaded
+documents and returns citations that reviewers can trace back to the source material.
+
+## At a glance
+
+- **Focus:** cited retrieval, workspace isolation, PDF ingestion and measurable evaluation.
+- **Stack:** Python, FastAPI, PostgreSQL, pgvector, Docker and provider adapters.
+- **Local demo:** deterministic-local mode runs without an external provider API key.
+- **Current status:** Milestones 1 and 2 are complete; Milestone 3 remains active and its evaluation claims are kept bounded by the documented datasets and measurement rules.
+- **Hosted demo:** none is advertised; the README documents the reproducible local workflow.
+
 Đọc [bức tranh tổng quan](docs/PROJECT_OVERVIEW.md) trước để hiểu product boundary và roadmap.
 
 ## Mục lục
 
+- [At a glance](#at-a-glance)
 - [Chạy local](#chạy-local)
   - [Cài đặt lần đầu](#cài-đặt-lần-đầu)
   - [Cấu hình `.env`](#cấu-hình-env)
