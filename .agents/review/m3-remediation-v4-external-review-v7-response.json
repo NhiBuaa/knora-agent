@@ -1,0 +1,160 @@
+{
+  "schema_version": 3,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "identity_record": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+  "identity_digest": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda",
+  "subject_commit": "c6215e2ca5f6bd0f379578f9227a22b4677c8a00",
+  "reviewed_commit": "c6215e2ca5f6bd0f379578f9227a22b4677c8a00",
+  "subject_blob": "46335efc0abcbaf8fe74677269923571c64e7ca1",
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_projection_blob": "47beb218725b5fffd3150867ce23fe768d1dad14",
+  "scope_projection_raw_sha256": "sha256:ccc2d6b50c60ee8bb4abc8cfaaa03011d5ee098495134b0cda138caf55d609bc",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "finding": null,
+  "findings": [],
+  "review_basis": "Independent static review of exact P, current committed S at HEAD 6b59d843fa31ce08f0d7882585959de3368e9869, all 31 declared paths, the 14-file P diff, design, architecture standard, active tickets, native dependency edges, and focused-test evidence. Scope and identity digests were recomputed. No broad or blocking tests were run.",
+  "reviewed_paths": [
+    ".agents/design/m3-remediation-v4.json",
+    ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
+    ".agents/manual-tests/milestone-3/68-remediation-authority-v3.md",
+    ".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md",
+    ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+    ".agents/review/m3-remediation-cadence-input-v3.json",
+    ".agents/review/m3-remediation-cadence-v3.json",
+    ".agents/tickets/m3-remediation-67-active-v4.md",
+    ".agents/tickets/m3-remediation-68-active-v4.md",
+    ".agents/tickets/m3-remediation-69-active-v4.md",
+    ".agents/tickets/m3-remediation-r1-v3.md",
+    ".agents/tickets/m3-remediation-r2-v4.md",
+    ".agents/tickets/m3-remediation-r3-v4.md",
+    "backend/src/knora/adapters/postgres/evaluation_reader.py",
+    "backend/src/knora/answering/evidence.py",
+    "backend/src/knora/answering/module.py",
+    "backend/test/adapters/postgres/test_issue_61_reader_contract.py",
+    "backend/test/answering/test_issue_61_trace_contract.py",
+    "docs/design/m3-remediation-v4.md",
+    "docs/standards/architecture.md",
+    "evals/runners/m3_claim_authority.py",
+    "evals/runners/m3_readiness.py",
+    "evals/runners/m3_readiness_main.py",
+    "evals/runners/milestone_3.py",
+    "evals/runners/milestone_3_comparison.py",
+    "evals/runners/run_http_eval.py",
+    "evals/test/test_http_eval.py",
+    "evals/test/test_issue_63_remediation.py",
+    "evals/test/test_issue_68_remediation.py",
+    "evals/test/test_issue_69_remediation.py",
+    "evals/test/test_milestone_3_runner.py"
+  ],
+  "requirement_coverage": [
+    {
+      "requirement": "authority_independent_review",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/design/m3-remediation-v4.json",
+        ".agents/manual-tests/milestone-3/68-remediation-authority-v3.md",
+        "evals/runners/m3_claim_authority.py",
+        "evals/test/test_issue_68_remediation.py"
+      ]
+    },
+    {
+      "requirement": "exact_manifest_population",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md",
+        "docs/design/m3-remediation-v4.md",
+        "evals/runners/milestone_3_comparison.py",
+        "evals/test/test_issue_69_remediation.py"
+      ]
+    },
+    {
+      "requirement": "native_dependency_graph",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/tickets/m3-remediation-67-active-v4.md",
+        ".agents/tickets/m3-remediation-68-active-v4.md",
+        ".agents/tickets/m3-remediation-69-active-v4.md"
+      ]
+    },
+    {
+      "requirement": "no_evaluation_only_retrieval",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md",
+        "docs/design/m3-remediation-v4.md",
+        "evals/runners/milestone_3.py",
+        "evals/runners/run_http_eval.py",
+        "evals/test/test_http_eval.py"
+      ]
+    },
+    {
+      "requirement": "pair_latency_boundary",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md",
+        "backend/src/knora/answering/module.py",
+        "docs/design/m3-remediation-v4.md",
+        "evals/runners/milestone_3.py",
+        "evals/runners/milestone_3_comparison.py",
+        "evals/runners/run_http_eval.py",
+        "evals/test/test_http_eval.py",
+        "evals/test/test_milestone_3_runner.py"
+      ]
+    },
+    {
+      "requirement": "paired_generation_scorer_invariants",
+      "result": "PASS",
+      "evidence_paths": [
+        "docs/design/m3-remediation-v4.md",
+        "docs/standards/architecture.md",
+        "evals/runners/m3_claim_authority.py",
+        "evals/runners/milestone_3.py",
+        "evals/runners/milestone_3_comparison.py"
+      ]
+    },
+    {
+      "requirement": "public_citation_and_trace_failure",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
+        "docs/design/m3-remediation-v4.md",
+        "docs/standards/architecture.md",
+        "evals/runners/milestone_3.py",
+        "evals/runners/run_http_eval.py",
+        "evals/test/test_http_eval.py",
+        "evals/test/test_milestone_3_runner.py"
+      ]
+    },
+    {
+      "requirement": "sole_source_policy_projection",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/manual-tests/milestone-3/68-remediation-authority-v3.md",
+        "docs/design/m3-remediation-v4.md",
+        "evals/runners/m3_claim_authority.py",
+        "evals/runners/milestone_3_comparison.py",
+        "evals/test/test_issue_63_remediation.py",
+        "evals/test/test_issue_68_remediation.py"
+      ]
+    },
+    {
+      "requirement": "two_layer_taxonomy",
+      "result": "PASS",
+      "evidence_paths": [
+        ".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md",
+        "backend/src/knora/adapters/postgres/evaluation_reader.py",
+        "backend/src/knora/answering/evidence.py",
+        "backend/src/knora/answering/module.py",
+        "backend/test/adapters/postgres/test_issue_61_reader_contract.py",
+        "backend/test/answering/test_issue_61_trace_contract.py",
+        "docs/design/m3-remediation-v4.md",
+        "evals/runners/milestone_3_comparison.py",
+        "evals/test/test_issue_63_remediation.py"
+      ]
+    }
+  ]
+}
