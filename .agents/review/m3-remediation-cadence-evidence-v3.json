@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "spec_design_external_review": {
+    "status": "completed",
+    "reference": ".agents/review/m3-finalization-external-review-20260821.json#spec_design",
+    "sequence": 1
+  },
+  "tickets": [
+    {
+      "ticket_id": "#68",
+      "ticket_external_review": {"status":"completed","reference":".agents/review/m3-finalization-external-review-20260821.json#ticket-68","sequence":2},
+      "manual_guide_external_review": {"status":"completed","reference":".agents/review/m3-finalization-external-review-20260821.json#guide-68","sequence":3},
+      "human_acceptance": {"status":"approved","reference":".agents/manual-tests/milestone-3/68-remediation-authority.evaluations.jsonl#m3-remediation-68-20260821-revalidation-03","sequence":8}
+    },
+    {
+      "ticket_id": "#69",
+      "ticket_external_review": {"status":"completed","reference":".agents/review/m3-finalization-external-review-20260821.json#ticket-69","sequence":4},
+      "manual_guide_external_review": {"status":"completed","reference":".agents/review/m3-finalization-external-review-20260821.json#guide-69","sequence":5},
+      "human_acceptance": {"status":"approved","reference":".agents/manual-tests/milestone-3/69-remediation-population-latency.evaluations.jsonl#m3-remediation-69-20260821-revalidation-03","sequence":9}
+    },
+    {
+      "ticket_id": "#67",
+      "ticket_external_review": {"status":"completed","reference":".agents/review/m3-finalization-external-review-20260821.json#ticket-67","sequence":6},
+      "manual_guide_external_review": {"status":"completed","reference":".agents/review/m3-finalization-external-review-20260821.json#guide-67","sequence":7},
+      "human_acceptance": {"status":"approved","reference":".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.evaluations.jsonl#m3-remediation-67-20260821-revalidation-03","sequence":10}
+    }
+  ],
+  "final_feature_review": {
+    "status": "APPROVE",
+    "reference": ".agents/review/m3-final-fixed-point-review-v4.json",
+    "sequence": 11
+  }
+}

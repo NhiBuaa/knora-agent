@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "fixed_point": {
+    "merge_base": "123d16ad3a9f8fb9f54e8efa20c6efea87e3cf20",
+    "head": "4fd94531a48777260ee0054ed5e7a014b03affe2",
+    "comparison": "merge-base..HEAD",
+    "commits_ahead": 77
+  },
+  "axes": {
+    "standards": {"status":"completed","verdict":"APPROVE","critical_count":0,"major_count":0,"minor_count":0,"findings":[],"evidence":["git diff check: passed","ruff: passed"]},
+    "spec": {"status":"completed","verdict":"APPROVE","critical_count":0,"major_count":0,"minor_count":0,"findings":[],"evidence":["authority: APPROVED_EFFECTIVE","focused spec suite: 96 passed","git diff check: passed"]}
+  },
+  "reviewers_modified_files": 0
+}
