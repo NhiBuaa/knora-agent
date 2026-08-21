@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "acceptance_mode": "human_required",
+  "status": "planned",
+  "risk_level": "high",
+  "effective_risk_level": "high",
+  "escalated": false,
+  "change_kinds": ["configuration", "logic", "performance", "public-api", "schema", "security", "testing"],
+  "escalation_triggers": ["approved_seam_conflict"],
+  "ticket_count": 3,
+  "ticket_ids": ["#68", "#69", "#67"],
+  "ticket_risk_levels": ["high", "high", "high"],
+  "representative_ticket_index": null,
+  "gates": {
+    "spec_design_external_review": "required",
+    "ticket_external_review": "required_each_ticket",
+    "manual_guide_external_review": "required_each_guide",
+    "human_acceptance": "required",
+    "automated_acceptance": "none",
+    "final_feature_code_review": "required"
+  },
+  "selection_rule": "For representative review, select the highest-risk ticket; break ties with the earliest frontier ticket.",
+  "external_review_budget": 7,
+  "reasons": ["risk_level:high", "public-api", "schema", "security", "approved_seam_conflict"]
+}

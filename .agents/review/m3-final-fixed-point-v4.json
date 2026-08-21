@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "feature": "Milestone 3 — Hybrid retrieval and evaluation",
+  "default_branch": "main",
+  "base_commit": "123d16ad3a9f8fb9f54e8efa20c6efea87e3cf20",
+  "merge_base_commit": "123d16ad3a9f8fb9f54e8efa20c6efea87e3cf20",
+  "merge_base_semantics": true,
+  "head_commit": "4d6b4e41f22b0f0fb35d60d0236848195ee77a27",
+  "commit_count": 125,
+  "commit_list_command": "git rev-list --reverse 123d16ad3a9f8fb9f54e8efa20c6efea87e3cf20..4d6b4e41f22b0f0fb35d60d0236848195ee77a27",
+  "diff_command": "git diff 123d16ad3a9f8fb9f54e8efa20c6efea87e3cf20..4d6b4e41f22b0f0fb35d60d0236848195ee77a27",
+  "review_artifact": ".agents/review/m3-final-fixed-point-review-v4.json",
+  "authority_chain": {
+    "subject_commit": "0629314b5b220c8cb992f059a988955001683237",
+    "scope_projection": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+    "response_projection": ".agents/review/m3-remediation-v4-response-projection-final.json",
+    "closure": ".agents/review/m3-remediation-v4-review-closure-final.json",
+    "status": "APPROVED_EFFECTIVE"
+  },
+  "verification": {
+    "pytest": "672 passed, 3 skipped",
+    "ruff": "All checks passed",
+    "compose_config": "PASS",
+    "manual_acceptance": "#68/#69/#67 PASSED with approved human acceptance and current append-only revalidation"
+  },
+  "resolved_at": "2026-08-21T20:40:00+07:00",
+  "note": "Fresh fixed-point review covers the complete integration branch and current remediation authority chain; historical fixed-point descriptors remain immutable."
+}

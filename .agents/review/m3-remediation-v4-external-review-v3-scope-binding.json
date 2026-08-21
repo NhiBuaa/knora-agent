@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_remediation_external_review_v3",
+  "identity_record": ".agents/review/identities/codex-agent-m3-remediation-external-review-v3.json",
+  "identity_digest": "sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907",
+  "response_record": ".agents/review/m3-remediation-v4-external-review-v3-response.json",
+  "response_sha256": "sha256:5583bf5707d30208db51ac159568594257598a542da95063628fa2c906a92e1c",
+  "verdict": "REQUEST_CHANGES",
+  "reviewed_subject": {
+    "subject_commit": "08b0b814679bda94631f61d6333fc8f4f320b45c",
+    "subject_blob": "ff6a069f5f543b715c90e73864e4052bbdcf6952",
+    "scope_digest": "sha256:0a40b085f6b39e1cf80492ed39ca17cf4018853793847d9aae9df4dcf40fdac9",
+    "scope_record": "docs/design/m3-remediation-v4.md#complete-review-subject-scope"
+  },
+  "binding_note": "The original v3 REQUEST_CHANGES response is preserved verbatim; this append-only binding supplies the exact subject path, requirement and scope digest needed for independent reproduction."
+}

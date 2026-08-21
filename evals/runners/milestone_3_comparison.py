@@ -17,20 +17,28 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
-from evals.datasets.milestone_3 import QUALITY_CATEGORIES
+from evals.datasets.milestone_3 import (
+    QUALITY_CATEGORIES,
+    load_milestone_3_corpus_manifest,
+    load_milestone_3_dataset,
+    load_milestone_3_dataset_manifest,
+    validate_milestone_3_references,
+)
 from evals.runners.m3_claim_authority import (
-    ALLOWED_CONFIGURATION_FIELDS,
     APPROVED_HUMAN_IDENTITY,
     AUTHORITY_IDENTIFIER,
     AUTHORITY_VALIDATION_FAILURE,
     CLAIM_RULE_DIGEST,
     CLAIM_RULE_VERSION,
-    EQUAL_PROVENANCE_FIELDS,
+    M3_POPULATION_SOURCE_COMMIT,
     REQUIRED_GUARDRAIL_KEYS,
     ClaimRuleAuthority,
     canonical_authority_validation,
     canonical_policy_projection,
     is_non_placeholder_identity,
+    policy_guardrail_keys,
+    policy_metric_fields,
+    policy_provenance_field_names,
     test_claim_rule_authority_fixture,
     validate_approved_authority,
     validate_claim_rule_authority,
@@ -39,7 +47,6 @@ from evals.runners.m3_claim_authority import (
 )
 
 __all__ = [
-    "ALLOWED_CONFIGURATION_FIELDS",
     "APPROVED_RETRIEVAL_CONFIGURATIONS",
     "APPROVED_HUMAN_IDENTITY",
     "AUTHORITY_IDENTIFIER",
@@ -61,6 +68,7 @@ __all__ = [
     "is_non_placeholder_identity",
     "select_improvement",
     "select_production_improvement",
+    "validate_m3_population_provenance",
     "verify_binding_v3_attestation",
     "test_claim_rule_authority_fixture",
     "validate_guardrails",
@@ -144,8 +152,6 @@ class BindingV3Attestation:
         }
 
 
-_ALLOWED_CONFIGURATION_FIELD_SET = set(ALLOWED_CONFIGURATION_FIELDS)
-
 APPROVED_RETRIEVAL_CONFIGURATIONS = MappingProxyType(
     {
         "retrieval-m3-vector-v2": MappingProxyType(
@@ -169,6 +175,27 @@ APPROVED_RETRIEVAL_CONFIGURATIONS = MappingProxyType(
     }
 )
 
+_M3_DATASET_MANIFEST = "evals/datasets/milestone_3.manifest.json"
+_M3_DATASET_PATH = "evals/datasets/milestone_3.jsonl"
+_M3_CORPUS_MANIFEST = "evals/corpora/milestone_3/manifest.json"
+_M3_CASE_ID_PROJECTION = ".agents/review/m3-dataset-v1-case-ids.json"
+_M3_DATASET_MANIFEST_BLOB = "08061b4a26b1d10b9720769828bb179264d99fec"
+_M3_DATASET_MANIFEST_SHA256 = (
+    "sha256:f42bb8aa0fe064ab172bac7aa1c8603e9d23b9d3e41ccadbf38d4fbc06c0b41b"
+)
+_M3_DATASET_SHA256 = "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50"
+_M3_CORPUS_MANIFEST_BLOB = "5b8ff82769239f253d31424606205a9e74828d71"
+_M3_CORPUS_MANIFEST_SHA256 = (
+    "sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326"
+)
+_M3_CASE_ID_PROJECTION_SHA256 = (
+    "sha256:d2295109d810984767b1f8157e323a2993c6773c2ccfd27e5dc61c35e5362253"
+)
+_M3_DATASET_VERSION = "m3-dataset-v1"
+_M3_CORPUS_VERSION = "m3-corpus-v1"
+_M3_WORKSPACE_ID = "evaluation-m3-v1"
+_M3_CHUNK_SET_PROVENANCE_ID = "chunk-set-m3-v1"
+
 TAXONOMY_VERSION = "m3-failure-taxonomy-v1"
 _VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
 _SHA256_DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -187,13 +214,15 @@ TAXONOMY_FIXTURE_MAP = MappingProxyType({
     "fixture-insufficient-evidence-correct": "INSUFFICIENT_EVIDENCE_CORRECT",
 })
 TAXONOMY_ENUMS = tuple(TAXONOMY_FIXTURE_MAP.values())
-REPORT_CATEGORY_METRICS = (
-    "recall_at_8",
-    "mrr",
+_REPORT_NON_RETRIEVAL_METRICS = (
     "structural_validity",
     "citation_correctness",
     "refusal_correctness",
     "semantic_citation_correctness",
+)
+REPORT_CATEGORY_METRICS = (
+    *policy_metric_fields(canonical_policy_projection())[2],
+    *_REPORT_NON_RETRIEVAL_METRICS,
 )
 _FIXTURE_STAGES = {
     "fixture-lexical-branch-miss": "branch",
@@ -758,19 +787,39 @@ def _fraction_text(value: Fraction) -> str:
     return f"{value.numerator}/{value.denominator}"
 
 
-def validate_guardrail_shape(guardrails: object) -> dict[str, bool]:
+def _guardrail_keys(policy_projection: Mapping[str, Any] | None = None) -> tuple[str, ...]:
+    projection = (
+        canonical_policy_projection() if policy_projection is None else policy_projection
+    )
+    try:
+        return policy_guardrail_keys(projection)
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+
+
+def validate_guardrail_shape(
+    guardrails: object,
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
     """Validate the immutable closed key/type contract, retaining false observations."""
-    if not isinstance(guardrails, Mapping) or set(guardrails) != set(REQUIRED_GUARDRAIL_KEYS):
+    keys = _guardrail_keys(policy_projection)
+    if not isinstance(guardrails, Mapping) or set(guardrails) != set(keys):
         raise ComparisonError("GUARDRAIL_FAILURE")
-    if any(type(guardrails[key]) is not bool for key in REQUIRED_GUARDRAIL_KEYS):
+    if any(type(guardrails[key]) is not bool for key in keys):
         raise ComparisonError("GUARDRAIL_FAILURE")
-    return {key: guardrails[key] for key in REQUIRED_GUARDRAIL_KEYS}
+    return {key: guardrails[key] for key in keys}
 
 
-def validate_guardrails(guardrails: object) -> dict[str, bool]:
+def validate_guardrails(
+    guardrails: object,
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
     """Validate the immutable closed guardrail contract and require all values true."""
-    shaped = validate_guardrail_shape(guardrails)
-    if any(shaped[key] is not True for key in REQUIRED_GUARDRAIL_KEYS):
+    keys = _guardrail_keys(policy_projection)
+    shaped = validate_guardrail_shape(guardrails, policy_projection=policy_projection)
+    if any(shaped[key] is not True for key in keys):
         raise ComparisonError("GUARDRAIL_FAILURE")
     return shaped
 
@@ -794,8 +843,12 @@ def _has_observation_failure(report: Mapping[str, Any]) -> bool:
 
 
 def _validate_observation_set(
-    report: Mapping[str, Any], expected_case_ids: tuple[str, ...]
+    report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...],
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], ...]:
+    guardrail_keys = _guardrail_keys(policy_projection)
     observations = report.get("observations")
     if not isinstance(observations, list):
         raise ComparisonError("OBSERVATIONS_INVALID")
@@ -834,7 +887,7 @@ def _validate_observation_set(
             _validate_public_observation_projection(observation)
             if any(
                 type(observation.get(field)) is not bool
-                for field in REQUIRED_GUARDRAIL_KEYS
+                for field in guardrail_keys
             ):
                 raise ComparisonError("GUARDRAIL_FAILURE")
             provenance = report.get("provenance")
@@ -966,14 +1019,19 @@ def _validate_latency_disclosure(report: Mapping[str, Any]) -> None:
             raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
 
 
-def _validate_report_guardrails(report: Mapping[str, Any]) -> dict[str, bool]:
+def _validate_report_guardrails(
+    report: Mapping[str, Any],
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
+) -> dict[str, bool]:
+    guardrail_keys = _guardrail_keys(policy_projection)
     observations = report.get("observations")
     if not isinstance(observations, list):
         raise ComparisonError("GUARDRAIL_FAILURE")
     observed = [item for item in observations if isinstance(item, Mapping)]
     answer_observations = [item for item in observed if item.get("decision") == "ANSWER"]
     refusal_values = [item.get("refusal_correctness") for item in observed]
-    expected = {
+    expected_by_name = {
         "structural_validity": bool(observed)
         and len(observed) == len(observations)
         and all(item.get("status") == "observed" for item in observed)
@@ -983,8 +1041,14 @@ def _validate_report_guardrails(report: Mapping[str, Any]) -> dict[str, bool]:
         "refusal_correctness": bool(refusal_values)
         and all(value is True for value in refusal_values),
     }
+    if set(guardrail_keys) != set(expected_by_name):
+        raise ComparisonError("POLICY_PROJECTION_INVALID")
+    expected = {key: expected_by_name[key] for key in guardrail_keys}
     try:
-        shaped = validate_guardrail_shape(report.get("guardrails"))
+        shaped = validate_guardrail_shape(
+            report.get("guardrails"),
+            policy_projection=policy_projection,
+        )
     except ComparisonError:
         raise ComparisonError("GUARDRAIL_FAILURE") from None
     if shaped != expected:
@@ -1036,7 +1100,11 @@ def _validate_category_metric(value: object, *, case_count: int) -> None:
 
 
 def _expected_report_metric(
-    report: Mapping[str, Any], case_ids: tuple[str, ...], metric: str
+    report: Mapping[str, Any],
+    case_ids: tuple[str, ...],
+    metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
 ) -> dict[str, Any]:
     observations = report.get("observations")
     retrieval = report.get("retrieval")
@@ -1061,7 +1129,7 @@ def _expected_report_metric(
         observation = observation_by_id.get(case_id)
         if observation is None:
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        if metric in {"recall_at_8", "mrr"}:
+        if metric in retrieval_metrics:
             retrieval_case = retrieval_by_id.get(case_id)
             if not isinstance(retrieval_case, Mapping):
                 raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
@@ -1084,7 +1152,7 @@ def _expected_report_metric(
         if observation.get("status") in {"failure", "observation_failure"}:
             failures += 1
             continue
-        if metric in {"recall_at_8", "mrr"}:
+        if metric in retrieval_metrics:
             retrieval_case = retrieval_by_id[case_id]
             if retrieval_case.get("included") is not True:
                 raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
@@ -1137,6 +1205,7 @@ def _validate_category_breakdown(
     *,
     expected_case_ids: tuple[str, ...] | None = None,
     require_all_categories: bool = True,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> None:
     breakdown = report.get("category_breakdown")
     if not isinstance(breakdown, Mapping) or set(breakdown) != {"categories", "aggregate"}:
@@ -1145,6 +1214,8 @@ def _validate_category_breakdown(
     aggregate = breakdown.get("aggregate")
     if not isinstance(categories, Mapping) or not isinstance(aggregate, Mapping):
         raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
+    category_metrics = _report_category_metrics(policy_projection)
+    retrieval_metrics = _metric_contract_fields(policy_projection)[2]
     if require_all_categories and set(categories) != {
         "lexical_exact_match",
         "semantic_paraphrase",
@@ -1171,30 +1242,40 @@ def _validate_category_breakdown(
             metric_names = projection_metrics
         elif projection_metrics != metric_names:
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        if metric_names != set(REPORT_CATEGORY_METRICS):
+        if metric_names != set(category_metrics):
             raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
-        for metric in REPORT_CATEGORY_METRICS:
+        for metric in category_metrics:
             _validate_category_metric(projection.get(metric), case_count=case_count)
     if expected_case_ids is not None and (
         len(all_category_ids) != len(set(all_category_ids))
         or tuple(sorted(all_category_ids)) != expected_case_ids
     ):
         raise ComparisonError("CATEGORY_CASE_SET_MISMATCH")
-    if metric_names != set(REPORT_CATEGORY_METRICS):
+    if metric_names != set(category_metrics):
         raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
     aggregate_metrics = set(aggregate)
-    if aggregate_metrics != set(REPORT_CATEGORY_METRICS):
+    if aggregate_metrics != set(category_metrics):
         raise ComparisonError("CATEGORY_BREAKDOWN_INVALID")
     aggregate_case_ids = tuple(sorted(all_category_ids))
-    for metric in REPORT_CATEGORY_METRICS:
+    for metric in category_metrics:
         _validate_category_metric(aggregate.get(metric), case_count=sum(
             projection["case_count"] for projection in categories.values()
         ))
-        expected = _expected_report_metric(report, aggregate_case_ids, metric)
+        expected = _expected_report_metric(
+            report,
+            aggregate_case_ids,
+            metric,
+            retrieval_metrics=retrieval_metrics,
+        )
         _assert_metric_projection_matches(aggregate[metric], expected)
         for _category, projection in categories.items():
             category_ids = tuple(sorted(projection["case_ids"]))
-            expected = _expected_report_metric(report, category_ids, metric)
+            expected = _expected_report_metric(
+                report,
+                category_ids,
+                metric,
+                retrieval_metrics=retrieval_metrics,
+            )
             _assert_metric_projection_matches(projection[metric], expected)
 
 
@@ -1277,10 +1358,16 @@ def _selection_provenance_matches(
     pair: Mapping[str, Any],
     vector_report: Mapping[str, Any],
     hybrid_report: Mapping[str, Any],
+    *,
+    policy_projection: Mapping[str, Any],
 ) -> bool:
     try:
-        vector_shared = _provenance_without_allowed_differences(vector_report)
-        hybrid_shared = _provenance_without_allowed_differences(hybrid_report)
+        vector_shared = _provenance_without_allowed_differences(
+            vector_report, policy_projection=policy_projection
+        )
+        hybrid_shared = _provenance_without_allowed_differences(
+            hybrid_report, policy_projection=policy_projection
+        )
         vector_configuration = _validate_configuration_semantics(vector_report)
         hybrid_configuration = _validate_configuration_semantics(hybrid_report)
         vector_binding = _validate_binding_v3(vector_report)
@@ -1350,7 +1437,173 @@ def _observation_source_bindings(
     return result
 
 
-def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
+def _validate_m3_manifest_source_commit(repository_root: Path, source_commit: str) -> None:
+    if source_commit != M3_POPULATION_SOURCE_COMMIT:
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    expected_blobs = (
+        (_M3_DATASET_MANIFEST, _M3_DATASET_MANIFEST_BLOB),
+        (_M3_CORPUS_MANIFEST, _M3_CORPUS_MANIFEST_BLOB),
+    )
+    for path, expected_blob in expected_blobs:
+        source_blob = subprocess.run(
+            ["git", "rev-parse", f"{source_commit}:{path}"],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if source_blob != expected_blob:
+            raise ComparisonError("PROVENANCE_MISMATCH")
+
+
+def _production_m3_case_ids(repository_root: Path) -> tuple[str, ...]:
+    """Resolve the only production comparison population from immutable M3 manifests."""
+    root = repository_root.resolve()
+    dataset_manifest = root / _M3_DATASET_MANIFEST
+    dataset_path = root / _M3_DATASET_PATH
+    corpus_manifest = root / _M3_CORPUS_MANIFEST
+    case_projection = root / _M3_CASE_ID_PROJECTION
+    try:
+        if not all(
+            path.is_file()
+            for path in (dataset_manifest, dataset_path, corpus_manifest, case_projection)
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(dataset_manifest.read_bytes()).hexdigest() != (
+            _M3_DATASET_MANIFEST_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(dataset_path.read_bytes()).hexdigest() != (
+            _M3_DATASET_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(corpus_manifest.read_bytes()).hexdigest() != (
+            _M3_CORPUS_MANIFEST_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        if hashlib.sha256(case_projection.read_bytes()).hexdigest() != (
+            _M3_CASE_ID_PROJECTION_SHA256.removeprefix("sha256:")
+        ):
+            raise ComparisonError("PROVENANCE_MISMATCH")
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
+        ).stdout.strip()
+        _validate_m3_manifest_source_commit(root, M3_POPULATION_SOURCE_COMMIT)
+        for path, expected_blob in (
+            (_M3_DATASET_MANIFEST, _M3_DATASET_MANIFEST_BLOB),
+            (_M3_CORPUS_MANIFEST, _M3_CORPUS_MANIFEST_BLOB),
+        ):
+            actual_blob = subprocess.run(
+                ["git", "rev-parse", f"{commit}:{path}"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            if actual_blob != expected_blob:
+                raise ComparisonError("PROVENANCE_MISMATCH")
+        dataset_identity = load_milestone_3_dataset_manifest(dataset_manifest, dataset_path)
+        dataset = load_milestone_3_dataset(dataset_path)
+        corpus = load_milestone_3_corpus_manifest(corpus_manifest)
+        validate_milestone_3_references(dataset, corpus)
+        projection = json.loads(case_projection.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
+        if isinstance(error, ComparisonError):
+            raise
+        raise ComparisonError("PROVENANCE_MISMATCH") from error
+    case_ids = tuple(sorted(case.id for case in dataset.cases))
+    projected_ids = projection.get("case_ids") if isinstance(projection, Mapping) else None
+    if (
+        dataset_identity.version != _M3_DATASET_VERSION
+        or dataset_identity.checksum != _M3_DATASET_SHA256
+        or corpus.version != _M3_CORPUS_VERSION
+        or corpus.workspace_id != _M3_WORKSPACE_ID
+        or corpus.chunk_set_id != _M3_CHUNK_SET_PROVENANCE_ID
+        or len(case_ids) != 50
+        or len(set(case_ids)) != 50
+        or projected_ids != list(case_ids)
+        or projection.get("dataset_version") != _M3_DATASET_VERSION
+        or projection.get("schema_version") != 1
+    ):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    return case_ids
+
+
+def validate_m3_population_provenance(
+    report: Mapping[str, Any], *, repository_root: Path | None = None
+) -> None:
+    """Require a production report to name the immutable M3 population exactly."""
+    provenance = report.get("provenance") if isinstance(report, Mapping) else None
+    binding = report.get("binding_v3") if isinstance(report, Mapping) else None
+    if not isinstance(provenance, Mapping) or not isinstance(binding, Mapping):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    expected_provenance = {
+        "dataset_version": _M3_DATASET_VERSION,
+        "dataset_digest": _M3_DATASET_SHA256,
+        "corpus_id": _M3_CORPUS_VERSION,
+        "corpus_digest": _M3_CORPUS_MANIFEST_SHA256,
+        "chunk_set_id": _M3_CHUNK_SET_PROVENANCE_ID,
+        "workspace": _M3_WORKSPACE_ID,
+        "source_commit": M3_POPULATION_SOURCE_COMMIT,
+    }
+    if any(provenance.get(field) != expected for field, expected in expected_provenance.items()):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    expected_binding = {
+        "schema_version": 3,
+        "dataset_manifest_identity": _M3_DATASET_VERSION,
+        "corpus_manifest_identity": _M3_CORPUS_VERSION,
+        "chunk_set_provenance_id": _M3_CHUNK_SET_PROVENANCE_ID,
+        "workspace_id": _M3_WORKSPACE_ID,
+    }
+    if any(binding.get(field) != expected for field, expected in expected_binding.items()):
+        raise ComparisonError("PROVENANCE_MISMATCH")
+    if repository_root is not None:
+        try:
+            root = repository_root.resolve()
+            _validate_m3_manifest_source_commit(root, M3_POPULATION_SOURCE_COMMIT)
+            measured_commit = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            for path, expected_blob in (
+                (_M3_DATASET_MANIFEST, _M3_DATASET_MANIFEST_BLOB),
+                (_M3_CORPUS_MANIFEST, _M3_CORPUS_MANIFEST_BLOB),
+            ):
+                measured_blob = subprocess.run(
+                    ["git", "rev-parse", f"{measured_commit}:{path}"],
+                    cwd=root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+                if measured_blob != expected_blob:
+                    raise ComparisonError("PROVENANCE_MISMATCH")
+            corpus = load_milestone_3_corpus_manifest(
+                root / _M3_CORPUS_MANIFEST
+            )
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            raise ComparisonError("PROVENANCE_MISMATCH") from error
+        expected_sources = {reference.rsplit("#", 1)[0] for reference in corpus.chunks}
+        source_bindings = binding.get("source_bindings")
+        actual_sources = (
+            {
+                item.get("source_key")
+                for item in source_bindings
+                if isinstance(item, Mapping)
+            }
+            if isinstance(source_bindings, list)
+            else set()
+        )
+        if actual_sources != expected_sources:
+            raise ComparisonError("PROVENANCE_MISMATCH")
+
+
+def _validate_pair_contract(
+    pair: Mapping[str, Any], *, expected_case_ids: tuple[str, ...] | None = None
+) -> tuple[str, ...]:
     required_keys = {
         "schema_version",
         "case_ids",
@@ -1377,6 +1630,8 @@ def _validate_pair_contract(pair: Mapping[str, Any]) -> tuple[str, ...]:
         raise ComparisonError("PAIR_CONTRACT_INVALID")
     if len(case_ids) != len(set(case_ids)) or tuple(case_ids) != tuple(sorted(case_ids)):
         raise ComparisonError("PAIR_CONTRACT_INVALID")
+    if expected_case_ids is not None and tuple(case_ids) != expected_case_ids:
+        raise ComparisonError("CASE_SET_MISMATCH")
     vector_configuration = pair.get("vector_configuration_id")
     hybrid_configuration = pair.get("hybrid_configuration_id")
     if (
@@ -1491,8 +1746,11 @@ def _policy_gate_reason(
     deltas: tuple[Fraction, ...],
 ) -> tuple[str | None, dict[str, bool]]:
     try:
-        _validate_report_guardrails(vector_report)
-        hybrid_guardrails = validate_guardrails(_validate_report_guardrails(hybrid_report))
+        _validate_report_guardrails(vector_report, policy_projection=projection)
+        hybrid_guardrails = validate_guardrails(
+            _validate_report_guardrails(hybrid_report, policy_projection=projection),
+            policy_projection=projection,
+        )
     except ComparisonError:
         return "GUARDRAIL_FAILURE", {}
     for report in (vector_report, hybrid_report):
@@ -1507,6 +1765,63 @@ def _policy_gate_reason(
     return None, hybrid_guardrails
 
 
+def _paired_latency_projection(
+    vector_report: Mapping[str, Any],
+    hybrid_report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...],
+) -> dict[str, Any]:
+    """Retain both observed latency series and explicit hybrid-minus-vector deltas."""
+    def values(report: Mapping[str, Any], field: str) -> dict[str, float]:
+        observations = report.get("observations")
+        if not isinstance(observations, list):
+            raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+        by_id = {
+            item.get("case_id"): item
+            for item in observations
+            if isinstance(item, Mapping) and isinstance(item.get("case_id"), str)
+        }
+        if set(by_id) != set(expected_case_ids):
+            raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+        result: dict[str, float] = {}
+        for case_id in expected_case_ids:
+            value = by_id[case_id].get(field)
+            if (
+                by_id[case_id].get("status") != "observed"
+                or isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(float(value))
+                or value < 0
+            ):
+                raise ComparisonError("LATENCY_DISCLOSURE_INVALID")
+            result[case_id] = float(value)
+        return result
+
+    vector_values = {
+        "retrieval_latency_ms": values(vector_report, "retrieval_latency_ms"),
+        "end_to_end_latency_ms": values(vector_report, "end_to_end_latency_ms"),
+    }
+    hybrid_values = {
+        "retrieval_latency_ms": values(hybrid_report, "retrieval_latency_ms"),
+        "end_to_end_latency_ms": values(hybrid_report, "end_to_end_latency_ms"),
+    }
+    deltas = {
+        metric: {
+            case_id: hybrid_values[metric][case_id] - vector_values[metric][case_id]
+            for case_id in expected_case_ids
+        }
+        for metric in vector_values
+    }
+    return {
+        "version": "m3-paired-latency-v1",
+        "clock_boundary_version": "m3-latency-boundary-v1",
+        "streaming": False,
+        "case_ids": list(expected_case_ids),
+        "vector": vector_values,
+        "hybrid": hybrid_values,
+        "hybrid_minus_vector": deltas,
+    }
+
+
 def select_improvement(
     pair: Mapping[str, Any],
     *,
@@ -1519,6 +1834,7 @@ def select_improvement(
     sealed_archive_path: Path | None = None,
     closure_path: Path | None = None,
     binding_attestation: object | None = None,
+    expected_case_ids: tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     """Apply the approved V1 rule only after authority validation succeeds.
 
@@ -1569,26 +1885,65 @@ def select_improvement(
     )
     if binding_attestation_invalid or (production and validated_binding_attestation is None):
         return _no_claim(common, "PROVENANCE_MISMATCH")
+    if production and expected_case_ids is not None:
+        return _no_claim(common, "CALLER_POPULATION_OVERRIDE")
+    if production:
+        try:
+            expected_case_ids = _production_m3_case_ids(repository_root)
+            validate_m3_population_provenance(
+                vector_report, repository_root=repository_root
+            )
+            validate_m3_population_provenance(
+                hybrid_report, repository_root=repository_root
+            )
+        except ComparisonError as error:
+            return _no_claim(common, str(error))
     try:
-        expected_case_ids = _validate_pair_contract(pair)
+        expected_case_ids = _validate_pair_contract(pair, expected_case_ids=expected_case_ids)
     except ComparisonError as error:
         return _no_claim(common, str(error))
     if not isinstance(vector_report, Mapping) or not isinstance(hybrid_report, Mapping):
         return _no_claim(common, "PROVENANCE_MISMATCH")
     try:
-        _validate_observation_set(vector_report, expected_case_ids)
-        _validate_observation_set(hybrid_report, expected_case_ids)
+        _validate_observation_set(
+            vector_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_observation_set(
+            hybrid_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
         if _has_observation_failure(vector_report) or _has_observation_failure(hybrid_report):
             return _no_claim(common, "OBSERVATION_FAILURE")
-        _validate_report_guardrails(vector_report)
-        _validate_report_guardrails(hybrid_report)
-        _validate_metric_contract(vector_report, expected_case_ids)
-        _validate_metric_contract(hybrid_report, expected_case_ids)
-        _validate_category_breakdown(
-            vector_report, expected_case_ids=expected_case_ids
+        _validate_report_guardrails(
+            vector_report,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_report_guardrails(
+            hybrid_report,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_metric_contract(
+            vector_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_metric_contract(
+            hybrid_report,
+            expected_case_ids,
+            policy_projection=bound_authority.projection,
         )
         _validate_category_breakdown(
-            hybrid_report, expected_case_ids=expected_case_ids
+            vector_report,
+            expected_case_ids=expected_case_ids,
+            policy_projection=bound_authority.projection,
+        )
+        _validate_category_breakdown(
+            hybrid_report,
+            expected_case_ids=expected_case_ids,
+            policy_projection=bound_authority.projection,
         )
     except ComparisonError as error:
         reason = (
@@ -1597,7 +1952,12 @@ def select_improvement(
             else str(error)
         )
         return _no_claim(common, reason)
-    if not _selection_provenance_matches(pair, vector_report, hybrid_report):
+    if not _selection_provenance_matches(
+        pair,
+        vector_report,
+        hybrid_report,
+        policy_projection=bound_authority.projection,
+    ):
         return _no_claim(common, "PROVENANCE_MISMATCH")
     metric_values, decision_deltas, metric_deltas, metric_failure = _decision_metrics(
         primary_metrics, vector_report, hybrid_report, expected_case_ids
@@ -1628,13 +1988,25 @@ def select_improvement(
             "reason": blocked_reason,
             "selected_improvement": None,
         }
+    try:
+        paired_latency = _paired_latency_projection(
+            vector_report, hybrid_report, expected_case_ids
+        )
+    except ComparisonError as error:
+        return _no_claim(
+            common,
+            str(error),
+            metric_deltas=metric_deltas,
+            metric_decision_values=metric_values,
+            metric_decision_deltas=common["metric_decision_deltas"],
+        )
     selected = {
         "vector_configuration_id": pair["vector_configuration_id"],
         "hybrid_configuration_id": pair["hybrid_configuration_id"],
         "metric_deltas": metric_deltas,
         "metric_decision_deltas": common["metric_decision_deltas"],
         "guardrails": hybrid_guardrails,
-        "latency_tradeoffs": hybrid_report["latency_tradeoffs"],
+        "latency_tradeoffs": paired_latency,
         "remaining_regressions": hybrid_report["remaining_regressions"],
         "comparable_provenance": common["comparable_provenance"],
         "binding_v3": common["binding_v3"],
@@ -1672,6 +2044,7 @@ def select_production_improvement(
         sealed_archive_path=sealed_archive_path,
         closure_path=closure_path,
         binding_attestation=binding_attestation,
+        expected_case_ids=None,
     )
 
 
@@ -1681,7 +2054,12 @@ def _case_field(case: object, name: str, default: Any = None) -> Any:
     return getattr(case, name, default)
 
 
-def _metric_applicable(case: object, metric: str) -> bool:
+def _metric_applicable(
+    case: object,
+    metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
+) -> bool:
     if metric == "semantic_citation_correctness":
         return _case_field(case, "expected_behavior") == "ANSWER"
     if metric in {
@@ -1691,7 +2069,7 @@ def _metric_applicable(case: object, metric: str) -> bool:
     }:
         return True
     relevance = _case_field(case, "retrieval_relevance")
-    if metric in {"recall_at_8", "mrr", "hit_rate"} and relevance is not None:
+    if metric in retrieval_metrics and relevance is not None:
         return bool(_case_field(relevance, "applicable", False))
     applicability = _case_field(case, "metric_applicability", {})
     if isinstance(applicability, Mapping) and metric in applicability:
@@ -1704,12 +2082,14 @@ def _metric_observation_value(
     report_cases: Mapping[str, Mapping[str, Any]],
     case_id: str,
     metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
 ) -> float | bool | None:
     value = observation.get(metric)
     if value is None:
         report_case = report_cases.get(case_id, {})
         value = report_case.get(metric)
-        if value is None and metric == "mrr":
+        if value is None and retrieval_metrics and metric == retrieval_metrics[-1]:
             # The retrieval report names each per-case MRR value reciprocal_rank;
             # preserve that value when reconciling category denominators.
             value = report_case.get("reciprocal_rank")
@@ -1728,6 +2108,8 @@ def _category_metric(
     case_list: list[object],
     report: Mapping[str, Any],
     metric: str,
+    *,
+    retrieval_metrics: tuple[str, ...],
 ) -> dict[str, Any]:
     raw_observations = report.get("observations", [])
     if not isinstance(raw_observations, list):
@@ -1760,7 +2142,11 @@ def _category_metric(
     for case in case_list:
         case_id = _case_field(case, "id")
         observation = observations.get(case_id, {})
-        if not _metric_applicable(case, metric):
+        if not _metric_applicable(
+            case,
+            metric,
+            retrieval_metrics=retrieval_metrics,
+        ):
             inapplicable_count += 1
             continue
         applicable_count += 1
@@ -1770,7 +2156,13 @@ def _category_metric(
         if observation.get("status") in {"failure", "observation_failure"}:
             observation_failure_count += 1
             continue
-        value = _metric_observation_value(observation, retrieval_cases, case_id, metric)
+        value = _metric_observation_value(
+            observation,
+            retrieval_cases,
+            case_id,
+            metric,
+            retrieval_metrics=retrieval_metrics,
+        )
         if value is None:
             observation_failure_count += 1
             continue
@@ -1790,9 +2182,13 @@ def build_category_breakdown(
     cases: Iterable[object],
     report: Mapping[str, Any],
     *,
-    metrics: Iterable[str] = REPORT_CATEGORY_METRICS,
+    metrics: Iterable[str] | None = None,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Reconcile each metric against its own category membership and applicability set."""
+    retrieval_metrics = _metric_contract_fields(policy_projection)[2]
+    if metrics is None:
+        metrics = _report_category_metrics(policy_projection)
     try:
         metric_names = tuple(metrics)
     except TypeError:
@@ -1816,7 +2212,12 @@ def build_category_breakdown(
             "case_ids": sorted(_case_field(case, "id") for case in category_cases),
             "case_count": len(category_cases),
             **{
-                metric: _category_metric(category_cases, report, metric)
+                metric: _category_metric(
+                    category_cases,
+                    report,
+                    metric,
+                    retrieval_metrics=retrieval_metrics,
+                )
                 for metric in metric_names
             },
         }
@@ -1824,7 +2225,12 @@ def build_category_breakdown(
     return {
         "categories": categories,
         "aggregate": {
-            metric: _category_metric(all_cases, report, metric)
+            metric: _category_metric(
+                all_cases,
+                report,
+                metric,
+                retrieval_metrics=retrieval_metrics,
+            )
             for metric in metric_names
         },
     }
@@ -1919,16 +2325,28 @@ def _observed_case_ids(report: Mapping[str, Any]) -> tuple[str, ...]:
 
 def _provenance_without_allowed_differences(
     report: Mapping[str, Any],
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     provenance = report.get("provenance")
     if not isinstance(provenance, Mapping):
         raise ComparisonError("PROVENANCE_INVALID")
     if report.get("schema_version") != 1:
         raise ComparisonError("PROVENANCE_MISMATCH")
-    expected_keys = set(EQUAL_PROVENANCE_FIELDS) | _ALLOWED_CONFIGURATION_FIELD_SET
+    projection = (
+        canonical_policy_projection() if policy_projection is None else policy_projection
+    )
+    try:
+        equal_fields = policy_provenance_field_names(projection, "equal_fields")
+        allowed_fields = policy_provenance_field_names(projection, "allowed_differences")
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+    if set(equal_fields) & set(allowed_fields):
+        raise ComparisonError("POLICY_PROJECTION_INVALID")
+    expected_keys = set(equal_fields) | set(allowed_fields)
     if set(provenance) != expected_keys:
         raise ComparisonError("PROVENANCE_MISMATCH")
-    for key in EQUAL_PROVENANCE_FIELDS:
+    for key in equal_fields:
         value = provenance.get(key)
         if key == "report_artifact_schema_version":
             valid = type(value) is int and value == 1
@@ -1940,7 +2358,7 @@ def _provenance_without_allowed_differences(
                 valid = valid and bool(re.fullmatch(r"[0-9a-f]{40}", value))
         if not valid:
             raise ComparisonError("PROVENANCE_MISMATCH")
-    for key in ALLOWED_CONFIGURATION_FIELDS:
+    for key in allowed_fields:
         value = provenance.get(key)
         if key in {"retrieval_configuration_id", "strategy"}:
             valid = isinstance(value, str) and bool(value)
@@ -1950,12 +2368,15 @@ def _provenance_without_allowed_differences(
             valid = value is None or (isinstance(value, str) and bool(value))
         if not valid:
             raise ComparisonError("PROVENANCE_MISMATCH")
-    if provenance["metric_contract"] != "m3-retrieval-metrics-v1":
+    metric_contract = projection.get("metric_contract")
+    if not isinstance(metric_contract, str) or not metric_contract:
+        raise ComparisonError("POLICY_PROJECTION_INVALID")
+    if provenance["metric_contract"] != metric_contract:
         raise ComparisonError("PROVENANCE_MISMATCH")
     return {
         key: value
         for key, value in provenance.items()
-        if key not in _ALLOWED_CONFIGURATION_FIELD_SET
+        if key not in set(allowed_fields)
     }
 
 
@@ -1995,15 +2416,47 @@ def _validate_metric_display(value: object, decision: Fraction) -> None:
         raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
 
 
+def _metric_contract_fields(
+    policy_projection: Mapping[str, Any] | None = None,
+) -> tuple[str, int, tuple[str, str]]:
+    projection = (
+        canonical_policy_projection() if policy_projection is None else policy_projection
+    )
+    try:
+        metric_contract, recall_k, primary_metrics = policy_metric_fields(projection)
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+    return metric_contract, recall_k, (primary_metrics[0], primary_metrics[1])
+
+
+def _report_category_metrics(
+    policy_projection: Mapping[str, Any] | None = None,
+) -> tuple[str, ...]:
+    try:
+        primary_metrics = policy_metric_fields(
+            canonical_policy_projection()
+            if policy_projection is None
+            else policy_projection
+        )[2]
+    except ValueError as error:
+        raise ComparisonError("POLICY_PROJECTION_INVALID") from error
+    return (*primary_metrics, *_REPORT_NON_RETRIEVAL_METRICS)
+
+
 def _validate_metric_contract(
-    report: Mapping[str, Any], expected_case_ids: tuple[str, ...] | None = None
+    report: Mapping[str, Any],
+    expected_case_ids: tuple[str, ...] | None = None,
+    *,
+    policy_projection: Mapping[str, Any] | None = None,
 ) -> None:
+    metric_contract, recall_k, primary_metrics = _metric_contract_fields(policy_projection)
+    recall_metric, mrr_metric = primary_metrics
     retrieval = report.get("retrieval")
     if not isinstance(retrieval, Mapping):
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
-    if retrieval.get("metric_contract") != "m3-retrieval-metrics-v1":
+    if retrieval.get("metric_contract") != metric_contract:
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
-    if retrieval.get("recall_k") != 8:
+    if retrieval.get("recall_k") != recall_k:
         raise ComparisonError("METRIC_CONTRACT_MISMATCH")
     if not isinstance(retrieval.get("cases"), list) or not retrieval["cases"]:
         raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
@@ -2012,22 +2465,17 @@ def _validate_metric_contract(
     if type(denominator) is not int or denominator < 0:
         raise ComparisonError("METRIC_DENOMINATOR_INVALID")
     if denominator == 0:
-        if retrieval.get("recall_at_8") is not None or retrieval.get("mrr") is not None:
+        if retrieval.get(recall_metric) is not None or retrieval.get(mrr_metric) is not None:
             raise ComparisonError("METRIC_DECISION_RECONCILIATION_FAILED")
         if metric_values != {}:
             raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
     else:
-        if not isinstance(metric_values, Mapping) or set(metric_values) != {
-            "recall_at_8",
-            "mrr",
-        }:
+        if not isinstance(metric_values, Mapping) or set(metric_values) != set(primary_metrics):
             raise ComparisonError("METRIC_DECISION_UNAVAILABLE")
         for name, value in metric_values.items():
             decision = _rational(value)
             _validate_metric_display(
-                retrieval.get("recall_at_8" if name == "recall_at_8" else "mrr")
-                if name in {"recall_at_8", "mrr"}
-                else None,
+                retrieval.get(recall_metric if name == recall_metric else mrr_metric),
                 decision,
             )
     case_ids: list[str] = []
@@ -2040,12 +2488,12 @@ def _validate_metric_contract(
             raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
         if included:
             values = item.get("metric_decision_values")
-            if not isinstance(values, Mapping) or set(values) != {"recall_at_8", "mrr"}:
+            if not isinstance(values, Mapping) or set(values) != set(primary_metrics):
                 raise ComparisonError("METRIC_CASE_PROJECTION_INVALID")
             for name, value in values.items():
                 decision = _rational(value)
                 _validate_metric_display(
-                    item.get("recall_at_8" if name == "recall_at_8" else "reciprocal_rank"),
+                    item.get(recall_metric if name == recall_metric else "reciprocal_rank"),
                     decision,
                 )
         elif not isinstance(item.get("exclusion_reason"), str) or not item["exclusion_reason"]:
@@ -2103,8 +2551,17 @@ def compare_paired_reports(
 
     vector_config = _validate_configuration_semantics(vector_report)
     hybrid_config = _validate_configuration_semantics(hybrid_report)
-    _validate_observation_set(vector_report, canonical_expected)
-    _validate_observation_set(hybrid_report, canonical_expected)
+    policy_projection = canonical_policy_projection()
+    _validate_observation_set(
+        vector_report,
+        canonical_expected,
+        policy_projection=policy_projection,
+    )
+    _validate_observation_set(
+        hybrid_report,
+        canonical_expected,
+        policy_projection=policy_projection,
+    )
     vector_binding = _validate_binding_v3(vector_report)
     hybrid_binding = _validate_binding_v3(hybrid_report)
     if vector_binding != hybrid_binding:
@@ -2113,13 +2570,25 @@ def compare_paired_reports(
         hybrid_report
     ):
         raise ComparisonError("PROVENANCE_MISMATCH")
-    _validate_metric_contract(vector_report, canonical_expected)
-    _validate_metric_contract(hybrid_report, canonical_expected)
-    _validate_category_breakdown(
-        vector_report, expected_case_ids=canonical_expected
+    _validate_metric_contract(
+        vector_report,
+        canonical_expected,
+        policy_projection=policy_projection,
+    )
+    _validate_metric_contract(
+        hybrid_report,
+        canonical_expected,
+        policy_projection=policy_projection,
     )
     _validate_category_breakdown(
-        hybrid_report, expected_case_ids=canonical_expected
+        vector_report,
+        expected_case_ids=canonical_expected,
+        policy_projection=policy_projection,
+    )
+    _validate_category_breakdown(
+        hybrid_report,
+        expected_case_ids=canonical_expected,
+        policy_projection=policy_projection,
     )
     if vector_config == hybrid_config:
         raise ComparisonError("RETRIEVAL_CONFIGURATION_NOT_PAIRED")
@@ -2129,8 +2598,12 @@ def compare_paired_reports(
     ):
         raise ComparisonError("RETRIEVAL_CONFIGURATION_NOT_APPROVED")
     if _provenance_without_allowed_differences(
-        vector_report
-    ) != _provenance_without_allowed_differences(hybrid_report):
+        vector_report,
+        policy_projection=policy_projection,
+    ) != _provenance_without_allowed_differences(
+        hybrid_report,
+        policy_projection=policy_projection,
+    ):
         raise ComparisonError("PROVENANCE_MISMATCH")
 
     pair_records = [

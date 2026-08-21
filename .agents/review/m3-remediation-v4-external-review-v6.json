@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "identity_record": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+  "identity_git_blob": "e72ec5f9c834b51f48b507f36519ca16d9df1f5e",
+  "identity_raw_sha256": "sha256:1fa4a4ef8e640c5c32f3ad88ebe38dd662381a89f8e347170fefa119f8d654e3",
+  "identity_digest": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda",
+  "response_record": ".agents/review/m3-remediation-v4-external-review-v6-response.json",
+  "response_blob": "2fd7ba5448eb62068cbc8544fcd96f550587c6d9",
+  "response_sha256": "sha256:15f408fdcce11bea320dd270bc22148c60db736ff6cf004b068c203c35279079",
+  "reviewed_commit": "02c2652df5f770a259cd4dc4a6888539b3ae2d8f",
+  "subject_commit": "02c2652df5f770a259cd4dc4a6888539b3ae2d8f",
+  "subject_blob": "2a972b44e142123a2cc4d360bee35f6bb091bce7",
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_projection_blob": "24d83341f0214670f69fa7def5f8a47ff3201468",
+  "scope_projection_raw_sha256": "sha256:e626b9ae9f3c8c8f01dae8416ed019cda0f38e2202e318becf1c010dd0bc2a1b",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "verdict": "REQUEST_CHANGES",
+  "finding_ids": [
+    "sole_source_policy_projection",
+    "pair_latency_boundary",
+    "two_layer_taxonomy"
+  ],
+  "next_transition": "remediation"
+}

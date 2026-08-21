@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_remediation_external_review_v8",
+  "identity_record": ".agents/review/identities/codex-agent-m3-remediation-external-review-v8.json",
+  "identity_git_blob": "90b97892fd111a7b9a330622455d3444a62bfac3",
+  "identity_raw_sha256": "sha256:22337694109a98696eec7b410ed242470fe201cf33fdc55bae5d264ba94b761f",
+  "identity_digest": "sha256:371b7b04e508689310445fa5f8444115c6e3cb437b4cb7f24dcb4e6875d3a75b",
+  "reviewed_commit": "da863990f17bdd15f55444333847e8fb06dedd43",
+  "subject_commit": "82647d4f3568fe5eebebffbf053e5dc5bda5f103",
+  "subject_blob": "353fdc415817feb8ae4fdae68d54e7ebb1ad1f9d",
+  "scope_digest": "sha256:f3cae9dd38b64f4d826b373939976f6efd00f680f5908bb1d2f0a272bd55ec7c",
+  "active_response_projection": ".agents/review/m3-remediation-v4-response-projection.json",
+  "active_response_projection_raw_sha256": "sha256:809f0d50c257842d10352a74daf0e7100417fd4b9c5efc364b464ad98a8fe4ae",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "id": "RESPONSE_PROJECTION_DIGEST_DOCUMENTATION_STALE",
+      "summary": "Design v4 and Guide 68 TC-03 still declare response projection digest sha256:6d7dec28..., but the rebound active projection hashes to sha256:809f0d50... ."
+    },
+    {
+      "severity": "major",
+      "id": "SCOPE_PROJECTION_DIGEST_DOCUMENTATION_STALE",
+      "summary": "Design v4 still declares scope projection raw digest sha256:5c41070c..., but the active scope projection and bound scope digest are sha256:f3cae9dd... ."
+    }
+  ],
+  "response_sha256": "sha256:cecbcd7b2e967ad28742a305dacb4e574b45d43d075352492ec93ee20fc06b71"
+}

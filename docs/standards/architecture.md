@@ -703,8 +703,10 @@ These rules are normative for Knora unless superseded by an approved Standard or
   plans, and other database implementation details must not be persisted in the trace.
 - Evidence selection scans that order after thresholding and removes strongly overlapping adjacent
   Chunks from the same Chunk Set. It does not merge Chunks.
-- Each candidate is traced with exactly one outcome: `SELECTED`, `BELOW_THRESHOLD`,
-  `REDUNDANT_OVERLAP` or `TOKEN_BUDGET_EXCEEDED`.
+- **M3 taxonomy correction (remediation v4):** branch observations and fused outcomes are
+  separate. `BELOW_THRESHOLD` is vector-branch status only. A fused candidate has exactly one
+  of `SELECTED`, `REDUNDANT_OVERLAP`, `BUDGET_EXCEEDED`, or `ELIGIBLE_NOT_SELECTED`, and
+  `decision_reason` distinguishes `TOKEN_BUDGET` from `CHUNK_COUNT_LIMIT`.
 - An Evidence Set is bounded by both `max_evidence_chunks` and `max_evidence_tokens`.
 - When no candidate qualifies, Knora returns the deterministic Refusal without calling the
   Generation Provider. When evidence exists, the Generation Provider may still return a
@@ -915,6 +917,18 @@ These rules are normative for Knora unless superseded by an approved Standard or
   digest, Retrieval Configuration ID, generation/scorer versions, Git commit, and artifact schema
   version. A selected-improvement record retains metric deltas, guardrail results, latency
   trade-offs, and remaining regressions.
+
+### M3 remediation v2 boundary
+
+The remediation preserves the M3 contracts while tightening the claim boundary. Production
+authority must bind a concrete independent-review artifact covering the exact source commit and
+approved JSON policy projection; reviewer identity must differ from source author and approver, and
+self-attested assertions are not evidence. The approved JSON projection is the sole normative policy
+value source. Production selection resolves the immutable M3 manifest and exact 50-case population
+itself; caller-supplied expected IDs or same-shaped digests are non-production fixtures only. A
+selected improvement retains both vector and hybrid latency observations plus explicit pair-level
+deltas and remaining regressions. The revised Issue #63 guide is blocked by the authority and
+population/latency remediation slices through native GitHub dependencies.
 
 ## Tool actions
 

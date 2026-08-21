@@ -1,10 +1,72 @@
+import hashlib
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
-from evals.runners.evaluation import EvaluationCase
-from evals.runners.run_http_eval import HttpEvaluationExecutor
+from evals.runners.evaluation import EvaluationCase, EvaluationObservation, SemanticEvaluation
+from evals.runners.run_http_eval import HttpEvaluationExecutor, _manifest_checksum, _score_cases
+
+
+def _generic_case() -> EvaluationCase:
+    return EvaluationCase(
+        "refund",
+        "answerable",
+        "evaluation-m1",
+        "How long?",
+        "ANSWER",
+        ("support/refund-policy",),
+        ("support/refund-policy#0",),
+        ("30 days",),
+        "30 days",
+    )
+
+
+@pytest.mark.asyncio
+async def test_scoring_receives_only_the_public_observation_projection() -> None:
+    case = _generic_case()
+    source = EvaluationObservation(
+        case_id=case.id,
+        retrieved_chunks=("hidden/chunk#9",),
+        retrieval_latency_ms=1.0,
+        decision="ANSWER",
+        answer="Public answer [[E1]]",
+        refusal_reason=None,
+        citation_evidence_ids=("E1",),
+        answer_marker_ids=("E1",),
+        public_citations=(("E1", "Public excerpt", "support/refund-policy:1:1"),),
+        evidence=(("E1", "hidden/chunk#9", "hidden trace content"),),
+        candidate_workspaces=("evaluation-m1",),
+        trace_id="hidden-trace",
+    )
+    received: list[EvaluationObservation] = []
+
+    class RecordingScorer:
+        async def score(
+            self, *, case: EvaluationCase, observation: EvaluationObservation
+        ) -> SemanticEvaluation:
+            received.append(observation)
+            return SemanticEvaluation(case_id=case.id)
+
+    await _score_cases((case,), (source,), RecordingScorer())
+
+    assert len(received) == 1
+    assert received[0].evidence == ()
+    assert received[0].retrieved_chunks == ()
+    assert received[0].candidate_workspaces == ()
+    assert received[0].trace_id is None
+    assert received[0].public_citations == source.public_citations
+    assert received[0].answer == source.answer
+
+
+def test_manifest_checksum_hashes_raw_committed_bytes(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_bytes(b"{\r\n  \"version\": \"v1\"\r\n}\r\n")
+
+    expected = "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
+
+    assert _manifest_checksum(manifest) == expected
 
 
 @pytest.mark.asyncio
@@ -33,6 +95,8 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
         )
 
     trace = SimpleNamespace(
+        trace_id="trace-1",
+        workspace_id="evaluation-m1",
         candidates=(
             SimpleNamespace(
                 chunk_id="chunk-1",
@@ -60,13 +124,25 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
         retrieval_configuration_id="retrieval-m1-v1",
         embedding_configuration_id="embedding-local-m1-v2",
     )
-    reader = SimpleNamespace(read_trace=lambda **kwargs: trace)
+    clock_events: list[str] = []
+    clock_values = iter((20.0, 20.25))
+
+    def clock() -> float:
+        clock_events.append("clock")
+        return next(clock_values)
+
+    def read_trace(**_kwargs: object) -> SimpleNamespace:
+        clock_events.append("trace")
+        return trace
+
+    reader = SimpleNamespace(read_trace=read_trace)
     client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
     executor = HttpEvaluationExecutor(
         endpoint="http://knora.test/v1/questions",
         api_key="runtime-secret",
         trace_reader=reader,
         client=client,
+        clock=clock,
     )
     case = EvaluationCase(
         "refund",
@@ -94,6 +170,8 @@ async def test_http_executor_uses_question_endpoint_and_resolves_trace_ownership
     assert observation.retrieval_configuration_id == "retrieval-m1-v1"
     assert observation.embedding_provider == "deterministic-local"
     assert observation.generation_prompt_version == "deterministic-m1-v1"
+    assert observation.end_to_end_latency_ms == 250.0
+    assert clock_events == ["clock", "clock", "trace"]
 
 
 @pytest.mark.asyncio
@@ -153,6 +231,53 @@ async def test_http_executor_rejects_citation_to_excluded_trace_candidate() -> N
             "30 days",
         )
     )
+    await client.aclose()
+
+    assert observation.decision == "ERROR"
+    assert observation.provider_error == "ObservationFailure"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("trace_update", "expected_workspace", "expected_trace_id"),
+    [
+        ({"trace_id": "other"}, "evaluation-m1", "trace-1"),
+        ({"workspace_id": "other"}, "evaluation-m1", "trace-1"),
+    ],
+)
+async def test_http_executor_rejects_exact_trace_correlation_mismatches(
+    trace_update: dict[str, str], expected_workspace: str, expected_trace_id: str
+) -> None:
+    def handle(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "decision": "REFUSAL",
+                "answer": None,
+                "citations": [],
+                "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                "trace_id": expected_trace_id,
+            },
+        )
+
+    trace_values = {
+        "trace_id": expected_trace_id,
+        "workspace_id": expected_workspace,
+        "candidates": (),
+        "alias_mapping": {},
+        "provider_metadata": {},
+        "retrieval_latency_ms": 1.0,
+        "retrieval_configuration_id": "retrieval-m1-v1",
+        "embedding_configuration_id": "embedding-local-m1-v2",
+    }
+    trace_values.update(trace_update)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    observation = await HttpEvaluationExecutor(
+        endpoint="http://knora.test/v1/questions",
+        api_key="runtime-secret",
+        trace_reader=SimpleNamespace(read_trace=lambda **_kwargs: SimpleNamespace(**trace_values)),
+        client=client,
+    ).execute(_generic_case())
     await client.aclose()
 
     assert observation.decision == "ERROR"

@@ -10,6 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import evals.runners.m3_claim_authority as authority_module
+import evals.runners.milestone_3_comparison as comparison_module
 import pytest
 from evals.runners.milestone_3_comparison import (
     AUTHORITY_VALIDATION_FAILURE,
@@ -337,6 +338,21 @@ def test_closed_guardrails_require_exact_schema_keys_and_true_booleans() -> None
     assert validate_guardrail_shape(observed_failure) == observed_failure
 
 
+def test_guardrail_shape_reads_required_keys_from_bound_policy_projection() -> None:
+    projection = comparison_module.canonical_policy_projection()
+    projection["guardrail_requirement"]["required_keys"] = ["projection_guardrail"]
+
+    assert comparison_module.validate_guardrail_shape(
+        {"projection_guardrail": True},
+        policy_projection=projection,
+    ) == {"projection_guardrail": True}
+    with pytest.raises(ComparisonError, match="GUARDRAIL_FAILURE"):
+        comparison_module.validate_guardrail_shape(
+            REQUIRED_GUARDRAILS,
+            policy_projection=projection,
+        )
+
+
 def test_malformed_non_mapping_reports_fail_closed() -> None:
     valid_hybrid = _modern_report("retrieval-m3-rrf-v2")
     with pytest.raises(ComparisonError, match="OBSERVATIONS_INVALID"):
@@ -501,6 +517,34 @@ def test_paired_provenance_rejects_matching_malformed_digest_values() -> None:
 
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
         compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+
+def test_paired_provenance_reads_field_lists_from_approved_policy_projection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2")
+    for report in (vector, hybrid):
+        report["provenance"]["projection_defined_equal_field"] = "same"
+    projection = comparison_module.canonical_policy_projection()
+    projection["provenance"]["equal_fields"].append("projection_defined_equal_field")
+    monkeypatch.setattr(
+        comparison_module,
+        "canonical_policy_projection",
+        lambda: deepcopy(projection),
+    )
+
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    assert pair["provenance_match"] is True
+
+
+def test_production_population_rejects_forged_manifest_provenance() -> None:
+    report = _modern_report("retrieval-m3-vector-v2")
+    report["provenance"]["dataset_digest"] = "sha256:" + "a" * 64
+
+    with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
+        comparison_module.validate_m3_population_provenance(report)
 
 
 def test_selection_rejects_observation_source_binding_mutation() -> None:
@@ -999,13 +1043,57 @@ def test_canonical_production_entry_point_validates_approved_chain(tmp_path: Pat
         sealed_archive_path=repository_root
         / ".agents/review/m3-improvement-claim-v1-approval-sealed-v2.tar",
         closure_path=repository_root
-        / ".agents/review/m3-improvement-claim-v1-approval-closure-v2.json",
+        / ".agents/review/m3-remediation-v4-review-closure-final.json",
         binding_attestation=binding_attestation,
     )
 
-    assert result["status"] == "SELECTED"
-    assert result["claim_rule_version"] == "m3-improvement-claim-v1"
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
     assert result["claim_rule_digest"].startswith("sha256:")
+
+
+def test_production_selection_binds_the_immutable_m3_population(tmp_path: Path) -> None:
+    vector = _modern_report("retrieval-m3-vector-v2", recall=(1, 2), mrr=(1, 2))
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(2, 3), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    result = select_production_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        repository_root=Path(__file__).resolve().parents[2],
+        binding_attestation={
+            "vector": _binding_attestation(vector, tmp_path, "vector-population"),
+            "hybrid": _binding_attestation(hybrid, tmp_path, "hybrid-population"),
+        },
+    )
+
+    assert result["status"] == "NO_CLAIM"
+    assert result["reason"] == "PROVENANCE_MISMATCH"
+
+
+def test_selected_improvement_retains_paired_latency_values_and_deltas() -> None:
+    vector = _modern_report("retrieval-m3-vector-v2")
+    hybrid = _modern_report("retrieval-m3-rrf-v2", recall=(2, 3), mrr=(2, 3))
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
+
+    result = select_improvement(
+        pair,
+        vector_report=vector,
+        hybrid_report=hybrid,
+        authority=test_claim_rule_authority_fixture(),
+        production=False,
+    )
+
+    latency = result["selected_improvement"]["latency_tradeoffs"]
+    assert latency["version"] == "m3-paired-latency-v1"
+    assert latency["clock_boundary_version"] == "m3-latency-boundary-v1"
+    assert latency["vector"]["retrieval_latency_ms"] == {"case-a": 1.0, "case-b": 1.0}
+    assert latency["hybrid"]["retrieval_latency_ms"] == {"case-a": 1.0, "case-b": 1.0}
+    assert latency["hybrid_minus_vector"]["retrieval_latency_ms"] == {
+        "case-a": 0.0,
+        "case-b": 0.0,
+    }
 
 
 def test_selection_reconciles_metric_projection_and_latency_disclosure() -> None:

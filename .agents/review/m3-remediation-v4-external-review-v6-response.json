@@ -1,0 +1,55 @@
+{
+  "schema_version": 3,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "identity_record": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+  "identity_digest": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda",
+  "subject_commit": "02c2652df5f770a259cd4dc4a6888539b3ae2d8f",
+  "reviewed_commit": "02c2652df5f770a259cd4dc4a6888539b3ae2d8f",
+  "subject_blob": "2a972b44e142123a2cc4d360bee35f6bb091bce7",
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_projection_blob": "24d83341f0214670f69fa7def5f8a47ff3201468",
+  "scope_projection_raw_sha256": "sha256:e626b9ae9f3c8c8f01dae8416ed019cda0f38e2202e318becf1c010dd0bc2a1b",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "finding": {
+    "summary": "Three requirements remain unresolved at the exact subject.",
+    "ids": [
+      "sole_source_policy_projection",
+      "pair_latency_boundary",
+      "two_layer_taxonomy"
+    ]
+  },
+  "findings": [
+    {
+      "severity": "major",
+      "id": "sole_source_policy_projection",
+      "location": "evals/runners/milestone_3_comparison.py:789-803; evals/runners/m3_claim_authority.py:70-74,284-285",
+      "evidence": "The approved JSON projection contains guardrail_requirement.required_keys and ClaimRuleAuthority exposes those keys, but validate_guardrail_shape and validate_guardrails use the duplicated Python REQUIRED_GUARDRAIL_KEYS tuple. Production selection reaches these validators without passing the bound Git-backed projection. The focused tests cover provenance field-list and metric binding, but do not bind guardrail fields to the projection.",
+      "problem": "The approved policy projection is not the sole normative source for all policy field lists.",
+      "harm": "An approved projection change to the guardrail field set can leave production validation enforcing stale keys, permitting invalid guardrail reports or ignoring newly required guardrails.",
+      "fix": "Pass the bound projection's guardrail_requirement.required_keys into the guardrail validators, remove the duplicated static tuple from production validation, and add a projection-mutation regression test."
+    },
+    {
+      "severity": "major",
+      "id": "pair_latency_boundary",
+      "location": "evals/runners/milestone_3.py:772-793; evals/runners/run_http_eval.py:70-80; evals/test/test_milestone_3_runner.py:424-440",
+      "evidence": "The canonical executor captures response_completed before trace loading, but the focused canonical test only asserts that end_to_end_latency_ms is non-null. No declared focused test injects the executor clock, delays or records trace loading, and proves the captured timestamp is used. The generic executor has no injectable clock and its tests likewise lack a response-completion probe, despite the design and locked guide requiring response-completion clock evidence.",
+      "problem": "The mandatory executable verification of the response-completion latency boundary is missing.",
+      "harm": "A regression that moves trace loading, citation validation, or scoring into the measured interval could pass the focused suite and corrupt the claimed end-to-end metric.",
+      "fix": "Add deterministic clock-injection tests that assert the tick order and exact response-completion calculation for the canonical executor, plus an equivalent boundary test or seam for the generic compatibility executor."
+    },
+    {
+      "severity": "major",
+      "id": "two_layer_taxonomy",
+      "location": "backend/src/knora/adapters/postgres/evaluation_reader.py:323-350; backend/test/adapters/postgres/test_issue_61_reader_contract.py:103-155; .agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md:TC-03",
+      "evidence": "_valid_decision_reason only checks that a BUDGET_EXCEEDED reason belongs to the set {TOKEN_BUDGET, CHUNK_COUNT_LIMIT}; it has no independent budget evidence from which to reject a TOKEN_BUDGET versus CHUNK_COUNT_LIMIT swap. The focused reader tests reject unknown and missing reasons but contain no swapped-reason negative cases, while TC-03 explicitly requires both swapped budget reasons to fail closed.",
+      "problem": "The taxonomy validator enforces membership in the closed reason set but does not verify that the selected reason matches the actual budget condition.",
+      "harm": "A fused decision can carry the wrong budget cause while remaining accepted, weakening auditability and conflating token-budget and chunk-count selection behavior.",
+      "fix": "Persist or derive bounded token/chunk budget evidence and validate decision_reason against that evidence; add both TOKEN_BUDGET-to-CHUNK_COUNT_LIMIT and reverse mutation tests."
+    }
+  ],
+  "review_basis": "Independent review of exact subject 02c2652df5f770a259cd4dc4a6888539b3ae2d8f with design blob 2a972b44e142123a2cc4d360bee35f6bb091bce7. All 28 paths declared by the committed scope were verified at the exact subject and reviewed against the design, architecture standard, active tickets, and focused tests. No broad tests were executed."
+}

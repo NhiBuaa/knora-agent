@@ -1,0 +1,46 @@
+{
+  "schema_version": 2,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "identity_record": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+  "identity_digest": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda",
+  "subject_commit": "f96911417b4e1a174e0a2c29a1ae0971cd76739",
+  "reviewed_commit": "f96911417b4e1a174e0a2c29a1ae0971cd76739",
+  "subject_blob": "138979a2893d8f1784267241f1153f3001af6044",
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_projection_blob": "6757e329405547e6b15ddc9be3a797e2343f4ba4",
+  "scope_projection_raw_sha256": "sha256:c8367af633db69942d5a437819378d29105b0d8eaddbbce44e20db30bf39bc85",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "finding": {
+    "summary": "Three M3 requirements remain unverifiable at the frozen package subject.",
+    "ids": [
+      "sole_source_policy_projection",
+      "exact_manifest_population",
+      "authority_independent_review"
+    ]
+  },
+  "findings": [
+    {
+      "severity": "major",
+      "id": "sole_source_policy_projection",
+      "summary": "The metric contract and recall cutoff remain hard-coded outside the approved JSON projection.",
+      "evidence": "evals/runners/milestone_3_comparison.py:2278-2287 validates retrieval.metric_contract == \"m3-retrieval-metrics-v1\" and retrieval.recall_k == 8. _validate_metric_contract accepts no policy projection and is called from production selection after the Git-bound projection is loaded. A changed approved projection therefore cannot control these metric values."
+    },
+    {
+      "severity": "major",
+      "id": "exact_manifest_population",
+      "summary": "Production does not bind report source-commit provenance to the immutable M3 manifest source identity.",
+      "evidence": "evals/runners/milestone_3_comparison.py:1473-1514 checks fixed dataset/corpus digests, versions, Workspace, Chunk Set, and the source-key set, while _provenance_without_allowed_differences only format-checks provenance.source_commit as a 40-character hex string. The report's source_commit and manifest-blob identity are not required to equal the approved M3 population source commit/blobs, so a pair can carry forged source-commit provenance while passing the population checks."
+    },
+    {
+      "severity": "major",
+      "id": "authority_independent_review",
+      "summary": "The final authority response accepts non-substantive assertion text as review evidence.",
+      "evidence": "evals/runners/m3_claim_authority.py:543-557 requires only that review_basis be a non-empty string, findings be an empty list, and zero counts have integer type. Values such as review_basis=\"x\" satisfy the contract; no typed evidence object, requirement coverage, path evidence, or minimum substantive content is enforced before APPROVED_EFFECTIVE."
+    }
+  ],
+  "review_basis": "Independently reviewed the exact P and every path declared by the current S against docs/design/m3-remediation-v4.md, docs/standards/architecture.md, the authority/comparison seams, canonical and generic HTTP executors, latency/correlation tests, taxonomy reader/tests, and all nine requirement IDs. Identity and scope projection digests were recomputed from the committed records. No broad tests were run, per instruction."
+}

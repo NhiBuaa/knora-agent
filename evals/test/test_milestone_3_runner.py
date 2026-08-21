@@ -417,8 +417,20 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
         alias_mapping={"E1": "chunk-1"},
     )
     calls: list[dict[str, str]] = []
+    clock_events: list[str] = []
+    clock_values = iter((10.0, 10.125))
+
+    def clock() -> float:
+        clock_events.append("clock")
+        return next(clock_values)
+
+    def read_trace(**kwargs: str) -> SimpleNamespace:
+        clock_events.append("trace")
+        calls.append(kwargs)
+        return trace
+
     reader = SimpleNamespace(
-        read_trace=lambda **kwargs: calls.append(kwargs) or trace,
+        read_trace=read_trace,
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
     executor = ProductionM3Executor(
@@ -427,6 +439,7 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
         trace_reader=reader,
         client=client,
         environment=_environment(),
+        clock=clock,
     )
 
     observation = await executor.execute(case)
@@ -436,7 +449,8 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
     assert observation.is_success
     assert observation.candidates == (CanonicalChunkReference("set-1", "support/a", 0),)
     assert observation.retrieval_latency_ms == 4.0
-    assert observation.end_to_end_latency_ms is not None
+    assert observation.end_to_end_latency_ms == 125.0
+    assert clock_events == ["clock", "clock", "trace"]
     assert observation.refusal_correctness is True
 
 

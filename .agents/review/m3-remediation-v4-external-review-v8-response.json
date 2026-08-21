@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_remediation_external_review_v8",
+  "identity_record": ".agents/review/identities/codex-agent-m3-remediation-external-review-v8.json",
+  "identity_git_blob": "90b97892fd111a7b9a330622455d3444a62bfac3",
+  "identity_raw_sha256": "sha256:22337694109a98696eec7b410ed242470fe201cf33fdc55bae5d264ba94b761f",
+  "identity_digest": "sha256:371b7b04e508689310445fa5f8444115c6e3cb437b4cb7f24dcb4e6875d3a75b",
+  "reviewed_commit": "da863990f17bdd15f55444333847e8fb06dedd43",
+  "subject_commit": "82647d4f3568fe5eebebffbf053e5dc5bda5f103",
+  "subject_blob": "353fdc415817feb8ae4fdae68d54e7ebb1ad1f9d",
+  "scope_digest": "sha256:f3cae9dd38b64f4d826b373939976f6efd00f680f5908bb1d2f0a272bd55ec7c",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 0,
+  "finding": {
+    "id": "ACTIVE_RESPONSE_PROJECTION_SUBJECT_SCOPE_MISMATCH",
+    "severity": "major",
+    "summary": "The active response projection is still bound to historical subject 168e850/c593/b1af rather than final package subject 82647d4/353fdc/f3cae9."
+  },
+  "response_sha256": "sha256:62ee897324f53ae1200674bee3e67e85aab5e8a409de1f6cbf6252312ad18034"
+}

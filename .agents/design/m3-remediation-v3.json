@@ -1,0 +1,64 @@
+{
+  "schema_version": 2,
+  "artifact_id": "m3-remediation-design-v3",
+  "status": "pending_external_review",
+  "supersedes": "m3-remediation-design-v2",
+  "subject_commit": "bf23b677eb717dfa0ca51faa60ff61623433a10c",
+  "subject_paths": [
+    "docs/design/m3-remediation-v3.md",
+    ".agents/tickets/m3-remediation-r1-v2.md",
+    ".agents/tickets/m3-remediation-r2-v2.md",
+    ".agents/tickets/m3-remediation-r3-v2.md",
+    ".agents/manual-tests/milestone-3/68-remediation-authority-v2.md",
+    ".agents/manual-tests/milestone-3/69-remediation-population-latency-v2.md",
+    ".agents/manual-tests/milestone-3/63-remediation-issue-63-v7.md"
+  ],
+  "external_review_identity_contract": {
+    "identity_kind": "execution-task",
+    "generic_identity_forbidden": true,
+    "source_record_required": true,
+    "identity_digest_required": true,
+    "reviewer_must_differ_from_source_author": true,
+    "reviewer_must_differ_from_approver": true,
+    "subject_commit_and_scope_digest_required": true
+  },
+  "immutable_m3_population": {
+    "dataset_manifest_path": "evals/datasets/milestone_3.manifest.json",
+    "dataset_manifest_blob": "08061b4a26b1d10b9720769828bb179264d99fec",
+    "dataset_manifest_sha256": "sha256:f42bb8aa0fe064ab172bac7aa1c8603e9d23b9d3e41ccadbf38d4fbc06c0b41b",
+    "dataset_content_sha256": "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50",
+    "dataset_version": "m3-dataset-v1",
+    "case_count": 50,
+    "case_id_digest": "sha256:ff69bb0f8ebffb9a5b82ca64244b92f8e7f07eb2163da959b4ea3480d2838ce0",
+    "corpus_manifest_path": "evals/corpora/milestone_3/manifest.json",
+    "corpus_manifest_blob": "5b8ff82769239f253d31424606205a9e74828d71",
+    "corpus_manifest_sha256": "sha256:6b0daffe9acb7e541bb1621efb6880cd013d6af6e851f91867b36899d3eca326",
+    "corpus_version": "m3-corpus-v1",
+    "chunk_set_provenance_id": "chunk-set-m3-v1"
+  },
+  "paired_equal_fields": [
+    "dataset_version", "dataset_digest", "corpus_id", "corpus_digest", "chunk_set_id",
+    "chunk_set_digest", "workspace", "chunking_configuration", "embedding_configuration",
+    "generation_configuration", "scorer_configuration", "scorer_model", "scorer_prompt",
+    "scorer_policy", "scorer_stochasticity", "metric_contract", "source_commit",
+    "evaluation_commit", "report_artifact_schema_version"
+  ],
+  "paired_allowed_differences": [
+    "retrieval_configuration_id", "strategy", "fusion_policy_id", "fusion_policy_version",
+    "lexical_policy_id", "fts_candidate_k"
+  ],
+  "latency_projection": {
+    "version": "m3-paired-latency-v1",
+    "per_case": [
+      "vector.retrieval_latency_ms", "hybrid.retrieval_latency_ms",
+      "vector.end_to_end_latency_ms", "hybrid.end_to_end_latency_ms",
+      "hybrid_minus_vector.retrieval_latency_ms",
+      "hybrid_minus_vector.end_to_end_latency_ms",
+      "clock_boundary_metadata"
+    ],
+    "hard_threshold": null,
+    "streaming_change_requires_new_contract": true
+  },
+  "native_blocking_edges": {"r3": ["r1", "r2"]},
+  "evaluation_seam": "HttpEvaluationExecutor -> production Q&A endpoint -> exact (workspace_id, trace_id)"
+}

@@ -7,6 +7,7 @@ from knora.adapters.postgres.evaluation_reader import (
     _ordered_candidate_ids,
     _retrieval_latency,
     _validate_branch_observations,
+    _validate_candidate_budget_evidence,
     _validate_embedding_provenance,
     _validate_trace_metadata,
 )
@@ -105,6 +106,14 @@ def test_reader_accepts_authority_decisions_and_reasons() -> None:
             "fusion_score": 1 / 62,
             "final_decision": "BUDGET_EXCEEDED",
             "decision_reason": "TOKEN_BUDGET",
+            "budget_evidence": {
+                "max_evidence_chunks": 5,
+                "max_evidence_tokens": 3000,
+                "selected_chunk_count": 1,
+                "selected_token_count": 2000,
+                "candidate_token_count": 1500,
+                "token_total": 3500,
+            },
             "vector_contribution": {
                 "branch_rank": 2,
                 "cosine_distance": 0.2,
@@ -115,6 +124,190 @@ def test_reader_accepts_authority_decisions_and_reasons() -> None:
     ]
 
     assert _ordered_candidate_ids(decisions) == ["selected", "budget"]
+
+
+@pytest.mark.parametrize(
+    ("decision_reason", "budget_evidence"),
+    [
+        (
+            "CHUNK_COUNT_LIMIT",
+            {
+                "max_evidence_chunks": 5,
+                "max_evidence_tokens": 3000,
+                "selected_chunk_count": 1,
+                "selected_token_count": 2000,
+                "candidate_token_count": 1500,
+                "token_total": 3500,
+            },
+        ),
+        (
+            "TOKEN_BUDGET",
+            {
+                "max_evidence_chunks": 5,
+                "max_evidence_tokens": 3000,
+                "selected_chunk_count": 5,
+                "selected_token_count": 2500,
+                "candidate_token_count": 1000,
+                "token_total": 3500,
+            },
+        ),
+    ],
+)
+def test_reader_rejects_swapped_budget_reason(
+    decision_reason: str, budget_evidence: dict[str, int]
+) -> None:
+    with pytest.raises(LookupError, match="candidate decision is invalid"):
+        _ordered_candidate_ids(
+            [
+                {
+                    "chunk_id": "budget",
+                    "final_rank": 1,
+                    "fusion_score": 1 / 61,
+                    "final_decision": "BUDGET_EXCEEDED",
+                    "decision_reason": decision_reason,
+                    "budget_evidence": budget_evidence,
+                    "vector_contribution": {
+                        "branch_rank": 1,
+                        "cosine_distance": 0.1,
+                        "similarity": 0.9,
+                    },
+                    "fts_contribution": None,
+                }
+            ]
+        )
+
+
+def test_reader_rejects_budget_evidence_not_bound_to_chunk_token_count() -> None:
+    decisions = [
+        {
+            "chunk_id": "budget",
+            "final_rank": 1,
+            "fusion_score": 1 / 61,
+            "final_decision": "BUDGET_EXCEEDED",
+            "decision_reason": "TOKEN_BUDGET",
+            "budget_evidence": {
+                "max_evidence_chunks": 5,
+                "max_evidence_tokens": 3000,
+                "selected_chunk_count": 1,
+                "selected_token_count": 2000,
+                "candidate_token_count": 1500,
+                "token_total": 3500,
+            },
+            "vector_contribution": {
+                "branch_rank": 1,
+                "cosine_distance": 0.1,
+                "similarity": 0.9,
+            },
+            "fts_contribution": None,
+        }
+    ]
+    with pytest.raises(LookupError, match="budget evidence is invalid"):
+        _validate_candidate_budget_evidence(
+            decisions,
+            {"budget": (SimpleNamespace(token_count=1499), object(), object())},
+            retrieval_configuration=SimpleNamespace(
+                max_evidence_chunks=5,
+                max_evidence_tokens=3000,
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    [
+        (
+            {"selected_chunk_count": 2, "selected_token_count": 10, "token_total": 3010},
+            "budget evidence is invalid",
+        ),
+        (
+            {"selected_chunk_count": 1, "selected_token_count": 11, "token_total": 3011},
+            "budget evidence is invalid",
+        ),
+        (
+            {
+                "max_evidence_chunks": 4,
+                "selected_chunk_count": 1,
+                "selected_token_count": 10,
+                "token_total": 3010,
+            },
+            "budget evidence is invalid",
+        ),
+        (
+            {
+                "max_evidence_tokens": 2999,
+                "selected_chunk_count": 1,
+                "selected_token_count": 10,
+                "token_total": 3010,
+            },
+            "budget evidence is invalid",
+        ),
+    ],
+)
+def test_reader_rejects_budget_evidence_not_bound_to_selected_population_or_configuration(
+    mutation: dict[str, int], expected_message: str
+) -> None:
+    evidence = {
+        "max_evidence_chunks": 5,
+        "max_evidence_tokens": 3000,
+        "selected_chunk_count": 1,
+        "selected_token_count": 10,
+        "candidate_token_count": 3000,
+        "token_total": 3010,
+    }
+    evidence.update(mutation)
+    decisions = [
+        {"chunk_id": "selected", "final_decision": "SELECTED"},
+        {
+            "chunk_id": "budget",
+            "final_decision": "BUDGET_EXCEEDED",
+            "decision_reason": "TOKEN_BUDGET",
+            "budget_evidence": evidence,
+        },
+    ]
+
+    with pytest.raises(LookupError, match=expected_message):
+        _validate_candidate_budget_evidence(
+            decisions,
+            {
+                "selected": (SimpleNamespace(token_count=10), object(), object()),
+                "budget": (SimpleNamespace(token_count=3000), object(), object()),
+            },
+            retrieval_configuration=SimpleNamespace(
+                max_evidence_chunks=5,
+                max_evidence_tokens=3000,
+            ),
+        )
+
+
+def test_reader_accepts_budget_evidence_bound_to_selected_population_and_configuration() -> None:
+    decisions = [
+        {"chunk_id": "selected", "final_decision": "SELECTED"},
+        {
+            "chunk_id": "budget",
+            "final_decision": "BUDGET_EXCEEDED",
+            "decision_reason": "TOKEN_BUDGET",
+            "budget_evidence": {
+                "max_evidence_chunks": 5,
+                "max_evidence_tokens": 3000,
+                "selected_chunk_count": 1,
+                "selected_token_count": 10,
+                "candidate_token_count": 3000,
+                "token_total": 3010,
+            },
+        },
+    ]
+
+    _validate_candidate_budget_evidence(
+        decisions,
+        {
+            "selected": (SimpleNamespace(token_count=10), object(), object()),
+            "budget": (SimpleNamespace(token_count=3000), object(), object()),
+        },
+        retrieval_configuration=SimpleNamespace(
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+        ),
+    )
 
 
 @pytest.mark.parametrize(

@@ -467,6 +467,17 @@ proposals.
 - **Question Request flow**: retrieve → complete generation → validate structured output and
   citation markers → resolve Citation Projection → persist Question Trace → return response.
 
+## M3 remediation v2 design checkpoint
+
+The append-only remediation design is [M3 remediation design v2](docs/design/m3-remediation-v2.md).
+R1 binds a concrete independent-review artifact to the improvement-claim authority and makes the
+approved policy JSON projection the sole normative value source. R2 binds production selection to
+the exact immutable 50-case `m3-dataset-v1` population and corpus/Chunk Set manifests, and retains
+vector-versus-hybrid pair-level latency deltas. R3 revises the Issue #63 acceptance guide and is
+natively blocked by R1 and R2. Historical approval, seal and evaluation artifacts are never
+rewritten; missing, self-authored/self-approved, mutated, subset, or same-shaped-wrong-digest
+evidence fails closed.
+
 ## Context Pointers
 
 - Normative rules: [Architecture Standard](docs/standards/architecture.md)

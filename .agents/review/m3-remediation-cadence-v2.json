@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "planned",
+  "effective_risk_level": "high",
+  "change_kinds": [
+    "configuration",
+    "logic",
+    "performance",
+    "public-api",
+    "schema",
+    "security",
+    "testing"
+  ],
+  "escalated": true,
+  "escalation_triggers": ["approved_seam_conflict", "authority_lifecycle_change"],
+  "external_review_budget": 7,
+  "gates": {
+    "final_feature_code_review": "required",
+    "human_acceptance": "required",
+    "manual_guide_external_review": "required_each_guide",
+    "spec_design_external_review": "required",
+    "ticket_external_review": "required_each_ticket"
+  },
+  "selection_rule": "highest-risk frontier ticket; ties by earliest native frontier order",
+  "ticket_count": 3,
+  "ticket_ids": ["#68", "#69", "#67"],
+  "ticket_risk_levels": ["high", "high", "high"],
+  "design_reference": "docs/design/m3-remediation-v2.md",
+  "fixed_point_required_after_remediation": true
+}

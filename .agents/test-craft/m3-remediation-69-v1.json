@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "mode": "test-cases",
+  "requirement_source": "docs/design/m3-remediation-v2.md#r2",
+  "scope": "Issue #69 immutable population binding and paired latency retention",
+  "known_seams": ["select_production_improvement", "compare_paired_reports", "HttpEvaluationExecutor"],
+  "coverage": {
+    "included_axes": ["data shape and contract", "security and bounds", "state and lifecycle", "performance"],
+    "omitted_axes": [
+      {"axis": "async and concurrency", "reason": "population verification and report selection are deterministic pure boundaries"},
+      {"axis": "UI and observable transitions", "reason": "no UI surface is changed"}
+    ]
+  },
+  "test_cases": ["TC-01", "TC-02", "TC-03", "TC-04", "TC-05", "TC-06"],
+  "artifacts": [".agents/manual-tests/milestone-3/69-remediation-population-latency-v1.md"],
+  "red_observed": null,
+  "failure_reason": null
+}

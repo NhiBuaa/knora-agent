@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "reviewed_commit": "0629314b5b220c8cb992f059a988955001683237",
+  "scope_projection": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_path_count": 33,
+  "reviews": [
+    {"kind":"spec_design","reviewer":"codex-agent:independent-spec-review","verdict":"APPROVE","findings":[],"evidence":["docs/design/m3-remediation-v4.md",".agents/tickets/m3-remediation-67-active-v4.md",".agents/tickets/m3-remediation-68-active-v4.md",".agents/tickets/m3-remediation-69-active-v4.md","focused remediation/executor suite: 68 passed"]},
+    {"kind":"ticket","ticket_id":"#68","reviewer":"codex-agent:independent-package-review","verdict":"APPROVE","findings":[],"evidence":[".agents/tickets/m3-remediation-68-active-v4.md","evals/test/test_issue_68_remediation.py","canonical_authority_validation: APPROVED_EFFECTIVE"]},
+    {"kind":"guide","ticket_id":"#68","reviewer":"codex-agent:independent-acceptance-review","verdict":"APPROVE","findings":[],"evidence":[".agents/manual-tests/milestone-3/68-remediation-authority-v3.md","6 locked cases verified"]},
+    {"kind":"ticket","ticket_id":"#69","reviewer":"codex-agent:independent-package-review","verdict":"APPROVE","findings":[],"evidence":[".agents/tickets/m3-remediation-69-active-v4.md","evals/test/test_issue_69_remediation.py","immutable population and executor seam verified"]},
+    {"kind":"guide","ticket_id":"#69","reviewer":"codex-agent:independent-acceptance-review","verdict":"APPROVE","findings":[],"evidence":[".agents/manual-tests/milestone-3/69-remediation-population-latency-v4.md","7 locked cases verified"]},
+    {"kind":"ticket","ticket_id":"#67","reviewer":"codex-agent:independent-package-review","verdict":"APPROVE","findings":[],"evidence":[".agents/tickets/m3-remediation-67-active-v4.md","evals/test/test_issue_63_remediation.py","final paired-claim gate verified"]},
+    {"kind":"guide","ticket_id":"#67","reviewer":"codex-agent:independent-acceptance-review","verdict":"APPROVE","findings":[],"evidence":[".agents/manual-tests/milestone-3/63-remediation-issue-63-v9.md","6 locked cases verified"]}
+  ],
+  "reviewer_mutation_count": 0,
+  "worktree_mutation_count": 0
+}

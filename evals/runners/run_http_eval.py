@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import sys
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from time import perf_counter
@@ -61,26 +62,35 @@ class HttpEvaluationExecutor:
         api_key: str,
         trace_reader: TraceReader,
         client: httpx.AsyncClient,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._endpoint = endpoint
         self._api_key = api_key
         self._trace_reader = trace_reader
         self._client = client
+        self._clock = clock or perf_counter
 
     async def execute(self, case: EvaluationCase) -> EvaluationObservation:
-        started = perf_counter()
+        started = self._clock()
+        response_completed: float | None = None
         try:
             response = await self._client.post(
                 self._endpoint,
                 headers={"X-API-Key": self._api_key},
                 json={"workspace_id": case.workspace_id, "question": case.question},
             )
+            response_completed = self._clock()
             response.raise_for_status()
             payload = response.json()
             public = validate_public_response(payload)
+            response_trace_id = payload["trace_id"]
             trace = self._trace_reader.read_trace(
-                trace_id=payload["trace_id"], workspace_id=case.workspace_id
+                trace_id=response_trace_id, workspace_id=case.workspace_id
             )
+            if getattr(trace, "trace_id", None) != response_trace_id:
+                raise ObservationFailure("RESPONSE_TRACE_ID_MISMATCH")
+            if getattr(trace, "workspace_id", None) != case.workspace_id:
+                raise ObservationFailure("TRACE_WORKSPACE_MISMATCH")
         except (
             httpx.HTTPError,
             KeyError,
@@ -95,7 +105,11 @@ class HttpEvaluationExecutor:
                 retrieval_latency_ms=0.0,
                 decision="ERROR",
                 refusal_reason=None,
-                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                end_to_end_latency_ms=(
+                    (response_completed if response_completed is not None else self._clock())
+                    - started
+                )
+                * 1000,
                 provider_error=type(error).__name__,
             )
 
@@ -159,7 +173,11 @@ class HttpEvaluationExecutor:
                 retrieval_latency_ms=0.0,
                 decision="ERROR",
                 refusal_reason=None,
-                end_to_end_latency_ms=(perf_counter() - started) * 1000,
+                end_to_end_latency_ms=(
+                    (response_completed if response_completed is not None else self._clock())
+                    - started
+                )
+                * 1000,
                 provider_error=type(error).__name__,
             )
         return EvaluationObservation(
@@ -177,8 +195,12 @@ class HttpEvaluationExecutor:
             candidate_workspaces=tuple(
                 candidate.workspace_id for candidate in trace.candidates
             ),
-            trace_id=payload["trace_id"],
-            end_to_end_latency_ms=(perf_counter() - started) * 1000,
+            trace_id=response_trace_id,
+            end_to_end_latency_ms=(
+                (response_completed if response_completed is not None else self._clock())
+                - started
+            )
+            * 1000,
             token_usage=usage,
             cost_usd=cost,
             retrieval_configuration_id=trace.retrieval_configuration_id,
@@ -237,7 +259,12 @@ async def _score_cases(
             )
             continue
         try:
-            results.append(await scorer.score(case=case, observation=observation))
+            results.append(
+                await scorer.score(
+                    case=case,
+                    observation=observation.public_semantic_projection(),
+                )
+            )
         except ValueError as error:
             results.append(
                 SemanticEvaluation(
@@ -249,8 +276,7 @@ async def _score_cases(
 
 
 def _manifest_checksum(path: Path) -> str:
-    normalized = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    return "sha256:" + hashlib.sha256(normalized).hexdigest()
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _runtime_versions(

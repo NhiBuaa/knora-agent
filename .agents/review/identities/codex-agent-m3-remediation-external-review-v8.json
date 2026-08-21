@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "reviewer_id": "codex-agent:/root/m3_remediation_external_review_v8",
+  "identity_kind": "execution-task",
+  "task_path": "/root/m3_remediation_external_review_v8",
+  "provider": "codex",
+  "source_authority": "collaboration-agent-task",
+  "purpose": "independent M3 remediation final design and package review",
+  "created_at": "2026-08-18T00:00:00Z"
+}

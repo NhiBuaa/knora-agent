@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_final_package_review_v4",
+  "identity_record": ".agents/review/identities/codex-agent-m3-final-package-review-v4.json",
+  "identity_digest": "sha256:b6af13241badf537647b9c0301043fa721ea6fb42a1ab6a344ff28065076bfda",
+  "subject_commit": "399de6311f155f93b609b47d257343240a088973",
+  "reviewed_commit": "399de6311f155f93b609b47d257343240a088973",
+  "subject_blob": "138979a2893d8f1784267241f1153f3001af6044",
+  "scope_projection_path": ".agents/review/m3-remediation-v4-scope-projection-final.json",
+  "scope_projection_blob": "cc350f3e4d7a5ca552100a0053849881eb6b3351",
+  "scope_projection_raw_sha256": "sha256:a9fc47607582bd5362fad47b703983bf5ec0069c5e608b661e2acdaa1c9e57b6",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 6,
+  "minor_count": 0,
+  "finding": {
+    "summary": "The package does not yet provide verifiable sole-source policy enforcement, immutable report provenance binding, two-layer taxonomy validation, complete authority-response validation, or the mandatory executor latency/correlation probes.",
+    "ids": [
+      "sole_source_policy_projection",
+      "exact_manifest_population",
+      "two_layer_taxonomy",
+      "authority_independent_review",
+      "pair_latency_boundary",
+      "public_citation_and_trace_failure"
+    ]
+  },
+  "findings": [
+    {
+      "severity": "major",
+      "id": "sole_source_policy_projection",
+      "summary": "Production comparison semantics duplicate policy field lists in Python.",
+      "evidence": "evals/runners/m3_claim_authority.py defines EQUAL_PROVENANCE_FIELDS and ALLOWED_CONFIGURATION_FIELDS, and milestone_3_comparison.py uses those constants in _provenance_without_allowed_differences instead of reading the corresponding equal_fields and allowed_differences from the bound JSON projection. An approved projection change can therefore leave comparison behavior stale."
+    },
+    {
+      "severity": "major",
+      "id": "exact_manifest_population",
+      "summary": "The exact immutable population check is disconnected from paired-report provenance.",
+      "evidence": "_production_m3_case_ids validates the committed manifests and returns only the expected case-ID tuple. select_improvement then checks case IDs, while _selection_provenance_matches accepts arbitrary equal dataset, corpus, source, evaluation, and scorer metadata. A 50-case pair can therefore carry forged population provenance and still pass the population gate."
+    },
+    {
+      "severity": "major",
+      "id": "two_layer_taxonomy",
+      "summary": "Branch-observation versus fused-outcome taxonomy is not validated.",
+      "evidence": "classify_finding validates failure-stage evidence only; _validate_observation_set and compare_paired_reports do not validate vector/FTS branch statuses, fused decisions, final_rank/fusion_score ownership, or TOKEN_BUDGET versus CHUNK_COUNT_LIMIT. The locked guide's required negative taxonomy mutations have no corresponding focused tests."
+    },
+    {
+      "severity": "major",
+      "id": "authority_independent_review",
+      "summary": "The final authority validator does not enforce the complete review-response schema.",
+      "evidence": "_remediation_review_from_git checks selected response fields but does not require the response findings array or review_basis, and it does not enforce integer types for zero counts. A committed response lacking substantive review evidence can still satisfy the APPROVE predicate and produce APPROVED_EFFECTIVE."
+    },
+    {
+      "severity": "major",
+      "id": "pair_latency_boundary",
+      "summary": "Mandatory executable latency-boundary evidence is missing from the frozen scope and focused tests.",
+      "evidence": "The canonical executor captures a response-completion clock, but the scope projection omits evals/runners/milestone_3.py and the focused remediation test only checks the alias and manifest source commit. No listed test proves the server retrieval start/end boundary or injects the required response-completion clock probe."
+    },
+    {
+      "severity": "major",
+      "id": "public_citation_and_trace_failure",
+      "summary": "Exact public executor/trace-correlation fault probes are not independently evidenced.",
+      "evidence": "The listed tests do not exercise RESPONSE_TRACE_ID_MISMATCH, TRACE_WORKSPACE_MISMATCH, missing trace, or incomplete provenance through the canonical M3 executor; test_http_eval.py covers generic endpoint/citation behavior, while test_issue_69_remediation.py only asserts alias identity and manifest provenance. The required guide v9 fault matrix and no-evaluation-only-path structural evidence are therefore incomplete."
+    }
+  ],
+  "review_basis": "Reviewed the exact parent-to-P diff, all 21 projection paths, v4 design, architecture standard, active tickets, locked guides, focused authority/comparison seams, and GitHub-native dependency edges. Independently recomputed subject, scope, and identity bindings; source author was NhiBuaa and the reviewer identity was distinct. Focused pytest and Ruff execution was unavailable because those tools are not installed in the worktree environment."
+}

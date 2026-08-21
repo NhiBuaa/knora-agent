@@ -199,6 +199,14 @@ async def test_trace_uses_closed_token_budget_reason() -> None:
     decision = store.traces[0].candidate_decisions[0]
     assert decision["final_decision"] == "BUDGET_EXCEEDED"
     assert decision["decision_reason"] == "TOKEN_BUDGET"
+    assert decision["budget_evidence"] == {
+        "max_evidence_chunks": 5,
+        "max_evidence_tokens": 3000,
+        "selected_chunk_count": 0,
+        "selected_token_count": 0,
+        "candidate_token_count": 4000,
+        "token_total": 4000,
+    }
 
 
 @pytest.mark.asyncio
@@ -231,6 +239,8 @@ async def test_trace_uses_closed_chunk_count_reason() -> None:
     decision = store.traces[0].candidate_decisions[1]
     assert decision["final_decision"] == "BUDGET_EXCEEDED"
     assert decision["decision_reason"] == "CHUNK_COUNT_LIMIT"
+    assert decision["budget_evidence"]["selected_chunk_count"] == 1
+    assert decision["budget_evidence"]["candidate_token_count"] == second.token_count
 
 
 @pytest.mark.asyncio

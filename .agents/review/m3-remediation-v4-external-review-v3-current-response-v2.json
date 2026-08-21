@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "reviewer_id": "codex-agent:/root/m3_remediation_external_review_v3",
+  "identity_record": ".agents/review/identities/codex-agent-m3-remediation-external-review-v3.json",
+  "identity_git_blob": "cf39a1e79231a08a45f4cc9707cb44c30e2d48bf",
+  "identity_raw_sha256": "sha256:c89cf3d01928e8df736e4649611ce5e80b81877073c1317d730a9e87fe9777ea",
+  "identity_digest": "sha256:6f51f00ec7b153353ed02c9347a73a9a4afdf801e58f3951ee218487ed76b907",
+  "reviewed_commit": "5628726cfc84fb8c61b64ef1cad74444a8b6eeed",
+  "subject_commit": "168e8501deec133b5e0c8fd7fd4bc5b1de72d994",
+  "subject_blob": "c593a4f6a1abc7cd769848167ebae0bdbfba1ac8",
+  "scope_digest": "sha256:b1af99762070d2520161c9d5f3b8f650396b50355ee3b5df278a4a7b1d4c5062",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 0,
+  "finding": {
+    "id": "DECLARED_SUBJECT_SCOPE_BINDING_MISMATCH",
+    "summary": "The pre-fix active JSON projections needed to bind the declared subject pair; this response records that historical finding."
+  },
+  "response_sha256": "sha256:f757f5b7a3913863d446da234fa2bb45c6e60d3a3c828ec701ecc180dbe323fb"
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "run_id": "m3-remediation-69-20260821-revalidation-02",
+  "observed_at": "2026-08-21T20:21:00+07:00",
+  "executor": "Codex manual-acceptance revalidation",
+  "guide_revision": "m3-remediation-69-v4",
+  "test_results": [
+    {"id":"TC-01","outcome":"PASS","observation":"Immutable population and exact manifest/case identity remain bound.","evidence":["evals/test/test_issue_69_remediation.py: 3 passed"]},
+    {"id":"TC-02","outcome":"PASS","observation":"Population and paired-field mutations fail closed.","evidence":["evals/test/test_issue_63_remediation.py: paired provenance mutation tests passed"]},
+    {"id":"TC-03","outcome":"PASS","observation":"Canonical HttpEvaluationExecutor remains the only production evaluation executor.","evidence":["evals/test/test_issue_69_remediation.py::test_m3_executor_uses_one_canonical_class_with_compatibility_alias"]},
+    {"id":"TC-04","outcome":"PASS","observation":"Trace correlation and response-completion timing remain enforced.","evidence":["evals/test/test_http_eval.py and evals/test/test_milestone_3_runner.py passed"]},
+    {"id":"TC-05","outcome":"PASS","observation":"Public Q&A remains the measured seam and retrieval latency excludes generation.","evidence":["backend/test/answering/test_issue_61_trace_contract.py: latency boundary tests passed"]},
+    {"id":"TC-06","outcome":"PASS","observation":"Paired latency values/deltas and raw-byte manifest provenance reconcile.","evidence":["evals/test/test_issue_63_remediation.py::test_selected_improvement_retains_paired_latency_values_and_deltas","evals/test/test_http_eval.py::test_manifest_checksum_hashes_raw_committed_bytes"]},
+    {"id":"TC-07","outcome":"PASS","observation":"Current full verification and artifact hygiene remain green.","evidence":["full pytest: 670 passed, 3 skipped","ruff: PASS","compileall: PASS","docker compose config --quiet: PASS"]}
+  ],
+  "verdict": "PASSED",
+  "human_approval": "approved",
+  "human_approval_evidence": "Explicit repository-owner authorization in the active Codex task; revalidation is append-only and preserves the approved guide revision."
+}

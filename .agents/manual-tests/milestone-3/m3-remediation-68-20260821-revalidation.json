@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "m3-remediation-68-20260821-revalidation-02",
+  "observed_at": "2026-08-21T20:20:30+07:00",
+  "executor": "Codex manual-acceptance revalidation",
+  "guide_revision": "m3-remediation-68-v3",
+  "test_results": [
+    {"id":"TC-01","outcome":"PASS","observation":"Historical and self-attested authority chains fail closed.","evidence":["evals/test/test_issue_63_remediation.py: authority mutation matrix passed"]},
+    {"id":"TC-02","outcome":"PASS","observation":"Identity and canonical digest bindings remain reproducible.","evidence":["evals/test/test_issue_68_remediation.py: 4 passed"]},
+    {"id":"TC-03","outcome":"PASS","observation":"Exact active S-to-R-to-C chain remains APPROVED_EFFECTIVE.","evidence":["canonical_authority_validation: APPROVED_EFFECTIVE"]},
+    {"id":"TC-04","outcome":"PASS","observation":"Authority and policy mutations fail closed.","evidence":["evals/test/test_issue_63_remediation.py: 54 passed"]},
+    {"id":"TC-05","outcome":"PASS","observation":"Production caller overrides remain rejected.","evidence":["evals/test/test_issue_63_remediation.py: caller override tests passed"]},
+    {"id":"TC-06","outcome":"PASS","observation":"Full current verification and artifact hygiene remain green.","evidence":["full pytest: 670 passed, 3 skipped","ruff: PASS","compileall: PASS"]}
+  ],
+  "verdict": "PASSED",
+  "human_approval": "approved",
+  "human_approval_evidence": "Explicit repository-owner authorization in the active Codex task; revalidation is append-only and preserves the approved guide revision."
+}
