@@ -1,24 +1,25 @@
 {
   "schema_version": 1,
+  "acceptance_mode": "human_required",
   "status": "planned",
+  "risk_level": "high",
   "effective_risk_level": "high",
+  "escalated": false,
   "change_kinds": ["configuration", "logic", "performance", "public-api", "schema", "security", "testing"],
-  "escalated": true,
-  "escalation_triggers": ["approved_seam_conflict", "authority_lifecycle_change", "metric_boundary_change"],
-  "external_review_budget": 8,
-  "gates": {
-    "final_feature_code_review": "required",
-    "human_acceptance": "required",
-    "manual_guide_external_review": "required_each_guide",
-    "spec_design_external_review": "required",
-    "ticket_external_review": "required_each_ticket"
-  },
-  "selection_rule": "highest-risk frontier ticket; ties by earliest native frontier order",
+  "escalation_triggers": ["approved_seam_conflict"],
   "ticket_count": 3,
   "ticket_ids": ["#68", "#69", "#67"],
   "ticket_risk_levels": ["high", "high", "high"],
-  "design_reference": "docs/design/m3-remediation-v4.md",
-  "fixed_point_required_after_remediation": true,
-  "canonicalization_contract": "m3-remediation-design-v4",
-  "latency_boundary_version": "m3-latency-boundary-v1"
+  "representative_ticket_index": null,
+  "gates": {
+    "spec_design_external_review": "required",
+    "ticket_external_review": "required_each_ticket",
+    "manual_guide_external_review": "required_each_guide",
+    "human_acceptance": "required",
+    "automated_acceptance": "none",
+    "final_feature_code_review": "required"
+  },
+  "selection_rule": "For representative review, select the highest-risk ticket; break ties with the earliest frontier ticket.",
+  "external_review_budget": 7,
+  "reasons": ["risk_level:high", "public-api", "schema", "security", "approved_seam_conflict"]
 }
