@@ -205,7 +205,109 @@ def test_reader_rejects_budget_evidence_not_bound_to_chunk_token_count() -> None
         _validate_candidate_budget_evidence(
             decisions,
             {"budget": (SimpleNamespace(token_count=1499), object(), object())},
+            retrieval_configuration=SimpleNamespace(
+                max_evidence_chunks=5,
+                max_evidence_tokens=3000,
+            ),
         )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_message"),
+    [
+        (
+            {"selected_chunk_count": 2, "selected_token_count": 10, "token_total": 3010},
+            "budget evidence is invalid",
+        ),
+        (
+            {"selected_chunk_count": 1, "selected_token_count": 11, "token_total": 3011},
+            "budget evidence is invalid",
+        ),
+        (
+            {
+                "max_evidence_chunks": 4,
+                "selected_chunk_count": 1,
+                "selected_token_count": 10,
+                "token_total": 3010,
+            },
+            "budget evidence is invalid",
+        ),
+        (
+            {
+                "max_evidence_tokens": 2999,
+                "selected_chunk_count": 1,
+                "selected_token_count": 10,
+                "token_total": 3010,
+            },
+            "budget evidence is invalid",
+        ),
+    ],
+)
+def test_reader_rejects_budget_evidence_not_bound_to_selected_population_or_configuration(
+    mutation: dict[str, int], expected_message: str
+) -> None:
+    evidence = {
+        "max_evidence_chunks": 5,
+        "max_evidence_tokens": 3000,
+        "selected_chunk_count": 1,
+        "selected_token_count": 10,
+        "candidate_token_count": 3000,
+        "token_total": 3010,
+    }
+    evidence.update(mutation)
+    decisions = [
+        {"chunk_id": "selected", "final_decision": "SELECTED"},
+        {
+            "chunk_id": "budget",
+            "final_decision": "BUDGET_EXCEEDED",
+            "decision_reason": "TOKEN_BUDGET",
+            "budget_evidence": evidence,
+        },
+    ]
+
+    with pytest.raises(LookupError, match=expected_message):
+        _validate_candidate_budget_evidence(
+            decisions,
+            {
+                "selected": (SimpleNamespace(token_count=10), object(), object()),
+                "budget": (SimpleNamespace(token_count=3000), object(), object()),
+            },
+            retrieval_configuration=SimpleNamespace(
+                max_evidence_chunks=5,
+                max_evidence_tokens=3000,
+            ),
+        )
+
+
+def test_reader_accepts_budget_evidence_bound_to_selected_population_and_configuration() -> None:
+    decisions = [
+        {"chunk_id": "selected", "final_decision": "SELECTED"},
+        {
+            "chunk_id": "budget",
+            "final_decision": "BUDGET_EXCEEDED",
+            "decision_reason": "TOKEN_BUDGET",
+            "budget_evidence": {
+                "max_evidence_chunks": 5,
+                "max_evidence_tokens": 3000,
+                "selected_chunk_count": 1,
+                "selected_token_count": 10,
+                "candidate_token_count": 3000,
+                "token_total": 3010,
+            },
+        },
+    ]
+
+    _validate_candidate_budget_evidence(
+        decisions,
+        {
+            "selected": (SimpleNamespace(token_count=10), object(), object()),
+            "budget": (SimpleNamespace(token_count=3000), object(), object()),
+        },
+        retrieval_configuration=SimpleNamespace(
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+        ),
+    )
 
 
 @pytest.mark.parametrize(

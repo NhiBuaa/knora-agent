@@ -15,6 +15,10 @@ from knora.adapters.postgres.tables import (
     EmbeddingSetTable,
     QuestionTraceTable,
 )
+from knora.answering.retrieval_configuration import (
+    CALIBRATED_M3_VECTOR_MIN_SIMILARITY,
+    resolve_retrieval_configuration,
+)
 from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2_details
 
 _VALID_FINAL_DECISIONS = {
@@ -210,7 +214,14 @@ class PostgresEvaluationReader:
             for chunk, document, _ in by_chunk.values()
         ):
             raise LookupError("evaluation candidate provenance mismatch")
-        _validate_candidate_budget_evidence(decisions, by_chunk)
+        retrieval_configuration = _resolve_retrieval_configuration(
+            trace.retrieval_configuration_id
+        )
+        _validate_candidate_budget_evidence(
+            decisions,
+            by_chunk,
+            retrieval_configuration=retrieval_configuration,
+        )
         candidates = tuple(
             EvaluationCandidateProjection(
                 chunk_id=chunk_id,
@@ -302,18 +313,63 @@ class PostgresEvaluationReader:
 def _validate_candidate_budget_evidence(
     decisions: list[dict[str, object]],
     by_chunk: dict[str, tuple[object, object, object]],
+    *,
+    retrieval_configuration: object,
 ) -> None:
-    """Bind persisted budget evidence to the authoritative chunk token counts."""
+    """Bind budget evidence to selected chunks and immutable configuration limits."""
+    max_chunks = getattr(retrieval_configuration, "max_evidence_chunks", None)
+    max_tokens = getattr(retrieval_configuration, "max_evidence_tokens", None)
+    if (
+        type(max_chunks) is not int
+        or type(max_tokens) is not int
+        or max_chunks < 1
+        or max_tokens < 1
+    ):
+        raise LookupError("evaluation candidate budget evidence is invalid")
+
+    selected_chunk_ids: list[str] = []
+    selected_tokens = 0
     for decision in decisions:
         evidence = decision.get("budget_evidence")
-        if evidence is None:
-            continue
         chunk_id = decision.get("chunk_id")
         resolved = by_chunk.get(chunk_id) if isinstance(chunk_id, str) else None
         chunk = resolved[0] if resolved is not None else None
-        token_count = getattr(chunk, "token_count", None)
-        if not isinstance(evidence, dict) or evidence.get("candidate_token_count") != token_count:
+        candidate_tokens = getattr(chunk, "token_count", None)
+        if evidence is not None and (
+            not isinstance(evidence, dict)
+            or type(candidate_tokens) is not int
+            or evidence.get("candidate_token_count") != candidate_tokens
+            or evidence.get("max_evidence_chunks") != max_chunks
+            or evidence.get("max_evidence_tokens") != max_tokens
+            or evidence.get("selected_chunk_count") != len(selected_chunk_ids)
+            or evidence.get("selected_token_count") != selected_tokens
+            or evidence.get("token_total") != selected_tokens + candidate_tokens
+            or not _valid_budget_evidence(
+                str(decision.get("decision_reason")), evidence
+            )
+        ):
             raise LookupError("evaluation candidate budget evidence is invalid")
+        if decision.get("final_decision") == "SELECTED":
+            if type(candidate_tokens) is not int or not isinstance(chunk_id, str):
+                raise LookupError("evaluation candidate budget evidence is invalid")
+            selected_chunk_ids.append(chunk_id)
+            selected_tokens += candidate_tokens
+
+
+def _resolve_retrieval_configuration(configuration_id: str) -> object:
+    """Resolve persisted trace limits through the application configuration seam."""
+    try:
+        if configuration_id in {"retrieval-m3-vector-v2", "retrieval-m3-rrf-v2"}:
+            return resolve_retrieval_configuration(
+                configuration_id,
+                vector_min_similarity=CALIBRATED_M3_VECTOR_MIN_SIMILARITY,
+            )
+        return resolve_retrieval_configuration(
+            configuration_id,
+            vector_min_similarity=None,
+        )
+    except (TypeError, ValueError) as error:
+        raise LookupError("evaluation trace retrieval configuration is invalid") from error
 
 
 def _ordered_candidate_ids(
