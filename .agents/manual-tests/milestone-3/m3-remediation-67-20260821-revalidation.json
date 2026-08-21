@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "m3-remediation-67-20260821-revalidation-02",
+  "observed_at": "2026-08-21T20:20:00+07:00",
+  "executor": "Codex manual-acceptance revalidation",
+  "guide_revision": "m3-remediation-issue-63-v9",
+  "test_results": [
+    {"id":"TC-01","outcome":"PASS","observation":"Public Q&A executor now passes a public-only semantic observation projection; response trace correlation and response-completion clock remain enforced.","evidence":["evals/test/test_http_eval.py: public projection regression and HTTP contract tests passed","evals/test/test_milestone_3_runner.py: runner contract tests passed"]},
+    {"id":"TC-02","outcome":"PASS","observation":"Exact authority identity/scope/response/closure chain remains APPROVED_EFFECTIVE after remediation.","evidence":["canonical_authority_validation: APPROVED_EFFECTIVE","evals/test/test_issue_68_remediation.py: 4 passed"]},
+    {"id":"TC-03","outcome":"PASS","observation":"Exact population, paired invariants and persisted budget taxonomy remain valid.","evidence":["evals/test/test_issue_63_remediation.py: 54 passed","backend reader/contract suite: 32 passed"]},
+    {"id":"TC-04","outcome":"PASS","observation":"Public citation/refusal semantics are scored from public answer and public citation projections only; hidden trace candidates are excluded at the scorer seam.","evidence":["evals/test/test_http_eval.py::test_scoring_receives_only_the_public_observation_projection","evals/test/test_semantic_scorer.py: hidden evidence exclusion passed"]},
+    {"id":"TC-05","outcome":"PASS","observation":"Paired latency and selected-artifact retention remain reconciled with explicit boundary versions.","evidence":["evals/test/test_issue_63_remediation.py: latency and paired provenance tests passed","backend/test/answering/test_issue_61_trace_contract.py: latency boundary tests passed"]},
+    {"id":"TC-06","outcome":"PASS","observation":"Final remediation verification passed with public-only scorer and raw-byte manifest digest regressions covered.","evidence":["full pytest: 670 passed, 3 skipped","ruff: PASS","compileall: PASS","docker compose config --quiet: PASS"]}
+  ],
+  "verdict": "PASSED",
+  "human_approval": "approved",
+  "human_approval_evidence": "Explicit repository-owner authorization in the active Codex task; revalidation is append-only and preserves the approved guide revision."
+}
