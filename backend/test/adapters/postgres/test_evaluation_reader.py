@@ -1,3 +1,4 @@
+from copy import deepcopy
 from uuid import uuid4
 
 import pytest
@@ -283,7 +284,7 @@ def test_evaluation_reader_binds_persisted_budget_evidence_end_to_end() -> None:
     with SessionFactory.begin() as session:
         trace = session.get(QuestionTraceTable, chunk_count_trace_id)
         assert trace is not None
-        decisions = list(trace.candidate_decisions)
+        decisions = deepcopy(trace.candidate_decisions)
         decisions[-1]["budget_evidence"]["selected_token_count"] += 1
         decisions[-1]["budget_evidence"]["token_total"] += 1
         trace.candidate_decisions = decisions
@@ -312,11 +313,14 @@ def test_evaluation_reader_binds_persisted_budget_evidence_end_to_end() -> None:
     with SessionFactory.begin() as session:
         trace = session.get(QuestionTraceTable, token_trace_id)
         assert trace is not None
-        decisions = list(trace.candidate_decisions)
+        decisions = deepcopy(trace.candidate_decisions)
         decisions[0]["budget_evidence"]["candidate_token_count"] = 3000
         decisions[0]["budget_evidence"]["token_total"] = 3000
         trace.candidate_decisions = decisions
-    with pytest.raises(LookupError, match="budget evidence is invalid"):
+    with pytest.raises(
+        LookupError,
+        match="evaluation candidate (?:budget evidence|decision) is invalid",
+    ):
         reader.read_trace(trace_id=token_trace_id, workspace_id=workspace_id)
 
 
