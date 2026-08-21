@@ -39,6 +39,7 @@
     "backend/test/answering/test_issue_61_trace_contract.py",
     "docs/design/m3-remediation-v4.md",
     "docs/standards/architecture.md",
+    "evals/runners/evaluation.py",
     "evals/runners/m3_claim_authority.py",
     "evals/runners/m3_readiness.py",
     "evals/runners/m3_readiness_main.py",
