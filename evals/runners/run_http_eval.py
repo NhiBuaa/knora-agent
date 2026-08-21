@@ -259,7 +259,12 @@ async def _score_cases(
             )
             continue
         try:
-            results.append(await scorer.score(case=case, observation=observation))
+            results.append(
+                await scorer.score(
+                    case=case,
+                    observation=observation.public_semantic_projection(),
+                )
+            )
         except ValueError as error:
             results.append(
                 SemanticEvaluation(
@@ -271,8 +276,7 @@ async def _score_cases(
 
 
 def _manifest_checksum(path: Path) -> str:
-    normalized = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    return "sha256:" + hashlib.sha256(normalized).hexdigest()
+    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _runtime_versions(

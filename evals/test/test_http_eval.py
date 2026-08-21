@@ -1,10 +1,12 @@
+import hashlib
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
-from evals.runners.evaluation import EvaluationCase
-from evals.runners.run_http_eval import HttpEvaluationExecutor
+from evals.runners.evaluation import EvaluationCase, EvaluationObservation, SemanticEvaluation
+from evals.runners.run_http_eval import HttpEvaluationExecutor, _manifest_checksum, _score_cases
 
 
 def _generic_case() -> EvaluationCase:
@@ -19,6 +21,52 @@ def _generic_case() -> EvaluationCase:
         ("30 days",),
         "30 days",
     )
+
+
+@pytest.mark.asyncio
+async def test_scoring_receives_only_the_public_observation_projection() -> None:
+    case = _generic_case()
+    source = EvaluationObservation(
+        case_id=case.id,
+        retrieved_chunks=("hidden/chunk#9",),
+        retrieval_latency_ms=1.0,
+        decision="ANSWER",
+        answer="Public answer [[E1]]",
+        refusal_reason=None,
+        citation_evidence_ids=("E1",),
+        answer_marker_ids=("E1",),
+        public_citations=(("E1", "Public excerpt", "support/refund-policy:1:1"),),
+        evidence=(("E1", "hidden/chunk#9", "hidden trace content"),),
+        candidate_workspaces=("evaluation-m1",),
+        trace_id="hidden-trace",
+    )
+    received: list[EvaluationObservation] = []
+
+    class RecordingScorer:
+        async def score(
+            self, *, case: EvaluationCase, observation: EvaluationObservation
+        ) -> SemanticEvaluation:
+            received.append(observation)
+            return SemanticEvaluation(case_id=case.id)
+
+    await _score_cases((case,), (source,), RecordingScorer())
+
+    assert len(received) == 1
+    assert received[0].evidence == ()
+    assert received[0].retrieved_chunks == ()
+    assert received[0].candidate_workspaces == ()
+    assert received[0].trace_id is None
+    assert received[0].public_citations == source.public_citations
+    assert received[0].answer == source.answer
+
+
+def test_manifest_checksum_hashes_raw_committed_bytes(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_bytes(b"{\r\n  \"version\": \"v1\"\r\n}\r\n")
+
+    expected = "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
+
+    assert _manifest_checksum(manifest) == expected
 
 
 @pytest.mark.asyncio

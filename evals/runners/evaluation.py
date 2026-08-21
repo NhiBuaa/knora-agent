@@ -84,6 +84,20 @@ class EvaluationObservation:
     public_citations: tuple[tuple[str, str, str], ...] = ()
     evidence: tuple[tuple[str, str, str], ...] = ()
 
+    def public_semantic_projection(self) -> EvaluationObservation:
+        """Return the public-only observation allowed at the semantic scorer seam."""
+        return EvaluationObservation(
+            case_id=self.case_id,
+            retrieved_chunks=(),
+            retrieval_latency_ms=0.0,
+            decision=self.decision,
+            answer=self.answer,
+            refusal_reason=self.refusal_reason,
+            citation_evidence_ids=self.citation_evidence_ids,
+            answer_marker_ids=self.answer_marker_ids,
+            public_citations=self.public_citations,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class SemanticEvaluation:
