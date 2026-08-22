@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_75_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-75-ticket-external-review.json",
+  "reviewed_commit": "160e43359609e68f66410bc9768b1ecd94987f56",
+  "ticket_id": "#75",
+  "guide_revision": "m4-75-ticket-lookup-v1",
+  "guide_digest": "sha256:01919b8ab1727b65b44a413667d3755a50e44adefe5b7f5030ef7087b6b85bca",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 1,
+  "findings": [
+    {
+      "severity": "major",
+      "section": "TC-01/TC-04/TC-06 positive lookup oracle",
+      "problem": "No exact deterministic TicketLookupResult, exactly-one gateway call or typed LookupTicketRequest assertion proves an actual authorized lookup.",
+      "required_change": "Seed fixed expected values, assert one call per lookup and capture sanitized scope/resource request before and after SQLite restart."
+    },
+    {
+      "severity": "major",
+      "section": "TC-04/TC-05 public provider outcomes",
+      "problem": "The guide does not lock exact status/error.code for scope denial, not-found, unavailability and contract-invalid outcomes.",
+      "required_change": "Bind the exact public matrix in Design and the next guide revision."
+    },
+    {
+      "severity": "minor",
+      "section": "Prerequisites/TC-07",
+      "problem": "Windows-safe database URL and exact verification commands are not pinned.",
+      "required_change": "Use the 127.0.0.1 database URL and governed pytest/Ruff/Compose/Alembic commands."
+    }
+  ],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/75",
+    ".agents/manual-tests/milestone-4/75-ticket-lookup-v1.md",
+    ".agents/review/m4-issue-75-test-cases-v1.json",
+    "docs/design/milestone-4-tools-human-approval.md@01d329e1e9aa8c0f2f667ab9df318c62ba47d047"
+  ]
+}

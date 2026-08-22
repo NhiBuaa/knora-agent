@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "ticket_reference": "https://github.com/NhiBuaa/knora-agent/issues/75",
+  "review_reference": "integration:.agents/review/m4-issue-75-child-code-review-v2.json@72d7ee23214f5b26ced9590d088353223d46cd14",
+  "preflight_reference": ".agents/review/m4-issue-75-remediation-preflight-v2.json@46fe7c4c0b2f7de4812433fe3c4100c774782ad2",
+  "source_head": "46fe7c4c0b2f7de4812433fe3c4100c774782ad2",
+  "subject_sha": "1011a97f6746242682d0fadd2f2b98a2fcd9284d",
+  "changed_scope": [
+    "backend/src/knora/adapters/http/tools.py",
+    "backend/src/knora/main.py",
+    "backend/src/knora/tools/capabilities.py",
+    "backend/src/knora/tools/gateway.py",
+    "backend/src/knora/tools/read.py",
+    "backend/src/knora/tools/references.py",
+    "backend/test/adapters/http/test_tool_lookup.py",
+    "backend/test/adapters/http/test_tools.py",
+    "backend/test/tools/test_read_tool.py",
+    "backend/test/tools/test_reference_provider.py"
+  ],
+  "criteria_satisfied": [
+    "AuthorizedExternalResource and LookupTicketRequest preserve the exact verified/current binding identity, version and digest through fake and SQLite gateway seams.",
+    "The SQLite gateway rejects scope or binding-provenance mismatch before provider lookup.",
+    "Wrong-arity, non-iterable and malformed provider results return ProviderContractInvalid before destructuring.",
+    "Unexpected provider exceptions return ProviderContractInvalid while sqlite3 availability failures remain ProviderUnavailable.",
+    "The ticket-lookup FastAPI router and its behavior tests are owned by knora.adapters.http; knora.tools is application-only.",
+    "No write capability, proposal, approval or execution behavior was added."
+  ],
+  "tests": {
+    "red_observed": [
+      {
+        "behavior": "exact binding provenance at fake gateway",
+        "command": "python -m pytest backend/test/tools/test_read_tool.py::test_static_registry_and_authorized_lookup_are_typed -q",
+        "result": "1 failed: LookupTicketRequest had no binding_id"
+      },
+      {
+        "behavior": "SQLite binding-provenance defense in depth",
+        "command": "python -m pytest backend/test/tools/test_reference_provider.py::test_sqlite_gateway_rejects_mismatched_binding_provenance_before_lookup -q",
+        "result": "1 failed: mismatched digest reached provider and returned TicketLookupResult"
+      },
+      {
+        "behavior": "malformed provider result shapes",
+        "command": "python -m pytest backend/test/tools/test_reference_provider.py::test_sqlite_gateway_maps_malformed_provider_result_shapes_to_contract_invalid -q",
+        "result": "3 failed: non-iterable, too-short and too-long results escaped during destructuring"
+      },
+      {
+        "behavior": "unexpected provider exception closure",
+        "command": "python -m pytest backend/test/tools/test_reference_provider.py::test_sqlite_gateway_closes_provider_exceptions_by_failure_kind -q",
+        "result": "1 passed and 1 failed: availability was typed; unexpected RuntimeError escaped"
+      },
+      {
+        "behavior": "HTTP adapter ownership",
+        "command": "python -m pytest backend/test/adapters/http/test_tools.py -q",
+        "result": "1 failed: knora.adapters.http.tools did not exist"
+      }
+    ],
+    "focused_commands": [
+      {
+        "command": "PYTHONPATH=<worktree>/backend/src python -m pytest backend/test/tools backend/test/adapters/http/test_tools.py backend/test/adapters/http/test_tool_lookup.py -q",
+        "result": "44 passed"
+      }
+    ],
+    "full_suite": {
+      "command": "KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@127.0.0.1:5432/knora PYTHONPATH=<worktree>/backend/src python -m pytest",
+      "result": "716 passed, 3 skipped",
+      "all_tests_green": true
+    },
+    "all_tests_green": true
+  },
+  "typecheck": {
+    "configured": false,
+    "closest_static_verification": "python -m ruff check .",
+    "result": "passed"
+  },
+  "additional_verification": {
+    "docker_compose_config": "passed",
+    "fresh_database_alembic_upgrade": "passed at 20260816_0036",
+    "dependency_direction_probe": "no FastAPI or knora.adapters import remains under backend/src/knora/tools"
+  },
+  "structural_evidence": {
+    "owning_module": "knora.tools application seams, knora.adapters.http transport and SQLiteSupportToolGateway provider adapter",
+    "interface_changes": [
+      "AuthorizedExternalResource and LookupTicketRequest now carry exact binding identity/version/digest.",
+      "SQLiteSupportToolGateway now validates binding provenance, provider result shape and unexpected exceptions into the closed outcome set.",
+      "The unchanged ticket-lookup route is imported from knora.adapters.http.tools."
+    ],
+    "seam_changes": [
+      "exact authorized binding provenance at SupportToolGateway lookup",
+      "closed SQLite provider outcome normalization",
+      "HTTP adapter ownership restored without public route change"
+    ],
+    "responsibilities_added": [
+      "binding-provenance preservation and adapter defense-in-depth",
+      "malformed/unexpected provider-result closure"
+    ],
+    "files_created": [
+      "backend/src/knora/adapters/http/tools.py",
+      "backend/test/adapters/http/test_tools.py"
+    ],
+    "files_relocated": [
+      "backend/src/knora/tools/http.py -> backend/src/knora/adapters/http/tools.py",
+      "backend/test/tools/test_http.py -> backend/test/adapters/http/test_tool_lookup.py"
+    ],
+    "largest_changed_file": {
+      "path": "backend/test/tools/test_read_tool.py",
+      "before_lines": 370,
+      "after_lines": 381
+    },
+    "largest_added_scope": {
+      "path": "backend/test/tools/test_reference_provider.py",
+      "added_lines": 102,
+      "after_lines": 285
+    },
+    "trigger_disposition": "none",
+    "rationale": "Production changes deepen existing typed values and one provider adapter; the HTTP code is a pure relocation to its approved owner. No source file exceeds 400 lines, no source addition exceeds 150 lines or 25 percent without cohesive ownership, and no function approaches 80 lines."
+  },
+  "acceptance": {
+    "guide_revision": "m4-75-ticket-lookup-v2",
+    "previous_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved",
+    "previous_run_status": "invalidated append-only by child review v2",
+    "new_run_status": "pending reconciliation and execution on the new exact subject",
+    "human_approval": "pending"
+  }
+}

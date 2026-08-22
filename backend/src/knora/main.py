@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
+from knora.adapters.http.tools import router as tools_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
@@ -60,6 +61,7 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.tools import ReadTool
 
 
 def create_app(
@@ -79,6 +81,7 @@ def create_app(
     operational_metrics_store: OperationalMetricsStore | None = None,
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
+    read_tool: ReadTool | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -209,6 +212,8 @@ def create_app(
     )
     application.state.embedding_configuration = selected_embedding_configuration
 
+    application.state.read_tool = read_tool
+
     @application.exception_handler(KnoraError)
     async def handle_knora_error(request: Request, error: KnoraError) -> JSONResponse:
         status = {
@@ -244,11 +249,20 @@ def create_app(
             "CONFIG_SOURCE_JOB_INVALID": 400,
             "CONFIGURATION_NOT_AVAILABLE": 409,
             "IDEMPOTENCY_KEY_CONFLICT": 409,
+            "TOOL_CAPABILITY_NOT_FOUND": 403,
+            "TOOL_RESOURCE_ACCESS_DENIED": 403,
+            "TOOL_TICKET_NOT_FOUND": 404,
+            "TOOL_REQUEST_INVALID": 422,
+            "INVALID_TOOL_RESOURCE_REFERENCE": 400,
+            "TOOL_PROVIDER_UNAVAILABLE": 502,
+            "TOOL_PROVIDER_CONTRACT_INVALID": 502,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
     application.include_router(http_router)
     application.include_router(router)
+    if read_tool is not None:
+        application.include_router(tools_router)
     return application
 
 
