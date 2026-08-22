@@ -1,4 +1,6 @@
 
+from dataclasses import replace
+
 import pytest
 
 from knora.domain.access import WorkspacePrincipal
@@ -9,6 +11,10 @@ from knora.tools import (
     ExternalScopeBinding,
     FakeSupportToolGateway,
     InMemoryReferenceStore,
+    ProviderContractInvalid,
+    ProviderResourceNotFound,
+    ProviderScopeDenied,
+    ProviderUnavailable,
     ReadTool,
     ReadToolCommand,
     ReferenceKey,
@@ -107,4 +113,43 @@ def test_malformed_reference_has_typed_invalid_reference_error() -> None:
         )
 
     assert error.value.code == "INVALID_TOOL_RESOURCE_REFERENCE"
+    assert gateway.call_count == 0
+
+
+@pytest.mark.parametrize(
+    "outcome,code",
+    [
+        (ProviderScopeDenied(), "TOOL_RESOURCE_ACCESS_DENIED"),
+        (ProviderResourceNotFound(), "TOOL_TICKET_NOT_FOUND"),
+        (ProviderUnavailable(), "TOOL_PROVIDER_UNAVAILABLE"),
+        (ProviderContractInvalid(), "TOOL_PROVIDER_CONTRACT_INVALID"),
+    ],
+)
+def test_provider_outcomes_have_closed_mappings_and_one_call(outcome, code) -> None:
+    tool, gateway, token = prepared_tool()
+    gateway.outcomes["provider-ticket-75"] = outcome
+
+    with pytest.raises(KnoraError) as error:
+        tool.execute(
+            ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a")
+        )
+
+    assert error.value.code == code
+    assert gateway.call_count == 1
+
+
+def test_reference_store_claim_mismatch_fails_closed_before_gateway() -> None:
+    tool, gateway, token = prepared_tool()
+    verifier = tool.resource_authorizer._reference_verifier  # type: ignore[attr-defined]
+    store = verifier._store  # type: ignore[attr-defined]
+    record = store.get_reference("ticket-fixture-75")
+    assert record is not None
+    store.register(replace(record, workspace_id="workspace-b"))
+
+    with pytest.raises(KnoraError) as error:
+        tool.execute(
+            ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a")
+        )
+
+    assert error.value.code == "TOOL_RESOURCE_ACCESS_DENIED"
     assert gateway.call_count == 0
