@@ -548,3 +548,78 @@ class QuestionTraceTable(Base):
     provider_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolProposalTable(Base):
+    __tablename__ = "tool_proposals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    capability_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    binding_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    binding_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    binding_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    policy_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    target_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    target_reference_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    resource_kind: Mapped[str] = mapped_column(String(100), nullable=False)
+    parameters: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    parameters_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(200), nullable=False)
+    caller_principal_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    caller_key_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    proposal_actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    proposal_actor_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    logical_execution_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decision_actor_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    decision_actor_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolProposalDecisionTable(Base):
+    __tablename__ = "tool_proposal_decisions"
+    __table_args__ = (UniqueConstraint("proposal_id", name="uq_tool_proposal_decision_proposal"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    resulting_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolActionAuditEventTable(Base):
+    __tablename__ = "tool_action_audit_events"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "sequence", name="uq_tool_action_audit_sequence"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
