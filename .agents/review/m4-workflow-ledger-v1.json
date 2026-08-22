@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "human_guide_approval_required",
-  "next_valid_transition": "human_approve_locked_guides_75_76",
+  "current_state": "guides_locked_ready_for_implementation",
+  "next_valid_transition": "implement_frontier_75_76",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -20,8 +20,8 @@
     "published": true
   },
   "ticket_graph": [
-    {"ticket": "#75", "blocked_by": [], "state": "awaiting_human_guide_approval", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
-    {"ticket": "#76", "blocked_by": [], "state": "awaiting_human_guide_approval", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
+    {"ticket": "#75", "blocked_by": [], "state": "ready_for_implementation", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
+    {"ticket": "#76", "blocked_by": [], "state": "ready_for_implementation", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
@@ -49,7 +49,8 @@
     "guide_76_external_review_v2",
     "guide_76_external_review_v3",
     "baseline_75_v2",
-    "baseline_76_v3"
+    "baseline_76_v3",
+    "human_guide_approvals_recorded_and_guides_locked"
   ],
   "review_cadence": {
     "risk": "high",
@@ -59,8 +60,8 @@
     "status": "gates_in_progress"
   },
   "tickets": {
-    "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "pending", "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
-    "#76": {"guide_revision": "m4-76-write-proposal-v3", "guide_digest": "sha256:3a3f847a284bdc3f9a9d402c285d93d163d54ceaa98deceae0704b4cefa38abf", "guide_external_review": "APPROVE", "human_guide_approval": "pending", "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
+    "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-75-guide-approval-v2.json@b318dcb21ccada5865469530fad291fec27861b6", "guide_approval_commit": "b318dcb21ccada5865469530fad291fec27861b6", "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
+    "#76": {"guide_revision": "m4-76-write-proposal-v3", "guide_digest": "sha256:3a3f847a284bdc3f9a9d402c285d93d163d54ceaa98deceae0704b4cefa38abf", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-76-guide-approval-v3.json@628a5d092dc53a8d29bef2cd3849ba2197aab727", "guide_approval_commit": "628a5d092dc53a8d29bef2cd3849ba2197aab727", "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#77": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#78": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#79": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 0}
@@ -228,10 +229,7 @@
     "delete_remote_branches_after_verified_merge": true,
     "authorized": true
   },
-  "blockers": [
-    "explicit human guide approval required for m4-75-ticket-lookup-v2",
-    "explicit human guide approval required for m4-76-write-proposal-v3"
-  ],
+  "blockers": [],
   "authoritative_artifacts": [
     ".agents/review/m4-delivery-plan-v1.md",
     ".agents/review/m4-integration-initialization-v1.json",
@@ -243,5 +241,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-22T13:10:00+07:00"
+  "last_updated_at": "2026-08-22T13:22:00+07:00"
 }
