@@ -1,7 +1,7 @@
 # Milestone 4 — Tools and human approval design
 
-Status: approved shared-understanding checkpoint; contract revision 4 pending external review,
-2026-08-22
+Status: contract revision 4 externally approved at exact subject
+`5ffb59d2bbc4175a40cda12e714851d6c1e83cb0`, 2026-08-22
 
 This design records the approved M4 boundary. It extends the existing capability-first seams
 without introducing a plugin framework, generic workflow engine, or vendor coupling.
