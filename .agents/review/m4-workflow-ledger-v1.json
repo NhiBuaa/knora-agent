@@ -4,7 +4,7 @@
   "feature_id": "github-issue-74",
   "status": "active",
   "current_state": "child_review_remediation_required",
-  "next_valid_transition": "remediate_child_review_findings_for_75_76_with_tdd",
+  "next_valid_transition": "obtain_human_acceptance_for_75_and_remediate_76_with_tdd",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -20,7 +20,7 @@
     "published": true
   },
   "ticket_graph": [
-    {"ticket": "#75", "blocked_by": [], "state": "review_changes_required", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
+    {"ticket": "#75", "blocked_by": [], "state": "acceptance_pending", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
     {"ticket": "#76", "blocked_by": [], "state": "review_blocked_critical", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
@@ -59,7 +59,9 @@
     "child_code_review_75_v1_request_changes",
     "child_code_review_76_v1_block",
     "acceptance_75_invalidated_after_review",
-    "acceptance_76_invalidated_after_review"
+    "acceptance_76_invalidated_after_review",
+    "implementation_75_remediation_v1_completed",
+    "evaluation_75_remediation_v1_executed_pending_human_approval"
   ],
   "review_cadence": {
     "risk": "high",
@@ -69,7 +71,7 @@
     "status": "gates_in_progress"
   },
   "tickets": {
-    "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-75-guide-approval-v2.json@b318dcb21ccada5865469530fad291fec27861b6", "guide_approval_commit": "b318dcb21ccada5865469530fad291fec27861b6", "implementation_status": "remediation_required", "implementation_commit": "c6bf046f2bd7868f516ac62db795e8631717ee3d", "verification": "13 focused; 685 passed, 3 skipped; invalidated by child review v1", "evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-01", "accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-01-approved", "invalidation_run_id": "m4-75-ticket-lookup-v2-20260822-review-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl@5e5e8f88726beac2484c7f2e40fc869371d2058d", "evaluation_digest": "sha256:ad55a201ddcb9c13372b39eb5bb5601222e8445651f0cf63019e3619bb85c417", "evaluation_verdict": "FAILED", "human_acceptance_approval": "invalidated", "previously_accepted_commit": "c6bf046f2bd7868f516ac62db795e8631717ee3d", "accepted_commit": null, "integrated_commit": null, "child_review": {"revision": 1, "verdict": "REQUEST_CHANGES", "critical_count": 0, "major_count": 13, "reference": ".agents/review/m4-issue-75-child-code-review-v1.json", "digest": "sha256:e02e94e40241daad652786a87e4a4ff0b4c9a140cc64cb5141f7f3011c507d55"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/80", "pr_head": "5e5e8f88726beac2484c7f2e40fc869371d2058d", "design_revisions": 2, "review_remediation_cycles": 1},
+    "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-75-guide-approval-v2.json@b318dcb21ccada5865469530fad291fec27861b6", "guide_approval_commit": "b318dcb21ccada5865469530fad291fec27861b6", "implementation_status": "remediation_completed_acceptance_pending", "implementation_commit": "64ed93b5f0ed56c8843cedb2f8222eab9447bd25", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-75-remediation-result-v1.json@b42f0cbf6f6c6c59831a11f7aad9a2172ded8649", "implementation_evidence_digest": "sha256:dda5e83c2d1d39cb605faa34048bac8916299ebbefce1a312fbd6b051ae9a18c", "verification": "37 focused; 709 passed, 3 skipped; Ruff, Compose and clean Alembic passed", "evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-02", "accepted_evaluation_run_id": null, "previously_accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-01-approved", "invalidation_run_id": "m4-75-ticket-lookup-v2-20260822-review-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl@b42f0cbf6f6c6c59831a11f7aad9a2172ded8649", "evaluation_digest": "sha256:8a8b0fcc2c17a420ca4b8c7ecf6c96a6d577266bd19b9f08f25546580beaba02", "evaluation_verdict": "BLOCKED", "human_acceptance_approval": "pending", "previously_accepted_commit": "c6bf046f2bd7868f516ac62db795e8631717ee3d", "accepted_commit": null, "integrated_commit": null, "child_review": {"revision": 1, "verdict": "REQUEST_CHANGES", "critical_count": 0, "major_count": 13, "reference": ".agents/review/m4-issue-75-child-code-review-v1.json", "digest": "sha256:e02e94e40241daad652786a87e4a4ff0b4c9a140cc64cb5141f7f3011c507d55"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/80", "pr_head": "b42f0cbf6f6c6c59831a11f7aad9a2172ded8649", "design_revisions": 2, "review_remediation_cycles": 1},
     "#76": {"guide_revision": "m4-76-write-proposal-v3", "guide_digest": "sha256:3a3f847a284bdc3f9a9d402c285d93d163d54ceaa98deceae0704b4cefa38abf", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-76-guide-approval-v3.json@628a5d092dc53a8d29bef2cd3849ba2197aab727", "guide_approval_commit": "628a5d092dc53a8d29bef2cd3849ba2197aab727", "implementation_status": "remediation_required", "implementation_commit": "5ff73daf03af543362ce0204bd55483efb9cf9d4", "verification": "16 focused; 688 passed, 3 skipped; invalidated by child review v1", "evaluation_run_id": "m4-76-write-proposal-v3-20260822-01", "accepted_evaluation_run_id": "m4-76-write-proposal-v3-20260822-01-approved", "invalidation_run_id": "m4-76-write-proposal-v3-20260822-review-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl@6b30b648e65a329fc80d1ba5074c17053e6e5b85", "evaluation_digest": "sha256:c0708e69ee884ac9227a43d7cf9b4bc2fa5bce834140a7c58d157ec054cc1c21", "evaluation_verdict": "FAILED", "human_acceptance_approval": "invalidated", "previously_accepted_commit": "5ff73daf03af543362ce0204bd55483efb9cf9d4", "accepted_commit": null, "integrated_commit": null, "child_review": {"revision": 1, "verdict": "BLOCK", "critical_count": 2, "major_count": 13, "reference": ".agents/review/m4-issue-76-child-code-review-v1.json", "digest": "sha256:6fad72dc0bcf79644059391a297c5a7de7c8df6f912f06cf01bdfb17ca83b125"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/81", "pr_head": "6b30b648e65a329fc80d1ba5074c17053e6e5b85", "design_revisions": 2, "review_remediation_cycles": 1},
     "#77": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#78": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
@@ -239,9 +241,10 @@
     "authorized": true
   },
   "blockers": [
-    "PR #80 child review v1 returned REQUEST_CHANGES with 13 Major findings; acceptance invalidated.",
+    "PR #80 remediation completed at 64ed93b; locked run m4-75-ticket-lookup-v2-20260822-02 passed all technical cases and awaits explicit human approval.",
     "PR #81 child review v1 returned BLOCK with 2 Critical and 13 Major findings; acceptance invalidated.",
-    "Both tickets require TDD remediation, new exact-subject verification, rerun of the locked guide and new explicit human PASSED approval before merge."
+    "PR #81 still requires TDD remediation, new exact-subject verification, locked-guide rerun and new explicit human PASSED approval before merge.",
+    "PR #80 still requires explicit human PASSED approval and child review v2 before merge."
   ],
   "authoritative_artifacts": [
     ".agents/review/m4-delivery-plan-v1.md",
