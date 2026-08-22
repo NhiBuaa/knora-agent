@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "codex-agent:/root/m4_76_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-76-ticket-external-review.json",
+  "reviewed_commit": "fa00b58c4d111cb6a64cef1fa898991ba4cde59a",
+  "ticket_id": "#76",
+  "guide_revision": "m4-76-write-proposal-v3",
+  "guide_digest": "sha256:3a3f847a284bdc3f9a9d402c285d93d163d54ceaa98deceae0704b4cefa38abf",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "summary": "Guide v3 remains within #76 proposal/projection ownership and closes the PowerShell and trusted-policy wording gaps. It is ready for explicit human guide approval. Advisory review only."
+}

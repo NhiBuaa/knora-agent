@@ -60,6 +60,9 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.tools.proposal_http import ActorContextProvider
+from knora.tools.proposal_http import router as proposal_router
+from knora.tools.proposals import WriteProposalWorkflow
 
 
 def create_app(
@@ -79,6 +82,8 @@ def create_app(
     operational_metrics_store: OperationalMetricsStore | None = None,
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
+    write_proposal_workflow: WriteProposalWorkflow | None = None,
+    tool_actor_context_provider: ActorContextProvider | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -208,6 +213,8 @@ def create_app(
         credentials_from_json(settings.api_credentials_json)
     )
     application.state.embedding_configuration = selected_embedding_configuration
+    application.state.write_proposal_workflow = write_proposal_workflow
+    application.state.tool_actor_context_provider = tool_actor_context_provider
 
     @application.exception_handler(KnoraError)
     async def handle_knora_error(request: Request, error: KnoraError) -> JSONResponse:
@@ -244,11 +251,22 @@ def create_app(
             "CONFIG_SOURCE_JOB_INVALID": 400,
             "CONFIGURATION_NOT_AVAILABLE": 409,
             "IDEMPOTENCY_KEY_CONFLICT": 409,
+            "TOOL_CAPABILITY_NOT_FOUND": 403,
+            "TOOL_APPROVAL_FORBIDDEN": 403,
+            "TOOL_RESOURCE_ACCESS_DENIED": 403,
+            "TOOL_PROPOSAL_NOT_FOUND": 404,
+            "TOOL_REQUEST_INVALID": 422,
+            "TOOL_PROPOSAL_ALREADY_DECIDED": 409,
+            "TOOL_PROPOSAL_REVISION_CONFLICT": 409,
+            "TOOL_PROPOSAL_STALE": 409,
+            "TOOL_PROPOSAL_EXPIRED": 409,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
     application.include_router(http_router)
     application.include_router(router)
+    if write_proposal_workflow is not None and tool_actor_context_provider is not None:
+        application.include_router(proposal_router)
     return application
 
 

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "ticket": "#76",
+  "guide_revision": "m4-76-write-proposal-v2",
+  "supersedes": "m4-76-write-proposal-v1",
+  "source_review": ".agents/review/m4-issue-76-guide-external-review-v1.json",
+  "design_subject": "5ffb59d2bbc4175a40cda12e714851d6c1e83cb0",
+  "status": "revised_pending_external_review",
+  "changes": [
+    "Added malformed/tampered/key/expiry/claim/trusted-store target-reference denial matrix with zero persistence and no secret projection.",
+    "Bound approve/reject/AlreadyDecided/stale/expired and reject-reason outcomes to final public codes.",
+    "Pinned 127.0.0.1, exact Windows verification commands, clean database reset and Evaluation metadata."
+  ]
+}
