@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket": "#75",
+  "status": "completed",
+  "recorded_at": "2026-08-22T19:34:48.3851382+07:00",
+  "implementation_code_subject": "1011a97f6746242682d0fadd2f2b98a2fcd9284d",
+  "implementation_evidence_head": "f9c69ed855e6eabd5855f36c9c3b7ab2023109ac",
+  "integration_head_before": "7b400758a41a3c23cecb0f65f8da75fa4bba2ac5",
+  "reconciliation_merge_commit": "294901363e0ba4a63efb992ded9d6a6f96c21f2c",
+  "merge_base_after": "7b400758a41a3c23cecb0f65f8da75fa4bba2ac5",
+  "changed_since_code_subject": [
+    ".agents/review/m4-issue-75-child-code-review-v2.json",
+    ".agents/review/m4-issue-75-remediation-result-v2.json",
+    ".agents/review/m4-workflow-ledger-v1.json",
+    ".agents/review/milestone-4-workflow-events.jsonl"
+  ],
+  "change_classification": {
+    "production_code_changed_after_subject": false,
+    "test_code_changed_after_subject": false,
+    "runtime_configuration_changed_after_subject": false,
+    "database_schema_changed_after_subject": false,
+    "guide_changed": false,
+    "implementation_subject_reachable": true,
+    "classification": "implementation_evidence_plus_integration_governance_only"
+  },
+  "acceptance_impact": {
+    "previous_accepted_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved",
+    "previous_status": "append-only invalidated by child review v2",
+    "evaluation_history": ".agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl",
+    "preserved_as_current_acceptance": [],
+    "required_rerun": [
+      "M4-75-TC-01",
+      "M4-75-TC-02",
+      "M4-75-TC-03",
+      "M4-75-TC-04",
+      "M4-75-TC-05",
+      "M4-75-TC-06",
+      "M4-75-TC-07"
+    ],
+    "reason": "R8 changes the exact typed request evidence, R9 changes provider-outcome closure and R10 relocates the HTTP adapter. The locked guide remains unchanged, but a complete new exact-subject run is required before child review v3."
+  },
+  "verification": {
+    "post_reconciliation_focused": "44 passed",
+    "pre_reconciliation_clean_database_upgrade": "PASS: 20260816_0036",
+    "pre_reconciliation_full_suite": "716 passed, 3 skipped",
+    "pre_reconciliation_ruff": "PASS",
+    "pre_reconciliation_compose": "PASS",
+    "technical_evidence_reuse": "The reconciliation diff is governance-only; the locked manual run will execute all governed verification again on its exact candidate."
+  },
+  "next_valid_transition": "Commit this reconciliation record, pin the resulting clean PR head as the candidate, then execute locked guide m4-75-ticket-lookup-v2 and append a human-pending Evaluation."
+}
