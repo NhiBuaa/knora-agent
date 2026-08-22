@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "review_id": "m4-issue-75-child-code-review-v1",
+  "reviewed_at": "2026-08-22T14:58:58+07:00",
+  "ticket": "#75",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/80",
+  "fixed_point": {
+    "base_commit": "ab973d0bfa4607d66191ac9977433899dc85bfd4",
+    "head_commit": "e4e65d0c52d33732bde565b7751a6cfedd05ff14",
+    "merge_base_semantics": true,
+    "diff_command": "git diff ab973d0bfa4607d66191ac9977433899dc85bfd4..e4e65d0c52d33732bde565b7751a6cfedd05ff14",
+    "commit_list": [
+      "160e43359609e68f66410bc9768b1ecd94987f56",
+      "ff862c41a1393bfbb9bf83e478aea40feee781f4",
+      "35de0044c027adaee9ca009a18a1ad63d732d163",
+      "8fc828389b87ecb12426fbb2beb1c33a8a9c499e",
+      "f7b467efc4fe0ee659ee6bad295e978432532c33",
+      "f8fc8f2470fae42b66e634268cd502753ee46e99",
+      "b318dcb21ccada5865469530fad291fec27861b6",
+      "1d8d0e0c186d2fc16122706e78cf13accef2a1bf",
+      "9332d7eefe4d94975b40ec3cc77989177a0ebaa8",
+      "2f69b8a3665722e8adf36a4b1037fd70ad066dfc",
+      "896a6ebdd6f9e41856c33149d80268e1aa98a737",
+      "c6bf046f2bd7868f516ac62db795e8631717ee3d",
+      "2fffc9fdaa5c8cb12b6918beddb3cf7c101a74b5",
+      "e4e65d0c52d33732bde565b7751a6cfedd05ff14"
+    ]
+  },
+  "axis_evidence": {
+    "standards": "sha256:05d99499bbb0f0a3829b986254e5434cf49bf9dc58b05250b96bd90ff001356c",
+    "spec": "sha256:b9d93403a4a27a024b11190fa0fe5a4c2d2eaeb358a1ca115ef161c2d0423a8e"
+  },
+  "result": {
+    "status": "completed",
+    "pass": false,
+    "verdict": "REQUEST_CHANGES",
+    "critical_count": 0,
+    "major_count": 13,
+    "finding_count": 13
+  },
+  "remediation_items": [
+    "Fail closed when the exact Workspace external binding is absent; never synthesize it.",
+    "Replace fake runtime gateway, in-memory reference store and committed HMAC key with configured reference-provider composition.",
+    "Ensure authentication and path-Workspace authorization precede malformed-body validation.",
+    "Implement the exact canonical m4r1 payload, MAC, key-ring and authorized minting contracts.",
+    "Keep raw provider resource IDs inside the provider adapter behind an opaque routing handle.",
+    "Use a real canonical capability descriptor digest and validate provider response types.",
+    "Complete every locked denial/HTTP/SQLite test matrix and rerun acceptance."
+  ],
+  "acceptance_impact": {
+    "accepted_run_id": "m4-75-ticket-lookup-v2-20260822-01-approved",
+    "status": "invalidated",
+    "required_action": "append invalidation; remediate; rerun locked guide and obtain new human approval"
+  }
+}

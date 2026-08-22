@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "review_id": "m4-issue-76-child-code-review-v1",
+  "reviewed_at": "2026-08-22T14:58:58+07:00",
+  "ticket": "#76",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/81",
+  "fixed_point": {
+    "base_commit": "ab973d0bfa4607d66191ac9977433899dc85bfd4",
+    "head_commit": "7d661bcefe6afae0053db95e31988998620a13e6",
+    "merge_base_semantics": true,
+    "diff_command": "git diff ab973d0bfa4607d66191ac9977433899dc85bfd4..7d661bcefe6afae0053db95e31988998620a13e6",
+    "commit_list": [
+      "608fe5966bc74ff29c3513c0af14e83425b4c706",
+      "34d74ad3a47ca313d84696cc5f3d1f0ccece38d2",
+      "509cc077091450672ff623276ac151104316c7f7",
+      "dcc849faa837140f4a9c07b58319c190ae7a35c8",
+      "0488da651c046f0b50c510d21c877cb43d4b087a",
+      "fa00b58c4d111cb6a64cef1fa898991ba4cde59a",
+      "2ace7751d7341f9759d43d10af9463844ae738be",
+      "628a5d092dc53a8d29bef2cd3849ba2197aab727",
+      "7389068814392e55866f367be15e532fafc8d6aa",
+      "5ff73daf03af543362ce0204bd55483efb9cf9d4",
+      "889c387a743fe0d7a2429f2118935a79f81210d7",
+      "7d661bcefe6afae0053db95e31988998620a13e6"
+    ]
+  },
+  "axis_evidence": {
+    "standards": "sha256:965fbab27dd510ce29a2bbd62bce49927b17aed2ce740c41b8e1430f4807534a",
+    "spec": "sha256:3d62879ac2dfed77baf6fb024a3b1a9e4eef3f7b6656dd993801ae0b0628e5e2"
+  },
+  "result": {
+    "status": "completed",
+    "pass": false,
+    "verdict": "BLOCK",
+    "critical_count": 2,
+    "major_count": 13,
+    "finding_count": 17
+  },
+  "remediation_items": [
+    "Remove the blanket global human actor and derive request-scoped human approval authority fail-closed.",
+    "Default execution authorization to deny and preserve approval/execution authority separation.",
+    "Reject leading/trailing whitespace, allow descriptions through 10000 scalars and reject surrogates.",
+    "Use canonical 64-hex digests and validate every provenance digest before persistence.",
+    "Implement exact typed capability/binding/policy compatibility reasons and resolver-failure stale projection.",
+    "Persist actor authority provenance and complete provider-intent fingerprint target claims.",
+    "Protect expires_at and the closed lifecycle/decision taxonomy in PostgreSQL.",
+    "Add a real concurrent PostgreSQL approve/reject race and exhaustive immutability/reference matrices.",
+    "Replace the always-denying production target verifier with trusted configured composition.",
+    "Preserve unrelated endpoint validation responses and rerun acceptance."
+  ],
+  "acceptance_impact": {
+    "accepted_run_id": "m4-76-write-proposal-v3-20260822-01-approved",
+    "status": "invalidated",
+    "required_action": "append invalidation; remediate; rerun locked guide and obtain new human approval"
+  }
+}
