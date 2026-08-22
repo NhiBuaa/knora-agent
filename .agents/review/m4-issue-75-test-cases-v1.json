@@ -1,0 +1,100 @@
+{
+  "status": "completed",
+  "mode": "test-cases",
+  "requirement_source": "GitHub Issue #75 and docs/design/milestone-4-tools-human-approval.md at 01d329e1e9aa8c0f2f667ab9df318c62ba47d047",
+  "scope": "M4.1 read-only ticket lookup with pre-gateway authorization",
+  "coverage": {
+    "included_axes": [
+      "data shape and contract",
+      "state and lifecycle",
+      "security and bounds"
+    ],
+    "omitted_axes": [
+      {
+        "axis": "async and concurrency",
+        "reason": "M4.1 is a read-only single-request slice; repeatability and zero-call denial are covered without shared write state."
+      },
+      {
+        "axis": "UI and visual transitions",
+        "reason": "M4.1 exposes an HTTP/application API and has no UI surface."
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "M4-75-TC-01",
+      "requirement": "Static typed ticket_lookup capability and allowlisted result",
+      "risk": "Dynamic/plugin behavior or provider fields escape the boundary.",
+      "seam": "unit/contract",
+      "prerequisites": ["Static registry and typed fake gateway are available."],
+      "steps": ["Resolve ticket_lookup and execute one authorized fake lookup."],
+      "expected_results": ["One versioned static descriptor resolves; unknown capability fails; public result contains only opaque reference, title, status and summary."],
+      "evidence_to_capture": ["Focused pytest result and serialized response field inventory."]
+    },
+    {
+      "id": "M4-75-TC-02",
+      "requirement": "Authorization completes before gateway invocation",
+      "risk": "Unauthorized or cross-Workspace callers leak external existence or invoke the provider.",
+      "seam": "application/integration",
+      "prerequisites": ["Counting fake gateway and two Workspace principals exist."],
+      "steps": ["Run unauthorized, cross-Workspace, missing-binding and scope-mismatch lookups."],
+      "expected_results": ["Every case fails closed with the safe authorization outcome and gateway invocation count remains zero."],
+      "evidence_to_capture": ["Denial matrix, HTTP codes/error codes and gateway call-count assertion."]
+    },
+    {
+      "id": "M4-75-TC-03",
+      "requirement": "m4r1 reference integrity, key lifecycle and trusted-store binding",
+      "risk": "Caller-forged or stale references reveal a provider resource.",
+      "seam": "unit/contract",
+      "prerequisites": ["Deterministic key ring and trusted reference store fixtures exist."],
+      "steps": ["Verify valid active/retiring references; mutate MAC/claims; exercise expired, unknown-key, revoked-key and missing/mismatched store records."],
+      "expected_results": ["Only exact active/retiring references resolve; every mutation fails before resource authorization/gateway and exposes no raw provider ID."],
+      "evidence_to_capture": ["Named mutation matrix and zero-call assertions."]
+    },
+    {
+      "id": "M4-75-TC-04",
+      "requirement": "Workspace-scoped HTTP contract and safe result mapping",
+      "risk": "Request extras, unsafe status mapping or field leakage make the public contract ambiguous.",
+      "seam": "HTTP integration",
+      "prerequisites": ["HTTP test client and trusted authentication fixtures exist."],
+      "steps": ["Call the route for authenticated success, missing auth, cross-Workspace, malformed/schema-extra reference and authorized missing ticket."],
+      "expected_results": ["Responses match the locked 200/401/403/400/422/404 envelopes and success is allowlisted."],
+      "evidence_to_capture": ["Sanitized request/response matrix and schema field inventory."]
+    },
+    {
+      "id": "M4-75-TC-05",
+      "requirement": "Typed provider errors remain distinct and non-leaking",
+      "risk": "Provider denial/unavailability/contract-invalid is confused with authorized not-found or success.",
+      "seam": "gateway contract/HTTP integration",
+      "prerequisites": ["Fake gateway can return each closed provider outcome."],
+      "steps": ["Return scope denial, unavailability, contract-invalid and authorized not-found from the gateway boundary."],
+      "expected_results": ["Each typed outcome maps deterministically; no internal exception, raw ID or SDK object appears."],
+      "evidence_to_capture": ["Outcome-to-HTTP mapping table and sanitized response bodies."]
+    },
+    {
+      "id": "M4-75-TC-06",
+      "requirement": "SQLite reference-provider read contract is independent and restart-safe",
+      "risk": "Fake-only evidence or shared Knora state fails to prove the external boundary.",
+      "seam": "reference-provider integration",
+      "prerequisites": ["Temporary SQLite path and provider seed are available."],
+      "steps": ["Seed scoped ticket data, perform authorized lookup, recreate the adapter using the same file, repeat lookup and attempt a different scope."],
+      "expected_results": ["Authorized data survives adapter restart; wrong scope is denied; no ToolActionStore/PostgreSQL state is used."],
+      "evidence_to_capture": ["SQLite path identity, before/after results and dependency/call-path assertion."]
+    },
+    {
+      "id": "M4-75-TC-07",
+      "requirement": "No write authority and no M1-M3 regression",
+      "risk": "The read slice gains provider write behavior or changes existing product behavior.",
+      "seam": "full verification",
+      "prerequisites": ["Docker services and clean migrated database are available."],
+      "steps": ["Run focused M4.1 tests, full pytest, Ruff, Compose config and clean-database Alembic upgrade; inspect changed scope."],
+      "expected_results": ["All verification is green; no provider write/approval/execution path exists in the slice."],
+      "evidence_to_capture": ["Command summaries, migration result, diff inventory and clean status."]
+    }
+  ],
+  "artifacts": [
+    ".agents/manual-tests/milestone-4/75-ticket-lookup-v1.md"
+  ],
+  "red_observed": null,
+  "failure_reason": null
+}
