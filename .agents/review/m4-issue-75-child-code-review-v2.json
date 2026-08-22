@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "review_id": "m4-issue-75-child-code-review-v2",
+  "reviewed_at": "2026-08-22T19:09:22.6585572+07:00",
+  "ticket": "#75",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/80",
+  "fixed_point": {
+    "base_commit": "c815ab68f06a7ed47aae14d6e0b2b9ee725b1057",
+    "head_commit": "13ebd19a502177c9db612c943ce5b9a56ca01e6c",
+    "merge_base_commit": "c815ab68f06a7ed47aae14d6e0b2b9ee725b1057",
+    "merge_base_semantics": true,
+    "diff_command": "git diff c815ab68f06a7ed47aae14d6e0b2b9ee725b1057..13ebd19a502177c9db612c943ce5b9a56ca01e6c",
+    "commit_list": [
+      "160e43359609e68f66410bc9768b1ecd94987f56",
+      "ff862c41a1393bfbb9bf83e478aea40feee781f4",
+      "35de0044c027adaee9ca009a18a1ad63d732d163",
+      "8fc828389b87ecb12426fbb2beb1c33a8a9c499e",
+      "f7b467efc4fe0ee659ee6bad295e978432532c33",
+      "f8fc8f2470fae42b66e634268cd502753ee46e99",
+      "b318dcb21ccada5865469530fad291fec27861b6",
+      "1d8d0e0c186d2fc16122706e78cf13accef2a1bf",
+      "9332d7eefe4d94975b40ec3cc77989177a0ebaa8",
+      "2f69b8a3665722e8adf36a4b1037fd70ad066dfc",
+      "896a6ebdd6f9e41856c33149d80268e1aa98a737",
+      "c6bf046f2bd7868f516ac62db795e8631717ee3d",
+      "2fffc9fdaa5c8cb12b6918beddb3cf7c101a74b5",
+      "e4e65d0c52d33732bde565b7751a6cfedd05ff14",
+      "5e5e8f88726beac2484c7f2e40fc869371d2058d",
+      "64ed93b5f0ed56c8843cedb2f8222eab9447bd25",
+      "b42f0cbf6f6c6c59831a11f7aad9a2172ded8649",
+      "b35d3a7e9067dcfb9a64fd6a3bb84d15e1cb805e",
+      "e6b1e723cd58e4b319d04ff835a1f17008d8f066",
+      "13ebd19a502177c9db612c943ce5b9a56ca01e6c"
+    ]
+  },
+  "structural_evidence": [
+    ".agents/review/m4-issue-75-remediation-result-v1.json",
+    ".agents/review/m4-issue-75-reconciliation-v1.json"
+  ],
+  "machine_result": {
+    "status": "completed",
+    "pass": false,
+    "verdict": "REQUEST_CHANGES",
+    "critical_count": 0,
+    "major_count": 2,
+    "findings": [
+      {
+        "severity": "major",
+        "axis": "standards",
+        "location": "backend/src/knora/tools/gateway.py:89-105",
+        "evidence": "SQLiteSupportToolGateway catches only sqlite3.Error, then unconditionally destructures the provider result before validation. Wrong tuple shape or an unexpected provider exception escapes; tests cover malformed scalar fields but not malformed tuple shape or provider exceptions.",
+        "problem": "The provider boundary is not closed for malformed or unexpected responses.",
+        "harm": "A malformed external response can produce an unhandled server error instead of the required safe contract-invalid response.",
+        "fix": "Validate result shape before unpacking and normalize malformed shapes and unexpected provider failures into closed typed outcomes; add wrong-arity, non-iterable and unexpected-exception tests."
+      },
+      {
+        "severity": "minor",
+        "axis": "standards",
+        "location": "backend/src/knora/tools/http.py:5-53",
+        "evidence": "The FastAPI router lives inside knora.tools and imports authenticate_principal from knora.adapters.http.routes, while the documented seam keeps HTTP adapters under knora.adapters.http and application modules independent of adapters.",
+        "problem": "The tool application package owns an HTTP adapter and reverses the documented dependency direction.",
+        "harm": "The tool application boundary is coupled to FastAPI and the existing HTTP adapter.",
+        "fix": "Move the tool router/schema under knora.adapters.http while keeping knora.tools application-only."
+      },
+      {
+        "severity": "major",
+        "axis": "spec",
+        "location": "backend/src/knora/tools/references.py:166-174; backend/src/knora/tools/gateway.py:11-15; backend/src/knora/tools/read.py:50-55; backend/test/tools/test_read_tool.py:135-157",
+        "evidence": "Locked TC-01 requires LookupTicketRequest to carry exact authorized binding identity/version/digest. AuthorizedExternalResource and LookupTicketRequest drop those fields, ReadTool constructs only scope/resource, and the cited test never asserts binding provenance while the approved Evaluation claims it.",
+        "problem": "The read gateway boundary cannot preserve exact approved binding provenance.",
+        "harm": "Release evidence cannot prove exact Workspace-to-external-scope binding semantics and an adapter may receive a scope without the approved binding identity/version/digest.",
+        "fix": "Carry exact binding identity/version/digest through the typed authorized resource/request seam and assert them in fake/SQLite request evidence before rerunning acceptance."
+      }
+    ],
+    "axes": {
+      "standards": {
+        "status": "completed",
+        "finding_count": 2,
+        "report": "Prior v1 authorization/runtime/digest findings are addressed; malformed provider response closure remains Major and HTTP adapter placement is Minor."
+      },
+      "spec": {
+        "status": "completed",
+        "finding_count": 1,
+        "report": "Prior v1 items are addressed; exact binding provenance is missing from the typed lookup boundary and TC-01 evidence."
+      }
+    },
+    "report": "## Standards\n\nProvider malformed-response closure remains Major; HTTP adapter placement is Minor.\n\n## Spec\n\nExact binding identity/version/digest is missing from the typed lookup request and locked TC-01 evidence."
+  },
+  "acceptance_impact": {
+    "accepted_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved",
+    "status": "invalidated",
+    "affected_cases": [
+      "M4-75-TC-01",
+      "M4-75-TC-05"
+    ],
+    "required_action": "Append invalidation, remediate with TDD, rerun the locked guide on a new exact subject, obtain new explicit human PASSED approval, then run child review v3."
+  },
+  "remediation_cycle": 2,
+  "next_valid_transition": "Append acceptance invalidation and execute bounded remediation cycle 2; no merge is authorized."
+}
