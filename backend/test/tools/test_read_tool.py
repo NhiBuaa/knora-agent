@@ -153,3 +153,77 @@ def test_reference_store_claim_mismatch_fails_closed_before_gateway() -> None:
 
     assert error.value.code == "TOOL_RESOURCE_ACCESS_DENIED"
     assert gateway.call_count == 0
+
+
+def test_reference_key_lifecycle_accepts_retiring_and_rejects_expired_or_revoked() -> None:
+    record = ReferenceRecord(
+        reference_id="ticket-lifecycle",
+        workspace_id="workspace-a",
+        capability_id="ticket_lookup",
+        capability_version="m4.1",
+        binding_id="binding-a",
+        binding_version="v1",
+        binding_digest="sha256:binding-a",
+        resource_kind="ticket",
+        resource_claims={"scope": "support"},
+        provider_resource_id="provider-lifecycle",
+        expires_at=2_000_000_000,
+        key_version="k1",
+    )
+    active_key = ReferenceKey("k1", b"test-only-secret")
+    token = ExternalResourceReference.mint(record, active_key)
+
+    retiring_store = InMemoryReferenceStore((record,))
+    retiring_gateway = FakeSupportToolGateway(
+        outcomes={
+            record.provider_resource_id: TicketLookupResult(
+                record.reference_id, "Title", "open", "Summary"
+            )
+        }
+    )
+    retiring_tool = ReadTool(
+        resource_authorizer=WorkspaceResourceAuthorizer(
+            bindings={
+                "workspace-a": ExternalScopeBinding(
+                    "workspace-a", "binding-a", "v1", "sha256:binding-a", "scope-a"
+                )
+            },
+            reference_verifier=ReferenceVerifier(
+                retiring_store,
+                {"k1": ReferenceKey("k1", b"test-only-secret", status="retiring")},
+                clock=lambda: 1_700_000_000,
+            ),
+        ),
+        gateway=retiring_gateway,
+    )
+    assert retiring_tool.execute(
+        ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a")
+    ).title == "Title"
+    assert retiring_gateway.call_count == 1
+
+    cases = [
+        ({}, 1_700_000_000),
+        ({"k1": ReferenceKey("k1", b"test-only-secret", "revoked")}, 1_700_000_000),
+        ({"k1": active_key}, 2_000_000_001),
+    ]
+    for keys, now in cases:
+        gateway = FakeSupportToolGateway()
+        tool = ReadTool(
+            resource_authorizer=WorkspaceResourceAuthorizer(
+                bindings={
+                    "workspace-a": ExternalScopeBinding(
+                        "workspace-a", "binding-a", "v1", "sha256:binding-a", "scope-a"
+                    )
+                },
+                reference_verifier=ReferenceVerifier(
+                    InMemoryReferenceStore((record,)), keys, clock=lambda now=now: now
+                ),
+            ),
+            gateway=gateway,
+        )
+        with pytest.raises(KnoraError) as error:
+            tool.execute(
+                ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a")
+            )
+        assert error.value.code == "TOOL_RESOURCE_ACCESS_DENIED"
+        assert gateway.call_count == 0
