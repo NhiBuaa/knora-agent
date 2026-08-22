@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "codex-agent:/root/m4_76_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-76-ticket-external-review.json",
+  "reviewed_at": "2026-08-22T05:04:03Z",
+  "reviewed_commit": "0648faf8eabd4d89da7435152bd9679a8938741d",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "ticket_id": "#76",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/76",
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    ".agents/review/m4-issue-76-revision-v2.md",
+    ".agents/review/m4-issue-76-ticket-external-review-v1.json",
+    ".agents/review/m4-design-revision-1-disposition.json",
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-review-cadence-plan-v1.json",
+    "CONTEXT.md",
+    "docs/standards/architecture.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/design/milestone-4-tools-human-approval.md"
+  ],
+  "summary": "The revised #76 ticket closes the trusted HTTP actor, PostgreSQL immutable audit and narrow CapabilityResolver gaps and remains independently implementable. Advisory review only."
+}

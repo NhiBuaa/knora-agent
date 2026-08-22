@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_spec_design_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-spec-design-external-review.json",
+  "reviewed_at": "2026-08-22T05:04:03Z",
+  "reviewed_commit": "0648faf8eabd4d89da7435152bd9679a8938741d",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 1,
+  "findings": [
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md:41-63,89-106,183-194,203-216; GitHub Issue #78",
+      "problem": "Reference expiry/revocation rejects new authorization but the observation path for an already-started execution is not defined.",
+      "required_change": "Separate observation from new-side-effect verification, persist an authorized execution binding snapshot, allow current-authorized provider observation/finalization after expiry or revocation, and forbid every new write retry unless all current checks pass."
+    },
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md:203-220,261-275; GitHub Issue #78; .agents/review/m4-delivery-plan-v1.md",
+      "problem": "Execution acquire/observe/finalize and stale takeover do not declare typed CAS predicates, authoritative clock, fencing results or complete fingerprint fields.",
+      "required_change": "Add typed ToolActionStore execution contracts with owner/deadline/generation/revision, PostgreSQL clock, exact CAS outcomes and complete provider-intent fingerprint reused by every retry."
+    },
+    {
+      "severity": "minor",
+      "location": "docs/design/milestone-4-tools-human-approval.md:232-237,153-169; .agents/review/m4-delivery-plan-v1.md",
+      "problem": "ProviderWriteOutcome leaves provider_failure_code open.",
+      "required_change": "Define a closed terminal provider-failure enum and deterministic unknown-code behavior that cannot create a false definitive outcome."
+    }
+  ],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "https://github.com/NhiBuaa/knora-agent/issues/77",
+    "https://github.com/NhiBuaa/knora-agent/issues/78",
+    "CONTEXT.md",
+    "docs/standards/architecture.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-design-revision-1-disposition.json",
+    ".agents/review/m4-review-cadence-plan-v1.json",
+    "git diff 6312c4c4230032aa92ca5915803fcfaf564354fa..0648faf8eabd4d89da7435152bd9679a8938741d"
+  ]
+}

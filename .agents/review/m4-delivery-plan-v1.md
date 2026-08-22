@@ -59,6 +59,15 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
   fingerprint outcomes, rejects conflicts, survives Knora restart and provides deterministic
   before-receive, after-commit-before-ack, definitive-failure and observation-unavailable fault
   seams.
+- Execution acquisition durably captures an authorized opaque binding snapshot. Reconciliation uses
+  a distinct observation-only resolver so an already-started execution can observe/finalize provider
+  truth after token expiry or key revocation, while every provider retry still fails closed unless
+  full current side-effect authorization and exact compatibility pass.
+- PostgreSQL database time owns lease staleness. Typed acquire/takeover/observe/finalize CAS results
+  fence stale generations and owners. The immutable request fingerprint covers the complete provider
+  scope, target/resource binding and normalized parameters and is reused with the same logical ID.
+- Provider terminal failure uses the closed `target_not_found|validation_rejected|policy_rejected`
+  enum; unknown responses are contract-invalid or observation-unavailable, never definitive.
 - HTTP surfaces are ticket lookup, proposal create/read, approve/reject, execute and reconcile under
   `/v1/workspaces/{workspace_id}`. Request schemas forbid actor/authority/digest/provider/logical-ID
   overrides. Authentication/authorization errors map to 401/403; invalid input to 400/422; missing
@@ -119,11 +128,12 @@ are allowed per ticket.
   #75's concrete registry/provider implementation.
 - Merge #75 first. Reconcile #76 with that integration head before its final acceptance and merge.
 - #77: approved execution; current execution authorization; exact compatibility checks; atomic
-  lease and fencing; immutable logical idempotency and fingerprint; provider create; definitive
-  success/failure and audit.
+  lease and fencing; immutable complete-intent fingerprint and binding snapshot; provider create;
+  closed definitive outcomes and audit.
 - #78: reconcile indeterminate and orphaned executing records; provider-outcome observation before
-  retry; stale-lease takeover; stale-owner fencing; both crash windows; non-terminal provider
-  not-found; current read authority for observation and current write authority for retry.
+  retry; observation after reference expiry/revocation through the stored binding snapshot; typed
+  stale-lease takeover and stale-owner fencing; both crash windows; non-terminal provider not-found;
+  current read authority for observation and current write authority for retry.
 - #79: integrated release guide and harness covering #75–#78, audit reconstruction, reference-
   provider evidence and full M1–M3 regression. It adds only missing integration glue or deterministic
   release evidence, not new product scope.

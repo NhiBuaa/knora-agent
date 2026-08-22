@@ -1,6 +1,6 @@
 # Milestone 4 — Tools and human approval design
 
-Status: approved shared-understanding checkpoint; contract revision 1 pending external review,
+Status: approved shared-understanding checkpoint; contract revision 2 pending external review,
 2026-08-22
 
 This design records the approved M4 boundary. It extends the existing capability-first seams
@@ -46,21 +46,40 @@ Workspace ID, capability identity/version, binding identity/version/digest, reso
 identity digest, issued-at and expires-at. It never contains a raw provider resource ID. The MAC is
 HMAC-SHA-256 over the exact canonical payload bytes and is compared in constant time.
 
-The trusted reference store maps `reference_id` to the provider resource ID and the same claims
-digest. `ExternalResourceReferenceMinter.mint` is callable only after current Workspace/resource
-authorization. `ExternalResourceReferenceVerifier.verify` parses the envelope, resolves the key
+The trusted reference store maps `reference_id` to an opaque provider-routing handle and the same
+claims digest; only the provider adapter may resolve that handle to a raw provider resource ID.
+`ExternalResourceReferenceMinter.mint` is callable only after current Workspace/resource
+authorization. For lookup or any new provider write,
+`ExternalResourceReferenceVerifier.verify_for_side_effect` parses the envelope, resolves the key
 version, verifies MAC and expiry, compares Workspace/capability/binding claims, then resolves and
 matches the trusted store record. It returns a `VerifiedExternalResource`; only a subsequent current
 `WorkspaceResourceAuthorizer` decision may produce the `AuthorizedExternalResource` accepted by the
 gateway.
 
-The key ring has exactly one `active` mint key and may retain `retiring` verify-only keys. `unknown`
-or `revoked` keys, malformed payload/MAC, expiry, claim mismatch and missing/mismatched store records
-fail closed. Rotation does not retarget an approved proposal: its exact non-revoked key version and
-token remain valid until expiry. Revocation makes the reference non-executable and requires a new
-proposal. Syntax failure maps to `INVALID_TOOL_RESOURCE_REFERENCE`; authenticated integrity or scope
-failure maps to the non-leaking `TOOL_RESOURCE_ACCESS_DENIED`. No unverified provider identity reaches
-`SupportToolGateway`.
+Execution acquisition persists an immutable `AuthorizedExecutionBindingSnapshot` in the same
+PostgreSQL transaction as `state=executing`. The snapshot contains the verified `reference_id`,
+claims digest, opaque routing handle, resource kind/identity digest and exact external-scope binding
+identity/version/digest. It contains no raw provider ID and can be created only from the fully
+verified and currently authorized resource above.
+
+`ObservationReferenceResolver.resolve_started_execution(snapshot, principal)` is the separate,
+read-only reconciliation path. It requires current path-Workspace equality and current
+`WorkspaceResourceAuthorizer` permission for the stored exact scope/resource, verifies that the
+snapshot still matches the immutable execution/proposal record, and resolves only its trusted opaque
+routing handle. Because authenticity and scope were durably established before execution began,
+token expiry or later key revocation does not block provider-outcome observation or terminal
+finalization. A missing/mismatched snapshot or trusted-store record returns a typed non-terminal
+observation denial/unavailable result and never fabricates `failed`.
+
+The key ring has exactly one `active` mint key and may retain `retiring` verify-only keys. For lookup,
+execution acquisition or any provider write/retry, `unknown` or `revoked` keys, malformed payload/MAC,
+expiry, claim mismatch and missing/mismatched store records fail closed. Rotation does not retarget an
+approved proposal: its exact non-revoked key version and token remain valid until expiry. Revocation
+or expiry makes the proposal non-executable for a new provider call and requires a new proposal; it
+does not erase an already-started execution snapshot or prevent authorized outcome observation.
+Syntax failure maps to `INVALID_TOOL_RESOURCE_REFERENCE`; authenticated integrity or scope failure
+maps to the non-leaking `TOOL_RESOURCE_ACCESS_DENIED`. No unverified provider identity reaches
+`SupportToolGateway`, and the observation-only resolver can never produce provider write authority.
 
 ## Authority and provenance
 
@@ -207,6 +226,14 @@ execution owner, lease expiry/generation, request fingerprint and observations; 
 prevents two current owners, while the provider ledger enforces the external no-duplicate
 guarantee.
 
+`request_fingerprint` is the `canonical-json-v1` digest of the complete provider intent:
+`operation=create_ticket`, exact capability identity/version/digest, exact external-scope binding
+identity/version/digest, target `reference_id`/resource kind/resource-identity digest/claims digest,
+and normalized `{title, description}`. It excludes lease owner/generation and the logical execution
+ID itself. The server computes and stores it with the proposal; acquisition, every retry and every
+reconciliation request must load the same stored logical ID and fingerprint and may not recompute
+them from client input.
+
 `ReconcileExecution` handles both known indeterminate attempts and orphaned `executing` records
 with no durable observation. It first reads provider outcome using the same logical identity. A
 stale lease can be taken over atomically; stale owners cannot finalize after generation changes.
@@ -214,6 +241,40 @@ Provider `not found` is non-terminal and permits safe retry with the same key. I
 needed, the current `ExecutionAuthorizer`, exact capability/scope/policy compatibility and current
 Workspace/resource authorization all run again. Observation authority alone never grants write
 authority.
+
+All lease comparisons use PostgreSQL `transaction_timestamp()` captured once per transaction; host
+clocks cannot decide staleness. `lease_duration` is a bounded server configuration value. The typed
+store transitions are:
+
+- `acquire_execution(proposal_id, expected_revision, owner_id, lease_duration,
+  authorized_binding_snapshot) -> AcquireApplied(lease) | ExecutionInProgress(current_lease) |
+  ProposalNotExecutable(reason) | RevisionConflict(current_revision) | ProposalNotFound`. The CAS
+  requires `state=approved AND revision=expected_revision`, database time before proposal expiry,
+  exact stored logical ID/fingerprint and no existing execution. Applied changes state to `executing`,
+  increments revision, creates generation `1`, owner and lease deadline, persists the binding snapshot
+  and appends audit atomically.
+- `takeover_stale_execution(proposal_id, expected_generation, recovery_owner, lease_duration) ->
+  TakeoverApplied(new_lease) | ExecutionNotStale(current_lease) | ExecutionFenced(current_lease) |
+  AlreadyFinalized(outcome) | ProposalNotFound`. The CAS requires `state=executing`, exact expected
+  generation and `lease_expires_at < transaction_timestamp()`; Applied increments generation by
+  exactly one and replaces owner/deadline atomically. A generation mismatch is fenced, not retried as
+  the stale owner.
+- `record_execution_observation(proposal_id, expected_generation, owner_id, observation) ->
+  ObservationApplied(sequence) | ExecutionFenced(current_lease) | AlreadyFinalized(outcome) |
+  ProposalNotFound`. Applied requires the current owner/generation and an unexpired lease and appends
+  the sanitized observation/audit without changing lifecycle.
+- `finalize_execution(proposal_id, expected_generation, owner_id, terminal_outcome) ->
+  FinalizeApplied(projection) | ExecutionFenced(current_lease) | AlreadyFinalized(outcome) |
+  ProposalNotFound`. Applied requires `state=executing`, current owner/generation and an unexpired
+  lease, then persists exactly one `succeeded` or `failed` outcome plus audit atomically. Expired,
+  superseded or non-owner callers are fenced and cannot win a conflicting finalization.
+
+Reconciliation observes provider truth before deciding whether takeover is needed. A terminal
+observation with a current foreign lease returns `ExecutionInProgress`; with a stale lease it takes
+over using the observed generation, records the observation and finalizes. Provider not-found with a
+stale lease may take over, but a write retry still reruns full side-effect reference verification,
+current Workspace/resource authorization, `ExecutionAuthorizer` and exact compatibility. Reference
+expiry/revocation or material mismatch permits only observation and forbids that retry.
 
 The reference provider owns the authoritative external resource and idempotency ledger separately
 from `ToolActionStore`. Provider success/rejection is reconciled into the Knora lifecycle; unknown
@@ -230,11 +291,16 @@ outcomes remain explicit and cannot be fabricated as success or failure.
   ProviderOutcomeObservation`.
 
 `ProviderWriteOutcome` is terminal `succeeded(provider_ticket_reference)` or
-`failed(provider_failure_code)`. `ProviderOutcomeObservation` is `found(outcome)`,
+`failed(ProviderTerminalFailureCode)`, where the closed failure enum is `target_not_found`,
+`validation_rejected` or `policy_rejected`. `ProviderOutcomeObservation` is `found(outcome)`,
 `provider_outcome_not_found`, or `provider_observation_unavailable`. Closed provider errors are
 `provider_scope_denied`, `provider_resource_not_found`, `provider_idempotency_conflict`,
 `provider_request_rejected`, `provider_outcome_indeterminate` and `provider_contract_invalid`.
-Timeout/ack loss is indeterminate, never definitive failure.
+The terminal failure enum is stored in the provider ledger and projected into sanitized Knora audit;
+the public execution envelope uses `provider_failure` plus that enum and HTTP 502. An unknown or
+malformed provider failure maps to `provider_contract_invalid` for a direct response, or
+`provider_observation_unavailable` while observing; it is never stored or projected as definitive
+failure/success. Timeout/ack loss is indeterminate, never definitive failure.
 
 The SQLite reference provider owns `provider_idempotency` keyed uniquely by logical execution ID and
 containing request fingerprint plus immutable terminal outcome, and `provider_tickets` with a unique
@@ -269,10 +335,11 @@ have unique `(proposal_id, sequence)` and reject update/delete.
 
 The #76 `ToolActionStore` interface is `create_proposal`, `read_proposal`,
 `decide_proposal(expected_revision)` and `project_proposal`; it returns only typed applied,
-already-decided, conflict or not-found outcomes. #77 extends the same seam with execution
-acquire/observe/finalize operations and lease generation. #78 adds stale-lease takeover and provider-
-observation reconciliation. No provider state is stored in these tables and no provider adapter may
-write them directly.
+already-decided, conflict or not-found outcomes. #77 adds the typed acquisition, observation and
+finalization contracts above. #78 adds typed stale-lease takeover plus the observation-only binding
+resolver. PostgreSQL holds only Knora workflow/audit state and the immutable authorized binding
+snapshot; authoritative provider tickets and idempotency outcomes remain solely in SQLite, and no
+provider adapter may write Knora tables directly.
 
 ## Application and verification seams
 
