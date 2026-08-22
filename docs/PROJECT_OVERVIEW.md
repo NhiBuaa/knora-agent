@@ -71,7 +71,7 @@ khác nhau, nhưng không được làm thay đổi các property này.
 
 ## Lộ trình
 
-M1–M3 bên dưới giữ lại status và implementation history cần thiết của các slice đã/đang thực hiện.
+M1–M3 bên dưới giữ lại status và implementation history cần thiết của các slice đã hoàn thành.
 Từ M4 trở đi, mỗi milestone được viết như một contract của target state: Goal, Scope, Architectural
 Invariants, Dependencies / Entry Conditions, Exit Criteria và Non-goals. Issue-by-issue execution
 history thuộc GitHub hoặc execution evidence, không phải completion proof của roadmap.
@@ -104,12 +104,13 @@ deployment-specific daemon or scheduler remains an operational concern.
 
 ### Milestone 3 — Hybrid retrieval và evaluation
 
-Status / history: đang thực hiện. Các slice retrieval seam, versioned evaluation dataset và
-Production Retrieval V2 đã hoàn thành qua [Issue #49](https://github.com/NhiBuaa/knora-agent/issues/49),
-[Issue #50](https://github.com/NhiBuaa/knora-agent/issues/50) và
-[Issue #56](https://github.com/NhiBuaa/knora-agent/issues/56). M3.2
-([Issue #51](https://github.com/NhiBuaa/knora-agent/issues/51)) đủ điều kiện tiếp tục các test
-case còn lại; M3.4 ([Issue #52](https://github.com/NhiBuaa/knora-agent/issues/52)) vẫn mở.
+Status / history: completed through merged [PR #73](https://github.com/NhiBuaa/knora-agent/pull/73)
+and closed parent [Issue #48](https://github.com/NhiBuaa/knora-agent/issues/48), with the final
+fixed-point review and release-gate evidence recorded in
+[`.agents/review/m3-final-fixed-point-v4.json`](../.agents/review/m3-final-fixed-point-v4.json)
+and [its companion review artifact](../.agents/review/m3-final-fixed-point-review-v4.json). The retrieval seam, versioned evaluation dataset, Production
+Retrieval V2 and the remediation authority/population/latency slices are now historical inputs for
+future work, not an open M3 frontier.
 
 Target capability của M3 là hybrid retrieval và evaluation có thể chạy lại, đo Recall@k, MRR,
 citation correctness, refusal correctness và latency, rồi ghi nhận baseline, failure taxonomy và
@@ -117,6 +118,14 @@ citation correctness, refusal correctness và latency, rồi ghi nhận baseline
 slice riêng; issue history không phải completion proof của M4–M6.
 
 ### Milestone 4 — Tools và human approval
+
+Status / history: active delivery under parent
+[Issue #74](https://github.com/NhiBuaa/knora-agent/issues/74). The approved Design and Specify
+artifacts have been decomposed into Issues
+[#75](https://github.com/NhiBuaa/knora-agent/issues/75)–[#79](https://github.com/NhiBuaa/knora-agent/issues/79)
+with native blocking edges. The feature integration branch is initialized at pinned `main` commit
+`6312c4c4230032aa92ca5915803fcfaf564354fa`; #75 and #76 are the current parallel frontier. No M4
+implementation has started.
 
 #### Goal
 

@@ -274,6 +274,42 @@ proposals.
 - An **API Credential** is a rotatable key record identified by safe `key_id`; multiple credentials
   may authorize the same Workspace, but one credential never spans Workspaces.
 
+### Tool actions
+
+- A **Tool Capability** is a static, typed, versioned allowlisted capability classified as
+  read-only or write-capable. M4 does not introduce dynamic plugins or a marketplace.
+- A **Proposal Actor** records the actor and provenance that caused a write proposal. It is distinct
+  from the authenticated **Workspace Principal**, which proves request authority only.
+- An **Approval Actor** is derived from a current human approval authority. Model and system actors
+  cannot approve. Separation-of-duties is an action-policy decision, not a blanket proposer/approver
+  inequality.
+- An **Execution Authority** is a current authorization to perform the external write. Human
+  approval does not grant it; execution revalidates Workspace, capability and policy authority
+  immediately before the provider side effect.
+- A **Write Proposal** is immutable and binds the action, target, canonical parameters, capability
+  version, Workspace-to-external-scope binding identity/version/digest, policy provenance bundle,
+  integrity-protected resource reference and one logical execution identity. Material changes create
+  a new proposal identity.
+- An **External Resource Reference** is server-minted or integrity-protected and bound to the
+  Workspace, capability/version and exact external scope binding. A caller-supplied global resource
+  ID is not an authorization reference.
+- A **Proposal Approval** binds the exact proposal and its policy/binding/capability provenance.
+  Material incompatibility after approval makes the proposal stale and non-executable; approval is
+  never silently reused under a new policy or target. Temporary execution-authority revocation may
+  leave an otherwise valid proposal approved.
+- A **Tool Execution Attempt** owns one immutable logical idempotency identity, execution owner,
+  lease generation, request fingerprint and typed observation. Its lifecycle remains
+  `proposed -> approved/rejected -> executing -> succeeded/failed`.
+- `indeterminate_external_outcome` and `provider_outcome_not_found` are non-terminal execution
+  observations. Reconciliation can handle an orphaned `executing` record with no observation,
+  take over a stale lease atomically, and finalize only through the current lease generation.
+- **Observation Authority** permits reading/reconciling provider outcome; it does not grant write
+  retry authority. A provider retry reruns current execution authorization and exact approved
+  binding/capability/policy checks with the same logical identity.
+- A **Reference Tool Provider** owns an independent external state/idempotency ledger. It is the
+  release-evidence boundary for duplicate suppression and crash recovery; `ToolActionStore` owns
+  Knora workflow/audit state but never invents provider truth.
+
 ### Question answering
 
 - A **Question Request** asks Knora to answer within one Workspace.
@@ -484,6 +520,9 @@ evidence fails closed.
 - Product direction: [Project Overview](docs/PROJECT_OVERVIEW.md)
 - Completed slice: [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - Milestone 2 module ownership: [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md)
+- Milestone 4 tools and human approval design:
+  [Milestone 4 design](docs/design/milestone-4-tools-human-approval.md)
+- Human-approved tool execution boundary: [ADR 0015](docs/adr/0015-human-approved-tool-execution-boundary.md)
 - Milestone 2 job-store rationale: [ADR 0001](docs/adr/0001-postgresql-ingestion-job-store.md)
 - PDF citation provenance rationale: [ADR 0002](docs/adr/0002-pdf-citation-provenance.md)
 - PDF extraction/versioning rationale: [ADR 0003](docs/adr/0003-versioned-pdf-extraction-adapter.md)
