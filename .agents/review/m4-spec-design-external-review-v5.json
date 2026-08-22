@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "codex-agent:/root/m4_spec_design_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-spec-design-external-review.json",
+  "reviewed_at": "2026-08-22T06:02:00Z",
+  "reviewed_commit": "5ffb59d2bbc4175a40cda12e714851d6c1e83cb0",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "https://github.com/NhiBuaa/knora-agent/issues/75",
+    "https://github.com/NhiBuaa/knora-agent/issues/76",
+    "https://github.com/NhiBuaa/knora-agent/issues/77",
+    "https://github.com/NhiBuaa/knora-agent/issues/78",
+    "https://github.com/NhiBuaa/knora-agent/issues/79",
+    "CONTEXT.md",
+    "docs/PROJECT_OVERVIEW.md",
+    "docs/standards/architecture.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-design-revision-4-disposition.json",
+    ".agents/review/m4-issue-77-revision-v3.md",
+    ".agents/review/m4-issue-78-revision-v3.md",
+    "git diff 6312c4c4230032aa92ca5915803fcfaf564354fa..5ffb59d2bbc4175a40cda12e714851d6c1e83cb0"
+  ],
+  "summary": "Revision 4 closes the operation-phase provider mapping and is decision-complete. Advisory review only; no manual guide or acceptance approval is implied."
+}
