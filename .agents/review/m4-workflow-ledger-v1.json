@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "integration_initialized",
-  "next_valid_transition": "plan_review_cadence",
+  "current_state": "review_cadence_planned",
+  "next_valid_transition": "spec_design_external_review",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -17,7 +17,7 @@
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
     "current_head_resolution": "resolve branch tip from Git at resume",
-    "published": false
+    "published": true
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "frontier", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
@@ -35,9 +35,9 @@
   "review_cadence": {
     "risk": "high",
     "required_external_reviews": 11,
-    "plan_reference": null,
+    "plan_reference": ".agents/review/m4-review-cadence-plan-v1.json",
     "evidence_reference": null,
-    "status": "pending"
+    "status": "planned"
   },
   "tickets": {
     "#75": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 0},
@@ -65,5 +65,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-22T11:00:00+07:00"
+  "last_updated_at": "2026-08-22T11:20:00+07:00"
 }

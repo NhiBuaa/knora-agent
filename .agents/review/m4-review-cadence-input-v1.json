@@ -1,0 +1,16 @@
+{
+  "risk_level": "high",
+  "change_kinds": [
+    "authorization",
+    "security",
+    "concurrency",
+    "schema",
+    "public-api",
+    "logic"
+  ],
+  "escalation_triggers": [],
+  "ticket_count": 5,
+  "ticket_ids": ["#75", "#76", "#77", "#78", "#79"],
+  "ticket_risk_levels": ["high", "high", "high", "high", "high"],
+  "acceptance_mode": "human_required"
+}
