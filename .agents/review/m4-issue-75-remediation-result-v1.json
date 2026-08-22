@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "ticket_reference": "https://github.com/NhiBuaa/knora-agent/issues/75",
+  "review_reference": "integration:.agents/review/m4-issue-75-child-code-review-v1.json",
+  "source_head": "5e5e8f88726beac2484c7f2e40fc869371d2058d",
+  "subject_sha": "64ed93b5f0ed56c8843cedb2f8222eab9447bd25",
+  "changed_scope": [
+    "backend/src/knora/main.py",
+    "backend/src/knora/tools/__init__.py",
+    "backend/src/knora/tools/capabilities.py",
+    "backend/src/knora/tools/contracts.py",
+    "backend/src/knora/tools/gateway.py",
+    "backend/src/knora/tools/http.py",
+    "backend/src/knora/tools/references.py",
+    "backend/src/knora/tools/sqlite_provider.py",
+    "backend/test/tools/test_http.py",
+    "backend/test/tools/test_read_tool.py",
+    "backend/test/tools/test_reference_provider.py"
+  ],
+  "criteria_satisfied": [
+    "Missing or changed Workspace bindings deny before gateway invocation.",
+    "Normal runtime composition contains no fake gateway, in-memory reference authority or committed HMAC key and disables the tool route when no provider is configured.",
+    "Authentication and path Workspace authorization precede manual JSON parsing.",
+    "Canonical-json-v1, canonical capability/binding digests and the exact m4r1 payload/MAC/key-ring contracts are enforced.",
+    "Application seams carry only an opaque provider routing handle; raw provider IDs remain inside the SQLite provider adapter.",
+    "Malformed provider state and every closed provider outcome map to the approved non-leaking result.",
+    "The complete locked denial, HTTP and SQLite matrices execute on the exact subject without adding write authority."
+  ],
+  "tests": {
+    "red_observed": [
+      "Missing binding initially reached the gateway before the fail-closed authorizer change.",
+      "The canonical m4r1 minter/key-ring contract initially failed import/collection.",
+      "Default runtime composition initially installed fake/in-memory authority.",
+      "Malformed JSON initially preempted authentication and path Workspace authorization.",
+      "A mismatched binding digest initially constructed successfully.",
+      "SQLite reference re-registration initially retargeted an existing logical reference."
+    ],
+    "focused_commands": [
+      {
+        "command": "python -m pytest backend/test/tools -q",
+        "result": "37 passed"
+      },
+      {
+        "command": "ruff check backend/src/knora/tools backend/src/knora/main.py backend/test/tools",
+        "result": "passed"
+      }
+    ],
+    "full_suite": {
+      "command": "PYTHONPATH=<worktree>/backend/src python -m pytest",
+      "result": "709 passed, 3 skipped",
+      "all_tests_green": true,
+      "technical_attempts": [
+        {
+          "result": "collection failed",
+          "reason": "The shared editable venv initially resolved knora from the canonical main checkout and therefore could not see knora.tools in this worktree."
+        },
+        {
+          "result": "709 passed, 3 skipped",
+          "correction": "Pinned PYTHONPATH to this worktree's backend/src; no product behavior changed."
+        }
+      ]
+    },
+    "all_tests_green": true
+  },
+  "typecheck": {
+    "configured": false,
+    "closest_static_verification": "ruff check .",
+    "result": "passed"
+  },
+  "additional_verification": {
+    "docker_compose_config": "passed",
+    "fresh_database_alembic_upgrade": "passed at 20260816_0036"
+  },
+  "structural_evidence": {
+    "owning_module": "knora.tools",
+    "interface_changes": [
+      "ExternalResourceReferenceMinter and ReferenceKeyRing now enforce the approved mint/key lifecycle contract.",
+      "WorkspaceResourceAuthorizer now resolves only exact configured bindings.",
+      "Normal create_app composition disables the route unless a ReadTool is explicitly configured."
+    ],
+    "seam_changes": [
+      "canonical-json-v1 value/digest seam",
+      "opaque provider routing handle seam",
+      "independent SQLite reference-provider seam"
+    ],
+    "responsibilities_added": [
+      "canonical tool values and digests",
+      "exact m4r1 minting and verification",
+      "immutable reference-provider registration",
+      "closed HTTP/provider contract validation"
+    ],
+    "files_created": [
+      "backend/src/knora/tools/contracts.py",
+      "backend/src/knora/tools/sqlite_provider.py"
+    ],
+    "largest_changed_file": {
+      "path": "backend/src/knora/tools/references.py",
+      "before_lines": 360,
+      "after_lines": 391
+    },
+    "trigger_disposition": "extracted",
+    "rationale": "Canonical value logic and the SQLite adapter were extracted into cohesive modules, keeping references.py below the 400-line source trigger while preserving the approved public seams."
+  },
+  "acceptance": {
+    "guide_revision": "m4-75-ticket-lookup-v2",
+    "run_id": "m4-75-ticket-lookup-v2-20260822-02",
+    "technical_verdict": "all cases PASS",
+    "workflow_verdict": "BLOCKED",
+    "human_approval": "pending"
+  }
+}
