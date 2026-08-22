@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "revision": 4,
+  "affected_ticket_design_revision": {
+    "#77": 2,
+    "#78": 2
+  },
+  "source_commit": "40426dda3532231685f20562edad954025819e5a",
+  "source_review": ".agents/review/m4-spec-design-external-review-v4.json",
+  "status": "revised_pending_external_review",
+  "changes": [
+    {
+      "finding": "generic provider 502 mapping could finalize ambiguous writes",
+      "disposition": "Scoped 502 unavailability/contract-invalid to ticket lookup or proved no-write failures; possible-receipt execute responses are 202 ExecutionIndeterminate."
+    },
+    {
+      "finding": "reconciliation observation-unavailable mapping was absent",
+      "disposition": "Mapped unavailable/timeout/unknown/malformed observation to 202 ReconciliationIndeterminate and kept not-found as a distinct 202 projection."
+    },
+    {
+      "finding": "terminal outcome authority",
+      "disposition": "Only provider found(succeeded) or found(failed(closed_code)) may finalize; no ambiguous observation becomes failed."
+    }
+  ],
+  "selective_review_invalidation": {
+    "ticket_75_mapping": "preserved unchanged",
+    "ticket_76_mapping": "preserved unchanged"
+  },
+  "next_valid_transition": "external_re_review_exact_revision"
+}

@@ -1,6 +1,6 @@
 # Milestone 4 — Tools and human approval design
 
-Status: approved shared-understanding checkpoint; contract revision 3 pending external review,
+Status: approved shared-understanding checkpoint; contract revision 4 pending external review,
 2026-08-22
 
 This design records the approved M4 boundary. It extends the existing capability-first seams
@@ -208,9 +208,9 @@ the named outcome; unknown internal/provider codes never pass through:
 | current execution lease/contention | 409 | `TOOL_EXECUTION_IN_PROGRESS` |
 | stale/non-owner execution generation | 409 | `TOOL_EXECUTION_FENCED` |
 | logical ID/fingerprint conflict | 409 | `TOOL_PROVIDER_IDEMPOTENCY_CONFLICT` |
-| provider unavailable/timeout before a read result | 502 | `TOOL_PROVIDER_UNAVAILABLE` |
-| unknown/malformed provider response | 502 | `TOOL_PROVIDER_CONTRACT_INVALID` |
-| definitive provider request rejection outside a terminal outcome | 502 | `TOOL_PROVIDER_REQUEST_FAILED` |
+| `ticket_lookup` provider unavailable/timeout | 502 | `TOOL_PROVIDER_UNAVAILABLE` |
+| `ticket_lookup` unknown/malformed provider response | 502 | `TOOL_PROVIDER_CONTRACT_INVALID` |
+| provider request rejected with proof no write could be received | 502 | `TOOL_PROVIDER_REQUEST_FAILED` |
 | terminal `ProviderTerminalFailureCode` | 502 | `TOOL_PROVIDER_FAILURE` plus sanitized `failure_code` |
 
 The ticket-lookup provider matrix is therefore exact:
@@ -220,6 +220,20 @@ The ticket-lookup provider matrix is therefore exact:
 `provider_contract_invalid -> 502/TOOL_PROVIDER_CONTRACT_INVALID`. A successful lookup is 200 and
 must contain the exact allowlisted `TicketLookupResult`. FastAPI's default validation body is not the
 M4 public contract; M4 routes normalize validation failures to the envelope above.
+
+Write and reconciliation phases deliberately do not inherit the ticket-lookup 502 rows. A direct
+`create_ticket` timeout, acknowledgement loss, unavailable transport or unknown/malformed response
+when external receipt is possible returns `ExecutionIndeterminate` as HTTP 202 with lifecycle still
+`executing`, immutable logical ID/fingerprint and observation
+`indeterminate_external_outcome`. Even the deterministic `before_provider_receive` fault returns the
+same non-terminal public shape; its proof of no receipt authorizes only the later provider-first safe
+recovery decision, not a definitive failure.
+
+`ReconcileExecution` maps `provider_observation_unavailable`, observation timeout and every
+unknown/malformed observed provider outcome to `ReconciliationIndeterminate` HTTP 202. Provider
+outcome not-found is the distinct `ProviderOutcomeNotFound` HTTP 202 projection. Neither changes the
+lifecycle to `failed`, and neither grants a write retry. Only `found(failed(closed_code))` may finalize
+`failed` and use `502/TOOL_PROVIDER_FAILURE`; only `found(succeeded(...))` may finalize `succeeded`.
 
 ## Workflow and lifecycle
 

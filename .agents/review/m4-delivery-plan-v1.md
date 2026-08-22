@@ -79,6 +79,10 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
   `502/TOOL_PROVIDER_UNAVAILABLE` and `502/TOOL_PROVIDER_CONTRACT_INVALID`; proposal
   already-decided/stale/expired use their exact 409 codes and invalid reject reason is
   `422/TOOL_REQUEST_INVALID`.
+- The read 502 matrix never applies to ambiguous writes. Execute timeout/ack loss/unavailable or
+  unknown/malformed response with possible receipt is `ExecutionIndeterminate` 202; reconcile
+  observation-unavailable/timeout/unknown is `ReconciliationIndeterminate` 202; not-found is a
+  distinct 202 projection. Only a found closed provider terminal failure finalizes failed/502.
 
 ## Governed execution sequence
 
