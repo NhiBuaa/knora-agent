@@ -1,0 +1,107 @@
+{
+  "status": "completed",
+  "mode": "test-cases",
+  "requirement_source": "GitHub Issue #76 and docs/design/milestone-4-tools-human-approval.md at 01d329e1e9aa8c0f2f667ab9df318c62ba47d047",
+  "scope": "M4.2 immutable create_ticket proposal and human decision without provider write",
+  "coverage": {
+    "included_axes": [
+      "data shape and contract",
+      "state and lifecycle",
+      "async and concurrency",
+      "security and bounds"
+    ],
+    "omitted_axes": [
+      {
+        "axis": "UI and visual transitions",
+        "reason": "M4.2 exposes HTTP/application and persistence contracts with no UI surface."
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "M4-76-TC-01",
+      "requirement": "Immutable canonical proposal with trusted caller and actor provenance",
+      "risk": "Client-controlled actors/digests or noncanonical parameters receive approval authority.",
+      "seam": "application/HTTP integration",
+      "prerequisites": ["Fake CapabilityResolver and trusted actor context fixtures exist."],
+      "steps": ["Create one valid proposal; inspect normalized projection and durable read-back."],
+      "expected_results": ["Server derives provenance, exact bindings, digest, logical ID and expiry; no provider write occurs."],
+      "evidence_to_capture": ["Sanitized request/projection, fake resolver input/output and zero provider-call proof."]
+    },
+    {
+      "id": "M4-76-TC-02",
+      "requirement": "Closed create schema and title/description bounds",
+      "risk": "Actor spoofing, digest overrides or ambiguous Unicode/whitespace change approved intent.",
+      "seam": "HTTP validation/unit contract",
+      "prerequisites": ["Proposal route and deterministic canonicalizer exist."],
+      "steps": ["Exercise absent/non-string/empty/over-limit/NUL/leading-trailing-space values, Unicode normalization and every forbidden extra field."],
+      "expected_results": ["Invalid inputs return 422 before persistence; canonical equivalents bind one server-computed digest; client actor/authority/digest/provider/logical-ID fields are rejected."],
+      "evidence_to_capture": ["Named validation matrix, digest recomputation and store/gateway zero-call assertions."]
+    },
+    {
+      "id": "M4-76-TC-03",
+      "requirement": "Workspace-scoped create/read/decision authorization precedes lookup",
+      "risk": "Cross-Workspace callers learn proposal existence or mutate another Workspace decision.",
+      "seam": "HTTP integration",
+      "prerequisites": ["Two Workspace principals and one persisted proposal exist."],
+      "steps": ["Call create/read/approve/reject with missing auth, wrong path Workspace, unauthorized principal and authorized missing proposal."],
+      "expected_results": ["401/403 occur before proposal lookup; authorized absence is 404; no decision/audit row appears on denied calls."],
+      "evidence_to_capture": ["Route/status matrix, store-call ordering and database row counts."]
+    },
+    {
+      "id": "M4-76-TC-04",
+      "requirement": "Human-only decisions and policy-controlled separation of duties",
+      "risk": "Model/system actors approve or a blanket proposer/approver inequality changes policy.",
+      "seam": "application/HTTP integration",
+      "prerequisites": ["Human/model/system actor contexts and SoD policy fixtures exist."],
+      "steps": ["Attempt approve/reject from model/system; approve as an authorized human under no-SoD policy; repeat same-actor approval under explicit SoD policy."],
+      "expected_results": ["Model/system decisions are forbidden; authorized human succeeds without blanket inequality; explicit SoD policy denies only the configured same-actor case."],
+      "evidence_to_capture": ["Decision matrix, authorizer reasons and durable decision/audit proof."]
+    },
+    {
+      "id": "M4-76-TC-05",
+      "requirement": "Concurrent approve/reject has one atomic winner",
+      "risk": "Two decisions commit or clients assume actor-specific precedence.",
+      "seam": "PostgreSQL/application concurrency integration",
+      "prerequisites": ["Clean proposed revision and two concurrent database sessions exist."],
+      "steps": ["Release concurrent approve and reject attempts against the same expected revision; repeat enough times to cover either scheduler winner."],
+      "expected_results": ["Exactly one CAS commits; loser returns persisted AlreadyDecided decision/revision; one decision row and ordered audit event exist without assumed precedence."],
+      "evidence_to_capture": ["Concurrent outcomes, revision, decision row count and audit sequence."]
+    },
+    {
+      "id": "M4-76-TC-06",
+      "requirement": "PostgreSQL material immutability and append-only audit reconstruction",
+      "risk": "Approved target/parameters/provenance are edited or audit is incomplete/mutable.",
+      "seam": "PostgreSQL adapter integration",
+      "prerequisites": ["Migrated clean database and one decided proposal exist."],
+      "steps": ["Reload the proposal, reconstruct provenance, attempt every material-column update and audit update/delete, then create a materially changed replacement proposal."],
+      "expected_results": ["Read-back matches canonical intent; mutations fail; audit is ordered/append-only; replacement has a new proposal/logical ID and requires a new decision."],
+      "evidence_to_capture": ["Projection/digest comparison, database rejection reasons and replacement identities."]
+    },
+    {
+      "id": "M4-76-TC-07",
+      "requirement": "Stale, temporary authority and expiry projections remain distinct",
+      "risk": "Old approval silently executes under changed semantics or temporary revocation destroys approval.",
+      "seam": "application/store projection",
+      "prerequisites": ["Approved proposal and deterministic current resolver/policy clock fixtures exist."],
+      "steps": ["Temporarily deny execution authority; change capability/binding/policy digest independently; advance beyond proposal expiry; inspect lifecycle and executable projection."],
+      "expected_results": ["Temporary denial leaves approved/non-stale; each material mismatch is stale/non-executable; expiry blocks new execution; no case edits the immutable proposal or invokes provider write."],
+      "evidence_to_capture": ["Reason-code matrix, unchanged lifecycle/material digest and zero provider calls."]
+    },
+    {
+      "id": "M4-76-TC-08",
+      "requirement": "No provider write, narrow resolver independence and no M1-M3 regression",
+      "risk": "M4.2 imports M4.1 concrete code, performs a side effect or breaks existing behavior.",
+      "seam": "architecture/full verification",
+      "prerequisites": ["Docker services and clean migrated database are available."],
+      "steps": ["Run focused M4.2 tests, full pytest, Ruff, Compose/Alembic checks and dependency/diff inspection."],
+      "expected_results": ["All checks pass; only CapabilityResolver protocol/fake is used; zero SupportToolGateway writes; existing behavior remains green."],
+      "evidence_to_capture": ["Command summaries, import/dependency inventory, provider call proof and clean status."]
+    }
+  ],
+  "artifacts": [
+    ".agents/manual-tests/milestone-4/76-write-proposal-v1.md"
+  ],
+  "red_observed": null,
+  "failure_reason": null
+}
