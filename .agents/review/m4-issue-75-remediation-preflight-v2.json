@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "ticket": "#75",
+  "review_reference": "integration:.agents/review/m4-issue-75-child-code-review-v2.json@72d7ee23214f5b26ced9590d088353223d46cd14",
+  "approved_scope": "Remediate the two Major and one Minor child review v2 findings without changing the approved M4.1 abstractions or adding write behavior.",
+  "design_preflight": {
+    "owning_module": "knora.tools application seams plus knora.adapters.http and the SQLite support-provider adapter",
+    "interface": "ReadTool.execute, AuthorizedExternalResource, LookupTicketRequest, SupportToolGateway.lookup_ticket and the Workspace-scoped ticket-lookup HTTP route",
+    "approved_seams": [
+      "verified/current Workspace-to-external-scope binding provenance",
+      "WorkspaceResourceAuthorizer before SupportToolGateway",
+      "typed SupportToolGateway lookup outcome boundary",
+      "SQLite reference-provider contract independent from ToolActionStore",
+      "HTTP adapter under knora.adapters.http"
+    ],
+    "current_responsibilities": [
+      "authorize an integrity-protected ticket reference against the current binding",
+      "construct one typed lookup request and invoke the provider gateway",
+      "normalize provider lookup outcomes into the closed M4.1 result set",
+      "authenticate and authorize the Workspace-scoped HTTP request"
+    ],
+    "new_responsibility": "Preserve exact binding identity/version/digest at the gateway seam, close malformed or unexpected provider outcomes, and restore the documented HTTP adapter dependency direction.",
+    "anticipated_files": [
+      "backend/src/knora/tools/references.py",
+      "backend/src/knora/tools/gateway.py",
+      "backend/src/knora/tools/read.py",
+      "backend/src/knora/tools/http.py",
+      "backend/src/knora/adapters/http/tools.py",
+      "backend/src/knora/main.py",
+      "backend/test/tools/test_read_tool.py",
+      "backend/test/tools/test_reference_provider.py",
+      "backend/test/tools/test_http.py",
+      "backend/test/adapters/http/test_tools.py"
+    ],
+    "extraction_required": false,
+    "rationale": "The binding fields deepen existing typed values, provider normalization remains cohesive in the gateway adapter, and the router relocation moves an existing transport responsibility to its already-approved owner without creating a new abstraction. No source file crosses a structural trigger."
+  },
+  "confirmed_test_seams": {
+    "authority": "Issue #75, the externally approved M4 design, locked guide m4-75-ticket-lookup-v2 and child review v2 explicitly require these seams; the user approved the plan and locked guide.",
+    "seams": [
+      "ReadTool application request captured by FakeSupportToolGateway",
+      "SQLiteSupportToolGateway typed provider-result boundary",
+      "Workspace-scoped FastAPI route composed from knora.adapters.http"
+    ]
+  },
+  "tdd_slices": [
+    {
+      "id": "M4-75-R8",
+      "behavior": "The authorized resource and lookup request preserve exact current binding identity/version/digest through fake and SQLite gateway seams.",
+      "first_red_test": "The successful ReadTool request asserts the three binding values on both typed objects and SQLite defense-in-depth rejects mismatched provenance."
+    },
+    {
+      "id": "M4-75-R9",
+      "behavior": "Malformed provider result shapes and unexpected provider exceptions return ProviderContractInvalid while genuine SQLite availability failures remain ProviderUnavailable.",
+      "first_red_test": "Wrong-arity, non-iterable, unexpected-exception and sqlite3.OperationalError provider doubles exercise the public gateway outcome."
+    },
+    {
+      "id": "M4-75-R10",
+      "behavior": "The ticket-lookup FastAPI router belongs to knora.adapters.http and knora.tools remains application-only.",
+      "first_red_test": "An adapter ownership test imports knora.adapters.http.tools and proves knora.tools.http no longer exists while existing HTTP behavior remains green."
+    }
+  ],
+  "structural_baseline": {
+    "backend/src/knora/tools/references.py": 337,
+    "backend/src/knora/tools/gateway.py": 92,
+    "backend/src/knora/tools/read.py": 60,
+    "backend/src/knora/tools/http.py": 42,
+    "backend/src/knora/main.py": 258
+  }
+}
