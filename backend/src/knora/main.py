@@ -282,7 +282,9 @@ def create_app(
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
     @application.exception_handler(RequestValidationError)
-    async def handle_validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+    async def handle_validation_error(
+        request: Request, error: RequestValidationError
+    ) -> JSONResponse:
         del error
         if "/tools/ticket-lookup" in request.url.path:
             return JSONResponse(
