@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_spec_design_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-spec-design-external-review.json",
+  "reviewed_at": "2026-08-22T05:45:00Z",
+  "reviewed_commit": "40426dda3532231685f20562edad954025819e5a",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md HTTP/provider outcome mapping; GitHub Issue #78",
+      "problem": "Generic provider 502 rows do not distinguish ticket lookup from ambiguous execute/reconcile observations and could create false definitive failure.",
+      "required_change": "Make mapping operation/phase-specific: possible-receipt writes and unavailable/unknown reconciliation observations are 202 non-terminal; only proved closed terminal outcomes finalize."
+    }
+  ],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "https://github.com/NhiBuaa/knora-agent/issues/77",
+    "https://github.com/NhiBuaa/knora-agent/issues/78",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/review/m4-design-revision-3-disposition.json",
+    "git diff 6312c4c4230032aa92ca5915803fcfaf564354fa..40426dda3532231685f20562edad954025819e5a"
+  ]
+}
