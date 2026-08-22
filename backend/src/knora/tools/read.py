@@ -52,7 +52,13 @@ class ReadTool:
             principal, descriptor, binding, command.ticket_reference
         )
         outcome = self.gateway.lookup_ticket(
-            LookupTicketRequest(scope=binding.external_scope, resource=authorized_resource)
+            LookupTicketRequest(
+                scope=binding.external_scope,
+                binding_id=binding.binding_id,
+                binding_version=binding.version,
+                binding_digest=binding.digest,
+                resource=authorized_resource,
+            )
         )
         if isinstance(outcome, TicketLookupResult):
             return outcome

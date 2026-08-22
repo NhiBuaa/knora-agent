@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import sqlite3
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +17,9 @@ from knora.tools import (
     ExternalResourceReferenceMinter,
     ExternalScopeBinding,
     LookupTicketRequest,
+    ProviderContractInvalid,
     ProviderScopeDenied,
+    ProviderUnavailable,
     ReadTool,
     ReadToolCommand,
     ReferenceKey,
@@ -124,6 +127,33 @@ def _tool(provider, minted, key_ring, binding, now) -> ReadTool:
     )
 
 
+def _authorized_resource(minted) -> AuthorizedExternalResource:
+    return AuthorizedExternalResource(
+        reference_id=minted.record.reference_id,
+        binding_id=minted.record.binding_id,
+        binding_version=minted.record.binding_version,
+        binding_digest=minted.record.binding_digest,
+        resource_kind="ticket",
+        provider_routing_handle=minted.record.provider_routing_handle,
+        resource_identity_digest=minted.record.resource_identity_digest,
+        resource_claims_digest=minted.record.resource_claims_digest,
+        external_scope="scope-a",
+    )
+
+
+def _lookup_request(minted, **overrides) -> LookupTicketRequest:
+    resource = _authorized_resource(minted)
+    values = {
+        "scope": resource.external_scope,
+        "binding_id": resource.binding_id,
+        "binding_version": resource.binding_version,
+        "binding_digest": resource.binding_digest,
+        "resource": resource,
+    }
+    values.update(overrides)
+    return LookupTicketRequest(**values)
+
+
 def test_sqlite_reference_provider_survives_adapter_restart(tmp_path: Path) -> None:
     database = tmp_path / "provider.sqlite"
     provider, minted, key_ring, binding, now = _provider_fixture(database)
@@ -140,6 +170,19 @@ def test_sqlite_reference_provider_survives_adapter_restart(tmp_path: Path) -> N
         ReadToolCommand(str(minted.reference)),
         WorkspacePrincipal("workspace-a", "key-a"),
     )
+    gateway = tool.gateway
+    assert isinstance(gateway, SQLiteSupportToolGateway)
+    request = gateway.calls[0]
+    assert (request.binding_id, request.binding_version, request.binding_digest) == (
+        binding.binding_id,
+        binding.version,
+        binding.digest,
+    )
+    assert (
+        request.resource.binding_id,
+        request.resource.binding_version,
+        request.resource.binding_digest,
+    ) == (binding.binding_id, binding.version, binding.digest)
     provider.close()
 
     restarted = SQLiteReferenceProvider(database)
@@ -157,18 +200,95 @@ def test_sqlite_reference_provider_survives_adapter_restart(tmp_path: Path) -> N
 def test_sqlite_gateway_rejects_cross_scope_before_provider_lookup(tmp_path: Path) -> None:
     provider, minted, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
     gateway = SQLiteSupportToolGateway(provider)
-    resource = AuthorizedExternalResource(
-        reference_id=minted.record.reference_id,
-        resource_kind="ticket",
-        provider_routing_handle=minted.record.provider_routing_handle,
-        resource_identity_digest=minted.record.resource_identity_digest,
-        resource_claims_digest=minted.record.resource_claims_digest,
-        external_scope="scope-a",
+    resource = _authorized_resource(minted)
+
+    outcome = gateway.lookup_ticket(
+        LookupTicketRequest(
+            scope="scope-b",
+            binding_id=resource.binding_id,
+            binding_version=resource.binding_version,
+            binding_digest=resource.binding_digest,
+            resource=resource,
+        )
     )
 
-    outcome = gateway.lookup_ticket(LookupTicketRequest(scope="scope-b", resource=resource))
+    assert isinstance(outcome, ProviderScopeDenied)
+    provider.close()
+
+
+def test_sqlite_gateway_rejects_mismatched_binding_provenance_before_lookup(
+    tmp_path: Path,
+) -> None:
+    provider, minted, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Cannot sign in",
+        status="open",
+        summary="Customer cannot complete SSO sign-in.",
+    )
+    gateway = SQLiteSupportToolGateway(provider)
+    resource = _authorized_resource(minted)
+
+    outcome = gateway.lookup_ticket(
+        LookupTicketRequest(
+            scope="scope-a",
+            binding_id=resource.binding_id,
+            binding_version=resource.binding_version,
+            binding_digest="sha256:" + "9" * 64,
+            resource=resource,
+        )
+    )
 
     assert isinstance(outcome, ProviderScopeDenied)
+    provider.close()
+
+
+@pytest.mark.parametrize(
+    "provider_result",
+    [object(), ("Title", "open"), ("Title", "open", "Summary", "extra")],
+    ids=["non-iterable", "too-short", "too-long"],
+)
+def test_sqlite_gateway_maps_malformed_provider_result_shapes_to_contract_invalid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    provider_result: object,
+) -> None:
+    provider, minted, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    monkeypatch.setattr(provider, "lookup_ticket", lambda **_: provider_result)
+    gateway = SQLiteSupportToolGateway(provider)
+
+    outcome = gateway.lookup_ticket(_lookup_request(minted))
+
+    assert isinstance(outcome, ProviderContractInvalid)
+    provider.close()
+
+
+@pytest.mark.parametrize(
+    ("provider_error", "outcome_type"),
+    [
+        (sqlite3.OperationalError("provider unavailable"), ProviderUnavailable),
+        (RuntimeError("unexpected provider failure"), ProviderContractInvalid),
+    ],
+    ids=["availability", "unexpected"],
+)
+def test_sqlite_gateway_closes_provider_exceptions_by_failure_kind(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    provider_error: Exception,
+    outcome_type: type,
+) -> None:
+    provider, minted, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+
+    def raise_provider_error(**_) -> None:
+        raise provider_error
+
+    monkeypatch.setattr(provider, "lookup_ticket", raise_provider_error)
+    gateway = SQLiteSupportToolGateway(provider)
+
+    outcome = gateway.lookup_ticket(_lookup_request(minted))
+
+    assert isinstance(outcome, outcome_type)
     provider.close()
 
 

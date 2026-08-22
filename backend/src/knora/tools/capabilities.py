@@ -180,6 +180,9 @@ class WorkspaceResourceAuthorizer:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         return AuthorizedExternalResource(
             reference_id=verified.reference_id,
+            binding_id=binding.binding_id,
+            binding_version=binding.version,
+            binding_digest=binding.digest,
             resource_kind=verified.resource_kind,
             provider_routing_handle=verified.provider_routing_handle,
             resource_identity_digest=verified.resource_identity_digest,

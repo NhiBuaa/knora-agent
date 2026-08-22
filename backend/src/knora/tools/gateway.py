@@ -11,6 +11,9 @@ from knora.tools.sqlite_provider import SQLiteReferenceProvider
 @dataclass(frozen=True, slots=True)
 class LookupTicketRequest:
     scope: str
+    binding_id: str
+    binding_version: str
+    binding_digest: str
     resource: AuthorizedExternalResource
 
 
@@ -84,7 +87,12 @@ class SQLiteSupportToolGateway:
 
     def lookup_ticket(self, request: LookupTicketRequest):
         self.calls.append(request)
-        if request.scope != request.resource.external_scope:
+        if (
+            request.scope != request.resource.external_scope
+            or request.binding_id != request.resource.binding_id
+            or request.binding_version != request.resource.binding_version
+            or request.binding_digest != request.resource.binding_digest
+        ):
             return ProviderScopeDenied()
         try:
             result = self.provider.lookup_ticket(
@@ -93,8 +101,12 @@ class SQLiteSupportToolGateway:
             )
         except sqlite3.Error:
             return ProviderUnavailable()
+        except Exception:
+            return ProviderContractInvalid()
         if result is None:
             return ProviderResourceNotFound()
+        if not isinstance(result, tuple) or len(result) != 3:
+            return ProviderContractInvalid()
         title, status, summary = result
         if (
             not _valid_provider_text(title, maximum=200, allow_empty=False)

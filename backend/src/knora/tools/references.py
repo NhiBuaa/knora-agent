@@ -166,6 +166,9 @@ class ReferenceRecord:
 @dataclass(frozen=True, slots=True)
 class AuthorizedExternalResource:
     reference_id: str
+    binding_id: str
+    binding_version: str
+    binding_digest: str
     resource_kind: str
     provider_routing_handle: str
     resource_identity_digest: str

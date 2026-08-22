@@ -1,3 +1,5 @@
+"""HTTP adapter contract tests for the M4.1 ticket-lookup route."""
+
 import base64
 from datetime import UTC, datetime
 

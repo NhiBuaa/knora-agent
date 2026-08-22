@@ -153,8 +153,19 @@ def test_static_registry_and_authorized_lookup_are_typed() -> None:
         summary="Customer cannot complete SSO sign-in.",
     )
     assert gateway.call_count == 1
-    assert gateway.calls[0].resource.provider_routing_handle == "routing-ticket-75"
-    assert not hasattr(gateway.calls[0].resource, "provider_resource_id")
+    request = gateway.calls[0]
+    assert (request.binding_id, request.binding_version, request.binding_digest) == (
+        record.binding_id,
+        record.binding_version,
+        record.binding_digest,
+    )
+    assert (
+        request.resource.binding_id,
+        request.resource.binding_version,
+        request.resource.binding_digest,
+    ) == (record.binding_id, record.binding_version, record.binding_digest)
+    assert request.resource.provider_routing_handle == "routing-ticket-75"
+    assert not hasattr(request.resource, "provider_resource_id")
 
     with pytest.raises(KnoraError) as error:
         CapabilityRegistry.static().resolve("unknown")
