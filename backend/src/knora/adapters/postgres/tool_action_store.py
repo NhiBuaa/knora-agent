@@ -11,11 +11,14 @@ from knora.adapters.postgres.tables import (
     ToolProposalTable,
 )
 from knora.domain.errors import KnoraError
-from knora.tools.proposals import (
-    ActorContext,
-    AuditProjection,
+from knora.tools.proposal_store import (
     _DecisionResult,
     _StoredProposal,
+)
+from knora.tools.proposal_types import (
+    ApprovalActor,
+    AuditProjection,
+    ProposalDecision,
 )
 
 
@@ -37,7 +40,12 @@ class PostgresToolActionStore:
                         event_type="proposed",
                         actor_id=proposal.proposal_actor_id,
                         actor_kind=proposal.proposal_actor_kind,
-                        payload={"caller_principal_id": proposal.caller_principal_id},
+                        payload={
+                            "caller_principal_id": proposal.caller_principal_id,
+                            "authority_id": proposal.proposal_actor_authority_id,
+                            "authority_version": proposal.proposal_actor_authority_version,
+                            "authority_digest": proposal.proposal_actor_authority_digest,
+                        },
                     )
                 )
             stored = self.read_proposal(proposal.workspace_id, proposal.proposal_id)
@@ -63,9 +71,10 @@ class PostgresToolActionStore:
         workspace_id: str,
         proposal_id: str,
         expected_revision: int,
-        decision: str,
-        actor: ActorContext,
+        decision: ProposalDecision,
+        actor: ApprovalActor,
         reason_code: str | None,
+        decided_at: datetime,
     ) -> _DecisionResult:
         with self._session_factory.begin() as session:
             changed = session.execute(
@@ -77,11 +86,15 @@ class PostgresToolActionStore:
                     ToolProposalTable.revision == expected_revision,
                 )
                 .values(
-                    state=decision,
+                    state=decision.value,
                     revision=expected_revision + 1,
                     decision_actor_id=actor.actor_id,
                     decision_actor_kind=actor.actor_kind,
+                    decision_authority_id=actor.authority.authority_id,
+                    decision_authority_version=actor.authority.authority_version,
+                    decision_authority_digest=actor.authority.authority_digest,
                     decision_reason=reason_code,
+                    decision_at=decided_at,
                     updated_at=datetime.now(UTC),
                 )
             )
@@ -102,6 +115,7 @@ class PostgresToolActionStore:
                     decision,
                     actor,
                     reason_code,
+                    decided_at,
                 )
             return _DecisionResult(changed.rowcount == 1, self._to_stored(session, row))
 
@@ -124,6 +138,9 @@ class PostgresToolActionStore:
             policy_snapshot=dict(proposal.policy_snapshot),
             target_reference=proposal.target_reference,
             target_reference_digest=proposal.target_reference_digest,
+            target_reference_id=proposal.target_reference_id,
+            target_resource_identity_digest=proposal.target_resource_identity_digest,
+            target_resource_claims_digest=proposal.target_resource_claims_digest,
             resource_kind=proposal.resource_kind,
             parameters=dict(proposal.parameters),
             parameters_digest=proposal.parameters_digest,
@@ -132,7 +149,11 @@ class PostgresToolActionStore:
             caller_key_id=proposal.caller_key_id,
             proposal_actor_id=proposal.proposal_actor_id,
             proposal_actor_kind=proposal.proposal_actor_kind,
+            proposal_actor_authority_id=proposal.proposal_actor_authority_id,
+            proposal_actor_authority_version=proposal.proposal_actor_authority_version,
+            proposal_actor_authority_digest=proposal.proposal_actor_authority_digest,
             logical_execution_id=proposal.logical_execution_id,
+            created_at=proposal.created_at,
             expires_at=proposal.expires_at,
         )
 
@@ -142,21 +163,26 @@ class PostgresToolActionStore:
         workspace_id: str,
         proposal_id: str,
         expected_revision: int,
-        decision: str,
-        actor: ActorContext,
+        decision: ProposalDecision,
+        actor: ApprovalActor,
         reason_code: str | None,
+        decided_at: datetime,
     ) -> None:
         session.add(
             ToolProposalDecisionTable(
                 id=str(uuid4()),
                 proposal_id=proposal_id,
                 workspace_id=workspace_id,
-                decision=decision,
+                decision=decision.value,
                 expected_revision=expected_revision,
                 resulting_revision=expected_revision + 1,
                 actor_id=actor.actor_id,
                 actor_kind=actor.actor_kind,
+                authority_id=actor.authority.authority_id,
+                authority_version=actor.authority.authority_version,
+                authority_digest=actor.authority.authority_digest,
                 reason_code=reason_code,
+                created_at=decided_at,
             )
         )
         sequence = session.scalar(
@@ -171,10 +197,16 @@ class PostgresToolActionStore:
                 proposal_id=proposal_id,
                 workspace_id=workspace_id,
                 sequence=sequence + 1,
-                event_type=decision,
+                event_type=decision.value,
                 actor_id=actor.actor_id,
                 actor_kind=actor.actor_kind,
-                payload={"reason_code": reason_code, "revision": expected_revision + 1},
+                payload={
+                    "reason_code": reason_code,
+                    "revision": expected_revision + 1,
+                    "authority_id": actor.authority.authority_id,
+                    "authority_version": actor.authority.authority_version,
+                    "authority_digest": actor.authority.authority_digest,
+                },
             )
         )
 
@@ -202,6 +234,9 @@ class PostgresToolActionStore:
             policy_snapshot=row.policy_snapshot,
             target_reference=row.target_reference,
             target_reference_digest=row.target_reference_digest,
+            target_reference_id=row.target_reference_id,
+            target_resource_identity_digest=row.target_resource_identity_digest,
+            target_resource_claims_digest=row.target_resource_claims_digest,
             resource_kind=row.resource_kind,
             parameters=row.parameters,
             parameters_digest=row.parameters_digest,
@@ -210,10 +245,18 @@ class PostgresToolActionStore:
             caller_key_id=row.caller_key_id,
             proposal_actor_id=row.proposal_actor_id,
             proposal_actor_kind=row.proposal_actor_kind,
+            proposal_actor_authority_id=row.proposal_actor_authority_id,
+            proposal_actor_authority_version=row.proposal_actor_authority_version,
+            proposal_actor_authority_digest=row.proposal_actor_authority_digest,
             logical_execution_id=row.logical_execution_id,
+            created_at=row.created_at,
             expires_at=row.expires_at,
+            decision_at=row.decision_at,
             decision_actor_id=row.decision_actor_id,
             decision_actor_kind=row.decision_actor_kind,
+            decision_authority_id=row.decision_authority_id,
+            decision_authority_version=row.decision_authority_version,
+            decision_authority_digest=row.decision_authority_digest,
             decision_reason=row.decision_reason,
             audit=tuple(
                 AuditProjection(a.sequence, a.event_type, a.actor_id, a.actor_kind, a.payload)

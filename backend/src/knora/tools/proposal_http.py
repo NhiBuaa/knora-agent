@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Protocol
 
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -21,12 +21,25 @@ from knora.tools.proposals import (
 router = APIRouter()
 
 
+class ActorContextProvider(Protocol):
+    def resolve(self, principal: WorkspacePrincipal) -> ActorContext: ...
+
+
 def get_workflow(request: Request) -> WriteProposalWorkflow:
     return request.app.state.write_proposal_workflow
 
 
-def get_actor_context(request: Request) -> ActorContext:
-    return request.app.state.tool_actor_context
+def get_actor_context(
+    workspace_id: str,
+    request: Request,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> ActorContext:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    provider: ActorContextProvider | None = request.app.state.tool_actor_context_provider
+    if provider is None:
+        raise KnoraError("TOOL_APPROVAL_FORBIDDEN")
+    return provider.resolve(principal)
 
 
 def _projection_response(projection) -> JSONResponse:
@@ -50,16 +63,27 @@ def _validate_payload(payload: dict[str, object], fields: set[str]) -> None:
         raise KnoraError("TOOL_REQUEST_INVALID")
 
 
+async def _read_payload(request: Request) -> dict[str, object]:
+    try:
+        payload = await request.json()
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise KnoraError("TOOL_REQUEST_INVALID") from exc
+    if not isinstance(payload, dict):
+        raise KnoraError("TOOL_REQUEST_INVALID")
+    return payload
+
+
 @router.post("/v1/workspaces/{workspace_id}/tool-proposals")
-def create_proposal(
+async def create_proposal(
     workspace_id: str,
-    payload: Annotated[dict[str, object], Body(...)],
+    request: Request,
     principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    payload = await _read_payload(request)
     _validate_payload(payload, {"capability_id", "target_reference", "title", "description"})
     if not all(isinstance(payload.get(field), str) for field in payload):
         raise KnoraError("TOOL_REQUEST_INVALID")
@@ -89,16 +113,17 @@ def read_proposal(
 
 
 @router.post("/v1/workspaces/{workspace_id}/tool-proposals/{proposal_id}/approve")
-def approve_proposal(
+async def approve_proposal(
     workspace_id: str,
     proposal_id: str,
-    payload: Annotated[dict[str, object], Body(...)],
+    request: Request,
     principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    payload = await _read_payload(request)
     _validate_payload(payload, {"expected_revision"})
     if not isinstance(payload.get("expected_revision"), int) or isinstance(
         payload.get("expected_revision"), bool
@@ -113,16 +138,17 @@ def approve_proposal(
 
 
 @router.post("/v1/workspaces/{workspace_id}/tool-proposals/{proposal_id}/reject")
-def reject_proposal(
+async def reject_proposal(
     workspace_id: str,
     proposal_id: str,
-    payload: Annotated[dict[str, object], Body(...)],
+    request: Request,
     principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    payload = await _read_payload(request)
     _validate_payload(payload, {"expected_revision", "reason_code"})
     if (
         not isinstance(payload.get("expected_revision"), int)
