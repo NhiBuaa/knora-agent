@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
@@ -60,6 +61,15 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.tools import (
+    FakeSupportToolGateway,
+    InMemoryReferenceStore,
+    ReadTool,
+    ReferenceKey,
+    ReferenceVerifier,
+    WorkspaceResourceAuthorizer,
+)
+from knora.tools.http import router as tools_router
 
 
 def create_app(
@@ -79,6 +89,7 @@ def create_app(
     operational_metrics_store: OperationalMetricsStore | None = None,
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
+    read_tool: ReadTool | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -209,6 +220,22 @@ def create_app(
     )
     application.state.embedding_configuration = selected_embedding_configuration
 
+    if read_tool is None:
+        reference_store = InMemoryReferenceStore()
+        reference_verifier = ReferenceVerifier(
+            reference_store,
+            {"runtime-v1": ReferenceKey("runtime-v1", b"development-only-reference-key")},
+        )
+        read_tool = ReadTool(
+            resource_authorizer=WorkspaceResourceAuthorizer(
+                reference_verifier=reference_verifier
+            ),
+            gateway=FakeSupportToolGateway(),
+        )
+        application.state.tool_reference_store = reference_store
+        application.state.tool_reference_verifier = reference_verifier
+    application.state.read_tool = read_tool
+
     @application.exception_handler(KnoraError)
     async def handle_knora_error(request: Request, error: KnoraError) -> JSONResponse:
         status = {
@@ -244,11 +271,28 @@ def create_app(
             "CONFIG_SOURCE_JOB_INVALID": 400,
             "CONFIGURATION_NOT_AVAILABLE": 409,
             "IDEMPOTENCY_KEY_CONFLICT": 409,
+            "TOOL_CAPABILITY_NOT_FOUND": 403,
+            "TOOL_RESOURCE_ACCESS_DENIED": 403,
+            "TOOL_TICKET_NOT_FOUND": 404,
+            "TOOL_REQUEST_INVALID": 422,
+            "INVALID_TOOL_RESOURCE_REFERENCE": 400,
+            "TOOL_PROVIDER_UNAVAILABLE": 502,
+            "TOOL_PROVIDER_CONTRACT_INVALID": 502,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
+    @application.exception_handler(RequestValidationError)
+    async def handle_validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+        del error
+        if "/tools/ticket-lookup" in request.url.path:
+            return JSONResponse(
+                status_code=422, content={"error": {"code": "TOOL_REQUEST_INVALID"}}
+            )
+        return JSONResponse(status_code=422, content={"detail": "Request validation error"})
+
     application.include_router(http_router)
     application.include_router(router)
+    application.include_router(tools_router)
     return application
 
 
