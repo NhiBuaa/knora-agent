@@ -73,6 +73,12 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
   overrides. Authentication/authorization errors map to 401/403; invalid input to 400/422; missing
   resources to 404; stale, expired and conflict outcomes to 409; definitive provider failure to 502.
   Indeterminate and provider-not-found reconciliation return 202 non-terminal projections.
+- Public errors use the closed M4 mapping in the design. In particular read-provider scope denial,
+  not-found, unavailability and contract-invalid map respectively to
+  `403/TOOL_RESOURCE_ACCESS_DENIED`, `404/TOOL_TICKET_NOT_FOUND`,
+  `502/TOOL_PROVIDER_UNAVAILABLE` and `502/TOOL_PROVIDER_CONTRACT_INVALID`; proposal
+  already-decided/stale/expired use their exact 409 codes and invalid reject reason is
+  `422/TOOL_REQUEST_INVALID`.
 
 ## Governed execution sequence
 

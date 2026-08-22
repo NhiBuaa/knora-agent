@@ -1,7 +1,7 @@
 # Milestone 4 — Tools and human approval design
 
-Status: contract revision 2 externally approved at exact subject
-`01d329e1e9aa8c0f2f667ab9df318c62ba47d047`, 2026-08-22
+Status: approved shared-understanding checkpoint; contract revision 3 pending external review,
+2026-08-22
 
 This design records the approved M4 boundary. It extends the existing capability-first seams
 without introducing a plugin framework, generic workflow engine, or vendor coupling.
@@ -187,6 +187,40 @@ stale, expired, revision/fingerprint conflict and current execution contention a
 contract violation or definitive provider request failure is 502. Indeterminate execution and
 provider-outcome-not-found return a 202 non-terminal projection and never fabricate `failed`.
 
+M4 closes the public error mapping. These exact uppercase codes are the sole `error.code` values for
+the named outcome; unknown internal/provider codes never pass through:
+
+| Boundary outcome | HTTP | Public `error.code` |
+| --- | ---: | --- |
+| missing/invalid authentication | 401 | `UNAUTHENTICATED` |
+| path Workspace/current Workspace denial | 403 | `WORKSPACE_ACCESS_DENIED` |
+| model/system or unauthorized human decision | 403 | `TOOL_APPROVAL_FORBIDDEN` |
+| current execution-authority denial | 403 | `TOOL_EXECUTION_NOT_AUTHORIZED` |
+| malformed `m4r1` syntax | 400 | `INVALID_TOOL_RESOURCE_REFERENCE` |
+| reference integrity/scope denial or gateway `provider_scope_denied` | 403 | `TOOL_RESOURCE_ACCESS_DENIED` |
+| authorized `provider_resource_not_found` | 404 | `TOOL_TICKET_NOT_FOUND` |
+| authorized missing proposal | 404 | `TOOL_PROPOSAL_NOT_FOUND` |
+| schema/extra field/invalid reject reason or parameter bound | 422 | `TOOL_REQUEST_INVALID` |
+| `AlreadyDecided` | 409 | `TOOL_PROPOSAL_ALREADY_DECIDED` |
+| material compatibility mismatch | 409 | `TOOL_PROPOSAL_STALE` |
+| expiry before new execution | 409 | `TOOL_PROPOSAL_EXPIRED` |
+| proposal revision CAS mismatch | 409 | `TOOL_PROPOSAL_REVISION_CONFLICT` |
+| current execution lease/contention | 409 | `TOOL_EXECUTION_IN_PROGRESS` |
+| stale/non-owner execution generation | 409 | `TOOL_EXECUTION_FENCED` |
+| logical ID/fingerprint conflict | 409 | `TOOL_PROVIDER_IDEMPOTENCY_CONFLICT` |
+| provider unavailable/timeout before a read result | 502 | `TOOL_PROVIDER_UNAVAILABLE` |
+| unknown/malformed provider response | 502 | `TOOL_PROVIDER_CONTRACT_INVALID` |
+| definitive provider request rejection outside a terminal outcome | 502 | `TOOL_PROVIDER_REQUEST_FAILED` |
+| terminal `ProviderTerminalFailureCode` | 502 | `TOOL_PROVIDER_FAILURE` plus sanitized `failure_code` |
+
+The ticket-lookup provider matrix is therefore exact:
+`provider_scope_denied -> 403/TOOL_RESOURCE_ACCESS_DENIED`,
+`provider_resource_not_found -> 404/TOOL_TICKET_NOT_FOUND`,
+`provider_unavailable -> 502/TOOL_PROVIDER_UNAVAILABLE`, and
+`provider_contract_invalid -> 502/TOOL_PROVIDER_CONTRACT_INVALID`. A successful lookup is 200 and
+must contain the exact allowlisted `TicketLookupResult`. FastAPI's default validation body is not the
+M4 public contract; M4 routes normalize validation failures to the envelope above.
+
 ## Workflow and lifecycle
 
 The workflow therefore exposes the typed commands:
@@ -295,7 +329,8 @@ outcomes remain explicit and cannot be fabricated as success or failure.
 `validation_rejected` or `policy_rejected`. `ProviderOutcomeObservation` is `found(outcome)`,
 `provider_outcome_not_found`, or `provider_observation_unavailable`. Closed provider errors are
 `provider_scope_denied`, `provider_resource_not_found`, `provider_idempotency_conflict`,
-`provider_request_rejected`, `provider_outcome_indeterminate` and `provider_contract_invalid`.
+`provider_unavailable`, `provider_request_rejected`, `provider_outcome_indeterminate` and
+`provider_contract_invalid`.
 The terminal failure enum is stored in the provider ledger and projected into sanitized Knora audit;
 the public execution envelope uses `provider_failure` plus that enum and HTTP 502. An unknown or
 malformed provider failure maps to `provider_contract_invalid` for a direct response, or
