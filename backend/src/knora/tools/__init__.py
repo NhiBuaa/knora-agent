@@ -24,18 +24,25 @@ from knora.tools.gateway import (
 )
 from knora.tools.read import ReadTool, ReadToolCommand
 from knora.tools.references import (
+    AuthorizedExternalResource,
+    AuthorizedReferenceMintingResource,
     ExternalResourceReference,
+    ExternalResourceReferenceMinter,
     InMemoryReferenceStore,
     ReferenceKey,
+    ReferenceKeyRing,
     ReferenceRecord,
     ReferenceVerifier,
-    SQLiteReferenceProvider,
 )
+from knora.tools.sqlite_provider import SQLiteReferenceProvider
 
 __all__ = [
     "CapabilityDescriptor",
     "CapabilityRegistry",
+    "AuthorizedExternalResource",
+    "AuthorizedReferenceMintingResource",
     "ExternalResourceReference",
+    "ExternalResourceReferenceMinter",
     "ExternalScopeBinding",
     "FakeSupportToolGateway",
     "InMemoryReferenceStore",
@@ -47,6 +54,7 @@ __all__ = [
     "ReadTool",
     "ReadToolCommand",
     "ReferenceKey",
+    "ReferenceKeyRing",
     "ReferenceRecord",
     "ReferenceVerifier",
     "SQLiteReferenceProvider",

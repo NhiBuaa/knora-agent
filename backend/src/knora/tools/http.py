@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from knora.adapters.http.routes import authenticate_principal
@@ -29,15 +29,19 @@ def get_read_tool(request: Request) -> ReadTool:
     "/v1/workspaces/{workspace_id}/tools/ticket-lookup",
     response_model=TicketLookupResponse,
 )
-def ticket_lookup(
+async def ticket_lookup(
     workspace_id: str,
-    payload: Annotated[dict[str, object], Body(...)],
+    request: Request,
     principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
     read_tool: Annotated[ReadTool, Depends(get_read_tool)],
 ) -> TicketLookupResponse:
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    if set(payload) != {"ticket_reference"} or not isinstance(
+    try:
+        payload = await request.json()
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise KnoraError("TOOL_REQUEST_INVALID") from exc
+    if not isinstance(payload, dict) or set(payload) != {"ticket_reference"} or not isinstance(
         payload.get("ticket_reference"), str
     ):
         raise KnoraError("TOOL_REQUEST_INVALID")

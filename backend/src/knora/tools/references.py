@@ -4,14 +4,19 @@ import base64
 import hashlib
 import hmac
 import json
-import sqlite3
-import time
-from collections.abc import Callable, Mapping
+import secrets
+from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Protocol
 
 from knora.domain.errors import KnoraError
+from knora.tools.contracts import (
+    canonical_json_v1,
+    format_timestamp,
+    parse_timestamp,
+    require_digest,
+)
 
 
 def _b64encode(value: bytes) -> str:
@@ -22,13 +27,19 @@ def _b64decode(value: str) -> bytes:
     alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
     if not value or any(character not in alphabet for character in value):
         raise ValueError("invalid base64url")
-    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    if _b64encode(decoded) != value:
+        raise ValueError("non-canonical base64url")
+    return decoded
 
 
-def _canonical_json(value: object) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+def _validate_reference_id(value: str) -> None:
+    try:
+        decoded = _b64decode(value)
+    except ValueError as exc:
+        raise ValueError("reference_id must encode 256 bits") from exc
+    if len(decoded) != 32:
+        raise ValueError("reference_id must encode 256 bits")
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +56,57 @@ class ReferenceKey:
 
 
 @dataclass(frozen=True, slots=True)
+class ReferenceKeyRing:
+    keys: tuple[ReferenceKey, ...]
+
+    def __post_init__(self) -> None:
+        versions = [key.version for key in self.keys]
+        if len(set(versions)) != len(versions):
+            raise ValueError("reference key versions must be unique")
+        if sum(key.status == "active" for key in self.keys) != 1:
+            raise ValueError("reference key ring requires exactly one active key")
+
+    @property
+    def active_key(self) -> ReferenceKey:
+        return next(key for key in self.keys if key.status == "active")
+
+    def get(self, version: str) -> ReferenceKey | None:
+        return next((key for key in self.keys if key.version == version), None)
+
+
+@dataclass(frozen=True, slots=True)
+class AuthorizedReferenceMintingResource:
+    """Trusted current authorization consumed by the reference minter."""
+
+    workspace_id: str
+    capability_id: str
+    capability_version: str
+    binding_id: str
+    binding_version: str
+    binding_digest: str
+    resource_kind: str
+    resource_identity_digest: str
+    resource_claims_digest: str
+    provider_routing_handle: str
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "workspace_id",
+            "capability_id",
+            "capability_version",
+            "binding_id",
+            "binding_version",
+            "resource_kind",
+            "provider_routing_handle",
+        ):
+            if not getattr(self, field_name):
+                raise ValueError(f"{field_name} is required")
+        require_digest(self.binding_digest, "binding_digest")
+        require_digest(self.resource_identity_digest, "resource_identity_digest")
+        require_digest(self.resource_claims_digest, "resource_claims_digest")
+
+
+@dataclass(frozen=True, slots=True)
 class ReferenceRecord:
     reference_id: str
     workspace_id: str
@@ -54,20 +116,60 @@ class ReferenceRecord:
     binding_version: str
     binding_digest: str
     resource_kind: str
-    resource_claims: Mapping[str, str]
-    provider_resource_id: str
-    expires_at: float
+    resource_identity_digest: str
+    resource_claims_digest: str
+    provider_routing_handle: str
+    issued_at: datetime
+    expires_at: datetime
     key_version: str
+
+    def __post_init__(self) -> None:
+        _validate_reference_id(self.reference_id)
+        AuthorizedReferenceMintingResource(
+            workspace_id=self.workspace_id,
+            capability_id=self.capability_id,
+            capability_version=self.capability_version,
+            binding_id=self.binding_id,
+            binding_version=self.binding_version,
+            binding_digest=self.binding_digest,
+            resource_kind=self.resource_kind,
+            resource_identity_digest=self.resource_identity_digest,
+            resource_claims_digest=self.resource_claims_digest,
+            provider_routing_handle=self.provider_routing_handle,
+        )
+        if not self.key_version:
+            raise ValueError("key_version is required")
+        if self.issued_at.tzinfo is None or self.expires_at.tzinfo is None:
+            raise ValueError("reference timestamps must be timezone-aware")
+        if self.expires_at <= self.issued_at:
+            raise ValueError("reference expiry must follow issue time")
+
+    def protected_claims(self) -> dict[str, object]:
+        return {
+            "schema_version": 1,
+            "reference_id": self.reference_id,
+            "key_version": self.key_version,
+            "workspace_id": self.workspace_id,
+            "capability_id": self.capability_id,
+            "capability_version": self.capability_version,
+            "binding_id": self.binding_id,
+            "binding_version": self.binding_version,
+            "binding_digest": self.binding_digest,
+            "resource_kind": self.resource_kind,
+            "resource_identity_digest": self.resource_identity_digest,
+            "resource_claims_digest": self.resource_claims_digest,
+            "issued_at": format_timestamp(self.issued_at),
+            "expires_at": format_timestamp(self.expires_at),
+        }
 
 
 @dataclass(frozen=True, slots=True)
 class AuthorizedExternalResource:
-    """Internal provider-bound resource; never returned by a public tool result."""
-
     reference_id: str
     resource_kind: str
-    provider_resource_id: str
-    resource_claims: Mapping[str, str]
+    provider_routing_handle: str
+    resource_identity_digest: str
+    resource_claims_digest: str
     external_scope: str
 
 
@@ -80,8 +182,10 @@ class VerifiedResourceReference:
     binding_version: str
     binding_digest: str
     resource_kind: str
+    resource_identity_digest: str
+    resource_claims_digest: str
+    provider_routing_handle: str
     reference_id: str
-    authorized_resource: AuthorizedExternalResource
 
 
 class ReferenceStore(Protocol):
@@ -100,7 +204,7 @@ class InMemoryReferenceStore:
 
 
 class ExternalResourceReference:
-    """Opaque m4r1 envelope.  Callers can carry the token but cannot inspect protected claims."""
+    """Opaque integrity-protected m4r1 envelope."""
 
     __slots__ = ("_token",)
 
@@ -128,51 +232,91 @@ class ExternalResourceReference:
         return hash(self._token)
 
     @classmethod
-    def mint(cls, record: ReferenceRecord, key: ReferenceKey) -> ExternalResourceReference:
-        if record.key_version != key.version:
-            raise ValueError("record and key versions differ")
-        protected = {
-            "binding_digest": record.binding_digest,
-            "binding_id": record.binding_id,
-            "binding_version": record.binding_version,
-            "capability_id": record.capability_id,
-            "capability_version": record.capability_version,
-            "expires_at": record.expires_at,
-            "key_version": record.key_version,
-            "reference_id": record.reference_id,
-            "resource_claims": dict(record.resource_claims),
-            "resource_kind": record.resource_kind,
-            "workspace_id": record.workspace_id,
-        }
-        payload = _b64encode(_canonical_json(protected))
-        mac = _b64encode(
-            hmac.new(
-                key.secret, f"m4r1.{payload}".encode("ascii"), hashlib.sha256
-            ).digest()
-        )
-        return cls(f"m4r1.{payload}.{mac}")
-
-    @classmethod
     def from_token(cls, value: str) -> ExternalResourceReference:
         return cls(value)
-
-    create = mint
 
     def verify(self, verifier: ReferenceVerifier) -> VerifiedResourceReference:
         return verifier.verify(self)
 
 
+@dataclass(frozen=True, slots=True)
+class MintedExternalResourceReference:
+    reference: ExternalResourceReference
+    record: ReferenceRecord
+
+
+class ExternalResourceReferenceMinter:
+    def __init__(
+        self,
+        key_ring: ReferenceKeyRing,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        reference_id_factory: Callable[[], str] | None = None,
+    ) -> None:
+        self._key_ring = key_ring
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._reference_id_factory = reference_id_factory or (
+            lambda: _b64encode(secrets.token_bytes(32))
+        )
+
+    def mint(
+        self,
+        authorized: AuthorizedReferenceMintingResource,
+        *,
+        expires_at: datetime,
+    ) -> MintedExternalResourceReference:
+        issued_at = self._clock()
+        key = self._key_ring.active_key
+        record = ReferenceRecord(
+            reference_id=self._reference_id_factory(),
+            workspace_id=authorized.workspace_id,
+            capability_id=authorized.capability_id,
+            capability_version=authorized.capability_version,
+            binding_id=authorized.binding_id,
+            binding_version=authorized.binding_version,
+            binding_digest=authorized.binding_digest,
+            resource_kind=authorized.resource_kind,
+            resource_identity_digest=authorized.resource_identity_digest,
+            resource_claims_digest=authorized.resource_claims_digest,
+            provider_routing_handle=authorized.provider_routing_handle,
+            issued_at=issued_at,
+            expires_at=expires_at,
+            key_version=key.version,
+        )
+        payload = canonical_json_v1(record.protected_claims())
+        mac = hmac.new(key.secret, payload, hashlib.sha256).digest()
+        token = ExternalResourceReference(f"m4r1.{_b64encode(payload)}.{_b64encode(mac)}")
+        return MintedExternalResourceReference(token, record)
+
+
 class ReferenceVerifier:
+    _FIELDS = {
+        "schema_version",
+        "reference_id",
+        "key_version",
+        "workspace_id",
+        "capability_id",
+        "capability_version",
+        "binding_id",
+        "binding_version",
+        "binding_digest",
+        "resource_kind",
+        "resource_identity_digest",
+        "resource_claims_digest",
+        "issued_at",
+        "expires_at",
+    }
+
     def __init__(
         self,
         store: ReferenceStore,
-        keys: Mapping[str, ReferenceKey],
+        key_ring: ReferenceKeyRing,
         *,
-        clock: Callable[[], float] | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._store = store
-        self._keys = dict(keys)
-        self._clock = clock or time.time
+        self._key_ring = key_ring
+        self._clock = clock or (lambda: datetime.now(UTC))
 
     def verify(self, reference: str | ExternalResourceReference) -> VerifiedResourceReference:
         token = reference.token if isinstance(reference, ExternalResourceReference) else reference
@@ -181,74 +325,56 @@ class ReferenceVerifier:
         parts = token.split(".")
         if len(parts) != 3 or parts[0] != "m4r1":
             raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE")
-        payload_encoded, mac_encoded = parts[1], parts[2]
         try:
-            payload_bytes = _b64decode(payload_encoded)
-            mac = _b64decode(mac_encoded)
-        except ValueError as exc:
-            raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE") from exc
-        try:
+            payload_bytes = _b64decode(parts[1])
+            mac = _b64decode(parts[2])
             payload = json.loads(payload_bytes.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            if canonical_json_v1(payload) != payload_bytes:
+                raise ValueError("payload is not canonical")
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE") from exc
-        if not isinstance(payload, dict):
+        if not isinstance(payload, dict) or set(payload) != self._FIELDS:
             raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE")
-        required = {
-            "binding_digest", "binding_id", "binding_version", "capability_id",
-            "capability_version", "expires_at", "key_version", "reference_id",
-            "resource_claims", "resource_kind", "workspace_id",
-        }
-        if set(payload) != required or not isinstance(payload["resource_claims"], dict):
+        if payload.get("schema_version") != 1 or not isinstance(payload.get("key_version"), str):
             raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE")
-        key_version = payload["key_version"]
-        if not all(
-            isinstance(payload.get(name), str)
-            for name in (
-                "binding_digest",
-                "binding_id",
-                "binding_version",
-                "capability_id",
-                "capability_version",
-                "key_version",
-                "reference_id",
-                "resource_kind",
-                "workspace_id",
-            )
-        ) or not isinstance(payload["expires_at"], (int, float)):
-            raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE")
-        if not isinstance(key_version, str):
-            raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE")
-        key = self._keys.get(key_version)
+        key = self._key_ring.get(payload["key_version"])
         if key is None or key.status == "revoked":
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
-        expected = hmac.new(
-            key.secret, f"m4r1.{payload_encoded}".encode("ascii"), hashlib.sha256
-        ).digest()
-        if not hmac.compare_digest(expected, mac):
+        expected_mac = hmac.new(key.secret, payload_bytes, hashlib.sha256).digest()
+        if len(mac) != hashlib.sha256().digest_size or not hmac.compare_digest(expected_mac, mac):
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         try:
-            expires_at = float(payload["expires_at"])
-        except (TypeError, ValueError) as exc:
+            reference_id = payload["reference_id"]
+            if not isinstance(reference_id, str):
+                raise ValueError("reference_id must be text")
+            _validate_reference_id(reference_id)
+            issued_at = parse_timestamp(payload["issued_at"], "issued_at")
+            expires_at = parse_timestamp(payload["expires_at"], "expires_at")
+            for field_name in (
+                "workspace_id",
+                "capability_id",
+                "capability_version",
+                "binding_id",
+                "binding_version",
+                "resource_kind",
+            ):
+                if not isinstance(payload.get(field_name), str) or not payload[field_name]:
+                    raise ValueError(f"{field_name} is required")
+            for field_name in (
+                "binding_digest",
+                "resource_identity_digest",
+                "resource_claims_digest",
+            ):
+                require_digest(payload.get(field_name), field_name)
+        except ValueError as exc:
             raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE") from exc
-        if expires_at <= self._clock():
+        now = self._clock()
+        if now.tzinfo is None:
+            raise RuntimeError("reference verifier clock must be timezone-aware")
+        if issued_at > now or expires_at <= now:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
-        record = self._store.get_reference(str(payload["reference_id"]))
-        if record is None:
-            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
-        expected_claims = {
-            "binding_digest": record.binding_digest,
-            "binding_id": record.binding_id,
-            "binding_version": record.binding_version,
-            "capability_id": record.capability_id,
-            "capability_version": record.capability_version,
-            "expires_at": record.expires_at,
-            "key_version": record.key_version,
-            "reference_id": record.reference_id,
-            "resource_claims": dict(record.resource_claims),
-            "resource_kind": record.resource_kind,
-            "workspace_id": record.workspace_id,
-        }
-        if payload != expected_claims:
+        record = self._store.get_reference(reference_id)
+        if record is None or record.protected_claims() != payload:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         return VerifiedResourceReference(
             workspace_id=record.workspace_id,
@@ -258,103 +384,8 @@ class ReferenceVerifier:
             binding_version=record.binding_version,
             binding_digest=record.binding_digest,
             resource_kind=record.resource_kind,
+            resource_identity_digest=record.resource_identity_digest,
+            resource_claims_digest=record.resource_claims_digest,
+            provider_routing_handle=record.provider_routing_handle,
             reference_id=record.reference_id,
-            authorized_resource=AuthorizedExternalResource(
-                reference_id=record.reference_id,
-                resource_kind=record.resource_kind,
-                provider_resource_id=record.provider_resource_id,
-                resource_claims=dict(record.resource_claims),
-                external_scope=f"external-scope:{record.workspace_id}",
-            ),
         )
-
-
-class SQLiteReferenceProvider:
-    """Independent deterministic reference/ticket ledger used by provider-boundary tests."""
-
-    def __init__(self, path: str | Path = ":memory:") -> None:
-        self.path = str(path)
-        self._connection = sqlite3.connect(self.path, check_same_thread=False)
-        self._connection.execute(
-            "CREATE TABLE IF NOT EXISTS tool_references ("
-            "reference_id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, "
-            "capability_id TEXT NOT NULL, capability_version TEXT NOT NULL, "
-            "binding_id TEXT NOT NULL, binding_version TEXT NOT NULL, "
-            "binding_digest TEXT NOT NULL, resource_kind TEXT NOT NULL, "
-            "resource_claims TEXT NOT NULL, provider_resource_id TEXT NOT NULL, "
-            "expires_at REAL NOT NULL, key_version TEXT NOT NULL)"
-        )
-        self._connection.execute(
-            "CREATE TABLE IF NOT EXISTS tickets ("
-            "scope TEXT NOT NULL, provider_resource_id TEXT NOT NULL, title TEXT NOT NULL,"
-            "status TEXT NOT NULL, summary TEXT NOT NULL, PRIMARY KEY(scope, provider_resource_id))"
-        )
-        self._connection.commit()
-
-    def close(self) -> None:
-        self._connection.close()
-
-    def register(self, record: ReferenceRecord) -> None:
-        self._connection.execute(
-            "INSERT OR REPLACE INTO tool_references VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                record.reference_id,
-                record.workspace_id,
-                record.capability_id,
-                record.capability_version,
-                record.binding_id,
-                record.binding_version,
-                record.binding_digest,
-                record.resource_kind,
-                json.dumps(dict(record.resource_claims), sort_keys=True),
-                record.provider_resource_id,
-                record.expires_at,
-                record.key_version,
-            ),
-        )
-        self._connection.commit()
-
-    register_reference = register
-
-    def get_reference(self, reference_id: str) -> ReferenceRecord | None:
-        row = self._connection.execute(
-            "SELECT reference_id, workspace_id, capability_id, capability_version, binding_id,"
-            "binding_version, binding_digest, resource_kind, resource_claims, provider_resource_id,"
-            "expires_at, key_version FROM tool_references WHERE reference_id = ?",
-            (reference_id,),
-        ).fetchone()
-        if row is None:
-            return None
-        return ReferenceRecord(
-            reference_id=row[0],
-            workspace_id=row[1],
-            capability_id=row[2],
-            capability_version=row[3],
-            binding_id=row[4],
-            binding_version=row[5],
-            binding_digest=row[6],
-            resource_kind=row[7],
-            resource_claims=json.loads(row[8]),
-            provider_resource_id=row[9],
-            expires_at=row[10],
-            key_version=row[11],
-        )
-
-    def register_ticket(
-        self, *, scope: str, provider_resource_id: str, title: str, status: str, summary: str
-    ) -> None:
-        self._connection.execute(
-            "INSERT OR REPLACE INTO tickets VALUES (?, ?, ?, ?, ?)",
-            (scope, provider_resource_id, title, status, summary),
-        )
-        self._connection.commit()
-
-    def lookup_ticket(
-        self, *, scope: str, provider_resource_id: str
-    ) -> tuple[str, str, str] | None:
-        row = self._connection.execute(
-            "SELECT title, status, summary FROM tickets "
-            "WHERE scope = ? AND provider_resource_id = ?",
-            (scope, provider_resource_id),
-        ).fetchone()
-        return None if row is None else (row[0], row[1], row[2])

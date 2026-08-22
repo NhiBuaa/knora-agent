@@ -4,7 +4,8 @@ import sqlite3
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from knora.tools.references import AuthorizedExternalResource, SQLiteReferenceProvider
+from knora.tools.references import AuthorizedExternalResource
+from knora.tools.sqlite_provider import SQLiteReferenceProvider
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +65,9 @@ class FakeSupportToolGateway:
 
     def lookup_ticket(self, request: LookupTicketRequest):
         self.calls.append(request)
-        return self.outcomes.get(request.resource.provider_resource_id, ProviderResourceNotFound())
+        return self.outcomes.get(
+            request.resource.provider_routing_handle, ProviderResourceNotFound()
+        )
 
     @property
     def call_count(self) -> int:
@@ -85,16 +88,32 @@ class SQLiteSupportToolGateway:
             return ProviderScopeDenied()
         try:
             result = self.provider.lookup_ticket(
-                scope=request.scope, provider_resource_id=request.resource.provider_resource_id
+                scope=request.scope,
+                provider_routing_handle=request.resource.provider_routing_handle,
             )
         except sqlite3.Error:
             return ProviderUnavailable()
         if result is None:
             return ProviderResourceNotFound()
         title, status, summary = result
+        if (
+            not _valid_provider_text(title, maximum=200, allow_empty=False)
+            or not _valid_provider_text(status, maximum=100, allow_empty=False)
+            or not _valid_provider_text(summary, maximum=10_000, allow_empty=True)
+        ):
+            return ProviderContractInvalid()
         return TicketLookupResult(
             ticket_reference=request.resource.reference_id,
             title=title,
             status=status,
             summary=summary,
         )
+
+
+def _valid_provider_text(value: object, *, maximum: int, allow_empty: bool) -> bool:
+    return (
+        isinstance(value, str)
+        and "\x00" not in value
+        and len(value) <= maximum
+        and (allow_empty or bool(value))
+    )

@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from datetime import timedelta
 
 from fastapi import FastAPI, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
@@ -61,14 +60,7 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
-from knora.tools import (
-    FakeSupportToolGateway,
-    InMemoryReferenceStore,
-    ReadTool,
-    ReferenceKey,
-    ReferenceVerifier,
-    WorkspaceResourceAuthorizer,
-)
+from knora.tools import ReadTool
 from knora.tools.http import router as tools_router
 
 
@@ -220,20 +212,6 @@ def create_app(
     )
     application.state.embedding_configuration = selected_embedding_configuration
 
-    if read_tool is None:
-        reference_store = InMemoryReferenceStore()
-        reference_verifier = ReferenceVerifier(
-            reference_store,
-            {"runtime-v1": ReferenceKey("runtime-v1", b"development-only-reference-key")},
-        )
-        read_tool = ReadTool(
-            resource_authorizer=WorkspaceResourceAuthorizer(
-                reference_verifier=reference_verifier
-            ),
-            gateway=FakeSupportToolGateway(),
-        )
-        application.state.tool_reference_store = reference_store
-        application.state.tool_reference_verifier = reference_verifier
     application.state.read_tool = read_tool
 
     @application.exception_handler(KnoraError)
@@ -281,20 +259,10 @@ def create_app(
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
-    @application.exception_handler(RequestValidationError)
-    async def handle_validation_error(
-        request: Request, error: RequestValidationError
-    ) -> JSONResponse:
-        del error
-        if "/tools/ticket-lookup" in request.url.path:
-            return JSONResponse(
-                status_code=422, content={"error": {"code": "TOOL_REQUEST_INVALID"}}
-            )
-        return JSONResponse(status_code=422, content={"detail": "Request validation error"})
-
     application.include_router(http_router)
     application.include_router(router)
-    application.include_router(tools_router)
+    if read_tool is not None:
+        application.include_router(tools_router)
     return application
 
 

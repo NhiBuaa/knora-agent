@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.tools.contracts import canonical_digest_v1, require_digest
 from knora.tools.references import (
     AuthorizedExternalResource,
     ExternalResourceReference,
@@ -15,8 +14,7 @@ from knora.tools.references import (
 
 
 def _digest(value: object) -> str:
-    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return f"sha256:{hashlib.sha256(encoded.encode('utf-8')).hexdigest()}"
+    return canonical_digest_v1(value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +25,21 @@ class CapabilityDescriptor:
     operation: str
     resource_kind: str
 
+    def __post_init__(self) -> None:
+        if not all((self.capability_id, self.version, self.operation, self.resource_kind)):
+            raise ValueError("capability descriptor fields are required")
+        require_digest(self.digest, "capability digest")
+        expected = _digest(
+            {
+                "capability_id": self.capability_id,
+                "operation": self.operation,
+                "resource_kind": self.resource_kind,
+                "version": self.version,
+            }
+        )
+        if self.digest != expected:
+            raise ValueError("capability digest does not match canonical descriptor")
+
 
 @dataclass(frozen=True, slots=True)
 class ExternalScopeBinding:
@@ -35,6 +48,21 @@ class ExternalScopeBinding:
     version: str
     digest: str
     external_scope: str
+
+    def __post_init__(self) -> None:
+        if not all((self.workspace_id, self.binding_id, self.version, self.external_scope)):
+            raise ValueError("external scope binding fields are required")
+        require_digest(self.digest, "binding digest")
+        expected = _digest(
+            {
+                "workspace_id": self.workspace_id,
+                "binding_id": self.binding_id,
+                "version": self.version,
+                "external_scope": self.external_scope,
+            }
+        )
+        if self.digest != expected:
+            raise ValueError("binding digest does not match canonical binding")
 
     @classmethod
     def for_workspace(
@@ -61,14 +89,17 @@ class ExternalScopeBinding:
 class CapabilityRegistry:
     """Static, versioned capability registry; it has no dynamic loading path."""
 
+    _ticket_lookup_projection = {
+        "capability_id": "ticket_lookup",
+        "operation": "read",
+        "resource_kind": "ticket",
+        "version": "m4.1",
+    }
     _descriptors: Mapping[str, CapabilityDescriptor] = {
         "ticket_lookup": CapabilityDescriptor(
-            capability_id="ticket_lookup",
-            version="m4.1",
-            digest="sha256:knora-m4-ticket-lookup-v1",
-            operation="read",
-            resource_kind="ticket",
-        ),
+            **_ticket_lookup_projection,
+            digest=_digest(_ticket_lookup_projection),
+        )
     }
 
     @classmethod
@@ -111,7 +142,7 @@ class WorkspaceResourceAuthorizer:
         del descriptor
         binding = self._bindings.get(workspace_id)
         if binding is None:
-            binding = ExternalScopeBinding.for_workspace(workspace_id)
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         if binding.workspace_id != workspace_id:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         return binding
@@ -147,8 +178,12 @@ class WorkspaceResourceAuthorizer:
             or verified.resource_kind != descriptor.resource_kind
         ):
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
-        return replace(
-            verified.authorized_resource,
+        return AuthorizedExternalResource(
+            reference_id=verified.reference_id,
+            resource_kind=verified.resource_kind,
+            provider_routing_handle=verified.provider_routing_handle,
+            resource_identity_digest=verified.resource_identity_digest,
+            resource_claims_digest=verified.resource_claims_digest,
             external_scope=binding.external_scope,
         )
 
