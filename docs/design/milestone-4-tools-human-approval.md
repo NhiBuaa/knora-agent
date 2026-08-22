@@ -1,6 +1,7 @@
 # Milestone 4 — Tools and human approval design
 
-Status: approved shared-understanding checkpoint, 2026-08-22
+Status: approved shared-understanding checkpoint; contract revision 1 pending external review,
+2026-08-22
 
 This design records the approved M4 boundary. It extends the existing capability-first seams
 without introducing a plugin framework, generic workflow engine, or vendor coupling.
@@ -14,6 +15,52 @@ independent external-state and idempotency ledger. The reference implementation 
 standard-library SQLite boundary so provider truth remains durable and separate from Knora's
 PostgreSQL workflow state. M4 claims contract-level provider semantics, not guarantees of a
 specific vendor.
+
+## Canonical values and digests
+
+M4 uses `canonical-json-v1` wherever a digest binds approved intent. Typed values are projected to
+JSON with sorted object keys, array order preserved, UUIDs in lowercase hyphenated form, enums as
+their lowercase wire values, UTC timestamps as RFC 3339 with six fractional digits and `Z`, and no
+floating-point values. Strings are Unicode NFC with CRLF/CR normalized to LF; NUL is rejected.
+Encoding is UTF-8 with no ASCII escaping and compact `,`/`:` separators. A digest is lowercase
+`sha256:<64 hex>` over those exact bytes.
+
+`CreateTicketParameters` contains only `title` and `description`. Title is NFC-normalized, has no
+leading/trailing whitespace, and contains 1–200 Unicode scalar values. Description is normalized in
+the same way, permits embedded LF, and contains 1–10,000 scalar values. Empty, over-limit, NUL, or
+non-string values fail validation before proposal persistence. The canonical parameter digest covers
+the normalized `{title, description}` object; caller-supplied digests are never trusted.
+
+Material proposal intent consists of Workspace identity, authenticated caller provenance, proposal
+actor provenance, action, verified target-reference claims, normalized parameters, capability
+identity/version/digest, external-scope binding identity/version/digest, the complete policy
+provenance bundle, policy-selected expiry, and the server-generated logical execution identity.
+Every material field is immutable. Any replacement creates a new proposal identity and new approval
+requirement.
+
+## External resource reference
+
+M4 chooses one representation: `m4r1.<payload>.<mac>`, where payload and MAC are unpadded base64url.
+The canonical payload contains schema version, server-generated 256-bit `reference_id`, key version,
+Workspace ID, capability identity/version, binding identity/version/digest, resource kind, resource-
+identity digest, issued-at and expires-at. It never contains a raw provider resource ID. The MAC is
+HMAC-SHA-256 over the exact canonical payload bytes and is compared in constant time.
+
+The trusted reference store maps `reference_id` to the provider resource ID and the same claims
+digest. `ExternalResourceReferenceMinter.mint` is callable only after current Workspace/resource
+authorization. `ExternalResourceReferenceVerifier.verify` parses the envelope, resolves the key
+version, verifies MAC and expiry, compares Workspace/capability/binding claims, then resolves and
+matches the trusted store record. It returns a `VerifiedExternalResource`; only a subsequent current
+`WorkspaceResourceAuthorizer` decision may produce the `AuthorizedExternalResource` accepted by the
+gateway.
+
+The key ring has exactly one `active` mint key and may retain `retiring` verify-only keys. `unknown`
+or `revoked` keys, malformed payload/MAC, expiry, claim mismatch and missing/mismatched store records
+fail closed. Rotation does not retarget an approved proposal: its exact non-revoked key version and
+token remain valid until expiry. Revocation makes the reference non-executable and requires a new
+proposal. Syntax failure maps to `INVALID_TOOL_RESOURCE_REFERENCE`; authenticated integrity or scope
+failure maps to the non-leaking `TOOL_RESOURCE_ACCESS_DENIED`. No unverified provider identity reaches
+`SupportToolGateway`.
 
 ## Authority and provenance
 
@@ -44,13 +91,86 @@ non-executable. The old approval is never applied under a new policy or target; 
 approval are required. Temporary execution-authority revocation may leave an otherwise valid
 proposal `approved` and block only the execution attempt.
 
-`ExternalResourceReference` is server-minted or integrity-protected and is bound to Workspace,
-capability/version, scope-binding snapshot, resource identity and reference-key version. Raw
-caller-supplied global resource IDs are not an authorization reference.
+`CompatibilityCheckerV1.check(approved, current)` owns compatibility. Its inputs are the approved
+and current capability, external-scope binding and policy-provenance tuples. M4 permits only exact
+identity, version and digest equality; unknown values and resolver failures are incompatible.
+`latest` lookup and caller compatibility assertions are forbidden. Closed reason codes distinguish
+`capability_identity|version|digest_mismatch`, `binding_identity|version|digest_mismatch`, and
+`policy_identity|version|digest_mismatch`. A future non-equality rule requires a new checker version
+and immutable compatibility record and cannot reinterpret an M4 approval.
+
+Compatibility failure leaves the immutable lifecycle decision intact but projects
+`executable=false` with the typed stale reason; a new proposal/approval is required. Current
+`ExecutionAuthorizer` denial returns `execution_not_authorized` while an otherwise exact proposal
+remains `approved` and non-stale. For an in-flight `executing` proposal, incompatibility still permits
+provider outcome observation but forbids a new provider write retry.
+
+## Typed application interface
+
+`ReadToolCommand(ticket_reference)` returns an allowlisted `TicketLookupResult` containing only the
+opaque ticket reference, title, status and summary. Provider IDs, external-scope identifiers, SDK
+objects and persistence fields are never public.
+
+`CapabilityResolver.resolve_for_proposal(workspace_id, capability_id)` is the narrow seam consumed by
+#76. It returns a typed `ResolvedCapabilityContext` with exact capability identity/version/digest,
+required resource kind and binding-reference requirements. A fake resolver is the #76 test adapter;
+#76 must not import #75's concrete registry or provider adapter. Integration later injects the
+accepted static registry without changing this interface.
+
+`WriteProposalWorkflow.handle` accepts the following immutable commands plus separately supplied
+`WorkspacePrincipal` and trusted `ActorContext`:
+
+- `ProposeWriteAction(capability_id, target_reference, title, description)`; IDs, provenance,
+  canonical digests, policy expiry and logical execution identity are server-derived.
+- `ApproveProposal(proposal_id, expected_revision)`.
+- `RejectProposal(proposal_id, expected_revision, reason_code)`, where reason is one of
+  `not_approved`, `incorrect_target`, `incorrect_parameters` or `other`.
+- `ExecuteApprovedProposal(proposal_id, expected_revision)`; execution owner and lease configuration
+  come from trusted composition, not the request.
+- `ReconcileExecution(proposal_id, expected_lease_generation)`; recovery owner is trusted context.
+
+Request schemas forbid extra fields. In particular, caller, proposal actor, approval actor,
+execution actor, authority snapshots, digests, provider IDs and logical execution IDs cannot be
+supplied or overridden by an HTTP client. `HumanApprovalAuthorizer` derives the current human
+`ApprovalActor`; model/system contexts receive `approval_forbidden`.
+
+Closed results are:
+
+- proposal: `ProposalCreated`, `ProposalApproved`, `ProposalRejected`, `AlreadyDecided`;
+- execution: `ExecutionSucceeded`, `ExecutionFailed`, `ExecutionIndeterminate`,
+  `ExecutionInProgress`, `ExecutionFenced`, `ProposalNotExecutable`;
+- reconciliation: `ReconciledSucceeded`, `ReconciledFailed`, `ProviderOutcomeNotFound`,
+  `ReconciliationIndeterminate`, `RetryAuthorizationDenied`, `ExecutionFenced`.
+
+Every result carries the current sanitized `ToolProposalProjection`. The projection contains the
+proposal ID, Workspace, lifecycle state/revision, action, opaque target reference, normalized
+parameters, caller/proposal/decision actor provenance, exact capability/binding/policy identities and
+digests, logical execution identity, created/expiry/decision timestamps, `executable` plus typed
+non-executable reason, and a sanitized execution projection. The read projection includes ordered
+append-only audit events but no raw provider resource ID, secret, MAC key, internal exception or SDK
+object.
+
+## HTTP interface and safe outcomes
+
+The public routes are:
+
+- `POST /v1/workspaces/{workspace_id}/tools/ticket-lookup` with `{ticket_reference}`;
+- `POST /v1/workspaces/{workspace_id}/tool-proposals` with
+  `{capability_id, target_reference, title, description}`;
+- `GET /v1/workspaces/{workspace_id}/tool-proposals/{proposal_id}`;
+- `POST .../{proposal_id}/approve|reject|execute|reconcile` with only the command fields above.
+
+All routes authenticate first and require path Workspace equality before scoped lookup. Responses
+use the existing `{"error":{"code":"..."}}` error envelope. Authentication is 401; Workspace,
+actor, reference-integrity and current-authority denial are 403; an authorized absent proposal or
+provider ticket is 404; malformed reference is 400 and schema validation is 422; already-decided,
+stale, expired, revision/fingerprint conflict and current execution contention are 409; provider
+contract violation or definitive provider request failure is 502. Indeterminate execution and
+provider-outcome-not-found return a 202 non-terminal projection and never fabricate `failed`.
 
 ## Workflow and lifecycle
 
-`WriteProposalWorkflow.handle` accepts typed commands:
+The workflow therefore exposes the typed commands:
 
 ```text
 ProposeWriteAction
@@ -65,8 +185,10 @@ The lifecycle is `proposed -> approved/rejected -> executing -> succeeded/failed
 not additional lifecycle states.
 
 Approval/rejection uses an atomic compare-and-swap on the immutable proposed revision. Exactly one
-decision wins; the loser receives a typed already-decided result. Material edits are forbidden and
-must create a new proposal identity.
+decision wins. The linearization point is the first database transaction to commit
+`state=proposed AND revision=expected_revision`; tests assert one durable winner without assuming
+approve or reject precedence. Every loser reads and returns the persisted winning decision/revision
+as `AlreadyDecided`. Material edits are forbidden and must create a new proposal identity.
 
 Expiry blocks starting a new execution from `approved`, but does not block observation or
 reconciliation of an execution that already began.
@@ -96,6 +218,61 @@ authority.
 The reference provider owns the authoritative external resource and idempotency ledger separately
 from `ToolActionStore`. Provider success/rejection is reconciled into the Knora lifecycle; unknown
 outcomes remain explicit and cannot be fabricated as success or failure.
+
+## Provider interface and reference ledger
+
+`SupportToolGateway` accepts only authorized provider-scope/resource values:
+
+- `lookup_ticket(LookupTicketRequest(scope, resource)) -> TicketLookupResult`;
+- `create_ticket(CreateTicketRequest(scope, target, title, description,
+  logical_execution_id, request_fingerprint)) -> ProviderWriteOutcome`;
+- `get_execution_outcome(ProviderOutcomeRequest(scope, logical_execution_id)) ->
+  ProviderOutcomeObservation`.
+
+`ProviderWriteOutcome` is terminal `succeeded(provider_ticket_reference)` or
+`failed(provider_failure_code)`. `ProviderOutcomeObservation` is `found(outcome)`,
+`provider_outcome_not_found`, or `provider_observation_unavailable`. Closed provider errors are
+`provider_scope_denied`, `provider_resource_not_found`, `provider_idempotency_conflict`,
+`provider_request_rejected`, `provider_outcome_indeterminate` and `provider_contract_invalid`.
+Timeout/ack loss is indeterminate, never definitive failure.
+
+The SQLite reference provider owns `provider_idempotency` keyed uniquely by logical execution ID and
+containing request fingerprint plus immutable terminal outcome, and `provider_tickets` with a unique
+logical execution ID. `create_ticket` uses one `BEGIN IMMEDIATE` transaction: an existing same-key,
+same-fingerprint record replays its stored terminal outcome; a different fingerprint returns typed
+conflict; a new record atomically commits terminal outcome and ticket (or terminal rejection). The
+outcome is authoritative immediately after commit even if Knora never receives the acknowledgement.
+Recreating the gateway with the same SQLite path proves provider state survives a Knora restart and
+is independent of `ToolActionStore`.
+
+Deterministic test-only fault modes live in the adapter/harness, never request input:
+
+- `before_provider_receive`: no provider row is written, proving safe same-key retry after Knora
+  persisted `executing`;
+- `after_provider_commit_before_ack`: terminal provider rows commit, then the adapter returns typed
+  indeterminate, proving reconciliation without duplicate effect;
+- `definitive_failure`: a terminal failure outcome commits without a ticket;
+- `observation_unavailable`: observation is indeterminate and distinct from authoritative not-found.
+
+`get_execution_outcome` returning not-found means no ledger record currently exists; it does not
+change Knora lifecycle to failed. A later authorized retry must reuse the exact logical ID and
+fingerprint.
+
+## PostgreSQL action store
+
+#76 introduces `tool_proposals`, one unique `tool_proposal_decisions` row per decided proposal, and
+append-only `tool_action_audit_events`. Proposal material columns include every canonical intent and
+provenance field named above, with unique logical execution ID and state/revision constraints. A
+database immutability guard rejects updates to material columns. Decision CAS updates only lifecycle
+state/revision and inserts the decision plus next ordered audit event in one transaction. Audit rows
+have unique `(proposal_id, sequence)` and reject update/delete.
+
+The #76 `ToolActionStore` interface is `create_proposal`, `read_proposal`,
+`decide_proposal(expected_revision)` and `project_proposal`; it returns only typed applied,
+already-decided, conflict or not-found outcomes. #77 extends the same seam with execution
+acquire/observe/finalize operations and lease generation. #78 adds stale-lease takeover and provider-
+observation reconciliation. No provider state is stored in these tables and no provider adapter may
+write them directly.
 
 ## Application and verification seams
 

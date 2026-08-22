@@ -16,9 +16,11 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
 - The feature integration branch is `nhibuaa/m4-tools-human-approval`, pinned from `main` commit
   `6312c4c4230032aa92ca5915803fcfaf564354fa`.
 - #75 and #76 are the parallel frontier. #77 is blocked by both, #78 by #77, and #79 by #75–#78.
-- Child PRs #75–#79 target the integration branch and use merge commits. The final #74 PR targets
-  `main`. Child issues close only after accepted integration and local synchronization; #74 closes
-  only after the final merge, post-merge verification and local synchronization.
+- One child PR for each Issue #75–#79 targets the integration branch and uses a merge commit. Actual
+  PR numbers/URLs are recorded in the ticket ledger only after GitHub allocates them. The final
+  parent feature PR targets `main`. Child issues close only after accepted integration and local
+  synchronization; #74 closes only after the final merge, post-merge verification and local
+  synchronization.
 - M4 remote branches are deleted after verified merge. All M4 worktrees and local branches are
   removed only when clean and reachable from `main`. Unrelated worktrees and `stash@{0}` are
   preserved.
@@ -32,21 +34,36 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
 
 - `knora.tools` owns a static typed registry for `ticket_lookup` and `create_ticket`; there is no
   dynamic plugin framework.
+- `canonical-json-v1` and lowercase `sha256:` digests bind normalized intent. `create_ticket` accepts
+  only NFC-normalized `title` (1–200) and `description` (1–10,000), rejects leading/trailing
+  whitespace and NUL, and never trusts caller digests.
 - Application seams are `ReadTool.execute`, `WriteProposalWorkflow.handle`,
   `HumanApprovalAuthorizer`, `ExecutionAuthorizer`, `WorkspaceResourceAuthorizer`,
   `ToolActionStore` and `SupportToolGateway`.
 - Write commands are `ProposeWriteAction`, `ApproveProposal`, `RejectProposal`,
   `ExecuteApprovedProposal` and `ReconcileExecution`.
-- An opaque integrity-protected `ExternalResourceReference` binds Workspace, capability/version,
-  exact external-scope binding and key version. Proposal, approval and execution actors are derived
-  from trusted application context, never request-body claims.
+- `ExternalResourceReference` is the single `m4r1.<payload>.<HMAC-SHA256>` representation backed by
+  a trusted reference store. It carries no raw provider ID, verifies active/retiring key version,
+  MAC, expiry and exact claims before resource authorization, and rejects unknown/revoked keys.
+  Proposal, approval and execution actors are derived from trusted application context, never
+  request-body claims.
+- `CompatibilityCheckerV1` requires exact identity/version/digest equality for capability, binding
+  and every policy-provenance entry. It forbids `latest`; current execution-authority denial is a
+  temporary non-stale denial, while compatibility mismatch creates a stale/non-executable
+  projection.
 - PostgreSQL owns proposal, decision, execution lease/generation, observations and append-only audit.
   A Python standard-library SQLite reference provider owns independent external state and
   idempotency. In-memory fakes are unit-test adapters only.
+- `SupportToolGateway` exposes typed lookup/create/outcome-observation operations. The SQLite adapter
+  atomically binds logical execution ID to fingerprint and terminal outcome, replays same-key/same-
+  fingerprint outcomes, rejects conflicts, survives Knora restart and provides deterministic
+  before-receive, after-commit-before-ack, definitive-failure and observation-unavailable fault
+  seams.
 - HTTP surfaces are ticket lookup, proposal create/read, approve/reject, execute and reconcile under
-  `/v1/workspaces/{workspace_id}`. Authentication/authorization errors map to 401/403; invalid input
-  to 400/422; missing resources to 404; stale, expired and conflict outcomes to 409; definitive
-  provider failure to 502. Indeterminate and provider-not-found reconciliation remain non-terminal.
+  `/v1/workspaces/{workspace_id}`. Request schemas forbid actor/authority/digest/provider/logical-ID
+  overrides. Authentication/authorization errors map to 401/403; invalid input to 400/422; missing
+  resources to 404; stale, expired and conflict outcomes to 409; definitive provider failure to 502.
+  Indeterminate and provider-not-found reconciliation return 202 non-terminal projections.
 
 ## Governed execution sequence
 
@@ -97,7 +114,9 @@ are allowed per ticket.
   SQLite reference-provider lookup contract.
 - #76: static `create_ticket` descriptor; immutable proposal/caller/actor provenance; exact
   capability/binding/policy/target/parameter/logical-ID binding; human-only atomic approve/reject;
-  proposal persistence/audit and proposal HTTP surfaces; no provider write.
+  proposal persistence/audit and proposal HTTP surfaces; no provider write. It consumes only the
+  typed `CapabilityResolver.resolve_for_proposal` seam with a fake test adapter and must not import
+  #75's concrete registry/provider implementation.
 - Merge #75 first. Reconcile #76 with that integration head before its final acceptance and merge.
 - #77: approved execution; current execution authorization; exact compatibility checks; atomic
   lease and fencing; immutable logical idempotency and fingerprint; provider create; definitive
@@ -140,9 +159,10 @@ docker compose config --quiet
 ```
 
 Migration verification runs `alembic upgrade head` against a freshly recreated local Knora
-database. Completion additionally requires Issues #74–#79 closed, six merged PRs, `main ==
-origin/main`, a clean canonical checkout, no M4 worktrees or branches, final cadence `ready`, final
-review `APPROVE`, and green post-merge verification.
+database. Completion additionally requires Issues #74–#79 closed, the five recorded child PRs plus
+the recorded parent feature PR merged, `main == origin/main`, a clean canonical checkout, no M4
+worktrees or branches, final cadence `ready`, final review `APPROVE`, and green post-merge
+verification.
 
 ## Resume rule
 
