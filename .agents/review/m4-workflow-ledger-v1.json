@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "design_revision_2_pending_external_review",
-  "next_valid_transition": "external_re_review_exact_revision",
+  "current_state": "prepare_acceptance_frontier",
+  "next_valid_transition": "prepare_manual_guides_75_76",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -20,8 +20,8 @@
     "published": true
   },
   "ticket_graph": [
-    {"ticket": "#75", "blocked_by": [], "state": "ticket_external_review_approved_spec_design_pending", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
-    {"ticket": "#76", "blocked_by": [], "state": "ticket_external_review_approved_spec_design_pending", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
+    {"ticket": "#75", "blocked_by": [], "state": "ready_for_acceptance_guide", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
+    {"ticket": "#76", "blocked_by": [], "state": "ready_for_acceptance_guide", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
@@ -37,14 +37,15 @@
     "ticket_76_external_review_v1",
     "ticket_75_external_review_v2",
     "ticket_76_external_review_v2",
-    "spec_design_external_review_v2"
+    "spec_design_external_review_v2",
+    "spec_design_external_review_v3"
   ],
   "review_cadence": {
     "risk": "high",
     "required_external_reviews": 11,
     "plan_reference": ".agents/review/m4-review-cadence-plan-v1.json",
     "evidence_reference": null,
-    "status": "planned"
+    "status": "gates_in_progress"
   },
   "tickets": {
     "#75": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 1},
@@ -104,6 +105,14 @@
       "verdict": "REQUEST_CHANGES",
       "reference": ".agents/review/m4-spec-design-external-review-v2.json",
       "superseded_for_cadence": true
+    },
+    {
+      "surface": "spec_design",
+      "revision": 3,
+      "subject_commit": "01d329e1e9aa8c0f2f667ab9df318c62ba47d047",
+      "verdict": "APPROVE",
+      "reference": ".agents/review/m4-spec-design-external-review-v3.json",
+      "cadence_eligible": true
     }
   ],
   "publication": {
@@ -125,5 +134,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-22T12:04:03+07:00"
+  "last_updated_at": "2026-08-22T12:15:07+07:00"
 }
