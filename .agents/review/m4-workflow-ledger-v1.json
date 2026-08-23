@@ -131,7 +131,8 @@
     "ticket_77_contract_revision_v7_local_ready",
     "ticket_77_contract_revision_v7_published",
     "ticket_77_external_review_packet_v7_ready",
-    "ticket_77_external_review_v7_request_changes"
+    "ticket_77_external_review_v7_request_changes",
+    "workflow_suspended_at_issue_77_contract_v7_request_changes"
   ],
   "review_cadence": {
     "risk": "high",
@@ -443,11 +444,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v6-review-block-v1.json",
-    "digest": "sha256:9968f899144ffc8b426d3328d73c7e7cd5fdcd07ced280a88d93890f57c4764e",
-    "status": "consumed",
-    "current_state": "ticket_77_contract_revision_v6_external_review_request_changes",
-    "next_valid_transition": "obtain_human_direction_for_exceptional_ticket_77_contract_revision_7"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v7-review-block-v1.json",
+    "digest": "sha256:fa32a1b31b84c63225af0b8ec42b930630c47881e65d1178901b1a24d8bec643",
+    "status": "valid",
+    "current_state": "ticket_77_contract_revision_v7_external_review_request_changes",
+    "next_valid_transition": "obtain_human_direction_for_exceptional_ticket_77_contract_revision_8"
   },
   "blockers": [
     "Issue #77 is the open frontier with #75 and #76 accepted, integrated, closed and cleaned.",

@@ -508,3 +508,7 @@ transition.
 - No guide or implementation may begin. Exceptional ticket-contract revision 8 is not authorized.
   Deterministic next transition is repository-owner direction. Final M4 code review remains
   forbidden until #75–#79 complete.
+- Validated Resume Contract:
+  `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v7-review-block-v1.json`
+  with digest
+  `sha256:fa32a1b31b84c63225af0b8ec42b930630c47881e65d1178901b1a24d8bec643`.
