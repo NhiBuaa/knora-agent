@@ -1,0 +1,86 @@
+{
+  "projection_version": 1,
+  "round": 1,
+  "request_id": "review-request-sha256:b81da32fe6b2aead00a4214d7a9e68dccf5276b24e4c51171e5b50ba7ab3cd44",
+  "packet_digest": "sha256:e08d370648eb00fc29a4f5aa69586b03ab12a8ff36420f32d36fef45402980ef",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "issue_id": "github-issue-77",
+  "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+  "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+  "ticket_digest": "sha256:4124dd29385a1ff4469c89303e1b71bee8a75c13b0ac928d41841f1e4360ec9b",
+  "guide_revision": "m4-77-ticket-contract-v4",
+  "guide_digest": "sha256:4124dd29385a1ff4469c89303e1b71bee8a75c13b0ac928d41841f1e4360ec9b",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+  "acceptance_criteria": [
+    {"id": "M4-77-AC-01", "statement": "ExecuteApprovedProposal remains one deep application call. Pre-acquisition current Workspace/resource authorization, ExecutionAuthorizer, exact compatibility and m4r1 verification may fail fast but grant no dispatch authority. A denial creates no execution and makes zero provider calls."},
+    {"id": "M4-77-AC-02", "statement": "acquire_execution uses fresh PostgreSQL clock_timestamp after blocking locks and atomically creates the sole generation-1 owner, database-time lease, executing state, immutable authorized binding snapshot and audit. Concurrent losers make zero provider calls."},
+    {"id": "M4-77-AC-03", "statement": "One Workspace-scoped dispatch_authority_epoch serializes every supported mutable Workspace/resource/execution authorization, exact capability/binding/policy selector and reference-key change. Sources outside this protocol cannot authorize M4 dispatch."},
+    {"id": "M4-77-AC-04", "statement": "After acquisition, one private PostgreSQL authorize_and_issue_dispatch transaction locks execution then authority epoch, reloads and evaluates all current authority/reference/compatibility facts, samples fresh database time, verifies owner/generation/deadline, and atomically persists one opaque m4-dispatch-v2 permit plus audit. It accepts no caller assertions and has no mutable-authority gap."},
+    {"id": "M4-77-AC-05", "statement": "m4-dispatch-v2 binds exact Workspace, proposal, logical execution ID, stored fingerprint, capability/binding/policy/reference digests, authority epoch/witness, owner, generation, database times, purpose and signing key. It is integrity-protected, privately constructed, read-back-idempotent and the only create_ticket envelope."},
+    {"id": "M4-77-AC-06", "statement": "The SQLite reference provider verifies the permit and exact request, acquires BEGIN IMMEDIATE with zero mutation, then a private PostgreSQL receipt guard locks execution and authority epoch and samples fresh clock_timestamp after locks. It admits only the exact current permit/epoch/owner/generation/binding before deadline and retains those locks until the bounded SQLite effect plus idempotency outcome is durable."},
+    {"id": "M4-77-AC-07", "statement": "Provider admission is totally ordered with later revocation and Issue #78 takeover without provider/process wall clocks. Post-deadline receipt, fencing, epoch mismatch or guard loss creates zero SQLite rows. Admission before deadline may finish its already-admitted bounded commit once; provider state/idempotency remains SQLite-owned and independent from ToolActionStore."},
+    {"id": "M4-77-AC-08", "statement": "Observation/finalization require current generation-1 owner and fresh PostgreSQL-time lease. SQLite atomically commits ticket or one closed rejection with idempotency outcome; same fingerprint replays, different fingerprint conflicts, before-commit rolls back and after-commit acknowledgement loss remains one durable outcome."},
+    {"id": "M4-77-AC-09", "statement": "Only direct success and target_not_found, validation_rejected or policy_rejected finalize. Receipt-possible outcomes and proof-no-write rejection remain executing/202 with provider-first recovery required; fingerprint conflict remains executing/409 with no retry authority."},
+    {"id": "M4-77-AC-10", "statement": "Append-only audit reconstructs execution actor, both current decisions, exact compatibility, authority epoch/witness, database-time lease/permit, provider identity, immutable intent, observations and outcome without secrets or raw provider identifiers; M1-M3 regressions remain green."}
+  ],
+  "design_decisions": [
+    {"id": "M4-77-DD-01", "decision": "WriteProposalWorkflow.handle remains the only application-facing write workflow Interface. Dispatch authorization, authority epoch, permit and provider receipt admission are internal seams hidden by ExecuteApprovedProposal."},
+    {"id": "M4-77-DD-02", "decision": "Permit issuance is linearized with current authority and exact compatibility in one PostgreSQL transaction under one Workspace authority epoch. A revocation either commits first and denies issuance or commits after an exact witnessed permit."},
+    {"id": "M4-77-DD-03", "decision": "The deterministic reference provider uses a PostgreSQL receipt guard and fresh post-lock clock_timestamp while retaining the database fence through its short local SQLite commit. This is preferred over a bounded provider-clock assumption for M4 release evidence."},
+    {"id": "M4-77-DD-04", "decision": "Receipt admission before deadline is the provider-acceptance linearization point. Guard failure before SQLite durability rolls back with proof no write; a future arbitrary remote vendor needs a separately approved time/dispatch protocol."},
+    {"id": "M4-77-DD-05", "decision": "Issue #77 owns only generation-1 acquire, dispatch, receipt admission and fencing. Issue #78 owns provider-first reconciliation, takeover, generation 2+, retry authority and stale-owner recovery."}
+  ],
+  "invariants": [
+    "No provider dispatch without one current authority/compatibility decision atomically bound to one stored permit under the current Workspace authority epoch.",
+    "No SQLite ticket or idempotency mutation occurs before a fresh PostgreSQL receipt admission, and the PostgreSQL fence remains held through SQLite durability.",
+    "Application and provider wall clocks never decide lease or receipt validity; fresh PostgreSQL clock_timestamp after blocking locks is authoritative.",
+    "Logical execution identity and request fingerprint are server-derived, immutable and reused unchanged.",
+    "Provider effect and idempotency outcome commit atomically or both roll back; ToolActionStore never invents provider truth.",
+    "The capability registry remains static and typed; no plugin framework, model/system approval, generation-2 fixture or reconciliation workflow is introduced.",
+    "Raw provider IDs, routing handles, permit keys/MAC bytes and authority secrets never enter public or audit projections."
+  ],
+  "out_of_scope": [
+    "ReconcileExecution, stale-lease takeover, generation 2+, write-retry authorization and post-takeover stale-owner recovery, owned by Issue #78.",
+    "An arbitrary remote vendor protocol, distributed transaction or bounded provider-clock contract; SQLite plus PostgreSQL is the deterministic M4 release boundary.",
+    "Dynamic plugins, capability discovery or a general plugin framework.",
+    "Editing immutable proposals or reusing approval after material capability, binding or policy change.",
+    "Final Milestone 4 fixed-point code review, which remains forbidden until Issues #75-#79 complete."
+  ],
+  "acceptance_policy": {"authority": "human_required", "policy_revision": "m4-human-required-guide-review-v1", "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4", "required": true},
+  "test_cases": [
+    {"id": "M4-77-TC-01", "statement": "After AcquireApplied, independently change Workspace/resource/execution authority, capability/binding/policy selector and reference-key state before authorize_and_issue_dispatch.", "oracle": "The transaction observes each change, stores no permit, makes zero gateway calls and remains executing/202 with sanitized before_provider_receive.", "required": true},
+    {"id": "M4-77-TC-02", "statement": "Race an epoch-advancing revocation against permit issuance while dispatch authorization holds its canonical locks; also race concurrent same-generation issuers.", "oracle": "Revocation-first denies or issuance-first records the exact prior epoch. No permit is stale at issuance, and at most one canonical permit/audit exists for the generation.", "required": true},
+    {"id": "M4-77-TC-03", "statement": "Freeze/skew application and provider clocks, delay a valid permit past its PostgreSQL deadline, and block admission lock acquisition across expiry.", "oracle": "Fresh post-lock PostgreSQL time rejects before SQLite mutation; a transaction-start timestamp cannot revive expired authority and all non-PostgreSQL clock skew is irrelevant.", "required": true},
+    {"id": "M4-77-TC-04", "statement": "Pause at sqlite_writer_locked_before_postgres_admission and postgres_admitted_before_sqlite_commit while racing an epoch mutation or fenced generation change.", "oracle": "SQLite has zero mutation before admission. After admission, competing changes cannot commit until the terminal SQLite outcome is durable; no overlapping old-generation first write exists.", "required": true},
+    {"id": "M4-77-TC-05", "statement": "Lose the PostgreSQL guard session after admission but before SQLite durability; separately let a healthy admitted request cross its deadline before commit.", "oracle": "Guard loss rolls back ticket and ledger with proof no write. The already-admitted healthy request may commit exactly once and remains idempotent.", "required": true},
+    {"id": "M4-77-TC-06", "statement": "Forge, cross-bind, corrupt and replay m4-dispatch-v2, and attempt client logical-ID/fingerprint/authority fields.", "oracle": "Only the private server-derived exact envelope is accepted. Every invalid claim produces zero SQLite mutation and no secret/raw identifier exposure.", "required": true},
+    {"id": "M4-77-TC-07", "statement": "Race acquisition and run concurrent/repeated SQLite writes with before_atomic_commit and after_atomic_commit_before_ack faults.", "oracle": "One generation-1 acquisition and one logical external outcome exist; effect plus ledger both roll back or persist, same fingerprint replays and different fingerprint conflicts.", "required": true},
+    {"id": "M4-77-TC-08", "statement": "Exercise success, each closed failure, receipt-possible faults, proof-no-write admission rejection and fingerprint conflict through application and HTTP seams.", "oracle": "Only closed outcomes finalize; all non-terminal 202/409 lifecycle, audit and retry-prohibition mappings are exact.", "required": true},
+    {"id": "M4-77-TC-09", "statement": "Restart/reload PostgreSQL and SQLite independently after direct, indeterminate and conflict outcomes.", "oracle": "Lease, permit, epoch/audit and provider ledger reconstruct independently; provider truth survives Knora restart without raw provider IDs or key material.", "required": true},
+    {"id": "M4-77-TC-10", "statement": "Run focused M4.3, full pytest, Ruff, Compose and clean Alembic verification.", "oracle": "All exact-candidate checks and M1-M3 regressions are green on the subject SHA.", "required": true}
+  ],
+  "command_projections": [
+    {"id": "M4-77-CMD-01", "statement": "Clean PostgreSQL recreation and Alembic upgrade with pinned runtime.", "kind": "migration"},
+    {"id": "M4-77-CMD-02", "statement": "Focused #77 and full repository pytest with worktree-pinned PYTHONPATH.", "kind": "verification"},
+    {"id": "M4-77-CMD-03", "statement": "Ruff and Docker Compose configuration verification.", "kind": "verification"}
+  ],
+  "required_evidence": [
+    {"id": "M4-77-EV-01", "statement": "Authority-epoch mutation/issuance traces, exact permit witness/digest and zero-call denial counts.", "required": true},
+    {"id": "M4-77-EV-02", "statement": "PostgreSQL post-lock time, acquisition/permit/admission lock ordering, delayed receipt, guard loss and zero-SQLite-mutation evidence under clock skew.", "required": true},
+    {"id": "M4-77-EV-03", "statement": "Atomic SQLite ticket/rejection plus idempotency rows, fault injection, replay/conflict and independent restart evidence.", "required": true},
+    {"id": "M4-77-EV-04", "statement": "Sanitized terminal, indeterminate, pre-receive, admission-rejection and fingerprint-conflict application/HTTP matrix.", "required": true},
+    {"id": "M4-77-EV-05", "statement": "Exact subject SHA, focused/full totals, Ruff/Compose exits, clean Alembic head and clean status.", "required": true}
+  ],
+  "prior_findings": [
+    {"category": "security", "issue_class": "post_acquisition_authority_toctou", "criterion_ref": "M4-77-AC-01", "affected_case_ids": ["M4-77-TC-01"], "affected_fields": ["authorization", "provider_invocation"], "problem": "No post-acquisition authority barrier.", "required_change": "Add a second current check and denial behavior.", "status": "ADDRESSED_IN_V2"},
+    {"category": "security", "issue_class": "provider_effect_ledger_atomicity", "criterion_ref": "M4-77-AC-08", "affected_case_ids": ["M4-77-TC-07"], "affected_fields": ["sqlite_effect", "idempotency"], "problem": "Effect/ledger atomicity omitted.", "required_change": "Use one atomic transaction and commit fault tests.", "status": "ADDRESSED_IN_V2"},
+    {"category": "oracle", "issue_class": "idempotency_conflict_lifecycle", "criterion_ref": "M4-77-AC-09", "affected_case_ids": ["M4-77-TC-08"], "affected_fields": ["lifecycle", "http", "retry"], "problem": "Conflict lifecycle ambiguous.", "required_change": "Define executing/409/no-retry semantics.", "status": "ADDRESSED_IN_V2"},
+    {"category": "scope", "issue_class": "stale_generation_seam_scope", "criterion_ref": "M4-77-AC-07", "affected_case_ids": ["M4-77-TC-04"], "affected_fields": ["generation", "issue_78"], "problem": "Generation-2 proof leaked into #77.", "required_change": "Limit #77 implementation to generation 1.", "status": "ADDRESSED_IN_V2"},
+    {"category": "security", "issue_class": "provider_dispatch_generation_fence", "criterion_ref": "M4-77-AC-05", "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-06"], "affected_fields": ["owner", "generation", "deadline", "dispatch_permit"], "problem": "Provider dispatch was not owner/generation/deadline fenced.", "required_change": "Add database-authorized permit and provider validation.", "status": "ADDRESSED_IN_V3"},
+    {"category": "oracle", "issue_class": "postgres_transaction_time_unproven", "criterion_ref": "M4-77-AC-02", "affected_case_ids": ["M4-77-TC-03"], "affected_fields": ["database_time", "lease_deadline", "expiry"], "problem": "Database-time authority lacked a deterministic oracle.", "required_change": "Skew application time and prove database-time decisions.", "status": "ADDRESSED_IN_V3"},
+    {"category": "security", "issue_class": "authority_permit_linearization_gap", "criterion_ref": "M4-77-AC-04", "affected_case_ids": ["M4-77-TC-01", "M4-77-TC-02"], "affected_fields": ["current_authority", "compatibility", "permit_issuance"], "problem": "The last authority check and permit issuance had a mutable change window.", "required_change": "Linearize all current decisions with permit issuance and test revocation at that barrier.", "status": "ADDRESSED_IN_V4"},
+    {"category": "security", "issue_class": "provider_deadline_time_authority_gap", "criterion_ref": "M4-77-AC-06", "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-04", "M4-77-TC-05"], "affected_fields": ["provider_receipt", "postgres_deadline", "sqlite_write"], "problem": "Provider deadline validation lacked authoritative time ordering under provider clock skew.", "required_change": "Anchor receipt to fresh PostgreSQL post-lock time and prove post-deadline delivery creates zero SQLite writes.", "status": "ADDRESSED_IN_V4"}
+  ]
+}

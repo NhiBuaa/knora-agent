@@ -323,3 +323,25 @@ transition.
 - Deterministic next transition: externally review the exact Issue #77 contract, then use
   `manual-acceptance -> test-craft` to prepare and externally review its guide. Obtain explicit
   human guide approval before any #77 implementation. Final M4 code review remains forbidden.
+
+### Resume checkpoint — 2026-08-23, Issue #77 exceptional contract revision 4
+
+- External ticket reviews v1-v3 returned `REQUEST_CHANGES`. The repository owner explicitly
+  authorized exceptional contract revision 4 to close the remaining authority-to-permit
+  linearization and provider-deadline time-authority findings.
+- Revision 4 is `.agents/review/m4-issue-77-revision-v6.md`, published verbatim to Issue #77 and
+  committed at `3db5edac91809fb6a6ac803a54b53a66e837dadd`. Its digest is
+  `sha256:4124dd29385a1ff4469c89303e1b71bee8a75c13b0ac928d41841f1e4360ec9b`.
+- `codebase-design` Design It Twice selected one deep `ExecuteApprovedProposal` Module with a
+  Workspace-scoped PostgreSQL authority epoch and a PostgreSQL receipt guard held through the short
+  deterministic SQLite commit. This preserves the existing application Interface and #78 ownership
+  of takeover/reconciliation.
+- Canonical external-review packet v4 is
+  `.agents/review/m4-issue-77-ticket-review-packet-v4.json`, with packet digest
+  `sha256:e08d370648eb00fc29a4f5aa69586b03ab12a8ff36420f32d36fef45402980ef`
+  and request ID
+  `review-request-sha256:b81da32fe6b2aead00a4214d7a9e68dccf5276b24e4c51171e5b50ba7ab3cd44`.
+- Deterministic next transition: send this exact packet through a fresh independent ChatGPT High
+  external-review session. Require `APPROVE` with zero Critical and Major findings before invoking
+  `manual-acceptance -> test-craft` to prepare the Issue #77 guide. Do not implement and do not run
+  the final M4 code review.
