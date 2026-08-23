@@ -95,11 +95,21 @@ class CapabilityRegistry:
         "resource_kind": "ticket",
         "version": "m4.1",
     }
+    _create_ticket_projection = {
+        "capability_id": "create_ticket",
+        "operation": "write",
+        "resource_kind": "ticket",
+        "version": "m4.2",
+    }
     _descriptors: Mapping[str, CapabilityDescriptor] = {
         "ticket_lookup": CapabilityDescriptor(
             **_ticket_lookup_projection,
             digest=_digest(_ticket_lookup_projection),
-        )
+        ),
+        "create_ticket": CapabilityDescriptor(
+            **_create_ticket_projection,
+            digest=_digest(_create_ticket_projection),
+        ),
     }
 
     @classmethod

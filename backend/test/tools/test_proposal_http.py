@@ -1,3 +1,6 @@
+import base64
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -7,8 +10,16 @@ from knora.main import create_app
 from knora.tools import (
     ActorContext,
     AuthorityProvenance,
+    AuthorizedReferenceMintingResource,
+    CapabilityRegistry,
+    ExternalResourceReferenceMinter,
+    ExternalScopeBinding,
+    InMemoryReferenceStore,
     InMemoryToolActionStore,
     PolicyProvenance,
+    ReferenceKey,
+    ReferenceKeyRing,
+    ReferenceVerifier,
     ResolvedCapabilityContext,
     VerifiedProposalTarget,
     WriteProposalWorkflow,
@@ -232,6 +243,67 @@ def test_default_application_does_not_install_a_global_human_or_proposal_route()
     assert response.status_code == 404
 
 
+def test_application_composes_proposals_with_static_registry_and_real_m4r1_verifier() -> None:
+    now = datetime(2026, 8, 23, 8, 0, tzinfo=UTC)
+    binding = ExternalScopeBinding.for_workspace(
+        "workspace-a",
+        binding_id="support-binding",
+        external_scope="support-scope-a",
+    )
+    descriptor = CapabilityRegistry.static().resolve("create_ticket")
+    ring = ReferenceKeyRing((ReferenceKey("k1", b"test-only-reference-secret"),))
+    minted = ExternalResourceReferenceMinter(
+        ring,
+        clock=lambda: now,
+        reference_id_factory=lambda: (
+            base64.urlsafe_b64encode(bytes([9]) * 32).decode("ascii").rstrip("=")
+        ),
+    ).mint(
+        AuthorizedReferenceMintingResource(
+            workspace_id="workspace-a",
+            capability_id=descriptor.capability_id,
+            capability_version=descriptor.version,
+            binding_id=binding.binding_id,
+            binding_version=binding.version,
+            binding_digest=binding.digest,
+            resource_kind=descriptor.resource_kind,
+            resource_identity_digest="sha256:" + "1" * 64,
+            resource_claims_digest="sha256:" + "2" * 64,
+            provider_routing_handle="routing-create-target",
+        ),
+        expires_at=datetime(2026, 8, 23, 9, 0, tzinfo=UTC),
+    )
+    authenticator = ApiKeyAuthenticator(
+        (
+            ApiCredential(
+                key_id="proposal-a",
+                key_hash=hash_api_key("proposal-key"),
+                workspace_id="workspace-a",
+                enabled=True,
+            ),
+        )
+    )
+    application = create_app(
+        api_key_authenticator=authenticator,
+        tool_actor_context_provider=HttpActorContextProvider("model"),
+        tool_scope_bindings={"workspace-a": binding},
+        tool_reference_verifier=ReferenceVerifier(
+            InMemoryReferenceStore((minted.record,)), ring, clock=lambda: now
+        ),
+        tool_action_store=InMemoryToolActionStore(),
+    )
+
+    response = TestClient(application).post(
+        "/v1/workspaces/workspace-a/tool-proposals",
+        headers={"X-API-Key": "proposal-key"},
+        json={**proposal_payload(), "target_reference": str(minted.reference)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["capability_digest"] == descriptor.digest
+    assert response.json()["target_reference_id"] == minted.record.reference_id
+
+
 def test_proposal_authentication_and_workspace_authorization_precede_malformed_json() -> None:
     client = client_with()
 
@@ -371,6 +443,47 @@ def test_proposal_http_only_authorized_humans_can_decide(
     )
 
     assert (response.status_code, response.json()) == (
+        403,
+        {"error": {"code": "TOOL_APPROVAL_FORBIDDEN"}},
+    )
+
+
+@pytest.mark.parametrize("route", ["approve", "reject"])
+@pytest.mark.parametrize(
+    ("actor_kind", "can_approve"),
+    [("model", False), ("system", False), ("human", False)],
+)
+def test_unauthorized_decision_actor_cannot_enumerate_proposal_ids(
+    route: str, actor_kind: str, can_approve: bool
+) -> None:
+    client = client_with(actor_kind=actor_kind, can_approve=can_approve)
+    created = client.post(
+        "/v1/workspaces/workspace-a/tool-proposals",
+        headers={"X-API-Key": "proposal-key"},
+        json=proposal_payload(),
+    )
+    body = (
+        {"expected_revision": 0}
+        if route == "approve"
+        else {"expected_revision": 0, "reason_code": "not_approved"}
+    )
+
+    existing = client.post(
+        f"/v1/workspaces/workspace-a/tool-proposals/{created.json()['proposal_id']}/{route}",
+        headers={"X-API-Key": "proposal-key"},
+        json=body,
+    )
+    absent = client.post(
+        f"/v1/workspaces/workspace-a/tool-proposals/absent/{route}",
+        headers={"X-API-Key": "proposal-key"},
+        json=body,
+    )
+
+    assert (existing.status_code, existing.json()) == (
+        403,
+        {"error": {"code": "TOOL_APPROVAL_FORBIDDEN"}},
+    )
+    assert (absent.status_code, absent.json()) == (
         403,
         {"error": {"code": "TOOL_APPROVAL_FORBIDDEN"}},
     )

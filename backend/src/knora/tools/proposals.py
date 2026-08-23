@@ -39,14 +39,12 @@ from knora.tools.proposal_types import (
 
 
 class HumanApprovalAuthorizer:
-    def authorize(self, actor_context: ActorContext, proposal: _StoredProposal) -> ApprovalActor:
+    def authorize_current(self, actor_context: ActorContext) -> ApprovalActor:
+        """Validate proposal-independent human authority before resource lookup."""
         if (
-            actor_context.actor_kind != "human"
+            actor_context is None
+            or actor_context.actor_kind != "human"
             or actor_context.approval_authority is None
-            or (
-                bool(proposal.policy_snapshot.get("separation_of_duties"))
-                and actor_context.actor_id == proposal.proposal_actor_id
-            )
         ):
             raise KnoraError("TOOL_APPROVAL_FORBIDDEN")
         return ApprovalActor(
@@ -54,6 +52,19 @@ class HumanApprovalAuthorizer:
             actor_context.actor_kind,
             actor_context.approval_authority,
         )
+
+    def authorize_proposal(self, approver: ApprovalActor, proposal: _StoredProposal) -> None:
+        """Apply proposal-bound policy only after current authority is established."""
+        if (
+            bool(proposal.policy_snapshot.get("separation_of_duties"))
+            and approver.actor_id == proposal.proposal_actor_id
+        ):
+            raise KnoraError("TOOL_APPROVAL_FORBIDDEN")
+
+    def authorize(self, actor_context: ActorContext, proposal: _StoredProposal) -> ApprovalActor:
+        approver = self.authorize_current(actor_context)
+        self.authorize_proposal(approver, proposal)
+        return approver
 
 
 class ExecutionAuthorizer(Protocol):
@@ -237,10 +248,11 @@ class WriteProposalWorkflow:
         decision: ProposalDecision,
         reason: str | None,
     ) -> ProposalApproved | ProposalRejected | AlreadyDecided:
+        approver = self._approval_authorizer.authorize_current(actor)
         proposal = self._store.read_proposal(principal.workspace_id, command.proposal_id)
         if proposal is None:
             raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
-        approver = self._approval_authorizer.authorize(actor, proposal)
+        self._approval_authorizer.authorize_proposal(approver, proposal)
         result = self._store.decide_proposal(
             principal.workspace_id,
             command.proposal_id,
