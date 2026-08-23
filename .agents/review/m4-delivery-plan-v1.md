@@ -444,3 +444,25 @@ transition.
   High session under the recorded M4 transport authorization. Require external `APPROVE` with zero
   findings before `manual-acceptance -> test-craft`. Do not create a guide, implement #77 or run the
   final M4 code review before that gate.
+
+### Resume checkpoint — 2026-08-23, Issue #77 contract v6 request changes
+
+- External review v6 ran automatically under the recorded M4 transport authorization in fresh
+  independent ChatGPT High session `6a8aabea-c860-83ec-bec2-e6c7c3324be1` against exact subject
+  `9247621531a01742523f55942a04b329b1f928fe`, packet digest
+  `sha256:fc292332c86d0ea2426a0ada78afb990584a63643be5c96c9ab657a45b503ded`
+  and request ID
+  `review-request-sha256:1dfb0672037e10b08f8cbe40f08cd852f5c432fa797365f9fc8b7fe373fade8b`.
+- The contract-valid response digest is
+  `sha256:4b276bd674f80c70302bcb21314e487292316cf1ccabfdaad4eb0730e9dfbb6a`.
+  Verdict is `REQUEST_CHANGES` with zero Critical, three Major and zero Minor findings.
+- The three remaining gaps are direct oracles/evidence, not application-abstraction changes:
+  deterministic readback after ambiguous admission commit/ack; complete state fencing for delayed
+  success and each closed failure after lease expiry; and atomic durable SQLite evidence for
+  `target_not_found`, `validation_rejected` and `policy_rejected`, each retaining exact logical
+  identity/fingerprint across provider restart with no target effect.
+- No guide or implementation may begin. Exceptional ticket-contract revision 7 is not authorized.
+  Deterministic next transition is repository-owner direction on revision 7. If authorized, change
+  only these three oracle/evidence clauses, publish Issue #77 verbatim, prepare and automatically
+  send canonical packet v7, and require external `APPROVE` with zero findings before guide work.
+  Final M4 code review remains forbidden until #75–#79 complete.
