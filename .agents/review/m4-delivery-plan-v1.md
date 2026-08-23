@@ -276,3 +276,25 @@ final M4 code review and cadence gate, then publish/merge #74 to `main`, post-me
 At every context boundary, `session-continuity` writes a validated Resume Contract containing this
 plan/ledger, exact branch heads, guide/Evaluation identities, blockers and one deterministic next
 transition.
+
+### Resume checkpoint — 2026-08-23, Issue #76 acceptance pending
+
+- Issue #76 exceptional remediation cycle 3 completed by TDD. Production/test implementation is
+  commit `3698689e330cbb2b60d48b5a036fe912c44b0532`; immutable implementation evidence is
+  `.agents/review/m4-issue-76-remediation-result-v3.json` on candidate commit
+  `56cd3be0f291cd40b46f3cbd9dbc43173094d5b7`.
+- Locked guide `m4-76-write-proposal-v5` retained digest
+  `sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee`.
+- Exact run `m4-76-write-proposal-v5-20260823-01` on subject
+  `56cd3be0f291cd40b46f3cbd9dbc43173094d5b7` passed TC-01–TC-08 technically: focused
+  `134 passed`; full `851 passed, 3 skipped`; Ruff, Compose, diff check and clean Alembic head
+  `20260822_0037` passed; installed provider-write sentinels reported zero writes.
+- Candidate Evaluation is append-only at
+  `.agents/manual-tests/milestone-4/76-write-proposal-v5.evaluations.jsonl` in PR #81 head
+  `7a832aaee611cbd8c8834f33d1fcae4852d0bd65`. Its technical result is PASSED and governed verdict
+  remains BLOCKED only because `human_approval` is pending.
+- Deterministic next transition: receive explicit repository-owner approval for that exact run and
+  subject SHA; append the approved PASSED record, commit/push it, then reconcile PR #81 with the
+  current integration head. Do not run child/per-Issue code review.
+- After approval: integration-verify, merge PR #81 with a merge commit, synchronize integration,
+  close #76, clean its worktree/branch, then begin #77 using the persisted lifecycle above.
