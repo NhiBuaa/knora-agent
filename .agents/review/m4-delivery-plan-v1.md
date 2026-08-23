@@ -470,3 +470,17 @@ transition.
   `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v6-review-block-v1.json`
   with digest
   `sha256:9968f899144ffc8b426d3328d73c7e7cd5fdcd07ced280a88d93890f57c4764e`.
+
+### Resume checkpoint — 2026-08-23, Issue #77 exceptional contract revision 7
+
+- The repository owner authorized exceptional ticket-contract revision 7 to close all three Major
+  findings from external review v6 and retained automatic external-review packet transmission.
+- The revision preserves the sole deep `WriteProposalWorkflow.handle` Interface and all Issue #77/
+  #78 ownership. It adds only deterministic oracle/evidence detail: two-branch admission commit/ack
+  readback, complete post-expiry zero-write observation/finalization snapshots, and separate atomic/
+  restart evidence for `target_not_found`, `validation_rejected` and `policy_rejected`.
+- Local contract digest is
+  `sha256:f0c5cf68b4cfec0889d7c5127817293c12bb61b0f53781dcf8ef4d7b219ee922`.
+  Next transition is verbatim publication to Issue #77, then canonical packet v7 generation and
+  automatic independent review. No guide, implementation or final M4 code review may begin before
+  external `APPROVE` with zero findings.

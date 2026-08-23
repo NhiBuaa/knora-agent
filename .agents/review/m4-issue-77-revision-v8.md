@@ -74,8 +74,14 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   the raw routing snapshot/provider ID and envelope bytes never enter audit or public projection.
   A store-level read-after-commit oracle compares every field to the exact acquisition/proposal/
   authorization inputs as one atomic record and repeats after restart. Uniqueness is per logical
-  execution regardless of generation; ambiguous commit reads back byte-identical evidence and never
-  mints a second claim set.
+  execution regardless of generation. A deterministic commit/ack-ambiguity fixture captures the
+  exact intended complete tuple and envelope bytes before the injected acknowledgement loss, then
+  performs authoritative readback by logical execution ID. If PostgreSQL committed, readback must
+  return the one complete tuple byte-for-byte equal to that intended witness and the Module must use
+  those persisted bytes without a second insert, claim set, signing operation or envelope
+  regeneration. If PostgreSQL rolled back, the complete admission tuple and linked audit must both
+  be absent; #77 makes no gateway call and exposes the existing no-admission indeterminate/recovery
+  seed without retrying or inventing commit state.
 - [ ] The opaque, domain-separated `m4-dispatch-admission-v1` envelope is persisted byte-for-byte in
   the private admission row, with retained versioned verification material for its full non-terminal
   retention. It is the only value accepted by `SupportToolGateway.create_ticket`. Immediately after
@@ -87,9 +93,14 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   admission transaction.
 - [ ] The reference-provider Adapter verifies envelope integrity and exact request equality before
   SQLite mutation, then atomically commits one externally visible ticket or one closed rejection
-  with its logical-ID/fingerprint/outcome ledger in one `BEGIN IMMEDIATE` transaction. Same ID/same
-  fingerprint replays; faults before commit roll back effect and ledger; faults after commit before
-  acknowledgement leave one replayable outcome. A private, non-runtime
+  with its logical-ID/fingerprint/outcome ledger in one `BEGIN IMMEDIATE` transaction. The provider
+  contract harness independently parameterizes `target_not_found`, `validation_rejected` and
+  `policy_rejected`: each commits exactly one closed ledger outcome containing the exact logical
+  execution ID, request fingerprint, admission digest and rejection class, creates zero ticket/
+  target effects, and reloads the identical outcome after closing and reopening the provider.
+  Same ID/same fingerprint replays that exact durable rejection; faults before commit leave neither
+  ledger row nor effect, while faults after commit before acknowledgement leave one replayable
+  outcome. A private, non-runtime
   `ReferenceProviderContractHarness` configures a test-only trusted signing Adapter to produce two
   independently valid, integrity-protected envelopes with the same logical ID and different exact
   fingerprints/intents. The first commits one effect; the second reaches the provider-owned ledger
@@ -105,16 +116,21 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   harness lookup after durable admission but before provider receipt returns typed
   `provider_outcome_not_found`; a store-level oracle proves the admission remains outstanding and
   non-terminal. This direct Adapter check is not a `ReconcileExecution` application flow and grants
-  no retry. It differs from a direct, closed provider `target_not_found` rejection, which is a
-  terminal business outcome. #77 performs no recovery retry or takeover.
+  no retry. It differs from each direct closed provider rejection — `target_not_found`,
+  `validation_rejected` or `policy_rejected` — which is a terminal business outcome with its own
+  authoritative SQLite ledger row. #77 performs no recovery retry or takeover.
 - [ ] `record_execution_observation` and `finalize_execution` lock the execution row, sample fresh
   post-lock PostgreSQL time and require current owner/generation plus unexpired generation-1 lease.
-  Parameterized success/closed-failure tests blocked across expiry return `ExecutionFenced`; expired
-  observation appends no observation/audit and expired finalization makes no terminal rewrite.
-  Provider truth remains independently observable. Only direct success finalizes `succeeded`; only
-  `target_not_found`, `validation_rejected` or `policy_rejected` finalize `failed`. Receipt-possible
-  outcomes remain executing/202; provider fingerprint conflict remains executing/409 with no retry
-  authority.
+  For delayed success and each of `target_not_found`, `validation_rejected` and `policy_rejected`,
+  deterministic fixtures begin with the closed outcome committed only in SQLite, no PostgreSQL
+  observation, and lifecycle `executing`. After the lease boundary, each observation and
+  finalization attempt locks the row and must reject from a fresh post-lock PostgreSQL-time sample.
+  A before/after PostgreSQL snapshot must remain field-for-field equal: no observation record, no
+  observation/audit append, and no terminal lifecycle or outcome rewrite. The authoritative SQLite
+  outcome remains readable after provider restart. Only the same operations before expiry may
+  record/finalize: direct success becomes `succeeded`; only the three named closed rejections become
+  `failed`. Receipt-possible outcomes remain executing/202; provider fingerprint conflict remains
+  executing/409 with no retry authority.
 - [ ] A canonical audit projection reconstructed solely from append-only PostgreSQL records after
   restart exactly matches caller/proposal/approval/execution actors, both current authorization
   decisions, exact compatibility, complete acquisition and admission witnesses, authority epochs,
@@ -142,9 +158,14 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   exact prior vector; one byte-identical admission/audit exists. Separately block acquisition across
   proposal expiry and admission across reference/lease expiry under skewed non-database clocks;
   post-lock `clock_timestamp()` decides each boundary.
-- `M4-77-TC-05 — complete admission witness`: read the committed admission row and canonical audit,
-  compare every required admission field to proposal/acquisition/authority inputs, restart PostgreSQL, rotate the
-  active issuance key and reload the exact persisted envelope bytes without a second admission.
+- `M4-77-TC-05 — complete admission witness and ambiguous-commit readback`: read the committed
+  admission row and canonical audit, compare every required admission field to proposal/
+  acquisition/authority inputs, restart PostgreSQL, rotate the active issuance key and reload the
+  exact persisted envelope bytes without a second admission. At the PostgreSQL commit/ack fault
+  seam, capture the intended complete tuple/bytes and force both committed-but-unacknowledged and
+  rolled-back outcomes. Authoritative readback must return exactly the intended committed tuple and
+  reuse its bytes with no second insert/sign/regeneration, or return complete absence with no audit,
+  gateway call or #77 retry; no partial or third state is valid.
 - `M4-77-TC-06 — admission-first non-cancellation`: pause after admission commit; independently
   mutate/revoke every authority/selector/key class and cross proposal/reference/lease expiry. Resume
   and prove exactly one call carries the original byte-identical envelope/intent without
@@ -153,21 +174,31 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   same-ID/same-fingerprint replay and two valid same-ID/different-fingerprint envelopes. Prove one
   atomic effect/outcome, replay for equal fingerprint and ledger conflict for the second valid
   fingerprint after both pass integrity and self-fingerprint recomputation. Separately
-  tamper/cross-bind an envelope and prove pre-SQLite integrity rejection.
+  tamper/cross-bind an envelope and prove pre-SQLite integrity rejection. Parameterize all three
+  closed rejections: each one transaction persists exactly one ledger outcome with the exact
+  logical ID/fingerprint/admission digest, creates zero target/ticket effects, survives provider
+  restart byte-for-byte and replays identically; every injected pre-commit fault leaves neither row
+  nor effect.
 - `M4-77-TC-08 — crash and provider-not-found semantics`: fault after admission before gateway,
   before SQLite commit and after SQLite commit before acknowledgement. Admission survives; provider
   has zero or one outcome. Direct provider outcome lookup in the no-receipt window returns
   `provider_outcome_not_found`, while Knora retains an outstanding non-terminal admission. Direct
-  `target_not_found` remains a distinct closed failure.
+  `target_not_found`, `validation_rejected` and `policy_rejected` are three distinct closed,
+  provider-ledgered failures and each remains distinguishable after provider restart.
 - `M4-77-TC-09 — strict #77/#78 scope`: after restart, reload both `executing + no admission` and
   `executing + admission outstanding` as the two exact `ExecutionRecoverySeed` variants. A second
   Execute returns the current `ExecutionInProgress`; #77 performs no provider observation,
   admission creation/replacement, dispatch/replay, retry authorization, takeover or generation
   increment in either branch.
-- `M4-77-TC-10 — generation-1 observation/finalization and result matrix`: delay each direct closed
-  outcome across lease expiry and prove observation/finalization fencing; cover success, every
-  closed failure, receipt-possible response, proof-no-receipt pre-admission denial and provider
-  conflict through application/HTTP result mapping.
+- `M4-77-TC-10 — generation-1 observation/finalization and result matrix`: separately delay success,
+  `target_not_found`, `validation_rejected` and `policy_rejected` after the SQLite commit but before
+  any PostgreSQL observation. Cross lease expiry, then invoke observation and finalization under
+  deterministic lock barriers. Each must use fresh post-lock PostgreSQL time, return
+  `ExecutionFenced`, and leave before/after PostgreSQL state identical: no observation row, no
+  observation/audit append and no terminal lifecycle/outcome rewrite. Read the still-authoritative
+  outcome from SQLite after provider restart. Also cover the corresponding before-expiry terminal
+  mappings, receipt-possible response, proof-no-receipt pre-admission denial and provider conflict
+  through application/HTTP result mapping.
 - `M4-77-TC-11 — audit/restart`: restart PostgreSQL and SQLite independently; compare the full
   canonical audit projection field-for-field with proposal/acquisition/admission/provider evidence,
   prove provider ledger independence and assert every excluded raw/secret field is absent.
@@ -176,9 +207,17 @@ capability registry remains static and typed. This ticket adds no plugin framewo
 
 Durable release evidence includes contender-correlated call counts, exact acquisition/admission row
 witnesses, real mutation-adapter ordering traces, PostgreSQL post-lock time samples, byte-identical
-envelope digest, atomic SQLite effect/ledger rows, provider contract-harness conflict evidence,
-provider-not-found versus target-not-found projections, complete audit reconstruction and the exact
+envelope digest, both branches of the admission commit/ack ambiguity fixture, atomic SQLite effect/
+ledger rows, provider contract-harness conflict evidence, separate restart-stable evidence for all
+three closed rejection classes, provider-not-found versus closed-rejection projections, complete
+expiry-fenced before/after PostgreSQL snapshots, complete audit reconstruction and the exact
 candidate verification totals.
+
+`M4-77-EV-04` is the required provider-owned release-evidence set and binds separate named records
+for `target_not_found`, `validation_rejected` and `policy_rejected`. Each record contains the exact
+logical execution ID/fingerprint/admission digest, the single closed SQLite ledger outcome, zero
+ticket/target-effect count, pre-commit rollback observation, equal-fingerprint replay and the same
+authoritative outcome after a provider restart.
 
 ## Downstream dependency contract for Issue #78
 
@@ -227,13 +266,14 @@ fencing remain wholly owned and accepted by Issue #78.
 
 ## Revision provenance
 
-- Supersedes `.agents/review/m4-issue-77-revision-v7.md` for Issue #77 delivery and is exceptional
-  ticket-contract revision 6 authorized by the repository owner on 2026-08-23.
-- Closes all eight external-review-v5 Major finding classes with direct, reachable oracles while
-  preserving the deep application Interface: atomic acquisition tuple/loser zero calls; complete
-  post-acquisition `m4r1` recheck; exact admission witness; admission-first non-cancellation;
-  provider-owned valid fingerprint conflict; #77/#78 scope separation; provider-ledger not-found
-  non-terminality; and read/observation-to-write non-escalation.
+- Supersedes the same artifact at commit `20f3a3d070529f2fe44add794d3341059a377394`
+  for Issue #77 delivery and is exceptional ticket-contract revision 7 authorized by the repository
+  owner on 2026-08-23.
+- Preserves all eight external-review-v5 corrections and closes all three external-review-v6 Major
+  finding classes with direct oracles: exact two-branch admission commit/ack readback with no second
+  admission or regenerated envelope; complete post-expiry zero-write observation/finalization state
+  for success and every closed failure; and independent atomic/restart evidence for
+  `target_not_found`, `validation_rejected` and `policy_rejected`.
 - Preserves the durable-admission semantics that closed the v4 Critical. #77 remains generation 1
   only, with no reconciliation/takeover implementation or plugin framework.
 - The next canonical external ticket review is automatically sent under the recorded M4 transport
