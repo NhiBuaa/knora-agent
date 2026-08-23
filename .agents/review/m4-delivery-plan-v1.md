@@ -679,3 +679,36 @@ transition.
   review may run. The deterministic next transition is `manual-acceptance -> test-craft` to prepare
   immutable guide/test-case/packet v5, then obtain action-time confirmation for one fresh external
   ChatGPT High review.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v5 review-send gate
+
+- Guide v5 changes only TC-03/TC-10 and their evidence projections. TC-10 now runs observation and
+  finalization as distinct generation-1 operations that start before the lease deadline, block on
+  the governing PostgreSQL row lock, cross expiry under skewed non-database clocks and capture the
+  operation's deciding post-lock `clock_timestamp()`. Same-path before-expiry controls prove the
+  operation is not spuriously fenced.
+- Every post-acquisition denial now binds `proposal_id` and `logical_execution_id` to canonical
+  lowercase RFC 4122 UUIDs obtained from independent seed authority and direct durable reload before
+  application/HTTP invocation. The expected values cannot come from the returned projection or a
+  production mapper, and neither identity is added to the closed HTTP error body.
+- Exact review subject is `3bff38a6813f620daf97ec009cf35d65b1ecdc8c`. Guide v5 is
+  `.agents/manual-tests/milestone-4/77-authorized-execution-v5.md` with digest
+  `sha256:69059cf83119a407d34d74d3b1e5249ba5a95672ce53c78946f1d92d5fcd605c`.
+  Canonical packet is `.agents/review/m4-issue-77-guide-review-packet-v5.json`, digest
+  `sha256:3bd8ef211bd57998986cb99563d41b29d231c6ddda128da17f287e66a8fd4d43`,
+  request ID
+  `review-request-sha256:6834cd9141b887c3847941fd4a63b77ddc4fc907811dae18d824629dbfb9723f`.
+- Packet validation is `VALID`; only packet Test Cases TC-03 and TC-10 changed. Acceptance criteria,
+  design decisions, out-of-scope boundaries, generation-1 ownership, #78 recovery ownership and
+  static typed registry remain unchanged.
+- The workflow-level packet-send authorization is preserved, but each live browser message/upload
+  remains subject to the browser transport's action-time representational-communication gate.
+  Deterministic next transition: after the repository owner confirms this exact v5 send, use one
+  fresh independent ChatGPT High session, persist and validate the response, then request the exact
+  guide-digest lock only on `APPROVE` with zero findings.
+- Implementation and every per-ticket code review remain forbidden. The single final fixed-point M4
+  `code-review` runs only after Issues #75–#79 are accepted, integrated and closed.
+- Validated Resume Contract:
+  `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v5-review-send-v1.json`
+  with digest
+  `sha256:3dfd60efe9aa307362d24c33c77752de12d758ceccf08db612658fbb513c4160`.
