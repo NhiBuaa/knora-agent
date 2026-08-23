@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_reference": "https://github.com/NhiBuaa/knora-agent/issues/76",
+  "cycle": 3,
+  "preflight_reference": ".agents/review/m4-issue-76-remediation-preflight-v3.json@3698689e330cbb2b60d48b5a036fe912c44b0532",
+  "source_head": "88cc7bb5be94d2e441ee212fef39dabb5e20f31d",
+  "implementation_commit": "3698689e330cbb2b60d48b5a036fe912c44b0532",
+  "guide": {
+    "revision": "m4-76-write-proposal-v5",
+    "digest": "sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee",
+    "lock_status": "LOCKED",
+    "unchanged_after_approval": true
+  },
+  "criteria_satisfied": [
+    "PolicyProvenance takes one normalized recursively immutable snapshot, validates a typed positive proposal_lifetime_seconds, and derives its digest from that exact retained value.",
+    "Proposal expiry is derived from one trusted workflow clock sample plus the digest-bound policy lifetime; ResolvedCapabilityContext no longer carries an independent absolute expiry authority and no one-hour fallback remains.",
+    "Stored proposal, projection and audit mappings are recursively immutable; PostgreSQL persistence thaws only at its JSON boundary and reconstructs immutable values on read-back.",
+    "knora.tools.contracts is the sole canonical-json-v1 implementation; the duplicate proposal_contracts module and all imports were removed.",
+    "HTTP/application sentinels prove unauthenticated and wrong-Workspace create/read/approve/reject requests perform zero proposal lookups, while authorized absence records Workspace authorization before exactly one scoped lookup.",
+    "PostgreSQL restart tests compare every projection field, decision and ordered audit value, prove new proposal/logical identities for policy/title/target replacements, and preserve every capability/binding/policy denial plus expiry projection across recreated compositions.",
+    "Explicit provider-write sentinels remain installed in the tested HTTP and PostgreSQL compositions and report create_ticket_write_count=0."
+  ],
+  "tdd_evidence": {
+    "red_command": "python -m pytest backend/test/tools/test_proposals.py -k \"deeply_immutable or typed_positive_lifetime or digest_bound_policy_lifetime or material_views or one_canonical_json_authority\" -q",
+    "red_result": "9 failed: shallow nested snapshot, missing lifetime validation, absolute fake expiry, mutable proposal views and duplicate canonical module",
+    "green_focused_command": "python -m pytest backend/test/tools/test_proposals.py backend/test/tools/test_proposal_http.py backend/test/tools/test_proposal_integration.py backend/test/tools/test_proposal_postgres.py -q",
+    "green_focused_result": "134 passed"
+  },
+  "verification": {
+    "database_url_shape": "postgresql+psycopg://knora:***@127.0.0.1:5432/knora",
+    "postgresql_execution": "serial",
+    "full_suite": {
+      "command": "python -m pytest -q",
+      "result": "851 passed, 3 skipped",
+      "exit_code": 0
+    },
+    "ruff": {
+      "command": "ruff check .",
+      "result": "All checks passed",
+      "exit_code": 0
+    },
+    "compose": {
+      "command": "docker compose config --quiet",
+      "result": "passed with only unset optional test-secret warnings",
+      "exit_code": 0
+    },
+    "migration": {
+      "database_recreated": true,
+      "command": "python -m alembic upgrade head; python -m alembic current",
+      "head": "20260822_0037",
+      "exit_code": 0
+    },
+    "diff_check": "passed",
+    "environment_retry": "Two non-final full attempts observed the pre-existing intermittent Python 3.14 multiprocessing.spawn CHILD_CRASH in the M2 multi-column PDF case. The isolated five-layout test passed 5/5, and the final exact full run passed 851/3 skipped without code changes to M2/PDF."
+  },
+  "sentinels": {
+    "proposal_lookup": "OrderedLookupStore + WorkspaceAuthorizedWorkflow test seam",
+    "http_provider_write": "m4-76-provider-write-sentinel-v1",
+    "postgres_provider_write": "m4-76-postgres-provider-write-sentinel-v1",
+    "create_ticket_write_count": 0
+  },
+  "structural_evidence": {
+    "owning_module": "knora.tools",
+    "public_abstractions_changed": false,
+    "provider_write_added": false,
+    "execution_or_reconciliation_added": false,
+    "plugin_framework_added": false,
+    "largest_changed_source_file": {
+      "path": "backend/src/knora/tools/proposal_types.py",
+      "lines": 385
+    }
+  },
+  "review": {
+    "child_review_run": false,
+    "final_m4_review_run": false,
+    "reason": "Per the revised delivery plan, one final M4 code review runs only after Issues #75-#79 are complete."
+  },
+  "acceptance": {
+    "guide_revision": "m4-76-write-proposal-v5",
+    "candidate_subject_commit": "pending evidence commit",
+    "evaluation_status": "not_run",
+    "human_approval": "pending"
+  },
+  "next_valid_transition": "Commit and push this evidence, execute unchanged guide v5 on that exact clean candidate SHA, append PASSED candidate Evaluation with human_approval pending, then request explicit human approval."
+}
