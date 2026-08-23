@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_external_review_packet_v10_ready_checkpoint",
-  "next_valid_transition": "commit and push the exact packet-v10 checkpoint, then obtain action-time confirmation for fresh external review",
+  "current_state": "ticket_77_external_review_packet_v10_ready_confirmation_required",
+  "next_valid_transition": "after explicit action-time owner confirmation, send exact packet v10 through a fresh authenticated ChatGPT High session and persist/validate the response",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_packet_v10_ready_checkpoint", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_packet_v10_send_confirmation_required", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -179,7 +179,8 @@
     "ticket_77_external_review_v9_request_changes",
     "ticket_77_external_review_v9_response_schema_normalized",
     "ticket_77_packet_correction_v10_required",
-    "ticket_77_external_review_packet_v10_local_audit_approve"
+    "ticket_77_external_review_packet_v10_local_audit_approve",
+    "ticket_77_external_review_packet_v10_checkpoint_pushed"
   ],
   "review_cadence": {
     "risk": "high",
@@ -284,6 +285,8 @@
       "ticket_review_packet_correction_status": "local_contract_valid_independent_audit_approve",
       "ticket_review_packet_correction_local_audit": "APPROVE",
       "ticket_review_packet_correction_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
+      "ticket_review_packet_correction_checkpoint_commit": "af3ff346d1e83c8bcbe3893f43b13bbe8da7f089",
+      "ticket_review_packet_correction_checkpoint_pushed": true,
       "ticket_external_review_adjudication_reference": ".agents/review/m4-issue-77-ticket-v9-adjudication-v1.json",
       "ticket_external_review_adjudication_status": "packet_correction_required",
       "contract_revision_limit_reached": true,
@@ -760,5 +763,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T21:52:00+07:00"
+  "last_updated_at": "2026-08-23T21:56:00+07:00"
 }
