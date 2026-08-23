@@ -16,13 +16,13 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "2a7e2832b37bccac29adcb6c049871024f3864a3",
-    "current_head_resolution": "recorded after merge PR #80",
+    "current_head": "eac54b7",
+    "current_head_resolution": "recorded after #75 integration evidence merge",
     "published": true
   },
   "ticket_graph": [
-    {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1"},
-    {"ticket": "#76", "blocked_by": [], "state": "ready_r7_reconciliation", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
+    {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
+    {"ticket": "#76", "blocked_by": [], "state": "reconcile_required_at_eac54b7", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
@@ -254,7 +254,7 @@
     "PR #80 locked run m4-75-ticket-lookup-v2-20260822-03 is human-approved on exact subject ab6eccc and append-only recorded at evidence head b57e44e.",
     "PR #81 child review v1 returned BLOCK with 2 Critical and 13 Major findings; the old acceptance remains invalidated.",
     "PR #81 remediation slices R1-R6 are checkpointed at code commit 625bca2 with evidence head 0713b72; R7 and final acceptance require the accepted #75 verifier after #75 integration.",
-    "PR #80 integrated as merge commit 2a7e283 with green verification; #75 worktree and branch cleanup is pending issue-close confirmation.",
+    "PR #80 integrated as merge commit 2a7e283 with green verification; #75 issue, worktree and branches are closed/cleaned.",
     "PR #81 remediation slices R1-R6 remain checkpointed at code commit 625bca2; resume R7 against integrated #75 verifier, then run fresh acceptance and child review."
   ],
   "authoritative_artifacts": [
@@ -268,5 +268,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T07:56:00+07:00"
+  "last_updated_at": "2026-08-23T08:02:00+07:00"
 }
