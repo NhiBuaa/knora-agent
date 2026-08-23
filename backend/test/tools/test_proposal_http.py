@@ -96,6 +96,48 @@ class HttpActorContextProvider:
         )
 
 
+class OrderedLookupStore(InMemoryToolActionStore):
+    def __init__(self, events: list[str]) -> None:
+        super().__init__()
+        self.events = events
+        self.lookup_count = 0
+
+    def read_proposal(self, workspace_id: str, proposal_id: str):
+        self.lookup_count += 1
+        self.events.append(f"proposal_lookup:{workspace_id}:{proposal_id}")
+        return super().read_proposal(workspace_id, proposal_id)
+
+    def reset_observation(self) -> None:
+        self.events.clear()
+        self.lookup_count = 0
+
+
+class WorkspaceAuthorizedWorkflow(WriteProposalWorkflow):
+    def __init__(self, *, events: list[str], **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._authorization_events = events
+
+    def handle(self, command, principal, actor_context):
+        self._authorization_events.append("workspace_authorized")
+        return super().handle(command, principal, actor_context)
+
+    def read(self, proposal_id, principal):
+        self._authorization_events.append("workspace_authorized")
+        return super().read(proposal_id, principal)
+
+
+class FailingProviderWriteSentinel:
+    identity = "m4-76-provider-write-sentinel-v1"
+
+    def __init__(self) -> None:
+        self.create_ticket_write_count = 0
+
+    def create_ticket(self, request) -> None:
+        del request
+        self.create_ticket_write_count += 1
+        raise AssertionError("Issue #76 must not invoke a provider write")
+
+
 def client_with(
     *, actor_kind: str = "human", can_approve: bool | None = None
 ) -> TestClient:
@@ -123,6 +165,35 @@ def client_with(
             ),
         )
     )
+
+
+def ordered_lookup_client():
+    events: list[str] = []
+    store = OrderedLookupStore(events)
+    workflow = WorkspaceAuthorizedWorkflow(
+        events=events,
+        capability_resolver=HttpCapabilityResolver(),
+        store=store,
+        target_verifier=HttpTargetVerifier(),
+    )
+    authenticator = ApiKeyAuthenticator(
+        (
+            ApiCredential(
+                key_id="proposal-a",
+                key_hash=hash_api_key("proposal-key"),
+                workspace_id="workspace-a",
+                enabled=True,
+            ),
+        )
+    )
+    application = create_app(
+        write_proposal_workflow=workflow,
+        api_key_authenticator=authenticator,
+        tool_actor_context_provider=HttpActorContextProvider("human"),
+    )
+    write_sentinel = FailingProviderWriteSentinel()
+    application.state.support_tool_gateway = write_sentinel
+    return TestClient(application), store, write_sentinel
 
 
 def proposal_payload() -> dict[str, str]:
@@ -326,6 +397,90 @@ def test_proposal_authentication_and_workspace_authorization_precede_malformed_j
         403,
         {"error": {"code": "WORKSPACE_ACCESS_DENIED"}},
     )
+
+
+@pytest.mark.parametrize(
+    ("method", "suffix", "payload"),
+    [
+        ("get", "/tool-proposals/absent", None),
+        ("post", "/tool-proposals/absent/approve", {"expected_revision": 0}),
+        (
+            "post",
+            "/tool-proposals/absent/reject",
+            {"expected_revision": 0, "reason_code": "other"},
+        ),
+    ],
+)
+def test_http_workspace_authorization_observably_precedes_one_scoped_lookup(
+    method: str, suffix: str, payload: dict[str, object] | None
+) -> None:
+    client, store, write_sentinel = ordered_lookup_client()
+
+    def request(workspace_id: str, *, authenticated: bool):
+        headers = {"X-API-Key": "proposal-key"} if authenticated else {}
+        return client.request(
+            method,
+            f"/v1/workspaces/{workspace_id}{suffix}",
+            headers=headers,
+            json=payload,
+        )
+
+    store.reset_observation()
+    unauthenticated = request("workspace-a", authenticated=False)
+    assert unauthenticated.status_code == 401
+    assert store.events == []
+    assert store.lookup_count == 0
+
+    store.reset_observation()
+    wrong_workspace = request("workspace-b", authenticated=True)
+    assert wrong_workspace.status_code == 403
+    assert store.events == []
+    assert store.lookup_count == 0
+
+    store.reset_observation()
+    authorized_absence = request("workspace-a", authenticated=True)
+    assert authorized_absence.status_code == 404
+    assert authorized_absence.json() == {"error": {"code": "TOOL_PROPOSAL_NOT_FOUND"}}
+    assert store.events == [
+        "workspace_authorized",
+        "proposal_lookup:workspace-a:absent",
+    ]
+    assert store.lookup_count == 1
+    assert write_sentinel.identity == "m4-76-provider-write-sentinel-v1"
+    assert write_sentinel.create_ticket_write_count == 0
+
+
+def test_http_create_authorization_precedes_proposal_creation_without_lookup_or_write() -> None:
+    client, store, write_sentinel = ordered_lookup_client()
+
+    store.reset_observation()
+    unauthenticated = client.post(
+        "/v1/workspaces/workspace-a/tool-proposals", json=proposal_payload()
+    )
+    assert unauthenticated.status_code == 401
+    assert store.events == []
+    assert store.lookup_count == 0
+
+    store.reset_observation()
+    wrong_workspace = client.post(
+        "/v1/workspaces/workspace-b/tool-proposals",
+        headers={"X-API-Key": "proposal-key"},
+        json=proposal_payload(),
+    )
+    assert wrong_workspace.status_code == 403
+    assert store.events == []
+    assert store.lookup_count == 0
+
+    store.reset_observation()
+    authorized = client.post(
+        "/v1/workspaces/workspace-a/tool-proposals",
+        headers={"X-API-Key": "proposal-key"},
+        json=proposal_payload(),
+    )
+    assert authorized.status_code == 200
+    assert store.events == ["workspace_authorized"]
+    assert store.lookup_count == 0
+    assert write_sentinel.create_ticket_write_count == 0
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from dataclasses import fields, is_dataclass
 from typing import Annotated, Protocol
 
 from fastapi import APIRouter, Depends, Request
@@ -43,7 +45,22 @@ def get_actor_context(
 
 
 def _projection_response(projection) -> JSONResponse:
-    return JSONResponse(content=jsonable_encoder(projection))
+    return JSONResponse(content=jsonable_encoder(_transport_value(projection)))
+
+
+def _transport_value(value):
+    if is_dataclass(value) and not isinstance(value, type):
+        return {
+            projection_field.name: _transport_value(
+                getattr(value, projection_field.name)
+            )
+            for projection_field in fields(value)
+        }
+    if isinstance(value, Mapping):
+        return {key: _transport_value(nested) for key, nested in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, bytes | bytearray | str):
+        return [_transport_value(item) for item in value]
+    return value
 
 
 def _decision_response(result) -> JSONResponse:
@@ -52,7 +69,7 @@ def _decision_response(result) -> JSONResponse:
             status_code=409,
             content={
                 "error": {"code": "TOOL_PROPOSAL_ALREADY_DECIDED"},
-                "proposal": jsonable_encoder(result.projection),
+                "proposal": jsonable_encoder(_transport_value(result.projection)),
             },
         )
     return _projection_response(result.projection)

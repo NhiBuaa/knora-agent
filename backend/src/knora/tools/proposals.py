@@ -7,11 +7,11 @@ from uuid import uuid4
 
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.tools.contracts import canonical_digest_v1
 from knora.tools.proposal_compatibility import (
     CompatibilityCheckerV1,
     CompatibilityReason,
 )
-from knora.tools.proposal_contracts import canonical_digest_v1
 from knora.tools.proposal_store import ToolActionStore, _StoredProposal
 from knora.tools.proposal_types import (
     REJECT_REASONS,
@@ -160,7 +160,9 @@ class WriteProposalWorkflow:
         )
         self._require_exact_target(principal, context, verified_target)
         now = self._clock()
-        expires_at = context.expires_at or now + timedelta(hours=1)
+        lifetime_seconds = context.policy.snapshot["proposal_lifetime_seconds"]
+        assert isinstance(lifetime_seconds, int) and not isinstance(lifetime_seconds, bool)
+        expires_at = now + timedelta(seconds=lifetime_seconds)
         parameters = {"title": title, "description": description}
         parameters_digest = canonical_digest_v1(parameters)
         request_fingerprint = canonical_digest_v1(
@@ -199,7 +201,7 @@ class WriteProposalWorkflow:
             policy_id=context.policy.policy_id,
             policy_version=context.policy.policy_version,
             policy_digest=context.policy.policy_digest,
-            policy_snapshot=dict(context.policy.snapshot),
+            policy_snapshot=context.policy.snapshot,
             target_reference=verified_target.reference,
             target_reference_digest=verified_target.reference_digest,
             target_reference_id=verified_target.reference_id,

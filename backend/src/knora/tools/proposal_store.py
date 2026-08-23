@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from knora.domain.errors import KnoraError
+from knora.tools.contracts import freeze_canonical_value
 from knora.tools.proposal_types import (
     ApprovalActor,
     AuditProjection,
@@ -56,6 +57,17 @@ class _StoredProposal:
     decision_authority_digest: str | None = None
     decision_reason: str | None = None
     audit: tuple[AuditProjection, ...] = ()
+
+    def __post_init__(self) -> None:
+        frozen_policy = freeze_canonical_value(self.policy_snapshot)
+        frozen_parameters = freeze_canonical_value(self.parameters)
+        if not isinstance(frozen_policy, Mapping) or not isinstance(
+            frozen_parameters, Mapping
+        ):
+            raise ValueError("stored proposal mappings are required")
+        object.__setattr__(self, "policy_snapshot", frozen_policy)
+        object.__setattr__(self, "parameters", frozen_parameters)
+        object.__setattr__(self, "audit", tuple(self.audit))
 
 
 @dataclass(frozen=True, slots=True)

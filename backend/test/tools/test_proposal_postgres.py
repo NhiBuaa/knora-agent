@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import fields, replace
 from datetime import UTC, datetime
 from threading import Barrier
 from uuid import uuid4
@@ -32,19 +33,21 @@ from knora.tools import (
 
 
 class PostgresResolver:
-    def resolve_for_proposal(self, workspace_id: str, capability_id: str):
-        del workspace_id
-        return ResolvedCapabilityContext(
-            capability_id=capability_id,
+    def __init__(self, policy: PolicyProvenance | None = None) -> None:
+        self.context = ResolvedCapabilityContext(
+            capability_id="create_ticket",
             capability_version="m4.2",
             capability_digest="sha256:" + "a" * 64,
             resource_kind="ticket",
             binding_id="binding-a",
             binding_version="v1",
             binding_digest="sha256:" + "b" * 64,
-            policy=PolicyProvenance(),
-            expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+            policy=policy or PolicyProvenance(),
         )
+
+    def resolve_for_proposal(self, workspace_id: str, capability_id: str):
+        del workspace_id, capability_id
+        return self.context
 
 
 class PostgresTargetVerifier:
@@ -63,6 +66,27 @@ class PostgresTargetVerifier:
             resource_identity_digest="sha256:" + "d" * 64,
             resource_claims_digest="sha256:" + "e" * 64,
         )
+
+
+class PostgresExecutionAuthorizer:
+    def __init__(self, authorized: bool) -> None:
+        self.authorized = authorized
+
+    def is_authorized(self, principal, proposal) -> bool:
+        del principal, proposal
+        return self.authorized
+
+
+class PostgresProviderWriteSentinel:
+    identity = "m4-76-postgres-provider-write-sentinel-v1"
+
+    def __init__(self) -> None:
+        self.create_ticket_write_count = 0
+
+    def create_ticket(self, request) -> None:
+        del request
+        self.create_ticket_write_count += 1
+        raise AssertionError("Issue #76 must not invoke a provider write")
 
 
 def actor_context(actor_id: str, actor_kind: str, *, can_approve: bool = False) -> ActorContext:
@@ -212,6 +236,207 @@ def test_postgres_store_persists_atomic_decision_and_append_only_audit() -> None
     ):
         with pytest.raises(Exception, match=message), SessionFactory.begin() as session:
             session.execute(text(statement), {"id": proposal.id})
+
+
+def test_postgres_restart_reconstructs_every_projection_field_and_new_material_ids() -> None:
+    workspace_id = f"m4-proposal-reconstruct-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="M4 proposal reconstruction"))
+    now = datetime(2026, 2, 1, 3, 4, 5, 678901, tzinfo=UTC)
+    principal = WorkspacePrincipal(workspace_id, "caller-key")
+    resolver = PostgresResolver()
+    sentinel = PostgresProviderWriteSentinel()
+    service = WriteProposalWorkflow(
+        capability_resolver=resolver,
+        store=PostgresToolActionStore(SessionFactory),
+        target_verifier=PostgresTargetVerifier(),
+        execution_authorizer=PostgresExecutionAuthorizer(False),
+        clock=lambda: now,
+    )
+    created = service.handle(
+        ProposeWriteAction(
+            "create_ticket",
+            "m4r1.target.opaque",
+            "Cannot sign in",
+            "Customer blocked",
+        ),
+        principal,
+        actor_context("agent-a", "model"),
+    )
+    approved = service.handle(
+        ApproveProposal(created.projection.proposal_id, 0),
+        principal,
+        actor_context("human-a", "human", can_approve=True),
+    )
+
+    restarted = WriteProposalWorkflow(
+        capability_resolver=PostgresResolver(),
+        store=PostgresToolActionStore(SessionFactory),
+        target_verifier=PostgresTargetVerifier(),
+        execution_authorizer=PostgresExecutionAuthorizer(False),
+        clock=lambda: now,
+    ).read(approved.projection.proposal_id, principal)
+
+    for projection_field in fields(approved.projection):
+        assert getattr(restarted, projection_field.name) == getattr(
+            approved.projection, projection_field.name
+        ), projection_field.name
+    assert restarted.audit[0].payload["caller_principal_id"] == "caller-key"
+    assert restarted.audit[1].payload["revision"] == 1
+
+    title_replacement = service.handle(
+        ProposeWriteAction(
+            "create_ticket",
+            "m4r1.target.opaque",
+            "Cannot reset password",
+            "Customer blocked",
+        ),
+        principal,
+        actor_context("agent-a", "model"),
+    ).projection
+    target_replacement = service.handle(
+        ProposeWriteAction(
+            "create_ticket",
+            "m4r1.target.replacement",
+            "Cannot sign in",
+            "Customer blocked",
+        ),
+        principal,
+        actor_context("agent-a", "model"),
+    ).projection
+    policy_resolver = PostgresResolver(
+        PolicyProvenance.from_semantics(
+            "m4-human-approval-policy",
+            "v2",
+            {
+                "approval_actor_kinds": ["human"],
+                "execution_authority_required": True,
+                "proposal_lifetime_seconds": 7200,
+                "separation_of_duties": False,
+            },
+        )
+    )
+    policy_replacement = WriteProposalWorkflow(
+        capability_resolver=policy_resolver,
+        store=PostgresToolActionStore(SessionFactory),
+        target_verifier=PostgresTargetVerifier(),
+        clock=lambda: now,
+    ).handle(
+        ProposeWriteAction(
+            "create_ticket",
+            "m4r1.target.opaque",
+            "Cannot sign in",
+            "Customer blocked",
+        ),
+        principal,
+        actor_context("agent-a", "model"),
+    ).projection
+
+    replacements = (title_replacement, target_replacement, policy_replacement)
+    assert len({approved.projection.proposal_id, *(item.proposal_id for item in replacements)}) == 4
+    assert len(
+        {
+            approved.projection.logical_execution_id,
+            *(item.logical_execution_id for item in replacements),
+        }
+    ) == 4
+    assert all(item.state == "proposed" and item.revision == 0 for item in replacements)
+    assert all(item.approval_actor_id is None for item in replacements)
+    assert sentinel.identity == "m4-76-postgres-provider-write-sentinel-v1"
+    assert sentinel.create_ticket_write_count == 0
+
+
+@pytest.mark.parametrize(
+    ("condition", "expected_stale", "expected_reason"),
+    [
+        ("execution_denied", False, "execution_not_authorized"),
+        ("capability_id", True, "capability_identity_mismatch"),
+        ("capability_version", True, "capability_version_mismatch"),
+        ("capability_digest", True, "capability_digest_mismatch"),
+        ("binding_id", True, "binding_identity_mismatch"),
+        ("binding_version", True, "binding_version_mismatch"),
+        ("binding_digest", True, "binding_digest_mismatch"),
+        ("policy_id", True, "policy_identity_mismatch"),
+        ("policy_version", True, "policy_version_mismatch"),
+        ("policy_digest", True, "policy_digest_mismatch"),
+        ("expired", False, "expired"),
+    ],
+)
+def test_postgres_non_executable_projection_survives_restarted_composition(
+    condition: str, expected_stale: bool, expected_reason: str
+) -> None:
+    workspace_id = f"m4-proposal-restart-{condition}-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="M4 proposal restart"))
+    current = [datetime(2026, 3, 1, tzinfo=UTC)]
+    principal = WorkspacePrincipal(workspace_id, "caller-key")
+    initial_resolver = PostgresResolver()
+    service = WriteProposalWorkflow(
+        capability_resolver=initial_resolver,
+        store=PostgresToolActionStore(SessionFactory),
+        target_verifier=PostgresTargetVerifier(),
+        execution_authorizer=PostgresExecutionAuthorizer(True),
+        clock=lambda: current[0],
+    )
+    created = service.handle(
+        ProposeWriteAction("create_ticket", "m4r1.target.opaque", "Title", "Description"),
+        principal,
+        actor_context("agent-a", "model"),
+    )
+    service.handle(
+        ApproveProposal(created.projection.proposal_id, 0),
+        principal,
+        actor_context("human-a", "human", can_approve=True),
+    )
+
+    current_resolver = PostgresResolver()
+    execution_authorized = condition != "execution_denied"
+    if condition == "expired":
+        current[0] = datetime(2026, 3, 2, tzinfo=UTC)
+    elif condition.startswith("capability_") or condition.startswith("binding_"):
+        replacement = {
+            "capability_id": "create_ticket_v2",
+            "capability_version": "m4.3",
+            "capability_digest": "sha256:" + "f" * 64,
+            "binding_id": "binding-b",
+            "binding_version": "v2",
+            "binding_digest": "sha256:" + "f" * 64,
+        }[condition]
+        current_resolver.context = replace(current_resolver.context, **{condition: replacement})
+    elif condition.startswith("policy_"):
+        current_policy = current_resolver.context.policy
+        policy_id = "policy-v2" if condition == "policy_id" else current_policy.policy_id
+        policy_version = (
+            "v2" if condition == "policy_version" else current_policy.policy_version
+        )
+        snapshot = dict(current_policy.snapshot)
+        if condition == "policy_digest":
+            snapshot["execution_authority_required"] = False
+        current_resolver.context = replace(
+            current_resolver.context,
+            policy=PolicyProvenance.from_semantics(policy_id, policy_version, snapshot),
+        )
+
+    def composition() -> WriteProposalWorkflow:
+        resolver = PostgresResolver()
+        resolver.context = current_resolver.context
+        return WriteProposalWorkflow(
+            capability_resolver=resolver,
+            store=PostgresToolActionStore(SessionFactory),
+            target_verifier=PostgresTargetVerifier(),
+            execution_authorizer=PostgresExecutionAuthorizer(execution_authorized),
+            clock=lambda: current[0],
+        )
+
+    before = composition().read(created.projection.proposal_id, principal)
+    after = composition().read(created.projection.proposal_id, principal)
+
+    assert after == before
+    assert after.state == "approved"
+    assert after.stale is expected_stale
+    assert after.executable is False
+    assert after.non_executable_reason == expected_reason
+    assert [event.event_type for event in after.audit] == ["proposed", "approved"]
 
 
 def test_postgres_decision_cas_has_one_winner() -> None:

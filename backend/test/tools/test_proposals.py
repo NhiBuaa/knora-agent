@@ -1,7 +1,8 @@
 import hashlib
+import importlib.util
 import json
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -21,6 +22,7 @@ from knora.tools import (
     VerifiedProposalTarget,
     WriteProposalWorkflow,
 )
+from knora.tools.contracts import canonical_digest_v1, thaw_canonical_value
 
 
 class FakeCapabilityResolver:
@@ -35,7 +37,6 @@ class FakeCapabilityResolver:
             binding_version="v1",
             binding_digest="sha256:" + "b" * 64,
             policy=PolicyProvenance(),
-            expires_at=datetime(2030, 1, 1, tzinfo=UTC),
         )
 
     def resolve_for_proposal(self, workspace_id: str, capability_id: str):
@@ -171,6 +172,7 @@ def test_explicit_separation_of_duties_denies_only_same_actor() -> None:
             {
                 "approval_actor_kinds": ["human"],
                 "execution_authority_required": True,
+                "proposal_lifetime_seconds": 3600,
                 "separation_of_duties": True,
             },
         ),
@@ -454,10 +456,124 @@ def test_provenance_types_reject_noncanonical_digest_placeholders() -> None:
                 {
                     "approval_actor_kinds": ["human"],
                     "execution_authority_required": True,
+                    "proposal_lifetime_seconds": 3600,
                     "separation_of_duties": False,
                 },
             ),
         )
+
+
+def test_policy_provenance_takes_one_deeply_immutable_canonical_snapshot() -> None:
+    source = {
+        "approval_actor_kinds": ["human"],
+        "execution": {"authority_required": True, "modes": ["current"]},
+        "separation_of_duties": False,
+        "proposal_lifetime_seconds": 90,
+    }
+    policy = PolicyProvenance.from_semantics("policy-a", "v7", source)
+    expected_snapshot = {
+        "approval_actor_kinds": ["human"],
+        "execution": {"authority_required": True, "modes": ["current"]},
+        "separation_of_duties": False,
+        "proposal_lifetime_seconds": 90,
+    }
+    expected_digest = canonical_digest_v1(
+        {
+            "policy_id": "policy-a",
+            "policy_version": "v7",
+            "snapshot": expected_snapshot,
+        }
+    )
+
+    source["approval_actor_kinds"].append("model")
+    source["execution"]["modes"].append("cached")
+
+    assert thaw_canonical_value(policy.snapshot) == expected_snapshot
+    assert policy.policy_digest == expected_digest
+    with pytest.raises(TypeError):
+        policy.snapshot["separation_of_duties"] = True
+    with pytest.raises((AttributeError, TypeError)):
+        policy.snapshot["approval_actor_kinds"].append("system")
+    with pytest.raises(TypeError):
+        policy.snapshot["execution"]["authority_required"] = False
+
+
+@pytest.mark.parametrize(
+    "lifetime",
+    [None, 0, -1, True, "60"],
+)
+def test_policy_provenance_requires_a_typed_positive_lifetime(lifetime: object) -> None:
+    snapshot = {
+        "approval_actor_kinds": ["human"],
+        "execution_authority_required": True,
+        "separation_of_duties": False,
+    }
+    if lifetime is not None:
+        snapshot["proposal_lifetime_seconds"] = lifetime
+
+    with pytest.raises(ValueError, match="proposal_lifetime_seconds"):
+        PolicyProvenance.from_semantics("policy-a", "v1", snapshot)
+
+
+def test_proposal_expiry_uses_digest_bound_policy_lifetime_and_one_clock_sample() -> None:
+    current = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    service, resolver, store = workflow()
+    resolver.context = replace(
+        resolver.context,
+        policy=PolicyProvenance.from_semantics(
+            "policy-a",
+            "v2",
+            {
+                "approval_actor_kinds": ["human"],
+                "execution_authority_required": True,
+                "separation_of_duties": False,
+                "proposal_lifetime_seconds": 90,
+            },
+        ),
+    )
+    clock_calls = 0
+
+    def clock() -> datetime:
+        nonlocal clock_calls
+        clock_calls += 1
+        return current
+
+    service._clock = clock
+    result = propose(service)
+    stored = store.read_proposal("workspace-a", result.projection.proposal_id)
+
+    assert result.projection.expires_at == current + timedelta(seconds=90)
+    assert stored is not None
+    assert stored.expires_at == current + timedelta(seconds=90)
+    assert stored.policy_snapshot["proposal_lifetime_seconds"] == 90
+    assert clock_calls == 1
+
+
+def test_proposal_material_views_are_deeply_immutable() -> None:
+    service, _, store = workflow()
+    created = propose(service)
+    stored = store.read_proposal("workspace-a", created.projection.proposal_id)
+    assert stored is not None
+
+    with pytest.raises(TypeError):
+        stored.parameters["title"] = "Changed"
+    with pytest.raises(TypeError):
+        stored.policy_snapshot["proposal_lifetime_seconds"] = 1
+    with pytest.raises(TypeError):
+        stored.audit[0].payload["caller_principal_id"] = "changed"
+    with pytest.raises(TypeError):
+        created.projection.parameters["title"] = "Changed"
+
+    reloaded = store.read_proposal("workspace-a", created.projection.proposal_id)
+    assert reloaded is not None
+    assert reloaded.parameters == {
+        "title": "New ticket",
+        "description": "Line one\nLine two",
+    }
+
+
+def test_proposal_contracts_has_one_canonical_json_authority() -> None:
+    assert importlib.util.find_spec("knora.tools.proposal_contracts") is None
 
 
 def test_parameters_digest_uses_exact_canonical_json_literal() -> None:
@@ -630,7 +746,16 @@ def test_expiry_blocks_new_execution_projection_without_changing_approval() -> N
     resolver = FakeCapabilityResolver()
     resolver.context = replace(
         resolver.context,
-        expires_at=datetime(2026, 1, 2, tzinfo=UTC),
+        policy=PolicyProvenance.from_semantics(
+            "m4-human-approval-policy",
+            "v1-short",
+            {
+                "approval_actor_kinds": ["human"],
+                "execution_authority_required": True,
+                "proposal_lifetime_seconds": 86_400,
+                "separation_of_duties": False,
+            },
+        ),
     )
     service = WriteProposalWorkflow(
         capability_resolver=resolver,

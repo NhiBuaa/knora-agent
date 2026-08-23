@@ -1,6 +1,6 @@
 import base64
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -86,6 +86,7 @@ def _workflow(
     binding: ExternalScopeBinding,
     store_record: ReferenceRecord | None = None,
     now: datetime = NOW,
+    policy: PolicyProvenance | None = None,
 ) -> WriteProposalWorkflow:
     reference_store = InMemoryReferenceStore(
         () if store_record is False else (store_record or minted.record,)
@@ -94,7 +95,7 @@ def _workflow(
         capability_resolver=RegistryCapabilityResolver(
             CapabilityRegistry.static(),
             bindings={"workspace-a": binding},
-            policy=PolicyProvenance(),
+            policy=policy or PolicyProvenance(),
         ),
         store=InMemoryToolActionStore(),
         target_verifier=ReferenceProposalTargetVerifier(
@@ -137,6 +138,35 @@ def test_registry_resolver_and_real_reference_verifier_bind_exact_proposal() -> 
         result.projection.target_resource_identity_digest == minted.record.resource_identity_digest
     )
     assert result.projection.target_resource_claims_digest == minted.record.resource_claims_digest
+
+
+def test_registry_composition_derives_expiry_from_digest_bound_policy_lifetime() -> None:
+    binding = _binding()
+    ring = ReferenceKeyRing((ReferenceKey("k1", b"test-only-reference-secret"),))
+    minted = _mint(ring=ring, binding=binding)
+    policy = PolicyProvenance.from_semantics(
+        "m4-human-approval-policy",
+        "v1-non-default-lifetime",
+        {
+            "approval_actor_kinds": ["human"],
+            "execution_authority_required": True,
+            "proposal_lifetime_seconds": 137,
+            "separation_of_duties": False,
+        },
+    )
+
+    result = _propose(
+        _workflow(
+            minted=minted,
+            verify_ring=ring,
+            binding=binding,
+            policy=policy,
+        ),
+        str(minted.reference),
+    )
+
+    assert result.projection.policy_digest == policy.policy_digest
+    assert result.projection.expires_at == NOW + timedelta(seconds=137)
 
 
 @pytest.mark.parametrize("reference", ["m4r1.target.opaque", "", "not-an-envelope"])

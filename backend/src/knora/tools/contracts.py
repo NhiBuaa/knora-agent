@@ -9,6 +9,7 @@ import unicodedata
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from enum import Enum
+from types import MappingProxyType
 from uuid import UUID
 
 DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -64,6 +65,32 @@ def canonical_json_v1(value: object) -> bytes:
 
 def canonical_digest_v1(value: object) -> str:
     return "sha256:" + hashlib.sha256(canonical_json_v1(value)).hexdigest()
+
+
+def _freeze_canonical_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {key: _freeze_canonical_value(nested) for key, nested in value.items()}
+        )
+    if isinstance(value, list):
+        return tuple(_freeze_canonical_value(item) for item in value)
+    return value
+
+
+def freeze_canonical_value(value: object) -> object:
+    """Take one normalized, recursively immutable canonical-json-v1 snapshot."""
+
+    return _freeze_canonical_value(_canonical_value(value))
+
+
+def thaw_canonical_value(value: object) -> object:
+    """Return ordinary JSON containers for persistence or transport boundaries."""
+
+    if isinstance(value, Mapping):
+        return {key: thaw_canonical_value(nested) for key, nested in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, bytes | bytearray | str):
+        return [thaw_canonical_value(item) for item in value]
+    return value
 
 
 def require_digest(value: object, field: str) -> str:

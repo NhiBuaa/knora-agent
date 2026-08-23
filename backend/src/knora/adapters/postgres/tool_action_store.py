@@ -11,6 +11,7 @@ from knora.adapters.postgres.tables import (
     ToolProposalTable,
 )
 from knora.domain.errors import KnoraError
+from knora.tools.contracts import thaw_canonical_value
 from knora.tools.proposal_store import (
     _DecisionResult,
     _StoredProposal,
@@ -135,14 +136,14 @@ class PostgresToolActionStore:
             policy_id=proposal.policy_id,
             policy_version=proposal.policy_version,
             policy_digest=proposal.policy_digest,
-            policy_snapshot=dict(proposal.policy_snapshot),
+            policy_snapshot=thaw_canonical_value(proposal.policy_snapshot),
             target_reference=proposal.target_reference,
             target_reference_digest=proposal.target_reference_digest,
             target_reference_id=proposal.target_reference_id,
             target_resource_identity_digest=proposal.target_resource_identity_digest,
             target_resource_claims_digest=proposal.target_resource_claims_digest,
             resource_kind=proposal.resource_kind,
-            parameters=dict(proposal.parameters),
+            parameters=thaw_canonical_value(proposal.parameters),
             parameters_digest=proposal.parameters_digest,
             request_fingerprint=proposal.request_fingerprint,
             caller_principal_id=proposal.caller_principal_id,

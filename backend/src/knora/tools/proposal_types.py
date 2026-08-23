@@ -8,7 +8,11 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from knora.domain.errors import KnoraError
-from knora.tools.proposal_contracts import canonical_digest_v1, require_digest
+from knora.tools.contracts import (
+    canonical_digest_v1,
+    freeze_canonical_value,
+    require_digest,
+)
 
 REJECT_REASONS = {"not_approved", "incorrect_target", "incorrect_parameters", "other"}
 ACTOR_KINDS = {"human", "model", "system"}
@@ -93,6 +97,7 @@ class PolicyProvenance:
                 "snapshot": {
                     "approval_actor_kinds": ["human"],
                     "execution_authority_required": True,
+                    "proposal_lifetime_seconds": 3600,
                     "separation_of_duties": False,
                 },
             }
@@ -103,6 +108,7 @@ class PolicyProvenance:
             "approval_actor_kinds": ["human"],
             "separation_of_duties": False,
             "execution_authority_required": True,
+            "proposal_lifetime_seconds": 3600,
         }
     )
 
@@ -110,15 +116,22 @@ class PolicyProvenance:
         if not self.policy_id or not self.policy_version:
             raise ValueError("policy identity and version are required")
         require_digest(self.policy_digest, "policy digest")
+        frozen_snapshot = freeze_canonical_value(self.snapshot)
+        if not isinstance(frozen_snapshot, Mapping):
+            raise ValueError("policy snapshot must be a mapping")
+        lifetime = frozen_snapshot.get("proposal_lifetime_seconds")
+        if not isinstance(lifetime, int) or isinstance(lifetime, bool) or lifetime <= 0:
+            raise ValueError("proposal_lifetime_seconds must be a positive integer")
         expected = canonical_digest_v1(
             {
                 "policy_id": self.policy_id,
                 "policy_version": self.policy_version,
-                "snapshot": self.snapshot,
+                "snapshot": frozen_snapshot,
             }
         )
         if self.policy_digest != expected:
             raise ValueError("policy digest does not match canonical policy semantics")
+        object.__setattr__(self, "snapshot", frozen_snapshot)
 
     @classmethod
     def from_semantics(
@@ -127,12 +140,15 @@ class PolicyProvenance:
         policy_version: str,
         snapshot: Mapping[str, Any],
     ) -> PolicyProvenance:
+        frozen_snapshot = freeze_canonical_value(snapshot)
+        if not isinstance(frozen_snapshot, Mapping):
+            raise ValueError("policy snapshot must be a mapping")
         projection = {
             "policy_id": policy_id,
             "policy_version": policy_version,
-            "snapshot": snapshot,
+            "snapshot": frozen_snapshot,
         }
-        return cls(policy_id, policy_version, canonical_digest_v1(projection), dict(snapshot))
+        return cls(policy_id, policy_version, canonical_digest_v1(projection), frozen_snapshot)
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +161,6 @@ class ResolvedCapabilityContext:
     binding_version: str
     binding_digest: str
     policy: PolicyProvenance = field(default_factory=PolicyProvenance)
-    expires_at: datetime | None = None
 
     def __post_init__(self) -> None:
         for value in (
@@ -159,8 +174,6 @@ class ResolvedCapabilityContext:
                 raise ValueError("resolved capability fields are required")
         require_digest(self.capability_digest, "capability digest")
         require_digest(self.binding_digest, "binding digest")
-        if self.expires_at is not None and self.expires_at.tzinfo is None:
-            raise ValueError("proposal expiry must be timezone-aware")
 
 
 class CapabilityResolver(Protocol):
@@ -290,6 +303,12 @@ class AuditProjection:
     actor_kind: str
     payload: Mapping[str, Any]
 
+    def __post_init__(self) -> None:
+        frozen = freeze_canonical_value(self.payload)
+        if not isinstance(frozen, Mapping):
+            raise ValueError("audit payload must be a mapping")
+        object.__setattr__(self, "payload", frozen)
+
 
 @dataclass(frozen=True, slots=True)
 class ToolProposalProjection:
@@ -334,6 +353,13 @@ class ToolProposalProjection:
     stale: bool
     non_executable_reason: str | None
     audit: tuple[AuditProjection, ...] = ()
+
+    def __post_init__(self) -> None:
+        frozen = freeze_canonical_value(self.parameters)
+        if not isinstance(frozen, Mapping):
+            raise ValueError("proposal parameters must be a mapping")
+        object.__setattr__(self, "parameters", frozen)
+        object.__setattr__(self, "audit", tuple(self.audit))
 
 
 ProposalProjection = ToolProposalProjection
