@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "ticket": "#75",
+  "guide_revision": "m4-75-ticket-lookup-v2",
+  "supersedes": "m4-75-ticket-lookup-v1",
+  "source_review": ".agents/review/m4-issue-75-guide-external-review-v1.json",
+  "design_subject": "5ffb59d2bbc4175a40cda12e714851d6c1e83cb0",
+  "status": "revised_pending_external_review",
+  "changes": [
+    "Fixed one deterministic ticket oracle and required exactly one typed gateway request per authorized lookup.",
+    "Bound every read-provider outcome to the final design status/error-code matrix.",
+    "Pinned 127.0.0.1, exact Windows verification commands, clean database reset and Evaluation metadata.",
+    "Clarified ephemeral HMAC keys/MAC bytes are never evidence."
+  ]
+}
