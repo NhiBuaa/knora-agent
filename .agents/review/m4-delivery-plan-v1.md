@@ -397,3 +397,28 @@ transition.
   through a fresh independent ChatGPT High external-review session. Require `APPROVE` with zero
   Critical, Major or Minor findings before invoking `manual-acceptance -> test-craft`. Do not create
   a guide, implement #77 or run final M4 code review before that gate.
+
+### Resume checkpoint — 2026-08-23, Issue #77 contract v5 request changes
+
+- The repository owner confirmed packet v5 transmission and preauthorized future canonical M4
+  external-review packet sends without a separate action-time confirmation. This transport policy
+  does not waive human guide approval, human manual-acceptance approval or authority for exceptional
+  contract/design revisions.
+- External review v5 ran in fresh independent ChatGPT High session
+  `6a8aa12d-780c-83ec-a310-ffb859ff5069` against exact review subject
+  `b05123caa97debfac969e44e7d0169eec0987bc8`, packet digest
+  `sha256:752b28ffa44817432f5fc6402313a44615396ff034bd0df1ceb1aa2737649b33`
+  and request ID
+  `review-request-sha256:6f418e735acffd7de2e3c4022e4e0c015a2ba875c092e69c6df86774e236c581`.
+- The contract-valid response digest is
+  `sha256:42f508596aaa1e7ddae12cc571153a57cdd0d1248a2b1502125f938c49e097cc`.
+  Verdict is `REQUEST_CHANGES` with zero Critical, eight Major and zero Minor findings.
+- The eight Major classes are acquisition atomicity/loser zero-call evidence, post-acquisition
+  `m4r1` reverification, exact durable-admission field witness, admission-first non-cancellation,
+  reachable provider fingerprint-conflict testing, #77/#78 acceptance-scope separation,
+  provider-ledger not-found non-terminality and read/observation-to-write non-escalation.
+- No guide or implementation may begin. Exceptional ticket-contract revision 6 is not authorized.
+  Deterministic next transition is repository-owner direction on whether to authorize revision 6;
+  if authorized, revise the contract to close all eight findings, publish it verbatim, prepare and
+  automatically send the next canonical packet, and require external `APPROVE` before guide work.
+  Final M4 code review remains forbidden until #75–#79 complete.
