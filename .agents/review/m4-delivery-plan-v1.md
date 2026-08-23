@@ -529,3 +529,9 @@ transition.
   Next transition is verbatim publication to Issue #77, then canonical packet v8 generation and
   automatic independent review. No guide, implementation or final M4 code review may begin before
   external `APPROVE` with zero findings.
+- Revision 8 was committed at `478992d3a18ae85832cb3c355c772a8cea08a03c` and read back verbatim
+  from Issue #77. Canonical packet v8 is a contract-valid delta over the self-contained packet v6 at
+  `.agents/review/m4-issue-77-ticket-review-packet-v8.json`, with packet digest
+  `sha256:2468e6f0289fac5ab48ead158781caffae9f3ab4cc2027319439e924d1b1b14d` and request ID
+  `review-request-sha256:074a23c1b4ef074988afb0f51c4f0ba2f6633f27ed34f14b09843919fdb9ab08`.
+  Deterministic next transition is automatic external review in a fresh independent session.
