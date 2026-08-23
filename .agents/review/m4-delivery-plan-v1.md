@@ -345,3 +345,24 @@ transition.
   external-review session. Require `APPROVE` with zero Critical and Major findings before invoking
   `manual-acceptance -> test-craft` to prepare the Issue #77 guide. Do not implement and do not run
   the final M4 code review.
+
+### Resume checkpoint — 2026-08-23, Issue #77 contract v4 blocked
+
+- External review v4 ran in isolated ChatGPT High session
+  `6a8a92f5-34a8-83ec-b5ef-afc701d05456` against exact packet digest
+  `sha256:e08d370648eb00fc29a4f5aa69586b03ab12a8ff36420f32d36fef45402980ef`.
+  The validated response digest is
+  `sha256:8b0732b7202a45aeea3040af890b1e82bcb637cacd71634174c9fc77b49559aa`.
+- Verdict is `BLOCK` with one Critical and six Major findings. The Critical finding proves the
+  stated PostgreSQL guard-session-loss `proof no write` cannot be guaranteed across an independent
+  SQLite commit: PostgreSQL locks can disappear before SQLite durability and the SQLite transaction
+  can still commit.
+- Major findings require: epoch-linearization races for every mutation class; post-lock expiry
+  oracles at permit issuance and finalization; removal of generation-2/takeover fixtures from #77;
+  explicit pre-acquisition denial/no-execution tests; and exact complete audit reconstruction.
+- Exceptional contract revision 4 was the last authorized revision. Therefore no guide may be
+  prepared and no implementation may begin. Final M4 code review remains forbidden.
+- Deterministic next transition: obtain explicit repository-owner direction. A further contract
+  revision requires new exceptional authority and must address every v4 finding before another
+  external review. The alternative is to change Issue #77/#78 scope or stop M4; neither may be
+  inferred by the workflow.

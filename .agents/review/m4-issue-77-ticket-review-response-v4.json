@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:b81da32fe6b2aead00a4214d7a9e68dccf5276b24e4c51171e5b50ba7ab3cd44",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v4:round-1:6a8a92f5-34a8-83ec-b5ef-afc701d05456",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8a92f5-34a8-83ec-b5ef-afc701d05456",
+  "packet_digest": "sha256:e08d370648eb00fc29a4f5aa69586b03ab12a8ff36420f32d36fef45402980ef",
+  "guide_revision": "m4-77-ticket-contract-v4",
+  "guide_digest": "sha256:4124dd29385a1ff4469c89303e1b71bee8a75c13b0ac928d41841f1e4360ec9b",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "BLOCK",
+  "critical_count": 1,
+  "major_count": 6,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "critical",
+      "category": "security",
+      "issue_class": "postgres_guard_loss_linearization_race",
+      "criterion_ref": "M4-77-AC-07",
+      "affected_case_ids": ["M4-77-TC-04", "M4-77-TC-05"],
+      "affected_fields": ["postgres_guard_session", "authority_epoch", "sqlite_durability", "provider_receipt"],
+      "problem": "The contract assumes that a PostgreSQL receipt-guard transaction can keep revocation/takeover totally ordered with SQLite durability even when the PostgreSQL guard session is lost after admission. Session loss releases PostgreSQL locks independently of the SQLite transaction; the SQLite transaction can still reach durable commit after those locks are released. No durable cross-resource admission/fence state or other mechanism closes that interval, so TC-05's deterministic claim that guard loss before SQLite durability always rolls back with proof of no write is not implementable from the stated protocol.",
+      "harm": "A later authority mutation or Issue #78 takeover can become visible after the PostgreSQL lock disappears while the already-admitted old operation can still commit its first SQLite effect. That violates the claimed provider-acceptance ordering and can permit a stale generation/provider effect after fencing.",
+      "required_change": "Replace the session-liveness assumption with an implementable durable admission/fencing protocol. At minimum, persist an admission state/witness that survives PostgreSQL-session loss and that later mutation/takeover must honor until provider-first resolution; classify post-admission guard loss as receipt-possible rather than proof-no-write unless an actually atomic provider-side fence proves rollback. Update AC-06/07/09 and TC-04/05 consistently without implementing #78 reconciliation in #77."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "epoch_mutation_linearization_coverage_gap",
+      "criterion_ref": "M4-77-AC-03",
+      "affected_case_ids": ["M4-77-TC-01", "M4-77-TC-02"],
+      "affected_fields": ["authority_epoch", "capability_selector", "binding_selector", "policy_selector", "reference_key"],
+      "problem": "TC-01 changes each mutable authority/reference fact before authorize_and_issue_dispatch, but the only concurrent linearization race in TC-02 is an epoch-advancing revocation. The suite therefore does not prove that capability, binding, policy-selector and reference-key mutations themselves participate in the same epoch-lock protocol during permit issuance. An implementation could accidentally omit the epoch serialization from one of those mutation paths while still passing both current tests.",
+      "harm": "A material capability/binding/policy/reference change could commit concurrently with permit construction and recreate the authority_permit_linearization_gap for mutation classes other than the tested revocation path.",
+      "required_change": "Make the issuance race parameterized over every mutation class named by AC-03, including Workspace/resource/execution authorization, capability/binding/policy selector and reference-key mutation. For each, prove mutation-first denies or issuance-first binds the exact witnessed prior epoch, with no intermediate stale permit."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "permit_issue_post_lock_time_oracle_gap",
+      "criterion_ref": "M4-77-AC-04",
+      "affected_case_ids": ["M4-77-TC-02", "M4-77-TC-03"],
+      "affected_fields": ["permit_issuance", "database_time", "lease_deadline", "lock_order"],
+      "problem": "AC-04 requires authorize_and_issue_dispatch to sample fresh PostgreSQL clock_timestamp after its blocking execution/epoch locks and reject an expired owner/lease, but TC-03 exercises delayed provider admission rather than permit issuance across expiry. TC-02 races mutation/issuers without forcing the permit transaction to block across its deadline. The contract therefore lacks a deterministic oracle that distinguishes post-lock clock_timestamp from a transaction-start timestamp at permit issuance.",
+      "harm": "Permit issuance could incorrectly use now()/transaction-start time after lock blocking, minting a permit whose lease was already expired while still satisfying the current provider-deadline tests.",
+      "required_change": "Add a required permit-issuance test that blocks authorize_and_issue_dispatch on its canonical locks across the lease deadline, skews non-PostgreSQL clocks, then proves fresh post-lock clock_timestamp rejects issuance with no permit/audit dispatch authority."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "finalization_lease_time_oracle_gap",
+      "criterion_ref": "M4-77-AC-08",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-08"],
+      "affected_fields": ["observation", "finalization", "generation_1_owner", "lease_deadline", "database_time"],
+      "problem": "AC-08 requires observation/finalization to re-establish the current generation-1 owner and a fresh PostgreSQL-time lease, but no required test delays observation or finalization across lease expiry and proves refusal. TC-03 tests provider receipt expiry and TC-08 tests outcome mappings, so an implementation could omit or use the wrong time source for the finalization lease check without violating their stated oracles.",
+      "harm": "A stale generation-1 owner could finalize ToolActionStore state after its authority lease has expired, creating application state that falsely claims authority over a provider outcome.",
+      "required_change": "Add an explicit observation/finalization expiry oracle using post-lock PostgreSQL time. Delay a direct or closed provider outcome across lease expiry and prove the stale owner cannot finalize or rewrite provider truth; the lifecycle must remain in the recovery-required state defined by the contract."
+    },
+    {
+      "severity": "major",
+      "category": "scope",
+      "issue_class": "stale_generation_seam_scope_reintroduced",
+      "criterion_ref": "M4-77-AC-07",
+      "affected_case_ids": ["M4-77-TC-04"],
+      "affected_fields": ["generation", "takeover", "issue_78", "test_fixture"],
+      "problem": "TC-04 still requires racing a 'fenced generation change', while DD-05 and out_of_scope assign takeover and generation 2+ to Issue #78 and the invariants explicitly forbid introducing a generation-2 fixture. A generation change from the sole generation-1 owner necessarily exercises generation 2+ semantics or an equivalent fixture, so the required test conflicts with the ticket's own scope boundary.",
+      "harm": "Implementers must either leak takeover/generation-2 machinery into #77 to satisfy TC-04 or weaken/fake the test, defeating the intended Issue #77/#78 separation and reopening the prior stale_generation_seam_scope concern.",
+      "required_change": "Remove the generation-change race from #77 acceptance and keep TC-04 limited to epoch mutation and generation-1 receipt fencing that can be exercised without a generation-2 fixture. Preserve the protocol compatibility requirement for later takeover, but require the actual generation-change race in Issue #78 acceptance."
+    },
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "pre_acquisition_denial_coverage_gap",
+      "criterion_ref": "M4-77-AC-01",
+      "affected_case_ids": ["M4-77-TC-01", "M4-77-TC-08"],
+      "affected_fields": ["pre_acquisition_authorization", "execution_creation", "provider_invocation", "application_workflow"],
+      "problem": "AC-01 states that each pre-acquisition Workspace/resource authorization, ExecutionAuthorizer, exact-compatibility or m4r1 denial creates no execution and makes zero provider calls, but the required cases begin after AcquireApplied or exercise later application/provider outcomes. No deterministic test explicitly covers those fail-fast denial paths or proves absence of an execution row alongside zero gateway calls.",
+      "harm": "A denied request could accidentally materialize execution/audit state or reach the gateway before acquisition while all existing required cases still pass.",
+      "required_change": "Add a required application-facing test matrix for every pre-acquisition denial class. Assert no execution is created, no dispatch permit exists, gateway/provider call count is zero, and the public workflow remains the single application-facing write entry point."
+    },
+    {
+      "severity": "major",
+      "category": "evidence",
+      "issue_class": "audit_reconstruction_oracle_gap",
+      "criterion_ref": "M4-77-AC-10",
+      "affected_case_ids": ["M4-77-TC-06", "M4-77-TC-09", "M4-77-TC-10"],
+      "affected_fields": ["audit", "execution_actor", "current_decisions", "compatibility", "provider_identity", "intent", "observations", "outcome"],
+      "problem": "AC-10 enumerates the exact information that append-only audit must reconstruct, but TC-09 only says that 'epoch/audit' reconstruct independently and TC-06 focuses on secret/raw-identifier exposure. None of the stated oracles requires reconstructing and comparing the complete actor, both current decisions, exact compatibility, authority witness, lease/permit times, provider identity, immutable intent, observations and outcome set.",
+      "harm": "Acceptance evidence could show that audit rows survive restart while still omitting one or more security-relevant decision inputs needed to explain why a write was authorized and what provider outcome occurred.",
+      "required_change": "Add an exact canonical audit-projection oracle that reconstructs every AC-10 field from append-only records after restart and compares it to the execution/permit/provider evidence, while separately asserting absence of secrets and raw provider identifiers."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": []
+  },
+  "summary": "Revision v4 materially improves authority-epoch permit issuance and PostgreSQL-time receipt admission, but it is not approvable under the supplied rule that any Critical, Major or Minor gap requires rejection. Most importantly, the post-admission PostgreSQL guard-loss case has no implementable atomic ordering relationship with an independent SQLite commit, so the claimed proof-no-write and takeover/revocation ordering can fail. Additional required-oracle and scope gaps remain around non-revocation epoch mutations, permit-issuance expiry, finalization lease expiry, the reintroduced generation-change test, pre-acquisition denials and complete audit reconstruction. Review standard applied from the packet: sufficiency/internal consistency/implementability and mandatory rejection when any gap remains.",
+  "chat_reference": "https://chatgpt.com/c/6a8a92f5-34a8-83ec-b5ef-afc701d05456",
+  "response_digest": "sha256:8b0732b7202a45aeea3040af890b1e82bcb637cacd71634174c9fc77b49559aa"
+}
