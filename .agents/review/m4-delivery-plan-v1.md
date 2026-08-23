@@ -923,6 +923,35 @@ transition authority; every later session resumes from its exact `next_valid_tra
   PR creation and code review remain unauthorized until the replacement guide is externally
   approved and human-locked.
 
+### Guide v7 preparation and packet checkpoint — 2026-08-23
+
+- `manual-acceptance -> test-craft` produced
+  `.agents/review/m4-issue-77-test-cases-v7.json` and
+  `.agents/manual-tests/milestone-4/77-authorized-execution-v7.md`. All twelve v6 cases remain;
+  the v9 taxonomy correction, two missing post-acquisition reference denials and all four v10
+  oracle families are now explicit without adding #78 recovery behavior.
+- An independent guide audit initially found three Major ambiguities: grouped admission-witness
+  field names, accidental public treatment of `provider_outcome_not_found`, and an admission
+  identity assertion on pre-admission denials. The corrected exact bytes were re-audited
+  `APPROVE` with zero Critical, Major, Minor or Nit findings.
+- The final guide digest is
+  `sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93`;
+  the test-case artifact digest is
+  `sha256:f1d842747a0c49b930d8e82b71efca658b3e231686b786dfaf96b9b699412771`.
+- Canonical self-contained packet
+  `.agents/review/m4-issue-77-guide-review-packet-v7.json` validates at semantic digest
+  `sha256:930b5430659c8f1bd179115d45b6ff4125383c3c2f71fffb7df89dc9ac6d0765`,
+  request ID
+  `review-request-sha256:81f08de470b6d9e1cfef0cf5d8621d4e135896b2ef92563af34f79449795cb1a`
+  and raw-file digest
+  `sha256:c542c2d66f1f35bfe74d9b25367c252e12fc80a21f0d84e755bf23ab99380dd5`.
+  Independent packet audit returned `APPROVE` with zero findings and confirmed no stale v8
+  taxonomy, sensitive-field leak or #78 scope drift.
+- Implementation, PR creation and code review remain unauthorized. After this exact checkpoint is
+  committed and pushed, the next valid transition is fresh action-time owner confirmation followed
+  by external guide review in a new authenticated ChatGPT High session. An external `APPROVE` and
+  explicit human lock of the exact guide digest remain mandatory before implementation.
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.

@@ -1,0 +1,329 @@
+{
+  "projection_version": 1,
+  "round": 1,
+  "request_id": "review-request-sha256:81f08de470b6d9e1cfef0cf5d8621d4e135896b2ef92563af34f79449795cb1a",
+  "packet_digest": "sha256:930b5430659c8f1bd179115d45b6ff4125383c3c2f71fffb7df89dc9ac6d0765",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "issue_id": "github-issue-77",
+  "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+  "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+  "ticket_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
+  "guide_revision": "m4-77-authorized-execution-v7",
+  "guide_digest": "sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+  "acceptance_criteria": [
+    {
+      "id": "M4-77-AC-01",
+      "statement": "WriteProposalWorkflow.handle remains the sole application-facing write Interface. Every pre-acquisition Workspace/resource/execution authorization, exact capability/binding/policy compatibility, complete m4r1 validity or proposal-expiry denial creates no execution/acquisition/admission/audit-start artifact and zero provider calls. Read/observation authority cannot escalate. Temporary execution-authority denial preserves exact approved state and approval identity/version/digest. Only material capability, external-scope binding or policy incompatibility persists stale/invalidated with one approved closed CompatibilityCheckerV1 reason; immutable target/reference replacement is rejected and requires a new proposal plus authorized-human approval. Reference syntax, integrity, scope, trusted-store, key and expiry denial fails closed while the exact approved proposal and approval provenance remain unchanged and invents no reference CompatibilityReason."
+    },
+    {
+      "id": "M4-77-AC-02",
+      "statement": "The logical execution ID and canonical-json-v1 complete-intent fingerprint are server-owned, immutable and absent from writable application/HTTP command schemas; attempted injection is rejected before state creation. An independent oracle recomputes the exact fingerprint from authoritative server-normalized operation, capability, scope, protected reference/resource and title/description inputs and compares both identities byte-for-byte at proposal, acquisition, admission, persisted envelope and provider verification boundaries. acquire_execution uses fresh post-lock PostgreSQL time and atomically commits one complete generation-1 AcquireWitness; every identified loser makes zero gateway/provider calls and every pre-commit fault leaves no partial tuple or caller-influenced identity."
+    },
+    {
+      "id": "M4-77-AC-03",
+      "statement": "A fixed typed DispatchAuthorityEpochVector (reference_key_epoch, workspace_dispatch_epoch) is the sole epoch protocol for M4 dispatch. For every supported Workspace-owned mutation class—Workspace access/resource authority, execution/write authority, and typed capability, external-scope-binding or policy selectors—a deterministic store witness must show the authoritative row change and exactly one workspace_dispatch_epoch increment in the same database transaction, with one shared transaction/commit marker, pre/post row and epoch values, and a rollback branch leaving both unchanged. Every reference-key mutation must show the key-row change and exactly one reference_key_epoch increment in that same transaction; a mutation requiring both scopes must acquire global reference-key then Workspace locks, and inverse order is rejected. Admission must record lock acquisition order execution row then global reference-key epoch then Workspace epoch, with no alternate order. The compiled static typed registry exposes immutable registry_identity, exact registry_version and registry_digest equal across process and restart; it has no plugin/dynamic epoch and registration or mutation attempts are rejected. Any mutable authorization source outside these typed rows/epochs is ineligible and cannot authorize dispatch. After acquisition, authorize_and_admit_dispatch locks execution and both epochs, reloads all current facts and fully reverifies exact m4r1 canonical bytes, MAC, protected claims/scope, trusted-store equality, key identity/status and expiry. An independent matrix exercises non-canonical bytes, MAC corruption, protected-claim corruption, protected-scope corruption, trusted-store delete/replacement/claims mismatch, revoked/unknown/unavailable key and reference expiry. Non-canonical input maps to 400/INVALID_TOOL_RESOURCE_REFERENCE; authenticated integrity/scope/store/key/expiry denial maps to 403/TOOL_RESOURCE_ACCESS_DENIED. Every row binds durable identities, persists no admission/admission-audit and makes zero gateway/provider calls."
+    },
+    {
+      "id": "M4-77-AC-04",
+      "statement": "Fresh post-lock PostgreSQL time and current owner/generation plus unexpired lease/reference atomically commit at most one immutable DispatchAdmissionWitness per logical execution. Its canonical persisted tuple has each mandatory field separately and non-null: admission_schema_version, admission_identity, admission_digest, purpose, workspace_id, proposal_id, logical_execution_id, request_fingerprint, capability_identity/version/digest, binding_identity/version/digest, policy_identity/version/digest, reference_identity/version/digest, reference_claims_digest, resource_identity_digest, canonical_target_digest, canonical_parameter_digest, complete_intent_digest, reference_key_epoch, workspace_dispatch_epoch, authority_decision_digest, authority_witness_digest, owner, generation, database_issue_time, lease_started_at, lease_deadline, envelope_signing_key_identity, envelope_signing_key_version, routing_snapshot_digest, canonical_envelope_digest, and linked admission_audit_identity/admission_audit_digest. The exact canonical envelope bytes are retained privately and are bound by canonical_envelope_digest; no grouped or lossy field may substitute for a listed field. A deterministic commit/ack-ambiguity fixture captures the expected canonical tuple and envelope bytes before the fault: authoritative readback after a committed acknowledgement loss must return the one tuple with every field and byte identical after restart/key rotation and reuse those persisted bytes without a second insert, audit, claim set, signing operation or regeneration; a rollback must leave complete admission/audit absence with no gateway call or #77 retry; no partial or third state is valid."
+    },
+    {
+      "id": "M4-77-AC-05",
+      "statement": "Admission commit is the logical start of the provider write. The exact privately persisted m4-dispatch-admission-v1 envelope is the only create_ticket input. After admission-first, later authority/selector/key mutation or proposal/reference/lease expiry cannot reauthorize, cancel, replace, upgrade or retarget the dispatch; the original byte-identical envelope/intent is sent exactly once. Mutation-first remains denied."
+    },
+    {
+      "id": "M4-77-AC-06",
+      "statement": "The SQLite reference-provider Adapter verifies envelope integrity and recomputed signed-intent fingerprint before its provider-owned logical-ID ledger. One BEGIN IMMEDIATE commits effect or closed rejection with outcome. Same ID/fingerprint replays; two independently valid test-harness envelopes with the same ID and different self-consistent fingerprints reach ProviderIdempotencyConflict before target lookup/mutation and create no second effect; tampering fails earlier. Separately, each of target_not_found, validation_rejected and policy_rejected atomically persists exactly one ledger outcome with exact logical ID/fingerprint/admission digest, creates zero ticket/target effects, replays identically and survives provider restart; every pre-commit fault leaves neither row nor effect. A required production-composition boundary oracle proves that only the production ReferenceProvider binding is registered in application/HTTP dependency injection: ReferenceProviderContractHarness, trusted test-signing Adapter and mutation Adapters have no production registration or resolver result, are reachable only through a private contract-test composition, and no request-controlled provider/signer/adapter/harness selector is accepted before state creation. The production binding remains fixed regardless of request data."
+    },
+    {
+      "id": "M4-77-AC-07",
+      "statement": "Every post-admission crash/session/transport/ack uncertainty remains executing with the same outstanding admission/logical identity/fingerprint and typed indeterminate_external_outcome until Knora finalizes. Admission-before-gateway and pre-SQLite-commit branches have exactly zero provider ledger rows/effects; committed-before-ack has exactly one durable replayable success effect/outcome or one named closed-rejection outcome with zero effects. A read-only provider lookup before receipt yields provider_outcome_not_found without retiring/finalizing admission or granting retry. #77 reloads NoAdmission or AdmissionOutstanding recovery seeds but performs no observation workflow, retry, replay, takeover, first-admission recovery or generation 2+."
+    },
+    {
+      "id": "M4-77-AC-08",
+      "statement": "record_execution_observation and finalize_execution use fresh post-lock PostgreSQL time and require current generation-1 owner and lease. For delayed success and each closed rejection, fixtures start with the SQLite outcome committed, no PostgreSQL observation and lifecycle executing. After expiry, each operation is fenced and a before/after PostgreSQL snapshot remains identical: no observation row, no observation/audit append and no terminal lifecycle/outcome rewrite; the authoritative SQLite outcome remains readable after provider restart."
+    },
+    {
+      "id": "M4-77-AC-09",
+      "statement": "Only direct success and target_not_found, validation_rejected or policy_rejected finalize; receipt-possible results remain executing/202 and provider fingerprint conflict remains executing/409 with no retry authority. For deterministic valid-lease fixtures beginning with the closed SQLite outcome, PostgreSQL lifecycle executing and no observation, record_execution_observation and finalize_execution run before fresh PostgreSQL lease expiry: success durably records its observation/audit and becomes succeeded, and each named rejection durably records its observation/audit and becomes failed with its exact rejection code. provider_outcome_not_found, indeterminate_external_outcome and provider fingerprint conflict never terminalize. The same fixtures repeated after expiry are fenced with an unchanged PostgreSQL snapshot and provider truth still readable. Every success, closed-rejection, indeterminate, conflict, fenced and post-acquisition reference-denial application/HTTP projection matches a closed discriminated allowlist exactly and recursively excludes raw provider/routing, admission/envelope/MAC/fingerprint, authority epoch/decision/witness, key/signing, credential/secret and every other private field. Protected-scope corruption and reference expiry remain generation-1 executing with unchanged identities, no admission or terminal outcome after restart. Observation/read authority never constructs write authority or an admission envelope."
+    },
+    {
+      "id": "M4-77-AC-10",
+      "statement": "A post-restart canonical append-only audit projection exactly reconstructs caller/proposal/approval/execution actors, both current decisions, compatibility, complete acquisition/admission witnesses, authority epochs, database times, provider alias, immutable intent/identity/fingerprint, observations and outcome while excluding raw provider IDs/routing, envelope bytes/MAC, keys, credentials and authority secrets. M1-M3 regressions remain green."
+    }
+  ],
+  "design_decisions": [
+    {
+      "decision": "Keep one deep ExecuteApprovedProposal application call. Acquisition, authorization, admission, dispatch, observation and finalization ordering remain hidden; witnesses are persistence/release evidence, not caller Interfaces.",
+      "id": "M4-77-DD-01"
+    },
+    {
+      "decision": "Use durable PostgreSQL admission committed before provider I/O, never a live cross-store receipt guard. Post-admission uncertainty is receipt-possible and SQLite remains independent provider truth.",
+      "id": "M4-77-DD-02"
+    },
+    {
+      "decision": "Persist the exact canonical envelope bytes in the one admission row with retained versioned verification material; no current selector/reference fact is read between admission commit and dispatch.",
+      "id": "M4-77-DD-03"
+    },
+    {
+      "decision": "Use a provider-only contract harness with a non-runtime trusted signing Adapter to exercise the defensive same-ID/different-valid-fingerprint SQLite ledger path without exposing forging capability to application/HTTP composition.",
+      "id": "M4-77-DD-04"
+    },
+    {
+      "decision": "Persist a read-only downstream ExecutionRecoverySeed as NoAdmission or AdmissionOutstanding. #77 tests only storage/reload and absence of recovery behavior; all provider-first reconciliation, takeover, retry and generation 2+ remain #78 acceptance.",
+      "id": "M4-77-DD-05"
+    },
+    {
+      "decision": "Use fresh PostgreSQL clock_timestamp after blocking locks for #77 execution decisions, refining earlier transaction-start timestamp wording while preserving PostgreSQL time authority and the application Interface.",
+      "id": "M4-77-DD-06"
+    }
+  ],
+  "invariants": [
+    "No gateway call exists without one durable admission; at most one admission exists per logical execution.",
+    "Every acquisition loser makes zero provider calls; provider idempotency cannot hide a losing workflow contender reaching the provider.",
+    "Every new admission is linearized with current authority, exact compatibility and full m4r1 verification under the fixed epoch vector.",
+    "Admission-first is an already-started write; later mutation or expiry cannot cancel or retarget its byte-identical envelope.",
+    "Provider effect and idempotency outcome commit atomically in provider-owned SQLite; ToolActionStore never invents provider truth.",
+    "Provider outcome not-found and terminal target_not_found are disjoint typed and persistence outcomes.",
+    "#77 creates and acts only on generation 1 and performs no reconciliation, retry, replay authorization, orphan recovery or takeover.",
+    "The compiled registry remains static and typed; no plugin/provider discovery framework is introduced.",
+    "Raw provider IDs/routing, envelope bytes/MAC, credentials, key material and authority secrets never enter audit/public projections."
+  ],
+  "out_of_scope": [
+    "ReconcileExecution application flow, provider-first recovery orchestration, stale takeover, generation 2+, authorized replay, orphan first-admission recovery and stale-owner recovery, owned by #78.",
+    "A provider-atomic cancellation protocol, distributed transaction/rollback or arbitrary remote-vendor time protocol.",
+    "Dynamic plugins, capability discovery, runtime provider registration or a general marketplace.",
+    "Editing immutable proposals or silently reusing approval after material capability, binding, policy or reference change.",
+    "Final M4 fixed-point code review, forbidden until #75-#79 are accepted, integrated and closed."
+  ],
+  "acceptance_policy": {
+    "authority": "human_required",
+    "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+    "policy_revision": "m4-human-required-guide-review-v1",
+    "required": true
+  },
+  "test_cases": [
+    {
+      "id": "M4-77-TC-01",
+      "statement": "Every pre-acquisition authentication, validation, authorization, resource-reference, expiry and material-mismatch variant has an independently sourced exact application/HTTP denial and durable fail-closed oracle. Procedure: Load the independent fixture and seed a separate approved proposal, direct durable before snapshot and named sentinel set for every row. Exercise separate rows for missing and invalid authentication; malformed and non-object JSON; missing, non-integer or boolean expected_revision; extra logical_execution_id and request_fingerprint; path and current Workspace denial; resource denial; no execution, read-only, observation-only and read-plus-observation grants; capability, binding and policy identity/version/digest mismatch; malformed and non-canonical m4r1; MAC, protected-claim and protected-scope corruption; trusted-store delete/replacement/claims-mismatch/unavailable; revoked/unknown key; expired resource reference; and proposal expiry. Compare every directly representable application outcome and decoded HTTP status/body/key set with its literal row, then reload durable state and capture every named sentinel count. Restore only conditions the approved design classifies as temporary and retry the same approval; separately restore each material capability/binding/policy selector and retry the invalidated old approval; reject immutable target/reference substitution without inventing a reference CompatibilityReason, and prove malformed, scope-mismatched, revoked or expired references cannot regain executability from preserved provenance.",
+      "oracle": "Each application/transport denial and HTTP status/body equals the exact independent literal row; the body has only error.code and never contains status. Every denial creates zero execution, acquisition, admission, execution-start audit and terminal-audit artifacts and zero gateway, target-lookup and provider calls for named sentinels; authentication, path-Workspace and raw HTTP-validation rows additionally have zero proposal lookups and workflow calls. Temporary Workspace/resource/execution denial and every m4r1 syntax/integrity/scope/trust/key/expiry denial preserve exact immutable approved proposal and approval provenance; an attempted material target/reference replacement is rejected by the immutable command/persistence boundary, creates no compatibility reason, and a different target requires a new proposal plus authorized-human approval. Proposal expiry preserves approval identity/version/digest while projecting approved, non-stale, non-executable and expired; there is no separate approval-expiry state. Each capability/binding/policy mismatch persists its exact typed stale/invalidated state and requires a new proposal and human approval even after the old selector is restored.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-02",
+      "statement": "Logical execution identity and canonical request fingerprint are server-owned, immutable and acquired atomically by one contender. Procedure: Inject logical ID/fingerprint fields through application and HTTP inputs. Independently recompute the fingerprint from server-normalized operation, exact capability, scope, protected reference/resource claims and normalized {title, description}; compare the fingerprint and server-minted logical ID at proposal, complete AcquireWitness, admission, persisted envelope and provider verification boundaries. Race identified contenders, read the committed acquisition tuple after commit and restart, inspect a separate session before commit, and inject faults after each acquisition write before commit.",
+      "oracle": "Identity injection is rejected before state creation. Server identities are not caller-selectable or caller-influenceable, are byte-identical at every boundary and remain immutable after restart. Exactly one AcquireApplied contender commits one complete generation-1 AcquireWitness tuple; every loser makes zero gateway/provider calls, pre-commit visibility is empty and each rollback leaves no execution, snapshot, audit fragment or caller-influenced identity.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-03",
+      "statement": "Admission revalidates current authority, compatibility and complete m4r1 state under locks, and every post-acquisition denial has an exact application/HTTP projection with independently sourced durable identities. Procedure: Acquire and block before admission. Run every post-acquisition denial-matrix row: Workspace/resource/execution authority; capability/binding/policy identity, version and digest; canonical bytes, MAC, protected claims and protected-scope corruption; trusted-store delete, replacement and claims mismatch; revoked, unknown and unavailable key state; reference expiry; and retiring-to-revoked mutation-first. Run compatible, active exact, retiring exact, active-to-retiring and admission-first controls. For every supported Workspace-owned authority/selector mutation and each reference-key mutation, capture the changed authoritative row plus exactly one corresponding epoch increment under one transaction/commit marker, then run and record a rollback branch. Capture the dual-scope mutation lock order (global reference-key epoch then Workspace) and admission lock order (execution row then global reference-key epoch then Workspace); reload the compiled static registry across process/restart and attempt mutable-source, registration and request-controlled signer/mutator/provider selections. Before every denial invocation, capture expected proposal and generation-1 logical execution identities from independent seed authority and direct durable reload; compare those identities, private denial, ProposalNotExecutable projection and decoded HTTP status/body with the independently loaded exact row before inspecting post-lock epochs, persistence and calls.",
+      "oracle": "Every denial occurs after canonical admission locks and equals one exact independently sourced denial row. Each denial application projection has exactly proposal_id, logical_execution_id, lifecycle=executing, outcome_type=proposal_not_executable and the row's exact reason_code. For every denial row, both IDs are canonical lowercase RFC 4122 UUIDs and exactly equal independently seeded/directly reloaded durable proposal and generation-1 acquisition identities; expected values are never derived from the returned projection or production mapper. Each denial HTTP response has the row's exact 400/403/409 status and exactly {error:{code:<PUBLIC_CODE>}}, with no other outer or nested field. Every denial persists zero DispatchAdmissionWitness/admission-audit rows and makes zero gateway/provider calls; protected-scope corruption and reference expiry map to resource_access_denied plus 403/TOOL_RESOURCE_ACCESS_DENIED using fresh post-lock PostgreSQL time. Each mutation witness binds the changed row and exactly one epoch increment to one transaction/commit marker; rollback leaves both unchanged. Dual-scope and admission lock orders are exact, inverse/alternate order is rejected, and compatible active/retiring controls admit once under epoch linearization. The static registry exposes immutable registry_identity/version/digest equal across process/restart, has no plugin/dynamic epoch, and registration/mutation or mutable authorization-source attempts cannot authorize dispatch; production composition cannot resolve test-only adapters and request-controlled selectors are rejected before state. Evidence remains sanitized.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-04",
+      "statement": "Epoch locks and fresh post-lock PostgreSQL time linearize mutation, admission and expiry. Procedure: Race each real typed Workspace authority/resource/execution/capability/binding/policy mutation and reference-key mutation against admission, and race concurrent same-generation issuers. For every mutation capture the changed authoritative row and exactly one epoch increment in the same transaction/commit marker, then inject rollback and verify both remain unchanged. Exercise dual-scope mutation with global reference-key then Workspace locking and deliberately attempt inverse order; capture admission execution-row then global reference-key epoch then Workspace locking and reject alternate order. Block acquisition across proposal expiry and admission across reference and lease expiry under skewed non-database clocks; reload the static registry across process/restart and attempt mutable runtime/request/provider-discovery sources.",
+      "oracle": "Mutation-first denies and admission-first binds the exact prior epoch vector; one byte-identical admission/audit record exists. Every Workspace-owned mutation advances workspace_dispatch_epoch exactly once with its row under one commit marker; every reference-key mutation advances reference_key_epoch exactly once; rollback leaves both unchanged. Dual-scope mutation order is global reference-key epoch then Workspace and admission order is execution then global then Workspace; inverse/alternate order is rejected with no admission/provider call. Static registry identity/version/digest is immutable and equal across reload with no plugin epoch; mutable sources are ineligible and cannot authorize dispatch. Fresh post-lock clock_timestamp decides proposal, reference and lease boundaries; skewed or transaction-start clocks cannot revive them. Admission-side reference expiry uses the exact TC-03 resource_access_denied / 403 TOOL_RESOURCE_ACCESS_DENIED row and zero-activity evidence.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-05",
+      "statement": "DispatchAdmissionWitness is one complete immutable row and ambiguous commit is resolved by authoritative readback. Procedure: Construct the expected canonical tuple from authoritative proposal/acquisition/authorization inputs and compare these fields individually, without grouped shorthand: admission_schema_version, admission_identity, admission_digest, purpose, workspace_id, proposal_id, logical_execution_id, request_fingerprint, capability_identity, capability_version, capability_digest, binding_identity, binding_version, binding_digest, policy_identity, policy_version, policy_digest, reference_identity, reference_version, reference_digest, reference_claims_digest, resource_identity_digest, canonical_target_digest, canonical_parameter_digest, complete_intent_digest, reference_key_epoch, workspace_dispatch_epoch, authority_decision_digest, authority_witness_digest, owner, generation, database_issue_time, lease_started_at, lease_deadline, envelope_signing_key_identity, envelope_signing_key_version, routing_snapshot_digest, canonical_envelope_digest, admission_audit_identity and admission_audit_digest. Restart and rotate active issuance key, then reload exact envelope bytes. Capture intended tuple and envelope bytes before the commit/ack fault; force committed-before-ack and rolled-back branches and perform authoritative readback by logical execution ID after restart/key rotation.",
+      "oracle": "For admission_schema_version, admission_identity, admission_digest, purpose, workspace_id, proposal_id, logical_execution_id, request_fingerprint, capability_identity, capability_version, capability_digest, binding_identity, binding_version, binding_digest, policy_identity, policy_version, policy_digest, reference_identity, reference_version, reference_digest, reference_claims_digest, resource_identity_digest, canonical_target_digest, canonical_parameter_digest, complete_intent_digest, reference_key_epoch, workspace_dispatch_epoch, authority_decision_digest, authority_witness_digest, owner, generation, database_issue_time, lease_started_at, lease_deadline, envelope_signing_key_identity, envelope_signing_key_version, routing_snapshot_digest, canonical_envelope_digest, admission_audit_identity and admission_audit_digest, the persisted value is individually non-null and exactly equal to its authoritative expected value. Committed readback returns exactly one complete tuple whose individual field values, canonical tuple bytes/digest and private envelope bytes are byte-identical to the intended values after restart/key rotation; no second insert, audit, claim set, signing operation or envelope regeneration occurs. Rolled-back readback has complete admission/audit absence and zero gateway calls or #77 retry. No grouped/lossy field, partial or third state exists; rollback has complete absence.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-06",
+      "statement": "Admission-first dispatch cannot be canceled, upgraded or retargeted by later authority/config/key changes or expiry. Procedure: Pause immediately after admission commit. Independently mutate/revoke each current fact and cross every expiry boundary. Resume dispatch and inspect exact gateway input.",
+      "oracle": "Exactly one call carries the original byte-identical envelope and intent. No reauthorization, cancellation, replacement, key upgrade or retarget occurs. Later lease expiry may fence only Knora observation/finalization.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-07",
+      "statement": "The independent SQLite provider atomically owns effects, closed outcomes and idempotency conflicts and rejects cross-binding before resource access. Procedure: Before private provider cases, inventory production application/HTTP dependency registrations and resolver results, attempt request-controlled provider/signer/adapter/harness selections, and prove only the fixed production ReferenceProvider binding is reachable before any state creation. Exercise same-ID/same-fingerprint replay and two independently valid same-ID/different-fingerprint requests. Exercise ordinary tampering and, as a separate row, deliver an integrity-valid envelope bound to a different Workspace/external-scope binding than the selected provider target. Capture ordered provider verification, target-lookup, SQLite transaction/ledger and effect sentinels for both negative rows. Parameterize success and all three closed rejections with pre-commit and post-commit-before-ack faults, then reopen SQLite. After unequal-fingerprint conflict, reopen SQLite and seal logical execution ID, attempted fingerprint/admission digests, existing ledger row-set digest, conflict result, target-lookup count, ticket-effect count and post-restart digest without asserting Knora finalization.",
+      "oracle": "Production composition resolves no private ReferenceProviderContractHarness, trusted test signer or mutation adapter; request-controlled selector attempts are rejected before proposal/execution state and make zero provider calls. Equal fingerprint replays one outcome/effect and unequal valid fingerprint conflicts before target lookup with no second effect. Ordinary tampering rejects before SQLite mutation. The independent cross-binding row returns provider_scope_denied after integrity verification but before target lookup and before any SQLite idempotency-ledger, target or ticket-effect mutation; lookup, ledger and effect counts are exactly zero and the sanitized result contains no routing/target detail. Each closed rejection owns one exact durable ledger row, zero effects, rollback absence and restart-stable replay. The conflict correlation record proves one original provider ledger/effect, no second effect and stable provider truth after restart; it is provider evidence only and cannot authorize or imply Knora finalization.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-08",
+      "statement": "Each post-admission fault window has exact provider state while Knora remains indeterminate and non-terminal. Procedure: Run each named fault branch. Inspect provider ledger/effect count and reopen SQLite. Inspect Knora lifecycle/identity/projection, then call only the private read-only provider Adapter observer for the provider_outcome_not_found boundary observation without invoking reconciliation or an application/HTTP workflow.",
+      "oracle": "First two branches have exactly zero ledger rows/effects. Committed-before-ack has exactly one replayable success effect/outcome or one closed outcome with zero effects. Every unfinalized branch remains executing with unchanged admission/logical ID/fingerprint and typed indeterminate_external_outcome; #77 grants no retry/replay/takeover. provider_outcome_not_found is provider-boundary-only read-only evidence, is not a #77 application result or HTTP body, and creates no execution-outcome public-matrix row.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-09",
+      "statement": "Issue #77 persists read-only recovery seeds but implements no Issue #78 observation, retry or takeover behavior. Procedure: Restart and reload each seed variant. Invoke ExecuteApprovedProposal again for each. Inspect provider observation/dispatch, admission and generation state.",
+      "oracle": "Both return current ExecutionInProgress. No provider observation, admission creation/replacement, dispatch/replay, retry authorization, takeover or generation increment occurs. The two recovery seed variants remain exactly reconstructible.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-10",
+      "statement": "Generation-1 observation/finalization uses fresh post-lock PostgreSQL time, is lease-fenced, and every execution outcome or post-acquisition denial uses a complete immutable sanitized application/HTTP matrix with independently sourced identities. Procedure: For provider-only success and every closed rejection, prepare separate observation fixtures with no PostgreSQL observation and finalization fixtures with one durable authorized observation ready to finalize; begin each operation before lease_expires_at, record operation start and PostgreSQL transaction timestamp, skew application/non-database clocks and block behind the governing execution-row lock before the expiry decision. While each operation is blocked, use an independent PostgreSQL session to prove clock_timestamp() is later than lease_expires_at, release the lock, capture the operation's own fresh clock_timestamp() immediately after lock acquisition, invoke the operation and capture before/after execution, observation, audit and operation-correlated write projections. Repeat the same observation and finalization paths as before-expiry controls, releasing while both independent and operation post-lock PostgreSQL times remain before lease_expires_at. Link, without republishing, the provider-boundary-only read-only provider_outcome_not_found evidence from TC-08; do not invoke or add an application/HTTP projection for it. Then exercise the public indeterminate, current in-progress, provider-conflict and fenced result rows. For ExecutionIndeterminate, current ExecutionInProgress, provider-conflict ExecutionInProgress, ExecutionFenced and every post-acquisition ProposalNotExecutable row, capture operation-correlated before, after and post-PostgreSQL-restart execution/finalization/terminal-audit snapshots and link provider conflict to the exact TC-07 record. Before every TC-03 denial invocation, capture expected proposal and generation-1 logical execution identities from independent seed authority and direct durable reload, then invoke application and HTTP seams. For every row in both independent matrices, compare exact application result, outcome_type, lifecycle, HTTP status, complete key sets and value domains including denial identity equality; recursively inject forbidden fields.",
+      "oracle": "For observation and finalization independently, each expired branch starts and establishes its transaction timestamp before the deadline, samples fresh PostgreSQL time after lock acquisition later than the deadline, returns ExecutionFenced and appends zero operation-correlated execution/observation/audit or other PostgreSQL writes. Each valid-lease before-expiry control samples fresh post-lock PostgreSQL time before the deadline: success records one durable observation/audit and finalizes to succeeded with the exact success outcome; target_not_found, validation_rejected and policy_rejected each record one durable observation/audit and finalize to failed with its exact rejection_code and zero target effects. Skewed application/non-database and transaction-start clocks decide neither branch. Every application/HTTP execution outcome exactly matches one execution-outcome row, including status, lifecycle, fields and value domains. provider_outcome_not_found exists only as the linked TC-08 private provider-boundary read-only observation, has no #77 application/HTTP projection or public matrix row, and grants no retry authority. indeterminate_external_outcome and provider fingerprint conflict never terminalize. Every TC-03 denial exactly matches one ProposalNotExecutable application row and one closed HTTP error-envelope row, and both IDs are canonical lowercase RFC 4122 UUIDs exactly equal pre-invocation independently seeded/directly reloaded durable identities; no denial remains unclassified. Application denial fields are exactly proposal_id, logical_execution_id, lifecycle, outcome_type and reason_code; HTTP denial fields are exactly error.code. The expected matrices import or call no production result type, enum, serializer or HTTP mapper. Provider truth survives restart and every extra/private-field injection fails closed. Every admitted non-terminal fixture remains generation 1 and executing after PostgreSQL restart with unchanged proposal_id, logical_execution_id, request_fingerprint and admission_identity; this applies to indeterminate_external_outcome, the admitted current-execution fixture, provider fingerprint conflict and the post-admission fenced fixture. Protected-scope corruption and reference expiry are post-acquisition but pre-admission denials: after PostgreSQL restart each retains unchanged proposal_id, logical_execution_id, request_fingerprint, generation and acquisition witness/audit identity, while DispatchAdmissionWitness row count and admission-audit row count remain zero. No admission_identity exists or is asserted for either denial. For every non-finalizing application/HTTP row and the separately linked provider-boundary-only observation, terminal outcome/finalization row count, terminal-audit append delta and operation-correlated finalization-write count are zero and the terminal-column/row-set digest is unchanged. Provider conflict has exactly proposal_id, logical_execution_id, lifecycle=executing, outcome_type=execution_in_progress and reason_code=provider_idempotency_conflict in both the application projection and decoded HTTP 409 body, while TC-07 retains one original provider ledger/effect and no second effect. Typed non-terminal observation or audit activity is counted separately and does not violate the terminal-write oracle.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-11",
+      "statement": "Append-only PostgreSQL audit reconstructs complete provenance after independent PostgreSQL and SQLite restarts without secrets. Procedure: Restart PostgreSQL and SQLite independently. Reconstruct audit solely from append-only PostgreSQL records and compare every required field. Read provider ledger independently and scan audit/public evidence for forbidden values.",
+      "oracle": "Audit exactly reconstructs all actors, decisions, compatibility, acquisition/admission witnesses, epochs, times, provider alias, immutable intent/identity/fingerprint, observations and outcome. Provider ledger remains independently authoritative. No raw provider/routing, envelope/MAC, key, credential or authority secret appears.",
+      "required": true
+    },
+    {
+      "id": "M4-77-TC-12",
+      "statement": "The exact candidate passes focused M4.3, closed static-registry and production-isolation boundaries, full regression, Ruff, Compose and clean Alembic verification. Procedure: Instantiate every production application and HTTP composition entrypoint, enumerate the registry through its public typed resolver/descriptor projection and compare the exact ordered capability ID/version/operation set with the closed allowlist. For each production application factory, dependency provider, HTTP dependency map and override/resolution surface, attempt to resolve by dependency role and by concrete type every test-only m4r1 signer, dispatch-envelope signer, trusted-store mutator, Workspace/resource/execution-authority mutator, capability/binding/policy selector mutator, reference-key mutator and provider-contract-harness signer/mutator. Attempt invocation only if any probe unexpectedly returns an object, while counting registry, PostgreSQL, SQLite-ledger, target-lookup, provider-call and effect state before/after; any returned callable is a test failure even when invocation itself rejects. Attempt request-controlled provider/signer/adapter/harness selection, then attempt runtime capability/provider registration, capability/provider discovery and plugin loading through every production application/HTTP composition surface; do not use file-name or source-text inspection as the oracle. Run the locked focused M4.3 command, recreate/migrate PostgreSQL and run the authoritative full suite serially, then run Ruff, Compose config, clean migration/current checks and inspect Git status.",
+      "oracle": "The production registry equals the exact closed typed allowlist and exposes no registration, discovery or plugin-loading operation; the production provider binding is fixed, request-controlled selections are rejected before state/provider activity, and all probes are structurally unavailable or return the production composition's typed unsupported-dependency result. Every test-only signer/mutator resolution probe returns no object and no callable across every application/HTTP surface; therefore no test-only adapter can be invoked from production composition. All registration/discovery/plugin and signer/mutator probes leave the registry projection, dependency graph, PostgreSQL state, SQLite ledger, target-lookup count, provider-call count and effect count byte-for-byte/count-for-count unchanged. All commands exit zero and focused evidence covers TC-01 through TC-11 plus the closed-registry and test-adapter-isolation boundaries. M1-M3 regressions remain green. Alembic is at head and the candidate worktree is clean.",
+      "required": true
+    }
+  ],
+  "command_projections": [
+    {
+      "id": "M4-77-CMD-01",
+      "kind": "migration",
+      "statement": "Clean PostgreSQL recreation and Alembic upgrade with pinned runtime."
+    },
+    {
+      "id": "M4-77-CMD-02",
+      "kind": "verification",
+      "statement": "Focused #77 and full repository pytest with worktree-pinned PYTHONPATH and sequential PostgreSQL execution."
+    },
+    {
+      "id": "M4-77-CMD-03",
+      "kind": "verification",
+      "statement": "Ruff and Docker Compose configuration verification."
+    }
+  ],
+  "required_evidence": [
+    {
+      "id": "M4-77-EV-01",
+      "required": true,
+      "statement": "Rejected caller identity injection, independent canonical fingerprint recomputation, byte-identical server-owned logical ID/fingerprint across proposal/acquisition/admission/envelope/provider, per-contender acquisition results/call counts, pre-commit isolation, rollback absence and exact post-commit/restart AcquireWitness tuple."
+    },
+    {
+      "id": "M4-77-EV-02",
+      "required": true,
+      "statement": "Real mutation-adapter epoch traces with one transaction/commit marker per changed authoritative row plus epoch advance, pre/post global and Workspace epochs, rollback absence, global-before-Workspace dual-mutation order and execution→global→Workspace admission lock order; immutable static-registry identity/version/digest across process/restart with no plugin epoch; mutable-source ineligibility proofs; the complete post-acquisition reference-denial matrix including protected-scope corruption and reference expiry, exact private/application/HTTP mappings, independently reloaded durable identities, zero admission/audit/provider activity and fresh post-lock PostgreSQL expiry samples."
+    },
+    {
+      "id": "M4-77-EV-03",
+      "required": true,
+      "statement": "One complete DispatchAdmissionWitness row and linked audit with a separately named, non-null canonical field set: schema/identity/digest, purpose, Workspace/proposal/logical ID/fingerprint, capability/binding/policy/reference identity/version/digest, reference-claims/resource digest, target/parameter/complete-intent digests, both authority epochs, decision/witness digests, owner/generation, database issue time, lease start/deadline, envelope signing-key identity/version, routing-snapshot digest, canonical envelope digest and audit identity/digest. Include exact private envelope-byte equality, key-rotation reload, admission-first non-cancellation traces and both authoritative commit/ack ambiguity branches with no second insert/sign/regeneration or partial state."
+    },
+    {
+      "id": "M4-77-EV-04",
+      "required": true,
+      "statement": "Provider-owned named evidence for target_not_found, validation_rejected and policy_rejected, each binding the exact logical execution ID/fingerprint/admission digest, one closed SQLite ledger outcome, zero ticket/target effects, pre-commit rollback observation, equal-fingerprint replay and the identical authoritative outcome after provider restart; plus the two-valid-envelope conflict and tamper rejection. Include the production-composition/DI negative manifest and resolver/request-selection evidence proving the private ReferenceProviderContractHarness, trusted test signer and mutation adapters are reachable only through private contract-test composition."
+    },
+    {
+      "id": "M4-77-EV-05",
+      "required": true,
+      "statement": "Paired valid-lease and post-expiry branch-specific provider/Knora state records for success, target_not_found, validation_rejected and policy_rejected: before expiry, durable observation/audit and exact succeeded/failed finalization; after expiry, exact ExecutionFenced and unchanged PostgreSQL state. Also prove exact zero/zero before receipt, exact one durable outcome after provider commit, unchanged executing/admission/logical ID/fingerprint plus indeterminate_external_outcome before Knora finalization, provider-outcome-not-found versus closed-rejection persistence, two-variant recovery seed and absence of all #78 behavior."
+    },
+    {
+      "id": "M4-77-EV-06",
+      "required": true,
+      "statement": "Temporary-authority/reference-denial approved-provenance versus capability/binding/policy stale/invalidated snapshots, immutable target-substitution rejection, exact public discriminated allowlist and forbidden-field matrices for every result, protected-scope/reference-expiry post-restart non-finalization evidence, complete valid-lease observation/finalization and expiry-fenced PostgreSQL snapshots, full audit reconstruction, exact subject SHA and all governed verification totals/exits."
+    }
+  ],
+  "prior_findings": [
+    {
+      "id": "M4-77-GR-001",
+      "severity": "major",
+      "status": "CLOSED_IN_GUIDE_V2_CONFIRMED_BY_REVIEW_V2",
+      "resolution": "TC-03 retains the complete active/retiring/revoked/unknown/unavailable and rotation-transition key matrix with post-lock key identity/epoch and per-row counters."
+    },
+    {
+      "id": "M4-77-GR-002",
+      "severity": "major",
+      "status": "CLOSED_IN_GUIDE_V2_CONFIRMED_BY_REVIEW_V2",
+      "resolution": "TC-10 retains exact expired-owner observation/audit identity, count, digest and zero-write fencing evidence."
+    },
+    {
+      "id": "M4-77-GR-003",
+      "severity": "major",
+      "status": "CLOSED_IN_GUIDE_V2_CONFIRMED_BY_REVIEW_V2",
+      "resolution": "TC-12 retains production-composition closed-registry and structural no-registration/discovery/plugin probes."
+    },
+    {
+      "id": "M4-77-GR-004",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V3",
+      "resolution": "TC-03 assigns every authority/selector/integrity/trusted-store row an exact typed result plus zero admission/audit/gateway/provider counters and a compatible control."
+    },
+    {
+      "id": "M4-77-GR-005",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V3",
+      "resolution": "TC-07 treats cross-binding independently and requires provider_scope_denied before target lookup and SQLite ledger/effect mutation with exact zero counters."
+    },
+    {
+      "id": "M4-77-GR-006",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V3",
+      "resolution": "TC-12 inventories every production application/HTTP DI surface and attempts both role/type resolution and invocation for every test-only trusted signer/mutator, requiring no returned object and zero state/provider change."
+    },
+    {
+      "id": "M4-77-GR-007",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V5",
+      "resolution": "TC-03 and TC-10 retain the complete ProposalNotExecutable application/HTTP denial matrix and now bind proposal_id/logical_execution_id to canonical pre-invocation independently seeded/directly reloaded durable scenario identities with expected/actual equality evidence."
+    },
+    {
+      "id": "M4-77-GR-008",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V5",
+      "resolution": "TC-10 independently races observation and finalization: each begins before lease expiry, blocks on the governing row lock, crosses expiry, captures the operation's deciding post-lock clock_timestamp and compares same-path before-expiry controls under skewed non-database clocks."
+    },
+    {
+      "id": "M4-77-GR-009",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V6",
+      "resolution": "TC-01 now owns one independent literal pre-acquisition fixture row for every authentication, validation, authorization, material-mismatch, m4r1 trust/key/expiry and proposal-expiry variant, with exact application/HTTP envelopes, durable state, named zero-activity sentinels and one release-evidence row each."
+    },
+    {
+      "id": "M4-77-GR-010",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V6",
+      "resolution": "TC-07 seals provider-conflict correlation evidence and TC-10 proves after PostgreSQL restart that provider conflict and every non-finalizing matrix row remain generation-1 executing with unchanged identities and zero terminal/finalization rows, terminal-audit appends or finalization writes."
+    },
+    {
+      "id": "M4-77-GR-011",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V7",
+      "resolution": "TC-01 restores the closed CompatibilityCheckerV1 taxonomy: immutable target/reference substitution is rejected without inventing reference_*_mismatch, reference-validity denial preserves exact approval provenance, and a different target requires a new proposal plus authorized-human approval."
+    },
+    {
+      "id": "M4-77-GR-012",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V7",
+      "resolution": "TC-03, TC-04 and TC-10 add protected-scope corruption and reference-expiry post-acquisition/pre-admission rows with exact resource_access_denied and 403/TOOL_RESOURCE_ACCESS_DENIED mappings, independently sourced durable identities, fresh PostgreSQL-time linkage, zero admission/audit/gateway/provider activity and restart-stable generation-1 non-finalization evidence."
+    },
+    {
+      "id": "M4-77-GR-013",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V7",
+      "resolution": "TC-03 and TC-04 require same-transaction authoritative-row/epoch witnesses with rollback branches, global-to-Workspace dual-mutation and execution-to-global-to-Workspace admission lock traces, immutable static-registry identity/version/digest with no plugin epoch, and fail-closed mutable-source ineligibility."
+    },
+    {
+      "id": "M4-77-GR-014",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V7",
+      "resolution": "TC-05 enumerates all 40 DispatchAdmissionWitness and linked-audit fields individually, requires each value to be non-null and exact-equal to its authoritative source, and proves tuple/byte identity through restart, key rotation and committed acknowledgement loss while rollback leaves complete absence."
+    },
+    {
+      "id": "M4-77-GR-015",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V7",
+      "resolution": "TC-03, TC-07 and TC-12 require production application/HTTP DI manifests, resolver probes and request-selection probes proving that the private provider harness, trusted test signer and mutation adapters are unreachable outside private contract-test composition before any state or provider call."
+    },
+    {
+      "id": "M4-77-GR-016",
+      "severity": "major",
+      "status": "ADDRESSED_IN_GUIDE_V7",
+      "resolution": "TC-10 pairs valid-lease observation and finalization fixtures for success plus target_not_found, validation_rejected and policy_rejected with durable succeeded/failed outcomes, then repeats observation and finalization after expiry to prove fresh post-lock PostgreSQL-time fencing and zero conflicting writes."
+    }
+  ]
+}
