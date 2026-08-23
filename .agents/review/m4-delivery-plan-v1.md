@@ -190,3 +190,50 @@ At every session boundary, use `session-continuity` to suspend with the current 
 and worktree heads, guide revisions, Evaluation histories, blockers, completed transitions and
 `next_valid_transition`. Resume only after validating that contract against Git, GitHub and this
 plan. Never infer progress from conversation memory.
+
+## Durable execution checkpoint — 2026-08-23
+
+This section is the resumable handoff for the current delivery run. The authoritative mutable state
+is [m4-workflow-ledger-v1.json](.agents/review/m4-workflow-ledger-v1.json); this section records the
+ordered next actions so a later session does not restart or skip a gate.
+
+Completed and durable:
+
+- Integration branch `nhibuaa/m4-tools-human-approval` remains based on `main` at
+  `6312c4c4230032aa92ca5915803fcfaf564354fa`; `main` is unchanged.
+- #75 is integrated through PR #80 merge commit `2a7e2832b37bccac29adcb6c049871024f3864a3`.
+  Integration verification passed (`672 passed, 3 skipped`, Ruff, Compose and Alembic), Issue #75
+  is closed, and its worktree/local/remote branch are removed.
+- #76 was reconciled against integration with merge commit
+  `f40c21f9e1b83cecccfc3858af5a5630cd9059c2`. The focused suite passed 131 cases; the full exact-
+  worktree suite passed `803 passed, 3 skipped`; Ruff, Compose config and a clean Alembic upgrade to
+  `20260822_0037` passed.
+- Locked guide `m4-76-write-proposal-v3` remains immutable and human-approved. The technical run
+  `m4-76-write-proposal-v3-20260823-01` is append-only recorded with all 8 cases PASS, but its
+  verdict is `BLOCKED` with `human_approval: pending` by design.
+
+Current gate and exact next transition:
+
+1. Obtain explicit human approval for run `m4-76-write-proposal-v3-20260823-01` on subject
+   `f40c21f9e1b83cecccfc3858af5a5630cd9059c2`. Do not infer approval from the prior invalidated
+   #76 run or from the green technical suite.
+2. Append the approved Evaluation through `manual-acceptance` without rewriting the pending record;
+   update the ledger and emit `evaluation_76_human_approval_recorded`.
+3. Reconcile PR #81 with the then-current integration head (governance/evidence commits may have
+   advanced it), verify the acceptance subject remains valid, and run child code review v2 with
+   `APPROVE`, zero Critical and zero Major. Use `code-review` and `code-check`; use
+   `resolving-merge-conflicts` only if reconciliation conflicts.
+4. Merge PR #81 into integration with a merge commit, run selective invalidation plus full
+   integration verification, then close Issue #76 and remove its clean worktree/local/remote branch.
+5. Advance the frontier to #77, then #78 and #79 in graph order. For each ticket preserve the
+   locked-guide/human-acceptance/external-review/fixed-point gates, append every Evaluation, merge
+   one PR per issue, close the issue only after green integration verification, and keep PostgreSQL
+   suites serialized.
+6. After #79, perform the final fixed-point review and cadence evidence gate (`11/11` external
+   reviews, all five human approvals before final review), open/merge PR #74 into `main`, run
+   post-merge verification, close #74, and perform the cleanup invariants in this plan.
+
+At every context boundary, create/validate a `session-continuity` Resume Contract containing the
+ledger path, exact integration/issue heads, guide revision, Evaluation history digest, current
+state, blocker and the next transition above. Never mark #76 accepted, integrated, or closed while
+the human approval gate is pending.
