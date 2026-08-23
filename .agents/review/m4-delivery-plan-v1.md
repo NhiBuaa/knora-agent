@@ -561,3 +561,17 @@ transition.
   `review-request-sha256:450f0fde899b79425d52083d616fddee1e3943d8a85a1d1057d8f728b29503ce`.
   Next transition is independent external guide review. No implementation may begin until external
   `APPROVE` and explicit human approval lock this exact guide digest.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v1 request changes
+
+- Independent ChatGPT High review session `6a8ac4e0-44d0-83ec-9208-da92f90fefef` returned
+  `REQUEST_CHANGES` against exact subject `33f007e2cabc2a760a725fcfa0b98b56a7c73af2`, packet
+  `sha256:2bbb3999990294ebb51126c9aaa2778b026a05e8de5cf73eadf1f57efa5bb9c7` and guide
+  `sha256:250c78a9c2670b4fb755ec58ffb6cbc5ef027922c76881b4918f92d0979ec82c`.
+- Counts are 0 Critical, 3 Major and 0 Minor. The three guide-only gaps are: complete observable
+  active/retiring `m4r1` key lifecycle outcomes; expired-owner fencing that proves zero new
+  observation/audit append and zero PostgreSQL write; and an executable production-composition
+  proof that the typed registry is closed with no runtime plugin/discovery/registration seam.
+- These findings do not change the approved Issue #77 abstractions or move reconciliation behavior
+  from #78. Deterministic next transition is `test-craft` plus immutable guide v2 preparation,
+  followed by fresh external review. Implementation remains blocked.

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:450f0fde899b79425d52083d616fddee1e3943d8a85a1d1057d8f728b29503ce",
+  "review_id": "external-review:github-issue-77:m4-77-authorized-execution-v1:round-1:6a8ac4e0-44d0-83ec-9208-da92f90fefef",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8ac4e0-44d0-83ec-9208-da92f90fefef",
+  "packet_digest": "sha256:2bbb3999990294ebb51126c9aaa2778b026a05e8de5cf73eadf1f57efa5bb9c7",
+  "guide_revision": "m4-77-authorized-execution-v1",
+  "guide_digest": "sha256:250c78a9c2670b4fb755ec58ffb6cbc5ef027922c76881b4918f92d0979ec82c",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "reviewed_commit": "33f007e2cabc2a760a725fcfa0b98b56a7c73af2",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "findings": [
+    {
+      "id": "M4-77-GR-001",
+      "severity": "major",
+      "summary": "TC-03 does not define an observable oracle for every configured m4r1 key lifecycle state.",
+      "evidence": "The guide prerequisites explicitly require complete active, retiring, revoked, unknown and key-rotation fixtures. However, TC-03 only directs the reviewer to exercise revoked, unknown, rotated and unavailable reference-key conditions, then generically requires every mutation to be detected. It never states the required behavior for the active and retiring fixtures that the guide itself requires. This leaves AC-03's requirement to recheck complete m4r1 integrity/trust/key state without a deterministic oracle for those states.",
+      "impact": "An implementation with incorrect handling of a legitimate active or retiring key state could still satisfy the written TC-03 procedure because those fixture states have no explicit expected result. The guide therefore cannot prove complete key-state admission semantics.",
+      "required_fix": "Extend TC-03 with an explicit matrix covering every required key lifecycle fixture, including active and retiring states and the relevant rotation transitions. For each state, state the contract-required admit-or-deny result, admission/provider-call counts, epoch/key identity observed after locking, and sanitized evidence. Do not rely on the prerequisite fixture list as proof."
+    },
+    {
+      "id": "M4-77-GR-002",
+      "severity": "major",
+      "summary": "TC-10 does not explicitly prove the AC-08 prohibition on expired owners appending observation/audit records.",
+      "evidence": "AC-08 requires that expired generation-1 owners cannot append observation/audit or terminal state. TC-10 requires an expired operation to return ExecutionFenced and leave PostgreSQL 'field-for-field unchanged', with before/after PostgreSQL snapshots as evidence. That oracle does not explicitly assert append-only audit row count/order/digest invariance; a new observation/audit row can be appended while the pre-existing execution row remains field-for-field unchanged.",
+      "impact": "A fencing defect that correctly prevents terminal-state mutation but still allows an expired owner to append an observation or audit event could pass the stated oracle, violating a named concurrency/security acceptance criterion.",
+      "required_fix": "Make the expired-owner oracle explicit: capture the execution row plus ordered append-only observation/audit identities, counts and stable field/digest projection immediately before the blocked finalization; after the attempt assert no new observation row, no new audit row, no terminal-state mutation and no other PostgreSQL write attributable to the expired owner. Bind those before/after values into TC-10 release evidence."
+    },
+    {
+      "id": "M4-77-GR-003",
+      "severity": "major",
+      "summary": "The static typed capability-registry and no-dynamic-plugin boundary is asserted by the packet but has no observable guide test.",
+      "evidence": "The canonical packet requires the capability registry to remain static and typed with no plugin framework and explicitly excludes dynamic plugins, provider discovery and runtime registration. The guide explicitly tests the #77/#78 recovery boundary in its composition prerequisites, but does not define an equivalent procedure for runtime plugin/registry/discovery absence. TC-12 only runs the focused/full suites, Ruff, Compose, migration and evidence validation; it provides no closed-registry or registration/discovery oracle.",
+      "impact": "A candidate that accidentally exposes runtime capability/provider registration or discovery could pass every locked guide case even though it violates a named invariant and Issue #77 out-of-scope boundary.",
+      "required_fix": "Add a deterministic boundary check, either as a locked TC or an explicit oracle in an existing TC, that exercises the production composition/interface surface and proves the registry equals the closed typed allowlist and that runtime capability/provider registration, discovery and plugin-loading entry points are unavailable. Evidence must come from executable behavior or an observable production-composition contract, not unsupported prose or a generic file-level assertion."
+    }
+  ],
+  "coverage": {
+    "criteria": {
+      "M4-77-AC-01": "covered",
+      "M4-77-AC-02": "covered",
+      "M4-77-AC-03": "partial",
+      "M4-77-AC-04": "covered",
+      "M4-77-AC-05": "covered",
+      "M4-77-AC-06": "covered",
+      "M4-77-AC-07": "covered",
+      "M4-77-AC-08": "partial",
+      "M4-77-AC-09": "covered",
+      "M4-77-AC-10": "covered"
+    },
+    "uncovered": [
+      "M4-77-AC-03: deterministic oracle for every required m4r1 key lifecycle state, specifically the active/retiring fixtures.",
+      "M4-77-AC-08: explicit proof that expiry fencing prevents observation/audit appends in addition to terminal-state mutation.",
+      "Invariant/out-of-scope boundary: static typed capability registry with no dynamic plugins, provider discovery or runtime registration."
+    ]
+  },
+  "summary": "The guide closely tracks the canonical twelve-case packet and provides strong observable coverage for authorization, acquisition, admission linearization, PostgreSQL-time decisions, commit/ack ambiguity, immutable dispatch, SQLite provider semantics, crash windows, the #77/#78 recovery boundary, public-result sanitization, audit reconstruction and governed regression verification. It is not yet approvable because three named contract surfaces remain capable of passing without deterministic proof: complete key-lifecycle semantics in TC-03, the no-observation/no-audit-write portion of expiry fencing in TC-10, and the static-registry/no-dynamic-plugin invariant. These gaps require guide changes before external APPROVE.",
+  "chat_reference": "https://chatgpt.com/c/6a8ac4e0-44d0-83ec-9208-da92f90fefef",
+  "response_digest": "sha256:509e371cceebe48dc3d6c70a4702cdc0296f637720fe07062b955423e11c31c3"
+}
