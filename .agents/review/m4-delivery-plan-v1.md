@@ -778,3 +778,34 @@ transition.
   `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v6-review-send-v1.json`
   with digest
   `sha256:07f68a6fc6f171b743579496f36d8536f058e75406dc3b6a063d938292e2e680`.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v6 request changes
+
+- The exact guide v6 and canonical packet were reviewed in fresh authenticated ChatGPT High
+  session `6a8af484-7eec-83ec-a492-0d4f0d7ec657` against exact subject
+  `93d12b907ec82e71ee03620fe6c565c7fbc352c3`.
+- Native upload failed after the bounded retry, so the already governed fallback sent one pasted
+  attachment containing the byte-exact packet and guide. The first response preserved the review
+  semantics but used the wrong `coverage.criteria` shape; one same-session technical retry changed
+  only that array to the required ten string IDs.
+- The normalized response is contract-valid at
+  `sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef`
+  and returned `REQUEST_CHANGES` with zero Critical, two Major and zero Minor findings:
+  `material_reference_mismatch_stale_invalidation_not_exercised` and
+  `post_acquisition_reference_denial_matrix_incomplete`.
+- The provider-conflict durability finding is closed. The two remaining guide/test-craft gaps are:
+  an explicit material reference-mismatch stale/invalidation row in TC-01; and complete
+  post-acquisition protected-scope-corruption/reference-expiry rows bound to TC-03/TC-04/TC-10
+  application, HTTP, durable-state and post-restart non-finalization evidence.
+- Adjudication sustains both findings, but the first exposes a contract-level ambiguity: ticket v8
+  requires a typed material-reference stale reason, while the approved design closes
+  `CompatibilityCheckerV1` and its reason taxonomy over capability, scope-binding and policy only.
+  Guide v7 must not invent a new reason or silently reinterpret it as an existing binding reason.
+- Recommended Design correction is to restore the approved split without changing abstractions:
+  material capability/scope-binding/policy incompatibility becomes stale; malformed, integrity,
+  trust, key and expiry reference denials fail closed and require a new proposal without creating a
+  new `CompatibilityReason`. After that ticket correction is externally reviewed, guide v7 can add
+  the exact protected-scope and reference-expiry post-acquisition rows required by the second
+  finding.
+- No implementation or code review may run. Deterministic next transition is an owner-authorized
+  exceptional ticket-contract correction v9, followed by external ticket review and then guide v7.

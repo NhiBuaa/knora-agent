@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8af484-7eec-83ec-a492-0d4f0d7ec657",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-guide-v6-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "93d12b907ec82e71ee03620fe6c565c7fbc352c3",
+  "ticket_id": "#77",
+  "guide_revision": "m4-77-authorized-execution-v6",
+  "guide_digest": "sha256:f0d24858b8f33951c1f2e0a44f252f953e8158fbf67137950a44a775dd9cd386",
+  "request_id": "review-request-sha256:820aa5d135c09f3d9e92218f5b56d41fe093d368784255bf893218756df62f0b",
+  "packet_reference": ".agents/review/m4-issue-77-guide-review-packet-v6.json",
+  "packet_digest": "sha256:f84a852e20efba84cca3c8157c9306cea3b732d1befe4d4f600d11e6c7aac081",
+  "response_reference": ".agents/review/m4-issue-77-guide-review-response-v6.json",
+  "response_digest": "sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef",
+  "transport_raw_digest": "sha256:6e2c35906754bffeadfea215151aa33a58eb925948e4ff776d443d60ef115edd",
+  "initial_schema_invalid_transport_raw_digest": "sha256:18b6be5acff8690dc983f23b39ce5a26c515bb9b9681a2c74f996301c88e94f5",
+  "chat_reference": "https://chatgpt.com/c/6a8af484-7eec-83ec-a492-0d4f0d7ec657",
+  "transport": "single_pasted_attachment_after_bounded_native_upload_failure",
+  "schema_retry_count": 1,
+  "schema_retry_disposition": "same_session_same_substantive_review_criteria_shape_only",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "prior_findings_closed": [
+    "M4-77-GR-001",
+    "M4-77-GR-002",
+    "M4-77-GR-003",
+    "M4-77-GR-005",
+    "M4-77-GR-006",
+    "M4-77-GR-008",
+    "M4-77-GR-010"
+  ],
+  "finding_classes": [
+    "material_reference_mismatch_stale_invalidation_not_exercised",
+    "post_acquisition_reference_denial_matrix_incomplete"
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": [
+      "M4-77-AC-01",
+      "M4-77-AC-03",
+      "M4-77-AC-09"
+    ]
+  },
+  "summary": "Guide v6 closes the provider-conflict durability gap, but two Major guide/test-craft gaps remain: TC-01 lacks an explicit material reference-mismatch stale/invalidation row, and the post-acquisition denial matrix omits protected-scope corruption and reference-expiry coverage with complete application/HTTP and durable non-finalization oracles."
+}
