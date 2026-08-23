@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_76_guide_v4_external_review_blocked_chatgpt_session_expired",
-  "next_valid_transition": "resume_external_review_after_human_sign_in_and_reuse_exact_packet_identity",
+  "current_state": "ticket_76_guide_v4_external_review_ready_awaiting_send_confirmation",
+  "next_valid_transition": "after_human_confirmation_send_exact_guide_v4_packet_to_external_reviewer",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -16,13 +16,13 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "d19fd9ea0e84c0d31089abc7f12fe336dcc4ce38",
-    "current_head_resolution": "pre-ledger governance head when guide v4 external-review gateway session expiry was observed",
+    "current_head": "47a7ef065b13f6bbd26da24fd20c26b7065fded2",
+    "current_head_resolution": "pre-ledger governance head after final-feature-only code-review policy was committed",
     "published": true
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
-    {"ticket": "#76", "blocked_by": [], "state": "guide_v4_external_review_blocked_session_expired", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
+    {"ticket": "#76", "blocked_by": [], "state": "guide_v4_external_review_ready_awaiting_send_confirmation", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
@@ -280,7 +280,7 @@
   "blockers": [
     "Historical PR #81 child review v3 found 4 Major and 1 Minor gaps and invalidated the accepted v3 run at a4d33b8; those gaps are remediation input, while the child review itself is audit-only and no longer a gate.",
     "Issue #76 exceptional remediation cycle 3 is authorized but implementation remains blocked until guide v4 has required external review and explicit human lock approval.",
-    "The only connected ChatGPT external-review browser session is expired and no alternate connected browser is available; no packet was transmitted. Human sign-in is required before reusing the exact sealed packet/request identity.",
+    "The ChatGPT external-review session is authenticated and ready, but no packet has been transmitted. Action-time human confirmation is required before sending the exact sealed redacted packet.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -294,5 +294,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T10:09:07+07:00"
+  "last_updated_at": "2026-08-23T10:13:30+07:00"
 }

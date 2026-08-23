@@ -248,11 +248,12 @@ historical child-review evidence cannot reintroduce a removed gate.
   `sha256:9ac8bf11c65b66be770d445b82676f24db86d92b8ddaaa0ac4aab5c0933c62b1`.
 - Review request ID:
   `review-request-sha256:03537afc4887aa24240ab1a9c6794e66df6111557e79df35271eb4e18d772651`.
-- The only connected ChatGPT browser session reported `Your session has expired`; no packet was
-  transmitted. The human must sign in in the in-app Browser and report readiness.
-- Resume by reusing the exact packet/request identity, validate the external guide response, then
-  present the externally reviewed guide digest for explicit human lock approval. Implementation
-  remains blocked until those two acceptance-preparation gates pass.
+- A later read-only check proved the connected ChatGPT session is authenticated and the new-chat
+  composer is ready. No packet has been transmitted.
+- Resume only after the human gives action-time confirmation to send this exact redacted packet.
+  Reuse the packet/request identity above, validate the external guide response, then present the
+  externally reviewed guide digest for explicit human lock approval. Implementation remains blocked
+  until external `APPROVE` and human guide lock both pass.
 
 After #76, advance #77, #78 and #79 in graph order using the same guide → implementation → manual
 acceptance → integration lifecycle, without per-Issue code review. After #79 closes, run the one
