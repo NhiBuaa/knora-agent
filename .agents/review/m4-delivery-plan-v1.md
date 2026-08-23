@@ -809,3 +809,76 @@ transition.
   finding.
 - No implementation or code review may run. Deterministic next transition is an owner-authorized
   exceptional ticket-contract correction v9, followed by external ticket review and then guide v7.
+
+## Multi-session continuation plan — revision 2, 2026-08-23
+
+This section is the durable forward plan from the current checkpoint to verified closure of #74.
+It does not replace the fixed decisions or ticket lifecycle above. The mutable ledger remains the
+transition authority; every later session resumes from its exact `next_valid_transition`.
+
+### Current checkpoint
+
+- Canonical `main` remains pinned at `6312c4c4230032aa92ca5915803fcfaf564354fa`.
+- Integration is `nhibuaa/m4-tools-human-approval` at
+  `b1d101e3636bb3a1ee013d304f70e37b9cb61418`.
+- Issue #77 worktree is `D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3`, branch
+  `nhibuaa/issue-77-m4.3`, clean and remote-synchronized at
+  `0ca6010dfadb6643abf199f2744aee536ba43211`.
+- #75 and #76 are closed and integrated through PRs #80 and #81. #77 is open; #78 and #79 remain
+  blocked by the native graph. No #77 implementation or PR exists.
+- Guide v6 review is `REQUEST_CHANGES`. Adjudication requires a contract correction before a new
+  guide can be sealed; no code review is authorized.
+
+### Forward transitions
+
+1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.
+   Prepare exceptional contract correction v9 without changing the deep
+   `WriteProposalWorkflow.handle` Interface: restore the approved capability/scope-binding/policy
+   stale taxonomy, keep integrity/trust/key/expiry reference denials fail-closed, and make the
+   post-acquisition protected-scope/reference-expiry oracles explicit. Publish the corrected Issue
+   #77 body, generate a canonical packet, obtain its required independent external review and do
+   not prepare a guide until the ticket verdict is `APPROVE` with zero findings.
+2. **Prepare and lock Issue #77 acceptance.** Skills: `manual-acceptance -> test-craft`,
+   `feature-delivery`. Create immutable guide/test-case/packet v7 containing only the surviving
+   v6 corrections, externally review it, and ask the repository owner to lock the exact approved
+   guide digest. No implementation starts before that lock.
+3. **Deliver Issue #77.** Skills: `implement -> tdd`, `manual-acceptance`, `feature-delivery`;
+   `resolving-merge-conflicts` only for a real conflict. Implement generation-1 authorized
+   execution, run focused/full/Ruff/Compose/clean-Alembic verification serially, publish a child PR
+   into integration, execute the locked guide on the exact candidate, obtain human PASSED approval,
+   reconcile with integration, rerun affected evidence, merge, synchronize, close #77 and remove
+   only its clean/reachable worktree and branches. Do not run per-Issue code review.
+4. **Deliver Issue #78.** Skills: `manual-acceptance -> test-craft`, `implement -> tdd`,
+   `feature-delivery`. Start from the new integration head; prepare/review/lock its guide, implement
+   provider-first observation, orphan recovery, stale takeover, current retry authorization and
+   same-identity retry; verify, accept, merge its child PR, synchronize, close and clean it. Do not
+   run per-Issue code review.
+5. **Deliver Issue #79.** Skills: `manual-acceptance -> test-craft`, `implement -> tdd` only for
+   integration gaps/harness, `feature-delivery`. Lock and execute the integrated M4 release guide,
+   preserve full #75–#78 and M1–M3 evidence, obtain human PASSED approval, merge its child PR,
+   synchronize, close and clean it. Do not run per-Issue code review.
+6. **Run the one final M4 review.** Skills: `code-review`, `feature-delivery`; remediation uses
+   `implement -> tdd` and `manual-acceptance`. Only after #75–#79 are accepted, integrated and
+   closed, pin `merge-base(main,integration)..integration-head`, run one Standards+Spec fixed-point
+   review, remediate at most twice with affected acceptance reruns, and require `APPROVE` with zero
+   Critical/Major findings. Then validate cadence evidence as `ready`.
+7. **Publish and close M4.** Skills: `feature-delivery`; `resolving-merge-conflicts` only if `main`
+   moved. Open the parent PR from the exact reviewed integration head to `main`, re-fetch and
+   revalidate the base, merge with a merge commit, fast-forward canonical `main`, run post-merge
+   pytest/Ruff/Compose/clean-Alembic verification, close #74, stop M4 Compose services without
+   deleting volumes, remove all clean/reachable M4 worktrees and local/remote branches, fetch/prune
+   and prove the completion invariants.
+
+### Session checkpoint rule
+
+After every transition, update `m4-workflow-ledger-v1.json`, append one validated observability
+event and commit/push the owning branch. Before a context boundary, use `session-continuity` to
+publish one Resume Contract containing the exact issue, branch, worktree, source/base/head SHA,
+ticket and guide revision/digest, Evaluation history, PR/integration state, completed transitions,
+blockers and one `next_valid_transition`. A new session validates that contract against Git, GitHub,
+this plan and the ledger before acting. Conversation history is never transition authority.
+
+Completion is proven only when Issues #74–#79 are closed, PRs #80/#81 plus the #77/#78/#79 child
+PRs and the parent PR are merged, final review and cadence gates are green, post-merge verification
+passes, `main == origin/main`, canonical and all retained worktrees are clean, and no M4 worktree or
+local/remote branch remains.

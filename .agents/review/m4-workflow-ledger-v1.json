@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_design_required_reference_incompatibility_reason",
-  "next_valid_transition": "after_owner_authorization_prepare_ticket_contract_correction_v9",
+  "current_state": "ticket_77_contract_v9_preparation_authorized",
+  "next_valid_transition": "prepare_ticket_77_contract_v9",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_design_required_reference_incompatibility_reason", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_preparation_authorized", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -170,7 +170,9 @@
     "workflow_suspended_at_guide_77_v6_review_send",
     "workflow_resumed_at_guide_77_v6_review_send",
     "guide_77_external_review_v6_request_changes",
-    "guide_77_v6_findings_adjudicated_design_required"
+    "guide_77_v6_findings_adjudicated_design_required",
+    "multi_session_execution_plan_revision_2_recorded",
+    "owner_continuation_authorized_ticket_77_contract_v9_preparation"
   ],
   "review_cadence": {
     "risk": "high",
@@ -202,6 +204,21 @@
     "authorized_by": "human",
     "authorized_at": "2026-08-23T14:20:00+07:00",
     "authorization_digest": "sha256:7ed426c65c5900126b44dac8dcd31a77d0274e88218def781cf9326afc944def"
+  },
+  "multi_session_execution_plan": {
+    "revision": 2,
+    "reference": ".agents/review/m4-delivery-plan-v1.md#multi-session-continuation-plan---revision-2-2026-08-23",
+    "recorded_at": "2026-08-23T20:50:00+07:00",
+    "source_checkpoint_commit": "0ca6010dfadb6643abf199f2744aee536ba43211",
+    "scope": "Issue #77 contract correction through Issues #77-#79 delivery, one final M4 review, parent PR #74, post-merge verification and cleanup",
+    "resume_rule": "validate ledger next_valid_transition against Git, GitHub and the durable plan before acting"
+  },
+  "owner_continuation_authorization": {
+    "source": "active_thread_goal",
+    "recorded_at": "2026-08-23T20:50:00+07:00",
+    "scope": "record the durable multi-session plan and continue feature-delivery through completion",
+    "ticket_77_contract_correction_v9_preparation_authorized": true,
+    "external_browser_message_confirmation_inferred": false
   },
   "external_review_browser_transport_policy": {
     "action_time_confirmation_required": true,
@@ -680,5 +697,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T20:39:00+07:00"
+  "last_updated_at": "2026-08-23T20:50:00+07:00"
 }
