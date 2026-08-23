@@ -952,6 +952,24 @@ transition authority; every later session resumes from its exact `next_valid_tra
   by external guide review in a new authenticated ChatGPT High session. An external `APPROVE` and
   explicit human lock of the exact guide digest remain mandatory before implementation.
 
+### Guide v7 external review outcome — 2026-08-24
+
+- The owner supplied fresh action-time confirmation. Exact packet v7 was sent as one pasted-text
+  attachment to the new authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8b8733-e20c-83ec-86a6-f3dbc218225a` against subject
+  `a7e59d6aba182bc2cba1a7dcae799d18eba5c539`.
+- The reviewer returned `APPROVE` with `0 Critical / 0 Major / 0 Minor`, complete AC-01 through
+  AC-10 coverage and GR-001 through GR-016 closed. The raw response preserved exact packet and
+  guide digests but supplied placeholder/stale non-contractual transport metadata; the normalized
+  response binds the observed chat identity and exact pushed subject, then seals at
+  `sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c`.
+  The canonical response validator returns `VALID / review_response_valid`.
+- This review fills the current Issue #77 guide-review cadence slot. The next valid transition is
+  explicit repository-owner lock approval for exact guide revision
+  `m4-77-authorized-execution-v7` at
+  `sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93`.
+  Implementation, PR creation and code review remain unauthorized until that lock is recorded.
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.

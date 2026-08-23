@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_guide_v7_external_review_packet_ready_confirmation_required",
-  "next_valid_transition": "after the exact packet checkpoint is committed and pushed, require fresh action-time owner confirmation and send guide-review packet v7 through a new authenticated ChatGPT High session",
+  "current_state": "ticket_77_guide_v7_external_review_approved_human_lock_required",
+  "next_valid_transition": "obtain explicit repository-owner approval locking exact guide revision m4-77-authorized-execution-v7 at sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93 before implementation",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_v7_packet_ready_external_review_confirmation_required", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_v7_external_review_approved_human_lock_required", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -185,7 +185,8 @@
     "test_craft_77_v7_completed",
     "guide_77_v7_prepared",
     "guide_77_v7_local_audit_approve",
-    "guide_77_external_review_packet_v7_ready"
+    "guide_77_external_review_packet_v7_ready",
+    "guide_77_external_review_v7_approve"
   ],
   "review_cadence": {
     "risk": "high",
@@ -310,24 +311,25 @@
       "guide_reference": ".agents/manual-tests/milestone-4/77-authorized-execution-v7.md",
       "test_case_source": ".agents/review/m4-issue-77-test-cases-v7.json",
       "test_case_source_digest": "sha256:f1d842747a0c49b930d8e82b71efca658b3e231686b786dfaf96b9b699412771",
-      "guide_external_review": "pending",
-      "guide_external_review_reference": null,
-      "guide_review_response_reference": null,
-      "guide_review_response_digest": null,
-      "guide_review_transport_raw_digest": null,
-      "guide_external_review_counts": null,
-      "guide_review_subject_commit": null,
+      "guide_external_review": "APPROVE",
+      "guide_external_review_reference": ".agents/review/m4-issue-77-guide-external-review-v7.json",
+      "guide_review_response_reference": ".agents/review/m4-issue-77-guide-review-response-v7.json",
+      "guide_review_response_digest": "sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c",
+      "guide_review_transport_response_reference": ".agents/review/m4-issue-77-guide-review-transport-response-v7.json",
+      "guide_review_transport_raw_digest": "sha256:abdf7a5fe41ea21b7f76891a000344063e27c52075f49df915c3f5f7c494d4fb",
+      "guide_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
+      "guide_review_subject_commit": "a7e59d6aba182bc2cba1a7dcae799d18eba5c539",
       "guide_review_packet_reference": ".agents/review/m4-issue-77-guide-review-packet-v7.json",
       "guide_review_packet_digest": "sha256:930b5430659c8f1bd179115d45b6ff4125383c3c2f71fffb7df89dc9ac6d0765",
       "guide_review_packet_file_digest": "sha256:c542c2d66f1f35bfe74d9b25367c252e12fc80a21f0d84e755bf23ab99380dd5",
       "guide_review_request_id": "review-request-sha256:81f08de470b6d9e1cfef0cf5d8621d4e135896b2ef92563af34f79449795cb1a",
       "guide_review_packet_local_audit": "APPROVE",
       "guide_review_packet_local_audit_counts": {"critical": 0, "major": 0, "minor": 0, "nit": 0},
-      "guide_review_chat_reference": null,
-      "guide_review_transport": null,
+      "guide_review_chat_reference": "https://chatgpt.com/c/6a8b8733-e20c-83ec-86a6-f3dbc218225a",
+      "guide_review_transport": "single_pasted_text_attachment",
       "guide_review_schema_retry_count": 0,
       "guide_review_adjudication_reference": ".agents/review/m4-issue-77-guide-v6-adjudication-v1.json",
-      "guide_review_adjudication_status": "resolved_in_ticket_v9_and_guide_v7_pending_external_review",
+      "guide_review_adjudication_status": "resolved_by_ticket_v9_and_guide_v7_external_approve",
       "human_guide_approval": "pending",
       "evaluation_history": ".agents/manual-tests/milestone-4/77-authorized-execution-v7.evaluations.jsonl",
       "accepted_commit": null,
@@ -717,6 +719,20 @@
       "response_digest": "sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef",
       "reference": ".agents/review/m4-issue-77-guide-external-review-v6.json",
       "cadence_eligible": false
+    },
+    {
+      "ticket": "#77",
+      "guide_revision": "m4-77-authorized-execution-v7",
+      "subject_commit": "a7e59d6aba182bc2cba1a7dcae799d18eba5c539",
+      "guide_digest": "sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93",
+      "verdict": "APPROVE",
+      "critical_count": 0,
+      "major_count": 0,
+      "minor_count": 0,
+      "response_digest": "sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c",
+      "reference": ".agents/review/m4-issue-77-guide-external-review-v7.json",
+      "chat_reference": "https://chatgpt.com/c/6a8b8733-e20c-83ec-86a6-f3dbc218225a",
+      "cadence_eligible": true
     }
   ],
   "frontier_baselines": {
@@ -746,12 +762,12 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v6-review-send-v1.json",
-    "digest": "sha256:07f68a6fc6f171b743579496f36d8536f058e75406dc3b6a063d938292e2e680",
-    "status": "superseded_historical",
-    "superseded_by": "multi_session_execution_plan_revision_2_and_live_ledger_state",
-    "current_state": "ticket_77_guide_v6_external_review_send_confirmation_required",
-    "next_valid_transition": "after explicit action-time owner confirmation, send exact guide/packet v6 through a fresh authenticated ChatGPT High session and persist/validate the response"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v7-review-send-v1.json",
+    "digest": "sha256:d196712c4a862821cc06f4b6f1b1cf1bbd2d7696cbb0ca199c927e2aa7058d9f",
+    "status": "consumed_and_superseded",
+    "superseded_by": "guide_v7_external_review_v7_approve",
+    "current_state": "ticket_77_guide_v7_external_review_packet_ready_confirmation_required",
+    "next_valid_transition": "owner confirmation consumed; external guide review completed and validated"
   },
   "blockers": [
     "Issue #77 is the open frontier with #75 and #76 accepted, integrated, closed and cleaned.",
@@ -763,7 +779,7 @@
     "Guide v5 external review confirmed all eight prior findings closed but returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response digest sha256:90e6fc7e1444e24662f46ef397425438955db2c9c886d33e969f0ba6baaac12b.",
     "Guide v6 external review returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response is contract-valid at sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef. Adjudication sustains both findings. Corrected ticket contract v9 is locally ready at Git blob c6a552166658099bf6148b5b184caf69a6913c75 and sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5 after independent Standards/ADR and Spec/Design audits returned APPROVE with zero findings. Implementation remains blocked until corrected ticket and a new guide both receive external APPROVE and the exact guide digest is human-locked.",
     "Ticket packet v10 external review APPROVED the unchanged Issue #77 contract v9 with 0 Critical, 0 Major and 0 Minor findings against exact subject d4064c4d8afcc9c552d01489f3ae400063382049. The review is cadence-eligible at response digest sha256:5f198dba77d20faaa14b6c746b642b11560a3669c67bef075251b1fc5708d4ad. Implementation remains blocked until a new externally approved guide is human-locked.",
-    "Guide v7 and its canonical review packet are locally ready and independently APPROVED with zero findings. The guide digest is sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93; packet digest is sha256:930b5430659c8f1bd179115d45b6ff4125383c3c2f71fffb7df89dc9ac6d0765. External review and exact-digest human lock are still required before implementation.",
+    "Guide v7 external review APPROVED the exact packet/guide digests with 0 Critical, 0 Major and 0 Minor findings and complete AC-01 through AC-10 coverage. The response validates at sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c against chat 6a8b8733-e20c-83ec-86a6-f3dbc218225a and subject a7e59d6aba182bc2cba1a7dcae799d18eba5c539. Exact-digest human lock is still required before implementation.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -796,8 +812,12 @@
     ".agents/review/m4-issue-77-test-cases-v7.json",
     ".agents/manual-tests/milestone-4/77-authorized-execution-v7.md",
     ".agents/review/m4-issue-77-guide-review-packet-v7.json",
+    ".agents/review/m4-issue-77-guide-review-transport-response-v7.json",
+    ".agents/review/m4-issue-77-guide-review-response-v7.json",
+    ".agents/review/m4-issue-77-guide-external-review-v7.json",
+    ".agents/review/identities/chatgpt-m4-77-guide-v7-external-review.json",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T22:47:06+07:00"
+  "last_updated_at": "2026-08-24T06:56:47+07:00"
 }
