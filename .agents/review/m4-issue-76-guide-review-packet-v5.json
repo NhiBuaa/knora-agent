@@ -1,0 +1,85 @@
+{
+  "projection_version": 1,
+  "round": 1,
+  "request_id": "review-request-sha256:2ff6c0cd9e577ebc8d261bc360fedaf3692af21c343e726c9c667ea6f4f3679f",
+  "packet_digest": "sha256:a3d80b5cfb50d2085f51c5b96f2a19cb3e462d430cc006625de97df5beb84bd1",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "issue_id": "github-issue-76",
+  "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+  "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+  "ticket_digest": "sha256:5f750ceea826fd28bbdf9d8215fced59e0eeef23fdb4f5952b2a9b05b72f3670",
+  "guide_revision": "m4-76-write-proposal-v5",
+  "guide_digest": "sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+  "acceptance_criteria": [
+    {"id": "M4-76-AC-01", "statement": "Policy provenance is deeply immutable, internally digest-consistent and binds proposal lifetime semantics."},
+    {"id": "M4-76-AC-02", "statement": "Input and m4r1 integrity/scope failures reject before proposal persistence or provider write."},
+    {"id": "M4-76-AC-03", "statement": "Authentication and path-Workspace authorization observably precede proposal lookup."},
+    {"id": "M4-76-AC-04", "statement": "Only currently authorized humans decide; model/system cannot approve and separation of duties is policy-selected."},
+    {"id": "M4-76-AC-05", "statement": "Concurrent approve/reject has exactly one atomic durable winner."},
+    {"id": "M4-76-AC-06", "statement": "PostgreSQL fully reconstructs immutable provenance/audit and every material replacement gets new proposal and logical identities."},
+    {"id": "M4-76-AC-07", "statement": "Production composition derives policy-selected digest-bound expiry and every denial, stale and expiry projection survives PostgreSQL-backed restart/reload."},
+    {"id": "M4-76-AC-08", "statement": "One canonical-json-v1 implementation serves all tool consumers; reconciled #75 composition is exercised with an explicit zero-count provider-write sentinel."}
+  ],
+  "design_decisions": [
+    {"id": "M4-76-DD-01", "decision": "Core #76 workflow depends only on CapabilityResolver and ProposalTargetVerifier; integration composition may use accepted #75 concrete registry/reference seams."},
+    {"id": "M4-76-DD-02", "decision": "Proposal, caller/proposal/approval actors, capability, binding, policy, reference, parameters and logical execution identity are immutable and distinct."},
+    {"id": "M4-76-DD-03", "decision": "Policy-selected expiry is server-derived from trusted policy semantics and covered by the policy digest; no unbound fallback lifetime is permitted."},
+    {"id": "M4-76-DD-04", "decision": "Issue #76 performs no provider write and adds no execution or reconciliation behavior."}
+  ],
+  "invariants": [
+    "Authentication and Workspace authorization occur before a proposal lookup, with zero lookups on denied requests.",
+    "Model and system actors never approve.",
+    "Material proposal fields and append-only audit cannot be edited.",
+    "Human approval does not grant execution authority.",
+    "Every reported provider-write count is produced by an installed counting sentinel.",
+    "Each denial, stale and expiry projection is observed before and after PostgreSQL-backed composition recreation.",
+    "Prior v3 and v4 review and Evaluation history remains append-only."
+  ],
+  "out_of_scope": [
+    "ExecuteApprovedProposal behavior.",
+    "ReconcileExecution and crash recovery.",
+    "Vendor provider integration.",
+    "Dynamic plugins or capability discovery.",
+    "Final Milestone 4 fixed-point review."
+  ],
+  "acceptance_policy": {
+    "authority": "human_required",
+    "policy_revision": "m4-human-required-guide-review-v1",
+    "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+    "required": true
+  },
+  "test_cases": [
+    {"id": "M4-76-TC-01", "statement": "Attempt source, top-level and nested policy mutation before/after proposal creation and reload.", "oracle": "Snapshot cannot change; recomputed and persisted policy digests match; lifetime semantics remain bound.", "required": true},
+    {"id": "M4-76-TC-02", "statement": "Run complete invalid parameter, forbidden-field and m4r1 integrity/scope/store matrix.", "oracle": "Closed safe errors occur before rows or provider writes; all counters remain zero.", "required": true},
+    {"id": "M4-76-TC-03", "statement": "Use an ordered counting proposal-lookup sentinel for unauthenticated, wrong-Workspace and authorized-absent operations.", "oracle": "Denied requests perform zero lookups; an authorized request records successful authorization before exactly one scoped lookup; no denied mutation/write occurs.", "required": true},
+    {"id": "M4-76-TC-04", "statement": "Exercise human/model/system authority, explicit SoD on/off and reject-reason matrix.", "oracle": "Only permitted human decisions persist; unknown reason fails before persistence; approval grants no execution authority.", "required": true},
+    {"id": "M4-76-TC-05", "statement": "Release concurrent approve/reject against one expected revision and retry both.", "oracle": "Exactly one decision/audit winner and one revision increment; all others return persisted winner.", "required": true},
+    {"id": "M4-76-TC-06", "statement": "Restart PostgreSQL store, compare every provenance/decision/audit field, attempt forbidden mutations and create material replacements.", "oracle": "Exact reconstruction, database mutation rejection, new proposal/logical IDs and no inherited approval.", "required": true},
+    {"id": "M4-76-TC-07", "statement": "For temporary execution denial, each capability/binding/policy mismatch and expiry, record the typed projection before and after recreating the PostgreSQL-backed composition.", "oracle": "Every before/after pair is identical and bound to the same durable proposal; denial stays approved/non-stale, material mismatch is stale and expiry is typed; no execution/reconciliation/write call occurs.", "required": true},
+    {"id": "M4-76-TC-08", "statement": "Inspect canonical imports, run conformance plus focused/full/migration/lint/Compose checks with explicit counting sentinel.", "oracle": "Single canonical implementation, narrow core protocols, accepted #75 integration, zero provider writes and all governed checks green.", "required": true}
+  ],
+  "command_projections": [
+    {"id": "M4-76-CMD-01", "statement": "Clean Alembic upgrade using the pinned Python runtime and serialized PostgreSQL database.", "kind": "migration"},
+    {"id": "M4-76-CMD-02", "statement": "Focused Issue #76 pytest suites followed by the complete repository pytest suite.", "kind": "verification"},
+    {"id": "M4-76-CMD-03", "statement": "Ruff and Docker Compose configuration verification.", "kind": "verification"}
+  ],
+  "required_evidence": [
+    {"id": "M4-76-EV-01", "statement": "Mutation matrix and policy snapshot/digest/expiry calculation.", "required": true},
+    {"id": "M4-76-EV-02", "statement": "Sanitized HTTP/input/reference/authority/concurrency matrices, ordered authorization/lookup traces, per-call lookup counts and zero rejected-row counts.", "required": true},
+    {"id": "M4-76-EV-03", "statement": "Field-by-field PostgreSQL reconstruction, database guards, replacement identities and ordered audit.", "required": true},
+    {"id": "M4-76-EV-04", "statement": "Production composition dependency trace and condition-by-condition before/after-restart denial/stale/expiry projection matrix with durable identity.", "required": true},
+    {"id": "M4-76-EV-05", "statement": "Canonical import inventory, exact verification exits/totals/migration head and explicit sentinel identity with write count zero.", "required": true}
+  ],
+  "prior_findings": [
+    {"category": "security", "issue_class": "policy_snapshot_mutability", "criterion_ref": "M4-76-AC-01", "affected_case_ids": ["M4-76-TC-01"], "affected_fields": ["policy_snapshot", "policy_digest", "proposal_expiry"], "problem": "Shallowly mutable policy semantics could diverge from their digest.", "required_change": "Deeply freeze/copy canonical policy semantics and prove nested mutation cannot change persisted authority.", "status": "ADDRESSED_IN_V4"},
+    {"category": "evidence", "issue_class": "unobserved_provider_write_count", "criterion_ref": "M4-76-AC-08", "affected_case_ids": ["M4-76-TC-08"], "affected_fields": ["provider_write_sentinel", "integration_boundary"], "problem": "Guide v3 conflicted with accepted #75 integration and reported a zero write count without a counting sentinel.", "required_change": "Reconcile the integration boundary and require an installed counting sentinel for the zero-write oracle.", "status": "ADDRESSED_IN_V4"},
+    {"category": "oracle", "issue_class": "unbound_expiry_fallback", "criterion_ref": "M4-76-AC-07", "affected_case_ids": ["M4-76-TC-01", "M4-76-TC-07"], "affected_fields": ["policy_snapshot", "expires_at", "production_composition"], "problem": "Production used a one-hour fallback not selected by attested policy.", "required_change": "Bind typed lifetime semantics into policy provenance and test a non-default lifetime through production composition.", "status": "ADDRESSED_IN_V4"},
+    {"category": "coverage", "issue_class": "postgres_reconstruction_gaps", "criterion_ref": "M4-76-AC-06", "affected_case_ids": ["M4-76-TC-06", "M4-76-TC-07"], "affected_fields": ["provenance", "replacement_identity", "stale_projection", "expiry_projection"], "problem": "PostgreSQL tests did not prove full reconstruction, replacements or durable stale/expiry projections.", "required_change": "Require field-by-field reload, replacement identity and durable projection evidence.", "status": "ADDRESSED_IN_V4"},
+    {"category": "scope", "issue_class": "duplicate_canonical_authority", "criterion_ref": "M4-76-AC-08", "affected_case_ids": ["M4-76-TC-08"], "affected_fields": ["canonical_json_v1"], "problem": "Proposal code duplicated the canonical-json-v1 implementation already owned by knora.tools.contracts.", "required_change": "Use one canonical implementation and one conformance suite across all tool consumers.", "status": "ADDRESSED_IN_V4"},
+    {"category": "security", "issue_class": "authorization_lookup_order_unobserved", "criterion_ref": "M4-76-AC-03", "affected_case_ids": ["M4-76-TC-03"], "affected_fields": ["workspace_authorization", "proposal_lookup"], "problem": "HTTP 401/403/404 outcomes alone did not prove that denied requests performed no proposal lookup.", "required_change": "Require an ordered counting proposal-lookup sentinel with zero denied lookups and authorization before exactly one authorized scoped lookup.", "status": "OPEN"},
+    {"category": "durability", "issue_class": "projection_restart_pairs_missing", "criterion_ref": "M4-76-AC-07", "affected_case_ids": ["M4-76-TC-07"], "affected_fields": ["temporary_denial_projection", "stale_projection", "expiry_projection"], "problem": "Guide v4 did not explicitly re-observe every denial, mismatch and expiry projection after PostgreSQL-backed restart.", "required_change": "Require a before/after restart pair with identical typed projection and durable identity for each condition.", "status": "OPEN"}
+  ]
+}

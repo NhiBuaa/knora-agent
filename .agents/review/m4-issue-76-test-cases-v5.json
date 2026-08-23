@@ -1,0 +1,108 @@
+{
+  "status": "completed",
+  "mode": "test-cases",
+  "coverage": {
+    "included_axes": [
+      "data shape and contract",
+      "state and lifecycle",
+      "async and concurrency",
+      "security and bounds"
+    ],
+    "omitted_axes": [
+      {
+        "axis": "UI and visual transitions",
+        "reason": "Issue #76 exposes application and HTTP contracts only; no user interface is in scope."
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "M4-76-TC-01",
+      "requirement": "Proposal intent binds one deeply immutable policy snapshot and matching digest.",
+      "risk": "Caller-owned nested mutation can change approval or expiry semantics after digest validation.",
+      "seam": "unit/contract plus proposal application seam",
+      "prerequisites": ["Trusted nested policy semantics", "deterministic clock"],
+      "steps": ["Construct policy provenance from nested caller-owned mappings and sequences.", "Attempt source, top-level and nested retained-value mutation before and after proposal creation.", "Reload and recompute canonical policy digest."],
+      "expected_results": ["No retained semantic can change.", "Snapshot, digest and persisted semantics remain consistent.", "Policy-selected expiry semantics are attested."],
+      "evidence_to_capture": ["Mutation matrix", "snapshot/digest comparison", "persisted projection"]
+    },
+    {
+      "id": "M4-76-TC-02",
+      "requirement": "Invalid input and unverified m4r1 targets fail before persistence.",
+      "risk": "Spoofed authority or target claims can become durable proposal intent.",
+      "seam": "HTTP and reference-verifier integration",
+      "prerequisites": ["Active/retiring/revoked test keys", "trusted reference store", "row and provider counters"],
+      "steps": ["Exercise the complete parameter and forbidden-field matrix.", "Exercise malformed, tampered, expired, revoked, cross-Workspace and store-mismatch references.", "Inspect response and counters."],
+      "expected_results": ["Closed 400/403/422 envelopes are exact.", "Rejected requests create no proposal, decision or audit rows.", "No provider write occurs."],
+      "evidence_to_capture": ["Named matrix", "safe envelopes", "zero persistence/write counters"]
+    },
+    {
+      "id": "M4-76-TC-03",
+      "requirement": "Authentication and Workspace authorization observably precede proposal lookup.",
+      "risk": "HTTP outcomes alone can hide an unauthorized lookup and cross-Workspace existence leak.",
+      "seam": "HTTP/application ordering seam with counting ordered proposal-lookup sentinel",
+      "prerequisites": ["Two Workspace principals", "known and absent proposal IDs", "proposal-lookup sentinel recording sequence and count"],
+      "steps": ["Reset the lookup sentinel and call create/read/approve/reject without authentication.", "Reset and repeat from the wrong Workspace.", "Reset and read/decide an absent proposal as an authorized principal.", "Capture authorization and lookup sequence/count for every call."],
+      "expected_results": ["Unauthenticated and wrong-Workspace calls perform zero proposal lookups.", "Authorized calls record successful authorization before exactly one scoped lookup.", "Authorized absence is 404; denied calls add no decision/audit row or provider write."],
+      "evidence_to_capture": ["HTTP matrix", "ordered authorization/lookup trace", "per-call lookup counts", "row/write counters"]
+    },
+    {
+      "id": "M4-76-TC-04",
+      "requirement": "Only currently authorized humans decide; separation of duties is policy-selected.",
+      "risk": "Model/system approval or blanket proposer inequality can corrupt authority semantics.",
+      "seam": "HumanApprovalAuthorizer and decision application seam",
+      "prerequisites": ["Human/model/system actor contexts", "SoD on/off policies"],
+      "steps": ["Attempt decisions from forbidden contexts.", "Approve the same actor under no-SoD and explicit-SoD policies.", "Exercise the closed reject reasons and one unknown value."],
+      "expected_results": ["Only permitted human decisions persist.", "SoD denies only when configured.", "Unknown reason fails before persistence; approval grants no execution authority."],
+      "evidence_to_capture": ["Actor/policy/reason matrix", "decision/audit rows", "zero write counter"]
+    },
+    {
+      "id": "M4-76-TC-05",
+      "requirement": "Concurrent approve/reject has one deterministic atomic winner.",
+      "risk": "Two decisions can commit or retries can overwrite the winner.",
+      "seam": "PostgreSQL decide_proposal CAS",
+      "prerequisites": ["Fresh proposed row", "two concurrent database sessions"],
+      "steps": ["Release concurrent approve/reject against one expected revision.", "Reload and retry both decisions."],
+      "expected_results": ["Exactly one decision/audit event persists.", "Revision increments once.", "Losers/repeats return the persisted winner with zero provider writes."],
+      "evidence_to_capture": ["Concurrent results", "revision/row counts", "ordered audit"]
+    },
+    {
+      "id": "M4-76-TC-06",
+      "requirement": "PostgreSQL reconstructs every immutable provenance field and material replacement creates a new identity.",
+      "risk": "Mapping omissions, mutable rows or inherited approval can silently change approved intent.",
+      "seam": "PostgreSQL ToolActionStore integration",
+      "prerequisites": ["Migrated clean database", "trusted proposal and decision fixtures"],
+      "steps": ["Persist, decide, restart and compare every immutable provenance/timestamp/audit field.", "Attempt material and audit mutation.", "Create replacements after policy, title and target changes."],
+      "expected_results": ["Read-back exactly matches original values and ordered audit.", "Database guards reject mutation.", "Each replacement has new proposal/logical IDs and no inherited decision."],
+      "evidence_to_capture": ["Field reconstruction table", "database rejection evidence", "replacement identity table"]
+    },
+    {
+      "id": "M4-76-TC-07",
+      "requirement": "Production composition derives policy-selected expiry and each denial/stale/expiry projection survives PostgreSQL-backed restart/reload.",
+      "risk": "A fake-only clock, hard-coded lifetime or in-memory projection can masquerade as durable policy behavior.",
+      "seam": "RegistryCapabilityResolver production composition plus PostgreSQL reload per condition",
+      "prerequisites": ["Accepted #75 registry/reference seams", "non-default policy lifetime", "deterministic trusted clock", "restartable PostgreSQL-backed composition"],
+      "steps": ["Create/approve through real composition and verify non-default digest-bound expiry.", "For temporary execution denial, record the projection, recreate the PostgreSQL-backed composition, reload the same proposal and record it again.", "Restore exact compatibility and repeat before/after restart for each capability, binding and policy mismatch.", "Restore exact compatibility, advance beyond expiry and repeat before/after restart for expiry."],
+      "expected_results": ["expires_at equals trusted creation time plus the digest-bound policy lifetime.", "Each before/after pair is identical and typed: temporary denial is approved/non-stale, material mismatch is stale, expiry is non-executable.", "Decision/audit values remain unchanged and execution/reconciliation/provider-write counts remain zero."],
+      "evidence_to_capture": ["Policy snapshot/digest/expiry calculation", "condition-by-condition before/after restart matrix", "database/projection identity", "zero call counters"]
+    },
+    {
+      "id": "M4-76-TC-08",
+      "requirement": "One canonical-json-v1 authority and a reconciled #75 integration boundary produce zero provider writes.",
+      "risk": "Duplicate canonicalizers diverge or acceptance reports an unobserved zero-write result.",
+      "seam": "module dependency inventory, counting gateway sentinel and governed verification",
+      "prerequisites": ["Counting SupportToolGateway sentinel", "clean worktree", "Docker PostgreSQL"],
+      "steps": ["Prove one canonical implementation and run conformance tests.", "Run core tests with protocol fakes and integration tests with accepted #75 composition.", "Run focused/full tests, Ruff, Compose and clean Alembic while the write sentinel is installed."],
+      "expected_results": ["No duplicate canonical authority remains.", "Core workflow retains narrow protocol dependencies while integration uses accepted #75 seams.", "Explicit create_ticket write count is zero and governed checks pass."],
+      "evidence_to_capture": ["Import inventory", "conformance results", "sentinel counter", "commands/exits/totals/migration/clean status"]
+    }
+  ],
+  "artifacts": [
+    "GitHub Issue #76",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/review/m4-issue-76-guide-external-review-v4.json",
+    ".agents/manual-tests/milestone-4/76-write-proposal-v5.md"
+  ],
+  "red_observed": null,
+  "failure_reason": null
+}

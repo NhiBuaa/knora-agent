@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8a66fb-2a54-83ec-9afd-cc19dc767036",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-76-guide-v4-external-review.json",
+  "provider": "chatgpt",
+  "model": "GPT-5.6 Sol",
+  "reviewed_commit": "23186fbdffb3f5e2ba25733dcf035b505a7488e0",
+  "ticket_id": "#76",
+  "guide_revision": "m4-76-write-proposal-v4",
+  "guide_digest": "sha256:a500127fc886aa53a9f0374a72e9d3a4301d64e541d5afb2d3f6243afcb22862",
+  "request_id": "review-request-sha256:03537afc4887aa24240ab1a9c6794e66df6111557e79df35271eb4e18d772651",
+  "packet_digest": "sha256:9ac8bf11c65b66be770d445b82676f24db86d92b8ddaaa0ac4aab5c0933c62b1",
+  "chat_reference": "https://chatgpt.com/c/6a8a66fb-2a54-83ec-9afd-cc19dc767036",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "criterion_ref": "M4-76-AC-03",
+      "affected_case_ids": ["M4-76-TC-03"],
+      "problem": "The oracle requires authentication and path-Workspace authorization to precede proposal lookup, but the required evidence does not require an observable proposal-lookup counter, spy, or ordered trace. HTTP 401/403 versus 404 outcomes alone cannot prove that an unauthorized request did not perform a proposal lookup before returning the response, so this ordering property can currently pass through assertion rather than measurement.",
+      "required_change": "Instrument the proposal-lookup seam with an observable counting/ordered sentinel and require evidence that unauthenticated and wrong-Workspace requests perform zero proposal lookups, while an authorized request reaches lookup only after successful authorization. Record the lookup counts/order alongside the existing HTTP, decision, audit, and provider-write evidence."
+    },
+    {
+      "severity": "major",
+      "criterion_ref": "M4-76-AC-07",
+      "affected_case_ids": ["M4-76-TC-07"],
+      "problem": "The guide names durable temporary-denial, material-staleness, and expiry projections, but TC-07 only explicitly reloads after proposal creation and then observes those conditions. EV-04 calls the resulting matrix durable without requiring a restart/reload after each resulting condition. That does not directly prove the prior postgres_reconstruction_gaps finding's required durable stale/expiry projection behavior and permits durability to be asserted rather than observed.",
+      "required_change": "Require TC-07 to persist/derive each temporary-denial, material-mismatch/stale, and expiry condition, restart or recreate the PostgreSQL-backed production composition, reload the same proposal, and re-observe the same typed projection from durable state. Capture the before/after reload values and database/projection evidence for each condition without invoking execution or reconciliation behavior."
+    }
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-76-AC-01",
+      "M4-76-AC-02",
+      "M4-76-AC-03",
+      "M4-76-AC-04",
+      "M4-76-AC-05",
+      "M4-76-AC-06",
+      "M4-76-AC-07",
+      "M4-76-AC-08"
+    ],
+    "uncovered": []
+  },
+  "summary": "All eight acceptance criteria have required Test Case coverage, and the v4 contract materially addresses the five v3 findings. Approval is not yet warranted because authorization-before-lookup ordering and post-condition PostgreSQL durability of denial/stale/expiry projections lack mandatory observable evidence."
+}
