@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "guide_77_external_review_v2_request_changes",
-  "next_valid_transition": "revise_guide_77_v3_with_test_craft",
+  "current_state": "guide_77_external_review_v4_request_changes",
+  "next_valid_transition": "revise_guide_77_v5_with_test_craft",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_external_review_v2_request_changes", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_external_review_v4_request_changes", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -147,7 +147,17 @@
     "test_craft_77_v2_completed",
     "guide_77_v2_prepared",
     "guide_77_external_review_packet_v2_ready",
-    "guide_77_external_review_v2_request_changes"
+    "guide_77_external_review_v2_request_changes",
+    "test_craft_77_v3_completed",
+    "guide_77_v3_prepared",
+    "guide_77_external_review_packet_v3_ready",
+    "guide_77_external_review_v3_request_changes",
+    "test_craft_77_v4_completed",
+    "guide_77_v4_prepared",
+    "guide_77_external_review_packet_v4_ready",
+    "workflow_suspended_at_guide_77_v4_review_send",
+    "workflow_resumed_at_guide_77_v4_review_send",
+    "guide_77_external_review_v4_request_changes"
   ],
   "review_cadence": {
     "risk": "high",
@@ -180,10 +190,16 @@
     "authorized_at": "2026-08-23T14:20:00+07:00",
     "authorization_digest": "sha256:7ed426c65c5900126b44dac8dcd31a77d0274e88218def781cf9326afc944def"
   },
+  "external_review_browser_transport_policy": {
+    "action_time_confirmation_required": true,
+    "scope": "each live browser message or upload to an external reviewer",
+    "reason": "browser representational-communication safety gate",
+    "supersedes_workflow_preauthorization_for_browser_transport_only": true
+  },
   "tickets": {
     "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-75-guide-approval-v2.json@b318dcb21ccada5865469530fad291fec27861b6", "guide_approval_commit": "b318dcb21ccada5865469530fad291fec27861b6", "implementation_status": "integrated", "implementation_commit": "1011a97f6746242682d0fadd2f2b98a2fcd9284d", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-75-remediation-result-v2.json@f9c69ed855e6eabd5855f36c9c3b7ab2023109ac", "implementation_evidence_digest": "sha256:a2a706aaa0da1fd35154927e0add2ad4e08814ca1a7dba5e1784fe0388835936", "verification": "locked run 03: 44 focused; 716 passed, 3 skipped; integration: 672 passed, 3 skipped; Ruff, Compose and clean Alembic passed", "evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-03", "evaluation_subject_commit": "ab6eccc4051c9450b8dd95c6a0026b217daf0479", "accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-03-approved", "accepted_evaluation_subject_commit": "ab6eccc4051c9450b8dd95c6a0026b217daf0479", "previously_accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved", "invalidation_run_id": "m4-75-ticket-lookup-v2-20260822-review-v2-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl@b57e44e0947564500b97838879e97f275bcb9990", "evaluation_digest": "sha256:597ee813f173df02e59d1cd8fc07429dad2e2caafee3023364116e198d758499", "evaluation_verdict": "PASSED", "human_acceptance_approval": "approved", "previously_accepted_commit": "64ed93b5f0ed56c8843cedb2f8222eab9447bd25", "accepted_commit": "2157d474dabe31c7bd9c0996db7e998b6b3725bb", "integrated_commit": "2a7e2832b37bccac29adcb6c049871024f3864a3", "integration_evidence": ".agents/review/m4-issue-75-integration-v1.json", "child_review": {"revision": 3, "verdict": "APPROVE", "critical_count": 0, "major_count": 0, "minor_count": 0, "reference": ".agents/review/m4-issue-75-child-code-review-v3.json", "digest": "sha256:8a095bcf2381cca8217a8d176310f29542d1fac5911916068a26e421848f5ca9", "disposition": "historical_audit_only_non_gating"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/80", "pr_head": "2157d474dabe31c7bd9c0996db7e998b6b3725bb", "design_revisions": 2, "review_remediation_cycles": 2},
     "#76": {"guide_revision": "m4-76-write-proposal-v5", "guide_digest": "sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee", "guide_external_review": "APPROVE", "guide_external_review_reference": "ticket-branch:.agents/review/m4-issue-76-guide-external-review-v5.json@bb8a8e1ed1458c952958dab289661381748df7f1", "guide_review_response_digest": "sha256:671c463831bbb27a75a41004109995fa1f0d41febc1574b5eada5d3858362512", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-76-guide-approval-v5.json@88cc7bb5be94d2e441ee212fef39dabb5e20f31d", "implementation_status": "integrated_verified", "implementation_commit": "3698689e330cbb2b60d48b5a036fe912c44b0532", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-76-remediation-result-v3.json@56cd3be0f291cd40b46f3cbd9dbc43173094d5b7", "implementation_evidence_digest": "sha256:83dd8527fc8bde118bd56cded6bac838b9a604ee292968acad2dfb70544fca03", "verification": "accepted subject: 134 focused and 851 passed, 3 skipped; post-merge integration: 134 focused and 851 passed, 3 skipped; Ruff, Compose, diff check and clean Alembic 20260822_0037 passed", "evaluation_run_id": "m4-76-write-proposal-v5-20260823-01", "evaluation_subject_commit": "56cd3be0f291cd40b46f3cbd9dbc43173094d5b7", "accepted_evaluation_run_id": "m4-76-write-proposal-v5-20260823-01-approved", "accepted_evaluation_subject_commit": "56cd3be0f291cd40b46f3cbd9dbc43173094d5b7", "previously_accepted_evaluation_run_id": "m4-76-write-proposal-v3-20260823-02-approved", "invalidation_run_id": "m4-76-write-proposal-v3-20260823-review-v3-invalidation-01", "evaluation_history": ".agents/manual-tests/milestone-4/76-write-proposal-v5.evaluations.jsonl@d7742d1d266807b2f487ae1d7917271c1556114a", "evaluation_digest": "sha256:ed5c4d6b53df1bbd04397e279568582c254949d78e8311f7a8b45f03ac98e5ba", "technical_result": "PASSED", "evaluation_verdict": "PASSED", "human_acceptance_approval": "approved", "accepted_commit": "1a5283a4bbefefc2968c4a66729f5d8aedd89b82", "reconciliation_commit": "7398784eb7dad82a9b3852c17f905053ed103ab6", "integrated_commit": "d7742d1d266807b2f487ae1d7917271c1556114a", "integration_evidence": ".agents/review/m4-issue-76-integration-v1.json", "acceptance_impact": "preserved_all_cases", "child_review": {"revision": 3, "verdict": "REQUEST_CHANGES", "critical_count": 0, "major_count": 4, "minor_count": 1, "reference": ".agents/review/m4-issue-76-child-code-review-v3.json", "digest": "sha256:7f97524de7564c05d0b89e3f03a66f438bc241f0caa5849d3450b4d21097c2d0", "disposition": "historical_audit_only_non_gating"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/81", "pr_head": "1271681a3f9c4c5ffe73799926e7d0548523be4a", "design_revisions": 2, "review_remediation_cycles": 3, "final_m4_review_authorized": false},
-    "#77": {"source_base_commit":"b1d101e3636bb3a1ee013d304f70e37b9cb61418","worktree":"D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3","baseline_reference":".agents/review/m4-issue-77-baseline-v1.json","baseline_status":"passed","ticket_contract_revision":8,"ticket_contract_reference":".agents/review/m4-issue-77-revision-v8.md","ticket_contract_digest":"sha256:10989a737bb502116984ba4ef628341eb395e4a2759056bf20b9a04e6d3d7707","ticket_contract_commit":"478992d3a18ae85832cb3c355c772a8cea08a03c","ticket_external_review":"APPROVE","ticket_external_review_reference":".agents/review/m4-issue-77-ticket-external-review-v8.json","ticket_external_review_response_digest":"sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f","ticket_external_review_counts":{"critical":0,"major":0,"minor":0},"ticket_review_subject_commit":"fc4c9e7431f19da31bf99e4be4b72c09213c0a75","previous_ticket_external_review":"REQUEST_CHANGES","previous_ticket_external_review_reference":".agents/review/m4-issue-77-ticket-external-review-v7.json","previous_ticket_external_review_response_digest":"sha256:6ee3612ed850828441a6ceaef3eeb80a2d38a45a129710884bf12bb4a13c0918","previous_ticket_external_review_counts":{"critical":0,"major":4,"minor":0},"ticket_review_packet_reference":".agents/review/m4-issue-77-ticket-review-packet-v8.json","ticket_review_base_packet_reference":".agents/review/m4-issue-77-ticket-review-packet-v6.json","ticket_review_packet_digest":"sha256:2468e6f0289fac5ab48ead158781caffae9f3ab4cc2027319439e924d1b1b14d","ticket_review_request_id":"review-request-sha256:074a23c1b4ef074988afb0f51c4f0ba2f6633f27ed34f14b09843919fdb9ab08","contract_revision_limit_reached":true,"exceptional_contract_revision_4_authorized":true,"exceptional_contract_revision_5_authorized":true,"exceptional_contract_revision_6_authorized":true,"exceptional_contract_revision_7_authorized":true,"exceptional_contract_revision_8_authorized":true,"exceptional_authorization_digest":"sha256:40fd2a98d12b3352f99c576ec7212f55d6546bb6f27729225b0921eac6bc1d37","guide_revision":"m4-77-authorized-execution-v4","guide_digest":"sha256:ca7a3aed942864408e08db0a3bc2cdf85f63dcaf2c71abd8650bad43901101f0","guide_reference":".agents/manual-tests/milestone-4/77-authorized-execution-v4.md","test_case_source":".agents/review/m4-issue-77-test-cases-v4.json","guide_external_review":"pending_v4_review","guide_review_packet_reference":".agents/review/m4-issue-77-guide-review-packet-v4.json","guide_review_packet_digest":"sha256:32fe199ba0366f2cd39f1c413ea7d403692c6c761899599d81aaed34d68d8ca4","guide_review_request_id":"review-request-sha256:c7eca9a7571fc1af39b922c207781b70fbb1a850e6559160baa2a3519a9dde4a","human_guide_approval":"pending","evaluation_history":".agents/manual-tests/milestone-4/77-authorized-execution-v4.evaluations.jsonl","accepted_commit":null,"integrated_commit":null,"pr":null,"design_revisions":2,"previous_guide_external_review":"REQUEST_CHANGES","previous_guide_external_review_reference":".agents/review/m4-issue-77-guide-external-review-v3.json","previous_guide_review_response_reference":".agents/review/m4-issue-77-guide-review-response-v3.json","previous_guide_review_response_digest":"sha256:55931b1e9e093ad688f857760ed7a17a45976cc12930651747940d88b1a90461","previous_guide_review_transport_raw_digest":"sha256:42f1bd6be7bc7fc094fbd3cf3e95b72ad7dbfac197b6f83bdae67bf3cd053f4e","previous_guide_external_review_counts":{"critical":0,"major":1,"minor":0},"previous_guide_review_packet_reference":".agents/review/m4-issue-77-guide-review-packet-v3.json","previous_guide_review_packet_digest":"sha256:dde5fbe09b0d4680305cb65f32cc656fa612aa02c6723be4b4530f448859701f","previous_guide_review_request_id":"review-request-sha256:1aee7930a2f292a69c614a8892c1b2e0b787244bbd947389801354bba75690df","previous_guide_review_chat_reference":"https://chatgpt.com/c/6a8ad2d8-e1e4-83ec-8018-87b4b204af0a","previous_guide_review_transport":"single_pasted_attachment_after_bounded_native_upload_failure"},
+    "#77": {"source_base_commit":"b1d101e3636bb3a1ee013d304f70e37b9cb61418","worktree":"D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3","baseline_reference":".agents/review/m4-issue-77-baseline-v1.json","baseline_status":"passed","ticket_contract_revision":8,"ticket_contract_reference":".agents/review/m4-issue-77-revision-v8.md","ticket_contract_digest":"sha256:10989a737bb502116984ba4ef628341eb395e4a2759056bf20b9a04e6d3d7707","ticket_contract_commit":"478992d3a18ae85832cb3c355c772a8cea08a03c","ticket_external_review":"APPROVE","ticket_external_review_reference":".agents/review/m4-issue-77-ticket-external-review-v8.json","ticket_external_review_response_digest":"sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f","ticket_external_review_counts":{"critical":0,"major":0,"minor":0},"ticket_review_subject_commit":"fc4c9e7431f19da31bf99e4be4b72c09213c0a75","previous_ticket_external_review":"REQUEST_CHANGES","previous_ticket_external_review_reference":".agents/review/m4-issue-77-ticket-external-review-v7.json","previous_ticket_external_review_response_digest":"sha256:6ee3612ed850828441a6ceaef3eeb80a2d38a45a129710884bf12bb4a13c0918","previous_ticket_external_review_counts":{"critical":0,"major":4,"minor":0},"ticket_review_packet_reference":".agents/review/m4-issue-77-ticket-review-packet-v8.json","ticket_review_base_packet_reference":".agents/review/m4-issue-77-ticket-review-packet-v6.json","ticket_review_packet_digest":"sha256:2468e6f0289fac5ab48ead158781caffae9f3ab4cc2027319439e924d1b1b14d","ticket_review_request_id":"review-request-sha256:074a23c1b4ef074988afb0f51c4f0ba2f6633f27ed34f14b09843919fdb9ab08","contract_revision_limit_reached":true,"exceptional_contract_revision_4_authorized":true,"exceptional_contract_revision_5_authorized":true,"exceptional_contract_revision_6_authorized":true,"exceptional_contract_revision_7_authorized":true,"exceptional_contract_revision_8_authorized":true,"exceptional_authorization_digest":"sha256:40fd2a98d12b3352f99c576ec7212f55d6546bb6f27729225b0921eac6bc1d37","guide_revision":"m4-77-authorized-execution-v4","guide_digest":"sha256:ca7a3aed942864408e08db0a3bc2cdf85f63dcaf2c71abd8650bad43901101f0","guide_reference":".agents/manual-tests/milestone-4/77-authorized-execution-v4.md","test_case_source":".agents/review/m4-issue-77-test-cases-v4.json","guide_external_review":"REQUEST_CHANGES","guide_external_review_reference":".agents/review/m4-issue-77-guide-external-review-v4.json","guide_review_response_reference":".agents/review/m4-issue-77-guide-review-response-v4.json","guide_review_response_digest":"sha256:95e5fb4cbe5449438a0a293698c1794ee367ccca6b8565dfcc9eb70f2077d507","guide_review_transport_raw_digest":"sha256:5060635943139d469f6d34c3a803605885fe2079b1b2f81d7353df4a988b742c","guide_external_review_counts":{"critical":0,"major":2,"minor":0},"guide_review_subject_commit":"c63d10c5b683d4d99e166b1c1d97627ebff38f18","guide_review_packet_reference":".agents/review/m4-issue-77-guide-review-packet-v4.json","guide_review_packet_digest":"sha256:32fe199ba0366f2cd39f1c413ea7d403692c6c761899599d81aaed34d68d8ca4","guide_review_request_id":"review-request-sha256:c7eca9a7571fc1af39b922c207781b70fbb1a850e6559160baa2a3519a9dde4a","guide_review_chat_reference":"https://chatgpt.com/c/6a8ad946-5a1c-83ec-a111-fe70a1290014","guide_review_transport":"single_pasted_attachment_after_bounded_native_upload_failure","human_guide_approval":"pending","evaluation_history":".agents/manual-tests/milestone-4/77-authorized-execution-v4.evaluations.jsonl","accepted_commit":null,"integrated_commit":null,"pr":null,"design_revisions":2,"previous_guide_external_review":"REQUEST_CHANGES","previous_guide_external_review_reference":".agents/review/m4-issue-77-guide-external-review-v3.json","previous_guide_review_response_reference":".agents/review/m4-issue-77-guide-review-response-v3.json","previous_guide_review_response_digest":"sha256:55931b1e9e093ad688f857760ed7a17a45976cc12930651747940d88b1a90461","previous_guide_review_transport_raw_digest":"sha256:42f1bd6be7bc7fc094fbd3cf3e95b72ad7dbfac197b6f83bdae67bf3cd053f4e","previous_guide_external_review_counts":{"critical":0,"major":1,"minor":0},"previous_guide_review_packet_reference":".agents/review/m4-issue-77-guide-review-packet-v3.json","previous_guide_review_packet_digest":"sha256:dde5fbe09b0d4680305cb65f32cc656fa612aa02c6723be4b4530f448859701f","previous_guide_review_request_id":"review-request-sha256:1aee7930a2f292a69c614a8892c1b2e0b787244bbd947389801354bba75690df","previous_guide_review_chat_reference":"https://chatgpt.com/c/6a8ad2d8-e1e4-83ec-8018-87b4b204af0a","previous_guide_review_transport":"single_pasted_attachment_after_bounded_native_upload_failure"},
     "#78": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#79": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 0}
   },
@@ -481,6 +497,19 @@
       "response_digest": "sha256:55931b1e9e093ad688f857760ed7a17a45976cc12930651747940d88b1a90461",
       "reference": ".agents/review/m4-issue-77-guide-external-review-v3.json",
       "cadence_eligible": false
+    },
+    {
+      "ticket": "#77",
+      "guide_revision": "m4-77-authorized-execution-v4",
+      "subject_commit": "c63d10c5b683d4d99e166b1c1d97627ebff38f18",
+      "guide_digest": "sha256:ca7a3aed942864408e08db0a3bc2cdf85f63dcaf2c71abd8650bad43901101f0",
+      "verdict": "REQUEST_CHANGES",
+      "critical_count": 0,
+      "major_count": 2,
+      "minor_count": 0,
+      "response_digest": "sha256:95e5fb4cbe5449438a0a293698c1794ee367ccca6b8565dfcc9eb70f2077d507",
+      "reference": ".agents/review/m4-issue-77-guide-external-review-v4.json",
+      "cadence_eligible": false
     }
   ],
   "frontier_baselines": {
@@ -512,7 +541,7 @@
   "resume_contract": {
     "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v4-review-send-v1.json",
     "digest": "sha256:f81fbbdfe00420ce7b1841e597b4719bb93b5ac4cc48ba4f90450b30a5a1dd58",
-    "status": "published",
+    "status": "consumed",
     "current_state": "ticket_77_guide_v4_external_review_send_confirmation_required",
     "next_valid_transition": "after explicit action-time owner confirmation, send exact guide/packet v4 through a fresh ChatGPT High session and persist/validate the response"
   },
@@ -522,8 +551,8 @@
     "Guide m4-77-authorized-execution-v1 external review returned REQUEST_CHANGES with 3 Major observable-oracle gaps and no Critical or Minor findings; its normalized response is schema-valid at digest sha256:e51c6a03ada6b301615273a9de3e604c0b6c5540b81b7be3a18f86667691d131.",
     "Guide m4-77-authorized-execution-v2 external review confirms all three v1 findings closed but returns REQUEST_CHANGES with four fresh Major oracle/security gaps and no Critical or Minor findings.",
     "Guide m4-77-authorized-execution-v3 external review confirms the exact denial, provider cross-binding and production DI isolation findings closed, but returns REQUEST_CHANGES with one Major incomplete_post_acquisition_result_matrix finding.",
-    "Guide m4-77-authorized-execution-v4 classifies every TC-03 post-acquisition denial into an exact ProposalNotExecutable application projection and closed HTTP error envelope with exact status/code/field/value domains and independent TC-10 verification.",
-    "Guide v4 packet sha256:32fe199ba0366f2cd39f1c413ea7d403692c6c761899599d81aaed34d68d8ca4 is ready for independent external review; implementation remains blocked until APPROVE and repository-owner digest lock.",
+    "Guide m4-77-authorized-execution-v4 external review returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; the normalized response is contract-valid at sha256:95e5fb4cbe5449438a0a293698c1794ee367ccca6b8565dfcc9eb70f2077d507.",
+    "Guide v5 must add a discriminating fresh post-lock PostgreSQL-time oracle for generation-1 observation/finalization and independently bind every denial-row proposal_id/logical_execution_id to pre-invocation durable scenario identities; implementation remains blocked until a successor guide is externally APPROVED and owner-locked.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -537,5 +566,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T18:15:14+07:00"
+  "last_updated_at": "2026-08-23T18:34:10+07:00"
 }

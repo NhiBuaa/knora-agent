@@ -653,3 +653,29 @@ transition.
   `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v4-review-send-v1.json`
   with digest
   `sha256:f81fbbdfe00420ce7b1841e597b4719bb93b5ac4cc48ba4f90450b30a5a1dd58`.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v4 request changes
+
+- The exact guide v4 and canonical packet were reviewed in a fresh authenticated ChatGPT High
+  session `6a8ad946-5a1c-83ec-a111-fe70a1290014` against exact subject
+  `c63d10c5b683d4d99e166b1c1d97627ebff38f18`.
+- The normalized response is contract-valid at
+  `sha256:95e5fb4cbe5449438a0a293698c1794ee367ccca6b8565dfcc9eb70f2077d507`
+  and returned `REQUEST_CHANGES` with zero Critical, two Major and zero Minor findings:
+  `post_lock_finalization_clock_source_not_proven` for AC-08/TC-10 and
+  `denial_matrix_identity_values_not_independently_closed` for AC-09/TC-03/TC-10.
+- Guide v5 may change only the reported guide/test-craft oracles. It must add separate
+  observation/finalization races that start before the generation-1 lease deadline, block on the
+  governing PostgreSQL lock, cross expiry, skew non-database clocks and prove the decision uses a
+  captured post-lock `clock_timestamp()`; before-expiry controls and independent state/write
+  evidence remain required.
+- The post-acquisition denial matrix must also define `proposal_id` and
+  `logical_execution_id` as canonical lowercase RFC 4122 UUIDs exactly equal to independently
+  seeded and durably reloaded scenario identities captured before the application/HTTP invocation.
+  The independent fixtures must never derive expected identities from the returned projection or
+  production mapper, and release evidence must capture expected-versus-actual values per row.
+- These changes preserve the approved abstractions, generation-1-only #77 scope, #78 recovery
+  ownership, static typed registry and no-plugin-framework constraint. No implementation or code
+  review may run. The deterministic next transition is `manual-acceptance -> test-craft` to prepare
+  immutable guide/test-case/packet v5, then obtain action-time confirmation for one fresh external
+  ChatGPT High review.
