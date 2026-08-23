@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_contract_v9_preparation_authorized",
-  "next_valid_transition": "prepare_ticket_77_contract_v9",
+  "current_state": "ticket_77_contract_v9_local_audit_approved",
+  "next_valid_transition": "commit_push_publish_ticket_77_contract_v9",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -21,9 +21,9 @@
     "published": true
   },
   "ticket_graph": [
-    {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
+    {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_preparation_authorized", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_local_audit_approved", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -172,14 +172,18 @@
     "guide_77_external_review_v6_request_changes",
     "guide_77_v6_findings_adjudicated_design_required",
     "multi_session_execution_plan_revision_2_recorded",
-    "owner_continuation_authorized_ticket_77_contract_v9_preparation"
+    "owner_continuation_authorized_ticket_77_contract_v9_preparation",
+    "ticket_77_contract_revision_v9_local_audit_approve"
   ],
   "review_cadence": {
     "risk": "high",
     "required_external_reviews": 11,
+    "required_slot_semantics": "one spec/design plus the latest approved contract and guide revision for each of five tickets",
+    "superseded_attempts_fill_required_slots": false,
+    "revalidate_after_every_review_or_acceptance_change": true,
     "plan_reference": ".agents/review/m4-review-cadence-plan-v1.json",
     "evidence_reference": null,
-    "status": "gates_in_progress"
+    "status": "gates_in_progress_expected_blocked_until_all_slots_and_acceptance_exist"
   },
   "code_review_policy": {
     "mode": "final_feature_only",
@@ -203,7 +207,8 @@
     "does_not_replace": ["human guide approval", "human manual acceptance approval", "exceptional contract/design revision authority"],
     "authorized_by": "human",
     "authorized_at": "2026-08-23T14:20:00+07:00",
-    "authorization_digest": "sha256:7ed426c65c5900126b44dac8dcd31a77d0274e88218def781cf9326afc944def"
+    "authorization_digest": "sha256:7ed426c65c5900126b44dac8dcd31a77d0274e88218def781cf9326afc944def",
+    "superseded_for_authenticated_browser_transport": true
   },
   "multi_session_execution_plan": {
     "revision": 2,
@@ -234,29 +239,36 @@
       "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3",
       "baseline_reference": ".agents/review/m4-issue-77-baseline-v1.json",
       "baseline_status": "passed",
-      "ticket_contract_revision": 8,
-      "ticket_contract_reference": ".agents/review/m4-issue-77-revision-v8.md",
-      "ticket_contract_digest": "sha256:10989a737bb502116984ba4ef628341eb395e4a2759056bf20b9a04e6d3d7707",
-      "ticket_contract_commit": "478992d3a18ae85832cb3c355c772a8cea08a03c",
-      "ticket_external_review": "APPROVE",
-      "ticket_external_review_reference": ".agents/review/m4-issue-77-ticket-external-review-v8.json",
-      "ticket_external_review_response_digest": "sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f",
-      "ticket_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
-      "ticket_review_subject_commit": "fc4c9e7431f19da31bf99e4be4b72c09213c0a75",
-      "previous_ticket_external_review": "REQUEST_CHANGES",
-      "previous_ticket_external_review_reference": ".agents/review/m4-issue-77-ticket-external-review-v7.json",
-      "previous_ticket_external_review_response_digest": "sha256:6ee3612ed850828441a6ceaef3eeb80a2d38a45a129710884bf12bb4a13c0918",
-      "previous_ticket_external_review_counts": {"critical": 0, "major": 4, "minor": 0},
-      "ticket_review_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v8.json",
+      "ticket_contract_revision": 9,
+      "ticket_contract_reference": ".agents/review/m4-issue-77-revision-v9.md",
+      "ticket_contract_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
+      "ticket_contract_commit": null,
+      "ticket_contract_git_blob": "c6a552166658099bf6148b5b184caf69a6913c75",
+      "ticket_contract_local_audit": "APPROVE",
+      "ticket_contract_local_audit_counts": {"critical": 0, "major": 0, "minor": 0, "nit": 0},
+      "ticket_contract_local_audit_axes": ["standards_and_adr_0015", "spec_issue_74_design_and_guide_v6_adjudication"],
+      "ticket_external_review": "pending_v9",
+      "ticket_external_review_reference": null,
+      "ticket_external_review_response_digest": null,
+      "ticket_external_review_counts": null,
+      "ticket_review_subject_commit": null,
+      "previous_ticket_external_review": "APPROVE",
+      "previous_ticket_external_review_reference": ".agents/review/m4-issue-77-ticket-external-review-v8.json",
+      "previous_ticket_external_review_response_digest": "sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f",
+      "previous_ticket_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
+      "previous_ticket_review_subject_commit": "fc4c9e7431f19da31bf99e4be4b72c09213c0a75",
+      "ticket_review_packet_reference": null,
       "ticket_review_base_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v6.json",
-      "ticket_review_packet_digest": "sha256:2468e6f0289fac5ab48ead158781caffae9f3ab4cc2027319439e924d1b1b14d",
-      "ticket_review_request_id": "review-request-sha256:074a23c1b4ef074988afb0f51c4f0ba2f6633f27ed34f14b09843919fdb9ab08",
+      "ticket_review_packet_digest": null,
+      "ticket_review_request_id": null,
       "contract_revision_limit_reached": true,
       "exceptional_contract_revision_4_authorized": true,
       "exceptional_contract_revision_5_authorized": true,
       "exceptional_contract_revision_6_authorized": true,
       "exceptional_contract_revision_7_authorized": true,
       "exceptional_contract_revision_8_authorized": true,
+      "exceptional_contract_revision_9_authorized": true,
+      "exceptional_contract_revision_9_authority": "active_thread_goal_continue_feature_delivery_through_completion",
       "exceptional_authorization_digest": "sha256:40fd2a98d12b3352f99c576ec7212f55d6546bb6f27729225b0921eac6bc1d37",
       "guide_revision": "m4-77-authorized-execution-v6",
       "guide_digest": "sha256:f0d24858b8f33951c1f2e0a44f252f953e8158fbf67137950a44a775dd9cd386",
@@ -662,7 +674,8 @@
   "resume_contract": {
     "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v6-review-send-v1.json",
     "digest": "sha256:07f68a6fc6f171b743579496f36d8536f058e75406dc3b6a063d938292e2e680",
-    "status": "consumed",
+    "status": "superseded_historical",
+    "superseded_by": "multi_session_execution_plan_revision_2_and_live_ledger_state",
     "current_state": "ticket_77_guide_v6_external_review_send_confirmation_required",
     "next_valid_transition": "after explicit action-time owner confirmation, send exact guide/packet v6 through a fresh authenticated ChatGPT High session and persist/validate the response"
   },
@@ -674,7 +687,7 @@
     "Guide m4-77-authorized-execution-v3 external review confirms the exact denial, provider cross-binding and production DI isolation findings closed, but returns REQUEST_CHANGES with one Major incomplete_post_acquisition_result_matrix finding.",
     "Guide m4-77-authorized-execution-v4 external review returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; the normalized response is contract-valid at sha256:95e5fb4cbe5449438a0a293698c1794ee367ccca6b8565dfcc9eb70f2077d507.",
     "Guide v5 external review confirmed all eight prior findings closed but returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response digest sha256:90e6fc7e1444e24662f46ef397425438955db2c9c886d33e969f0ba6baaac12b.",
-    "Guide v6 external review returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response is contract-valid at sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef. Adjudication sustains both findings but detects a contract conflict: ticket v8 requires a typed material-reference stale reason while the approved design closes CompatibilityCheckerV1 reasons over capability/scope-binding/policy only. Guide v7 cannot be sealed until the repository owner authorizes a ticket-contract correction; implementation remains blocked.",
+    "Guide v6 external review returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response is contract-valid at sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef. Adjudication sustains both findings. Corrected ticket contract v9 is locally ready at Git blob c6a552166658099bf6148b5b184caf69a6913c75 and sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5 after independent Standards/ADR and Spec/Design audits returned APPROVE with zero findings. Implementation remains blocked until corrected ticket and a new guide both receive external APPROVE and the exact guide digest is human-locked.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -687,6 +700,7 @@
     "docs/adr/0015-human-approved-tool-execution-boundary.md",
     "docs/design/milestone-4-tools-human-approval.md",
     ".agents/review/m4-issue-77-revision-v8.md",
+    ".agents/review/m4-issue-77-revision-v9.md",
     ".agents/review/m4-issue-77-ticket-external-review-v8.json",
     ".agents/review/m4-issue-77-guide-review-packet-v6.json",
     ".agents/manual-tests/milestone-4/77-authorized-execution-v6.md",
@@ -697,5 +711,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T20:50:00+07:00"
+  "last_updated_at": "2026-08-23T21:05:00+07:00"
 }

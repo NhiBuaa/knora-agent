@@ -29,6 +29,11 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
 - Human approval is required twice per ticket: approve the externally reviewed locked guide, then
   approve the recorded PASSED Evaluation. PR publication, merge, issue closure and cleanup are
   authorized after all governed gates pass.
+- When the only reachable external-review transport is the authenticated in-app browser, the
+  stricter browser policy requires one fresh action-time repository-owner confirmation for each
+  live upload/message after the exact subject, packet digest and request ID are known. Broad
+  workflow continuation does not infer that representational send. A governed non-browser
+  `ExternalReviewerGateway` may be used instead only when its authority and evidence are reachable.
 - Code review uses `final_feature_only` cadence. There is no child/per-Issue code-review gate.
   Historical child reviews remain immutable audit evidence but do not gate any later ticket.
   An Issue is complete after its locked guide passes, the PASSED Evaluation receives explicit human
@@ -104,9 +109,11 @@ Skills: `feature-delivery`.
 4. Run the deterministic cadence planner with risk `high`, change kinds `authorization`, `security`,
    `concurrency`, `schema`, `public-api`, `logic`, ticket IDs `#75`–`#79`, all ticket risks `high`,
    and `human_required`. Persist the plan and record it in #74.
-5. Obtain exact spec/design external review. High cadence requires 11 external reviews total: one
-   spec/design review, five ticket reviews and five guide reviews. Missing external-review authority
-   blocks delivery and is never silently downgraded.
+5. Obtain exact spec/design external review. High cadence has 11 required eligible review slots:
+   one spec/design review, five latest-approved ticket-contract reviews and five latest-approved
+   guide reviews. Superseded `REQUEST_CHANGES` attempts remain immutable history but do not fill a
+   final eligible slot. Rebuild the cadence envelope after every review or acceptance evidence
+   change; `blocked` is expected before completion, while final delivery requires `ready`.
 
 ### 2. Ticket lifecycle template
 
@@ -162,19 +169,30 @@ are allowed per ticket.
 Skills: `feature-delivery`, `code-review`; remediation uses `implement -> tdd` and
 `manual-acceptance`.
 
-1. After #75–#79 are accepted, integrated and closed, update the roadmap/release ledger on the
-   integration branch.
-2. Pin the merge-base fixed point and run final Standards+Spec code review. Require `APPROVE` with
-   zero Critical and Major findings. Allow at most two review-remediation cycles.
+1. Update the roadmap/release ledger inside Issue #79 before its guide execution and acceptance, so
+   the accepted #79 head already contains the final M4 completion projection. Any later roadmap or
+   release-ledger change selectively invalidates affected #79 evidence and must be rerun.
+2. After #75–#79 are accepted, integrated and closed, fetch remote state and prove local
+   `main == origin/main == 6312c4c4230032aa92ca5915803fcfaf564354fa`. Pin one immutable descriptor
+   containing `base_commit`, `merge_base_commit`, `head_commit`,
+   `merge_base_semantics: true`, a non-empty commit list and exact
+   `git diff <base_commit>..<head_commit>` command. Freeze that integration head and run the single
+   final Standards+Spec review stage. Require `APPROVE` with zero Critical and Major findings.
+   If local or remote `main` moved, reconcile integration, rerun every affected acceptance case and
+   repin before review; a stale-base reviewed head may never merge.
+   A remediation changes the head, reruns affected acceptance, repins the descriptor and reruns the
+   final review; allow at most two remediation/re-review cycles.
 3. Validate the complete cadence envelope. Require `ready`, 11/11 external reviews, five approved
    human Evaluations, correct event ordering and final-review evidence.
 4. Mark feature-delivery complete while `main` remains unchanged. Store exact-head review/cadence
-   output outside the reviewed Git head and record its immutable reference/digest in #74.
+   output outside the reviewed Git head and record its immutable reference/digest in #74. Any later
+   commit invalidates the fixed point and requires a new descriptor and final review.
 5. Open the final #74 PR from integration to `main` using `Refs #74`, fetch/recheck the pinned base,
    merge with a merge commit, fast-forward local `main`, and rerun full post-merge verification.
 6. Close #74 only after post-merge verification. Stop M4 Compose services without deleting volumes,
    remove clean/reachable M4 worktrees and local/remote branches, fetch/prune, and prove every
-   registered worktree is clean.
+   registered worktree is clean. Preserve unrelated worktrees, branches and `stash@{0}`; if an
+   unrelated worktree becomes dirty, report and stop rather than mutating it.
 
 ## Verification and completion proof
 
@@ -822,12 +840,35 @@ transition authority; every later session resumes from its exact `next_valid_tra
 - Integration is `nhibuaa/m4-tools-human-approval` at
   `b1d101e3636bb3a1ee013d304f70e37b9cb61418`.
 - Issue #77 worktree is `D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3`, branch
-  `nhibuaa/issue-77-m4.3`, clean and remote-synchronized at
-  `0ca6010dfadb6643abf199f2744aee536ba43211`.
+  `nhibuaa/issue-77-m4.3`. Commit `0ca6010dfadb6643abf199f2744aee536ba43211`
+  is the source checkpoint before this plan revision; exact live head/clean/synchronization state
+  must always be read from Git and the mutable ledger because embedding the plan's own future
+  commit would be self-referential.
 - #75 and #76 are closed and integrated through PRs #80 and #81. #77 is open; #78 and #79 remain
   blocked by the native graph. No #77 implementation or PR exists.
 - Guide v6 review is `REQUEST_CHANGES`. Adjudication requires a contract correction before a new
   guide can be sealed; no code review is authorized.
+
+### Contract checkpoint — 2026-08-23, Issue #77 revision v9 locally approved
+
+- Exceptional correction v9 is `.agents/review/m4-issue-77-revision-v9.md`, exact Git blob
+  `c6a552166658099bf6148b5b184caf69a6913c75`, digest
+  `sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5`.
+- It preserves the existing abstractions and restores the authoritative split: only material
+  capability, scope-binding or policy incompatibility uses the closed `CompatibilityCheckerV1`
+  stale/invalidation taxonomy. Reference syntax, integrity, scope, trusted-store, key and expiry
+  failures fail closed; replacing the immutable target/reference requires a new proposal and human
+  approval without inventing a `reference_*_mismatch` compatibility reason.
+- It adds distinct post-acquisition protected-scope-corruption and reference-expiry rows with exact
+  application/HTTP denial mappings, zero admission/provider activity, fresh PostgreSQL-time and
+  restart-stable non-finalization evidence. Reconciliation, takeover, retry and generation 2+
+  remain wholly owned by #78.
+- Independent Standards/ADR-0015 and Spec/Issue-#74/Design/adjudication audits both returned
+  `APPROVE`; aggregate counts are zero Critical, Major, Minor and Nit findings.
+- No implementation, guide v7 or code review is authorized yet. The deterministic next transition
+  is to commit/push this exact checkpoint, publish the byte-exact v9 body to Issue #77, read it back,
+  create the canonical ticket-review packet on a fixed subject commit and obtain the required
+  external ticket review.
 
 ### Forward transitions
 
@@ -849,19 +890,26 @@ transition authority; every later session resumes from its exact `next_valid_tra
    reconcile with integration, rerun affected evidence, merge, synchronize, close #77 and remove
    only its clean/reachable worktree and branches. Do not run per-Issue code review.
 4. **Deliver Issue #78.** Skills: `manual-acceptance -> test-craft`, `implement -> tdd`,
-   `feature-delivery`. Start from the new integration head; prepare/review/lock its guide, implement
-   provider-first observation, orphan recovery, stale takeover, current retry authorization and
-   same-identity retry; verify, accept, merge its child PR, synchronize, close and clean it. Do not
-   run per-Issue code review.
+   `feature-delivery`. First verify the native frontier and reconcile the #78 ticket contract with
+   final #77 v9, then externally review that exact ticket. Create an isolated clean-baseline
+   worktree from the current integration head; prepare/external-review/human-lock its guide,
+   implement provider-first observation, orphan recovery, stale takeover, current retry
+   authorization and same-identity retry; verify, execute exact-SHA acceptance, obtain human PASSED
+   approval, reconcile selective invalidation, merge its child PR, synchronize, close and clean it.
+   Do not run per-Issue code review.
 5. **Deliver Issue #79.** Skills: `manual-acceptance -> test-craft`, `implement -> tdd` only for
-   integration gaps/harness, `feature-delivery`. Lock and execute the integrated M4 release guide,
-   preserve full #75–#78 and M1–M3 evidence, obtain human PASSED approval, merge its child PR,
+   integration gaps/harness, `feature-delivery`. Verify the native frontier, externally review the
+   exact ticket, create an isolated clean-baseline worktree from current integration, and include
+   the final roadmap/release-ledger projection before acceptance. Prepare/external-review/human-lock
+   and execute the integrated M4 release guide, preserve full #75–#78 and M1–M3 evidence, obtain
+   exact-SHA human PASSED approval, reconcile selective invalidation, merge its child PR,
    synchronize, close and clean it. Do not run per-Issue code review.
 6. **Run the one final M4 review.** Skills: `code-review`, `feature-delivery`; remediation uses
    `implement -> tdd` and `manual-acceptance`. Only after #75–#79 are accepted, integrated and
-   closed, pin `merge-base(main,integration)..integration-head`, run one Standards+Spec fixed-point
-   review, remediate at most twice with affected acceptance reruns, and require `APPROVE` with zero
-   Critical/Major findings. Then validate cadence evidence as `ready`.
+   closed, fetch/assert the pinned `main` base, create the complete fixed-point descriptor described
+   above, and run one Standards+Spec review stage. Remediate at most twice with affected acceptance
+   reruns, repinning and re-reviewing every changed head, and require `APPROVE` with zero Critical/
+   Major findings. Then validate cadence evidence as `ready`.
 7. **Publish and close M4.** Skills: `feature-delivery`; `resolving-merge-conflicts` only if `main`
    moved. Open the parent PR from the exact reviewed integration head to `main`, re-fetch and
    revalidate the base, merge with a merge commit, fast-forward canonical `main`, run post-merge
