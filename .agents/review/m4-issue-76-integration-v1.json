@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket": "#76",
+  "issue": "https://github.com/NhiBuaa/knora-agent/issues/76",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/81",
+  "pr_head": "1271681a3f9c4c5ffe73799926e7d0548523be4a",
+  "integration_base_before_merge": "fd19e4040a08d86419dde087a87a9dd6787f8175",
+  "integration_merge_commit": "d7742d1d266807b2f487ae1d7917271c1556114a",
+  "accepted_evaluation": {
+    "run_id": "m4-76-write-proposal-v5-20260823-01-approved",
+    "subject_sha": "56cd3be0f291cd40b46f3cbd9dbc43173094d5b7",
+    "evidence_commit": "1a5283a4bbefefc2968c4a66729f5d8aedd89b82",
+    "history": ".agents/manual-tests/milestone-4/76-write-proposal-v5.evaluations.jsonl",
+    "history_digest": "sha256:ed5c4d6b53df1bbd04397e279568582c254949d78e8311f7a8b45f03ac98e5ba",
+    "verdict": "PASSED",
+    "human_approval": "approved"
+  },
+  "acceptance_impact": {
+    "disposition": "preserved_all_cases",
+    "affected_case_ids": [],
+    "reason": "The reconciliation merge changed only governed planning/review metadata; production code, tests, schema, guide and environment inputs remained unchanged."
+  },
+  "post_merge_verification": {
+    "focused": "134 passed",
+    "full": "851 passed, 3 skipped",
+    "ruff": "passed",
+    "compose": "passed",
+    "diff_check": "passed",
+    "clean_database_migration": "20260822_0037 (head)",
+    "provider_write_count": 0
+  },
+  "review": {
+    "child_review_run": false,
+    "final_m4_review_run": false,
+    "policy": "final_feature_only"
+  },
+  "integration_worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
+  "integration_worktree_clean_before_record": true,
+  "next_valid_transition": "Commit and push integration evidence, close Issue #76, safely remove its clean worktree and branches after reachability checks, then initialize Issue #77 from the resulting integration head."
+}

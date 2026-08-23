@@ -298,3 +298,18 @@ transition.
   current integration head. Do not run child/per-Issue code review.
 - After approval: integration-verify, merge PR #81 with a merge commit, synchronize integration,
   close #76, clean its worktree/branch, then begin #77 using the persisted lifecycle above.
+
+### Resume checkpoint — 2026-08-23, Issue #76 integrated
+
+- The repository owner approved exact run `m4-76-write-proposal-v5-20260823-01` on subject
+  `56cd3be0f291cd40b46f3cbd9dbc43173094d5b7`; the append-only approved record is
+  `m4-76-write-proposal-v5-20260823-01-approved` with verdict PASSED.
+- Reconciliation merged integration head `fd19e4040a08d86419dde087a87a9dd6787f8175` into #76 at
+  `7398784eb7dad82a9b3852c17f905053ed103ab6`. Only governed metadata changed, so all acceptance
+  cases were preserved; reconciliation verification passed `134 focused`, `851 passed, 3 skipped`,
+  Ruff, Compose and clean Alembic `20260822_0037`.
+- PR #81 merged into integration as `d7742d1d266807b2f487ae1d7917271c1556114a`. Post-merge
+  integration verification repeated the same green totals and gates.
+- Deterministic next transition: commit/push integration evidence, close Issue #76, verify the
+  issue branch is reachable and its worktree clean, remove the Issue #76 worktree/local/remote
+  branch, then initialize Issue #77 from the new integration head. No code review runs here.
