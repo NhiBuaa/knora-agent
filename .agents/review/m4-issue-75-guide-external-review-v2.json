@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "codex-agent:/root/m4_75_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-75-ticket-external-review.json",
+  "reviewed_commit": "8fc828389b87ecb12426fbb2beb1c33a8a9c499e",
+  "ticket_id": "#75",
+  "guide_revision": "m4-75-ticket-lookup-v2",
+  "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "summary": "Guide v2 closes the fixed-oracle, exact-call, provider mapping and governed verification gaps and is ready for explicit human guide approval. Advisory review only."
+}

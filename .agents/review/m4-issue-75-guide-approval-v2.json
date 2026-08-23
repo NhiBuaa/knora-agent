@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "APPROVED",
+  "approval_type": "human-guide-approval",
+  "workflow_identity": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#75",
+  "guide_path": ".agents/manual-tests/milestone-4/75-ticket-lookup-v2.md",
+  "guide_revision": "m4-75-ticket-lookup-v2",
+  "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3",
+  "guide_blob": "c59e2c8ee2588837d7fa8c57bcc81e23a5ef5b43",
+  "subject_commit": "f8fc8f2470fae42b66e634268cd502753ee46e99",
+  "external_review": {
+    "path": ".agents/review/m4-issue-75-guide-external-review-v2.json",
+    "reviewed_commit": "8fc828389b87ecb12426fbb2beb1c33a8a9c499e",
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0,
+    "minor_count": 0
+  },
+  "approved_by": "user",
+  "approval_statement": "Tôi đã đọc và duyệt khóa cả hai guide M4.1 v2 và M4.2 v3 đúng theo các digest đã ghi.",
+  "approved_at": "2026-08-22T13:16:45+07:00",
+  "lock_status": "LOCKED",
+  "immutable_after_approval": true
+}

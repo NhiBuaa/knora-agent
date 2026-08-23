@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
+from knora.adapters.http.tools import router as tools_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
@@ -60,6 +61,7 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.tools import ReadTool
 from knora.tools.proposal_http import ActorContextProvider
 from knora.tools.proposal_http import router as proposal_router
 from knora.tools.proposals import WriteProposalWorkflow
@@ -84,6 +86,7 @@ def create_app(
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
     write_proposal_workflow: WriteProposalWorkflow | None = None,
     tool_actor_context_provider: ActorContextProvider | None = None,
+    read_tool: ReadTool | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -216,6 +219,8 @@ def create_app(
     application.state.write_proposal_workflow = write_proposal_workflow
     application.state.tool_actor_context_provider = tool_actor_context_provider
 
+    application.state.read_tool = read_tool
+
     @application.exception_handler(KnoraError)
     async def handle_knora_error(request: Request, error: KnoraError) -> JSONResponse:
         status = {
@@ -260,6 +265,10 @@ def create_app(
             "TOOL_PROPOSAL_REVISION_CONFLICT": 409,
             "TOOL_PROPOSAL_STALE": 409,
             "TOOL_PROPOSAL_EXPIRED": 409,
+            "TOOL_TICKET_NOT_FOUND": 404,
+            "INVALID_TOOL_RESOURCE_REFERENCE": 400,
+            "TOOL_PROVIDER_UNAVAILABLE": 502,
+            "TOOL_PROVIDER_CONTRACT_INVALID": 502,
         }.get(error.code, 400)
         return JSONResponse(status_code=status, content={"error": {"code": error.code}})
 
@@ -267,6 +276,8 @@ def create_app(
     application.include_router(router)
     if write_proposal_workflow is not None and tool_actor_context_provider is not None:
         application.include_router(proposal_router)
+    if read_tool is not None:
+        application.include_router(tools_router)
     return application
 
 
