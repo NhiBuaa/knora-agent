@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "ticket": "#75",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/80",
+  "source_head": "2157d474dabe31c7bd9c0996db7e998b6b3725bb",
+  "integration_branch": "nhibuaa/m4-tools-human-approval",
+  "integrated_commit": "2a7e2832b37bccac29adcb6c049871024f3864a3",
+  "merge_method": "merge_commit",
+  "verification": {
+    "pytest": "672 passed, 3 skipped",
+    "ruff": "passed",
+    "compose_config": "passed",
+    "alembic": "upgrade head passed against local PostgreSQL"
+  },
+  "acceptance_impact": {
+    "status": "preserved",
+    "accepted_run_id": "m4-75-ticket-lookup-v2-20260822-03-approved",
+    "accepted_subject_sha": "ab6eccc4051c9450b8dd95c6a0026b217daf0479",
+    "invalidated_case_ids": [],
+    "rerun_required": false,
+    "reason": "Integration is the reviewed PR head plus a merge commit; no changed behavior outside the accepted #75 scope."
+  },
+  "worktree_disposition": {
+    "path": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1",
+    "status": "pending_cleanup_after_issue_close"
+  },
+  "recorded_at": "2026-08-23T07:55:00+07:00"
+}
