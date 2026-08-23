@@ -510,11 +510,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v7-review-block-v1.json",
-    "digest": "sha256:fa32a1b31b84c63225af0b8ec42b930630c47881e65d1178901b1a24d8bec643",
-    "status": "consumed",
-    "current_state": "ticket_77_contract_revision_v7_external_review_request_changes",
-    "next_valid_transition": "obtain_human_direction_for_exceptional_ticket_77_contract_revision_8"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v4-review-send-v1.json",
+    "digest": "sha256:f81fbbdfe00420ce7b1841e597b4719bb93b5ac4cc48ba4f90450b30a5a1dd58",
+    "status": "published",
+    "current_state": "ticket_77_guide_v4_external_review_send_confirmation_required",
+    "next_valid_transition": "after explicit action-time owner confirmation, send exact guide/packet v4 through a fresh ChatGPT High session and persist/validate the response"
   },
   "blockers": [
     "Issue #77 is the open frontier with #75 and #76 accepted, integrated, closed and cleaned.",
@@ -537,5 +537,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T18:09:53+07:00"
+  "last_updated_at": "2026-08-23T18:15:14+07:00"
 }

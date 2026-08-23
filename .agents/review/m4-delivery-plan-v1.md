@@ -649,3 +649,7 @@ transition.
 - Implementation remains forbidden until external `APPROVE` and explicit human guide-digest lock.
   No per-ticket code review runs. The single final fixed-point M4 `code-review` runs only after
   Issues #75–#79 are accepted, integrated and closed, as required by the approved delivery plan.
+- Validated Resume Contract:
+  `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v4-review-send-v1.json`
+  with digest
+  `sha256:f81fbbdfe00420ce7b1841e597b4719bb93b5ac4cc48ba4f90450b30a5a1dd58`.
