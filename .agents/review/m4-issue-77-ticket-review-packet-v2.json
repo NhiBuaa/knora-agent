@@ -1,0 +1,82 @@
+{
+  "projection_version": 1,
+  "round": 1,
+  "request_id": "review-request-sha256:ecbd0fff92536f0195aa4fba6f5611cf0f1cbab20aabbc44f484d82e3d8123dc",
+  "packet_digest": "sha256:824f2bbb2fb2f1b37465fa57d7418bab886e91164c700e10f9981448ecc96923",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "issue_id": "github-issue-77",
+  "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+  "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+  "ticket_digest": "sha256:08cfadb243840076b052fb25bbaf296e68d742fb2551c39f5abd132aa23fee0a",
+  "guide_revision": "m4-77-ticket-contract-v2",
+  "guide_digest": "sha256:08cfadb243840076b052fb25bbaf296e68d742fb2551c39f5abd132aa23fee0a",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+  "acceptance_criteria": [
+    {"id": "M4-77-AC-01", "statement": "ExecuteApprovedProposal runs current Workspace/resource authorization, ExecutionAuthorizer and exact capability/binding/policy compatibility before acquisition and reruns them after AcquireApplied immediately before provider invocation. A post-acquisition denial records sanitized before_provider_receive under the current lease, makes zero provider calls, remains executing and returns ExecutionIndeterminate HTTP 202 without blind retry authority."},
+    {"id": "M4-77-AC-02", "statement": "ExternalResourceReferenceVerifier verifies the exact approved m4r1 key, expiry, Workspace, capability version and binding before acquisition and again in the post-acquisition current check; every denial produces zero provider calls."},
+    {"id": "M4-77-AC-03", "statement": "The server computes one immutable canonical-json-v1 request fingerprint over operation, exact capability/binding/reference claims and normalized title/description, paired with the proposal's immutable logical execution identity."},
+    {"id": "M4-77-AC-04", "statement": "ToolActionStore.acquire_execution uses PostgreSQL transaction time and typed CAS to atomically create generation 1, owner/deadline, executing state, append-only audit and an AuthorizedExecutionBindingSnapshot without raw provider ID."},
+    {"id": "M4-77-AC-05", "statement": "Concurrent execution acquisition has exactly one applied winner; losers return a typed in-progress, conflict or non-executable projection and make no provider call."},
+    {"id": "M4-77-AC-06", "statement": "Observation and finalization require the current owner, exact generation and unexpired lease. Issue #77 proves wrong-owner, wrong-generation and expired generation-1 fencing; durable higher-generation takeover and post-takeover stale-owner fencing remain Issue #78."},
+    {"id": "M4-77-AC-07", "statement": "The SQLite provider receives the immutable logical ID/fingerprint and atomically commits its externally visible ticket mutation or definitive rejection with the authoritative idempotency fingerprint/outcome in one BEGIN IMMEDIATE transaction. Same fingerprint replays, different fingerprint conflicts, and faults before/after commit cannot duplicate the logical side effect."},
+    {"id": "M4-77-AC-08", "statement": "Direct provider success finalizes succeeded; only target_not_found, validation_rejected and policy_rejected are definitive failures that finalize failed and map to sanitized TOOL_PROVIDER_FAILURE."},
+    {"id": "M4-77-AC-09", "statement": "Receipt-possible outcomes remain executing and return ExecutionIndeterminate HTTP 202. Same-logical-ID/different-fingerprint is a distinct non-terminal ProviderIdempotencyConflict: lifecycle remains executing, public mapping is HTTP 409 TOOL_PROVIDER_IDEMPOTENCY_CONFLICT, audit is sanitized, no provider retry is allowed and Issue #78 may only observe provider truth without converting the mismatch to a terminal outcome or write authority."},
+    {"id": "M4-77-AC-10", "statement": "Execution actor, both current authorization/compatibility decisions, lease generation, provider identity, immutable binding/fingerprint/logical ID, observations and outcome are reconstructable from append-only audit while M1-M3 regressions remain green."}
+  ],
+  "design_decisions": [
+    {"id": "M4-77-DD-01", "decision": "Proposal actor, approval actor and execution authority are distinct. Current authorization and exact compatibility are checked both before acquisition and after acquisition at the last deterministic barrier before provider invocation."},
+    {"id": "M4-77-DD-02", "decision": "Material capability, Workspace-to-external-scope binding or policy mismatch is stale and requires a new proposal/approval; temporary execution denial may leave the proposal approved, and a denial after acquisition uses the conservative before-provider-receive non-terminal path."},
+    {"id": "M4-77-DD-03", "decision": "PostgreSQL owns lifecycle/lease/audit. SQLite owns independent external state and idempotency, committing the effect and outcome atomically in one transaction."},
+    {"id": "M4-77-DD-04", "decision": "Lifecycle remains executing until definitive success or one of three closed failures. Indeterminate receipt and fingerprint conflict are typed non-terminal observations with separate 202 and 409 public projections."},
+    {"id": "M4-77-DD-05", "decision": "Issue #77 owns generation-1 acquisition and exact-owner/generation/deadline fencing only. ReconcileExecution, stale-lease takeover, higher generations and post-takeover stale-owner proof remain Issue #78."}
+  ],
+  "invariants": [
+    "Both authorization/compatibility checkpoints precede provider invocation; every denial path has zero provider calls.",
+    "The approved capability version and Workspace-to-external-scope binding never silently retarget or upgrade.",
+    "Logical execution identity and request fingerprint are server-derived, immutable and never client input.",
+    "Provider ticket/rejection state and idempotency fingerprint/outcome commit atomically or both roll back.",
+    "A provider fingerprint conflict never becomes false success/failed and never grants retry authority.",
+    "Capability registry remains static and typed; no plugin framework or dynamic discovery is introduced.",
+    "No model/system actor approves, approval grants no execution authority, and raw provider IDs/errors never enter public/audit projections."
+  ],
+  "out_of_scope": [
+    "ReconcileExecution, stale-lease takeover, generation 2+ and post-takeover stale-owner recovery, owned by Issue #78.",
+    "A vendor-backed production integration; deterministic SQLite is the M4 reference-provider release boundary.",
+    "Dynamic plugins, capability discovery or a general plugin framework.",
+    "Editing immutable proposals or reusing approval after material capability, binding or policy change.",
+    "Final Milestone 4 fixed-point code review."
+  ],
+  "acceptance_policy": {"authority": "human_required", "policy_revision": "m4-human-required-guide-review-v1", "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4", "required": true},
+  "test_cases": [
+    {"id": "M4-77-TC-01", "statement": "Use an ordered barrier after AcquireApplied to revoke authority or change exact compatibility before provider invocation.", "oracle": "The second current check denies, records before_provider_receive under the current lease, returns non-terminal 202, performs zero provider calls and grants no blind retry.", "required": true},
+    {"id": "M4-77-TC-02", "statement": "Forge, expire and cross-bind m4r1 references, including key/version cases, at both current checkpoints.", "oracle": "Every integrity/scope/version failure is typed and occurs before provider invocation with zero provider calls.", "required": true},
+    {"id": "M4-77-TC-03", "statement": "Attempt client logical-ID/fingerprint input and independently recompute canonical-json-v1 across normalized parameters.", "oracle": "Only the server-derived immutable logical ID/fingerprint is stored and sent to the provider.", "required": true},
+    {"id": "M4-77-TC-04", "statement": "Race concurrent acquire_execution calls in PostgreSQL-backed composition.", "oracle": "Exactly one generation-1 winner/audit exists and every loser produces zero provider calls.", "required": true},
+    {"id": "M4-77-TC-05", "statement": "Against one current generation-1 lease, attempt observation/finalization with wrong owner, wrong generation and expired deadline.", "oracle": "Every mismatch is ExecutionFenced and cannot alter outcome; no generation-2 fixture or takeover is implemented in #77.", "required": true},
+    {"id": "M4-77-TC-06", "statement": "Run concurrent/repeated SQLite create_ticket calls and inject before_atomic_commit and after_atomic_commit_before_ack faults.", "oracle": "Effect plus ledger both roll back before commit or both persist after commit; same fingerprint replays one outcome, different fingerprint conflicts and no second ticket is created.", "required": true},
+    {"id": "M4-77-TC-07", "statement": "Exercise direct success and each of the three closed terminal failure codes.", "oracle": "Only those outcomes finalize succeeded/failed with sanitized audit and exact HTTP mapping.", "required": true},
+    {"id": "M4-77-TC-08", "statement": "Exercise timeout, ack loss, unavailable, malformed/unknown, before-provider-receive interruption and provider fingerprint conflict.", "oracle": "Receipt-possible/before-receive cases are executing/202 with no blind retry; fingerprint conflict is executing/409 with no provider retry and sanitized audit.", "required": true},
+    {"id": "M4-77-TC-09", "statement": "Reload PostgreSQL and SQLite independently after direct, indeterminate and conflict observations.", "oracle": "Authority/binding/lease/provider/observation/outcome fields and atomic provider ledger reconstruct exactly without raw provider IDs.", "required": true},
+    {"id": "M4-77-TC-10", "statement": "Run focused M4.3 tests, full pytest, Ruff, Compose and clean Alembic migration.", "oracle": "All exact-candidate M4.3 checks and M1-M3 regressions are green.", "required": true}
+  ],
+  "command_projections": [
+    {"id": "M4-77-CMD-01", "statement": "Clean PostgreSQL recreation and Alembic upgrade with pinned runtime.", "kind": "migration"},
+    {"id": "M4-77-CMD-02", "statement": "Focused #77 and full repository pytest with worktree-pinned PYTHONPATH.", "kind": "verification"},
+    {"id": "M4-77-CMD-03", "statement": "Ruff and Docker Compose configuration verification.", "kind": "verification"}
+  ],
+  "required_evidence": [
+    {"id": "M4-77-EV-01", "statement": "Ordered two-check authority/reference/compatibility/acquisition/provider traces and zero-call denial counts.", "required": true},
+    {"id": "M4-77-EV-02", "statement": "Generation-1 PostgreSQL lease/CAS/fencing and append-only audit reconstruction.", "required": true},
+    {"id": "M4-77-EV-03", "statement": "Atomic SQLite ticket/rejection plus idempotency transaction rows, fault injection, replay/conflict and independent restart evidence.", "required": true},
+    {"id": "M4-77-EV-04", "statement": "Sanitized terminal, indeterminate, before-receive and fingerprint-conflict HTTP/result matrix with retry prohibition.", "required": true},
+    {"id": "M4-77-EV-05", "statement": "Exact subject SHA, focused/full totals, Ruff/Compose exits, clean Alembic head and clean status.", "required": true}
+  ],
+  "prior_findings": [
+    {"category": "security", "issue_class": "post_acquisition_authority_toctou", "criterion_ref": "M4-77-AC-01", "affected_case_ids": ["M4-77-TC-01"], "affected_fields": ["workspace_resource_authorization", "execution_authorization", "acquire_execution", "provider_invocation"], "problem": "No decision-complete acquisition-to-provider current-authority checkpoint.", "required_change": "Define the second check, denial projection and barrier test.", "status": "ADDRESSED_IN_V2"},
+    {"category": "security", "issue_class": "provider_effect_ledger_atomicity", "criterion_ref": "M4-77-AC-07", "affected_case_ids": ["M4-77-TC-06"], "affected_fields": ["sqlite_external_state", "idempotency_ledger", "transaction_boundary"], "problem": "Provider effect and idempotency outcome atomicity was not explicit in the packet.", "required_change": "Bind both to one atomic SQLite transaction and inject faults around commit.", "status": "ADDRESSED_IN_V2"},
+    {"category": "oracle", "issue_class": "idempotency_conflict_lifecycle", "criterion_ref": "M4-77-AC-09", "affected_case_ids": ["M4-77-TC-06", "M4-77-TC-08"], "affected_fields": ["execution_lifecycle", "http_mapping", "audit", "reconciliation"], "problem": "Fingerprint-conflict lifecycle/public/retry semantics were ambiguous.", "required_change": "Define non-terminal executing/409, sanitized audit and no-retry/#78 observation semantics.", "status": "ADDRESSED_IN_V2"},
+    {"category": "scope", "issue_class": "stale_generation_seam_scope", "criterion_ref": "M4-77-AC-06", "affected_case_ids": ["M4-77-TC-05"], "affected_fields": ["lease_generation", "test_fixture", "issue_78_boundary"], "problem": "The #77 test seam implied a higher generation owned by #78.", "required_change": "Limit #77 to generation-1 fencing and defer takeover/post-takeover proof to #78.", "status": "ADDRESSED_IN_V2"}
+  ]
+}
