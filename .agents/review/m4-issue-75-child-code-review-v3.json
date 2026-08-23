@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "review_id": "m4-issue-75-child-code-review-v3",
+  "reviewed_at": "2026-08-23T07:32:00+07:00",
+  "ticket": "#75",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/80",
+  "fixed_point": {
+    "base_commit": "aa58bbbebe5d2e5d3d76126186573c8cf8cbb0eb",
+    "head_commit": "2157d474dabe31c7bd9c0996db7e998b6b3725bb",
+    "merge_base_commit": "aa58bbbebe5d2e5d3d76126186573c8cf8cbb0eb",
+    "merge_base_semantics": true,
+    "diff_command": "git diff aa58bbbebe5d2e5d3d76126186573c8cf8cbb0eb..2157d474dabe31c7bd9c0996db7e998b6b3725bb",
+    "commit_list": [
+      "160e43359609e68f66410bc9768b1ecd94987f56",
+      "ff862c41a1393bfbb9bf83e478aea40feee781f4",
+      "35de0044c027adaee9ca009a18a1ad63d732d163",
+      "8fc828389b87ecb12426fbb2beb1c33a8a9c499e",
+      "f7b467efc4fe0ee659ee6bad295e978432532c33",
+      "f8fc8f2470fae42b66e634268cd502753ee46e99",
+      "b318dcb21ccada5865469530fad291fec27861b6",
+      "1d8d0e0c186d2fc16122706e78cf13accef2a1bf",
+      "9332d7eefe4d94975b40ec3cc77989177a0ebaa8",
+      "2f69b8a3665722e8adf36a4b1037fd70ad066dfc",
+      "896a6ebdd6f9e41856c33149d80268e1aa98a737",
+      "c6bf046f2bd7868f516ac62db795e8631717ee3d",
+      "2fffc9fdaa5c8cb12b6918beddb3cf7c101a74b5",
+      "e4e65d0c52d33732bde565b7751a6cfedd05ff14",
+      "5e5e8f88726beac2484c7f2e40fc869371d2058d",
+      "64ed93b5f0ed56c8843cedb2f8222eab9447bd25",
+      "b42f0cbf6f6c6c59831a11f7aad9a2172ded8649",
+      "b35d3a7e9067dcfb9a64fd6a3bb84d15e1cb805e",
+      "e6b1e723cd58e4b319d04ff835a1f17008d8f066",
+      "13ebd19a502177c9db612c943ce5b9a56ca01e6c",
+      "bb930f75655823a6f5de40813a685e6a07ca2ca8",
+      "46fe7c4c0b2f7de4812433fe3c4100c774782ad2",
+      "1011a97f6746242682d0fadd2f2b98a2fcd9284d",
+      "f9c69ed855e6eabd5855f36c9c3b7ab2023109ac",
+      "294901363e0ba4a63efb992ded9d6a6f96c21f2c",
+      "ab6eccc4051c9450b8dd95c6a0026b217daf0479",
+      "eed8a79563c73581c9fc387f704a21fb0c1bebd1",
+      "b57e44e0947564500b97838879e97f275bcb9990",
+      "2157d474dabe31c7bd9c0996db7e998b6b3725bb"
+    ]
+  },
+  "structural_evidence": [
+    ".agents/review/m4-issue-75-remediation-result-v2.json@f9c69ed855e6eabd5855f36c9c3b7ab2023109ac",
+    ".agents/review/m4-issue-75-reconciliation-v2.json@ab6eccc4051c9450b8dd95c6a0026b217daf0479",
+    ".agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl@b57e44e0947564500b97838879e97f275bcb9990"
+  ],
+  "machine_result": {
+    "status": "completed",
+    "pass": true,
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0,
+    "findings": [],
+    "axes": {
+      "standards": {
+        "status": "completed",
+        "axis": "standards",
+        "findings": [],
+        "report": "Inspected every changed production and test hunk at aa58bbbebe5d2e5d3d76126186573c8cf8cbb0eb..2157d474dabe31c7bd9c0996db7e998b6b3725bb against CONTEXT.md, Architecture Standard, and the approved M4 design. The v2 findings are resolved: exact binding provenance reaches both gateway seams, SQLite malformed/exception outcomes are closed, and HTTP ownership now follows the adapter dependency direction. No concrete Standards-axis finding remains."
+      },
+      "spec": {
+        "status": "completed",
+        "axis": "spec",
+        "findings": [],
+        "report": "The exact fixed-point diff aa58bbbebe5d2e5d3d76126186573c8cf8cbb0eb..2157d474dabe31c7bd9c0996db7e998b6b3725bb satisfies Issue #75 and the approved M4 design on the spec axis. The prior binding-provenance gap is closed: AuthorizedExternalResource and LookupTicketRequest carry exact binding identity/version/digest, ReadTool populates them from the verified/current binding, and fake/SQLite seam tests assert or reject mismatches. Provider malformed-shape and exception normalization is covered by the closed typed outcomes and focused tests. The HTTP router is now under knora.adapters.http. No missing, partial, or unrequested spec behavior was found."
+      }
+    }
+  },
+  "acceptance_impact": {
+    "accepted_run_id": "m4-75-ticket-lookup-v2-20260822-03-approved",
+    "accepted_subject_sha": "ab6eccc4051c9450b8dd95c6a0026b217daf0479",
+    "status": "preserved",
+    "invalidated": [],
+    "required_action": "Integrate only after acceptance, reconciliation, and this APPROVE/zero-Critical-Major review."
+  },
+  "remediation_cycle": 2,
+  "next_valid_transition": "Integrate accepted #75 into the feature integration branch with green verification; no further remediation cycle is permitted."
+}
