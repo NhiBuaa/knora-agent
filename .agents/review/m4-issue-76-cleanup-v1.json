@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "ticket": "#76",
+  "issue_state": "CLOSED",
+  "issue_closed_at": "2026-08-23T04:46:39Z",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/81",
+  "integration_merge_commit": "d7742d1d266807b2f487ae1d7917271c1556114a",
+  "integration_evidence_commit": "a46e690a70718d15d9bf71222c056fad96663193",
+  "reachability": "PR head 1271681a3f9c4c5ffe73799926e7d0548523be4a is an ancestor of integration head a46e690a70718d15d9bf71222c056fad96663193",
+  "worktree": {
+    "path": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2",
+    "clean_before_removal": true,
+    "removed": true
+  },
+  "local_branch": {
+    "name": "nhibuaa/issue-76-m4.2",
+    "deleted": true
+  },
+  "remote_branch": {
+    "name": "origin/nhibuaa/issue-76-m4.2",
+    "deleted": true,
+    "pruned": true
+  },
+  "default_branch": {
+    "head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+    "status": "clean_unchanged"
+  },
+  "next_valid_transition": "Initialize Issue #77 from the current integration head and prepare its required external ticket review and manual guide."
+}

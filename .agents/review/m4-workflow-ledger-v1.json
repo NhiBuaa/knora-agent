@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_76_integration_verified_close_cleanup_pending",
-  "next_valid_transition": "close_issue_76_and_cleanup_issue_branch_worktree",
+  "current_state": "ticket_77_frontier_external_ticket_review_ready",
+  "next_valid_transition": "externally_review_issue_77_exact_ticket_contract",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -22,8 +22,8 @@
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
-    {"ticket": "#76", "blocked_by": [], "state": "integrated_verified_close_cleanup_pending", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked_pending_issue_76_close", "worktree": null},
+    {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_external_ticket_review_ready", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -94,7 +94,9 @@
     "evaluation_76_guide_v5_executed_technical_pass_pending_human_approval",
     "human_acceptance_76_guide_v5_approved",
     "reconciliation_76_completed_acceptance_preserved",
-    "integration_completed_76_verified"
+    "integration_completed_76_verified",
+    "issue_76_closed_and_cleanup_completed",
+    "dependency_checked_77_frontier_open"
   ],
   "review_cadence": {
     "risk": "high",
@@ -315,7 +317,7 @@
   "blockers": [
     "Historical PR #81 child review v3 found 4 Major and 1 Minor gaps and invalidated the accepted v3 run at a4d33b8; those gaps are remediation input, while the child review itself is audit-only and no longer a gate.",
     "Guide v4 external review returned REQUEST_CHANGES with 2 Major findings; guide v5 addresses only the required observable lookup-order and PostgreSQL restart-projection evidence gaps.",
-    "Issue #76 is accepted and integration-verified through PR #81 merge d7742d1d266807b2f487ae1d7917271c1556114a; issue closure and branch/worktree cleanup remain.",
+    "Issue #76 is accepted, integration-verified, closed and cleaned; Issue #77 is the open frontier with both native blockers closed.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -329,5 +331,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T11:43:30+07:00"
+  "last_updated_at": "2026-08-23T11:47:00+07:00"
 }

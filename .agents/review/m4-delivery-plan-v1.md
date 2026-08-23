@@ -313,3 +313,13 @@ transition.
 - Deterministic next transition: commit/push integration evidence, close Issue #76, verify the
   issue branch is reachable and its worktree clean, remove the Issue #76 worktree/local/remote
   branch, then initialize Issue #77 from the new integration head. No code review runs here.
+
+### Resume checkpoint — 2026-08-23, Issue #77 frontier
+
+- Issue #76 is closed. Its accepted PR head is reachable from integration, and its clean worktree,
+  local branch and remote branch were removed; `main` remains clean at `6312c4c`.
+- Native blocker inspection confirms #75 and #76 are closed, so open/unassigned Issue #77 is the
+  current frontier. #78 and #79 remain blocked.
+- Deterministic next transition: externally review the exact Issue #77 contract, then use
+  `manual-acceptance -> test-craft` to prepare and externally review its guide. Obtain explicit
+  human guide approval before any #77 implementation. Final M4 code review remains forbidden.
