@@ -1,0 +1,83 @@
+{
+  "projection_version": 1,
+  "round": 1,
+  "request_id": "review-request-sha256:9a97e7ea8da13c447c88860dde1e8a5dcbd2b5a458d0ff08f844ba6a693ba33b",
+  "packet_digest": "sha256:3e87f357b4fff6f3b181e17cee579110b839287716dbe6fd18db8723983e8eac",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "issue_id": "github-issue-77",
+  "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+  "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+  "ticket_digest": "sha256:79609762b837282a5cf538386307642c21cb7d33474b16f7f8075ce885b8cc9f",
+  "guide_revision": "m4-77-ticket-contract-v1",
+  "guide_digest": "sha256:79609762b837282a5cf538386307642c21cb7d33474b16f7f8075ce885b8cc9f",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+  "acceptance_criteria": [
+    {"id": "M4-77-AC-01", "statement": "ExecuteApprovedProposal starts only from an approved, non-expired, exact-compatible proposal after current Workspace/resource and ExecutionAuthorizer approval; human approval alone grants no execution authority."},
+    {"id": "M4-77-AC-02", "statement": "ExternalResourceReferenceVerifier verifies the exact approved m4r1 key, expiry, Workspace, capability version and binding before lease acquisition; every denial produces zero provider calls."},
+    {"id": "M4-77-AC-03", "statement": "The server computes one immutable canonical-json-v1 request fingerprint over operation, exact capability/binding/reference claims and normalized title/description, paired with the proposal's immutable logical execution identity."},
+    {"id": "M4-77-AC-04", "statement": "ToolActionStore.acquire_execution uses PostgreSQL transaction time and typed CAS to atomically create generation 1, owner/deadline, executing state, append-only audit and an AuthorizedExecutionBindingSnapshot without raw provider ID."},
+    {"id": "M4-77-AC-05", "statement": "Concurrent execution acquisition has exactly one applied winner; losers return a typed in-progress, conflict or non-executable projection and make no provider call."},
+    {"id": "M4-77-AC-06", "statement": "Observation and finalization require the current owner, generation and unexpired lease; stale, expired and non-owner callers are fenced and cannot win conflicting finalization."},
+    {"id": "M4-77-AC-07", "statement": "The provider receives the immutable logical execution identity and exact stored fingerprint; same-key/same-fingerprint replays, different fingerprints conflict and concurrent calls create at most one logical side effect."},
+    {"id": "M4-77-AC-08", "statement": "Direct provider success finalizes succeeded; only target_not_found, validation_rejected and policy_rejected are definitive failures that finalize failed and map to sanitized TOOL_PROVIDER_FAILURE."},
+    {"id": "M4-77-AC-09", "statement": "Any outcome where external receipt is possible remains executing and returns typed ExecutionIndeterminate/HTTP 202 with the same logical identity; the deterministic before-receive case is also non-terminal and cannot authorize an immediate blind retry."},
+    {"id": "M4-77-AC-10", "statement": "Execution actor, current authority evidence, lease generation, provider identity, immutable binding/fingerprint/logical ID, observations and outcome are reconstructable from append-only audit while M1-M3 regressions remain green."}
+  ],
+  "design_decisions": [
+    {"id": "M4-77-DD-01", "decision": "Proposal actor, approval actor and execution authority are distinct; ExecuteApprovedProposal revalidates current authority immediately before side effect."},
+    {"id": "M4-77-DD-02", "decision": "Exact capability, Workspace-to-external-scope binding and policy provenance/version compatibility are checked against the immutable approved snapshot; material mismatch is stale and requires a new proposal/approval, while temporary execution denial may leave the proposal approved."},
+    {"id": "M4-77-DD-03", "decision": "PostgreSQL owns proposal/execution lifecycle, typed lease generation, observations and audit; the SQLite reference provider owns independent external state and the authoritative idempotency ledger."},
+    {"id": "M4-77-DD-04", "decision": "Lifecycle remains executing until a definitive provider outcome; indeterminate_external_outcome is a typed observation, not a terminal state."},
+    {"id": "M4-77-DD-05", "decision": "Issue #77 implements direct authorized execution and provider idempotency only; stale-lease takeover, orphan recovery and ReconcileExecution are delivered by blocked Issue #78."}
+  ],
+  "invariants": [
+    "Authentication, Workspace/resource authorization, exact reference verification, current execution authorization and compatibility checks all precede lease acquisition/provider invocation as specified; denial paths have zero provider calls.",
+    "Capability registry remains static and typed; no plugin framework or dynamic discovery is introduced.",
+    "The approved capability version and Workspace-to-external-scope binding cannot silently retarget or upgrade at execution.",
+    "Logical execution identity and request fingerprint are server-derived, immutable and never accepted from the request body.",
+    "The reference provider's external state/idempotency ledger is independent of ToolActionStore.",
+    "Expiry blocks a new execution start; it does not redefine later Issue #78 reconciliation authority for an already-started execution.",
+    "No model or system actor can approve, and approval remains insufficient for execution authority.",
+    "Raw provider IDs, credentials and unbounded provider errors never enter public projections or audit evidence."
+  ],
+  "out_of_scope": [
+    "ReconcileExecution, stale execution lease takeover and orphaned executing recovery, owned by Issue #78.",
+    "A vendor-backed production integration; the deterministic SQLite reference provider is the M4 release boundary.",
+    "Dynamic plugins, capability discovery or a general plugin framework.",
+    "Editing immutable proposals or silently reusing approval after a material capability, binding or policy change.",
+    "Final Milestone 4 fixed-point code review."
+  ],
+  "acceptance_policy": {
+    "authority": "human_required",
+    "policy_revision": "m4-human-required-guide-review-v1",
+    "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+    "required": true
+  },
+  "test_cases": [
+    {"id": "M4-77-TC-01", "statement": "Exercise approved execution under authorized, revoked, cross-Workspace, expired and exact capability/binding/policy mismatch conditions with ordered counting sentinels.", "oracle": "Only the currently authorized exact-compatible case acquires a lease or calls the provider; temporary denial remains approved while material mismatch is stale.", "required": true},
+    {"id": "M4-77-TC-02", "statement": "Mutate, forge, expire and cross-bind m4r1 references, including retired/revoked key cases, before execution.", "oracle": "Every integrity/scope/version failure is typed and occurs before acquisition/provider calls.", "required": true},
+    {"id": "M4-77-TC-03", "statement": "Vary request-body attempts at logical ID/fingerprint and normalized title/description, then recompute canonical-json-v1 independently.", "oracle": "Client identity fields are rejected/ignored per contract and the stored/provider fingerprint exactly matches the server canonical projection.", "required": true},
+    {"id": "M4-77-TC-04", "statement": "Race concurrent acquire_execution calls for one approved proposal using PostgreSQL-backed composition.", "oracle": "Exactly one generation-1 winner/audit event exists; every loser is typed and produces zero provider calls.", "required": true},
+    {"id": "M4-77-TC-05", "statement": "Attempt observation/finalization with wrong owner, stale generation and expired lease, including a stale owner after a newer durable projection is visible.", "oracle": "Every invalid owner/generation/deadline is ExecutionFenced and cannot alter outcome/audit." , "required": true},
+    {"id": "M4-77-TC-06", "statement": "Invoke the SQLite reference provider concurrently and repeatedly with same logical ID/same fingerprint and same logical ID/different fingerprint.", "oracle": "Same fingerprint replays one stored outcome and side effect; different fingerprint returns idempotency conflict; the external ledger remains independent of PostgreSQL.", "required": true},
+    {"id": "M4-77-TC-07", "statement": "Exercise provider success and each closed definitive failure taxonomy member.", "oracle": "Success finalizes succeeded; only the three approved failures finalize failed with sanitized 502 projection and reconstructable audit.", "required": true},
+    {"id": "M4-77-TC-08", "statement": "Exercise timeout, acknowledgement loss, provider unavailable, malformed/unknown response and deterministic before-provider-receive failure.", "oracle": "Every case remains executing with typed 202 indeterminate projection, identical logical ID/fingerprint and no immediate blind retry.", "required": true},
+    {"id": "M4-77-TC-09", "statement": "Reload PostgreSQL execution/audit and SQLite provider ledger independently after direct outcomes and indeterminate observations.", "oracle": "All required authority/binding/lease/provider/observation/outcome fields reconstruct exactly without raw provider IDs.", "required": true},
+    {"id": "M4-77-TC-10", "statement": "Run focused execution/provider/HTTP tests, complete repository pytest, Ruff, Compose and clean Alembic migration.", "oracle": "All M4.3 checks and M1-M3 regressions are green on the exact candidate SHA.", "required": true}
+  ],
+  "command_projections": [
+    {"id": "M4-77-CMD-01", "statement": "Clean PostgreSQL database recreation and Alembic upgrade using the pinned Python runtime.", "kind": "migration"},
+    {"id": "M4-77-CMD-02", "statement": "Focused Issue #77 tests followed by the complete repository pytest suite with worktree-pinned PYTHONPATH.", "kind": "verification"},
+    {"id": "M4-77-CMD-03", "statement": "Ruff and Docker Compose configuration verification.", "kind": "verification"}
+  ],
+  "required_evidence": [
+    {"id": "M4-77-EV-01", "statement": "Ordered authorization/reference/compatibility/acquisition/provider traces with per-path provider call counts.", "required": true},
+    {"id": "M4-77-EV-02", "statement": "PostgreSQL lease/CAS/fencing projections and append-only audit reconstruction across reload.", "required": true},
+    {"id": "M4-77-EV-03", "statement": "SQLite provider external-state/idempotency ledger rows, replay/conflict results and independent restart evidence.", "required": true},
+    {"id": "M4-77-EV-04", "statement": "Sanitized HTTP/result matrix for direct success, definitive failures and every indeterminate class, including before-receive no-blind-retry evidence.", "required": true},
+    {"id": "M4-77-EV-05", "statement": "Exact subject SHA, focused/full test totals, Ruff/Compose exits, clean Alembic head and clean worktree status.", "required": true}
+  ],
+  "prior_findings": []
+}
