@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
@@ -21,6 +22,7 @@ from knora.adapters.postgres.object_reconciliation import (
     PostgresObjectReferenceResolver,
 )
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
+from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
@@ -61,7 +63,19 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.processing import DocumentProcessor
 from knora.providers.embedding import EmbeddingConfiguration
-from knora.tools import ReadTool
+from knora.tools import (
+    CapabilityRegistry,
+    ExternalScopeBinding,
+    PolicyProvenance,
+    ReadTool,
+    ReferenceProposalTargetVerifier,
+    ReferenceVerifier,
+    RegistryCapabilityResolver,
+    ToolActionStore,
+)
+from knora.tools.proposal_http import ActorContextProvider
+from knora.tools.proposal_http import router as proposal_router
+from knora.tools.proposals import WriteProposalWorkflow
 
 
 def create_app(
@@ -81,7 +95,14 @@ def create_app(
     operational_metrics_store: OperationalMetricsStore | None = None,
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
+    write_proposal_workflow: WriteProposalWorkflow | None = None,
+    tool_actor_context_provider: ActorContextProvider | None = None,
     read_tool: ReadTool | None = None,
+    tool_capability_registry: CapabilityRegistry | None = None,
+    tool_scope_bindings: Mapping[str, ExternalScopeBinding] | None = None,
+    tool_reference_verifier: ReferenceVerifier | None = None,
+    tool_proposal_policy: PolicyProvenance | None = None,
+    tool_action_store: ToolActionStore | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -211,6 +232,23 @@ def create_app(
         credentials_from_json(settings.api_credentials_json)
     )
     application.state.embedding_configuration = selected_embedding_configuration
+    selected_write_proposal_workflow = write_proposal_workflow
+    if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
+        if tool_scope_bindings is None or tool_reference_verifier is None:
+            raise ValueError(
+                "proposal composition requires scope bindings and a reference verifier"
+            )
+        selected_write_proposal_workflow = WriteProposalWorkflow(
+            capability_resolver=RegistryCapabilityResolver(
+                tool_capability_registry or CapabilityRegistry.static(),
+                bindings=tool_scope_bindings,
+                policy=tool_proposal_policy or PolicyProvenance(),
+            ),
+            store=tool_action_store or PostgresToolActionStore(SessionFactory),
+            target_verifier=ReferenceProposalTargetVerifier(tool_reference_verifier),
+        )
+    application.state.write_proposal_workflow = selected_write_proposal_workflow
+    application.state.tool_actor_context_provider = tool_actor_context_provider
 
     application.state.read_tool = read_tool
 
@@ -250,9 +288,15 @@ def create_app(
             "CONFIGURATION_NOT_AVAILABLE": 409,
             "IDEMPOTENCY_KEY_CONFLICT": 409,
             "TOOL_CAPABILITY_NOT_FOUND": 403,
+            "TOOL_APPROVAL_FORBIDDEN": 403,
             "TOOL_RESOURCE_ACCESS_DENIED": 403,
-            "TOOL_TICKET_NOT_FOUND": 404,
+            "TOOL_PROPOSAL_NOT_FOUND": 404,
             "TOOL_REQUEST_INVALID": 422,
+            "TOOL_PROPOSAL_ALREADY_DECIDED": 409,
+            "TOOL_PROPOSAL_REVISION_CONFLICT": 409,
+            "TOOL_PROPOSAL_STALE": 409,
+            "TOOL_PROPOSAL_EXPIRED": 409,
+            "TOOL_TICKET_NOT_FOUND": 404,
             "INVALID_TOOL_RESOURCE_REFERENCE": 400,
             "TOOL_PROVIDER_UNAVAILABLE": 502,
             "TOOL_PROVIDER_CONTRACT_INVALID": 502,
@@ -261,6 +305,8 @@ def create_app(
 
     application.include_router(http_router)
     application.include_router(router)
+    if selected_write_proposal_workflow is not None and tool_actor_context_provider is not None:
+        application.include_router(proposal_router)
     if read_tool is not None:
         application.include_router(tools_router)
     return application

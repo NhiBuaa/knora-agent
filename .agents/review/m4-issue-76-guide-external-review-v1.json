@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_76_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-76-ticket-external-review.json",
+  "reviewed_commit": "608fe5966bc74ff29c3513c0af14e83425b4c706",
+  "ticket_id": "#76",
+  "guide_revision": "m4-76-write-proposal-v1",
+  "guide_digest": "sha256:aabb59a1d6398fc24a9409b3565d617060b3392797bd2b1ed0a30e1f723c350b",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 2,
+  "findings": [
+    {
+      "severity": "major",
+      "section": "TC-01/TC-02 target reference security",
+      "problem": "The guide has no malformed/tampered/key/expiry/claim/store mismatch target-reference cases.",
+      "required_change": "Add the full negative reference matrix with exact 400/403 outcomes, zero persistence/audit/write calls and no raw provider material projection."
+    },
+    {
+      "severity": "minor",
+      "section": "TC-04/TC-05/TC-07 HTTP traceability",
+      "problem": "AlreadyDecided/stale/expired and RejectProposal reason-code HTTP outcomes are not exact.",
+      "required_change": "Assert the closed 409 codes and valid/invalid reject reason enum."
+    },
+    {
+      "severity": "minor",
+      "section": "Prerequisites/TC-08/Evaluation",
+      "problem": "Windows database/command contract and required Evaluation metadata are implicit.",
+      "required_change": "Pin 127.0.0.1 commands and require run, subject, guide, environment, per-case evidence and human-approval fields."
+    }
+  ],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/76",
+    ".agents/manual-tests/milestone-4/76-write-proposal-v1.md",
+    ".agents/review/m4-issue-76-test-cases-v1.json",
+    "docs/design/milestone-4-tools-human-approval.md@01d329e1e9aa8c0f2f667ab9df318c62ba47d047"
+  ]
+}

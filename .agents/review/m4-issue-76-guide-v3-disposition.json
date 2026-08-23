@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "ticket": "#76",
+  "guide_revision": "m4-76-write-proposal-v3",
+  "supersedes": "m4-76-write-proposal-v2",
+  "source_review": ".agents/review/m4-issue-76-guide-external-review-v2.json",
+  "design_subject": "5ffb59d2bbc4175a40cda12e714851d6c1e83cb0",
+  "status": "revised_pending_external_review",
+  "changes": [
+    "Kept stale/expiry/temporary-authority evidence inside #76 project_proposal/GET and deferred execution/reconciliation routes to #77/#78.",
+    "Made the 127.0.0.1 binding an exact PowerShell environment assignment.",
+    "Changed replacement-policy testing to trusted current policy context with only allowed client request fields."
+  ]
+}

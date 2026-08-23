@@ -172,6 +172,20 @@ def test_static_registry_and_authorized_lookup_are_typed() -> None:
     assert error.value.code == "TOOL_CAPABILITY_NOT_FOUND"
 
 
+def test_static_registry_exposes_typed_create_ticket_write_capability() -> None:
+    descriptor = CapabilityRegistry.static().resolve("create_ticket")
+    canonical_descriptor = (
+        b'{"capability_id":"create_ticket","operation":"write",'
+        b'"resource_kind":"ticket","version":"m4.2"}'
+    )
+
+    assert descriptor.version == "m4.2"
+    assert descriptor.operation == "write"
+    assert descriptor.resource_kind == "ticket"
+    assert descriptor.digest == "sha256:" + hashlib.sha256(canonical_descriptor).hexdigest()
+    assert CapabilityRegistry.static().capability_ids == ("ticket_lookup", "create_ticket")
+
+
 def test_external_scope_binding_digest_covers_exact_scope_semantics() -> None:
     binding = _binding(external_scope="scope-a")
     assert binding != _binding(external_scope="scope-b")

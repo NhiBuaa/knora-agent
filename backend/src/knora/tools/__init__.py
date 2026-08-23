@@ -1,9 +1,65 @@
-"""Workspace-authorized support tools.
+"""Typed proposal and human-decision boundary for support tool actions."""
 
-The package intentionally exposes a small, static capability boundary.  Provider adapters and
-reference verification live behind typed interfaces so application code never receives provider
-SDK objects or raw provider identifiers.
-"""
+from knora.tools.proposal_compatibility import CompatibilityCheckerV1
+from knora.tools.proposal_integration import (
+    ReferenceProposalTargetVerifier,
+    RegistryCapabilityResolver,
+)
+from knora.tools.proposal_store import InMemoryToolActionStore, ToolActionStore
+from knora.tools.proposal_types import (
+    ActorContext,
+    AlreadyDecided,
+    ApproveProposal,
+    AuthorityProvenance,
+    CapabilityResolver,
+    PolicyProvenance,
+    ProposalApproved,
+    ProposalCreated,
+    ProposalDecision,
+    ProposalProjection,
+    ProposalRejected,
+    ProposalTargetVerifier,
+    ProposeWriteAction,
+    RejectProposal,
+    ResolvedCapabilityContext,
+    StaticCapabilityResolver,
+    ToolProposalProjection,
+    VerifiedProposalTarget,
+)
+from knora.tools.proposals import (
+    ExecutionAuthorizer,
+    HumanApprovalAuthorizer,
+    WriteProposalWorkflow,
+)
+
+__all__ = [
+    "ActorContext",
+    "AlreadyDecided",
+    "ApproveProposal",
+    "AuthorityProvenance",
+    "CapabilityResolver",
+    "CompatibilityCheckerV1",
+    "ExecutionAuthorizer",
+    "HumanApprovalAuthorizer",
+    "InMemoryToolActionStore",
+    "PolicyProvenance",
+    "ProposalApproved",
+    "ProposalCreated",
+    "ProposalDecision",
+    "ProposalProjection",
+    "ProposalRejected",
+    "ProposeWriteAction",
+    "RejectProposal",
+    "ResolvedCapabilityContext",
+    "ProposalTargetVerifier",
+    "VerifiedProposalTarget",
+    "StaticCapabilityResolver",
+    "ToolActionStore",
+    "ToolProposalProjection",
+    "WriteProposalWorkflow",
+    "ReferenceProposalTargetVerifier",
+    "RegistryCapabilityResolver",
+]
 
 from knora.tools.capabilities import (
     CapabilityDescriptor,
@@ -36,7 +92,7 @@ from knora.tools.references import (
 )
 from knora.tools.sqlite_provider import SQLiteReferenceProvider
 
-__all__ = [
+__all__ += [
     "CapabilityDescriptor",
     "CapabilityRegistry",
     "AuthorizedExternalResource",

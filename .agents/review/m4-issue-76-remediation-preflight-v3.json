@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "ticket": "#76",
+  "cycle": 3,
+  "status": "approved_for_tdd",
+  "source_head": "88cc7bb5be94d2e441ee212fef39dabb5e20f31d",
+  "guide": {
+    "revision": "m4-76-write-proposal-v5",
+    "digest": "sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee",
+    "human_approval": ".agents/review/m4-issue-76-guide-approval-v5.json"
+  },
+  "approved_scope": "Exceptional bounded remediation cycle 3 closes the remaining historical review gaps through the existing M4.2 proposal, authorization, compatibility, persistence and HTTP seams. It adds no provider write, execution, reconciliation or plugin behavior.",
+  "design_preflight": {
+    "owning_module": "knora.tools",
+    "public_interface": "WriteProposalWorkflow.handle(TypedWriteCommand, WorkspacePrincipal, ActorContext) plus Workspace-scoped proposal HTTP routes",
+    "approved_seams": [
+      "CapabilityResolver.resolve_for_proposal",
+      "ProposalTargetVerifier.verify_for_proposal",
+      "HumanApprovalAuthorizer",
+      "ExecutionAuthorizer",
+      "ToolActionStore create/read/decision boundary",
+      "accepted CapabilityRegistry and ReferenceVerifier composition",
+      "ordered/counting proposal lookup sentinel",
+      "counting provider-write sentinel",
+      "PostgreSQL reconstruction and application-restart seam"
+    ],
+    "responsibility_delta": [
+      "deeply freeze one canonical policy snapshot and material proposal mappings",
+      "derive proposal expiry only from the digest-bound policy lifetime and one workflow clock sample",
+      "use knora.tools.contracts as the sole canonical-json-v1 authority",
+      "prove Workspace authorization precedes scoped proposal lookup",
+      "prove field-complete PostgreSQL reconstruction, replacement identity and durable stale/expiry projections"
+    ],
+    "abstractions_unchanged": true,
+    "new_abstraction_required": false,
+    "anticipated_source_files": [
+      "backend/src/knora/tools/contracts.py",
+      "backend/src/knora/tools/proposal_types.py",
+      "backend/src/knora/tools/proposals.py",
+      "backend/src/knora/tools/proposal_store.py",
+      "backend/src/knora/adapters/postgres/tool_action_store.py"
+    ],
+    "anticipated_test_files": [
+      "backend/test/tools/test_proposals.py",
+      "backend/test/tools/test_proposal_http.py",
+      "backend/test/tools/test_proposal_integration.py",
+      "backend/test/tools/test_proposal_postgres.py"
+    ],
+    "deletion": "backend/src/knora/tools/proposal_contracts.py is removed after all consumers move to knora.tools.contracts",
+    "structural_disposition": "Keep canonical freeze/thaw helpers in the shared contracts module; keep policy validation in proposal types; keep expiry calculation in the proposal workflow; add sentinels only in tests."
+  },
+  "tdd_slices": [
+    {
+      "id": "M4-76-R3-01",
+      "behavior": "Deep immutable policy provenance and policy-bound lifetime",
+      "first_red": "Nested source/view mutations cannot change snapshot or digest; proposal expiry equals one clock sample plus proposal_lifetime_seconds."
+    },
+    {
+      "id": "M4-76-R3-02",
+      "behavior": "Single canonical-json-v1 authority",
+      "first_red": "Import inventory and conformance fail while proposal_contracts remains."
+    },
+    {
+      "id": "M4-76-R3-03",
+      "behavior": "Observable authorization-before-lookup",
+      "first_red": "Counting ordered sentinel proves denied HTTP requests perform zero lookups and authorized absence performs one lookup after authorization."
+    },
+    {
+      "id": "M4-76-R3-04",
+      "behavior": "Field-complete PostgreSQL restart/reconstruction and material replacement identity",
+      "first_red": "Fresh store/application objects reconstruct exact provenance and durable non-executable projections; each material replacement has new proposal/logical identities."
+    }
+  ],
+  "constraints": [
+    "Guide v5 remains byte-for-byte locked.",
+    "No per-Issue or child code review runs after implementation.",
+    "Final M4 code review runs once only after Issues #75-#79 complete.",
+    "PostgreSQL suites run serially.",
+    "Any post-acceptance code change invalidates affected v5 cases."
+  ],
+  "next_valid_transition": "Write RED tests for M4-76-R3-01 through M4-76-R3-04, then implement the minimal bounded changes."
+}
