@@ -466,3 +466,7 @@ transition.
   only these three oracle/evidence clauses, publish Issue #77 verbatim, prepare and automatically
   send canonical packet v7, and require external `APPROVE` with zero findings before guide work.
   Final M4 code review remains forbidden until #75–#79 complete.
+- Validated Resume Contract:
+  `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v6-review-block-v1.json`
+  with digest
+  `sha256:9968f899144ffc8b426d3328d73c7e7cd5fdcd07ced280a88d93890f57c4764e`.
