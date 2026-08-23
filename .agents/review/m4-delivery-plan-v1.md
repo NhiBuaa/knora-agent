@@ -712,3 +712,33 @@ transition.
   `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v5-review-send-v1.json`
   with digest
   `sha256:3dfd60efe9aa307362d24c33c77752de12d758ceccf08db612658fbb513c4160`.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v5 request changes
+
+- The exact guide v5 and canonical packet were reviewed in fresh authenticated ChatGPT High
+  session `6a8ae39b-ff88-83ec-8db4-f7ff5e02263e` against exact subject
+  `3bff38a6813f620daf97ec009cf35d65b1ecdc8c`.
+- The normalized response is contract-valid at
+  `sha256:90e6fc7e1444e24662f46ef397425438955db2c9c886d33e969f0ba6baaac12b`
+  and returned `REQUEST_CHANGES` with zero Critical, two Major and zero Minor findings:
+  `pre_acquisition_denial_matrix_not_fully_exercised` for AC-01/TC-01 and
+  `provider_conflict_non_finalization_not_durably_proven` for AC-09/TC-07/TC-10.
+- The reviewer explicitly confirmed all eight prior guide findings closed, including the two guide
+  v4 findings. Guide v6 may therefore change only the two new guide/test-craft gaps.
+- TC-01 must use one independently sourced pre-acquisition denial matrix that explicitly covers
+  unauthenticated principal, proposal/approval expiry where applicable, invalid execute input,
+  Workspace/resource/execution denial, and material stale/mismatch rows. Each row must lock its
+  application result and closed HTTP status/body, durable before/after projection where applicable,
+  zero acquisition/admission/audit-start/provider activity, named sentinels and release-evidence
+  inclusion.
+- TC-07/TC-10 must link provider conflict evidence to an operation-correlated PostgreSQL proof. On
+  the conflict path and after PostgreSQL restart/reload, the generation-1 execution remains
+  `executing` with unchanged proposal/logical-execution identity and fingerprint, no terminal
+  outcome/finalization row, no terminal audit append and exact zero finalization writes, while the
+  existing `409 ExecutionInProgress(provider_idempotency_conflict)` public matrix row remains exact.
+  The same durable non-finalization proof applies to every non-finalizing matrix row.
+- These changes preserve the approved abstractions, generation-1-only #77 scope, #78 recovery
+  ownership, static typed registry and no-plugin-framework constraint. No implementation or code
+  review may run. Deterministic next transition is `manual-acceptance -> test-craft` to prepare
+  immutable guide/test-case/packet v6, then obtain action-time confirmation for its fresh external
+  ChatGPT High review.

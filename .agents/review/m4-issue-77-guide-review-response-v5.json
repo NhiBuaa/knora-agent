@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:6834cd9141b887c3847941fd4a63b77ddc4fc907811dae18d824629dbfb9723f",
+  "round": 1,
+  "packet_digest": "sha256:3bd8ef211bd57998986cb99563d41b29d231c6ddda128da17f287e66a8fd4d43",
+  "guide_revision": "m4-77-authorized-execution-v5",
+  "guide_digest": "sha256:69059cf83119a407d34d74d3b1e5249ba5a95672ce53c78946f1d92d5fcd605c",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "review_id": "external-review:github-issue-77:m4-77-authorized-execution-v5:round-1:6a8ae39b-ff88-83ec-8db4-f7ff5e02263e",
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8ae39b-ff88-83ec-8db4-f7ff5e02263e",
+  "reviewed_commit": "3bff38a6813f620daf97ec009cf35d65b1ecdc8c",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "pre_acquisition_denial_matrix_not_fully_exercised",
+      "criterion_ref": "M4-77-AC-01",
+      "affected_case_ids": [
+        "M4-77-TC-01"
+      ],
+      "affected_fields": [
+        "pre-acquisition authentication denial",
+        "pre-acquisition expiry denial",
+        "pre-acquisition validation denial",
+        "closed pre-acquisition HTTP error envelope",
+        "release evidence"
+      ],
+      "problem": "The canonical TC-01 requires all pre-acquisition denials, and the guide itself states that authentication, authorization, stale, expiry, and validation failures remain closed-envelope cases tested by TC-01. However, the locked TC-01 steps explicitly exercise authority/grant combinations, temporary execution-authority denial, and material compatibility/reference mismatches with old-approval reuse, but define no explicit authentication-denial, proposal-expiry, or input-validation scenario, exact oracle, or corresponding evidence row. A materially nonconforming implementation of those omitted pre-acquisition branches could therefore pass the described TC-01 evidence.",
+      "required_change": "Extend TC-01 with an independently enumerated pre-acquisition denial table that includes at least authentication failure, proposal/approval expiry where applicable, and validation failure in addition to the existing authorization and stale/mismatch rows. For every added row, require the exact closed application/HTTP result, zero acquisition/admission/audit-start/provider activity, durable before/after state where applicable, named sentinel counts, and release-evidence inclusion. If any listed pre-acquisition class is intentionally outside Issue #77, remove the claim that TC-01 tests it and reconcile the canonical required-Test-Case statement rather than relying on prose."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "provider_conflict_non_finalization_not_durably_proven",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": [
+        "M4-77-TC-07",
+        "M4-77-TC-10"
+      ],
+      "affected_fields": [
+        "provider_idempotency_conflict",
+        "execution lifecycle",
+        "terminal state",
+        "finalization writes",
+        "audit terminal records"
+      ],
+      "problem": "AC-09 requires that only named direct outcomes finalize. The immutable matrix classifies provider idempotency conflict as ExecutionInProgress with lifecycle executing. TC-07 proves the provider-side conflict ordering and lack of a second effect, but not Knora's durable non-finalization state. TC-10 explicitly obtains durable zero-write snapshots for expired fencing branches, while provider-idempotency conflict is only subsequently exercised as a public outcome/matrix row; its expected results require field-for-field projection equality but no conflict-correlated PostgreSQL terminal-state snapshot, terminal-audit count, or zero-finalization-write oracle. Thus an implementation could persist an impermissible terminal state for the provider-conflict path while still emitting the required executing public projection.",
+      "required_change": "Add an operation-correlated durable oracle for provider_idempotency_conflict, preferably in TC-10 and linked to TC-07 provider evidence: after the conflict result and after PostgreSQL restart/reload, require the execution to remain generation-1 executing with unchanged proposal/logical-execution identity and fingerprint, no terminal outcome/finalization row, no terminal audit append, and exact zero finalization-write counters, while preserving the existing exact 409 ExecutionInProgress matrix comparison. More generally, explicitly prove durable non-finalization for every non-finalizing matrix row rather than relying solely on public lifecycle fields."
+    }
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": [
+      "M4-77-AC-01",
+      "M4-77-AC-09"
+    ]
+  },
+  "prior_findings_closed": [
+    "M4-77-GR-001",
+    "M4-77-GR-002",
+    "M4-77-GR-003",
+    "M4-77-GR-004",
+    "M4-77-GR-005",
+    "M4-77-GR-006",
+    "M4-77-GR-007",
+    "M4-77-GR-008"
+  ],
+  "summary": "Guide v5 fully closes both guide-v4 Major findings. TC-03/TC-10 now source denial proposal_id and logical_execution_id from pre-invocation durable scenario authority rather than returned projections or production mappers, with expected/actual equality evidence. TC-10 also independently discriminates observation and finalization using operation start and PostgreSQL transaction time before expiry, a governing-row-lock crossing, skewed non-database clocks, the operation's own fresh post-lock clock_timestamp(), same-path before-expiry controls, and operation-correlated zero-write/state evidence. The remaining two Major issues are independent of those prior findings: TC-01 does not concretely exercise every pre-acquisition denial class the guide claims it covers, and the provider-idempotency-conflict path lacks a durable non-finalization oracle sufficient to prove AC-09's only-named-direct-outcomes-finalize requirement. Therefore findings is non-empty and coverage.uncovered is non-empty, requiring REQUEST_CHANGES.",
+  "response_digest": "sha256:90e6fc7e1444e24662f46ef397425438955db2c9c886d33e969f0ba6baaac12b"
+}
