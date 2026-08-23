@@ -544,3 +544,20 @@ transition.
   coverage. Ticket-contract review gate is closed. Deterministic next transition is
   `manual-acceptance -> test-craft` guide preparation; implementation remains locked until the guide
   has external approval and explicit human digest lock.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v1 review-ready
+
+- `test-craft` completed all twelve contract Test Cases across data/contract, lifecycle,
+  concurrency and security axes at `.agents/review/m4-issue-77-test-cases-v1.json`; UI/visual
+  transitions are explicitly omitted because #77 has no UI.
+- Draft guide `m4-77-authorized-execution-v1` is
+  `.agents/manual-tests/milestone-4/77-authorized-execution-v1.md` with digest
+  `sha256:250c78a9c2670b4fb755ec58ffb6cbc5ef027922c76881b4918f92d0979ec82c`.
+  It locks exact PostgreSQL/SQLite independence, fault barriers, counting sentinels, focused/full
+  commands, sanitized release evidence and the #77/#78 boundary.
+- Canonical external guide-review packet is
+  `.agents/review/m4-issue-77-guide-review-packet-v1.json`, digest
+  `sha256:2bbb3999990294ebb51126c9aaa2778b026a05e8de5cf73eadf1f57efa5bb9c7`, request ID
+  `review-request-sha256:450f0fde899b79425d52083d616fddee1e3943d8a85a1d1057d8f728b29503ce`.
+  Next transition is independent external guide review. No implementation may begin until external
+  `APPROVE` and explicit human approval lock this exact guide digest.
