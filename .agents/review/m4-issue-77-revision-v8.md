@@ -29,13 +29,21 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   capability/binding/policy compatibility, complete `m4r1` integrity/trusted-store/key validity and
   proposal expiry. Every denial creates no execution, acquisition/admission/audit-start artifact and
   makes zero gateway/provider calls. A read-only or observation-only principal without execution
-  authority is denied identically and cannot escalate to a write. Temporary execution-authority
-  denial leaves the immutable proposal `approved`; material incompatibility is stale and requires a
-  new proposal and human approval.
+  authority is denied identically and cannot escalate to a write. A durable proposal/approval
+  before/after oracle distinguishes denial classes. Temporary execution-authority denial leaves the
+  immutable proposal in exact `approved` state with its approval identity/version/digest unchanged.
+  Every material capability, external-scope binding, policy or reference incompatibility atomically
+  projects `proposal_state=stale` plus `approval_validity=invalidated` and its typed incompatibility
+  reason, so the old approval cannot later become executable. Material fields remain immutable; only
+  a new proposal identity and a new authorized-human approval can restore executability.
 - [ ] `request_fingerprint` is the stored server-computed `canonical-json-v1` digest of operation,
   exact capability, exact external-scope binding, target reference/resource claims and normalized
-  `{title, description}`. It and the logical execution ID are immutable, never request input and are
-  reused at acquisition, admission and every provider/recovery boundary.
+  `{title, description}`. It and the logical execution ID are immutable and absent from every
+  writable application/HTTP command schema; unknown-field injection is rejected before proposal or
+  execution state exists. A required independent oracle recomputes the exact fingerprint from
+  authoritative server-normalized inputs and compares it at proposal, acquisition, admission,
+  persisted envelope and provider verification boundaries. Neither identity is caller-selectable or
+  caller-influenceable, and both remain byte-identical through the complete generation-1 path.
 - [ ] `ToolActionStore.acquire_execution` locks the approved proposal/execution row and samples fresh
   PostgreSQL `clock_timestamp()` after every potentially blocking lock. It requires database time
   before proposal expiry, then atomically commits exactly one generation-1 `AcquireWitness` whose
@@ -112,13 +120,18 @@ capability registry remains static and typed. This ticket adds no plugin framewo
 - [ ] Any crash, timeout, acknowledgement loss, transport uncertainty or PostgreSQL-session loss
   after durable admission and before Knora durably finalizes a closed result is receipt-possible
   `indeterminate_external_outcome`, never proof-no-write or definitive failure. Lifecycle remains
-  `executing` with the same admission/logical ID/fingerprint. A read-only provider Adapter contract
-  harness lookup after durable admission but before provider receipt returns typed
+  `executing` with the same admission/logical ID/fingerprint. Branch-specific provider-state oracles
+  require exactly zero provider ledger rows and zero effects after both admission-before-gateway and
+  pre-SQLite-commit faults. A post-SQLite-commit/pre-ack fault requires exactly one durable replayable
+  provider outcome: either one ticket effect plus its success ledger row or one named closed-
+  rejection ledger row plus zero ticket/target effects. Until Knora finalizes, every branch still
+  exposes the exact typed `indeterminate_external_outcome` with the unchanged identities. A read-only
+  provider Adapter contract-harness lookup before provider receipt returns typed
   `provider_outcome_not_found`; a store-level oracle proves the admission remains outstanding and
   non-terminal. This direct Adapter check is not a `ReconcileExecution` application flow and grants
   no retry. It differs from each direct closed provider rejection — `target_not_found`,
   `validation_rejected` or `policy_rejected` — which is a terminal business outcome with its own
-  authoritative SQLite ledger row. #77 performs no recovery retry or takeover.
+  authoritative SQLite ledger row. #77 performs no recovery retry, replay or takeover.
 - [ ] `record_execution_observation` and `finalize_execution` lock the execution row, sample fresh
   post-lock PostgreSQL time and require current owner/generation plus unexpired generation-1 lease.
   For delayed success and each of `target_not_found`, `validation_rejected` and `policy_rejected`,
@@ -131,6 +144,16 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   record/finalize: direct success becomes `succeeded`; only the three named closed rejections become
   `failed`. Receipt-possible outcomes remain executing/202; provider fingerprint conflict remains
   executing/409 with no retry authority.
+- [ ] Public application results and decoded HTTP bodies use one closed discriminated allowlist with
+  no additional recursive fields. Common fields are exactly `proposal_id`, `logical_execution_id`,
+  `lifecycle` and `outcome_type`. Direct success alone may add opaque
+  `external_resource_reference`; named closed rejections alone may add `rejection_code`; receipt-
+  possible indeterminate, provider-fingerprint conflict and generation-1 fencing alone may add their
+  typed `reason_code`. HTTP transport adds only the status code outside this projection. Required
+  schema tests cover success, every closed rejection, indeterminate, conflict and fenced results and
+  fail on any raw provider ID/routing handle, admission/envelope bytes or digest, MAC, request
+  fingerprint, authority epoch/decision/witness, key/signing material, credential/secret or other
+  private admission field.
 - [ ] A canonical audit projection reconstructed solely from append-only PostgreSQL records after
   restart exactly matches caller/proposal/approval/execution actors, both current authorization
   decisions, exact compatibility, complete acquisition and admission witnesses, authority epochs,
@@ -140,15 +163,26 @@ capability registry remains static and typed. This ticket adds no plugin framewo
 
 ## Deterministic test seams and release evidence
 
-- `M4-77-TC-01 — pre-acquisition and non-escalation matrix`: through the sole application/HTTP
-  Interface, deny every pre-acquisition class plus principals that have only read or observation
-  authority. Assert no execution/acquisition/admission/audit-start artifact and zero provider calls.
-- `M4-77-TC-02 — atomic acquisition and loser isolation`: race identified public-workflow
-  contenders. Read the committed `AcquireWitness` after commit and restart, compare every required
-  acquisition field as one tuple, map the sole `AcquireApplied` contender to the sole possible provider call and
+- `M4-77-TC-01 — pre-acquisition, stale-state and non-escalation matrix`: through the sole
+  application/HTTP Interface, deny every pre-acquisition class plus principals that have only read
+  or observation authority. Capture proposal and approval before/after every denial. Temporary
+  execution-authority denial must preserve exact `approved` state and approval identity/version/
+  digest. Independently force material capability, binding, policy and reference incompatibility;
+  each must persist exact `stale`/`invalidated` state with its typed reason, permanently reject old-
+  approval reuse and require a new proposal identity plus new human approval. Every branch creates
+  no execution/acquisition/admission/audit-start artifact and makes zero provider calls.
+- `M4-77-TC-02 — server-owned identity, atomic acquisition and loser isolation`: at application and
+  HTTP seams, prove writable command schemas contain neither logical execution ID nor request
+  fingerprint and reject attempts to inject either before state creation. Independently recompute
+  the expected `canonical-json-v1` fingerprint from authoritative server-normalized operation,
+  capability, scope, protected reference/resource and `{title, description}` inputs; compare it and
+  the server-minted logical ID byte-for-byte across proposal, `AcquireWitness`, admission, persisted
+  envelope and provider verification evidence. Then race identified public-workflow contenders.
+  Read the committed `AcquireWitness` after commit and restart, compare every required acquisition
+  field as one tuple, map the sole `AcquireApplied` contender to the sole possible provider call and
   prove every loser made zero gateway/provider calls. Before commit, another database session sees
   none of the tuple. Fault after each acquisition write but before commit and prove rollback leaves
-  the original approved state with no execution/snapshot/audit fragment.
+  the original approved state with no execution/snapshot/audit fragment or caller-influenced ID.
 - `M4-77-TC-03 — post-acquisition complete current recheck`: block admission after acquisition and
   independently exercise every authority/selector mutation plus every `m4r1` MAC/claims/
   trusted-store/key failure using non-production mutation adapters. Assert lock-time denial, no
@@ -160,11 +194,12 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   post-lock `clock_timestamp()` decides each boundary.
 - `M4-77-TC-05 — complete admission witness and ambiguous-commit readback`: read the committed
   admission row and canonical audit, compare every required admission field to proposal/
-  acquisition/authority inputs, restart PostgreSQL, rotate the active issuance key and reload the
-  exact persisted envelope bytes without a second admission. At the PostgreSQL commit/ack fault
-  seam, capture the intended complete tuple/bytes and force both committed-but-unacknowledged and
-  rolled-back outcomes. Authoritative readback must return exactly the intended committed tuple and
-  reuse its bytes with no second insert/sign/regeneration, or return complete absence with no audit,
+  acquisition/authority inputs, including the independently recomputed server-owned fingerprint and
+  immutable logical ID, restart PostgreSQL, rotate the active issuance key and reload the exact
+  persisted envelope bytes without a second admission. At the PostgreSQL commit/ack fault seam,
+  capture the intended complete tuple/bytes and force both committed-but-unacknowledged and rolled-
+  back outcomes. Authoritative readback must return exactly the intended committed tuple and reuse
+  its bytes with no second insert/sign/regeneration, or return complete absence with no audit,
   gateway call or #77 retry; no partial or third state is valid.
 - `M4-77-TC-06 — admission-first non-cancellation`: pause after admission commit; independently
   mutate/revoke every authority/selector/key class and cross proposal/reference/lease expiry. Resume
@@ -173,18 +208,24 @@ capability registry remains static and typed. This ticket adds no plugin framewo
 - `M4-77-TC-07 — provider ledger contract`: use the private trusted test-signing Adapter to deliver
   same-ID/same-fingerprint replay and two valid same-ID/different-fingerprint envelopes. Prove one
   atomic effect/outcome, replay for equal fingerprint and ledger conflict for the second valid
-  fingerprint after both pass integrity and self-fingerprint recomputation. Separately
+  fingerprint after both pass integrity and provider recomputation from signed authoritative intent;
+  the normal generation-1 envelope value must equal the independent server-side recomputation from
+  TC-02. Separately
   tamper/cross-bind an envelope and prove pre-SQLite integrity rejection. Parameterize all three
   closed rejections: each one transaction persists exactly one ledger outcome with the exact
   logical ID/fingerprint/admission digest, creates zero target/ticket effects, survives provider
   restart byte-for-byte and replays identically; every injected pre-commit fault leaves neither row
   nor effect.
 - `M4-77-TC-08 — crash and provider-not-found semantics`: fault after admission before gateway,
-  before SQLite commit and after SQLite commit before acknowledgement. Admission survives; provider
-  has zero or one outcome. Direct provider outcome lookup in the no-receipt window returns
-  `provider_outcome_not_found`, while Knora retains an outstanding non-terminal admission. Direct
-  `target_not_found`, `validation_rejected` and `policy_rejected` are three distinct closed,
-  provider-ledgered failures and each remains distinguishable after provider restart.
+  before SQLite commit and after SQLite commit before acknowledgement as three named branches. For
+  the first two, assert exactly zero provider ledger rows and zero ticket/target effects. For the
+  committed-before-ack branch, assert exactly one durable replayable ledger outcome and exactly one
+  success effect or one named closed rejection with zero effects, unchanged after provider restart.
+  In every branch not yet Knora-finalized, assert lifecycle `executing`, the same admission/logical
+  ID/fingerprint and exact `indeterminate_external_outcome`; no branch grants #77 retry/replay/
+  takeover authority. Direct provider lookup in either no-receipt branch returns
+  `provider_outcome_not_found`, while direct `target_not_found`, `validation_rejected` and
+  `policy_rejected` remain distinct closed ledger outcomes after provider restart.
 - `M4-77-TC-09 — strict #77/#78 scope`: after restart, reload both `executing + no admission` and
   `executing + admission outstanding` as the two exact `ExecutionRecoverySeed` variants. A second
   Execute returns the current `ExecutionInProgress`; #77 performs no provider observation,
@@ -198,7 +239,11 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   observation/audit append and no terminal lifecycle/outcome rewrite. Read the still-authoritative
   outcome from SQLite after provider restart. Also cover the corresponding before-expiry terminal
   mappings, receipt-possible response, proof-no-receipt pre-admission denial and provider conflict
-  through application/HTTP result mapping.
+  through application/HTTP result mapping. For success, each closed rejection, indeterminate,
+  conflict and fenced result, compare the complete application projection and decoded HTTP body to
+  the exact discriminated allowlist and fail on every extra key or recursively nested private field,
+  including raw provider/routing, admission/envelope/MAC/fingerprint, authority, key, credential and
+  secret material.
 - `M4-77-TC-11 — audit/restart`: restart PostgreSQL and SQLite independently; compare the full
   canonical audit projection field-for-field with proposal/acquisition/admission/provider evidence,
   prove provider ledger independence and assert every excluded raw/secret field is absent.
@@ -206,12 +251,15 @@ capability registry remains static and typed. This ticket adds no plugin framewo
   Alembic verification on the exact candidate SHA.
 
 Durable release evidence includes contender-correlated call counts, exact acquisition/admission row
-witnesses, real mutation-adapter ordering traces, PostgreSQL post-lock time samples, byte-identical
-envelope digest, both branches of the admission commit/ack ambiguity fixture, atomic SQLite effect/
-ledger rows, provider contract-harness conflict evidence, separate restart-stable evidence for all
-three closed rejection classes, provider-not-found versus closed-rejection projections, complete
-expiry-fenced before/after PostgreSQL snapshots, complete audit reconstruction and the exact
-candidate verification totals.
+witnesses, independent canonical fingerprint recomputation and non-caller-influence proof, durable
+temporary-denial versus material-stale proposal snapshots, real mutation-adapter ordering traces,
+PostgreSQL post-lock time samples, byte-identical envelope digest, both branches of the admission
+commit/ack ambiguity fixture, three branch-specific post-admission provider/Knora state records,
+atomic SQLite effect/ledger rows, provider contract-harness conflict evidence, separate restart-
+stable evidence for all three closed rejection classes, provider-not-found versus closed-rejection
+projections, complete expiry-fenced before/after PostgreSQL snapshots, exact public projection
+allowlist/forbidden-field matrices, complete audit reconstruction and the exact candidate
+verification totals.
 
 `M4-77-EV-04` is the required provider-owned release-evidence set and binds separate named records
 for `target_not_found`, `validation_rejected` and `policy_rejected`. Each record contains the exact
@@ -266,14 +314,14 @@ fencing remain wholly owned and accepted by Issue #78.
 
 ## Revision provenance
 
-- Supersedes the same artifact at commit `20f3a3d070529f2fe44add794d3341059a377394`
-  for Issue #77 delivery and is exceptional ticket-contract revision 7 authorized by the repository
+- Supersedes the same artifact at commit `bab205b02d3961c221e0a262250c9989a2d219a4`
+  for Issue #77 delivery and is exceptional ticket-contract revision 8 authorized by the repository
   owner on 2026-08-23.
-- Preserves all eight external-review-v5 corrections and closes all three external-review-v6 Major
-  finding classes with direct oracles: exact two-branch admission commit/ack readback with no second
-  admission or regenerated envelope; complete post-expiry zero-write observation/finalization state
-  for success and every closed failure; and independent atomic/restart evidence for
-  `target_not_found`, `validation_rejected` and `policy_rejected`.
+- Preserves all prior corrections and closes all four external-review-v7 Major finding classes with
+  direct required oracles: branch-specific post-admission provider/Knora state; independently
+  recomputed server-owned logical-ID/fingerprint provenance and caller non-influence; temporary-
+  authority approved preservation versus durable material-incompatibility stale invalidation; and
+  exact allowlisted/forbidden-field public projections for every result variant.
 - Preserves the durable-admission semantics that closed the v4 Critical. #77 remains generation 1
   only, with no reconciliation/takeover implementation or plugin framework.
 - The next canonical external ticket review is automatically sent under the recorded M4 transport

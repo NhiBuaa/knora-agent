@@ -512,3 +512,20 @@ transition.
   `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v7-review-block-v1.json`
   with digest
   `sha256:fa32a1b31b84c63225af0b8ec42b930630c47881e65d1178901b1a24d8bec643`.
+
+### Resume checkpoint — 2026-08-23, Issue #77 exceptional contract revision 8
+
+- The repository owner authorized exceptional ticket-contract revision 8 with authorization digest
+  `sha256:40fd2a98d12b3352f99c576ec7212f55d6546bb6f27729225b0921eac6bc1d37` and retained automatic
+  external-review packet transmission.
+- The revision preserves the sole deep `WriteProposalWorkflow.handle` Interface, generation-1-only
+  execution boundary, static typed registry and Issue #78 ownership. It adds only four direct oracle
+  families required by external review v7: branch-specific post-admission provider/Knora state;
+  server-owned logical-ID/fingerprint provenance and caller non-influence; temporary-authority
+  approved preservation versus material-incompatibility stale invalidation; and exact public
+  projection allowlists/forbidden-field assertions for every result variant.
+- Local contract digest is
+  `sha256:10989a737bb502116984ba4ef628341eb395e4a2759056bf20b9a04e6d3d7707`.
+  Next transition is verbatim publication to Issue #77, then canonical packet v8 generation and
+  automatic independent review. No guide, implementation or final M4 code review may begin before
+  external `APPROVE` with zero findings.
