@@ -590,3 +590,19 @@ transition.
   `review-request-sha256:c30c0c135b3808b23aa4839fa9fc816499d831136bd9f973a1365e70fedcfe31`.
   Next transition is fresh independent external review; implementation remains blocked until
   external `APPROVE` and explicit repository-owner lock of this exact digest.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v2 request changes
+
+- Fresh ChatGPT High session `6a8acb51-6d60-83ec-9009-24fda2a88c7f` reviewed both canonical
+  parts after bounded file-upload failure. The premature PART-1-only `BLOCK` is a non-authoritative
+  transport artifact; the final schema-valid response is bound to subject
+  `89b7e1c408a1d4a9034256202954eadbe1d24f4b`, packet
+  `sha256:3339916fdc4ee8f5bbc8b722a3b170480c92fc097351db3e1b8b28c768ad50bd` and response
+  `sha256:edca8011408db973899a5ca5788aaae0db1e85ea82dd98b37a2e37fc463f602a`.
+- Verdict is `REQUEST_CHANGES` with 0 Critical, 4 Major and 0 Minor findings. The reviewer confirms
+  all three v1 findings are closed, then identifies four fresh deterministic gaps: exact denials
+  for every non-key TC-03 mutation; provider cross-binding rejection before lookup/SQLite; runtime
+  isolation of test-only signer/mutators; and a fully enumerated immutable public-result matrix.
+- These changes remain within `test-craft`/guide ownership, preserve all approved abstractions and
+  do not add #78 reconciliation. Next transition is immutable guide v3 preparation and fresh
+  external review. Implementation remains blocked.
