@@ -29,6 +29,12 @@ must resume at the ledger's `next_valid_transition`; conversation history is not
 - Human approval is required twice per ticket: approve the externally reviewed locked guide, then
   approve the recorded PASSED Evaluation. PR publication, merge, issue closure and cleanup are
   authorized after all governed gates pass.
+- Code review uses `final_feature_only` cadence. There is no child/per-Issue code-review gate.
+  Historical child reviews remain immutable audit evidence but do not gate any later ticket.
+  An Issue is complete after its locked guide passes, the PASSED Evaluation receives explicit human
+  approval, reconciliation/integration verification is green, its PR is merged into the integration
+  branch, local integration is synchronized, and the Issue is closed. The one Standards+Spec
+  `code-review` runs only after #75–#79 are all complete.
 
 ## Application contracts
 
@@ -104,8 +110,9 @@ Skills: `feature-delivery`.
 
 ### 2. Ticket lifecycle template
 
-Skills: `manual-acceptance -> test-craft`, `implement -> tdd`, `code-review -> code-check`, and
-`feature-delivery`; use `resolving-merge-conflicts` only for a real in-progress conflict.
+Skills: `manual-acceptance -> test-craft`, `implement -> tdd`, and `feature-delivery`; use
+`resolving-merge-conflicts` only for a real in-progress conflict. `code-review` is deliberately
+absent from this per-ticket lifecycle and is reserved for the final feature fixed point.
 
 For each current-frontier ticket:
 
@@ -117,11 +124,13 @@ For each current-frontier ticket:
 5. Commit, push and open a draft child PR into the integration branch.
 6. Execute the exact locked guide against the PR subject SHA, append the Evaluation, and obtain
    explicit human approval of a PASSED result.
-7. Run child fixed-point code review. Any code change invalidates affected acceptance evidence and
-   requires rerun before merge.
-8. Reconcile with the latest integration head, resolve conflicts without changing approved seams,
+7. Reconcile with the latest integration head, resolve conflicts without changing approved seams,
    rerun affected tests/acceptance, merge with a merge commit, fast-forward the local integration
    worktree, verify, close the issue, and record/remove the clean worktree and branches.
+
+Any code change after an accepted Evaluation invalidates every affected Test Case and requires an
+append-only rerun before merge. Green automated tests alone do not replace the locked manual guide or
+the explicit human approval required by `acceptance_mode: human_required`.
 
 `design_required` returns to Design and creates a new guide revision. At most two design revisions
 are allowed per ticket.
@@ -191,99 +200,65 @@ and worktree heads, guide revisions, Evaluation histories, blockers, completed t
 `next_valid_transition`. Resume only after validating that contract against Git, GitHub and this
 plan. Never infer progress from conversation memory.
 
-## Durable execution checkpoint — 2026-08-23
+## Durable execution checkpoint — 2026-08-23, final-review-only policy
 
-This section is the resumable handoff for the current delivery run. The authoritative mutable state
-is [m4-workflow-ledger-v1.json](.agents/review/m4-workflow-ledger-v1.json); this section records the
-ordered next actions so a later session does not restart or skip a gate.
+This is the current resumable checkpoint. It supersedes every earlier statement that required a
+child/per-Issue code review. The authoritative mutable state is
+[m4-workflow-ledger-v1.json](.agents/review/m4-workflow-ledger-v1.json); conversation history and
+historical child-review evidence cannot reintroduce a removed gate.
 
-Completed and durable:
+### Review policy
 
-- Integration branch `nhibuaa/m4-tools-human-approval` remains based on `main` at
-  `6312c4c4230032aa92ca5915803fcfaf564354fa`; `main` is unchanged.
-- #75 is integrated through PR #80 merge commit `2a7e2832b37bccac29adcb6c049871024f3864a3`.
-  Integration verification passed (`672 passed, 3 skipped`, Ruff, Compose and Alembic), Issue #75
-  is closed, and its worktree/local/remote branch are removed.
-- #76 was reconciled against integration with merge commit
-  `f40c21f9e1b83cecccfc3858af5a5630cd9059c2`. The focused suite passed 131 cases; the full exact-
-  worktree suite passed `803 passed, 3 skipped`; Ruff, Compose config and a clean Alembic upgrade to
-  `20260822_0037` passed.
-- Locked guide `m4-76-write-proposal-v3` remains immutable and human-approved. The technical run
-  `m4-76-write-proposal-v3-20260823-01` is append-only recorded with all 8 cases PASS, but its
-  verdict is `BLOCKED` with `human_approval: pending` by design.
+- Ticket and guide external reviews remain preparation evidence required by the high-risk cadence;
+  they are not code reviews and cannot derive acceptance verdicts.
+- No `code-review` or `code-check` runs after an individual Issue implementation or acceptance.
+- A child PR may merge after its exact locked guide has a human-approved PASSED Evaluation,
+  reconciliation/selective invalidation is resolved, and integration verification is green.
+- The single code-review gate is the final M4 Standards+Spec fixed point over
+  `merge-base(main, integration)..integration-head`, and it runs only after Issues #75–#79 are
+  accepted, integrated and closed.
+- Any final-review remediation occurs on the integration branch, reruns every affected acceptance
+  case, and then re-pins the one final feature fixed point. It does not recreate child reviews.
 
-Current gate and exact next transition:
+### Durable progress
 
-1. Obtain explicit human approval for run `m4-76-write-proposal-v3-20260823-01` on subject
-   `f40c21f9e1b83cecccfc3858af5a5630cd9059c2`. Do not infer approval from the prior invalidated
-   #76 run or from the green technical suite.
-2. Append the approved Evaluation through `manual-acceptance` without rewriting the pending record;
-   update the ledger and emit `evaluation_76_human_approval_recorded`.
-3. Reconcile PR #81 with the then-current integration head (governance/evidence commits may have
-   advanced it), verify the acceptance subject remains valid, and run child code review v2 with
-   `APPROVE`, zero Critical and zero Major. Use `code-review` and `code-check`; use
-   `resolving-merge-conflicts` only if reconciliation conflicts.
-4. Merge PR #81 into integration with a merge commit, run selective invalidation plus full
-   integration verification, then close Issue #76 and remove its clean worktree/local/remote branch.
-5. Advance the frontier to #77, then #78 and #79 in graph order. For each ticket preserve the
-   locked-guide/human-acceptance/external-review/fixed-point gates, append every Evaluation, merge
-   one PR per issue, close the issue only after green integration verification, and keep PostgreSQL
-   suites serialized.
-6. After #79, perform the final fixed-point review and cadence evidence gate (`11/11` external
-   reviews, all five human approvals before final review), open/merge PR #74 into `main`, run
-   post-merge verification, close #74, and perform the cleanup invariants in this plan.
+- `main` remains clean and unchanged at `6312c4c4230032aa92ca5915803fcfaf564354fa`.
+- #75 is accepted, merged through PR #80, integration-verified and closed. Its historical child
+  review remains audit evidence only.
+- #76 PR #81 remains open on `nhibuaa/issue-76-m4.2`. Historical child review v3 found four Major
+  and one Minor gaps; its accepted v3 Evaluation was append-only invalidated. Those findings are
+  remediation input, not a continuing code-review gate.
+- The user authorized one exceptional #76 remediation cycle. Under the superseding policy its
+  remaining sequence is: externally review and human-lock guide v4; remediate with TDD; execute the
+  locked guide; obtain explicit human approval of PASSED; reconcile/integration-verify; merge PR
+  #81; synchronize integration; close #76 and clean its branch/worktree. There is no child review
+  v4.
+- Guide v4 must prove deep policy-snapshot immutability; policy-selected, digest-bound expiry through
+  production composition; one canonical-json-v1 implementation; complete PostgreSQL provenance,
+  replacement, stale and expiry reconstruction; an explicit zero-count provider-write sentinel;
+  and the reconciled #75 registry/reference integration boundary. All prior v3 history stays
+  append-only and invalidated.
 
-At every context boundary, create/validate a `session-continuity` Resume Contract containing the
-ledger path, exact integration/issue heads, guide revision, Evaluation history digest, current
-state, blocker and the next transition above. Never mark #76 accepted, integrated, or closed while
-the human approval gate is pending.
+### Exact next transition
 
-### Review terminology and checkpoint clarification — 2026-08-23
+- Exact #76 subject: `23186fbdffb3f5e2ba25733dcf035b505a7488e0`.
+- Exact guide digest:
+  `sha256:a500127fc886aa53a9f0374a72e9d3a4301d64e541d5afb2d3f6243afcb22862`.
+- Canonical external guide-review packet digest:
+  `sha256:9ac8bf11c65b66be770d445b82676f24db86d92b8ddaaa0ac4aab5c0933c62b1`.
+- Review request ID:
+  `review-request-sha256:03537afc4887aa24240ab1a9c6794e66df6111557e79df35271eb4e18d772651`.
+- The only connected ChatGPT browser session reported `Your session has expired`; no packet was
+  transmitted. The human must sign in in the in-app Browser and report readiness.
+- Resume by reusing the exact packet/request identity, validate the external guide response, then
+  present the externally reviewed guide digest for explicit human lock approval. Implementation
+  remains blocked until those two acceptance-preparation gates pass.
 
-Two distinct review gates exist and must never be conflated:
+After #76, advance #77, #78 and #79 in graph order using the same guide → implementation → manual
+acceptance → integration lifecycle, without per-Issue code review. After #79 closes, run the one
+final M4 code review and cadence gate, then publish/merge #74 to `main`, post-merge verify, close
+#74 and complete all cleanup invariants.
 
-- A **child review** evaluates one accepted issue branch against the current integration branch
-  before that issue PR may merge. Its fixed point is
-  `merge-base(integration, issue)..issue-head`. #76 is currently waiting at this gate. This review
-  does not claim M4 completion.
-- The **final M4 fixed-point review** runs exactly once only after #75–#79 are all accepted,
-  integrated and closed. Its fixed point is `merge-base(main, integration)..integration-head` and
-  it precedes the final #74 PR to `main`.
-
-Current #76 evidence supersedes the earlier human-gate text above:
-
-- Human approval is append-only recorded for run
-  `m4-76-write-proposal-v3-20260823-01-approved`, exact subject
-  `f40c21f9e1b83cecccfc3858af5a5630cd9059c2`, at issue evidence head `ebfeb02`.
-- PR #81 is reconciled with integration `cab57d0` at issue head
-  `3f7c98be8787e9c070d99e14c446ab88678e2870`; focused verification is `131 passed`.
-- The attempted #76 child-review v2 contexts were interrupted before producing results when the
-  user asked to pause and clarify review cadence. No child-review result or final-review result was
-  recorded.
-- Next valid transition is to obtain explicit confirmation to resume the **child review for #76**.
-  Do not run the final M4 review until the completion condition above is true.
-
-### Exceptional Issue #76 remediation cycle 3 — 2026-08-23
-
-The human explicitly authorized one exceptional third child-review remediation cycle for Issue
-#76 after child review v3 returned `REQUEST_CHANGES`. This is a narrow exception to the ordinary
-two-cycle bound in this plan and in `feature-delivery`; it does not change any M4 abstraction,
-expand #76 into execution/reconciliation scope, or authorize a final M4 review.
-
-The authorized sequence is exactly:
-
-1. Prepare guide `m4-76-write-proposal-v4` from the four Major and one Minor child-review-v3
-   findings using `manual-acceptance -> test-craft`.
-2. Obtain the required external guide review and explicit human guide-lock approval.
-3. Remediate through `implement -> tdd` on the #76 worktree.
-4. Run the locked v4 acceptance against the exact candidate SHA and obtain explicit human approval
-   of a PASSED Evaluation.
-5. Run child code review v4. Only an `APPROVE` result with zero Critical and Major findings permits
-   #76 integration.
-
-Guide v4 must prove deep policy-snapshot immutability; policy-selected, digest-bound expiry through
-production composition; one canonical-json-v1 implementation; complete PostgreSQL provenance,
-replacement, stale and expiry reconstruction; an explicit zero-count provider-write sentinel; and
-the reconciled #75 registry/reference integration boundary. Every prior v3 Evaluation remains
-append-only and invalidated. Final M4 review remains forbidden until #75–#79 are accepted,
-integrated and closed.
+At every context boundary, `session-continuity` writes a validated Resume Contract containing this
+plan/ledger, exact branch heads, guide/Evaluation identities, blockers and one deterministic next
+transition.

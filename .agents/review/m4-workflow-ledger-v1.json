@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_76_guide_v4_packet_ready_external_transmission_confirmation_pending",
-  "next_valid_transition": "transmit_canonical_guide_v4_packet_through_external_reviewer_gateway",
+  "current_state": "ticket_76_guide_v4_external_review_blocked_chatgpt_session_expired",
+  "next_valid_transition": "resume_external_review_after_human_sign_in_and_reuse_exact_packet_identity",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -16,13 +16,13 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "b29c64eb7abec989acace8f45e01348cf0177cf4",
-    "current_head_resolution": "pre-ledger governance head after exceptional issue 76 remediation cycle 3 authorization",
+    "current_head": "d19fd9ea0e84c0d31089abc7f12fe336dcc4ce38",
+    "current_head_resolution": "pre-ledger governance head when guide v4 external-review gateway session expiry was observed",
     "published": true
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated", "worktree": null},
-    {"ticket": "#76", "blocked_by": [], "state": "active_exceptional_remediation_cycle_3_guide_v4_preparation", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
+    {"ticket": "#76", "blocked_by": [], "state": "guide_v4_external_review_blocked_session_expired", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2"},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "blocked", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
@@ -82,7 +82,8 @@
     "human_acceptance_76_remediation_v2_approved",
     "child_code_review_76_v3_request_changes",
     "acceptance_76_invalidated_after_review_v3",
-    "exceptional_remediation_cycle_3_authorized"
+    "exceptional_remediation_cycle_3_authorized",
+    "code_review_policy_revised_final_feature_only"
   ],
   "review_cadence": {
     "risk": "high",
@@ -91,9 +92,24 @@
     "evidence_reference": null,
     "status": "gates_in_progress"
   },
+  "code_review_policy": {
+    "mode": "final_feature_only",
+    "per_ticket_code_review_required": false,
+    "final_review_preconditions": [
+      "#75 accepted integrated closed",
+      "#76 accepted integrated closed",
+      "#77 accepted integrated closed",
+      "#78 accepted integrated closed",
+      "#79 accepted integrated closed"
+    ],
+    "final_review_fixed_point": "merge-base(main, nhibuaa/m4-tools-human-approval)..nhibuaa/m4-tools-human-approval",
+    "historical_child_reviews": "audit_only_non_gating",
+    "authorized_by": "human",
+    "authorized_at": "2026-08-23T10:09:07+07:00"
+  },
   "tickets": {
-    "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-75-guide-approval-v2.json@b318dcb21ccada5865469530fad291fec27861b6", "guide_approval_commit": "b318dcb21ccada5865469530fad291fec27861b6", "implementation_status": "integrated", "implementation_commit": "1011a97f6746242682d0fadd2f2b98a2fcd9284d", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-75-remediation-result-v2.json@f9c69ed855e6eabd5855f36c9c3b7ab2023109ac", "implementation_evidence_digest": "sha256:a2a706aaa0da1fd35154927e0add2ad4e08814ca1a7dba5e1784fe0388835936", "verification": "locked run 03: 44 focused; 716 passed, 3 skipped; integration: 672 passed, 3 skipped; Ruff, Compose and clean Alembic passed", "evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-03", "evaluation_subject_commit": "ab6eccc4051c9450b8dd95c6a0026b217daf0479", "accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-03-approved", "accepted_evaluation_subject_commit": "ab6eccc4051c9450b8dd95c6a0026b217daf0479", "previously_accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved", "invalidation_run_id": "m4-75-ticket-lookup-v2-20260822-review-v2-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl@b57e44e0947564500b97838879e97f275bcb9990", "evaluation_digest": "sha256:597ee813f173df02e59d1cd8fc07429dad2e2caafee3023364116e198d758499", "evaluation_verdict": "PASSED", "human_acceptance_approval": "approved", "previously_accepted_commit": "64ed93b5f0ed56c8843cedb2f8222eab9447bd25", "accepted_commit": "2157d474dabe31c7bd9c0996db7e998b6b3725bb", "integrated_commit": "2a7e2832b37bccac29adcb6c049871024f3864a3", "integration_evidence": ".agents/review/m4-issue-75-integration-v1.json", "child_review": {"revision": 3, "verdict": "APPROVE", "critical_count": 0, "major_count": 0, "minor_count": 0, "reference": ".agents/review/m4-issue-75-child-code-review-v3.json", "digest": "sha256:8a095bcf2381cca8217a8d176310f29542d1fac5911916068a26e421848f5ca9"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/80", "pr_head": "2157d474dabe31c7bd9c0996db7e998b6b3725bb", "design_revisions": 2, "review_remediation_cycles": 2},
-    "#76": {"guide_revision": "m4-76-write-proposal-v4", "guide_digest": "sha256:a500127fc886aa53a9f0374a72e9d3a4301d64e541d5afb2d3f6243afcb22862", "guide_external_review": "packet_ready", "guide_review_packet_reference": "ticket-branch:.agents/review/m4-issue-76-guide-review-packet-v4.json@23186fbdffb3f5e2ba25733dcf035b505a7488e0", "guide_review_packet_digest": "sha256:9ac8bf11c65b66be770d445b82676f24db86d92b8ddaaa0ac4aab5c0933c62b1", "guide_review_request_id": "review-request-sha256:03537afc4887aa24240ab1a9c6794e66df6111557e79df35271eb4e18d772651", "human_guide_approval": "pending", "guide_approval_reference": null, "guide_approval_commit": null, "implementation_status": "awaiting_external_guide_v4_review_and_human_lock", "implementation_commit": "2b5a31e2fc7df3f6bb21bc5edecb40af3cf45264", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-76-remediation-result-v2.json@5214c2e808853fd6792960794533214d7dd4e58a", "implementation_evidence_digest": "sha256:05e0c8eb64fc591350788cb77160677122f16c61ddac94d038361b7f80ea8474", "reconciliation_commit": "f40c21f9e1b83cecccfc3858af5a5630cd9059c2", "verification": "prior locked run 02 invalidated; 152 focused; 825 passed, 3 skipped; Ruff, Compose and fresh Alembic 20260822_0037 passed", "evaluation_run_id": null, "evaluation_subject_commit": null, "accepted_evaluation_run_id": null, "previously_accepted_evaluation_run_id": "m4-76-write-proposal-v3-20260823-02-approved", "invalidation_run_id": "m4-76-write-proposal-v3-20260823-review-v3-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl@a4d33b81454424201aa3bc219c66bd9c8ffe03a4", "evaluation_digest": "sha256:8a461effb7faa9cc8155b78d6d395019c9a27cbe2644a6a24af436afaf157070", "evaluation_verdict": "FAILED", "human_acceptance_approval": "invalidated", "previously_accepted_commit": "5214c2e808853fd6792960794533214d7dd4e58a", "accepted_commit": null, "integrated_commit": null, "child_review": {"revision": 3, "verdict": "REQUEST_CHANGES", "critical_count": 0, "major_count": 4, "minor_count": 1, "reference": ".agents/review/m4-issue-76-child-code-review-v3.json", "digest": "sha256:7f97524de7564c05d0b89e3f03a66f438bc241f0caa5849d3450b4d21097c2d0"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/81", "pr_head": "23186fbdffb3f5e2ba25733dcf035b505a7488e0", "design_revisions": 2, "review_remediation_cycles": 3, "exceptional_cycle_authorization": {"scope": "guide_v4_external_review_human_lock_tdd_acceptance_human_approval_child_review_v4", "authorized_by": "human", "authorized_at": "2026-08-23T09:49:20+07:00", "final_m4_review_authorized": false}},
+    "#75": {"guide_revision": "m4-75-ticket-lookup-v2", "guide_digest": "sha256:d67f909b66765e04c8c490a536b3405f44e544d4fbe77df0db21a9abfe8545c3", "guide_external_review": "APPROVE", "human_guide_approval": "approved", "guide_approval_reference": "ticket-branch:.agents/review/m4-issue-75-guide-approval-v2.json@b318dcb21ccada5865469530fad291fec27861b6", "guide_approval_commit": "b318dcb21ccada5865469530fad291fec27861b6", "implementation_status": "integrated", "implementation_commit": "1011a97f6746242682d0fadd2f2b98a2fcd9284d", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-75-remediation-result-v2.json@f9c69ed855e6eabd5855f36c9c3b7ab2023109ac", "implementation_evidence_digest": "sha256:a2a706aaa0da1fd35154927e0add2ad4e08814ca1a7dba5e1784fe0388835936", "verification": "locked run 03: 44 focused; 716 passed, 3 skipped; integration: 672 passed, 3 skipped; Ruff, Compose and clean Alembic passed", "evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-03", "evaluation_subject_commit": "ab6eccc4051c9450b8dd95c6a0026b217daf0479", "accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-03-approved", "accepted_evaluation_subject_commit": "ab6eccc4051c9450b8dd95c6a0026b217daf0479", "previously_accepted_evaluation_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved", "invalidation_run_id": "m4-75-ticket-lookup-v2-20260822-review-v2-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl@b57e44e0947564500b97838879e97f275bcb9990", "evaluation_digest": "sha256:597ee813f173df02e59d1cd8fc07429dad2e2caafee3023364116e198d758499", "evaluation_verdict": "PASSED", "human_acceptance_approval": "approved", "previously_accepted_commit": "64ed93b5f0ed56c8843cedb2f8222eab9447bd25", "accepted_commit": "2157d474dabe31c7bd9c0996db7e998b6b3725bb", "integrated_commit": "2a7e2832b37bccac29adcb6c049871024f3864a3", "integration_evidence": ".agents/review/m4-issue-75-integration-v1.json", "child_review": {"revision": 3, "verdict": "APPROVE", "critical_count": 0, "major_count": 0, "minor_count": 0, "reference": ".agents/review/m4-issue-75-child-code-review-v3.json", "digest": "sha256:8a095bcf2381cca8217a8d176310f29542d1fac5911916068a26e421848f5ca9", "disposition": "historical_audit_only_non_gating"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/80", "pr_head": "2157d474dabe31c7bd9c0996db7e998b6b3725bb", "design_revisions": 2, "review_remediation_cycles": 2},
+    "#76": {"guide_revision": "m4-76-write-proposal-v4", "guide_digest": "sha256:a500127fc886aa53a9f0374a72e9d3a4301d64e541d5afb2d3f6243afcb22862", "guide_external_review": "packet_ready", "guide_review_packet_reference": "ticket-branch:.agents/review/m4-issue-76-guide-review-packet-v4.json@23186fbdffb3f5e2ba25733dcf035b505a7488e0", "guide_review_packet_digest": "sha256:9ac8bf11c65b66be770d445b82676f24db86d92b8ddaaa0ac4aab5c0933c62b1", "guide_review_request_id": "review-request-sha256:03537afc4887aa24240ab1a9c6794e66df6111557e79df35271eb4e18d772651", "human_guide_approval": "pending", "guide_approval_reference": null, "guide_approval_commit": null, "implementation_status": "awaiting_external_guide_v4_review_and_human_lock", "implementation_commit": "2b5a31e2fc7df3f6bb21bc5edecb40af3cf45264", "implementation_evidence": "ticket-branch:.agents/review/m4-issue-76-remediation-result-v2.json@5214c2e808853fd6792960794533214d7dd4e58a", "implementation_evidence_digest": "sha256:05e0c8eb64fc591350788cb77160677122f16c61ddac94d038361b7f80ea8474", "reconciliation_commit": "f40c21f9e1b83cecccfc3858af5a5630cd9059c2", "verification": "prior locked run 02 invalidated; 152 focused; 825 passed, 3 skipped; Ruff, Compose and fresh Alembic 20260822_0037 passed", "evaluation_run_id": null, "evaluation_subject_commit": null, "accepted_evaluation_run_id": null, "previously_accepted_evaluation_run_id": "m4-76-write-proposal-v3-20260823-02-approved", "invalidation_run_id": "m4-76-write-proposal-v3-20260823-review-v3-invalidation-01", "evaluation_history": "ticket-branch:.agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl@a4d33b81454424201aa3bc219c66bd9c8ffe03a4", "evaluation_digest": "sha256:8a461effb7faa9cc8155b78d6d395019c9a27cbe2644a6a24af436afaf157070", "evaluation_verdict": "FAILED", "human_acceptance_approval": "invalidated", "previously_accepted_commit": "5214c2e808853fd6792960794533214d7dd4e58a", "accepted_commit": null, "integrated_commit": null, "child_review": {"revision": 3, "verdict": "REQUEST_CHANGES", "critical_count": 0, "major_count": 4, "minor_count": 1, "reference": ".agents/review/m4-issue-76-child-code-review-v3.json", "digest": "sha256:7f97524de7564c05d0b89e3f03a66f438bc241f0caa5849d3450b4d21097c2d0", "disposition": "historical_audit_only_non_gating"}, "pr": "https://github.com/NhiBuaa/knora-agent/pull/81", "pr_head": "23186fbdffb3f5e2ba25733dcf035b505a7488e0", "design_revisions": 2, "review_remediation_cycles": 3, "exceptional_cycle_authorization": {"scope": "guide_v4_external_review_human_lock_tdd_acceptance_human_approval_integration_no_child_review", "authorized_by": "human", "authorized_at": "2026-08-23T09:49:20+07:00", "superseded_at": "2026-08-23T10:09:07+07:00", "superseding_decision": "final_feature_only_code_review", "final_m4_review_authorized": false}},
     "#77": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#78": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 2},
     "#79": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 0}
@@ -262,8 +278,9 @@
     "authorized": true
   },
   "blockers": [
-    "PR #81 child review v3 at fixed point 98f75f1..94052df returned REQUEST_CHANGES with 4 Major and 1 Minor findings; the approved run is append-only invalidated at a4d33b8.",
+    "Historical PR #81 child review v3 found 4 Major and 1 Minor gaps and invalidated the accepted v3 run at a4d33b8; those gaps are remediation input, while the child review itself is audit-only and no longer a gate.",
     "Issue #76 exceptional remediation cycle 3 is authorized but implementation remains blocked until guide v4 has required external review and explicit human lock approval.",
+    "The only connected ChatGPT external-review browser session is expired and no alternate connected browser is available; no packet was transmitted. Human sign-in is required before reusing the exact sealed packet/request identity.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -277,5 +294,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T09:58:07+07:00"
+  "last_updated_at": "2026-08-23T10:09:07+07:00"
 }
