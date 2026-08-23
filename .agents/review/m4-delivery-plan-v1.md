@@ -606,3 +606,46 @@ transition.
 - These changes remain within `test-craft`/guide ownership, preserve all approved abstractions and
   do not add #78 reconciliation. Next transition is immutable guide v3 preparation and fresh
   external review. Implementation remains blocked.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v3 request changes
+
+- Guide v3 and its canonical packet were committed at exact review subject
+  `f6f87a4456d7bfa1ce9ceb8411427ae39bfa6abe`. Guide digest is
+  `sha256:8e75255ec3756ec1d16a6ba5e8eee5e85b29b2abb1ab1f8002a4365e9b5ea906`;
+  packet digest is
+  `sha256:dde5fbe09b0d4680305cb65f32cc656fa612aa02c6723be4b4530f448859701f`.
+- Independent ChatGPT High session `6a8ad2d8-e1e4-83ec-8018-87b4b204af0a` returned a
+  contract-valid `REQUEST_CHANGES` response with zero Critical, one Major and zero Minor findings.
+  Response digest is
+  `sha256:55931b1e9e093ad688f857760ed7a17a45976cc12930651747940d88b1a90461`.
+- The reviewer confirmed six prior findings closed. The sole remaining Major was
+  `incomplete_post_acquisition_result_matrix`: TC-03 denials occurred after acquisition but were not
+  classified into exact application and HTTP response shapes.
+- No implementation or code review ran. The correction remained within guide/test-craft ownership
+  and preserved the approved Issue #77/#78 boundary and static typed registry.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v4 review-send gate
+
+- Guide v4 classifies every TC-03 post-acquisition denial into an exact
+  `ProposalNotExecutable` application projection and exact closed HTTP error envelope. It locks the
+  status, public code, complete field/value domains and forbidden fields for Workspace/resource/
+  execution authority, all capability/binding/policy mismatch dimensions, reference integrity,
+  trusted-store and key-lifecycle denial rows.
+- TC-10 now loads both execution-outcome and post-acquisition-denial matrices independently from
+  production result types, enums, serializers and HTTP mappers, and compares every application/HTTP
+  row exactly once.
+- Exact review subject is `c63d10c5b683d4d99e166b1c1d97627ebff38f18`. Guide v4 is
+  `.agents/manual-tests/milestone-4/77-authorized-execution-v4.md` with digest
+  `sha256:ca7a3aed942864408e08db0a3bc2cdf85f63dcaf2c71abd8650bad43901101f0`.
+  Canonical packet is `.agents/review/m4-issue-77-guide-review-packet-v4.json`, digest
+  `sha256:32fe199ba0366f2cd39f1c413ea7d403692c6c761899599d81aaed34d68d8ca4`,
+  request ID
+  `review-request-sha256:c7eca9a7571fc1af39b922c207781b70fbb1a850e6559160baa2a3519a9dde4a`.
+- Deterministic next transition: after explicit browser action-time owner confirmation, send this
+  exact v4 packet and guide through one fresh independent ChatGPT High session. Persist and validate
+  the response. On `APPROVE` with zero findings, request the repository owner to lock the exact
+  guide digest. On `REQUEST_CHANGES` or `BLOCK`, revise only the reported guide/test-craft gap and
+  repeat external review.
+- Implementation remains forbidden until external `APPROVE` and explicit human guide-digest lock.
+  No per-ticket code review runs. The single final fixed-point M4 `code-review` runs only after
+  Issues #75–#79 are accepted, integrated and closed, as required by the approved delivery plan.
