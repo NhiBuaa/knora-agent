@@ -2,7 +2,7 @@
   "schema_version": 1,
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
-  "status": "active",
+  "status": "suspended",
   "current_state": "ticket_77_contract_revision_v5_external_review_request_changes",
   "next_valid_transition": "obtain_human_direction_for_exceptional_ticket_77_contract_revision_6",
   "commit_policy": "per-slice",
@@ -117,7 +117,8 @@
     "ticket_77_contract_revision_v5_published",
     "ticket_77_external_review_packet_v5_ready",
     "external_review_send_policy_preauthorized_for_m4",
-    "ticket_77_external_review_v5_request_changes"
+    "ticket_77_external_review_v5_request_changes",
+    "workflow_suspended_at_issue_77_contract_v5_request_changes"
   ],
   "review_cadence": {
     "risk": "high",
@@ -405,11 +406,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v4-block-v1.json",
-    "digest": "sha256:345a1af6c23bc0896b5fed239fecce5c8d0cf975fb1ce804d4acd7247bb4680f",
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v5-review-block-v1.json",
+    "digest": "sha256:096e9a1e2cf45fed5f22e8109269eae470c0019125886b28c5ee4045002d526f",
     "status": "valid",
-    "current_state": "ticket_77_exceptional_contract_revision_v4_external_review_block",
-    "next_valid_transition": "obtain_human_direction_for_issue_77_contract_block"
+    "current_state": "ticket_77_contract_revision_v5_external_review_request_changes",
+    "next_valid_transition": "obtain_human_direction_for_exceptional_ticket_77_contract_revision_6"
   },
   "blockers": [
     "Issue #77 is the open frontier with #75 and #76 accepted, integrated, closed and cleaned.",
@@ -428,5 +429,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T14:33:27+07:00"
+  "last_updated_at": "2026-08-23T14:39:00+07:00"
 }
