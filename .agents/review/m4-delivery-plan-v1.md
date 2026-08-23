@@ -237,3 +237,28 @@ At every context boundary, create/validate a `session-continuity` Resume Contrac
 ledger path, exact integration/issue heads, guide revision, Evaluation history digest, current
 state, blocker and the next transition above. Never mark #76 accepted, integrated, or closed while
 the human approval gate is pending.
+
+### Review terminology and checkpoint clarification — 2026-08-23
+
+Two distinct review gates exist and must never be conflated:
+
+- A **child review** evaluates one accepted issue branch against the current integration branch
+  before that issue PR may merge. Its fixed point is
+  `merge-base(integration, issue)..issue-head`. #76 is currently waiting at this gate. This review
+  does not claim M4 completion.
+- The **final M4 fixed-point review** runs exactly once only after #75–#79 are all accepted,
+  integrated and closed. Its fixed point is `merge-base(main, integration)..integration-head` and
+  it precedes the final #74 PR to `main`.
+
+Current #76 evidence supersedes the earlier human-gate text above:
+
+- Human approval is append-only recorded for run
+  `m4-76-write-proposal-v3-20260823-01-approved`, exact subject
+  `f40c21f9e1b83cecccfc3858af5a5630cd9059c2`, at issue evidence head `ebfeb02`.
+- PR #81 is reconciled with integration `cab57d0` at issue head
+  `3f7c98be8787e9c070d99e14c446ab88678e2870`; focused verification is `131 passed`.
+- The attempted #76 child-review v2 contexts were interrupted before producing results when the
+  user asked to pause and clarify review cadence. No child-review result or final-review result was
+  recorded.
+- Next valid transition is to obtain explicit confirmation to resume the **child review for #76**.
+  Do not run the final M4 review until the completion condition above is true.
