@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_contract_v9_local_audit_approved",
-  "next_valid_transition": "commit_push_publish_ticket_77_contract_v9",
+  "current_state": "ticket_77_external_review_packet_v9_ready_confirmation_required",
+  "next_valid_transition": "after explicit action-time owner confirmation, send exact ticket/packet v9 through a fresh authenticated ChatGPT High session and persist/validate the response",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_local_audit_approved", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_contract_v9_external_review_send_confirmation_required", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -173,7 +173,9 @@
     "guide_77_v6_findings_adjudicated_design_required",
     "multi_session_execution_plan_revision_2_recorded",
     "owner_continuation_authorized_ticket_77_contract_v9_preparation",
-    "ticket_77_contract_revision_v9_local_audit_approve"
+    "ticket_77_contract_revision_v9_local_audit_approve",
+    "ticket_77_contract_revision_v9_published",
+    "ticket_77_external_review_packet_v9_ready"
   ],
   "review_cadence": {
     "risk": "high",
@@ -242,12 +244,13 @@
       "ticket_contract_revision": 9,
       "ticket_contract_reference": ".agents/review/m4-issue-77-revision-v9.md",
       "ticket_contract_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
-      "ticket_contract_commit": null,
+      "ticket_contract_commit": "67858a056d14319525ca7bf7152e08f10bd7c012",
       "ticket_contract_git_blob": "c6a552166658099bf6148b5b184caf69a6913c75",
       "ticket_contract_local_audit": "APPROVE",
       "ticket_contract_local_audit_counts": {"critical": 0, "major": 0, "minor": 0, "nit": 0},
       "ticket_contract_local_audit_axes": ["standards_and_adr_0015", "spec_issue_74_design_and_guide_v6_adjudication"],
-      "ticket_external_review": "pending_v9",
+      "ticket_contract_issue_body_readback_equal": true,
+      "ticket_external_review": "pending_v9_action_time_confirmation",
       "ticket_external_review_reference": null,
       "ticket_external_review_response_digest": null,
       "ticket_external_review_counts": null,
@@ -257,10 +260,13 @@
       "previous_ticket_external_review_response_digest": "sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f",
       "previous_ticket_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
       "previous_ticket_review_subject_commit": "fc4c9e7431f19da31bf99e4be4b72c09213c0a75",
-      "ticket_review_packet_reference": null,
+      "ticket_review_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v9.json",
       "ticket_review_base_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v6.json",
-      "ticket_review_packet_digest": null,
-      "ticket_review_request_id": null,
+      "ticket_review_packet_digest": "sha256:097514f4b155d43aa40293d827a397e66962523761423c02d311bfc8f564476a",
+      "ticket_review_packet_file_digest": "sha256:2a8bed72c71b6696964e72bff473f2690f63c51f0a41c1d402aedda947d50a12",
+      "ticket_review_request_id": "review-request-sha256:bdc313483f34566d012d86082d4edba1f214963e259f6ca068ae3fab6be178fa",
+      "ticket_review_packet_local_audit": "APPROVE",
+      "ticket_review_packet_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
       "contract_revision_limit_reached": true,
       "exceptional_contract_revision_4_authorized": true,
       "exceptional_contract_revision_5_authorized": true,
@@ -711,5 +717,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T21:05:00+07:00"
+  "last_updated_at": "2026-08-23T21:16:00+07:00"
 }

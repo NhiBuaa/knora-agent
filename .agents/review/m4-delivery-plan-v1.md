@@ -865,10 +865,22 @@ transition authority; every later session resumes from its exact `next_valid_tra
   remain wholly owned by #78.
 - Independent Standards/ADR-0015 and Spec/Issue-#74/Design/adjudication audits both returned
   `APPROVE`; aggregate counts are zero Critical, Major, Minor and Nit findings.
-- No implementation, guide v7 or code review is authorized yet. The deterministic next transition
-  is to commit/push this exact checkpoint, publish the byte-exact v9 body to Issue #77, read it back,
-  create the canonical ticket-review packet on a fixed subject commit and obtain the required
-  external ticket review.
+- Revision v9 was committed/pushed at `67858a056d14319525ca7bf7152e08f10bd7c012`, published to
+  Issue #77 and read back exactly equal to the artifact. Canonical packet v9 is a contract-valid
+  delta over self-contained packet v6 at
+  `.agents/review/m4-issue-77-ticket-review-packet-v9.json`; packet digest is
+  `sha256:097514f4b155d43aa40293d827a397e66962523761423c02d311bfc8f564476a`, request ID is
+  `review-request-sha256:bdc313483f34566d012d86082d4edba1f214963e259f6ca068ae3fab6be178fa`
+  and raw file digest is
+  `sha256:2a8bed72c71b6696964e72bff473f2690f63c51f0a41c1d402aedda947d50a12`.
+- Packet validation reconstructs 10 acceptance criteria, 12 required Test Cases, 6 evidence groups
+  and the exact two adjudicated findings marked `ADDRESSED_IN_V9`. An independent packet audit
+  returned `APPROVE` with zero Critical, Major or Minor findings and found no sensitive-field or
+  abstraction/scope drift.
+- No implementation, guide v7 or code review is authorized yet. After this packet-ready checkpoint
+  is committed/pushed, its commit becomes the exact external-review subject. The stricter browser
+  transport gate then requires fresh action-time owner confirmation before one new authenticated
+  ChatGPT High session receives the exact v9 packet and ticket body.
 
 ### Forward transitions
 
