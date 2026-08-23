@@ -243,21 +243,25 @@ historical child-review evidence cannot reintroduce a removed gate.
   canonical-json-v1 authority, complete PostgreSQL provenance/replacement evidence, the zero-count
   provider-write sentinel and accepted #75 integration boundary. All prior history remains
   append-only and invalidated.
+- External guide-v5 review returned `APPROVE` with zero Critical, Major or Minor findings and
+  complete AC-01–AC-08 coverage. The sealed response digest is
+  `sha256:671c463831bbb27a75a41004109995fa1f0d41febc1574b5eada5d3858362512`.
 
 ### Exact next transition
 
-- Exact #76 subject: `5a49abc237445c4998034af8cda484a5e1c02b95`.
+- Externally reviewed #76 subject: `5a49abc237445c4998034af8cda484a5e1c02b95`.
+- Current PR #81 evidence head: `bb8a8e1ed1458c952958dab289661381748df7f1`.
 - Exact guide digest:
   `sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee`.
 - Canonical external guide-review packet digest:
   `sha256:a3d80b5cfb50d2085f51c5b96f2a19cb3e462d430cc006625de97df5beb84bd1`.
 - Review request ID:
   `review-request-sha256:2ff6c0cd9e577ebc8d261bc360fedaf3692af21c343e726c9c667ea6f4f3679f`.
-- The guide-v5 packet is contract-valid, committed and pushed. It has not been transmitted.
-- Resume only after the human gives action-time confirmation to send this exact redacted packet.
-  Reuse the packet/request identity above, validate the external guide response, then present the
-  externally reviewed guide digest for explicit human lock approval. Implementation remains blocked
-  until external `APPROVE` and human guide lock both pass.
+- The guide-v5 packet and response are contract-valid, committed and pushed. External review is
+  complete at `https://chatgpt.com/c/6a8a6cad-a048-83ec-84c1-729ab5ab9428`.
+- Resume only after the human explicitly approves and locks the exact guide digest above. Record the
+  immutable approval artifact on Issue #76, then begin the bounded TDD remediation. Implementation
+  remains blocked until that human lock passes.
 
 After #76, advance #77, #78 and #79 in graph order using the same guide → implementation → manual
 acceptance → integration lifecycle, without per-Issue code review. After #79 closes, run the one
