@@ -422,3 +422,25 @@ transition.
   if authorized, revise the contract to close all eight findings, publish it verbatim, prepare and
   automatically send the next canonical packet, and require external `APPROVE` before guide work.
   Final M4 code review remains forbidden until #75–#79 complete.
+
+### Resume checkpoint — 2026-08-23, Issue #77 contract v6 review-ready
+
+- The repository owner authorized exceptional ticket-contract revision 6 to close all eight Major
+  v5 findings and automatic external review before guide creation.
+- `codebase-design` Design It Twice compared a minimal Interface, provider-focused and common-caller/
+  #78-boundary design. The selected hybrid keeps one deep `WriteProposalWorkflow.handle` Interface,
+  persists complete acquisition/admission witnesses and exact envelope bytes, uses a private
+  provider contract harness for the valid fingerprint-conflict path, and exposes only a read-only
+  `NoAdmission | AdmissionOutstanding` downstream seed to #78.
+- Revision 6 is `.agents/review/m4-issue-77-revision-v8.md`, published verbatim to Issue #77 and
+  committed at `20f3a3d070529f2fe44add794d3341059a377394`. Contract digest is
+  `sha256:bedf225e465f6897e5354500a7956f33e33793ea31b9cd6df474afa6f191ddaf`.
+- Canonical ticket-review packet v6 is
+  `.agents/review/m4-issue-77-ticket-review-packet-v6.json`, with packet digest
+  `sha256:fc292332c86d0ea2426a0ada78afb990584a63643be5c96c9ab657a45b503ded`
+  and request ID
+  `review-request-sha256:1dfb0672037e10b08f8cbe40f08cd852f5c432fa797365f9fc8b7fe373fade8b`.
+- Deterministic next transition: automatically send the exact packet to a fresh independent ChatGPT
+  High session under the recorded M4 transport authorization. Require external `APPROVE` with zero
+  findings before `manual-acceptance -> test-craft`. Do not create a guide, implement #77 or run the
+  final M4 code review before that gate.
