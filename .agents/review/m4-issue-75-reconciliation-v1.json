@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket": "#75",
+  "status": "completed",
+  "recorded_at": "2026-08-22T18:57:20.1032692+07:00",
+  "accepted_subject_commit": "64ed93b5f0ed56c8843cedb2f8222eab9447bd25",
+  "accepted_evidence_head": "b35d3a7e9067dcfb9a64fd6a3bb84d15e1cb805e",
+  "integration_head_before": "c815ab68f06a7ed47aae14d6e0b2b9ee725b1057",
+  "reconciliation_merge_commit": "e6b1e723cd58e4b319d04ff835a1f17008d8f066",
+  "merge_base_after": "c815ab68f06a7ed47aae14d6e0b2b9ee725b1057",
+  "changed_since_acceptance": [
+    ".agents/review/m4-issue-75-child-code-review-v1.json",
+    ".agents/review/m4-issue-76-child-code-review-v1.json",
+    ".agents/review/m4-workflow-ledger-v1.json",
+    ".agents/review/milestone-4-workflow-events.jsonl"
+  ],
+  "change_classification": {
+    "production_code_changed": false,
+    "test_code_changed": false,
+    "runtime_configuration_changed": false,
+    "database_schema_changed": false,
+    "guide_changed": false,
+    "accepted_subject_reachable": true,
+    "classification": "governance_only"
+  },
+  "acceptance_impact": {
+    "accepted_run_id": "m4-75-ticket-lookup-v2-20260822-02-approved",
+    "evaluation_history": ".agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl",
+    "preserved": [
+      "M4-75-TC-01",
+      "M4-75-TC-02",
+      "M4-75-TC-03",
+      "M4-75-TC-04",
+      "M4-75-TC-05",
+      "M4-75-TC-06",
+      "M4-75-TC-07"
+    ],
+    "invalidated": [],
+    "revalidated": [],
+    "reason": "The reconciliation merge added only durable workflow/review metadata. No accepted behavior, test seam, environment, schema, guide or implementation input changed."
+  },
+  "verification": {
+    "clean_database_upgrade": "PASS: 20260816_0036",
+    "focused": "37 passed",
+    "full_suite": "709 passed, 3 skipped",
+    "ruff": "PASS",
+    "compose": "PASS",
+    "technical_retry": {
+      "count": 1,
+      "reason": "The first focused command named one nonexistent test file; the corrected command covered the same intended M4.1 seam and passed."
+    }
+  },
+  "next_valid_transition": "Run child fixed-point code-review v2 against git diff c815ab68f06a7ed47aae14d6e0b2b9ee725b1057..<review-head>; merge only on APPROVE with zero Critical and Major findings."
+}
