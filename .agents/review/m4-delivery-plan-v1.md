@@ -370,3 +370,30 @@ transition.
   `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v4-block-v1.json`
   with digest
   `sha256:345a1af6c23bc0896b5fed239fecce5c8d0cf975fb1ce804d4acd7247bb4680f`.
+
+### Resume checkpoint — 2026-08-23, Issue #77 contract v5 review-send gate
+
+- The repository owner explicitly authorized exceptional ticket-contract revision 5 to address all
+  one Critical and six Major findings from external review v4. Final M4 code review remains
+  forbidden until #75–#79 complete.
+- Revision 5 is `.agents/review/m4-issue-77-revision-v7.md`, published verbatim to Issue #77 and
+  committed at `fd23a742888713589dbebf8906328fda683a47de`. Its digest is
+  `sha256:5bf7370820d903b62c38912d254caa1132144f7692b797eaf691079f3dc25562`.
+- `codebase-design` Design It Twice replaced the unimplementable cross-store live receipt guard
+  with one durable PostgreSQL `DispatchAdmission`. Admission commit is the logical start of the
+  provider write; post-admission session/crash uncertainty is receipt-possible, and the independent
+  SQLite ledger remains the at-most-one-effect authority.
+- Revision 5 also fixes the full mutation-adapter epoch race matrix, post-lock proposal/reference/
+  lease expiry oracles, observation and finalization expiry fencing, pre-acquisition zero-state/
+  zero-call coverage, exact audit reconstruction, byte-identical admission recovery across key
+  rotation, and the no-admission versus existing-admission #78 recovery branches. #77 still contains
+  no takeover, generation 2+ or reconciliation implementation.
+- Canonical external ticket-review packet v5 is
+  `.agents/review/m4-issue-77-ticket-review-packet-v5.json`, with packet digest
+  `sha256:752b28ffa44817432f5fc6402313a44615396ff034bd0df1ceb1aa2737649b33`
+  and request ID
+  `review-request-sha256:6f418e735acffd7de2e3c4022e4e0c015a2ba875c092e69c6df86774e236c581`.
+- Deterministic next transition: obtain action-time human confirmation, then send this exact packet
+  through a fresh independent ChatGPT High external-review session. Require `APPROVE` with zero
+  Critical, Major or Minor findings before invoking `manual-acceptance -> test-craft`. Do not create
+  a guide, implement #77 or run final M4 code review before that gate.
