@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "review_id": "m4-issue-76-child-code-review-v2",
+  "reviewed_at": "2026-08-23T08:45:00+07:00",
+  "ticket": "#76",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/81",
+  "review_kind": "child_issue_review",
+  "final_m4_review": false,
+  "fixed_point": {
+    "base_commit": "98f75f1b392165abab2ec0195d53a9bd0f8095d3",
+    "merge_base_commit": "98f75f1b392165abab2ec0195d53a9bd0f8095d3",
+    "merge_base_semantics": true,
+    "head_commit": "cda55a8d2d4ef3c668ec4d737355513b1623c38c",
+    "diff_command": "git diff 98f75f1b392165abab2ec0195d53a9bd0f8095d3..cda55a8d2d4ef3c668ec4d737355513b1623c38c",
+    "commit_list": [
+      "608fe5966bc74ff29c3513c0af14e83425b4c706",
+      "34d74ad3a47ca313d84696cc5f3d1f0ccece38d2",
+      "509cc077091450672ff623276ac151104316c7f7",
+      "dcc849faa837140f4a9c07b58319c190ae7a35c8",
+      "0488da651c046f0b50c510d21c877cb43d4b087a",
+      "fa00b58c4d111cb6a64cef1fa898991ba4cde59a",
+      "2ace7751d7341f9759d43d10af9463844ae738be",
+      "628a5d092dc53a8d29bef2cd3849ba2197aab727",
+      "7389068814392e55866f367be15e532fafc8d6aa",
+      "5ff73daf03af543362ce0204bd55483efb9cf9d4",
+      "889c387a743fe0d7a2429f2118935a79f81210d7",
+      "7d661bcefe6afae0053db95e31988998620a13e6",
+      "6b30b648e65a329fc80d1ba5074c17053e6e5b85",
+      "625bca22c07b5c12640358ae8dea941f6d9d8373",
+      "0713b7239328dc565430dbf6bfb8e27fd21320ea",
+      "f40c21f9e1b83cecccfc3858af5a5630cd9059c2",
+      "b070f2e2d526d5bd634415a591c5a9a7f8a1dc96",
+      "ebfeb02a8b6c7cd97399b5a9f9b2d9aa6fd640a8",
+      "3f7c98be8787e9c070d99e14c446ab88678e2870",
+      "cda55a8d2d4ef3c668ec4d737355513b1623c38c"
+    ]
+  },
+  "machine_result": {
+    "status": "completed",
+    "pass": false,
+    "verdict": "REQUEST_CHANGES",
+    "critical_count": 0,
+    "major_count": 3,
+    "findings": [
+      {"axis":"standards","severity":"major","location":"backend/src/knora/tools/proposals.py:240-243","problem":"Approval actor authorization occurs after proposal lookup, leaking proposal existence to unauthorized actors.","fix":"Authorize non-resource-dependent actor authority before lookup and preserve authorized-only 404 semantics."},
+      {"axis":"spec","severity":"major","location":"backend/src/knora/tools/capabilities.py:92","problem":"The static registry has no typed/versioned `create_ticket` descriptor.","fix":"Register `create_ticket` and adapt the registry through `CapabilityResolver.resolve_for_proposal`."},
+      {"axis":"spec","severity":"major","location":"backend/src/knora/main.py:219","problem":"No production proposal resolver/target verifier composes #75's registry and m4r1 reference seams; final acceptance used fakes.","fix":"Implement and compose production adapters, execute the locked integrity matrix, invalidate and rerun acceptance."}
+    ],
+    "axes": {
+      "standards": {"status":"completed","axis":"standards","finding_count":1,"report":"One authorization-before-lookup Standards violation remains."},
+      "spec": {"status":"completed","axis":"spec","finding_count":2,"report":"Static create_ticket registration and production m4r1 proposal composition remain missing."}
+    },
+    "report": "Standards: unauthorized decision actors can probe proposal existence. Spec: create_ticket is absent from the static registry and the production proposal path does not compose the accepted #75 m4r1 verifier."
+  },
+  "acceptance_impact": {
+    "accepted_run_id": "m4-76-write-proposal-v3-20260823-01-approved",
+    "accepted_subject_sha": "f40c21f9e1b83cecccfc3858af5a5630cd9059c2",
+    "status": "invalidated",
+    "affected_case_ids": ["M4-76-TC-02", "M4-76-TC-03", "M4-76-TC-08"],
+    "required_action": "Append invalidation, remediate with TDD, rerun all affected locked cases and obtain new explicit human approval before review v3."
+  },
+  "next_valid_transition": "invalidate acceptance, remediate the three Major findings with TDD, rerun locked acceptance, then child review v3"
+}
