@@ -575,3 +575,18 @@ transition.
 - These findings do not change the approved Issue #77 abstractions or move reconciliation behavior
   from #78. Deterministic next transition is `test-craft` plus immutable guide v2 preparation,
   followed by fresh external review. Implementation remains blocked.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v2 review-ready
+
+- `test-craft` v2 preserves the twelve locked cases while directly closing all three v1 findings:
+  TC-03 has the complete key-lifecycle admit/deny and epoch matrix, TC-10 proves zero expired-owner
+  observation/audit append or PostgreSQL write, and TC-12 exercises the production closed-registry
+  and no-runtime-plugin/discovery/registration boundary.
+- Draft guide `m4-77-authorized-execution-v2` is
+  `.agents/manual-tests/milestone-4/77-authorized-execution-v2.md`, digest
+  `sha256:1fd51587723113f6e55fddaf6f9bf4e07c6a8aaa6f3fe038f1fe2c24bfb18238`.
+- Canonical packet v2 is `.agents/review/m4-issue-77-guide-review-packet-v2.json`, digest
+  `sha256:3339916fdc4ee8f5bbc8b722a3b170480c92fc097351db3e1b8b28c768ad50bd`, request ID
+  `review-request-sha256:c30c0c135b3808b23aa4839fa9fc816499d831136bd9f973a1365e70fedcfe31`.
+  Next transition is fresh independent external review; implementation remains blocked until
+  external `APPROVE` and explicit repository-owner lock of this exact digest.
