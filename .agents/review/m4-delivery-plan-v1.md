@@ -882,6 +882,36 @@ transition authority; every later session resumes from its exact `next_valid_tra
   transport gate then requires fresh action-time owner confirmation before one new authenticated
   ChatGPT High session receives the exact v9 packet and ticket body.
 
+### Ticket review v9 outcome and packet-correction checkpoint — 2026-08-23
+
+- The owner confirmation was consumed once; packet v9 was sent through the fresh authenticated High
+  session `https://chatgpt.com/c/6a8b02e6-6270-83ec-8c5d-157070135a92` against subject
+  `b9cc7c9e09597e36183fa5ee1e23fd73d12bdbf2`. The reviewer returned `REQUEST_CHANGES` with
+  `0 Critical / 4 Major / 0 Minor`; this is a packet-observability correction, not an abstraction
+  or ticket-contract revision.
+- The four sustained classes are: complete dispatch-epoch/static-registry mutation and lock-order
+  oracles; field-by-field atomic `DispatchAdmissionWitness` durability; negative production
+  composition/DI reachability proof for test-only harness/signing/mutation adapters; and valid-lease
+  observation/finalization coverage before retaining the post-expiry fencing matrix.
+- The transport response used two non-canonical reviewer category labels. The canonical response
+  projection maps `concurrency_authorization -> oracle` and `postgresql_durability -> evidence`
+  without changing severity, wording, coverage or verdict. The normalized response is schema-valid
+  at `sha256:ea8e083db65b8f236466e3cf23dbfe815d111892a368e88156b83661147eb56c`; the raw transport
+  digest remains `sha256:d7affa25caa184cfa8406ae9662240348961c956afec2af61174e2b365a964de`.
+- Adjudication `.agents/review/m4-issue-77-ticket-v9-adjudication-v1.json` records
+  `packet_correction_required`, `abstraction_change_required: false`, and the next valid
+  transition `packet-v10-on-contract-v9`. No implementation, guide preparation, PR, or code review
+  is authorized. Packet v10 must retain the exact v9 ticket digest/revision and add only the four
+  requested oracle families before a fresh external review.
+- Canonical packet v10 is `.agents/review/m4-issue-77-ticket-review-packet-v10.json`, a round-2
+  delta over self-contained packet v6 that explicitly supersedes v9 while retaining the exact v9
+  ticket revision/digest. It validates at
+  `sha256:5c51d81118c1f43a7972268657e99d5f2bdbb1bec248ce96af4d7e9db1c985e9` with request ID
+  `review-request-sha256:7d84b7cdef42b7f9e2046fc985e5bbad976fc2f62d3000469dded064942c6d60`.
+  Independent packet audit returned `APPROVE` with zero Critical, Major, Minor or Nit findings,
+  verified all four v9 findings as `ADDRESSED_IN_V10`, and found no abstraction or #78 scope drift.
+  The exact packet checkpoint must be committed/pushed before a fresh action-time-confirmed review.
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "ticket_id": "#77",
+  "reviewed_contract_revision": "m4-77-ticket-contract-v9",
+  "reviewed_commit": "b9cc7c9e09597e36183fa5ee1e23fd73d12bdbf2",
+  "external_review_reference": ".agents/review/m4-issue-77-ticket-external-review-v9.json",
+  "external_response_digest": "sha256:ea8e083db65b8f236466e3cf23dbfe815d111892a368e88156b83661147eb56c",
+  "status": "packet_correction_required",
+  "abstraction_change_required": false,
+  "implementation_authorized": false,
+  "code_review_authorized": false,
+  "findings": [
+    {
+      "issue_class": "dispatch_epoch_and_static_registry_protocol_not_fully_oracled",
+      "severity": "major",
+      "disposition": "sustained_packet_observability_gap",
+      "criterion_ref": "M4-77-AC-03",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-04"],
+      "required_packet_change": "Add same-transaction epoch-advance witnesses for Workspace authority/selectors and global key mutation; global-before-Workspace dual mutation trace; execution->global->Workspace admission lock trace; immutable compiled registry identity/version/digest and no-plugin-epoch proof; mutable-source rejection/ineligibility oracle."
+    },
+    {
+      "issue_class": "admission_witness_exact_tuple_under_specified",
+      "severity": "major",
+      "disposition": "sustained_packet_observability_gap",
+      "criterion_ref": "M4-77-AC-04",
+      "affected_case_ids": ["M4-77-TC-05"],
+      "required_packet_change": "Make every DispatchAdmissionWitness field a separately named canonical comparison and require byte-identical restart and committed-ack-loss readback."
+    },
+    {
+      "issue_class": "test_only_adapter_runtime_unreachability_not_proven",
+      "severity": "major",
+      "disposition": "sustained_packet_observability_gap",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-07"],
+      "required_packet_change": "Add production composition/DI negative oracles proving private mutation adapters, trusted signer and provider harness are absent, request-unselectable and reachable only in contract-test composition."
+    },
+    {
+      "issue_class": "before_expiry_observation_and_finalization_path_not_exercised",
+      "severity": "major",
+      "disposition": "sustained_packet_observability_gap",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-10"],
+      "required_packet_change": "Add valid-lease success and named-rejection observation/finalization fixtures with durable observation/audit assertions, retaining post-expiry fencing."
+    }
+  ],
+  "reconciliation": {
+    "ticket_body_v9_remains_authoritative": true,
+    "deep_application_interface_unchanged": true,
+    "generation_scope": "generation-1-only",
+    "reconciliation_takeover_retry_owned_by": "#78",
+    "next_revision": "packet-v10-on-contract-v9",
+    "new_ticket_contract_revision_required": false
+  },
+  "response_normalization": {
+    "raw_transport_response_digest": "sha256:d7affa25caa184cfa8406ae9662240348961c956afec2af61174e2b365a964de",
+    "normalized_response_digest": "sha256:ea8e083db65b8f236466e3cf23dbfe815d111892a368e88156b83661147eb56c",
+    "category_mapping": {
+      "concurrency_authorization": "oracle",
+      "postgresql_durability": "evidence"
+    },
+    "semantic_change": false
+  },
+  "next_valid_transition": "prepare_and_locally_audit_ticket_77_packet_v10_then obtain action-time confirmation for fresh external review",
+  "final_m4_review_forbidden_until": "#75-#79 accepted, integrated and closed"
+}
