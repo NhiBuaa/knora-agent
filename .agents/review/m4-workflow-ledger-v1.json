@@ -16,8 +16,8 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "eac54b7",
-    "current_head_resolution": "recorded after #75 integration evidence merge",
+    "current_head": "7346860",
+    "current_head_resolution": "recorded after durable checkpoint commit",
     "published": true
   },
   "ticket_graph": [
