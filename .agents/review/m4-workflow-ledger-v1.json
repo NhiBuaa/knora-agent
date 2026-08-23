@@ -2,7 +2,7 @@
   "schema_version": 1,
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
-  "status": "active",
+  "status": "suspended",
   "current_state": "ticket_77_exceptional_contract_revision_v4_external_review_block",
   "next_valid_transition": "obtain_human_direction_for_issue_77_contract_block",
   "commit_policy": "per-slice",
@@ -110,7 +110,8 @@
     "workflow_resumed_at_issue_77_contract_revision_4",
     "ticket_77_contract_revision_v4_published",
     "ticket_77_external_review_packet_v4_ready",
-    "ticket_77_external_review_v4_block"
+    "ticket_77_external_review_v4_block",
+    "workflow_suspended_at_issue_77_contract_v4_block"
   ],
   "review_cadence": {
     "risk": "high",
@@ -377,6 +378,13 @@
     "delete_remote_branches_after_verified_merge": true,
     "authorized": true
   },
+  "resume_contract": {
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v4-block-v1.json",
+    "digest": "sha256:345a1af6c23bc0896b5fed239fecce5c8d0cf975fb1ce804d4acd7247bb4680f",
+    "status": "valid",
+    "current_state": "ticket_77_exceptional_contract_revision_v4_external_review_block",
+    "next_valid_transition": "obtain_human_direction_for_issue_77_contract_block"
+  },
   "blockers": [
     "Historical PR #81 child review v3 found 4 Major and 1 Minor gaps and invalidated the accepted v3 run at a4d33b8; those gaps are remediation input, while the child review itself is audit-only and no longer a gate.",
     "Guide v4 external review returned REQUEST_CHANGES with 2 Major findings; guide v5 addresses only the required observable lookup-order and PostgreSQL restart-projection evidence gaps.",
@@ -395,5 +403,5 @@
     "docs/design/milestone-4-tools-human-approval.md",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-23T13:32:09+07:00"
+  "last_updated_at": "2026-08-23T13:36:00+07:00"
 }

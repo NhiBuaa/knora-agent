@@ -366,3 +366,7 @@ transition.
   revision requires new exceptional authority and must address every v4 finding before another
   external review. The alternative is to change Issue #77/#78 scope or stop M4; neither may be
   inferred by the workflow.
+- Validated Resume Contract:
+  `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-contract-v4-block-v1.json`
+  with digest
+  `sha256:345a1af6c23bc0896b5fed239fecce5c8d0cf975fb1ce804d4acd7247bb4680f`.
