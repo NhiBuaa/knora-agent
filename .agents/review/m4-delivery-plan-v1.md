@@ -742,3 +742,39 @@ transition.
   review may run. Deterministic next transition is `manual-acceptance -> test-craft` to prepare
   immutable guide/test-case/packet v6, then obtain action-time confirmation for its fresh external
   ChatGPT High review.
+
+### Acceptance checkpoint — 2026-08-23, Issue #77 guide v6 review-send gate
+
+- Guide v6 changes only TC-01, TC-07 and TC-10 plus their evidence projections. TC-01 now uses one
+  independently sourced literal row for every named authentication, input-validation, Workspace/
+  resource/execution-authority, capability/binding/policy mismatch, `m4r1` trust/key/expiry and
+  proposal-expiry variant. Each row locks the exact application/transport oracle, closed HTTP body,
+  durable before/after projection and named zero-activity sentinels.
+- TC-07 adds a sanitized content-addressed provider-conflict correlation record. TC-10 links that
+  record to before/after/post-PostgreSQL-restart snapshots for every non-finalizing matrix row and
+  proves generation 1 plus immutable proposal/logical-execution/fingerprint/admission identities,
+  zero terminal/finalization rows, zero terminal-audit append, zero operation-correlated
+  finalization writes and an unchanged terminal digest. Non-terminal observation/audit activity is
+  measured separately and remains permitted.
+- Exact review subject is `93d12b907ec82e71ee03620fe6c565c7fbc352c3`. Guide v6 is
+  `.agents/manual-tests/milestone-4/77-authorized-execution-v6.md` with digest
+  `sha256:f0d24858b8f33951c1f2e0a44f252f953e8158fbf67137950a44a775dd9cd386`.
+  Canonical packet is `.agents/review/m4-issue-77-guide-review-packet-v6.json`, digest
+  `sha256:f84a852e20efba84cca3c8157c9306cea3b732d1befe4d4f600d11e6c7aac081`,
+  request ID
+  `review-request-sha256:820aa5d135c09f3d9e92218f5b56d41fe093d368784255bf893218756df62f0b`.
+- Packet validation is `VALID`. Acceptance criteria, design decisions, invariants, command
+  projections, out-of-scope boundaries, static typed registry and the generation-1 #77 versus
+  recovery-only #78 ownership boundary are byte-for-byte unchanged from packet v5.
+- Workflow-level canonical-packet authorization remains active, but the stricter browser transport
+  policy requires fresh action-time repository-owner confirmation for each live external reviewer
+  message/upload. The v5 confirmation has been consumed and does not authorize v6 transport.
+- Deterministic next transition: after explicit confirmation of this exact v6 send, use one fresh
+  authenticated ChatGPT High session, persist and validate its JSON response, and request human lock
+  of the exact guide digest only if the verdict is `APPROVE` with zero findings.
+- No Issue #77 implementation or per-ticket code review may begin. The one final fixed-point M4
+  `code-review` remains forbidden until Issues #75–#79 are accepted, integrated and closed.
+- Validated Resume Contract:
+  `C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v6-review-send-v1.json`
+  with digest
+  `sha256:07f68a6fc6f171b743579496f36d8536f058e75406dc3b6a063d938292e2e680`.
