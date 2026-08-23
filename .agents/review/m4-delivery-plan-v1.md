@@ -229,27 +229,31 @@ historical child-review evidence cannot reintroduce a removed gate.
   and one Minor gaps; its accepted v3 Evaluation was append-only invalidated. Those findings are
   remediation input, not a continuing code-review gate.
 - The user authorized one exceptional #76 remediation cycle. Under the superseding policy its
-  remaining sequence is: externally review and human-lock guide v4; remediate with TDD; execute the
+  remaining sequence is: externally review and human-lock the accepted guide successor; remediate
+  with TDD; execute the
   locked guide; obtain explicit human approval of PASSED; reconcile/integration-verify; merge PR
-  #81; synchronize integration; close #76 and clean its branch/worktree. There is no child review
-  v4.
-- Guide v4 must prove deep policy-snapshot immutability; policy-selected, digest-bound expiry through
-  production composition; one canonical-json-v1 implementation; complete PostgreSQL provenance,
-  replacement, stale and expiry reconstruction; an explicit zero-count provider-write sentinel;
-  and the reconciled #75 registry/reference integration boundary. All prior v3 history stays
+  #81; synchronize integration; close #76 and clean its branch/worktree. There is no child/per-Issue
+  code review.
+- External guide-v4 review returned `REQUEST_CHANGES` with zero Critical and two Major findings:
+  authorization-before-proposal-lookup was not directly observable, and denial/stale/expiry
+  projections were not re-observed after PostgreSQL-backed restart for every condition.
+- Guide v5 changes only those evidence contracts: TC-03 installs an ordered counting proposal-lookup
+  sentinel, and TC-07 requires condition-by-condition before/after-restart projection pairs bound to
+  the same durable proposal. It preserves deep policy immutability, digest-bound expiry, the single
+  canonical-json-v1 authority, complete PostgreSQL provenance/replacement evidence, the zero-count
+  provider-write sentinel and accepted #75 integration boundary. All prior history remains
   append-only and invalidated.
 
 ### Exact next transition
 
-- Exact #76 subject: `23186fbdffb3f5e2ba25733dcf035b505a7488e0`.
+- Exact #76 subject: `5a49abc237445c4998034af8cda484a5e1c02b95`.
 - Exact guide digest:
-  `sha256:a500127fc886aa53a9f0374a72e9d3a4301d64e541d5afb2d3f6243afcb22862`.
+  `sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee`.
 - Canonical external guide-review packet digest:
-  `sha256:9ac8bf11c65b66be770d445b82676f24db86d92b8ddaaa0ac4aab5c0933c62b1`.
+  `sha256:a3d80b5cfb50d2085f51c5b96f2a19cb3e462d430cc006625de97df5beb84bd1`.
 - Review request ID:
-  `review-request-sha256:03537afc4887aa24240ab1a9c6794e66df6111557e79df35271eb4e18d772651`.
-- A later read-only check proved the connected ChatGPT session is authenticated and the new-chat
-  composer is ready. No packet has been transmitted.
+  `review-request-sha256:2ff6c0cd9e577ebc8d261bc360fedaf3692af21c343e726c9c667ea6f4f3679f`.
+- The guide-v5 packet is contract-valid, committed and pushed. It has not been transmitted.
 - Resume only after the human gives action-time confirmation to send this exact redacted packet.
   Reuse the packet/request identity above, validate the external guide response, then present the
   externally reviewed guide digest for explicit human lock approval. Implementation remains blocked
