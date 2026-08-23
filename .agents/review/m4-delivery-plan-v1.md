@@ -535,3 +535,12 @@ transition.
   `sha256:2468e6f0289fac5ab48ead158781caffae9f3ab4cc2027319439e924d1b1b14d` and request ID
   `review-request-sha256:074a23c1b4ef074988afb0f51c4f0ba2f6633f27ed34f14b09843919fdb9ab08`.
   Deterministic next transition is automatic external review in a fresh independent session.
+- External review v8 completed in fresh ChatGPT High session
+  `6a8abbe1-0220-83ec-8391-d509247e225c`. A same-session transport correction bound the unchanged
+  packet to exact subject `fc4c9e7431f19da31bf99e4be4b72c09213c0a75`; the corrected response is
+  contract-valid with digest
+  `sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f`.
+- Verdict is `APPROVE` with zero Critical, Major or Minor findings and complete AC-01 through AC-10
+  coverage. Ticket-contract review gate is closed. Deterministic next transition is
+  `manual-acceptance -> test-craft` guide preparation; implementation remains locked until the guide
+  has external approval and explicit human digest lock.
