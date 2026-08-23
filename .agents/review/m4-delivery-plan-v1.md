@@ -262,3 +262,28 @@ Current #76 evidence supersedes the earlier human-gate text above:
   recorded.
 - Next valid transition is to obtain explicit confirmation to resume the **child review for #76**.
   Do not run the final M4 review until the completion condition above is true.
+
+### Exceptional Issue #76 remediation cycle 3 — 2026-08-23
+
+The human explicitly authorized one exceptional third child-review remediation cycle for Issue
+#76 after child review v3 returned `REQUEST_CHANGES`. This is a narrow exception to the ordinary
+two-cycle bound in this plan and in `feature-delivery`; it does not change any M4 abstraction,
+expand #76 into execution/reconciliation scope, or authorize a final M4 review.
+
+The authorized sequence is exactly:
+
+1. Prepare guide `m4-76-write-proposal-v4` from the four Major and one Minor child-review-v3
+   findings using `manual-acceptance -> test-craft`.
+2. Obtain the required external guide review and explicit human guide-lock approval.
+3. Remediate through `implement -> tdd` on the #76 worktree.
+4. Run the locked v4 acceptance against the exact candidate SHA and obtain explicit human approval
+   of a PASSED Evaluation.
+5. Run child code review v4. Only an `APPROVE` result with zero Critical and Major findings permits
+   #76 integration.
+
+Guide v4 must prove deep policy-snapshot immutability; policy-selected, digest-bound expiry through
+production composition; one canonical-json-v1 implementation; complete PostgreSQL provenance,
+replacement, stale and expiry reconstruction; an explicit zero-count provider-write sentinel; and
+the reconciled #75 registry/reference integration boundary. Every prior v3 Evaluation remains
+append-only and invalidated. Final M4 review remains forbidden until #75–#79 are accepted,
+integrated and closed.
