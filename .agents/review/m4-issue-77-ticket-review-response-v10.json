@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:7d84b7cdef42b7f9e2046fc985e5bbad976fc2f62d3000469dded064942c6d60",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v9:round-2",
+  "round": 2,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8b0bbb-a858-83ec-897d-ccb36fe3b6a2",
+  "packet_digest": "sha256:5c51d81118c1f43a7972268657e99d5f2bdbb1bec248ce96af4d7e9db1c985e9",
+  "guide_revision": "m4-77-ticket-contract-v9",
+  "guide_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "reviewed_commit": "d4064c4d8afcc9c552d01489f3ae400063382049",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": []
+  },
+  "summary": "Packet v10 fully closes the four remaining v9 Major findings: the dispatch-epoch/static-registry protocol now has observable same-transaction, lock-order, immutable-registry and mutable-source-ineligibility oracles Pasted text; the admission witness now requires the exact separately observable non-null tuple with restart and committed-ack-loss byte identity Pasted text; production composition now proves test signer/harness/mutation adapters unreachable and rejects request-controlled selection before state creation Pasted text; and TC-10 now exercises durable before-expiry observation/finalization for success and all named closed rejections while retaining post-expiry fencing Pasted text. All M4-77-AC-01 through AC-10 are covered by required test cases and evidence, the fixed typed registry explicitly excludes plugin/dynamic epochs, and #77 retains no reconciliation, retry, takeover, first-admission recovery or generation-2+ behavior.",
+  "chat_reference": "https://chatgpt.com/c/6a8b0bbb-a858-83ec-897d-ccb36fe3b6a2",
+  "response_digest": "sha256:5f198dba77d20faaa14b6c746b642b11560a3669c67bef075251b1fc5708d4ad"
+}
