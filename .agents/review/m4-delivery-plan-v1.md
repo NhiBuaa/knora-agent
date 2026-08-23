@@ -491,3 +491,20 @@ transition.
   and request ID
   `review-request-sha256:a7e46ff73246f0690b0e6e4ef8e353187798c482f275d7523dc56b140757c333`.
   Deterministic next transition is automatic external review in a fresh independent session.
+
+### Resume checkpoint — 2026-08-23, Issue #77 contract v7 request changes
+
+- External review v7 ran in fresh independent ChatGPT High session
+  `6a8ab38d-bf38-83ec-805b-917743be619f` against exact subject
+  `caff4a7e94b7373f03e18c1cc001a09c7f2464f2`. The response is contract-valid with digest
+  `sha256:6ee3612ed850828441a6ceaef3eeb80a2d38a45a129710884bf12bb4a13c0918`.
+- Verdict is `REQUEST_CHANGES` with zero Critical, four Major and zero Minor findings. The reviewer
+  explicitly confirms revision 7 closed all three v6 findings and preserved the deep Interface,
+  generation-1 scope, static registry and #78 ownership.
+- Four new direct-oracle gaps remain: branch-specific provider/store state for all three
+  post-admission fault windows; independent proof of server-owned fingerprint/logical-ID provenance;
+  durable approved-versus-stale proposal state after temporary authority denial versus material
+  incompatibility; and explicit allowlist/forbidden-field checks for every public result projection.
+- No guide or implementation may begin. Exceptional ticket-contract revision 8 is not authorized.
+  Deterministic next transition is repository-owner direction. Final M4 code review remains
+  forbidden until #75–#79 complete.
