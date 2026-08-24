@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "guide_78_external_review_v2_repeated_schema_invalid",
-  "next_valid_transition": "owner chooses a new-session external-review retry or explicitly authorizes content-preserving normalization of the captured response; no guide revision, lock or implementation may proceed first",
+  "current_state": "guide_78_external_review_v2_new_session_retry_authorized",
+  "next_valid_transition": "send the exact unchanged guide-review packet v2 to a new isolated authenticated ChatGPT High session and validate the bound response",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -24,7 +24,7 @@
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_review_v2_transport_failed", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_review_v2_new_session_retry_authorized", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -229,7 +229,8 @@
     "workflow_resumed_guide_78_review_v2_send_confirmation",
     "guide_78_external_review_packet_v2_sent",
     "guide_78_external_review_v2_schema_retry_failed",
-    "workflow_suspended_guide_78_review_v2_transport_failure"
+    "workflow_suspended_guide_78_review_v2_transport_failure",
+    "workflow_resumed_guide_78_review_v2_new_session_retry_authorized"
   ],
   "review_cadence": {
     "risk": "high",
@@ -495,7 +496,10 @@
       "guide_subject_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
       "test_case_reference": ".agents/review/m4-issue-78-test-cases-v2.json",
       "test_case_digest": "sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46",
-      "guide_external_review": "failed_repeated_schema_invalid",
+      "guide_external_review": "retry_authorized_new_session",
+      "guide_external_review_new_session_retry_authorized": true,
+      "guide_external_review_new_session_retry_authorization_source": "explicit_repository_owner_message",
+      "guide_external_review_new_session_retry_authorized_at": "2026-08-24T11:26:25+07:00",
       "guide_external_review_transport_failure_reference": ".agents/review/m4-issue-78-guide-review-transport-failure-v2.json",
       "guide_external_review_transport_failure_digest": "sha256:7aff1a0eac07f7f63d2b33d446f5dc166c1cfaf56cb56c90178afd8495442385",
       "guide_external_review_initial_transport_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2.txt",
@@ -1002,12 +1006,13 @@
   "resume_contract": {
     "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v2-transport-failure-v1.json",
     "digest": "sha256:911c27773499782a15848be2c774f4d1656b93dae4d2e7b2f8340c7bd0d5e0f4",
-    "status": "active",
+    "status": "consumed",
+    "consumed_at": "2026-08-24T11:26:25+07:00",
     "current_state": "guide_78_external_review_v2_repeated_schema_invalid",
-    "next_valid_transition": "obtain owner choice between new-session retry and content-preserving normalization"
+    "next_valid_transition": "send exact unchanged guide packet v2 in a new isolated ChatGPT High session and validate the response"
   },
   "blockers": [
-    "Issue #78 guide v2 external-review response remained schema-invalid after the one allowed shape-only retry; no authoritative verdict exists.",
+    "Issue #78 guide v2 has no authoritative verdict yet; the owner authorized one fresh-session retry of the exact unchanged packet.",
     "Issue #78 implementation remains blocked until a schema-valid external review returns APPROVE and the exact guide digest receives explicit human lock.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
@@ -1084,5 +1089,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T11:20:30+07:00"
+  "last_updated_at": "2026-08-24T11:26:25+07:00"
 }
