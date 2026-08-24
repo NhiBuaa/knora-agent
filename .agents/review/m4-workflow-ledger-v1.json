@@ -197,7 +197,8 @@
     "worktree_78_initialized",
     "baseline_78_verified",
     "ticket_78_review_packet_v1_prepared",
-    "ticket_78_review_packet_v1_local_audit_approve"
+    "ticket_78_review_packet_v1_local_audit_approve",
+    "workflow_suspended_ticket_78_review_send_confirmation"
   ],
   "review_cadence": {
     "risk": "high",
@@ -821,12 +822,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-77-guide-v7-review-send-v1.json",
-    "digest": "sha256:d196712c4a862821cc06f4b6f1b1cf1bbd2d7696cbb0ca199c927e2aa7058d9f",
-    "status": "consumed_and_superseded",
-    "superseded_by": "guide_v7_external_review_v7_approve",
-    "current_state": "ticket_77_guide_v7_external_review_packet_ready_confirmation_required",
-    "next_valid_transition": "owner confirmation consumed; external guide review completed and validated"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-ticket-review-send-v1.json",
+    "digest": "sha256:29c48eec2f4aed788cb5ba039757f685ed86b28cc4fda8f34e91edbf3ae0b011",
+    "status": "active",
+    "current_state": "ticket_78_ticket_review_packet_v1_ready_action_confirmation_required",
+    "next_valid_transition": "after action-time confirmation, send exact packet v1 to a new isolated ChatGPT High session and validate the bound response"
   },
   "blockers": [
     "Issue #78 ticket packet v1 is locally valid and pushed but browser transport requires action-time confirmation immediately before sending the representational review request.",
@@ -878,5 +878,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T09:35:20+07:00"
+  "last_updated_at": "2026-08-24T09:37:44+07:00"
 }
