@@ -2,12 +2,19 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
 from uuid import uuid4
 
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.tools.contracts import canonical_digest_v1
+from knora.tools.dispatch_envelope import HmacDispatchEnvelopeSigner
+from knora.tools.execution import (
+    ApprovedProposalExecutor,
+    ExecutionAuthorizer,
+    ExecutionResourceAuthorizer,
+)
+from knora.tools.execution_types import ExecutionResult
+from knora.tools.gateway import SupportToolGateway
 from knora.tools.proposal_compatibility import (
     CompatibilityCheckerV1,
     CompatibilityReason,
@@ -67,16 +74,8 @@ class HumanApprovalAuthorizer:
         return approver
 
 
-class ExecutionAuthorizer(Protocol):
-    def is_authorized(
-        self, principal: WorkspacePrincipal, proposal: _StoredProposal
-    ) -> bool: ...
-
-
 class DenyingExecutionAuthorizer:
-    def is_authorized(
-        self, principal: WorkspacePrincipal, proposal: _StoredProposal
-    ) -> bool:
+    def is_authorized(self, principal: WorkspacePrincipal, proposal: _StoredProposal) -> bool:
         del principal, proposal
         return False
 
@@ -92,6 +91,11 @@ class WriteProposalWorkflow:
         clock: Callable[[], datetime] | None = None,
         execution_authorizer: ExecutionAuthorizer | None = None,
         compatibility_checker: CompatibilityCheckerV1 | None = None,
+        execution_resource_authorizer: ExecutionResourceAuthorizer | None = None,
+        gateway: SupportToolGateway | None = None,
+        dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
+        execution_owner_factory: Callable[[], str] | None = None,
+        execution_lease_duration: timedelta = timedelta(minutes=2),
     ) -> None:
         self._resolver = capability_resolver
         self._store = store
@@ -100,6 +104,24 @@ class WriteProposalWorkflow:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._execution_authorizer = execution_authorizer or DenyingExecutionAuthorizer()
         self._compatibility_checker = compatibility_checker or CompatibilityCheckerV1()
+        self._executor = None
+        if (
+            execution_resource_authorizer is not None
+            and gateway is not None
+            and dispatch_signer is not None
+        ):
+            self._executor = ApprovedProposalExecutor(
+                resolver=capability_resolver,
+                store=store,
+                execution_authorizer=self._execution_authorizer,
+                resource_authorizer=execution_resource_authorizer,
+                gateway=gateway,
+                signer=dispatch_signer,
+                compatibility_checker=self._compatibility_checker,
+                clock=self._clock,
+                owner_factory=execution_owner_factory,
+                lease_duration=execution_lease_duration,
+            )
 
     def handle(
         self,
@@ -112,6 +134,7 @@ class WriteProposalWorkflow:
         | ProposalRejected
         | AlreadyDecided
         | ToolProposalProjection
+        | ExecutionResult
     ):
         if principal is None:
             raise KnoraError("UNAUTHENTICATED")
@@ -135,7 +158,11 @@ class WriteProposalWorkflow:
                 ProposalDecision.REJECTED,
                 command.reason_code,
             )
-        if isinstance(command, (ExecuteApprovedProposal, ReconcileExecution)):
+        if isinstance(command, ExecuteApprovedProposal):
+            if self._executor is None:
+                raise KnoraError("TOOL_EXECUTION_NOT_AUTHORIZED")
+            return self._executor.execute(command, principal, actor_context)
+        if isinstance(command, ReconcileExecution):
             raise KnoraError("TOOL_REQUEST_INVALID")
         raise KnoraError("TOOL_REQUEST_INVALID")
 
@@ -150,9 +177,7 @@ class WriteProposalWorkflow:
         title = normalize_proposal_text(command.title, 200)
         description = normalize_proposal_text(command.description, 10_000)
         target_reference = normalize_proposal_text(command.target_reference, 4096)
-        context = self._resolver.resolve_for_proposal(
-            principal.workspace_id, command.capability_id
-        )
+        context = self._resolver.resolve_for_proposal(principal.workspace_id, command.capability_id)
         if context.capability_id != command.capability_id:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         verified_target = self._target_verifier.verify_for_proposal(
@@ -285,14 +310,17 @@ class WriteProposalWorkflow:
     def _project(
         self, proposal: _StoredProposal, principal: WorkspacePrincipal
     ) -> ToolProposalProjection:
-        try:
-            current = self._resolver.resolve_for_proposal(
-                proposal.workspace_id, proposal.capability_id
-            )
-        except (KnoraError, ValueError, LookupError):
-            compatibility_reason = CompatibilityReason.CAPABILITY_IDENTITY_MISMATCH
+        if proposal.execution_stale_reason is not None:
+            compatibility_reason = CompatibilityReason(proposal.execution_stale_reason)
         else:
-            compatibility_reason = self._compatibility_checker.check(proposal, current)
+            try:
+                current = self._resolver.resolve_for_proposal(
+                    proposal.workspace_id, proposal.capability_id
+                )
+            except (KnoraError, ValueError, LookupError):
+                compatibility_reason = CompatibilityReason.CAPABILITY_IDENTITY_MISMATCH
+            else:
+                compatibility_reason = self._compatibility_checker.check(proposal, current)
         stale = compatibility_reason is not None
         reason = None
         executable = False

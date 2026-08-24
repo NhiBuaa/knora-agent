@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "ticket": "#77",
+  "subject_commit": "b1d101e3636bb3a1ee013d304f70e37b9cb61418",
+  "source_base_commit": "b1d101e3636bb3a1ee013d304f70e37b9cb61418",
+  "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3",
+  "branch": "nhibuaa/issue-77-m4.3",
+  "environment_revision": "windows-python-3.14.6-postgresql-127.0.0.1-alembic-20260822_0037",
+  "database_url_host": "127.0.0.1",
+  "status": "passed",
+  "verification": [
+    {
+      "command": "cwd=backend; PYTHONPATH=<worktree>;<worktree>/backend/src; python -m pytest test ../evals/test -q",
+      "result": "851 passed, 3 skipped, 602 warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "ruff check .",
+      "result": "All checks passed",
+      "exit_code": 0
+    },
+    {
+      "command": "docker compose config --quiet",
+      "result": "passed with optional unset-variable warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "clean database then alembic upgrade head; alembic current",
+      "result": "20260822_0037 (head)",
+      "exit_code": 0
+    }
+  ],
+  "diagnostic_history": [
+    "A repo-root invocation without a worktree-pinned PYTHONPATH imported the canonical main editable install and was non-authoritative.",
+    "A repo-root pytest invocation with only backend/src bound produced a repeatable Windows multiprocessing spawn failure in one PDF case, while the focused PDF file passed.",
+    "The authoritative invocation used backend/pyproject.toml as pytest root and bound both the worktree root and backend/src; all 854 collected outcomes passed or were explicitly skipped."
+  ],
+  "recorded_at": "2026-08-23T12:03:07+07:00"
+}

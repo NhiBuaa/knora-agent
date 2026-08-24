@@ -1,0 +1,149 @@
+{
+  "status": "completed",
+  "mode": "test-cases",
+  "coverage": {
+    "included_axes": [
+      "data shape and contract",
+      "state and lifecycle",
+      "async and concurrency",
+      "security and bounds"
+    ],
+    "omitted_axes": [
+      {
+        "axis": "UI and visual transitions",
+        "reason": "Issue #77 exposes application, HTTP, PostgreSQL and SQLite provider contracts only; no user interface is in scope."
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "M4-77-TC-01",
+      "requirement": "Pre-acquisition authorization fails closed and durable state distinguishes temporary denial from material incompatibility.",
+      "risk": "Human approval can be mistaken for execution authority, or stale approval can silently become reusable.",
+      "seam": "WriteProposalWorkflow application/HTTP plus PostgreSQL projection",
+      "prerequisites": ["Approved proposals", "read/observation/execution authority matrix", "capability/binding/policy/reference mutation adapters", "counting provider sentinel"],
+      "steps": ["Exercise every pre-acquisition denial and limited-authority principal.", "Capture proposal/approval state before and after temporary execution denial.", "Independently force each material mismatch, reload state and retry the old approval."],
+      "expected_results": ["Every denial creates zero execution/acquisition/admission/audit-start artifacts and zero provider calls.", "Temporary denial preserves exact approved state and approval provenance.", "Each material mismatch persists typed stale/invalidated state and requires a new proposal and human approval."],
+      "evidence_to_capture": ["authorization/result matrix", "before/after proposal snapshots", "row and provider call counts"]
+    },
+    {
+      "id": "M4-77-TC-02",
+      "requirement": "Logical execution identity and canonical request fingerprint are server-owned, immutable and acquired atomically by one contender.",
+      "risk": "Caller influence, partial acquisition, or losing contenders can create duplicate provider paths.",
+      "seam": "application/HTTP schema, canonicalizer, PostgreSQL acquisition CAS and concurrent public workflow",
+      "prerequisites": ["authoritative normalized intent fixture", "independent canonical-json-v1 recomputer", "identified concurrent contenders", "pre-commit fault barriers"],
+      "steps": ["Inject logical ID/fingerprint fields through application and HTTP inputs.", "Independently recompute the fingerprint and compare proposal/acquisition/admission/envelope/provider values.", "Race contenders and inject faults after each acquisition write before commit, then restart PostgreSQL."],
+      "expected_results": ["Identity injection is rejected before state creation.", "Server identities are byte-identical at every boundary and immutable.", "Exactly one AcquireApplied tuple commits, losers make zero calls, pre-commit visibility is empty and rollback leaves no fragment."],
+      "evidence_to_capture": ["schema rejection matrix", "canonical input/digest comparison", "per-contender result/call correlation", "restart tuple"]
+    },
+    {
+      "id": "M4-77-TC-03",
+      "requirement": "Admission revalidates current authority, compatibility and the complete m4r1 reference under locks after acquisition.",
+      "risk": "TOCTOU changes between acquisition and admission can authorize a stale or forged dispatch.",
+      "seam": "private authorize_and_admit_dispatch with real mutation and non-runtime integrity adapters",
+      "prerequisites": ["post-acquisition barrier", "authority/selector epoch mutation adapters", "m4r1 byte/MAC/claim/trusted-store/key fixtures"],
+      "steps": ["Acquire and block before admission.", "Independently mutate every authority/selector class and each m4r1 integrity/trust/key condition.", "Release admission and inspect persistence/calls."],
+      "expected_results": ["Post-lock reload observes each mutation.", "Every mismatch denies with zero admission and zero gateway/provider calls.", "Only sanitized pre-provider evidence is appended."],
+      "evidence_to_capture": ["complete mutation matrix", "lock/reload ordering trace", "admission/audit/call counts"]
+    },
+    {
+      "id": "M4-77-TC-04",
+      "requirement": "Epoch locks and fresh post-lock PostgreSQL time linearize mutation, admission and expiry.",
+      "risk": "Lock-order gaps, stale transaction time or concurrent issuers can mint an unauthorized admission.",
+      "seam": "PostgreSQL execution/global-key/Workspace-epoch transactions and deterministic lock barriers",
+      "prerequisites": ["real typed mutation adapters", "same-generation issuers", "proposal/reference/lease expiry fixtures", "skewed non-database clocks"],
+      "steps": ["Race each mutation against admission and race concurrent same-generation issuers.", "Block acquisition across proposal expiry.", "Block admission across reference and lease expiry."],
+      "expected_results": ["Mutation-first denies and admission-first binds the exact prior epoch vector.", "Only one byte-identical admission/audit record exists.", "Fresh post-lock clock_timestamp decides every boundary; skewed or transaction-start clocks cannot revive it."],
+      "evidence_to_capture": ["lock/epoch ordering traces", "issuer results", "database time samples", "admission uniqueness"]
+    },
+    {
+      "id": "M4-77-TC-05",
+      "requirement": "DispatchAdmissionWitness is one complete immutable row and ambiguous commit is resolved by authoritative readback.",
+      "risk": "Partial admission, regenerated envelopes or retry after unknown commit can produce conflicting side effects.",
+      "seam": "PostgreSQL admission transaction, commit/ack fault injector and restart readback",
+      "prerequisites": ["captured intended admission tuple and envelope bytes", "commit acknowledgement fault fixture", "active-key rotation fixture"],
+      "steps": ["Compare every admission/audit field with authoritative proposal/acquisition/authorization inputs.", "Restart and rotate active issuance key, then reload exact envelope bytes.", "Force committed-before-ack and rolled-back branches and perform readback by logical execution ID."],
+      "expected_results": ["Committed readback equals the intended complete tuple/bytes exactly and no second insert/sign/regeneration occurs.", "Rolled-back readback has complete admission/audit absence and zero gateway calls or #77 retry.", "No partial or third state exists."],
+      "evidence_to_capture": ["field-by-field witness", "byte digest before/after restart", "both ambiguity branches", "insert/sign/call counters"]
+    },
+    {
+      "id": "M4-77-TC-06",
+      "requirement": "Admission-first dispatch cannot be canceled, upgraded or retargeted by later authority/config/key changes or expiry.",
+      "risk": "A started external write can be silently altered or canceled after approval/admission.",
+      "seam": "post-admission barrier and counting SupportToolGateway",
+      "prerequisites": ["persisted admission/envelope", "authority/selector/key mutation adapters", "proposal/reference/lease expiry controls"],
+      "steps": ["Pause immediately after admission commit.", "Independently mutate/revoke each current fact and cross every expiry boundary.", "Resume dispatch and inspect exact gateway input."],
+      "expected_results": ["Exactly one call carries the original byte-identical envelope and intent.", "No reauthorization, cancellation, replacement, key upgrade or retarget occurs.", "Later lease expiry may fence only Knora observation/finalization."],
+      "evidence_to_capture": ["original versus sent envelope digest", "mutation matrix", "gateway call count and payload comparison"]
+    },
+    {
+      "id": "M4-77-TC-07",
+      "requirement": "The independent SQLite provider atomically owns effects, closed outcomes and idempotency conflicts.",
+      "risk": "Provider replay/conflict bugs or non-atomic rejection persistence can duplicate or lose external truth.",
+      "seam": "private ReferenceProviderContractHarness with SQLite BEGIN IMMEDIATE and trusted test signer",
+      "prerequisites": ["temporary SQLite provider file", "two valid same-ID/different-fingerprint envelopes", "tampered envelopes", "three closed rejection fixtures"],
+      "steps": ["Exercise same-ID/same-fingerprint replay and two independently valid same-ID/different-fingerprint requests.", "Exercise tampered/cross-bound envelopes.", "Parameterize success and all three closed rejections with pre-commit and post-commit-before-ack faults, then reopen SQLite."],
+      "expected_results": ["Equal fingerprint replays one outcome/effect and unequal valid fingerprint conflicts before target lookup with no second effect.", "Tampering rejects before SQLite mutation.", "Each closed rejection owns one exact durable ledger row, zero effects, rollback absence and restart-stable replay."],
+      "evidence_to_capture": ["SQLite ledger/effect snapshots", "provider recomputation", "conflict/tamper traces", "per-rejection restart records"]
+    },
+    {
+      "id": "M4-77-TC-08",
+      "requirement": "Each post-admission fault window has exact provider state while Knora remains indeterminate and non-terminal.",
+      "risk": "A collapsed zero-or-one oracle can misclassify receipt or grant unsafe retry authority.",
+      "seam": "application workflow plus provider fault barriers and read-only provider observer",
+      "prerequisites": ["admission-before-gateway fault", "pre-SQLite-commit fault", "committed-before-ack fault", "success and closed-rejection variants"],
+      "steps": ["Run each named fault branch.", "Inspect provider ledger/effect count and reopen SQLite.", "Inspect Knora lifecycle/identity/projection and provider-not-found observation without invoking reconciliation."],
+      "expected_results": ["First two branches have exactly zero ledger rows/effects.", "Committed-before-ack has exactly one replayable success effect/outcome or one closed outcome with zero effects.", "Every unfinalized branch remains executing with unchanged admission/logical ID/fingerprint and typed indeterminate_external_outcome; #77 grants no retry/replay/takeover."],
+      "evidence_to_capture": ["three named branch records", "provider restart snapshots", "Knora projections", "absence-of-authority counters"]
+    },
+    {
+      "id": "M4-77-TC-09",
+      "requirement": "Issue #77 persists read-only recovery seeds but implements no Issue #78 observation, retry or takeover behavior.",
+      "risk": "Execution code can accidentally absorb reconciliation authority or create a second admission.",
+      "seam": "PostgreSQL restart/reload and repeated ExecuteApprovedProposal",
+      "prerequisites": ["executing NoAdmission seed", "executing AdmissionOutstanding seed", "counting provider observer/dispatcher", "generation counter"],
+      "steps": ["Restart and reload each seed variant.", "Invoke ExecuteApprovedProposal again for each.", "Inspect provider observation/dispatch, admission and generation state."],
+      "expected_results": ["Both return current ExecutionInProgress.", "No provider observation, admission creation/replacement, dispatch/replay, retry authorization, takeover or generation increment occurs.", "The two recovery seed variants remain exactly reconstructible."],
+      "evidence_to_capture": ["seed projections before/after restart", "typed repeated-execute results", "zero behavior counters"]
+    },
+    {
+      "id": "M4-77-TC-10",
+      "requirement": "Generation-1 observation/finalization is lease-fenced and every public result uses an exact sanitized allowlist.",
+      "risk": "Expired owners can finalize provider truth or HTTP/application projections can leak private admission material.",
+      "seam": "PostgreSQL observation/finalization lock barriers plus application/HTTP schema matrix",
+      "prerequisites": ["provider-only success and three closed outcomes", "before/after lease fixtures", "public projection schema allowlists", "forbidden-field injector"],
+      "steps": ["Delay each closed outcome across lease expiry and invoke observation then finalization.", "Repeat before expiry for allowed terminal mappings and cover indeterminate/conflict/fenced results.", "Compare complete application projections and decoded HTTP bodies with variant allowlists and inject forbidden private fields."],
+      "expected_results": ["Expired operations return ExecutionFenced from fresh post-lock database time and leave PostgreSQL field-for-field unchanged.", "Before-expiry success/fail mappings are exact and provider truth survives restart.", "Every public variant has exactly allowed keys and recursively rejects all provider/routing/admission/envelope/fingerprint/authority/key/credential/secret fields."],
+      "evidence_to_capture": ["before/after PostgreSQL snapshots", "SQLite restart truth", "HTTP/application allowlist matrix", "forbidden-field failures"]
+    },
+    {
+      "id": "M4-77-TC-11",
+      "requirement": "Append-only PostgreSQL audit reconstructs complete provenance after independent PostgreSQL and SQLite restarts without secrets.",
+      "risk": "Audit omissions or provider-state coupling can destroy provenance or leak private material.",
+      "seam": "PostgreSQL audit projection and independently reopened SQLite provider",
+      "prerequisites": ["direct success/failure, indeterminate, conflict and no-admission fixtures", "canonical expected audit projection", "forbidden-field list"],
+      "steps": ["Restart PostgreSQL and SQLite independently.", "Reconstruct audit solely from append-only PostgreSQL records and compare every required field.", "Read provider ledger independently and scan audit/public evidence for forbidden values."],
+      "expected_results": ["Audit exactly reconstructs all actors, decisions, compatibility, acquisition/admission witnesses, epochs, times, provider alias, immutable intent/identity/fingerprint, observations and outcome.", "Provider ledger remains independently authoritative.", "No raw provider/routing, envelope/MAC, key, credential or authority secret appears."],
+      "evidence_to_capture": ["field comparison table", "ordered audit records", "independent provider row", "forbidden-field scan"]
+    },
+    {
+      "id": "M4-77-TC-12",
+      "requirement": "The exact candidate passes focused M4.3, full regression, Ruff, Compose and clean Alembic verification.",
+      "risk": "Narrow execution tests can hide schema, integration or M1-M3 regressions.",
+      "seam": "governed repository verification on a clean worktree",
+      "prerequisites": ["exact candidate SHA", "clean PostgreSQL recreation", "Docker project m4-integration", "worktree-pinned PYTHONPATH"],
+      "steps": ["Run the locked focused M4.3 command.", "Recreate/migrate PostgreSQL and run the authoritative full suite serially.", "Run Ruff, Compose config, clean migration/current checks and inspect Git status."],
+      "expected_results": ["All commands exit zero and focused evidence covers TC-01 through TC-11.", "M1-M3 regressions remain green.", "Alembic is at head and the candidate worktree is clean."],
+      "evidence_to_capture": ["exact commands/exits/totals", "migration head", "subject SHA", "clean status"]
+    }
+  ],
+  "artifacts": [
+    "GitHub Issue #77",
+    ".agents/review/m4-issue-77-revision-v8.md",
+    ".agents/review/m4-issue-77-ticket-external-review-v8.json",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/manual-tests/milestone-4/77-authorized-execution-v1.md"
+  ],
+  "red_observed": null,
+  "failure_reason": null
+}

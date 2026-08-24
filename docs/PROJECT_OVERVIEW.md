@@ -124,8 +124,10 @@ Status / history: active delivery under parent
 artifacts have been decomposed into Issues
 [#75](https://github.com/NhiBuaa/knora-agent/issues/75)–[#79](https://github.com/NhiBuaa/knora-agent/issues/79)
 with native blocking edges. The feature integration branch is initialized at pinned `main` commit
-`6312c4c4230032aa92ca5915803fcfaf564354fa`; #75 and #76 are the current parallel frontier. No M4
-implementation has started.
+`6312c4c4230032aa92ca5915803fcfaf564354fa`. #75 and #76 are accepted, merged into the integration
+branch through PRs #80 and #81, closed and cleaned. #77 is the current open frontier; #78 and #79
+remain blocked by the native graph. Exact mutable delivery state, heads, guide revisions and next
+transition live in `.agents/review/m4-workflow-ledger-v1.json` rather than this roadmap.
 
 #### Goal
 

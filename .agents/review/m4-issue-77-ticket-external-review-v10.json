@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "chatgpt:6a8b0bbb-a858-83ec-897d-ccb36fe3b6a2",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-ticket-v10-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "d4064c4d8afcc9c552d01489f3ae400063382049",
+  "ticket_id": "#77",
+  "contract_revision": "m4-77-ticket-contract-v9",
+  "ticket_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
+  "request_id": "review-request-sha256:7d84b7cdef42b7f9e2046fc985e5bbad976fc2f62d3000469dded064942c6d60",
+  "packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v10.json",
+  "base_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v6.json",
+  "superseded_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v9.json",
+  "packet_digest": "sha256:5c51d81118c1f43a7972268657e99d5f2bdbb1bec248ce96af4d7e9db1c985e9",
+  "response_reference": ".agents/review/m4-issue-77-ticket-review-response-v10.json",
+  "response_digest": "sha256:5f198dba77d20faaa14b6c746b642b11560a3669c67bef075251b1fc5708d4ad",
+  "transport_raw_text_digest": "sha256:147eaa9d6c42f198b495d804f4411d88927f5357e14c4f3d2b4f90848b4efd78",
+  "chat_reference": "https://chatgpt.com/c/6a8b0bbb-a858-83ec-897d-ccb36fe3b6a2",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "finding_classes": [],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": []
+  },
+  "transport": "single_pasted_text_attachment",
+  "response_normalization": {
+    "status": "transport_identity_bound_and_sealed",
+    "session_id_from": "current-chat",
+    "session_id_to": "6a8b0bbb-a858-83ec-897d-ccb36fe3b6a2",
+    "response_digest_added": "sha256:5f198dba77d20faaa14b6c746b642b11560a3669c67bef075251b1fc5708d4ad",
+    "semantic_change": false
+  },
+  "schema_retry_count": 0,
+  "summary": "Ticket packet v10 closes all four v9 Major packet-observability gaps with complete deterministic oracles, preserves the approved abstractions and static typed registry, and keeps reconciliation, retry, takeover and generation 2+ owned by #78.",
+  "cadence_eligible": true
+}

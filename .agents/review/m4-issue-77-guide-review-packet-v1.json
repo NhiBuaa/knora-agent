@@ -1,0 +1,88 @@
+{
+  "projection_version": 1,
+  "round": 1,
+  "request_id": "review-request-sha256:450f0fde899b79425d52083d616fddee1e3943d8a85a1d1057d8f728b29503ce",
+  "packet_digest": "sha256:2bbb3999990294ebb51126c9aaa2778b026a05e8de5cf73eadf1f57efa5bb9c7",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "issue_id": "github-issue-77",
+  "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+  "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+  "ticket_digest": "sha256:10989a737bb502116984ba4ef628341eb395e4a2759056bf20b9a04e6d3d7707",
+  "guide_revision": "m4-77-authorized-execution-v1",
+  "guide_digest": "sha256:250c78a9c2670b4fb755ec58ffb6cbc5ef027922c76881b4918f92d0979ec82c",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+  "acceptance_criteria": [
+    {"id": "M4-77-AC-01", "statement": "Pre-acquisition authorization fails closed; temporary execution denial preserves exact approved provenance, while material capability/binding/policy/reference mismatch durably stales and invalidates old approval."},
+    {"id": "M4-77-AC-02", "statement": "Logical execution identity and canonical-json-v1 fingerprint are server-owned, caller-noninfluenceable, immutable and acquired atomically by exactly one contender."},
+    {"id": "M4-77-AC-03", "statement": "Admission reloads current Workspace/resource/execution authority, compatibility and complete m4r1 integrity/trust/key state under the fixed epoch lock protocol."},
+    {"id": "M4-77-AC-04", "statement": "Fresh post-lock PostgreSQL time commits one complete immutable DispatchAdmissionWitness; commit/ack ambiguity resolves to exact committed readback or complete rollback absence."},
+    {"id": "M4-77-AC-05", "statement": "Admission is logical write start; later mutation or expiry cannot cancel, upgrade or retarget the original byte-identical envelope."},
+    {"id": "M4-77-AC-06", "statement": "Independent SQLite provider atomically owns effects/closed outcomes and exact logical-ID/fingerprint idempotency, replay, conflict and restart semantics."},
+    {"id": "M4-77-AC-07", "statement": "Every post-admission uncertainty branch has exact provider state and remains Knora executing/indeterminate with unchanged identities and no #77 recovery authority."},
+    {"id": "M4-77-AC-08", "statement": "Generation-1 observation/finalization uses fresh post-lock database time and expired owners cannot append observation/audit or terminal state."},
+    {"id": "M4-77-AC-09", "statement": "Only named direct outcomes finalize; every application/HTTP result exactly matches a closed sanitized discriminated allowlist."},
+    {"id": "M4-77-AC-10", "statement": "Restarted append-only audit reconstructs complete provenance while SQLite remains independent and all private/secret fields are absent; M1-M3 regressions stay green."}
+  ],
+  "design_decisions": [
+    {"id": "M4-77-DD-01", "decision": "Keep WriteProposalWorkflow.handle as the sole deep application Interface; witnesses and protocol ordering remain private."},
+    {"id": "M4-77-DD-02", "decision": "Commit durable PostgreSQL admission before provider I/O and classify post-admission uncertainty as receipt-possible."},
+    {"id": "M4-77-DD-03", "decision": "Persist the exact canonical envelope bytes with retained verification material and never regenerate after admission."},
+    {"id": "M4-77-DD-04", "decision": "Use a private non-runtime trusted signing harness for provider defensive conflict coverage."},
+    {"id": "M4-77-DD-05", "decision": "Persist read-only NoAdmission or AdmissionOutstanding recovery seeds; all runtime reconciliation/retry/takeover remains #78."},
+    {"id": "M4-77-DD-06", "decision": "Use fresh PostgreSQL clock_timestamp after blocking locks for execution decisions."}
+  ],
+  "invariants": [
+    "No gateway call exists without one durable admission; at most one admission exists per logical execution.",
+    "Every acquisition loser makes zero provider calls.",
+    "Every admission linearizes current authority, exact compatibility and complete m4r1 verification under fixed epochs.",
+    "Admission-first dispatch remains byte-identical despite later mutation or expiry.",
+    "Provider effects and idempotency outcomes commit atomically in provider-owned SQLite.",
+    "Provider outcome not-found and named terminal rejection are disjoint typed states.",
+    "Issue #77 creates and acts only on generation 1 with no reconciliation, retry, replay authorization or takeover.",
+    "The capability registry remains static and typed with no plugin framework.",
+    "Raw provider/routing, envelope/MAC, fingerprint, authority, key, credential and secret fields never enter public projections."
+  ],
+  "out_of_scope": [
+    "ReconcileExecution, provider-first application recovery, stale takeover, generation 2+ and authorized replay, owned by #78.",
+    "Distributed rollback/cancellation or arbitrary remote-vendor time protocols.",
+    "Dynamic plugins, provider discovery or runtime registration.",
+    "Editing immutable proposals or reusing approval after material incompatibility.",
+    "Final M4 code review before Issues #75-#79 are accepted, integrated and closed."
+  ],
+  "acceptance_policy": {
+    "authority": "human_required",
+    "policy_revision": "m4-human-required-guide-review-v1",
+    "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+    "required": true
+  },
+  "test_cases": [
+    {"id": "M4-77-TC-01", "statement": "Exercise all pre-acquisition denials, limited read/observation grants, temporary execution revocation and every material mismatch with durable before/after reload and old-approval retry.", "oracle": "Denied branches create no execution/admission/provider call; temporary denial preserves approved provenance; each material mismatch persists typed stale/invalidated state and requires a new proposal/approval.", "required": true},
+    {"id": "M4-77-TC-02", "statement": "Reject caller identity injection, independently recompute canonical fingerprint across every boundary, race identified contenders and fault each acquisition write before commit/restart.", "oracle": "Identities are server-owned and immutable; one complete AcquireApplied tuple commits, every loser has zero calls, pre-commit state is invisible and rollback leaves no fragment.", "required": true},
+    {"id": "M4-77-TC-03", "statement": "Block after acquisition and independently mutate every authority/selector plus all m4r1 byte/MAC/claim/trusted-store/key conditions.", "oracle": "Post-lock reload detects each condition with zero admission and zero provider calls and only sanitized evidence.", "required": true},
+    {"id": "M4-77-TC-04", "statement": "Race real epoch mutations and same-generation issuers; block acquisition/admission across proposal/reference/lease expiry under skewed non-database clocks.", "oracle": "Mutation-first denies, admission-first binds prior epochs, one admission exists and fresh post-lock PostgreSQL time decides every expiry." , "required": true},
+    {"id": "M4-77-TC-05", "statement": "Compare the complete admission tuple/bytes, restart and rotate current key, then force committed-before-ack and rolled-back PostgreSQL branches with authoritative readback.", "oracle": "Committed state equals intended bytes with no second insert/sign/regeneration; rollback has complete absence, zero call/retry and no partial third state.", "required": true},
+    {"id": "M4-77-TC-06", "statement": "Pause after admission, mutate/revoke every authority/selector/key and cross every expiry before dispatch resumes.", "oracle": "Exactly one call carries the original byte-identical envelope/intent without reauthorization, cancellation, upgrade or retargeting." , "required": true},
+    {"id": "M4-77-TC-07", "statement": "At the private SQLite provider harness, cover equal replay, two valid unequal fingerprints, tampering, success, three closed rejections, pre-commit rollback and committed-before-ack restart.", "oracle": "One atomic effect/outcome, valid conflict before target mutation, tamper rejection before SQLite, and restart-stable exact closed outcomes with zero rejection effects." , "required": true},
+    {"id": "M4-77-TC-08", "statement": "Run admission-before-gateway, pre-SQLite-commit and committed-before-ack as named branches with success/rejection variants and read-only provider observation.", "oracle": "First two are exact zero/zero, committed is exact one durable outcome, and every unfinalized branch stays executing/indeterminate with unchanged identities and no #77 recovery authority." , "required": true},
+    {"id": "M4-77-TC-09", "statement": "Restart/reload NoAdmission and AdmissionOutstanding seeds and call ExecuteApprovedProposal again.", "oracle": "Both return ExecutionInProgress with no provider observation, admission creation/replacement, dispatch/replay, retry, takeover or generation increment." , "required": true},
+    {"id": "M4-77-TC-10", "statement": "Delay success and each rejection across lease expiry; cover before-expiry terminal, indeterminate, conflict and fenced application/HTTP projections with forbidden-field injection.", "oracle": "Expired operations are post-lock fenced with unchanged PostgreSQL state; allowed terminal mapping and every exact public variant allowlist/recursive exclusion pass." , "required": true},
+    {"id": "M4-77-TC-11", "statement": "Restart PostgreSQL and SQLite independently, reconstruct audit solely from append-only rows, read provider truth separately and scan forbidden fields.", "oracle": "Complete provenance matches field-for-field, provider ledger stays independent and no raw/private/secret value leaks." , "required": true},
+    {"id": "M4-77-TC-12", "statement": "Run locked focused files, full repository pytest serially, Ruff, Compose and clean Alembic verification on the exact candidate with sanitized release bundle validation.", "oracle": "All commands exit zero, TC-01 through TC-11 evidence is candidate/environment-bound, M1-M3 stay green, Alembic is at head and worktree is clean." , "required": true}
+  ],
+  "command_projections": [
+    {"id": "M4-77-CMD-01", "statement": "Clean PostgreSQL recreation and Alembic upgrade/current using pinned Python and serialized database.", "kind": "migration"},
+    {"id": "M4-77-CMD-02", "statement": "Locked focused Issue #77 pytest files followed by full test and eval pytest suites.", "kind": "verification"},
+    {"id": "M4-77-CMD-03", "statement": "Ruff, Docker Compose config, subject SHA, evidence bundle and clean-worktree verification.", "kind": "verification"}
+  ],
+  "required_evidence": [
+    {"id": "M4-77-EV-01", "statement": "Authorization/stale snapshots, identity injection rejection, canonical recomputation and complete contender-correlated acquisition evidence.", "required": true},
+    {"id": "M4-77-EV-02", "statement": "All epoch/m4r1 mutation traces and fresh post-lock PostgreSQL time samples.", "required": true},
+    {"id": "M4-77-EV-03", "statement": "Complete admission witness, exact envelope, ambiguity branches and admission-first non-cancellation evidence.", "required": true},
+    {"id": "M4-77-EV-04", "statement": "Provider-owned effect/outcome/replay/conflict/tamper/rollback/restart evidence for success and every closed rejection.", "required": true},
+    {"id": "M4-77-EV-05", "statement": "Three exact crash-window records, provider-not-found distinction, two recovery seeds and absence of #78 behavior.", "required": true},
+    {"id": "M4-77-EV-06", "statement": "Fenced PostgreSQL snapshots, exact public allowlists, forbidden-field scans, full audit reconstruction and governed verification identities/totals.", "required": true}
+  ],
+  "prior_findings": []
+}

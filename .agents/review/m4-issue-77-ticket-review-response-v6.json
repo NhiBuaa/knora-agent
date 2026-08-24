@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:1dfb0672037e10b08f8cbe40f08cd852f5c432fa797365f9fc8b7fe373fade8b",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v6:round-1:6a8aabea-c860-83ec-bec2-e6c7c3324be1",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8aabea-c860-83ec-bec2-e6c7c3324be1",
+  "packet_digest": "sha256:fc292332c86d0ea2426a0ada78afb990584a63643be5c96c9ab657a45b503ded",
+  "guide_revision": "m4-77-ticket-contract-v6",
+  "guide_digest": "sha256:bedf225e465f6897e5354500a7956f33e33793ea31b9cd6df474afa6f191ddaf",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "dispatch_admission_ambiguous_commit_readback_gap",
+      "criterion_ref": "M4-77-AC-04",
+      "affected_case_ids": ["M4-77-TC-04", "M4-77-TC-05"],
+      "affected_fields": ["DispatchAdmission", "commit_ack_ambiguity", "authoritative_readback", "envelope_bytes", "admission_uniqueness"],
+      "problem": "The packet proves atomic admission persistence and byte-identical restart behavior, but it does not cover a commit/ack ambiguity at the PostgreSQL admission boundary. An implementation could regenerate an envelope, issue a second admission, or misclassify an ambiguous commit without violating the stated cases.",
+      "required_change": "Add a deterministic commit/ack ambiguity fixture. If the transaction committed, authoritative readback must return the complete admission tuple byte-for-byte equal to the intended admission and the workflow must create neither a second admission nor a regenerated envelope. If the transaction rolled back, the complete tuple must be absent."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "finalization_expiry_fence_state_oracle_gap",
+      "criterion_ref": "M4-77-AC-08",
+      "affected_case_ids": ["M4-77-TC-10"],
+      "affected_fields": ["post_lock_database_time", "lease_expiry", "observation", "audit", "terminal_state", "provider_truth"],
+      "problem": "TC-10 says delayed direct outcomes are fenced after lease expiry, but it does not define the complete durable-state oracle for delayed success and every closed failure. A stale owner could append an observation or audit entry, or rewrite terminal state, while still returning a fenced projection.",
+      "required_change": "For delayed success and every closed failure, require a fresh post-lock PostgreSQL-time rejection and prove there is no observation record, no observation or audit append, and no terminal state or outcome rewrite, while the independently committed provider truth remains observable from the provider boundary."
+    },
+    {
+      "severity": "major",
+      "category": "evidence",
+      "issue_class": "provider_closed_rejection_atomicity_gap",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-07", "M4-77-TC-08", "M4-77-TC-10"],
+      "affected_fields": ["target_not_found", "validation_rejected", "policy_rejected", "sqlite_ledger", "logical_execution_id", "request_fingerprint", "provider_restart", "EV-04"],
+      "problem": "The provider contract and evidence do not explicitly cover all three closed rejection classes as atomic durable provider outcomes. The current cases can pass without proving that each rejection creates exactly one ledger outcome, no target effect, and preserves the exact logical identity and fingerprint across restart.",
+      "required_change": "Parameterize the SQLite provider contract harness over target_not_found, validation_rejected, and policy_rejected. For each class, require one atomic provider-ledger outcome, zero target effects, the exact logical execution ID and request fingerprint, and the same authoritative result after provider restart; bind EV-04 evidence explicitly to each class."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": []
+  },
+  "summary": "Revision v6 closes most prior findings and preserves the Issue #77/Issue #78 scope boundary, but three direct oracle and release-evidence gaps remain: admission commit ambiguity, complete expiry-fenced finalization state, and atomic durable coverage for every closed provider rejection.",
+  "chat_reference": "https://chatgpt.com/c/6a8aabea-c860-83ec-bec2-e6c7c3324be1",
+  "response_digest": "sha256:4b276bd674f80c70302bcb21314e487292316cf1ccabfdaad4eb0730e9dfbb6a"
+}

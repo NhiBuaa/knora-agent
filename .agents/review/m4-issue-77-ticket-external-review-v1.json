@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8a8172-20fc-83ec-b295-7e9993c2e1a5",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-ticket-v1-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "00c935dcc5e9f80b4c851ce08debeb7fc4a7886e",
+  "ticket_id": "#77",
+  "contract_revision": "m4-77-ticket-contract-v1",
+  "ticket_digest": "sha256:79609762b837282a5cf538386307642c21cb7d33474b16f7f8075ce885b8cc9f",
+  "request_id": "review-request-sha256:9a97e7ea8da13c447c88860dde1e8a5dcbd2b5a458d0ff08f844ba6a693ba33b",
+  "packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v1.json",
+  "packet_digest": "sha256:3e87f357b4fff6f3b181e17cee579110b839287716dbe6fd18db8723983e8eac",
+  "response_reference": ".agents/review/m4-issue-77-ticket-review-response-v1.json",
+  "response_digest": "sha256:8c8c1410b0091384cdf47c739a0e75c50d37e484ae6cc942812c5d8fd286b860",
+  "chat_reference": "https://chatgpt.com/c/6a8a8172-20fc-83ec-b295-7e9993c2e1a5",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "finding_classes": [
+    "post_acquisition_authority_toctou",
+    "provider_effect_ledger_atomicity",
+    "idempotency_conflict_lifecycle",
+    "stale_generation_seam_scope"
+  ],
+  "summary": "Ticket contract v1 is not decision-complete until the four Major authority, provider atomicity, conflict lifecycle and #77/#78 fencing-seam gaps are closed."
+}

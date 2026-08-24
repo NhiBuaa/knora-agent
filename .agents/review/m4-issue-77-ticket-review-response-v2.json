@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:ecbd0fff92536f0195aa4fba6f5611cf0f1cbab20aabbc44f484d82e3d8123dc",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v2:round-1:6a8a84f9-afbc-83ec-b525-d024bb8e1040",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8a84f9-afbc-83ec-b525-d024bb8e1040",
+  "packet_digest": "sha256:824f2bbb2fb2f1b37465fa57d7418bab886e91164c700e10f9981448ecc96923",
+  "guide_revision": "m4-77-ticket-contract-v2",
+  "guide_digest": "sha256:08cfadb243840076b052fb25bbaf296e68d742fb2551c39f5abd132aa23fee0a",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "provider_dispatch_generation_fence",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-01", "M4-77-TC-05"],
+      "affected_fields": ["lease_owner", "lease_generation", "lease_deadline", "provider_invocation"],
+      "problem": "The last authorization/compatibility barrier does not make current lease owner, exact generation and deadline part of provider-dispatch authority, so a generation-1 worker can pass then invoke after lease expiry or Issue #78 takeover.",
+      "harm": "Idempotency prevents duplicates but does not prevent a stale owner from being the first caller that creates the side effect after losing execution ownership.",
+      "required_change": "Define a provider-visible generation-1 dispatch fence without implementing takeover, and test that expired/lost dispatch authority before invocation yields zero provider calls."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "postgres_transaction_time_unproven",
+      "criterion_ref": "M4-77-AC-04",
+      "affected_case_ids": ["M4-77-TC-04", "M4-77-TC-05"],
+      "affected_fields": ["transaction_timestamp", "lease_started_at", "lease_expires_at", "expiry_decision"],
+      "problem": "PostgreSQL transaction time is required for lease creation/expiry but no deterministic test makes an application clock disagree with PostgreSQL and proves database-derived values.",
+      "harm": "A process-clock implementation could satisfy the current concurrency/fencing oracles while clock skew undermines lease ownership decisions.",
+      "required_change": "Add a deterministic application-clock skew oracle and database-derived timestamp/deadline evidence for acquisition and expiry."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": ["M4-77-AC-04"]
+  },
+  "summary": "Revision v2 closes the earlier post-acquisition authority, atomic provider durability and conflict-lifecycle gaps, but provider dispatch itself is not lease/generation-fenced and PostgreSQL transaction-time authority lacks a deterministic oracle.",
+  "chat_reference": "https://chatgpt.com/c/6a8a84f9-afbc-83ec-b525-d024bb8e1040",
+  "response_digest": "sha256:7d31085de4e715e9942d00d20d76411770e2869ae9211f0fcaf5c5d7f6c19c27"
+}

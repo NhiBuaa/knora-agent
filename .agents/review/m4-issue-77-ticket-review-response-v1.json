@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:9a97e7ea8da13c447c88860dde1e8a5dcbd2b5a458d0ff08f844ba6a693ba33b",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v1:round-1:6a8a8172-20fc-83ec-b295-7e9993c2e1a5",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8a8172-20fc-83ec-b295-7e9993c2e1a5",
+  "packet_digest": "sha256:3e87f357b4fff6f3b181e17cee579110b839287716dbe6fd18db8723983e8eac",
+  "guide_revision": "m4-77-ticket-contract-v1",
+  "guide_digest": "sha256:79609762b837282a5cf538386307642c21cb7d33474b16f7f8075ce885b8cc9f",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "post_acquisition_authority_toctou",
+      "criterion_ref": "M4-77-AC-01",
+      "affected_case_ids": ["M4-77-TC-01"],
+      "affected_fields": ["workspace_resource_authorization", "execution_authorization", "acquire_execution", "provider_invocation"],
+      "problem": "The packet requires current execution authority and says authority is revalidated immediately before the side effect, but it does not decision-completely define the post-acquisition authorization boundary or test authority revocation between acquisition and provider invocation.",
+      "harm": "An implementation can retain a TOCTOU window after lease acquisition, and implementations can disagree on the required second check and the acquired execution's disposition when it denies.",
+      "required_change": "Specify post-acquisition revalidation immediately before provider invocation, its exact evidence, lifecycle/audit/public projection and zero-provider-call behavior, with a deterministic barrier test."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "provider_effect_ledger_atomicity",
+      "criterion_ref": "M4-77-AC-07",
+      "affected_case_ids": ["M4-77-TC-06"],
+      "affected_fields": ["sqlite_external_state", "idempotency_ledger", "transaction_boundary"],
+      "problem": "The packet does not state that the SQLite provider atomically commits the external-state mutation and authoritative idempotency-ledger outcome or exercise failure around that transaction boundary.",
+      "harm": "A provider could mutate external state but lose its idempotency record, allowing replay to apply a duplicate logical side effect.",
+      "required_change": "Make provider effect and idempotency outcome one atomic SQLite transaction, or define an equivalent durable protocol, and add fault injection proving replay cannot duplicate the side effect."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "idempotency_conflict_lifecycle",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-06", "M4-77-TC-08"],
+      "affected_fields": ["execution_lifecycle", "http_mapping", "audit", "reconciliation"],
+      "problem": "The execution lifecycle/public mapping of a provider same-logical-ID/different-fingerprint idempotency conflict is unspecified.",
+      "harm": "Implementations can make incompatible terminal or non-terminal decisions for a condition that implies prior external activity, including an unsafe false failure.",
+      "required_change": "Classify idempotency conflict with exact lifecycle, HTTP/result, audit, retry prohibition and Issue #78 reconciliation behavior, and add it to the result matrix."
+    },
+    {
+      "severity": "major",
+      "category": "scope",
+      "issue_class": "stale_generation_seam_scope",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-05"],
+      "affected_fields": ["lease_generation", "test_fixture", "issue_78_boundary"],
+      "problem": "TC-05 requires a stale owner after a newer durable generation even though generation takeover/recovery belongs to Issue #78, and no bounded fixture seam is defined.",
+      "harm": "The oracle is not independently executable in #77 without reaching into unspecified persistence or implementing part of #78.",
+      "required_change": "Define a bounded fixture/store seam for a higher generation or narrow #77 to generation-1 reachable states and defer post-takeover stale-owner proof to #78."
+    }
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": []
+  },
+  "summary": "All ten criteria have nominal test coverage and the packet is broadly consistent, but four decision/test-seam gaps remain Major: acquisition-to-provider authorization TOCTOU, atomic provider effect/idempotency durability, idempotency-conflict execution semantics and a bounded #77 fencing seam that does not implement #78.",
+  "chat_reference": "https://chatgpt.com/c/6a8a8172-20fc-83ec-b295-7e9993c2e1a5",
+  "response_digest": "sha256:8c8c1410b0091384cdf47c739a0e75c50d37e484ae6cc942812c5d8fd286b860"
+}

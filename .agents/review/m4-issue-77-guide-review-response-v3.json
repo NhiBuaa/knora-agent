@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:1aee7930a2f292a69c614a8892c1b2e0b787244bbd947389801354bba75690df",
+  "review_id": "external-review:github-issue-77:m4-77-authorized-execution-v3:round-1:6a8ad2d8-e1e4-83ec-8018-87b4b204af0a",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8ad2d8-e1e4-83ec-8018-87b4b204af0a",
+  "packet_digest": "sha256:dde5fbe09b0d4680305cb65f32cc656fa612aa02c6723be4b4530f448859701f",
+  "guide_revision": "m4-77-authorized-execution-v3",
+  "guide_digest": "sha256:8e75255ec3756ec1d16a6ba5e8eee5e85b29b2abb1ab1f8002a4365e9b5ea906",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "reviewed_commit": "f6f87a4456d7bfa1ce9ceb8411427ae39bfa6abe",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "incomplete_post_acquisition_result_matrix",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-10"],
+      "affected_fields": ["application_result", "outcome_type", "lifecycle", "http_status", "public_field_set"],
+      "problem": "The guide declares the immutable matrix exhaustive for every post-acquisition or repeated-execute public result, but TC-03 deliberately produces post-acquisition Workspace/resource/execution-authority, capability/binding/policy selector, reference-integrity, trusted-store and key-lifecycle denials that are not represented in that matrix. The only stated legacy-error-envelope exception is for pre-acquisition failures. TC-10 consequently verifies only success, the three provider rejections, indeterminate, current in-progress, provider conflict and fenced rows, leaving the TC-03 post-acquisition denial serialization, HTTP status and exact public field set unspecified. A conforming implementation could therefore expose different public projections for those rows while still satisfying the written TC-03 and TC-10 oracles. This leaves M4-77-GR-007 not fully closed.",
+      "required_change": "Extend the immutable independently sourced public-result contract and TC-10 coverage to every TC-03 post-acquisition denial row, defining its exact application result, HTTP status, complete allowed field set/value domains and forbidden fields; alternatively, if those rows intentionally use an existing error envelope rather than the result matrix, explicitly classify every such post-acquisition row into that envelope and lock its exact code/status/field shape in the independent fixture and TC-10 comparison."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": ["M4-77-AC-09"]
+  },
+  "prior_findings_closed": ["M4-77-GR-001", "M4-77-GR-002", "M4-77-GR-003", "M4-77-GR-004", "M4-77-GR-005", "M4-77-GR-006"],
+  "summary": "The guide provides deterministic coverage for authorization/staleness, atomic acquisition, post-lock authority and m4r1 rechecks, PostgreSQL-time linearization, durable admission, admission-first dispatch, SQLite provider atomicity and cross-binding, crash uncertainty, the #77/#78 recovery boundary, fencing, audit reconstruction, production DI isolation, static typed registry constraints and release verification. The v3 changes close the exact post-acquisition non-key denial oracle, provider cross-binding ordering/zero-mutation oracle and production test-only signer/mutator isolation findings. However, the claimed exhaustive immutable public-result matrix omits the post-acquisition denial outcomes exercised by TC-03, so AC-09 and prior finding M4-77-GR-007 remain unresolved.",
+  "chat_reference": "https://chatgpt.com/c/6a8ad2d8-e1e4-83ec-8018-87b4b204af0a",
+  "transport_raw_digest": "sha256:42f1bd6be7bc7fc094fbd3cf3e95b72ad7dbfac197b6f83bdae67bf3cd053f4e",
+  "response_digest": "sha256:55931b1e9e093ad688f857760ed7a17a45976cc12930651747940d88b1a90461"
+}

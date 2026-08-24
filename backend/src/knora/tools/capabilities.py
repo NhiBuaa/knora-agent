@@ -111,6 +111,8 @@ class CapabilityRegistry:
             digest=_digest(_create_ticket_projection),
         ),
     }
+    registry_identity = "knora-static-tool-capability-registry"
+    registry_version = "m4-v1"
 
     @classmethod
     def static(cls) -> CapabilityRegistry:
@@ -130,6 +132,25 @@ class CapabilityRegistry:
     @property
     def capability_ids(self) -> tuple[str, ...]:
         return tuple(self._descriptors)
+
+    @property
+    def registry_digest(self) -> str:
+        return _digest(
+            {
+                "registry_identity": self.registry_identity,
+                "registry_version": self.registry_version,
+                "descriptors": [
+                    {
+                        "capability_id": item.capability_id,
+                        "version": item.version,
+                        "digest": item.digest,
+                        "operation": item.operation,
+                        "resource_kind": item.resource_kind,
+                    }
+                    for item in self._descriptors.values()
+                ],
+            }
+        )
 
 
 class WorkspaceResourceAuthorizer:
@@ -163,6 +184,8 @@ class WorkspaceResourceAuthorizer:
         descriptor: CapabilityDescriptor,
         binding: ExternalScopeBinding,
         reference: str | ExternalResourceReference,
+        *,
+        at_time=None,
     ) -> AuthorizedExternalResource:
         if principal is None:
             raise KnoraError("UNAUTHENTICATED")
@@ -171,12 +194,14 @@ class WorkspaceResourceAuthorizer:
         if self._reference_verifier is None:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         try:
-            verified = self._reference_verifier.verify(reference)
+            verified = self._reference_verifier.verify(reference, at_time=at_time)
         except KnoraError as error:
             if error.code == "INVALID_TOOL_RESOURCE_REFERENCE":
                 raise
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from None
         except (ValueError, TypeError):
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from None
+        except Exception:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from None
         if (
             verified.workspace_id != principal.workspace_id

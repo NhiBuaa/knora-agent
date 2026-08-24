@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:6f418e735acffd7de2e3c4022e4e0c015a2ba875c092e69c6df86774e236c581",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v5:round-1:6a8aa12d-780c-83ec-a310-ffb859ff5069",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8aa12d-780c-83ec-a310-ffb859ff5069",
+  "packet_digest": "sha256:752b28ffa44817432f5fc6402313a44615396ff034bd0df1ceb1aa2737649b33",
+  "guide_revision": "m4-77-ticket-contract-v5",
+  "guide_digest": "sha256:5bf7370820d903b62c38912d254caa1132144f7692b797eaf691079f3dc25562",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 8,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "acquisition_atomicity_and_loser_zero_call_oracle_gap",
+      "criterion_ref": "M4-77-AC-02",
+      "affected_case_ids": ["M4-77-TC-06"],
+      "affected_fields": ["acquire_execution", "generation", "authorized_snapshot", "lease", "logical_id", "fingerprint", "audit", "provider_call_count"],
+      "problem": "TC-06 proves one generation-1 acquisition, one admission and at most one logical external effect, but that oracle can still pass if losing concurrent execute calls reach the provider and are idempotently collapsed. It also does not directly prove that acquisition atomically created the executing state, database-time lease, immutable authorized snapshot, logical identity/fingerprint and acquisition audit required by AC-02.",
+      "required_change": "Strengthen TC-06 or add a dedicated acquisition case that inspects the committed generation-1 acquisition tuple atomically and instruments gateway/provider invocation per contender, requiring every acquisition loser to make exactly zero provider calls."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "admission_m4r1_reverification_coverage_gap",
+      "criterion_ref": "M4-77-AC-03",
+      "affected_case_ids": ["M4-77-TC-02", "M4-77-TC-03"],
+      "affected_fields": ["m4r1", "integrity", "trusted_store", "key", "authorize_and_admit_dispatch"],
+      "problem": "AC-03 requires full m4r1 reverification after the admission locks, but TC-02/TC-03 mutate and race authority, selector and reference-key classes only. The packet separately treats m4r1 integrity/trusted-store/key denial as a distinct class in TC-01, so a valid acquisition followed by an m4r1 trust/integrity/key change before admission is not directly exercised.",
+      "required_change": "Add post-acquisition admission tests that independently invalidate or change each m4r1 integrity/trusted-store/key condition while admission is blocked, and require denial after lock-time reload/reverification with zero admission and zero provider calls."
+    },
+    {
+      "severity": "major",
+      "category": "evidence",
+      "issue_class": "dispatch_admission_exact_field_witness_gap",
+      "criterion_ref": "M4-77-AC-04",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-04", "M4-77-TC-10"],
+      "affected_fields": ["DispatchAdmission", "authority_vector", "capability", "binding", "policy", "reference", "logical_identity", "fingerprint", "database_times", "owner", "generation", "purpose", "key_provenance"],
+      "problem": "The current oracles prove uniqueness, epoch ordering, expiry timing and envelope reconstruction, but none requires a direct comparison of the persisted DispatchAdmission against every field mandated by AC-04. In particular, purpose, key provenance and the complete atomic field tuple can be omitted or sourced elsewhere while the listed tests still pass.",
+      "required_change": "Require a store-level admission witness captured from the committed row and compare every AC-04 field, including exact authority vector, selectors/reference, identity/fingerprint, database times, owner/generation, purpose and non-secret key provenance, as one immutable atomic admission record."
+    },
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "post_admission_mutation_non_cancellation_gap",
+      "criterion_ref": "M4-77-AC-05",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-05", "M4-77-TC-10"],
+      "affected_fields": ["admission_first_dispatch", "later_mutation", "expiry", "retargeting", "envelope"],
+      "problem": "The packet tests mutation racing admission and crash windows after admission, but it never explicitly mutates or expires authority/reference state after a durable admission and before gateway invocation, then proves that the already-admitted dispatch proceeds using the byte-identical material fields. An implementation could persist admission correctly yet cancel or retarget the dispatch after a later mutation and still satisfy the existing oracles.",
+      "required_change": "Add an admission-first case that pauses after admission commit, performs each relevant later mutation/expiry, resumes dispatch, and requires the original byte-identical envelope/material fields to be sent without reauthorization, cancellation or retargeting."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "provider_fingerprint_conflict_oracle_not_reachable",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-06", "M4-77-TC-08"],
+      "affected_fields": ["logical_id", "fingerprint", "envelope", "provider_ledger", "conflict"],
+      "problem": "TC-06 says to replay the same admission envelope with equal and conflicting fingerprints, but AC-05/TC-08 require the integrity-protected envelope to bind the exact request and fingerprint. A conflicting fingerprint supplied with the same byte-identical envelope should therefore fail envelope/request verification, not exercise AC-06's authoritative provider-ledger rule that the same logical ID with another valid fingerprint conflicts before a second effect.",
+      "required_change": "Define a reachable provider-level conflict fixture using two independently valid integrity-protected requests/envelopes for the same logical execution ID with different fingerprints, or otherwise specify an equivalent provider-owned setup, and require the second valid request to hit the ledger fingerprint-conflict path with no second effect."
+    },
+    {
+      "severity": "major",
+      "category": "scope",
+      "issue_class": "future_reconciliation_acceptance_scope_conflict",
+      "criterion_ref": "M4-77-AC-07",
+      "affected_case_ids": ["M4-77-TC-05", "M4-77-TC-10"],
+      "affected_fields": ["authorized_retry", "orphan_first_admission", "provider_first_recovery", "issue_78_boundary"],
+      "problem": "AC-07 normatively requires behavior for an authorized #78 retry and orphan first-admission recovery, while DD-06, the invariants and out-of-scope section explicitly reserve replay authorization, provider-first reconciliation and orphan recovery implementation for Issue #78. No #77 test can fully execute those AC-07 clauses without crossing the stated scope boundary.",
+      "required_change": "Split AC-07 so #77 acceptance contains only enforceable generation-1 durability/indeterminate invariants, and move #78 retry/orphan behavior to an explicit downstream interface/dependency contract; alternatively define a non-executing contract oracle that proves only the #77 seam without implementing #78 behavior."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "provider_ledger_not_found_nonterminal_oracle_gap",
+      "criterion_ref": "M4-77-AC-07",
+      "affected_case_ids": ["M4-77-TC-05", "M4-77-TC-09"],
+      "affected_fields": ["provider_ledger", "not_found", "outstanding_admission", "terminality"],
+      "problem": "AC-07 explicitly says provider-ledger not-found does not close an existing admission, but no test case performs that lookup/result and asserts that the admission remains outstanding. TC-09 separately treats target_not_found as a terminal direct result, so the intended distinction between provider-ledger not-found and target_not_found is not made observable by an oracle.",
+      "required_change": "Add an explicit provider-ledger-not-found case after durable admission and require the execution/admission to remain outstanding and indeterminate; distinguish that result in the contract and oracle from the terminal direct target_not_found outcome."
+    },
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "read_observation_authority_write_escalation_gap",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-01", "M4-77-TC-09"],
+      "affected_fields": ["read_authority", "observation_authority", "write_authority", "provider_call_count"],
+      "problem": "AC-09 requires that read or observation authority never grants write authority, but no test explicitly presents a principal possessing read/observation permission while lacking execution/write permission and proves that the write path is denied. Generic execution-authority denial does not make this non-escalation property independently observable.",
+      "required_change": "Add an application/HTTP authorization matrix case with read-only and observation-only principals that lack write/execution authority, and require denial before acquisition/admission with zero provider calls and no execution-start artifacts."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": ["M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-09"]
+  },
+  "summary": "The eight listed prior findings are explicitly reflected in v5's revised decisions, cases and evidence requirements, but strict acceptance still cannot be granted because seven criteria remain only partially covered or contain non-observable/scope-conflicting clauses. AC-01, AC-08 and AC-10 have complete direct coverage; the remaining gaps above permit materially non-conforming implementations to pass the stated test oracles.",
+  "chat_reference": "https://chatgpt.com/c/6a8aa12d-780c-83ec-a310-ffb859ff5069",
+  "response_digest": "sha256:42f508596aaa1e7ddae12cc571153a57cdd0d1248a2b1502125f938c49e097cc"
+}

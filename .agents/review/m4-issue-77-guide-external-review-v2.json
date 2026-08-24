@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8acb51-6d60-83ec-9009-24fda2a88c7f",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-guide-v2-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "89b7e1c408a1d4a9034256202954eadbe1d24f4b",
+  "ticket_id": "#77",
+  "guide_revision": "m4-77-authorized-execution-v2",
+  "guide_digest": "sha256:1fd51587723113f6e55fddaf6f9bf4e07c6a8aaa6f3fe038f1fe2c24bfb18238",
+  "request_id": "review-request-sha256:c30c0c135b3808b23aa4839fa9fc816499d831136bd9f973a1365e70fedcfe31",
+  "packet_reference": ".agents/review/m4-issue-77-guide-review-packet-v2.json",
+  "packet_digest": "sha256:3339916fdc4ee8f5bbc8b722a3b170480c92fc097351db3e1b8b28c768ad50bd",
+  "response_reference": ".agents/review/m4-issue-77-guide-review-response-v2.json",
+  "response_digest": "sha256:edca8011408db973899a5ca5788aaae0db1e85ea82dd98b37a2e37fc463f602a",
+  "transport_raw_digest": "sha256:ad8bf5bd219b45d32d60732d676a78deb0beb8bc5c12c152552634fb5cd196d1",
+  "chat_reference": "https://chatgpt.com/c/6a8acb51-6d60-83ec-9009-24fda2a88c7f",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "prior_findings_closed": ["M4-77-GR-001", "M4-77-GR-002", "M4-77-GR-003"],
+  "finding_classes": [
+    "post_acquisition_nonkey_denial_oracle_incomplete",
+    "provider_cross_binding_oracle_missing",
+    "test_only_trusted_adapter_production_isolation_unproven",
+    "public_result_closed_allowlist_not_fully_specified"
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": []
+  },
+  "summary": "Guide v2 closes every v1 finding but remains blocked by four fresh Major oracle/security gaps. The remediation remains guide/test-craft only and preserves the approved Issue #77/#78 ownership boundary."
+}

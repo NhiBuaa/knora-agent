@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:bdc313483f34566d012d86082d4edba1f214963e259f6ca068ae3fab6be178fa",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v9:round-1:6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "packet_digest": "sha256:097514f4b155d43aa40293d827a397e66962523761423c02d311bfc8f564476a",
+  "guide_revision": "m4-77-ticket-contract-v9",
+  "guide_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "reviewed_commit": "b9cc7c9e09597e36183fa5ee1e23fd73d12bdbf2",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "dispatch_epoch_and_static_registry_protocol_not_fully_oracled",
+      "criterion_ref": "M4-77-AC-03",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-04"],
+      "affected_fields": ["workspace_dispatch_epoch", "reference_key_epoch", "lock_order", "registry_identity", "mutable_source_authority"],
+      "problem": "The packet tests mutation races and a fixed epoch vector, but it does not require observable proof of the complete authority-epoch protocol required by the ticket: Workspace-owned authority/selectors must advance workspace_dispatch_epoch in the same mutation transaction, reference-key mutation must advance the global epoch, mutations requiring both must acquire global then Workspace, admission must lock execution then global then Workspace, the compiled capability registry must remain immutable with an exact version/digest and no plugin epoch, and any mutable source outside this protocol must be ineligible to authorize dispatch. A system with an untracked mutable authorization source, incorrect epoch-advance transaction, different lock order, or plugin-style mutable registry could satisfy the current packet oracles.",
+      "required_change": "Extend AC-03/TC-04 and required evidence with explicit store/composition oracles proving same-transaction epoch advancement for each supported mutation class, global-before-Workspace ordering for dual-epoch mutations, execution->global->Workspace admission lock ordering, immutable compiled registry identity/version/digest with no plugin epoch, and rejection/ineligibility of every mutable authorization source outside the epoch protocol."
+    },
+    {
+      "severity": "major",
+      "category": "evidence",
+      "issue_class": "admission_witness_exact_tuple_under_specified",
+      "criterion_ref": "M4-77-AC-04",
+      "affected_case_ids": ["M4-77-TC-05"],
+      "affected_fields": ["reference_claims_digest", "resource_identity_digest", "target_digest", "parameter_digest", "complete_intent_digest", "authority_epochs", "decision_witness_digests", "database_issue_time", "lease_deadline", "signing_key_identity", "signing_key_version", "envelope_digest"],
+      "problem": "AC-04 compresses the required DispatchAdmissionWitness into grouped phrases, and TC-05 only compares every AC-04 field. The exact ticket requires independently observable fields including reference claims/resource-identity digest, canonical target digest, canonical parameter digest, complete-intent digest, both authority epochs and decision/witness digests, database issue time, lease deadline, envelope signing-key identity/version, and canonical envelope digest as one atomic row. Because several of those fields are not explicitly preserved as distinct required fields in the packet, a lossy admission schema could pass TC-05 while violating the ticket's durability/binding contract.",
+      "required_change": "Make AC-04/TC-05 enumerate and compare every ticket-required admission field as distinct canonical fields, including reference-claims/resource-identity, target, parameter and complete-intent digests; both epochs and decision/witness digests; database issue time and lease deadline; signing-key identity/version; and envelope digest. Require the same complete tuple byte-for-byte after restart and in committed acknowledgement-loss readback."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "test_only_adapter_runtime_unreachability_not_proven",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-03", "M4-77-TC-07"],
+      "affected_fields": ["production_composition", "dependency_injection", "request_adapter_selection", "test_harness_reachability", "test_signer_reachability"],
+      "problem": "The packet calls the mutation adapters non-production and the provider signing composition private, but those are descriptive assertions rather than required negative oracles. The ticket explicitly requires the ReferenceProviderContractHarness and trusted test-signing Adapter to be unreachable through HTTP/application composition or production dependency injection, and separately requires test mutation/signing adapters to be non-selectable by request data. Without a composition/reachability oracle, production wiring or request-controlled adapter selection could regress while every behavioral provider test still passes.",
+      "required_change": "Add a required runtime-composition boundary test/evidence set proving that the contract harness, trusted test signer and mutation adapters cannot be resolved from production application/HTTP composition, cannot be selected through request-controlled values, and are absent from production dependency-injection registrations while remaining available only to the private contract-test composition."
+    },
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "before_expiry_observation_and_finalization_path_not_exercised",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-10"],
+      "affected_fields": ["before_expiry_observation", "before_expiry_finalization", "terminal_outcome_mapping", "observation_audit_durability"],
+      "problem": "TC-10 thoroughly exercises post-expiry fencing and public result projections, but it does not explicitly execute the complementary valid-lease observation/finalization path required by the ticket. The contract requires that before lease expiry direct success can be observed/finalized to succeeded and only target_not_found, validation_rejected and policy_rejected can be observed/finalized to failed; receipt-possible outcomes remain executing/202 and provider fingerprint conflict remains executing/409. Merely covering result projections does not prove record_execution_observation/finalize_execution accept and durably write the four permitted terminal outcomes before expiry.",
+      "required_change": "Extend TC-10 with deterministic before-expiry fixtures for direct success and each named closed rejection, beginning from SQLite-authoritative outcome plus executing/no-observation PostgreSQL state. Invoke record_execution_observation and finalize_execution before lease expiry and prove success becomes succeeded, each named rejection becomes failed, the expected observation/audit records are durable, and no other outcome is terminalized. Preserve the existing post-expiry fencing and exact public-projection matrix."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": ["M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-06", "M4-77-AC-09"]
+  },
+  "summary": "Revision 9 closes both prior findings, but four required contract properties remain insufficiently observable: the complete epoch/static-registry protocol, the exact atomic admission tuple, runtime isolation of test-only adapters/harnesses, and successful before-expiry observation/finalization. Approval is not justified.",
+  "chat_reference": "https://chatgpt.com/c/6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "response_digest": "sha256:ea8e083db65b8f236466e3cf23dbfe815d111892a368e88156b83661147eb56c"
+}

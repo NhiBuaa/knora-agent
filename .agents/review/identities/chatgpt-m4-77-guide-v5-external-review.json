@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "reviewer_id": "chatgpt:6a8ae39b-ff88-83ec-8db4-f7ff5e02263e",
+  "identity_kind": "isolated_external_chat",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "chat_identity": "6a8ae39b-ff88-83ec-8db4-f7ff5e02263e",
+  "source_authority": "authenticated_browser_external-review-session",
+  "purpose": "independent M4 Issue #77 guide v5 review",
+  "created_at": "2026-08-23T19:13:46+07:00"
+}

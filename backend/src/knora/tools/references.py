@@ -321,7 +321,12 @@ class ReferenceVerifier:
         self._key_ring = key_ring
         self._clock = clock or (lambda: datetime.now(UTC))
 
-    def verify(self, reference: str | ExternalResourceReference) -> VerifiedResourceReference:
+    def verify(
+        self,
+        reference: str | ExternalResourceReference,
+        *,
+        at_time: datetime | None = None,
+    ) -> VerifiedResourceReference:
         token = reference.token if isinstance(reference, ExternalResourceReference) else reference
         if not isinstance(token, str):
             raise ValueError("reference must be text")
@@ -371,7 +376,7 @@ class ReferenceVerifier:
                 require_digest(payload.get(field_name), field_name)
         except ValueError as exc:
             raise KnoraError("INVALID_TOOL_RESOURCE_REFERENCE") from exc
-        now = self._clock()
+        now = self._clock() if at_time is None else at_time
         if now.tzinfo is None:
             raise RuntimeError("reference verifier clock must be timezone-aware")
         if issued_at > now or expires_at <= now:

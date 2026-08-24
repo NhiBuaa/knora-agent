@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -10,20 +12,16 @@ from knora.adapters.postgres.tables import (
     ToolProposalDecisionTable,
     ToolProposalTable,
 )
+from knora.adapters.postgres.tool_execution_store import PostgresExecutionStoreMixin
 from knora.domain.errors import KnoraError
 from knora.tools.contracts import thaw_canonical_value
-from knora.tools.proposal_store import (
-    _DecisionResult,
-    _StoredProposal,
-)
-from knora.tools.proposal_types import (
-    ApprovalActor,
-    AuditProjection,
-    ProposalDecision,
-)
+from knora.tools.proposal_store import _DecisionResult, _StoredProposal
+from knora.tools.proposal_types import ApprovalActor, AuditProjection, ProposalDecision
 
 
-class PostgresToolActionStore:
+class PostgresToolActionStore(PostgresExecutionStoreMixin):
+    """Compose proposal decisions with generation-1 execution persistence."""
+
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
 
@@ -156,6 +154,7 @@ class PostgresToolActionStore:
             logical_execution_id=proposal.logical_execution_id,
             created_at=proposal.created_at,
             expires_at=proposal.expires_at,
+            execution_stale_reason=proposal.execution_stale_reason,
         )
 
     @staticmethod
@@ -186,12 +185,15 @@ class PostgresToolActionStore:
                 created_at=decided_at,
             )
         )
-        sequence = session.scalar(
-            select(ToolActionAuditEventTable.sequence)
-            .where(ToolActionAuditEventTable.proposal_id == proposal_id)
-            .order_by(ToolActionAuditEventTable.sequence.desc())
-            .limit(1)
-        ) or 0
+        sequence = (
+            session.scalar(
+                select(ToolActionAuditEventTable.sequence)
+                .where(ToolActionAuditEventTable.proposal_id == proposal_id)
+                .order_by(ToolActionAuditEventTable.sequence.desc())
+                .limit(1)
+            )
+            or 0
+        )
         session.add(
             ToolActionAuditEventTable(
                 id=str(uuid4()),
@@ -259,8 +261,11 @@ class PostgresToolActionStore:
             decision_authority_version=row.decision_authority_version,
             decision_authority_digest=row.decision_authority_digest,
             decision_reason=row.decision_reason,
+            execution_stale_reason=row.execution_stale_reason,
             audit=tuple(
                 AuditProjection(a.sequence, a.event_type, a.actor_id, a.actor_kind, a.payload)
                 for a in audits
             ),
+            execution=PostgresToolActionStore._load_execution(session, row.id),
+            admission=PostgresToolActionStore._load_admission(session, row.id),
         )

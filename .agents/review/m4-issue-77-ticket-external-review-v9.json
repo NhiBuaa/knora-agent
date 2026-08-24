@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-ticket-v9-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "b9cc7c9e09597e36183fa5ee1e23fd73d12bdbf2",
+  "ticket_id": "#77",
+  "contract_revision": "m4-77-ticket-contract-v9",
+  "ticket_digest": "sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5",
+  "request_id": "review-request-sha256:bdc313483f34566d012d86082d4edba1f214963e259f6ca068ae3fab6be178fa",
+  "packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v9.json",
+  "base_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v6.json",
+  "packet_digest": "sha256:097514f4b155d43aa40293d827a397e66962523761423c02d311bfc8f564476a",
+  "response_reference": ".agents/review/m4-issue-77-ticket-review-response-v9.json",
+  "response_digest": "sha256:ea8e083db65b8f236466e3cf23dbfe815d111892a368e88156b83661147eb56c",
+  "transport_raw_digest": "sha256:52dee4f058118b473cad2678a74b5fa492cf184ed363d6bdc05452893ca91efd",
+  "normalized_response_text_digest": "sha256:fd9fb5f340a75399bcf7c535eed8ae32b7a4f3adee331772f8ef34dde3a2970b",
+  "chat_reference": "https://chatgpt.com/c/6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "finding_classes": [
+    "dispatch_epoch_and_static_registry_protocol_not_fully_oracled",
+    "admission_witness_exact_tuple_under_specified",
+    "test_only_adapter_runtime_unreachability_not_proven",
+    "before_expiry_observation_and_finalization_path_not_exercised"
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": ["M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-06", "M4-77-AC-09"]
+  },
+  "transport": "single_pasted_attachment_after_bounded_native_upload_failure",
+  "raw_response_digest": "sha256:d7affa25caa184cfa8406ae9662240348961c956afec2af61174e2b365a964de",
+  "response_normalization": {
+    "status": "schema_projection_normalized",
+    "source_reference": ".agents/review/m4-issue-77-ticket-review-response-v9.json",
+    "category_mapping": {
+      "concurrency_authorization": "oracle",
+      "postgresql_durability": "evidence"
+    },
+    "reason": "The reviewer labels are semantically preserved while mapped to the repository's closed response-category vocabulary; finding text, severity, coverage and verdict are unchanged."
+  },
+  "schema_retry_count": 0,
+  "summary": "Revision 9 closes both prior findings, but four required contract properties remain insufficiently observable: complete epoch/static-registry protocol, exact atomic admission tuple, runtime isolation of test-only adapters/harnesses, and successful before-expiry observation/finalization.",
+  "cadence_eligible": false
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:074a23c1b4ef074988afb0f51c4f0ba2f6633f27ed34f14b09843919fdb9ab08",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v8:round-1:6a8abbe1-0220-83ec-8391-d509247e225c",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8abbe1-0220-83ec-8391-d509247e225c",
+  "packet_digest": "sha256:2468e6f0289fac5ab48ead158781caffae9f3ab4cc2027319439e924d1b1b14d",
+  "guide_revision": "m4-77-ticket-contract-v8",
+  "guide_digest": "sha256:10989a737bb502116984ba4ef628341eb395e4a2759056bf20b9a04e6d3d7707",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "reviewed_commit": "fc4c9e7431f19da31bf99e4be4b72c09213c0a75",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": []
+  },
+  "summary": "The transport provenance correction changes only the review-subject commit identity and does not change the reviewed canonical packet or the evidence-based verdict. Revision 8 directly closes all four prior v7 Major findings with observable branch-specific oracles and required evidence: temporary authorization denial versus durable stale/invalidation is distinguished; server-owned logical identity and independently recomputed complete-intent fingerprint provenance are enforced across generation-1 boundaries; all three post-admission uncertainty branches have exact provider and unchanged Knora-state expectations; and every public result variant is constrained by an exact closed discriminated allowlist with recursive private-field exclusions. The remaining criteria have required Test Case coverage for epoch-serialized authorization/admission, fresh post-lock PostgreSQL time, atomic admission and SQLite provider outcomes, admission-first immutable dispatch, generation-1 fencing/recovery boundaries, restart audit reconstruction, and M1-M3 regression evidence, while reconciliation, takeover, retry and generation 2+ remain owned by #78. No actionable Critical, Major or Minor contract finding remains.",
+  "chat_reference": "https://chatgpt.com/c/6a8abbe1-0220-83ec-8391-d509247e225c",
+  "response_digest": "sha256:194ce8a6ceaea13f7adc473db10e7b86d5307efc4647596568e091c3d108ae4f"
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8ac4e0-44d0-83ec-9208-da92f90fefef",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-guide-v1-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "33f007e2cabc2a760a725fcfa0b98b56a7c73af2",
+  "ticket_id": "#77",
+  "guide_revision": "m4-77-authorized-execution-v1",
+  "guide_digest": "sha256:250c78a9c2670b4fb755ec58ffb6cbc5ef027922c76881b4918f92d0979ec82c",
+  "request_id": "review-request-sha256:450f0fde899b79425d52083d616fddee1e3943d8a85a1d1057d8f728b29503ce",
+  "packet_reference": ".agents/review/m4-issue-77-guide-review-packet-v1.json",
+  "packet_digest": "sha256:2bbb3999990294ebb51126c9aaa2778b026a05e8de5cf73eadf1f57efa5bb9c7",
+  "response_reference": ".agents/review/m4-issue-77-guide-review-response-v1.json",
+  "response_digest": "sha256:e51c6a03ada6b301615273a9de3e604c0b6c5540b81b7be3a18f86667691d131",
+  "transport_raw_digest": "sha256:509e371cceebe48dc3d6c70a4702cdc0296f637720fe07062b955423e11c31c3",
+  "chat_reference": "https://chatgpt.com/c/6a8ac4e0-44d0-83ec-9208-da92f90fefef",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "finding_classes": [
+    "complete_m4r1_key_lifecycle_oracle_gap",
+    "expired_owner_observation_audit_append_fencing_gap",
+    "static_registry_no_dynamic_plugin_boundary_gap"
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": [
+      "deterministic active/retiring m4r1 key lifecycle oracle",
+      "explicit no-observation/no-audit append proof for expired owner",
+      "executable static registry/no plugin-discovery-registration proof"
+    ]
+  },
+  "summary": "Guide v1 is blocked by three Major observable-oracle gaps. The findings require only guide/test-craft revision; they do not change the approved Issue #77 abstractions or move reconciliation behavior from Issue #78."
+}
