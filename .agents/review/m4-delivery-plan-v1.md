@@ -1013,6 +1013,20 @@ transition authority; every later session resumes from its exact `next_valid_tra
 - Local contract audit is `APPROVE` with zero Critical, Major or Minor findings. Publication,
   GitHub read-back equality and external ticket review v2 remain required before guide preparation.
 
+### Issue #78 ticket review packet v2 checkpoint — 2026-08-24
+
+- Contract v4 is committed at `37f1ef03c4667def8db23f1c0f5c09a725f4fd54`, published to Issue
+  #78 and read back equal to the repository artifact after newline normalization.
+- Self-contained packet `.agents/review/m4-issue-78-ticket-review-packet-v2.json` validates `VALID`
+  at semantic digest `sha256:075dc8a13a781808a126b622859d877ba23219564c72a8abe1039d07fd30bada`
+  and request ID
+  `review-request-sha256:a538d52e4b198f73c0a405329c7aba3ae5b864001c2f5964e8b160811e2ff6c9`.
+- Local packet audit is `APPROVE` with zero findings and direct closure references for all three
+  prior Major findings. The next transition is fresh action-time owner confirmation followed by
+  external ticket review v2 in a new authenticated ChatGPT High session. No guide or implementation
+  is authorized.
+
+
 
 ### Forward transitions
 
