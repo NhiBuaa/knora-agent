@@ -1101,6 +1101,24 @@ transition authority; every later session resumes from its exact `next_valid_tra
   Local audit is `APPROVE` with zero findings. External guide review and explicit owner lock remain
   mandatory; no implementation or code review is authorized.
 
+### Issue #78 guide external review v2 transport failure — 2026-08-24
+
+- Exact packet v2 was sent in a new authenticated ChatGPT High session at
+  `https://chatgpt.com/c/6a8bc49c-f3a0-83ec-9766-379401690403`.
+- The first response and the one allowed same-session shape-only retry both failed JSON/schema
+  validation because embedded quoted phrases remained unescaped. The retry corrected the closed
+  finding-category enum and added required identity/digest placeholders, but still could not be
+  parsed. Evidence is sealed by transport digests
+  `sha256:b5b3adc8823babc934228e32d9efd8cd50c9600dbda5cd6c3d59a2953d2a8e2d`
+  and `sha256:a60c0d66272c252378c2a8b24ea2d9176289781b3318e24d0f28c55e3773bc3c`.
+- The visible projection is non-authoritative. It reports `REQUEST_CHANGES`, zero Critical, two
+  Major, and closure of both v1 findings. The new finding classes concern a closed independent
+  expected-generation transition matrix for TC-05 and field-for-field comparison of takeover-
+  finalized Knora terminal data against pre-recovery SQLite provider truth for TC-07/TC-08.
+- Under the bounded retry rule, workflow is suspended. No guide v3, human lock, implementation,
+  acceptance or final M4 code review is authorized until the owner chooses a new-session retry or
+  explicitly authorizes content-preserving normalization of the captured response.
+
 
 
 
