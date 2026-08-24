@@ -208,7 +208,8 @@
     "ticket_78_contract_revision_v4_local_audit_approve",
     "ticket_78_contract_revision_v4_published",
     "ticket_78_external_review_packet_v2_local_audit_approve",
-    "ticket_78_external_review_packet_v2_ready"
+    "ticket_78_external_review_packet_v2_ready",
+    "workflow_suspended_ticket_78_review_v2_send_confirmation"
   ],
   "review_cadence": {
     "risk": "high",
@@ -880,12 +881,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-contract-revision-limit-v1.json",
-    "digest": "sha256:d80994114ccab47eaf316a3af307c2320ec86ff55d092bb51b354fb8fab04999",
-    "status": "consumed",
-    "consumed_at": "2026-08-24T10:00:53+07:00",
-    "current_state": "ticket_78_external_review_v1_request_changes_revision_limit_reached",
-    "next_valid_transition": "on explicit exceptional revision authorization, revise Issue #78 contract v4 through codebase-design and external-review it before guide preparation"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-ticket-review-v2-send-v1.json",
+    "digest": "sha256:95b3bc00cfd431423b7ccbf24f3cf054dddb26f58fa72c26ee0b1ce5136e1e88",
+    "status": "active",
+    "current_state": "ticket_78_external_review_packet_v2_ready_action_confirmation_required",
+    "next_valid_transition": "on fresh action-time confirmation, send exact packet v2 to a new isolated ChatGPT High session and validate the bound response"
   },
   "blockers": [
     "Issue #78 contract v4 is published with exact GitHub read-back equality and packet v2 is locally VALID/APPROVE, but browser send requires fresh action-time confirmation.",
@@ -945,5 +945,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T10:07:12+07:00"
+  "last_updated_at": "2026-08-24T10:09:13+07:00"
 }
