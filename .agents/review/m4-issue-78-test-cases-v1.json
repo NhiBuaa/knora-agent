@@ -1,0 +1,315 @@
+{
+  "status": "completed",
+  "mode": "test-cases",
+  "scope": "Issue #78 M4.4 crash recovery and provider reconciliation",
+  "requirement_source": ".agents/review/m4-issue-78-revision-v4.md",
+  "coverage": {
+    "included_axes": [
+      "data shape and contract",
+      "state and lifecycle",
+      "async and concurrency",
+      "observable HTTP transitions",
+      "security and trust boundaries"
+    ],
+    "omitted_axes": [
+      {
+        "axis": "graphical UI and visual flashing",
+        "reason": "Issue #78 exposes application, PostgreSQL, provider and HTTP seams and introduces no graphical UI."
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "M4-78-TC-01",
+      "requirement": "Provider-first terminal reconciliation behaves deterministically under current-owner, current-foreign and expired leases.",
+      "risk": "A terminal provider outcome can be lost, persisted under a stale lease, converted into retry or finalized by two owners.",
+      "seam": "WriteProposalWorkflow.handle(ReconcileExecution), ToolActionStore and independent SQLite provider",
+      "prerequisites": [
+        "AdmissionOutstanding success plus target_not_found, validation_rejected and policy_rejected provider rows",
+        "PostgreSQL executing rows with no durable observation",
+        "current-owner, current-foreign and strictly expired lease fixtures",
+        "counting observation and create_ticket sentinels"
+      ],
+      "steps": [
+        "Reconcile each provider outcome under each lease fixture after current Workspace/resource observation authorization.",
+        "For expired leases, race at least two expected-generation recovery owners and a delayed stale owner.",
+        "Reload PostgreSQL and SQLite independently and compare terminal and audit state."
+      ],
+      "expected_results": [
+        "Provider observation is the first external call and uses the stored logical execution identity.",
+        "Current owner records and finalizes; current foreign lease returns ExecutionInProgress without persistence.",
+        "Expired lease receives no observation/finalization write; exactly one takeover increments generation once and records/finalizes the exact immutable outcome under the new lease.",
+        "Losers and stale owners are fenced, create_ticket/retry count is zero, no second provider lookup is required and public terminal mapping is exact."
+      ],
+      "evidence_to_capture": [
+        "ordered authorization/provider/store call trace",
+        "lease/generation/owner before and after rows",
+        "per-contender observation/finalization/write counters",
+        "terminal HTTP/application projections",
+        "independent restart snapshots"
+      ]
+    },
+    {
+      "id": "M4-78-TC-02",
+      "requirement": "NoAdmission provider-not-found recovery creates the first admission only after stale takeover and all current write checks.",
+      "risk": "Not-found can be mistaken for failed or can permit an early/unauthorized first write.",
+      "seam": "ReconcileExecution application/HTTP seam, PostgreSQL takeover/admission CAS and counting gateway",
+      "prerequisites": [
+        "executing NoAdmission seed",
+        "provider not-found observation",
+        "before-expiry and strictly-after-expiry barriers",
+        "current m4r1, Workspace/resource, execution and compatibility authorities"
+      ],
+      "steps": [
+        "Reconcile before lease expiry and capture not-found plus takeover disposition.",
+        "Expire the lease using PostgreSQL time, race recovery contenders and authorize a write retry.",
+        "Inspect admission, envelope identity, provider ledger/effect and loser counters."
+      ],
+      "expected_results": [
+        "Not-found remains ProviderOutcomeNotFound HTTP 202 and lifecycle executing; before expiry takeover is ExecutionNotStale.",
+        "After strict expiry one contender changes generation/owner/deadline atomically, reruns every current write check, creates exactly one first admission and dispatches once.",
+        "The original logical execution ID/fingerprint survive and losers make zero provider calls."
+      ],
+      "evidence_to_capture": [
+        "not-found public projection",
+        "PostgreSQL time and takeover CAS trace",
+        "write-authority decision matrix",
+        "admission/envelope/logical identity digests",
+        "provider call/effect counters"
+      ]
+    },
+    {
+      "id": "M4-78-TC-03",
+      "requirement": "AdmissionOutstanding not-found recovery replays only the persisted byte-identical admission and suppresses duplicates.",
+      "risk": "Recovery can mint a second admission/envelope or duplicate a delayed original external effect.",
+      "seam": "ReconcileExecution, persisted dispatch admission and SQLite idempotency ledger",
+      "prerequisites": [
+        "AdmissionOutstanding provider-not-found seed",
+        "strictly expired lease",
+        "delayed original dispatch barrier",
+        "multiple recovery contenders"
+      ],
+      "steps": [
+        "Observe not-found and race stale takeover contenders.",
+        "Release the delayed original dispatch while the winner replays the persisted admission.",
+        "Restart the provider and compare admission/envelope/outcome/effect identities."
+      ],
+      "expected_results": [
+        "Exactly one takeover wins and no admission is created or replaced.",
+        "Retry uses the exact persisted envelope/admission, logical ID and fingerprint.",
+        "Provider same-ID/same-fingerprint idempotency produces at most one logical external effect; stale owners cannot observe or finalize."
+      ],
+      "evidence_to_capture": [
+        "pre/post admission and envelope digests",
+        "per-contender takeover/replay counters",
+        "provider idempotency/effect rows before and after restart",
+        "stale-owner fencing trace"
+      ]
+    },
+    {
+      "id": "M4-78-TC-04",
+      "requirement": "Observation/finalization authority remains separate from write-retry authority across expiry, key revocation, authorization denial and material mismatch.",
+      "risk": "Read authority may grant write, or expiry/revocation may incorrectly block finalization of already-started terminal outcomes.",
+      "seam": "observation resolver/authorizer, execution authorizer, compatibility checker, application and HTTP",
+      "prerequisites": [
+        "found success and all three closed failures",
+        "proposal/reference expiry and reference-key revocation fixtures",
+        "observation denial and temporary write-authority revocation fixtures",
+        "missing/mismatched trusted routing state",
+        "all capability/binding/policy identity/version/digest mismatch fixtures"
+      ],
+      "steps": [
+        "With observation authorization allowed, reconcile every terminal outcome once after expiry and once after key revocation.",
+        "Deny observation authority and prove denial before provider lookup.",
+        "For not-found recovery, revoke write authority, corrupt/remove trusted routing and apply each material compatibility mismatch.",
+        "Reload proposal, approval, execution and audit state."
+      ],
+      "expected_results": [
+        "Every expiry/key-revocation terminal case finalizes with exact success/failure mapping, appends audit and makes zero create_ticket/retry calls.",
+        "Observation denial happens before provider lookup and grants no write.",
+        "Temporary write denial preserves approved provenance; material mismatch becomes stale/non-executable and requires new proposal/approval.",
+        "Missing/mismatched trusted routing remains sanitized typed non-terminal and never becomes failed."
+      ],
+      "evidence_to_capture": [
+        "terminal outcome by expiry/revocation matrix",
+        "authorization and zero-call counters",
+        "proposal/approval before-after projections",
+        "compatibility mismatch matrix",
+        "sanitized routing-fault results"
+      ]
+    },
+    {
+      "id": "M4-78-TC-05",
+      "requirement": "PostgreSQL time and generation fencing deterministically decide concurrent recovery.",
+      "risk": "Host-clock skew, lock wait or stale observations can produce two takeover winners or stale finalization.",
+      "seam": "PostgreSQL execution-row lock barriers and typed takeover/record/finalize transitions",
+      "prerequisites": [
+        "current, strict-boundary, stale, changed-generation, foreign-owner and terminal rows",
+        "separate takeover, observation and finalization lock barriers",
+        "skewed application and non-database clocks"
+      ],
+      "steps": [
+        "Start operations before the lease boundary and block them before the governing row lock.",
+        "Cross or preserve the boundary with an independent PostgreSQL session, release the lock and capture fresh post-lock database time.",
+        "Race contenders for non-terminal and provider-terminal outcomes and inspect all returned typed dispositions."
+      ],
+      "expected_results": [
+        "Fresh post-lock PostgreSQL time alone decides strict staleness.",
+        "Results are only ExecutionNotStale, one Applied takeover, ExecutionFenced, ExecutionInProgress or persisted terminal outcome.",
+        "Generation increments once; terminal winner alone records/finalizes and no stale or losing write exists."
+      ],
+      "evidence_to_capture": [
+        "operation/transaction/post-lock clock tuples",
+        "lock order and lease boundary trace",
+        "generation/owner/deadline rows",
+        "operation-correlated write counters"
+      ]
+    },
+    {
+      "id": "M4-78-TC-06",
+      "requirement": "Every provider observation has an exact safe application/HTTP projection.",
+      "risk": "Unknown/not-found outcomes can fabricate failure, closed failures can leak provider details or public fields can drift.",
+      "seam": "SupportToolGateway observation Adapter, application result and HTTP serializer",
+      "prerequisites": [
+        "unavailable, timeout, malformed, unknown, not-found, success and all closed failure outcomes",
+        "independent result matrix not importing production result/serializer code",
+        "forbidden-field injector"
+      ],
+      "steps": [
+        "Inject each provider observation through application and HTTP seams.",
+        "Compare status, outcome/lifecycle/reason or rejection code and complete recursive key sets against the independent matrix.",
+        "Inject raw routing, provider ID, envelope, key and internal-error fields and reload durable state."
+      ],
+      "expected_results": [
+        "Unavailable/timeout/malformed/unknown return ReconciliationIndeterminate HTTP 202; not-found returns distinct ProviderOutcomeNotFound HTTP 202; neither terminalizes or grants retry.",
+        "Success returns ReconciledSucceeded HTTP 200; each closed failure returns ReconciledFailed HTTP 502 with TOOL_PROVIDER_FAILURE and exact allowlisted rejection code.",
+        "Every non-terminal and terminal projection has only allowlisted fields and forbidden fields fail closed."
+      ],
+      "evidence_to_capture": [
+        "independent matrix digest",
+        "per-row application/HTTP decoded bodies and key sets",
+        "lifecycle/terminal row deltas",
+        "forbidden-field failures"
+      ]
+    },
+    {
+      "id": "M4-78-TC-07",
+      "requirement": "Both crash windows recover across independent Knora and provider restarts without duplicate effect.",
+      "risk": "Provider commit acknowledgement loss or pre-receipt crash can strand executing state or duplicate the external action.",
+      "seam": "deterministic crash barriers, PostgreSQL ToolActionStore and independent SQLite provider",
+      "prerequisites": [
+        "after-provider-commit-before-Knora-persist success and closed-failure fixtures",
+        "after-executing-persist-before-provider-receipt fixture",
+        "stale lease and restart controls"
+      ],
+      "steps": [
+        "Trigger each crash window and capture PostgreSQL/SQLite state before restart.",
+        "Restart Knora and SQLite independently, expire the original lease and repeatedly reconcile.",
+        "For no-receipt, allow retry only after all current write checks pass."
+      ],
+      "expected_results": [
+        "Committed provider outcome follows provider-first observation, one stale takeover, exact-result record/finalize and zero retry/duplicate.",
+        "No-receipt remains non-terminal until safe takeover/retry, then reuses one logical ID/fingerprint and produces at most one effect.",
+        "Repeated reconciliation converges to the same durable outcome."
+      ],
+      "evidence_to_capture": [
+        "named crash-window records",
+        "before/after independent restart snapshots",
+        "logical identity/fingerprint/admission lineage",
+        "provider ledger/effect and retry counters"
+      ]
+    },
+    {
+      "id": "M4-78-TC-08",
+      "requirement": "Append-only audit reconstructs recovery provenance without secrets and provider truth remains independent.",
+      "risk": "Recovery can become unauditable or leak trusted routing/admission material.",
+      "seam": "PostgreSQL audit projection and independently reopened SQLite provider",
+      "prerequisites": [
+        "completed outcomes from TC-01 through TC-07",
+        "canonical audit-field allowlist",
+        "forbidden secret/private field list"
+      ],
+      "steps": [
+        "Restart both stores independently and reconstruct each recovery timeline from PostgreSQL audit only.",
+        "Compare provider outcome separately from SQLite.",
+        "Scan public/audit evidence recursively for forbidden values."
+      ],
+      "expected_results": [
+        "Audit reconstructs actor/authority decisions, binding snapshot, generations, leases, provider observations, retry decision, fencing and terminal result in order.",
+        "SQLite remains independently authoritative for provider outcome/idempotency.",
+        "No raw routing, envelope bytes, keys, credentials, authority secrets or internal exceptions appear."
+      ],
+      "evidence_to_capture": [
+        "ordered audit timelines",
+        "field/sequence comparison",
+        "independent provider rows",
+        "forbidden-field scan"
+      ]
+    },
+    {
+      "id": "M4-78-TC-09",
+      "requirement": "The exact candidate passes focused recovery, full regression, Ruff, Compose and clean migration lifecycle verification.",
+      "risk": "Focused recovery behavior can hide schema or M1-M3 regression failures.",
+      "seam": "governed repository verification in the clean Issue #78 worktree",
+      "prerequisites": [
+        "exact candidate SHA",
+        "Docker project m4-integration PostgreSQL",
+        "worktree-pinned Python/PYTHONPATH",
+        "clean database recreation"
+      ],
+      "steps": [
+        "Run clean Alembic upgrade and current, then the focused M4.4 suite.",
+        "Recreate/migrate PostgreSQL and run the full repository suite serially.",
+        "Run Ruff, Compose config, downgrade/re-upgrade/current and inspect Git status."
+      ],
+      "expected_results": [
+        "Every command exits zero with exact invocation and totals recorded.",
+        "M1-M3 plus accepted M4.1-M4.3 regressions remain green.",
+        "Alembic returns to head and the worktree is clean."
+      ],
+      "evidence_to_capture": [
+        "subject SHA",
+        "commands/exits/totals",
+        "migration revisions",
+        "clean status"
+      ]
+    },
+    {
+      "id": "M4-78-TC-10",
+      "requirement": "The exact candidate retains the static typed registry and generic fake/SQLite provider seam with no plugin or vendor scope.",
+      "risk": "A green functional suite can hide dynamic discovery, runtime registration or vendor integration expansion.",
+      "seam": "production composition, focused registry contract and exact source-base-to-candidate scope manifest",
+      "prerequisites": [
+        "source base 1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
+        "exact candidate SHA",
+        "closed capability descriptor allowlist",
+        "dependency/config/entry-point and production composition inventory"
+      ],
+      "steps": [
+        "Resolve CapabilityRegistry through production composition and compare exact identity/version/digest and ticket_lookup/create_ticket typed descriptors before/after restart.",
+        "Probe every production application/HTTP surface for runtime registration, discovery, plugin loading, provider selection and vendor-specific adapters.",
+        "Generate a content-addressed changed-path/dependency/architecture manifest from source base to candidate and inspect dependency/config/entry-point changes."
+      ],
+      "expected_results": [
+        "Registry remains static, immutable and exactly allowlisted with no registration/discovery/plugin operation.",
+        "SupportToolGateway remains provider-generic and production exposes only the fixed generic boundary; fake/SQLite remain the only M4 provider adapters.",
+        "Manifest binds both SHAs and proves no plugin marketplace, vendor SDK/configuration or vendor-specific integration was added."
+      ],
+      "evidence_to_capture": [
+        "registry projection and restart digest",
+        "production composition probe matrix",
+        "changed-path/dependency/entry-point manifest",
+        "source-base and candidate SHAs"
+      ]
+    }
+  ],
+  "artifacts": [
+    ".agents/review/m4-issue-78-revision-v4.md",
+    ".agents/review/m4-issue-78-ticket-review-packet-v2.json",
+    ".agents/review/m4-issue-78-ticket-external-review-v2.json",
+    "docs/design/milestone-4-tools-human-approval.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md"
+  ],
+  "red_observed": null,
+  "failure_reason": null
+}

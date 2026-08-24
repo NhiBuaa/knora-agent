@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_id": "github-issue-78",
+  "guide_revision": "m4-78-crash-recovery-v1",
+  "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v1.md",
+  "guide_digest": "sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa",
+  "test_case_reference": ".agents/review/m4-issue-78-test-cases-v1.json",
+  "test_case_digest": "sha256:60af1b41889e2e3128abfe63774029e1a4b1f740914dbb65607e311447de8989",
+  "packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v1.json",
+  "packet_digest": "sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597",
+  "request_id": "review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb",
+  "checks": {
+    "all_ticket_acceptance_criteria_traced": true,
+    "all_ten_required_cases_present": true,
+    "provider_first_and_zero_call_oracles_observable": true,
+    "stale_terminal_sequence_complete": true,
+    "expiry_and_key_revocation_terminal_matrix_complete": true,
+    "both_crash_windows_and_independent_restarts_complete": true,
+    "current_write_reauthorization_matrix_complete": true,
+    "public_result_matrix_closed": true,
+    "static_registry_no_plugin_no_vendor_exact_candidate_oracle_present": true,
+    "append_only_evaluation_and_human_lock_gates_present": true,
+    "implementation_or_final_review_not_authorized": true
+  },
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "next_transition": "commit and push guide review packet v1, then require action-time confirmation before external guide review"
+}

@@ -1041,6 +1041,27 @@ transition authority; every later session resumes from its exact `next_valid_tra
   manual acceptance Test Cases and guide; implementation remains blocked until guide external
   review and explicit human lock.
 
+### Issue #78 guide v1 preparation — 2026-08-24
+
+- `manual-acceptance -> test-craft` produced ten required structured Test Cases at
+  `.agents/review/m4-issue-78-test-cases-v1.json` and draft guide
+  `.agents/manual-tests/milestone-4/78-crash-recovery-v1.md`.
+- Guide v1 binds provider-first terminal reconciliation, NoAdmission first write,
+  AdmissionOutstanding replay, expiry/key-revocation finalization, authorization/mismatch denial,
+  PostgreSQL-time concurrency, public result matrices, both crash windows, audit reconstruction,
+  full regression/migration verification and exact-candidate no-plugin/no-vendor scope evidence.
+- Exact guide digest is
+  `sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa`;
+  Test Case artifact digest is
+  `sha256:60af1b41889e2e3128abfe63774029e1a4b1f740914dbb65607e311447de8989`.
+- Self-contained guide packet validates `VALID` at
+  `sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597`
+  with request ID
+  `review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb`;
+  local guide audit is `APPROVE` with zero findings. External guide review and explicit owner lock
+  remain mandatory before implementation.
+
+
 
 
 
