@@ -1263,3 +1263,25 @@ Completion is proven only when Issues #74–#79 are closed, PRs #80/#81 plus the
 PRs and the parent PR are merged, final review and cadence gates are green, post-merge verification
 passes, `main == origin/main`, canonical and all retained worktrees are clean, and no M4 worktree or
 local/remote branch remains.
+
+### Issue #78 implementation ingestion attempt 2 — 2026-08-24
+
+- Return contract attempt 2 is valid and preserves candidate commit
+  `283c23a2bb648f32fc3fd62e0b988a3b6cc9773c`; the worker stayed on the prepared branch/worktree,
+  committed within the path allowlist and did not push, accept, integrate, review, merge or publish.
+- Ingestion is rejected as retryable. The create-once result evidence digest is
+  `sha256:6bdbac1f6add0cbeb6a66a0bb7dffed914e36433b665b6cdcb0650b23ca6dc59`, but its JSON omits the
+  flat sealed-attribution fields required by the feature-delivery ingestion validator.
+- The leader reproduced a second independent blocker: the exact locked focused command exits 4
+  before collection because `backend/test/tools/test_reconciliation_postgres.py` does not exist;
+  zero tests ran. The worker-reported command substituted `test_execution_postgres.py`, so its green
+  result cannot satisfy the locked guide/dispatch command.
+- The one allowed retryable technical retry is dispatch attempt 3, identity
+  `feature-delivery/m4-tools-human-approval/issue-78/attempt-3`. It preserves the candidate, may
+  change only the existing #78 allowlisted scope, must call `implement` exactly once, close the
+  missing exact test artifact/command gap, rerun every exact verification, publish schema-valid
+  create-once result evidence, commit locally, and return without push or acceptance. Dispatch,
+  workspace and Resume digests are
+  `sha256:0b89722648d287f6d80fbc9e42df88e0fc45ca9b7a9ed97c5a1bbfd56dafbb6f`,
+  `sha256:1b7bc0c9d309a08d1156abbe35025880df7aba7df74b4b66bef609e1bafabf6c` and
+  `sha256:44db8b31e6cc32a2ad2e5a44fdd8e35034018ed7cdc02b81c3bf7c090d608176`.
