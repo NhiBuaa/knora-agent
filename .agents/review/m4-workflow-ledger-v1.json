@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_human_accepted_pending_integration",
-  "next_valid_transition": "commit and push Issue #77 acceptance evidence, reconcile PR #82 with the current integration head, verify and merge",
+  "current_state": "ticket_77_integrated_pending_close_cleanup",
+  "next_valid_transition": "commit and push Issue #77 integration evidence, close Issue #77, clean its worktree and branches, then advance Issue #78 to the frontier",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -16,15 +16,15 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "b1d101e3636bb3a1ee013d304f70e37b9cb61418",
-    "current_head_resolution": "verified integration head after PR #81 merge and durable #76 ledger checkpoint",
+    "current_head": "46491b91f248d004c5c9f693c3986befdf06ca66",
+    "current_head_resolution": "verified integration head after PR #82 merge; Issue #77 acceptance preserved by selective invalidation",
     "published": true
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "human_accepted_pending_integration", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_pending_close_cleanup", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked_pending_issue_77_close", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -190,7 +190,8 @@
     "human_guide_77_v7_approved_and_locked",
     "implementation_77_completed",
     "evaluation_77_guide_v7_executed_technical_pass",
-    "human_acceptance_77_guide_v7_approved"
+    "human_acceptance_77_guide_v7_approved",
+    "integration_77_pr_82_merged_and_verified"
   ],
   "review_cadence": {
     "risk": "high",
@@ -829,9 +830,10 @@
     ".agents/review/m4-issue-77-guide-approval-v7.json",
     ".agents/manual-tests/milestone-4/77-authorized-execution-v7.evaluations.jsonl",
     ".agents/review/m4-issue-77-release-evidence-v1.json",
+    ".agents/review/m4-issue-77-integration-evidence-v1.json",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T08:49:59+07:00"
+  "last_updated_at": "2026-08-24T09:16:47+07:00"
 }
