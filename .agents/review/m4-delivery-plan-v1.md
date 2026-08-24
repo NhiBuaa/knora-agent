@@ -997,6 +997,23 @@ transition authority; every later session resumes from its exact `next_valid_tra
   authorization for ticket-contract revision v4, followed by `codebase-design`, local audit,
   GitHub read-back equality, and a new external ticket review before any guide is created.
 
+### Issue #78 exceptional contract revision v4 — 2026-08-24
+
+- The repository owner explicitly authorized exceptional ticket-contract revision v4 to close all
+  three Major findings from external review v1 before any guide is prepared.
+- `codebase-design` retained the approved deep `WriteProposalWorkflow.handle` Interface and fixed
+  one deterministic stale-terminal sequence: provider observation precedes recovery; an expired
+  lease cannot persist; one expected-generation takeover winner records and finalizes the exact
+  immutable terminal outcome under its new lease; losers are fenced and no provider retry occurs.
+- Acceptance now requires success plus every closed provider failure to terminalize under both
+  proposal/reference expiry and key revocation with zero write calls and exact public mappings.
+  It also requires candidate-SHA-bound registry tests plus changed-path/dependency evidence proving
+  the static typed registry, generic provider seam and fake/SQLite adapters remain free of plugin,
+  discovery, runtime registration and vendor integration scope.
+- Local contract audit is `APPROVE` with zero Critical, Major or Minor findings. Publication,
+  GitHub read-back equality and external ticket review v2 remain required before guide preparation.
+
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.

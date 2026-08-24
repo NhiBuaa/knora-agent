@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_id": "github-issue-78",
+  "source_review_reference": ".agents/review/m4-issue-78-ticket-review-response-v1.json",
+  "source_review_response_digest": "sha256:4badd52742f08be87c28eb8a13ff15ed0cf35280710f6bfeea52fe3ff31b26db",
+  "target_contract_revision": 4,
+  "core_abstractions_changed": false,
+  "findings": [
+    {
+      "issue_class": "expiry_revocation_terminal_finalization_not_observed",
+      "severity": "major",
+      "status": "addressed",
+      "closure": "Contract v4 requires found success and every closed failure to finalize under both expiry and key-revocation conditions when observation authorization passes, with exact terminal projection and zero provider write/retry."
+    },
+    {
+      "issue_class": "stale_lease_terminal_observation_transition_unspecified",
+      "severity": "major",
+      "status": "addressed",
+      "closure": "Contract v4 fixes the provider-first stale-terminal sequence: no stale persistence, one expected-generation takeover winner, exact immutable observed terminal outcome recorded/finalized under the new lease, fenced losers and zero provider retry."
+    },
+    {
+      "issue_class": "static_registry_no_plugin_boundary_unverified",
+      "severity": "major",
+      "status": "addressed",
+      "closure": "Contract v4 requires exact-source/candidate SHA evidence combining focused static-registry tests with changed-path and dependency audit for no plugin/discovery/runtime registration/vendor integration."
+    }
+  ],
+  "next_gate": "local contract audit, exact GitHub issue-body read-back equality, then external ticket-review packet v2 before any guide or implementation"
+}
