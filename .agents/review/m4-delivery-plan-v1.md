@@ -1079,6 +1079,28 @@ transition authority; every later session resumes from its exact `next_valid_tra
   `manual-acceptance -> test-craft` revision v2, followed by a new external guide review. Final M4
   code review remains deferred until #75–#79 are complete.
 
+### Issue #78 guide v2 preparation — 2026-08-24
+
+- `manual-acceptance -> test-craft` revised only TC-01, TC-02, TC-04 and TC-07 to close the two
+  Major security-oracle findings. The structured artifact is
+  `.agents/review/m4-issue-78-test-cases-v2.json` at digest
+  `sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46`.
+- Guide `.agents/manual-tests/milestone-4/78-crash-recovery-v2.md` at digest
+  `sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9`
+  now requires the exact successful-path sequence `path-Workspace/resource observation
+  authorization -> trusted snapshot routing -> provider observation`, plus zero provider-observation
+  calls for every observation-authorization failure.
+- The guide also holds a valid observation-routing snapshot constant while each current write
+  authority fails independently, attempts every retry/admission/dispatch/`create_ticket` seam and
+  requires zero target lookup, provider-ledger mutation and provider effect. Snapshot fields and
+  provenance are explicitly excluded from write authority.
+- Canonical packet `.agents/review/m4-issue-78-guide-review-packet-v2.json` validates `VALID` at
+  `sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b`
+  with request ID
+  `review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1`.
+  Local audit is `APPROVE` with zero findings. External guide review and explicit owner lock remain
+  mandatory; no implementation or code review is authorized.
+
 
 
 
