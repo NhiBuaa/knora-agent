@@ -1119,6 +1119,29 @@ transition authority; every later session resumes from its exact `next_valid_tra
   acceptance or final M4 code review is authorized until the owner chooses a new-session retry or
   explicitly authorizes content-preserving normalization of the captured response.
 
+### Issue #78 guide external review v2 new-session retry — 2026-08-24
+
+- The repository owner selected a fresh-session retry of the exact unchanged packet. The packet
+  was reverified at file digest
+  `sha256:ce6a3a5c049c30c91885cba7066f25715f9ed3b6904173c2784d619bed708821`
+  and sent in authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb`.
+- The repository validator accepted the normalized and sealed response at
+  `sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b`.
+  Verdict is `REQUEST_CHANGES`, with zero Critical, two Major and zero Minor findings. This is the
+  authoritative guide-v2 verdict; the earlier schema-invalid session remains transport evidence
+  only.
+- Major `valid_observation_write_denial_matrix_is_self_contradictory` requires the valid-snapshot
+  denial matrix to permit and count authorized provider observation while keeping only admission,
+  dispatch, `create_ticket` and provider write/effect counters at zero.
+- Major `nonterminal_provider_outcomes_are_not_independently_distinguished` requires an independent
+  closed TC-06 matrix that distinguishes unavailable, timeout, malformed/unknown and not-found by
+  exact application/HTTP outcome or reason while all remain non-terminal HTTP 202 with no retry
+  authority.
+- Guide v2 is not lockable and is not cadence-eligible. The next valid transition is immutable guide
+  and Test Case revision v3 followed by fresh external guide review. Implementation, manual
+  acceptance and final M4 code review remain blocked.
+
 
 
 

@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "guide_78_external_review_v2_new_session_retry_authorized",
-  "next_valid_transition": "send the exact unchanged guide-review packet v2 to a new isolated authenticated ChatGPT High session and validate the bound response",
+  "current_state": "guide_78_external_review_v2_request_changes",
+  "next_valid_transition": "prepare immutable guide and Test Case revision v3 addressing the two validated Major findings, then obtain a fresh external guide review before human lock",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -24,7 +24,7 @@
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_review_v2_new_session_retry_authorized", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_v2_request_changes", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -230,7 +230,9 @@
     "guide_78_external_review_packet_v2_sent",
     "guide_78_external_review_v2_schema_retry_failed",
     "workflow_suspended_guide_78_review_v2_transport_failure",
-    "workflow_resumed_guide_78_review_v2_new_session_retry_authorized"
+    "workflow_resumed_guide_78_review_v2_new_session_retry_authorized",
+    "guide_78_external_review_v2_new_session_retry_sent",
+    "guide_78_external_review_v2_request_changes"
   ],
   "review_cadence": {
     "risk": "high",
@@ -496,7 +498,7 @@
       "guide_subject_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
       "test_case_reference": ".agents/review/m4-issue-78-test-cases-v2.json",
       "test_case_digest": "sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46",
-      "guide_external_review": "retry_authorized_new_session",
+      "guide_external_review": "REQUEST_CHANGES",
       "guide_external_review_new_session_retry_authorized": true,
       "guide_external_review_new_session_retry_authorization_source": "explicit_repository_owner_message",
       "guide_external_review_new_session_retry_authorized_at": "2026-08-24T11:26:25+07:00",
@@ -506,9 +508,22 @@
       "guide_external_review_initial_transport_digest": "sha256:b5b3adc8823babc934228e32d9efd8cd50c9600dbda5cd6c3d59a2953d2a8e2d",
       "guide_external_review_schema_retry_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2-schema-retry.txt",
       "guide_external_review_schema_retry_digest": "sha256:a60c0d66272c252378c2a8b24ea2d9176289781b3318e24d0f28c55e3773bc3c",
-      "guide_external_review_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review.json",
-      "guide_external_review_chat_reference": "https://chatgpt.com/c/6a8bc49c-f3a0-83ec-9766-379401690403",
+      "guide_external_review_reference": ".agents/review/m4-issue-78-guide-external-review-v2.json",
+      "guide_external_review_response_reference": ".agents/review/m4-issue-78-guide-review-response-v2.json",
+      "guide_external_review_response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
+      "guide_external_review_transport_response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2-new-session.json",
+      "guide_external_review_transport_raw_text_digest": "sha256:30b0384e7121932d9920ba92ec298d81e4e1ed2f7ece8e610f8aaf0bfb2a5a26",
+      "guide_external_review_counts": {"critical": 0, "major": 2, "minor": 0},
+      "guide_external_review_findings": [
+        "valid_observation_write_denial_matrix_is_self_contradictory",
+        "nonterminal_provider_outcomes_are_not_independently_distinguished"
+      ],
+      "guide_external_review_prior_findings_closed": ["M4-78-GR-001"],
+      "guide_external_review_prior_failed_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review.json",
+      "guide_external_review_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review-retry.json",
+      "guide_external_review_chat_reference": "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
       "guide_external_review_schema_retry_count": 1,
+      "guide_external_review_new_session_retry_count": 1,
       "guide_external_review_cadence_eligible": false,
       "guide_external_review_visible_non_authoritative_projection": {
         "verdict": "REQUEST_CHANGES",
@@ -970,6 +985,20 @@
       "reference": ".agents/review/m4-issue-78-guide-external-review-v1.json",
       "chat_reference": "https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe",
       "cadence_eligible": false
+    },
+    {
+      "ticket": "#78",
+      "guide_revision": "m4-78-crash-recovery-v2",
+      "subject_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
+      "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
+      "verdict": "REQUEST_CHANGES",
+      "critical_count": 0,
+      "major_count": 2,
+      "minor_count": 0,
+      "response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
+      "reference": ".agents/review/m4-issue-78-guide-external-review-v2.json",
+      "chat_reference": "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+      "cadence_eligible": false
     }
   ],
   "frontier_baselines": {
@@ -1012,8 +1041,8 @@
     "next_valid_transition": "send exact unchanged guide packet v2 in a new isolated ChatGPT High session and validate the response"
   },
   "blockers": [
-    "Issue #78 guide v2 has no authoritative verdict yet; the owner authorized one fresh-session retry of the exact unchanged packet.",
-    "Issue #78 implementation remains blocked until a schema-valid external review returns APPROVE and the exact guide digest receives explicit human lock.",
+    "Issue #78 guide v2 received a validated REQUEST_CHANGES verdict with two Major oracle findings; guide/Test Case revision v3 and a fresh external review are required.",
+    "Issue #78 implementation remains blocked until an external guide review returns APPROVE and the exact guide digest receives explicit human lock.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -1084,10 +1113,15 @@
     ".agents/review/m4-issue-78-guide-review-transport-response-v2-schema-retry.txt",
     ".agents/review/m4-issue-78-guide-review-transport-failure-v2.json",
     ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review.json",
+    ".agents/review/m4-issue-78-guide-review-transport-response-v2-new-session.json",
+    ".agents/review/m4-issue-78-guide-review-response-v2.json",
+    ".agents/review/m4-issue-78-guide-external-review-v2.json",
+    ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review-retry.json",
+    "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T11:26:25+07:00"
+  "last_updated_at": "2026-08-24T11:37:16+07:00"
 }
