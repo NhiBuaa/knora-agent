@@ -11,6 +11,15 @@ from fastapi.responses import JSONResponse
 from knora.adapters.http.routes import authenticate_principal
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.tools.execution_types import (
+    ExecutionFailed,
+    ExecutionFenced,
+    ExecutionIndeterminate,
+    ExecutionInProgress,
+    ExecutionSucceeded,
+    ProposalNotExecutable,
+)
+from knora.tools.proposal_types import ExecuteApprovedProposal
 from knora.tools.proposals import (
     ActorContext,
     AlreadyDecided,
@@ -51,9 +60,7 @@ def _projection_response(projection) -> JSONResponse:
 def _transport_value(value):
     if is_dataclass(value) and not isinstance(value, type):
         return {
-            projection_field.name: _transport_value(
-                getattr(value, projection_field.name)
-            )
+            projection_field.name: _transport_value(getattr(value, projection_field.name))
             for projection_field in fields(value)
         }
     if isinstance(value, Mapping):
@@ -73,6 +80,37 @@ def _decision_response(result) -> JSONResponse:
             },
         )
     return _projection_response(result.projection)
+
+
+def _execution_response(result) -> JSONResponse:
+    if isinstance(result, ProposalNotExecutable):
+        public_code = {
+            "workspace_access_denied": "WORKSPACE_ACCESS_DENIED",
+            "resource_access_denied": "TOOL_RESOURCE_ACCESS_DENIED",
+            "execution_not_authorized": "TOOL_EXECUTION_NOT_AUTHORIZED",
+            "invalid_tool_resource_reference": "INVALID_TOOL_RESOURCE_REFERENCE",
+        }.get(result.reason_code, "TOOL_PROPOSAL_STALE")
+        status = {
+            "INVALID_TOOL_RESOURCE_REFERENCE": 400,
+            "WORKSPACE_ACCESS_DENIED": 403,
+            "TOOL_RESOURCE_ACCESS_DENIED": 403,
+            "TOOL_EXECUTION_NOT_AUTHORIZED": 403,
+            "TOOL_PROPOSAL_STALE": 409,
+        }[public_code]
+        return JSONResponse(status_code=status, content={"error": {"code": public_code}})
+    status = 200
+    if isinstance(result, ExecutionFailed):
+        status = 502
+    elif isinstance(result, ExecutionIndeterminate):
+        status = 202
+    elif isinstance(result, (ExecutionInProgress, ExecutionFenced)):
+        status = 409
+    elif not isinstance(result, ExecutionSucceeded):
+        raise KnoraError("TOOL_PROVIDER_CONTRACT_INVALID")
+    return JSONResponse(
+        status_code=status,
+        content=jsonable_encoder(_transport_value(result)),
+    )
 
 
 def _validate_payload(payload: dict[str, object], fields: set[str]) -> None:
@@ -183,3 +221,31 @@ async def reject_proposal(
         actor_context,
     )
     return _decision_response(result)
+
+
+@router.post("/v1/workspaces/{workspace_id}/tool-proposals/{proposal_id}/execute")
+async def execute_proposal(
+    workspace_id: str,
+    proposal_id: str,
+    request: Request,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
+    actor_context: Annotated[ActorContext, Depends(get_actor_context)],
+) -> JSONResponse:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    payload = await _read_payload(request)
+    _validate_payload(payload, {"expected_revision"})
+    if not isinstance(payload.get("expected_revision"), int) or isinstance(
+        payload.get("expected_revision"), bool
+    ):
+        raise KnoraError("TOOL_REQUEST_INVALID")
+    result = workflow.handle(
+        ExecuteApprovedProposal(
+            proposal_id,
+            payload["expected_revision"],  # type: ignore[arg-type]
+        ),
+        principal,
+        actor_context,
+    )
+    return _execution_response(result)

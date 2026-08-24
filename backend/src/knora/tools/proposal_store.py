@@ -1,17 +1,27 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, replace
-from datetime import datetime
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
-from knora.domain.errors import KnoraError
 from knora.tools.contracts import freeze_canonical_value
-from knora.tools.proposal_types import (
-    ApprovalActor,
-    AuditProjection,
-    ProposalDecision,
+from knora.tools.execution_types import (
+    AcquireApplied,
+    AcquireDenied,
+    AcquireInProgress,
+    AcquireRevisionConflict,
+    AdmissionApplied,
+    AdmissionDenied,
+    AuthorizedExecutionBindingSnapshot,
+    DispatchAdmissionWitness,
+    ExecutionRecoverySeed,
+    FinalizeApplied,
+    ObservationApplied,
+    StoredExecution,
+    StoreExecutionFenced,
 )
+from knora.tools.proposal_types import ApprovalActor, AuditProjection, ProposalDecision
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,14 +66,15 @@ class _StoredProposal:
     decision_authority_version: str | None = None
     decision_authority_digest: str | None = None
     decision_reason: str | None = None
+    execution_stale_reason: str | None = None
+    execution: StoredExecution | None = None
+    admission: DispatchAdmissionWitness | None = None
     audit: tuple[AuditProjection, ...] = ()
 
     def __post_init__(self) -> None:
         frozen_policy = freeze_canonical_value(self.policy_snapshot)
         frozen_parameters = freeze_canonical_value(self.parameters)
-        if not isinstance(frozen_policy, Mapping) or not isinstance(
-            frozen_parameters, Mapping
-        ):
+        if not isinstance(frozen_policy, Mapping) or not isinstance(frozen_parameters, Mapping):
             raise ValueError("stored proposal mappings are required")
         object.__setattr__(self, "policy_snapshot", frozen_policy)
         object.__setattr__(self, "parameters", frozen_parameters)
@@ -92,81 +103,58 @@ class ToolActionStore(Protocol):
         decided_at: datetime,
     ) -> _DecisionResult: ...
 
+    def mark_execution_stale(
+        self, workspace_id: str, proposal_id: str, reason_code: str
+    ) -> _StoredProposal: ...
 
-class InMemoryToolActionStore:
-    def __init__(self) -> None:
-        self._proposals: dict[str, _StoredProposal] = {}
-
-    def create_proposal(self, proposal: _StoredProposal) -> _StoredProposal:
-        if not proposal.audit:
-            proposal = replace(
-                proposal,
-                audit=(
-                    AuditProjection(
-                        sequence=1,
-                        event_type="proposed",
-                        actor_id=proposal.proposal_actor_id,
-                        actor_kind=proposal.proposal_actor_kind,
-                        payload={
-                            "caller_principal_id": proposal.caller_principal_id,
-                            "authority_id": proposal.proposal_actor_authority_id,
-                            "authority_version": proposal.proposal_actor_authority_version,
-                            "authority_digest": proposal.proposal_actor_authority_digest,
-                        },
-                    ),
-                ),
-            )
-        self._proposals[proposal.proposal_id] = proposal
-        return proposal
-
-    def read_proposal(self, workspace_id: str, proposal_id: str) -> _StoredProposal | None:
-        proposal = self._proposals.get(proposal_id)
-        if proposal is None or proposal.workspace_id != workspace_id:
-            return None
-        return proposal
-
-    def decide_proposal(
+    def acquire_execution(
         self,
         workspace_id: str,
         proposal_id: str,
         expected_revision: int,
-        decision: ProposalDecision,
-        actor: ApprovalActor,
-        reason_code: str | None,
-        decided_at: datetime,
-    ) -> _DecisionResult:
-        proposal = self.read_proposal(workspace_id, proposal_id)
-        if proposal is None:
-            raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
-        if proposal.state != "proposed" or proposal.revision != expected_revision:
-            return _DecisionResult(False, proposal)
-        decided = replace(
-            proposal,
-            state=decision.value,
-            revision=proposal.revision + 1,
-            decision_actor_id=actor.actor_id,
-            decision_actor_kind=actor.actor_kind,
-            decision_authority_id=actor.authority.authority_id,
-            decision_authority_version=actor.authority.authority_version,
-            decision_authority_digest=actor.authority.authority_digest,
-            decision_reason=reason_code,
-            decision_at=decided_at,
-            audit=proposal.audit
-            + (
-                AuditProjection(
-                    sequence=len(proposal.audit) + 1,
-                    event_type=decision.value,
-                    actor_id=actor.actor_id,
-                    actor_kind=actor.actor_kind,
-                    payload={
-                        "reason_code": reason_code,
-                        "revision": proposal.revision + 1,
-                        "authority_id": actor.authority.authority_id,
-                        "authority_version": actor.authority.authority_version,
-                        "authority_digest": actor.authority.authority_digest,
-                    },
-                ),
-            ),
-        )
-        self._proposals[proposal_id] = decided
-        return _DecisionResult(True, decided)
+        owner: str,
+        lease_duration: timedelta,
+        binding_snapshot: AuthorizedExecutionBindingSnapshot,
+        requested_at: datetime,
+    ) -> AcquireApplied | AcquireInProgress | AcquireDenied | AcquireRevisionConflict: ...
+
+    def authorize_and_admit_dispatch(
+        self,
+        workspace_id: str,
+        proposal_id: str,
+        owner: str,
+        generation: int,
+        requested_at: datetime,
+        build_witness: Callable[
+            [_StoredProposal, StoredExecution, int, int, datetime],
+            DispatchAdmissionWitness | AdmissionDenied,
+        ],
+    ) -> AdmissionApplied | AdmissionDenied | StoreExecutionFenced: ...
+
+    def record_execution_observation(
+        self,
+        workspace_id: str,
+        proposal_id: str,
+        owner: str,
+        generation: int,
+        observation_type: str,
+        rejection_code: str | None,
+        external_resource_reference: str | None,
+        requested_at: datetime,
+    ) -> ObservationApplied | StoreExecutionFenced: ...
+
+    def finalize_execution(
+        self,
+        workspace_id: str,
+        proposal_id: str,
+        owner: str,
+        generation: int,
+        lifecycle: str,
+        rejection_code: str | None,
+        external_resource_reference: str | None,
+        requested_at: datetime,
+    ) -> FinalizeApplied | StoreExecutionFenced: ...
+
+    def read_execution_recovery_seed(
+        self, workspace_id: str, proposal_id: str
+    ) -> ExecutionRecoverySeed | None: ...

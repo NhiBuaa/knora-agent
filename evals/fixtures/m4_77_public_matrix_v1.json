@@ -1,0 +1,25 @@
+{
+  "denial_rows": [
+    ["workspace_access_denied", 403, "WORKSPACE_ACCESS_DENIED"],
+    ["resource_access_denied", 403, "TOOL_RESOURCE_ACCESS_DENIED"],
+    ["execution_not_authorized", 403, "TOOL_EXECUTION_NOT_AUTHORIZED"],
+    ["capability_identity_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["capability_version_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["capability_digest_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["binding_identity_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["binding_version_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["binding_digest_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["policy_identity_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["policy_version_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["policy_digest_mismatch", 409, "TOOL_PROPOSAL_STALE"],
+    ["invalid_tool_resource_reference", 400, "INVALID_TOOL_RESOURCE_REFERENCE"]
+  ],
+  "execution_rows": [
+    ["execution_succeeded", "succeeded", 200, "external_resource_reference"],
+    ["execution_failed", "failed", 502, "rejection_code"],
+    ["execution_indeterminate", "executing", 202, "reason_code"],
+    ["execution_in_progress", "executing", 409, "reason_code"],
+    ["execution_fenced", "executing", 409, "reason_code"]
+  ],
+  "schema_version": 1
+}

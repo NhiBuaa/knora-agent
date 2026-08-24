@@ -66,16 +66,19 @@ from knora.providers.embedding import EmbeddingConfiguration
 from knora.tools import (
     CapabilityRegistry,
     ExternalScopeBinding,
+    HmacDispatchEnvelopeSigner,
     PolicyProvenance,
     ReadTool,
+    ReferenceExecutionResourceAuthorizer,
     ReferenceProposalTargetVerifier,
     ReferenceVerifier,
     RegistryCapabilityResolver,
+    SupportToolGateway,
     ToolActionStore,
 )
 from knora.tools.proposal_http import ActorContextProvider
 from knora.tools.proposal_http import router as proposal_router
-from knora.tools.proposals import WriteProposalWorkflow
+from knora.tools.proposals import ExecutionAuthorizer, WriteProposalWorkflow
 
 
 def create_app(
@@ -103,6 +106,9 @@ def create_app(
     tool_reference_verifier: ReferenceVerifier | None = None,
     tool_proposal_policy: PolicyProvenance | None = None,
     tool_action_store: ToolActionStore | None = None,
+    tool_execution_authorizer: ExecutionAuthorizer | None = None,
+    support_tool_gateway: SupportToolGateway | None = None,
+    tool_dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -238,14 +244,35 @@ def create_app(
             raise ValueError(
                 "proposal composition requires scope bindings and a reference verifier"
             )
+        registry = tool_capability_registry or CapabilityRegistry.static()
+        execution_dependencies_complete = all(
+            item is not None
+            for item in (
+                tool_execution_authorizer,
+                support_tool_gateway,
+                tool_dispatch_signer,
+            )
+        )
         selected_write_proposal_workflow = WriteProposalWorkflow(
             capability_resolver=RegistryCapabilityResolver(
-                tool_capability_registry or CapabilityRegistry.static(),
+                registry,
                 bindings=tool_scope_bindings,
                 policy=tool_proposal_policy or PolicyProvenance(),
             ),
             store=tool_action_store or PostgresToolActionStore(SessionFactory),
             target_verifier=ReferenceProposalTargetVerifier(tool_reference_verifier),
+            execution_authorizer=tool_execution_authorizer,
+            execution_resource_authorizer=(
+                ReferenceExecutionResourceAuthorizer(
+                    registry,
+                    bindings=tool_scope_bindings,
+                    verifier=tool_reference_verifier,
+                )
+                if execution_dependencies_complete
+                else None
+            ),
+            gateway=(support_tool_gateway if execution_dependencies_complete else None),
+            dispatch_signer=(tool_dispatch_signer if execution_dependencies_complete else None),
         )
     application.state.write_proposal_workflow = selected_write_proposal_workflow
     application.state.tool_actor_context_provider = tool_actor_context_provider
@@ -296,6 +323,8 @@ def create_app(
             "TOOL_PROPOSAL_REVISION_CONFLICT": 409,
             "TOOL_PROPOSAL_STALE": 409,
             "TOOL_PROPOSAL_EXPIRED": 409,
+            "TOOL_PROPOSAL_NOT_APPROVED": 409,
+            "TOOL_EXECUTION_NOT_AUTHORIZED": 403,
             "TOOL_TICKET_NOT_FOUND": 404,
             "INVALID_TOOL_RESOURCE_REFERENCE": 400,
             "TOOL_PROVIDER_UNAVAILABLE": 502,

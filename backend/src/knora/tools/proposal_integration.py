@@ -73,6 +73,8 @@ class ReferenceProposalTargetVerifier:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from None
         except (TypeError, ValueError):
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from None
+        except Exception:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from None
         return VerifiedProposalTarget(
             reference=target_reference,
             reference_digest=canonical_digest_v1(target_reference),
@@ -87,3 +89,40 @@ class ReferenceProposalTargetVerifier:
             resource_identity_digest=verified.resource_identity_digest,
             resource_claims_digest=verified.resource_claims_digest,
         )
+
+
+class ReferenceExecutionResourceAuthorizer:
+    """Re-verify the immutable approved target against current static authority."""
+
+    def __init__(
+        self,
+        registry: CapabilityRegistry,
+        *,
+        bindings: Mapping[str, ExternalScopeBinding],
+        verifier: ReferenceVerifier,
+    ) -> None:
+        self._registry = registry
+        self._authorizer = WorkspaceResourceAuthorizer(
+            bindings=bindings, reference_verifier=verifier
+        )
+
+    def authorize_current(self, principal, proposal, current, *, at_time):
+        descriptor = self._registry.resolve(proposal.capability_id)
+        binding = self._authorizer.resolve_binding(principal.workspace_id, descriptor)
+        resource = self._authorizer.authorize_resource(
+            principal,
+            descriptor,
+            binding,
+            proposal.target_reference,
+            at_time=at_time,
+        )
+        if (
+            descriptor.version != current.capability_version
+            or descriptor.digest != current.capability_digest
+            or resource.reference_id != proposal.target_reference_id
+            or resource.resource_kind != proposal.resource_kind
+            or resource.resource_identity_digest != proposal.target_resource_identity_digest
+            or resource.resource_claims_digest != proposal.target_resource_claims_digest
+        ):
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
+        return resource

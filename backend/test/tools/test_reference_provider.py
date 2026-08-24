@@ -16,10 +16,16 @@ from knora.tools import (
     AuthorizedReferenceMintingResource,
     ExternalResourceReferenceMinter,
     ExternalScopeBinding,
+    HmacDispatchEnvelopeSigner,
     LookupTicketRequest,
     ProviderContractInvalid,
+    ProviderIdempotencyConflict,
+    ProviderOutcomeFound,
+    ProviderOutcomeNotFound,
     ProviderScopeDenied,
     ProviderUnavailable,
+    ProviderWriteFailed,
+    ProviderWriteSucceeded,
     ReadTool,
     ReadToolCommand,
     ReferenceKey,
@@ -29,6 +35,8 @@ from knora.tools import (
     SQLiteSupportToolGateway,
     WorkspaceResourceAuthorizer,
 )
+from knora.tools.contracts import canonical_digest_v1
+from knora.tools.execution_types import DispatchEnvelopeClaims, ProviderTerminalFailureCode
 
 
 def test_m4r1_minter_uses_exact_canonical_payload_and_active_key_only() -> None:
@@ -327,4 +335,225 @@ def test_sqlite_reference_registration_is_idempotent_but_cannot_retarget() -> No
         )
 
     assert provider.get_reference(minted.record.reference_id) == minted.record
+    provider.close()
+
+
+def _dispatch_envelope(
+    signer: HmacDispatchEnvelopeSigner,
+    *,
+    logical_execution_id: str,
+    title: str = "Cannot sign in",
+    description: str = "Customer is blocked",
+):
+    fingerprint_input = {
+        "operation": "create_ticket",
+        "capability": {
+            "id": "create_ticket",
+            "version": "m4.2",
+            "digest": "sha256:" + "a" * 64,
+        },
+        "binding": {
+            "id": "binding-a",
+            "version": "v1",
+            "digest": "sha256:" + "b" * 64,
+        },
+        "target": {
+            "reference_id": "A" * 42 + "Q",
+            "resource_kind": "ticket",
+            "resource_identity_digest": "sha256:" + "1" * 64,
+            "resource_claims_digest": "sha256:" + "2" * 64,
+        },
+        "parameters": {"title": title, "description": description},
+    }
+    fingerprint = canonical_digest_v1(fingerprint_input)
+    return signer.sign(
+        DispatchEnvelopeClaims(
+            admission_identity="admission-a",
+            admission_claims_digest="sha256:" + "8" * 64,
+            workspace_id="workspace-a",
+            proposal_id="proposal-a",
+            logical_execution_id=logical_execution_id,
+            request_fingerprint=fingerprint,
+            external_scope="scope-a",
+            provider_routing_handle="routing-ticket-75",
+            intent={
+                "operation": "create_ticket",
+                "title": title,
+                "description": description,
+                "fingerprint_input": fingerprint_input,
+            },
+        )
+    )
+
+
+def test_sqlite_provider_write_is_atomic_replayable_and_restart_stable(tmp_path: Path) -> None:
+    database = tmp_path / "provider.sqlite"
+    provider, _, _, _, _ = _provider_fixture(database)
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target for create_ticket",
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    gateway = SQLiteSupportToolGateway(provider, dispatch_verifier=signer)
+    envelope = _dispatch_envelope(signer, logical_execution_id="logical-a")
+
+    first = gateway.create_ticket(envelope)
+    replay = gateway.create_ticket(envelope)
+
+    assert isinstance(first, ProviderWriteSucceeded)
+    assert replay == first
+    assert provider.provider_effect_count("logical-a") == 1
+    provider.close()
+
+    restarted_provider = SQLiteReferenceProvider(database)
+    restarted_gateway = SQLiteSupportToolGateway(restarted_provider, dispatch_verifier=signer)
+    assert restarted_gateway.create_ticket(envelope) == first
+    assert restarted_gateway.get_execution_outcome(
+        scope="scope-a", logical_execution_id="logical-a"
+    ) == ProviderOutcomeFound(first)
+    assert restarted_provider.provider_effect_count("logical-a") == 1
+    restarted_provider.close()
+
+
+def test_sqlite_provider_conflicts_on_same_identity_with_valid_different_intent(
+    tmp_path: Path,
+) -> None:
+    provider, _, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target",
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    gateway = SQLiteSupportToolGateway(provider, dispatch_verifier=signer)
+
+    first = gateway.create_ticket(
+        _dispatch_envelope(signer, logical_execution_id="logical-conflict")
+    )
+    conflict = gateway.create_ticket(
+        _dispatch_envelope(
+            signer,
+            logical_execution_id="logical-conflict",
+            title="Different title",
+        )
+    )
+
+    assert isinstance(first, ProviderWriteSucceeded)
+    assert isinstance(conflict, ProviderIdempotencyConflict)
+    assert provider.provider_effect_count("logical-conflict") == 1
+    provider.close()
+
+
+@pytest.mark.parametrize("rejection", list(ProviderTerminalFailureCode))
+def test_sqlite_provider_closed_rejection_has_no_effect_and_survives_restart(
+    tmp_path: Path, rejection: ProviderTerminalFailureCode
+) -> None:
+    database = tmp_path / f"provider-{rejection.value}.sqlite"
+    provider, _, _, _, _ = _provider_fixture(database)
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target",
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    envelope = _dispatch_envelope(signer, logical_execution_id=f"logical-{rejection.value}")
+    gateway = SQLiteSupportToolGateway(
+        provider,
+        dispatch_verifier=signer,
+        forced_rejection=rejection,
+    )
+
+    result = gateway.create_ticket(envelope)
+
+    assert result == ProviderWriteFailed(rejection.value)
+    assert provider.provider_effect_count() == 0
+    provider.close()
+    restarted = SQLiteReferenceProvider(database)
+    observation = SQLiteSupportToolGateway(
+        restarted, dispatch_verifier=signer
+    ).get_execution_outcome(scope="scope-a", logical_execution_id=f"logical-{rejection.value}")
+    assert observation == ProviderOutcomeFound(ProviderWriteFailed(rejection.value))
+    assert restarted.provider_effect_count() == 0
+    restarted.close()
+
+
+def test_provider_outcome_not_found_is_read_only_boundary_evidence(tmp_path: Path) -> None:
+    provider, _, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    gateway = SQLiteSupportToolGateway(provider, dispatch_verifier=signer)
+
+    assert (
+        gateway.get_execution_outcome(scope="scope-a", logical_execution_id="absent")
+        == ProviderOutcomeNotFound()
+    )
+    assert provider.provider_effect_count() == 0
+    provider.close()
+
+
+def test_provider_write_cross_binding_denies_before_idempotency_or_effect(
+    tmp_path: Path,
+) -> None:
+    provider, _, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target",
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    original = _dispatch_envelope(signer, logical_execution_id="logical-cross-scope")
+    claims = signer.verify(original)
+    intent = claims["intent"]
+    assert isinstance(intent, dict)
+    cross_scope = signer.sign(
+        DispatchEnvelopeClaims(
+            admission_identity="admission-cross-scope",
+            admission_claims_digest="sha256:" + "8" * 64,
+            workspace_id="workspace-b",
+            proposal_id="proposal-cross-scope",
+            logical_execution_id="logical-cross-scope",
+            request_fingerprint=claims["request_fingerprint"],
+            external_scope="scope-b",
+            provider_routing_handle="routing-ticket-75",
+            intent=intent,
+        )
+    )
+    gateway = SQLiteSupportToolGateway(provider, dispatch_verifier=signer)
+
+    outcome = gateway.create_ticket(cross_scope)
+
+    assert isinstance(outcome, ProviderScopeDenied)
+    assert (
+        provider.get_execution_outcome(scope="scope-b", logical_execution_id="logical-cross-scope")
+        is None
+    )
+    assert provider.provider_effect_count() == 0
     provider.close()
