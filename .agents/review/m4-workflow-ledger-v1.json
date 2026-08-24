@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_78_external_review_v1_request_changes_revision_limit_reached",
-  "next_valid_transition": "obtain explicit authorization for exceptional Issue #78 ticket-contract revision v4, then use codebase-design to close all three Major findings before publishing or preparing packet v2",
+  "current_state": "ticket_78_contract_revision_limit_waiting_owner_authorization",
+  "next_valid_transition": "on explicit exceptional Issue #78 ticket-contract revision v4 authorization, resume at codebase-design and close all three Major findings before publishing or preparing packet v2",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -201,7 +201,8 @@
     "workflow_suspended_ticket_78_review_send_confirmation",
     "workflow_resumed_ticket_78_review_send_confirmation",
     "ticket_78_external_review_v1_request_changes",
-    "ticket_78_contract_revision_limit_reached"
+    "ticket_78_contract_revision_limit_reached",
+    "workflow_suspended_ticket_78_contract_revision_limit"
   ],
   "review_cadence": {
     "risk": "high",
@@ -855,12 +856,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-ticket-review-send-v1.json",
-    "digest": "sha256:29c48eec2f4aed788cb5ba039757f685ed86b28cc4fda8f34e91edbf3ae0b011",
-    "status": "consumed",
-    "consumed_at": "2026-08-24T09:45:32+07:00",
-    "current_state": "ticket_78_ticket_review_packet_v1_ready_action_confirmation_required",
-    "next_valid_transition": "after action-time confirmation, send exact packet v1 to a new isolated ChatGPT High session and validate the bound response"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-contract-revision-limit-v1.json",
+    "digest": "sha256:d80994114ccab47eaf316a3af307c2320ec86ff55d092bb51b354fb8fab04999",
+    "status": "active",
+    "current_state": "ticket_78_external_review_v1_request_changes_revision_limit_reached",
+    "next_valid_transition": "on explicit exceptional revision authorization, revise Issue #78 contract v4 through codebase-design and external-review it before guide preparation"
   },
   "blockers": [
     "Issue #78 external ticket review v1 returned REQUEST_CHANGES with 0 Critical, 3 Major and 0 Minor findings.",
@@ -917,5 +917,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T09:51:23+07:00"
+  "last_updated_at": "2026-08-24T09:56:38+07:00"
 }
