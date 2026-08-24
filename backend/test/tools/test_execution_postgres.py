@@ -33,8 +33,12 @@ from knora.tools import (
     HmacDispatchEnvelopeSigner,
     PolicyProvenance,
     ProposeWriteAction,
+    ProviderOutcomeFound,
     ProviderWriteFailed,
+    ProviderWriteIndeterminate,
     ProviderWriteSucceeded,
+    ReconciledSucceeded,
+    ReconcileExecution,
     ResolvedCapabilityContext,
     VerifiedProposalTarget,
     WriteProposalWorkflow,
@@ -112,6 +116,7 @@ class Gateway:
         self.outcome = outcome or ProviderWriteSucceeded("m4r1.provider-ticket.opaque")
         self.entered = Event()
         self.release = Event()
+        self.observations = []
 
     def create_ticket(self, envelope):
         self.calls.append(envelope)
@@ -119,6 +124,17 @@ class Gateway:
             self.entered.set()
             assert self.release.wait(timeout=10)
         return self.outcome
+
+    def get_execution_outcome(self, *, scope, logical_execution_id):
+        self.observations.append((scope, logical_execution_id))
+        return ProviderOutcomeFound(ProviderWriteSucceeded("m4r1.provider-ticket.opaque"))
+
+
+class ObservationResolver:
+    def resolve_started_execution(self, snapshot, principal, proposal, execution):
+        assert principal.workspace_id == proposal.workspace_id
+        assert snapshot == execution.acquisition.binding_snapshot
+        return "scope-a"
 
 
 def actor(actor_id: str, kind: str, *, approval: bool = False) -> ActorContext:
@@ -139,6 +155,7 @@ def prepared(
     blocking: bool = False,
     lease_duration: timedelta = timedelta(minutes=5),
     outcome=None,
+    owner_factory=None,
     store_factory=PostgresToolActionStore,
 ):
     workspace_id = f"m4-execution-{uuid4()}"
@@ -154,11 +171,12 @@ def prepared(
         target_verifier=TargetVerifier(),
         execution_authorizer=authorizer,
         execution_resource_authorizer=ResourceAuthorizer(),
+        observation_reference_resolver=ObservationResolver(),
         gateway=gateway,
         dispatch_signer=HmacDispatchEnvelopeSigner(
             key_identity="dispatch-key", key_version="v1", secret=b"dispatch-secret"
         ),
-        execution_owner_factory=lambda: "worker-a",
+        execution_owner_factory=owner_factory or (lambda: "worker-a"),
         execution_lease_duration=lease_duration,
         clock=lambda: NOW,
     )
@@ -507,3 +525,43 @@ def test_postgres_admission_binds_current_epochs_without_retargeting() -> None:
     ) == first_vector
     assert second_vector != first_vector
     assert len(gateway.calls) == 1
+
+
+def test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_finalizing() -> None:
+    owners = iter(("worker-a", "recovery-b"))
+    workflow, _, _, _, gateway, principal, approved = prepared(
+        lease_duration=timedelta(milliseconds=200),
+        outcome=ProviderWriteIndeterminate(),
+        owner_factory=lambda: next(owners),
+    )
+    first = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+    assert isinstance(first, ExecutionIndeterminate)
+    Event().wait(0.3)
+
+    result = workflow.handle(
+        ReconcileExecution(approved.projection.proposal_id, 1),
+        principal,
+        actor("recovery-a", "system"),
+    )
+
+    assert isinstance(result, ReconciledSucceeded)
+    assert gateway.observations == [("scope-a", approved.projection.logical_execution_id)]
+    assert len(gateway.calls) == 1
+    with SessionFactory() as session:
+        execution = session.get(ToolExecutionTable, approved.projection.proposal_id)
+        events = session.scalars(
+            select(ToolActionAuditEventTable.event_type)
+            .where(ToolActionAuditEventTable.proposal_id == approved.projection.proposal_id)
+            .order_by(ToolActionAuditEventTable.sequence)
+        ).all()
+    assert execution is not None
+    assert (execution.owner, execution.generation, execution.lifecycle) == (
+        "recovery-b",
+        2,
+        "succeeded",
+    )
+    assert events[-3:] == ["execution_taken_over", "execution_observed", "succeeded"]

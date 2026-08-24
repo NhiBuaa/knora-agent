@@ -126,3 +126,55 @@ class ReferenceExecutionResourceAuthorizer:
         ):
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         return resource
+
+
+class ReferenceObservationResolver:
+    """Resolve a durable started-execution route without granting a fresh write."""
+
+    def __init__(
+        self,
+        *,
+        bindings: Mapping[str, ExternalScopeBinding],
+        verifier: ReferenceVerifier,
+    ) -> None:
+        self._authorizer = WorkspaceResourceAuthorizer(bindings=bindings)
+        self._verifier = verifier
+
+    def resolve_started_execution(self, snapshot, principal, proposal, execution) -> str | None:
+        if snapshot != execution.acquisition.binding_snapshot:
+            return None
+        if (
+            snapshot.workspace_id != principal.workspace_id
+            or proposal.workspace_id != principal.workspace_id
+            or snapshot.capability_id != proposal.capability_id
+            or snapshot.capability_version != proposal.capability_version
+            or snapshot.capability_digest != proposal.capability_digest
+            or snapshot.binding_id != proposal.binding_id
+            or snapshot.binding_version != proposal.binding_version
+            or snapshot.binding_digest != proposal.binding_digest
+            or snapshot.policy_id != proposal.policy_id
+            or snapshot.policy_version != proposal.policy_version
+            or snapshot.policy_digest != proposal.policy_digest
+            or snapshot.reference_id != proposal.target_reference_id
+            or snapshot.reference_claims_digest != proposal.target_resource_claims_digest
+            or snapshot.resource_kind != proposal.resource_kind
+            or snapshot.resource_identity_digest != proposal.target_resource_identity_digest
+            or not snapshot.external_scope
+        ):
+            return None
+        binding = self._authorizer.authorize_started_execution(
+            principal,
+            workspace_id=snapshot.workspace_id,
+            resource_kind=snapshot.resource_kind,
+        )
+        if (
+            binding.binding_id != snapshot.binding_id
+            or binding.version != snapshot.binding_version
+            or binding.digest != snapshot.binding_digest
+            or binding.external_scope != snapshot.external_scope
+        ):
+            return None
+        verified = self._verifier.resolve_started_execution(snapshot)
+        if verified is None or verified.provider_routing_handle != snapshot.provider_routing_handle:
+            return None
+        return snapshot.external_scope

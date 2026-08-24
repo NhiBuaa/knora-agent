@@ -70,6 +70,7 @@ from knora.tools import (
     PolicyProvenance,
     ReadTool,
     ReferenceExecutionResourceAuthorizer,
+    ReferenceObservationResolver,
     ReferenceProposalTargetVerifier,
     ReferenceVerifier,
     RegistryCapabilityResolver,
@@ -265,6 +266,14 @@ def create_app(
             execution_resource_authorizer=(
                 ReferenceExecutionResourceAuthorizer(
                     registry,
+                    bindings=tool_scope_bindings,
+                    verifier=tool_reference_verifier,
+                )
+                if execution_dependencies_complete
+                else None
+            ),
+            observation_reference_resolver=(
+                ReferenceObservationResolver(
                     bindings=tool_scope_bindings,
                     verifier=tool_reference_verifier,
                 )
