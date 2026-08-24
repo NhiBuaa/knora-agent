@@ -982,6 +982,21 @@ transition authority; every later session resumes from its exact `next_valid_tra
   Issue #77 implementation through `implement -> tdd`. Per-Issue code review remains disabled;
   the sole code review remains the final M4 fixed-point review after #75–#79 complete.
 
+### Issue #78 ticket external review v1 — 2026-08-24
+
+- Exact ticket contract v3 at `62a9a26d2418115e80997717a40d2796b935ed63` was reviewed in a new
+  authenticated ChatGPT High session. The canonical response validates as `VALID` and returns
+  `REQUEST_CHANGES` with `0 Critical / 3 Major / 0 Minor`.
+- The three Major findings require observable contract evidence for: terminal finalization after
+  reference expiry or key revocation with zero write retry; deterministic stale-lease takeover when
+  provider-first observation already found a terminal outcome; and an exact-candidate proof that the
+  static typed registry/no-plugin/no-vendor boundary remains intact. None requires a new module or
+  a change to the approved application interfaces.
+- Issue #78 has already consumed its two ordinary design revisions (`v2` and `v3`). Guide
+  preparation and implementation remain blocked. The next valid transition is explicit exceptional
+  authorization for ticket-contract revision v4, followed by `codebase-design`, local audit,
+  GitHub read-back equality, and a new external ticket review before any guide is created.
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:da349e8e0bdf61be29ad95276f3cf820d2cdc82c0c9f526248246283c9d77a7e",
+  "review_id": "external-review:github-issue-78:m4-78-ticket-contract-v3:round-1",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8baf9e-b1d0-83ec-8fe1-1d58bc1a1362",
+  "packet_digest": "sha256:d2a18ea4b8c5cb9c6509e6071e60819e3d130c47d3d738db0cbd150522629af1",
+  "guide_revision": "m4-78-ticket-contract-v3",
+  "guide_digest": "sha256:c88cfbf07ef605064ce9339cf1897c6ffff97c363b6aec47c04b55ffdfd596fa",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "findings": [
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "expiry_revocation_terminal_finalization_not_observed",
+      "criterion_ref": "M4-78-AC-04",
+      "affected_case_ids": ["M4-78-TC-04", "M4-78-TC-06"],
+      "affected_fields": ["test_cases.M4-78-TC-04.statement", "test_cases.M4-78-TC-04.oracle", "test_cases.M4-78-TC-06.statement", "required_evidence.M4-78-EV-04"],
+      "problem": "AC-04 requires both provider observation and terminal finalization to remain allowed after proposal/reference expiry or key revocation when current observation authorization passes. TC-04 explicitly proves continued observation under those conditions, but its oracle does not require a found(success) or found(failed(closed_code)) result to be finalized while the proposal/reference or key is expired/revoked. TC-06 proves terminalization generally, but not in combination with expiry or revocation. The current evidence matrix likewise separates observation-only and retry authority without an observable terminal-finalization assertion, so an implementation that permits observation yet incorrectly blocks finalization after expiry/revocation could satisfy the stated tests.",
+      "required_change": "Extend a required test and evidence oracle to reconcile found(success) and at least representative/all required closed failure outcomes after proposal/reference expiry and key revocation, with current Workspace/resource observation authorization allowed. Require successful Knora terminal finalization, zero provider write/retry, exact public terminal mapping, and proof that expiry/revocation affects new write authority but not finalization of the already-started execution."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "stale_lease_terminal_observation_transition_unspecified",
+      "criterion_ref": "M4-78-AC-08",
+      "affected_case_ids": ["M4-78-TC-01", "M4-78-TC-05", "M4-78-TC-07"],
+      "affected_fields": ["design_decisions.M4-78-DD-03", "design_decisions.M4-78-DD-04", "test_cases.M4-78-TC-01", "test_cases.M4-78-TC-05", "test_cases.M4-78-TC-07", "required_evidence.M4-78-EV-02", "required_evidence.M4-78-EV-05"],
+      "problem": "The contract requires provider truth to be observed before takeover, while record_execution_observation/finalize_execution require the exact current owner/generation and an unexpired lease. It does not deterministically specify the recovery sequence when the lease is already strictly expired and the provider-first lookup returns a closed success or closed failure. TC-01 covers closed provider outcomes but does not require an expired lease; TC-05 covers stale takeover but not a found terminal provider outcome; TC-07 covers crash recovery without defining this intersection. An implementation therefore has latitude to attempt forbidden stale-owner persistence, incorrectly retry, finalize without a valid lease, or invent a takeover/re-observation sequence that is not contractually tested.",
+      "required_change": "Specify and test the stale-lease plus found-terminal path. The oracle must define the exact legal sequence consistent with provider-first ordering and generation fencing—for example, observe provider truth without persisting under the expired lease, acquire the stale-execution CAS with one generation winner, then revalidate/re-observe as required under the new current owner/generation before recording/finalizing—with zero provider retry. Whichever sequence is chosen must explicitly prove that no stale owner records/finalizes and that a closed provider outcome cannot be converted into a retry."
+    },
+    {
+      "severity": "major",
+      "category": "scope",
+      "issue_class": "static_registry_no_plugin_boundary_unverified",
+      "criterion_ref": "M4-78-DD-07",
+      "affected_case_ids": ["M4-78-TC-09"],
+      "affected_fields": ["design_decisions.M4-78-DD-07", "out_of_scope", "test_cases.M4-78-TC-09", "required_evidence"],
+      "problem": "DD-07 and the out-of-scope contract require the capability/provider boundary to remain a static typed registry with no dynamic plugins, discovery, runtime provider registration, marketplace, or vendor-specific integration. No required test case or evidence item observes this boundary. A green repository test/Ruff/Compose run alone does not prove that the candidate did not add a dynamic registration/discovery seam or vendor-specific integration, so a material scope violation can pass the acceptance contract.",
+      "required_change": "Add required observable scope evidence, and preferably a focused test or candidate-diff/architecture oracle, proving that Issue #78 retains the existing static typed capability registry and provider-owned reference boundary, introduces no runtime registration/discovery/plugin entry point, and adds no vendor-specific integration. The evidence must be tied to the exact candidate SHA rather than relying on a generic file-level assertion."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-78-AC-01", "M4-78-AC-02", "M4-78-AC-03", "M4-78-AC-04", "M4-78-AC-05", "M4-78-AC-06", "M4-78-AC-07", "M4-78-AC-08", "M4-78-AC-09", "M4-78-AC-10", "M4-78-AC-11", "M4-78-AC-12", "M4-78-AC-13"],
+    "uncovered": ["M4-78-AC-04"]
+  },
+  "reviewed_commit": "62a9a26d2418115e80997717a40d2796b935ed63",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "chat_reference": "https://chatgpt.com/c/6a8baf9e-b1d0-83ec-8fe1-1d58bc1a1362",
+  "response_digest": "sha256:4badd52742f08be87c28eb8a13ff15ed0cf35280710f6bfeea52fe3ff31b26db"
+}
