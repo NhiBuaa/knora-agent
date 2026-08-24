@@ -1142,6 +1142,29 @@ transition authority; every later session resumes from its exact `next_valid_tra
   and Test Case revision v3 followed by fresh external guide review. Implementation, manual
   acceptance and final M4 code review remain blocked.
 
+### Issue #78 guide v3 and external approval — 2026-08-24
+
+- Guide v3 changes only the two validated v2 Major findings. TC-04/GEV-02 now require exactly one
+  authorized provider-observation lookup and provider-ledger read while admission, dispatch,
+  `create_ticket`, target lookup, provider-ledger mutation and provider-effect counts remain zero.
+  TC-06/GEV-03 now bind unavailable, timeout, malformed/unknown and not-found to separate exact
+  HTTP 202 rows, reason codes, lifecycle `executing`, no retry authority and recursive full-key
+  comparison.
+- Immutable guide digest is
+  `sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b`.
+  Canonical packet semantic digest is
+  `sha256:e911250e00d04fa519016ff5db575b5e5ee80636e95708d1093fbe8580b98eff`
+  at subject checkpoint `2d562bf487d3b9947ee230567c221014a8ab2d78`.
+- The exact packet was sent automatically to authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c`. The repository validator accepted
+  the sealed response at
+  `sha256:5d278d9267d27df9a0aeb0477db6bc1f1e50658d4637b93e0e4d4eafa2325f91`.
+- Verdict is `APPROVE`, with zero Critical, Major and Minor findings, complete AC-01 through AC-14
+  coverage and GR-001 through GR-004 closed. This fills the latest #78 guide external-review slot.
+- Guide v3 remains unlocked until the repository owner explicitly approves the exact guide digest.
+  Implementation, manual acceptance execution and final M4 code review remain blocked until their
+  later gates.
+
 
 
 

@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "guide_78_external_review_v2_request_changes",
-  "next_valid_transition": "prepare immutable guide and Test Case revision v3 addressing the two validated Major findings, then obtain a fresh external guide review before human lock",
+  "current_state": "guide_78_v3_external_approve_pending_human_lock",
+  "next_valid_transition": "obtain explicit repository-owner approval locking exact guide m4-78-crash-recovery-v3 at sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -24,7 +24,7 @@
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_v2_request_changes", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_v3_external_approve_pending_human_lock", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -232,7 +232,13 @@
     "workflow_suspended_guide_78_review_v2_transport_failure",
     "workflow_resumed_guide_78_review_v2_new_session_retry_authorized",
     "guide_78_external_review_v2_new_session_retry_sent",
-    "guide_78_external_review_v2_request_changes"
+    "guide_78_external_review_v2_request_changes",
+    "test_craft_78_v3_completed",
+    "guide_78_v3_prepared",
+    "guide_78_v3_local_audit_approve",
+    "guide_78_external_review_packet_v3_ready",
+    "guide_78_external_review_packet_v3_sent",
+    "guide_78_external_review_v3_approve"
   ],
   "review_cadence": {
     "risk": "high",
@@ -492,13 +498,22 @@
       "previous_guide_review_packet_digest": "sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597",
       "previous_guide_review_packet_file_digest": "sha256:1c2490d8e9e2dbd66cfb6a595972a71bd4ea222e2778991e3fa269fc945c1eb1",
       "previous_guide_review_request_id": "review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb",
-      "guide_revision": "m4-78-crash-recovery-v2",
-      "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v2.md",
-      "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
-      "guide_subject_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
-      "test_case_reference": ".agents/review/m4-issue-78-test-cases-v2.json",
-      "test_case_digest": "sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46",
-      "guide_external_review": "REQUEST_CHANGES",
+      "previous_guide_v2": {
+        "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v2.md",
+        "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
+        "subject_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
+        "external_review_reference": ".agents/review/m4-issue-78-guide-external-review-v2.json",
+        "response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
+        "verdict": "REQUEST_CHANGES",
+        "counts": {"critical": 0, "major": 2, "minor": 0}
+      },
+      "guide_revision": "m4-78-crash-recovery-v3",
+      "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v3.md",
+      "guide_digest": "sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b",
+      "guide_subject_commit": "2d562bf487d3b9947ee230567c221014a8ab2d78",
+      "test_case_reference": ".agents/review/m4-issue-78-test-cases-v3.json",
+      "test_case_digest": "sha256:b664eb597359921160a709f9509959dbf9f4510ac084463725f423733f798062",
+      "guide_external_review": "APPROVE",
       "guide_external_review_new_session_retry_authorized": true,
       "guide_external_review_new_session_retry_authorization_source": "explicit_repository_owner_message",
       "guide_external_review_new_session_retry_authorized_at": "2026-08-24T11:26:25+07:00",
@@ -508,24 +523,21 @@
       "guide_external_review_initial_transport_digest": "sha256:b5b3adc8823babc934228e32d9efd8cd50c9600dbda5cd6c3d59a2953d2a8e2d",
       "guide_external_review_schema_retry_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2-schema-retry.txt",
       "guide_external_review_schema_retry_digest": "sha256:a60c0d66272c252378c2a8b24ea2d9176289781b3318e24d0f28c55e3773bc3c",
-      "guide_external_review_reference": ".agents/review/m4-issue-78-guide-external-review-v2.json",
-      "guide_external_review_response_reference": ".agents/review/m4-issue-78-guide-review-response-v2.json",
-      "guide_external_review_response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
-      "guide_external_review_transport_response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2-new-session.json",
-      "guide_external_review_transport_raw_text_digest": "sha256:30b0384e7121932d9920ba92ec298d81e4e1ed2f7ece8e610f8aaf0bfb2a5a26",
-      "guide_external_review_counts": {"critical": 0, "major": 2, "minor": 0},
-      "guide_external_review_findings": [
-        "valid_observation_write_denial_matrix_is_self_contradictory",
-        "nonterminal_provider_outcomes_are_not_independently_distinguished"
-      ],
-      "guide_external_review_prior_findings_closed": ["M4-78-GR-001"],
+      "guide_external_review_reference": ".agents/review/m4-issue-78-guide-external-review-v3.json",
+      "guide_external_review_response_reference": ".agents/review/m4-issue-78-guide-review-response-v3.json",
+      "guide_external_review_response_digest": "sha256:5d278d9267d27df9a0aeb0477db6bc1f1e50658d4637b93e0e4d4eafa2325f91",
+      "guide_external_review_transport_response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v3.json",
+      "guide_external_review_transport_raw_text_digest": "sha256:21807dc8ece23c76df7c6c9add6da4cabe1ed83c1c32fe721fdd29f6db6cddfd",
+      "guide_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
+      "guide_external_review_findings": [],
+      "guide_external_review_prior_findings_closed": ["M4-78-GR-001", "M4-78-GR-002", "M4-78-GR-003", "M4-78-GR-004"],
       "guide_external_review_prior_failed_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review.json",
-      "guide_external_review_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review-retry.json",
-      "guide_external_review_chat_reference": "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
-      "guide_external_review_schema_retry_count": 1,
-      "guide_external_review_new_session_retry_count": 1,
-      "guide_external_review_cadence_eligible": false,
-      "guide_external_review_visible_non_authoritative_projection": {
+      "guide_external_review_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v3-external-review.json",
+      "guide_external_review_chat_reference": "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
+      "guide_external_review_schema_retry_count": 0,
+      "guide_external_review_new_session_retry_count": 0,
+      "guide_external_review_cadence_eligible": true,
+      "guide_v2_external_review_visible_non_authoritative_projection": {
         "verdict": "REQUEST_CHANGES",
         "critical_count": 0,
         "major_count": 2,
@@ -539,14 +551,14 @@
           "M4-78-GR-002"
         ]
       },
-      "guide_review_packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v2.json",
-      "guide_review_packet_digest": "sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b",
-      "guide_review_packet_file_digest": "sha256:ce6a3a5c049c30c91885cba7066f25715f9ed3b6904173c2784d619bed708821",
-      "guide_review_request_id": "review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1",
+      "guide_review_packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v3.json",
+      "guide_review_packet_digest": "sha256:e911250e00d04fa519016ff5db575b5e5ee80636e95708d1093fbe8580b98eff",
+      "guide_review_packet_file_digest": "sha256:635a1751f404afcfd75ee8ef08bb2d5b0bb424cb47d6a3517ce24cb37d6d270e",
+      "guide_review_request_id": "review-request-sha256:c8a73eb0d97c102690d027b3a447ce9ceac7809c5a37637e898d732ae88c7aa9",
       "guide_local_audit": "APPROVE",
       "guide_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
-      "guide_local_audit_reference": ".agents/review/m4-issue-78-guide-v2-local-audit.json",
-      "guide_local_audit_digest": "sha256:565f11ae44a4dbf2dbc5070ccfe883f815c9154ccfb3f92a98ba174d871bbb53",
+      "guide_local_audit_reference": ".agents/review/m4-issue-78-guide-v3-local-audit.json",
+      "guide_local_audit_digest": "sha256:67d2d24aef8d43e5205df9690139fc0ef8dafdedf7cfed2977779bda64684200",
       "human_guide_approval": "pending",
       "evaluation_history": null,
       "accepted_commit": null,
@@ -999,6 +1011,20 @@
       "reference": ".agents/review/m4-issue-78-guide-external-review-v2.json",
       "chat_reference": "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
       "cadence_eligible": false
+    },
+    {
+      "ticket": "#78",
+      "guide_revision": "m4-78-crash-recovery-v3",
+      "subject_commit": "2d562bf487d3b9947ee230567c221014a8ab2d78",
+      "guide_digest": "sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b",
+      "verdict": "APPROVE",
+      "critical_count": 0,
+      "major_count": 0,
+      "minor_count": 0,
+      "response_digest": "sha256:5d278d9267d27df9a0aeb0477db6bc1f1e50658d4637b93e0e4d4eafa2325f91",
+      "reference": ".agents/review/m4-issue-78-guide-external-review-v3.json",
+      "chat_reference": "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
+      "cadence_eligible": true
     }
   ],
   "frontier_baselines": {
@@ -1041,8 +1067,8 @@
     "next_valid_transition": "send exact unchanged guide packet v2 in a new isolated ChatGPT High session and validate the response"
   },
   "blockers": [
-    "Issue #78 guide v2 received a validated REQUEST_CHANGES verdict with two Major oracle findings; guide/Test Case revision v3 and a fresh external review are required.",
-    "Issue #78 implementation remains blocked until an external guide review returns APPROVE and the exact guide digest receives explicit human lock.",
+    "Issue #78 guide v3 received external APPROVE with zero findings but is not locked until the repository owner explicitly approves exact digest sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b.",
+    "Issue #78 implementation remains blocked until that exact guide digest receives explicit human lock.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -1118,10 +1144,19 @@
     ".agents/review/m4-issue-78-guide-external-review-v2.json",
     ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review-retry.json",
     "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+    ".agents/review/m4-issue-78-test-cases-v3.json",
+    ".agents/manual-tests/milestone-4/78-crash-recovery-v3.md",
+    ".agents/review/m4-issue-78-guide-review-packet-v3.json",
+    ".agents/review/m4-issue-78-guide-v3-local-audit.json",
+    ".agents/review/m4-issue-78-guide-review-transport-response-v3.json",
+    ".agents/review/m4-issue-78-guide-review-response-v3.json",
+    ".agents/review/m4-issue-78-guide-external-review-v3.json",
+    ".agents/review/identities/chatgpt-m4-78-guide-v3-external-review.json",
+    "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T11:37:16+07:00"
+  "last_updated_at": "2026-08-24T11:56:46+07:00"
 }
