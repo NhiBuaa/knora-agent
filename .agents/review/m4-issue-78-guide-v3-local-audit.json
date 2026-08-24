@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "subject": "Issue #78 manual acceptance guide v3 and structured Test Cases",
+  "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v3.md",
+  "guide_digest": "sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b",
+  "test_case_reference": ".agents/review/m4-issue-78-test-cases-v3.json",
+  "test_case_digest": "sha256:b664eb597359921160a709f9509959dbf9f4510ac084463725f423733f798062",
+  "prior_review_reference": ".agents/review/m4-issue-78-guide-external-review-v2.json",
+  "prior_response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "closure": [
+    {
+      "finding_class": "valid_observation_write_denial_matrix_is_self_contradictory",
+      "status": "ADDRESSED_IN_V3",
+      "evidence": "TC-04 and GEV-02 require one authorized provider-observation lookup/ledger read while separately requiring zero admission, dispatch, create_ticket, target lookup, provider-ledger mutation and provider-effect calls."
+    },
+    {
+      "finding_class": "nonterminal_provider_outcomes_are_not_independently_distinguished",
+      "status": "ADDRESSED_IN_V3",
+      "evidence": "TC-06 and the immutable matrix define separate unavailable, timeout, malformed/unknown and not-found HTTP 202 rows with exact reason codes, lifecycle, retry and recursive-key oracles."
+    }
+  ],
+  "scope_check": "No application abstraction, ticket contract, implementation authority, plugin/provider scope or final-review timing changed.",
+  "cadence_eligible": false,
+  "next_gate": "fresh external guide review followed by explicit human lock only if APPROVE"
+}
