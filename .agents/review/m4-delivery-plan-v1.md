@@ -1285,3 +1285,19 @@ local/remote branch remains.
   `sha256:0b89722648d287f6d80fbc9e42df88e0fc45ca9b7a9ed97c5a1bbfd56dafbb6f`,
   `sha256:1b7bc0c9d309a08d1156abbe35025880df7aba7df74b4b66bef609e1bafabf6c` and
   `sha256:44db8b31e6cc32a2ad2e5a44fdd8e35034018ed7cdc02b81c3bf7c090d608176`.
+
+### Issue #78 technical retry attempt 3 identity reconciliation — 2026-08-24
+
+- Attempt 3 validated its Resume Contract but blocked before `implement`; it created no result
+  evidence and changed no code/test. The worker correctly observed that HEAD `62908a2` was a
+  coordination-only descendant of sealed `prepared_head=283c23a`, but the immutable attempt-3
+  contract had no rule authorizing that relationship.
+- This is a leader dispatch-contract defect, not another implementation failure, so the single
+  technical retry remains unconsumed. Candidate `283c23a` and all attempt-2 evidence are preserved.
+- Attempt 4 seals prepared coordination HEAD `62908a2` plus an exact descendant policy: current HEAD
+  may advance only through the three leader-owned files `m4-delivery-plan-v1.md`,
+  `m4-workflow-ledger-v1.json` and `milestone-4-workflow-events.jsonl`; any other descendant path
+  fails closed. Its dispatch/workspace/Resume digests are
+  `sha256:c012fcd32a9ede0766591f4d769d2a2d67e88d8e9dc4155895479af51feb4316`,
+  `sha256:f33cdda268985f32126adc851dd7b7fa275b57bbef55f55ba2015fccd6fa9dbf` and
+  `sha256:546e48e7a6d2e2effa458ccee05fba546195c875efc36c93ccb6ad5e244cebed`.
