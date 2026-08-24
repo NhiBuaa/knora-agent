@@ -228,7 +228,8 @@
     "workflow_suspended_guide_78_review_v2_send_confirmation",
     "workflow_resumed_guide_78_review_v2_send_confirmation",
     "guide_78_external_review_packet_v2_sent",
-    "guide_78_external_review_v2_schema_retry_failed"
+    "guide_78_external_review_v2_schema_retry_failed",
+    "workflow_suspended_guide_78_review_v2_transport_failure"
   ],
   "review_cadence": {
     "risk": "high",
@@ -999,12 +1000,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v2-send-v1.json",
-    "digest": "sha256:f7fb125f72e42f43dddf0e2872f09831dfb2f745a4d99f569244a912a661a21b",
-    "status": "consumed",
-    "consumed_at": "2026-08-24T11:17:49+07:00",
-    "current_state": "guide_78_external_review_packet_v2_ready_action_confirmation_required",
-    "next_valid_transition": "owner chooses recovery after repeated schema-invalid external-review response"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v2-transport-failure-v1.json",
+    "digest": "sha256:911c27773499782a15848be2c774f4d1656b93dae4d2e7b2f8340c7bd0d5e0f4",
+    "status": "active",
+    "current_state": "guide_78_external_review_v2_repeated_schema_invalid",
+    "next_valid_transition": "obtain owner choice between new-session retry and content-preserving normalization"
   },
   "blockers": [
     "Issue #78 guide v2 external-review response remained schema-invalid after the one allowed shape-only retry; no authoritative verdict exists.",
@@ -1084,5 +1084,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T11:17:49+07:00"
+  "last_updated_at": "2026-08-24T11:20:30+07:00"
 }
