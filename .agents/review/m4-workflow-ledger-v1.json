@@ -216,7 +216,8 @@
     "test_craft_78_v1_completed",
     "guide_78_v1_prepared",
     "guide_78_v1_local_audit_approve",
-    "guide_78_external_review_packet_v1_ready"
+    "guide_78_external_review_packet_v1_ready",
+    "workflow_suspended_guide_78_review_v1_send_confirmation"
   ],
   "review_cadence": {
     "risk": "high",
@@ -456,6 +457,7 @@
       "guide_revision": "m4-78-crash-recovery-v1",
       "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v1.md",
       "guide_digest": "sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa",
+      "guide_subject_commit": "a4ed647b3559d859950681a10a518046363c1367",
       "test_case_reference": ".agents/review/m4-issue-78-test-cases-v1.json",
       "test_case_digest": "sha256:60af1b41889e2e3128abfe63774029e1a4b1f740914dbb65607e311447de8989",
       "guide_external_review": "pending_v1_action_confirmation",
@@ -925,12 +927,11 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-ticket-review-v2-send-v1.json",
-    "digest": "sha256:95b3bc00cfd431423b7ccbf24f3cf054dddb26f58fa72c26ee0b1ce5136e1e88",
-    "status": "consumed",
-    "consumed_at": "2026-08-24T10:12:07+07:00",
-    "current_state": "ticket_78_external_review_packet_v2_ready_action_confirmation_required",
-    "next_valid_transition": "on fresh action-time confirmation, send exact packet v2 to a new isolated ChatGPT High session and validate the bound response"
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v1-send-v1.json",
+    "digest": "sha256:56e465e3351c4efb236a3f548b6d52409f421ae205d62664a2c4e40d3e61fe73",
+    "status": "active",
+    "current_state": "guide_78_external_review_packet_v1_ready_action_confirmation_required",
+    "next_valid_transition": "on fresh action-time confirmation, send exact guide packet v1 to a new isolated ChatGPT High session and validate the bound response"
   },
   "blockers": [
     "Issue #78 guide v1 and its review packet are locally VALID/APPROVE, but browser send requires fresh action-time confirmation.",
@@ -998,5 +999,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T10:26:20+07:00"
+  "last_updated_at": "2026-08-24T10:28:38+07:00"
 }
