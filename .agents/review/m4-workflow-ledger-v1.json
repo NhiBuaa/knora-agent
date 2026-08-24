@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_guide_v7_external_review_approved_human_lock_required",
-  "next_valid_transition": "obtain explicit repository-owner approval locking exact guide revision m4-77-authorized-execution-v7 at sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93 before implementation",
+  "current_state": "ticket_77_guide_v7_human_locked_implementation_authorized",
+  "next_valid_transition": "run Issue #77 implement design preflight and begin vertical TDD slices against the locked guide v7 and ticket contract v9",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_v7_external_review_approved_human_lock_required", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_v7_human_locked_implementation_authorized", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -186,7 +186,8 @@
     "guide_77_v7_prepared",
     "guide_77_v7_local_audit_approve",
     "guide_77_external_review_packet_v7_ready",
-    "guide_77_external_review_v7_approve"
+    "guide_77_external_review_v7_approve",
+    "human_guide_77_v7_approved_and_locked"
   ],
   "review_cadence": {
     "risk": "high",
@@ -330,7 +331,12 @@
       "guide_review_schema_retry_count": 0,
       "guide_review_adjudication_reference": ".agents/review/m4-issue-77-guide-v6-adjudication-v1.json",
       "guide_review_adjudication_status": "resolved_by_ticket_v9_and_guide_v7_external_approve",
-      "human_guide_approval": "pending",
+      "human_guide_approval": "approved",
+      "guide_approval_reference": ".agents/review/m4-issue-77-guide-approval-v7.json",
+      "guide_approval_digest": "sha256:c1d9e08476c1d90c5a7b2fa3b4590a0a6463835ba6a57d7f08c723aab903dc24",
+      "guide_approval_subject_commit": "f165b11ea504e2ebf7e623076e1192c15d5398e2",
+      "guide_lock_status": "LOCKED",
+      "implementation_status": "authorized_not_started",
       "evaluation_history": ".agents/manual-tests/milestone-4/77-authorized-execution-v7.evaluations.jsonl",
       "accepted_commit": null,
       "integrated_commit": null,
@@ -779,7 +785,8 @@
     "Guide v5 external review confirmed all eight prior findings closed but returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response digest sha256:90e6fc7e1444e24662f46ef397425438955db2c9c886d33e969f0ba6baaac12b.",
     "Guide v6 external review returned REQUEST_CHANGES with 0 Critical, 2 Major and 0 Minor findings; normalized response is contract-valid at sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef. Adjudication sustains both findings. Corrected ticket contract v9 is locally ready at Git blob c6a552166658099bf6148b5b184caf69a6913c75 and sha256:bce76ae5dd7c7a7668c7675c8df2e3251dbfe41424ac7687ea3e83fd1fa875b5 after independent Standards/ADR and Spec/Design audits returned APPROVE with zero findings. Implementation remains blocked until corrected ticket and a new guide both receive external APPROVE and the exact guide digest is human-locked.",
     "Ticket packet v10 external review APPROVED the unchanged Issue #77 contract v9 with 0 Critical, 0 Major and 0 Minor findings against exact subject d4064c4d8afcc9c552d01489f3ae400063382049. The review is cadence-eligible at response digest sha256:5f198dba77d20faaa14b6c746b642b11560a3669c67bef075251b1fc5708d4ad. Implementation remains blocked until a new externally approved guide is human-locked.",
-    "Guide v7 external review APPROVED the exact packet/guide digests with 0 Critical, 0 Major and 0 Minor findings and complete AC-01 through AC-10 coverage. The response validates at sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c against chat 6a8b8733-e20c-83ec-86a6-f3dbc218225a and subject a7e59d6aba182bc2cba1a7dcae799d18eba5c539. Exact-digest human lock is still required before implementation.",
+    "Guide v7 external review APPROVED the exact packet/guide digests with 0 Critical, 0 Major and 0 Minor findings and complete AC-01 through AC-10 coverage. The response validates at sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c against chat 6a8b8733-e20c-83ec-86a6-f3dbc218225a and subject a7e59d6aba182bc2cba1a7dcae799d18eba5c539.",
+    "The repository owner explicitly locked guide m4-77-authorized-execution-v7 at sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93. Approval artifact digest sha256:c1d9e08476c1d90c5a7b2fa3b4590a0a6463835ba6a57d7f08c723aab903dc24 authorizes Issue #77 implementation through implement -> tdd but not PR merge, acceptance approval or code review.",
     "Final M4 review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -816,8 +823,9 @@
     ".agents/review/m4-issue-77-guide-review-response-v7.json",
     ".agents/review/m4-issue-77-guide-external-review-v7.json",
     ".agents/review/identities/chatgpt-m4-77-guide-v7-external-review.json",
+    ".agents/review/m4-issue-77-guide-approval-v7.json",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T06:56:47+07:00"
+  "last_updated_at": "2026-08-24T07:01:48+07:00"
 }

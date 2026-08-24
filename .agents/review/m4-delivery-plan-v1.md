@@ -970,6 +970,18 @@ transition authority; every later session resumes from its exact `next_valid_tra
   `sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93`.
   Implementation, PR creation and code review remain unauthorized until that lock is recorded.
 
+### Guide v7 human lock — 2026-08-24
+
+- The repository owner explicitly read and locked exact guide revision
+  `m4-77-authorized-execution-v7` at
+  `sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93`.
+  `.agents/review/m4-issue-77-guide-approval-v7.json` records the immutable approval at digest
+  `sha256:c1d9e08476c1d90c5a7b2fa3b4590a0a6463835ba6a57d7f08c723aab903dc24`.
+- The guide is now immutable. Any semantic implementation-discovered change returns to Design and
+  requires a new externally reviewed and human-locked guide revision. The next valid transition is
+  Issue #77 implementation through `implement -> tdd`. Per-Issue code review remains disabled;
+  the sole code review remains the final M4 fixed-point review after #75–#79 complete.
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.
