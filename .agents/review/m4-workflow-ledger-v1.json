@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_78_external_review_packet_v2_ready_action_confirmation_required",
-  "next_valid_transition": "on fresh action-time confirmation, send the exact Issue #78 ticket-review packet v2 to a new isolated ChatGPT High session and validate its bound response",
+  "current_state": "ticket_78_external_review_v2_approve",
+  "next_valid_transition": "prepare Issue #78 manual acceptance test cases and guide through manual-acceptance to test-craft, then external-review the exact guide before human lock or implementation",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -24,7 +24,7 @@
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_external_review_packet_v2_ready", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_preparation_ready", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -209,7 +209,10 @@
     "ticket_78_contract_revision_v4_published",
     "ticket_78_external_review_packet_v2_local_audit_approve",
     "ticket_78_external_review_packet_v2_ready",
-    "workflow_suspended_ticket_78_review_v2_send_confirmation"
+    "workflow_suspended_ticket_78_review_v2_send_confirmation",
+    "workflow_resumed_ticket_78_review_v2_send_confirmation",
+    "ticket_78_external_review_packet_v2_sent",
+    "ticket_78_external_review_v2_approve"
   ],
   "review_cadence": {
     "risk": "high",
@@ -408,7 +411,12 @@
       "ticket_contract_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
       "ticket_contract_adjudication_reference": ".agents/review/m4-issue-78-ticket-v4-adjudication-v1.json",
       "ticket_contract_adjudication_digest": "sha256:fe4def74470022bd741d6cca3bc1947d21d7fdfe5964467f65ec8513c312ebb7",
-      "ticket_external_review": "pending_v2_action_confirmation",
+      "ticket_external_review": "APPROVE",
+      "ticket_external_review_reference": ".agents/review/m4-issue-78-ticket-external-review-v2.json",
+      "ticket_external_review_response_digest": "sha256:96b92ddb16583a33766ff6ab0a54381d73b26d76a28e92c6884718d9820d8d84",
+      "ticket_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
+      "ticket_external_review_chat_reference": "https://chatgpt.com/c/6a8bb693-e31c-83ec-9fdf-fd64cdceafc9",
+      "ticket_external_review_cadence_eligible": true,
       "previous_ticket_external_review": "REQUEST_CHANGES",
       "previous_ticket_external_review_reference": ".agents/review/m4-issue-78-ticket-external-review-v1.json",
       "previous_ticket_external_review_response_digest": "sha256:4badd52742f08be87c28eb8a13ff15ed0cf35280710f6bfeea52fe3ff31b26db",
@@ -438,6 +446,9 @@
       "ticket_review_packet_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
       "ticket_review_packet_local_audit_reference": ".agents/review/m4-issue-78-ticket-review-packet-v2-local-audit-v1.json",
       "ticket_review_packet_local_audit_digest": "sha256:393c5026ef551a8cb3b4301bd69ac9612a2bf8449e1f5cfd40c2fff24e6666ec",
+      "ticket_review_transport_response_reference": ".agents/review/m4-issue-78-ticket-review-transport-response-v2.json",
+      "ticket_review_response_reference": ".agents/review/m4-issue-78-ticket-review-response-v2.json",
+      "ticket_review_identity_reference": ".agents/review/identities/chatgpt-m4-78-ticket-v2-external-review.json",
       "guide_revision": null,
       "evaluation_history": null,
       "accepted_commit": null,
@@ -846,6 +857,21 @@
       "reference": ".agents/review/m4-issue-78-ticket-external-review-v1.json",
       "chat_reference": "https://chatgpt.com/c/6a8baf9e-b1d0-83ec-8fe1-1d58bc1a1362",
       "cadence_eligible": false,
+      "superseded_for_cadence": true
+    },
+    {
+      "surface": "ticket:#78",
+      "revision": 2,
+      "ticket_contract_revision": 4,
+      "subject_commit": "37f1ef03c4667def8db23f1c0f5c09a725f4fd54",
+      "verdict": "APPROVE",
+      "critical_count": 0,
+      "major_count": 0,
+      "minor_count": 0,
+      "response_digest": "sha256:96b92ddb16583a33766ff6ab0a54381d73b26d76a28e92c6884718d9820d8d84",
+      "reference": ".agents/review/m4-issue-78-ticket-external-review-v2.json",
+      "chat_reference": "https://chatgpt.com/c/6a8bb693-e31c-83ec-9fdf-fd64cdceafc9",
+      "cadence_eligible": true,
       "superseded_for_cadence": false
     }
   ],
@@ -883,13 +909,14 @@
   "resume_contract": {
     "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-ticket-review-v2-send-v1.json",
     "digest": "sha256:95b3bc00cfd431423b7ccbf24f3cf054dddb26f58fa72c26ee0b1ce5136e1e88",
-    "status": "active",
+    "status": "consumed",
+    "consumed_at": "2026-08-24T10:12:07+07:00",
     "current_state": "ticket_78_external_review_packet_v2_ready_action_confirmation_required",
     "next_valid_transition": "on fresh action-time confirmation, send exact packet v2 to a new isolated ChatGPT High session and validate the bound response"
   },
   "blockers": [
-    "Issue #78 contract v4 is published with exact GitHub read-back equality and packet v2 is locally VALID/APPROVE, but browser send requires fresh action-time confirmation.",
-    "Issue #78 guide preparation and implementation remain blocked until contract v4 receives external APPROVE and a new guide receives external APPROVE plus explicit human lock.",
+    "Issue #78 ticket contract v4 is externally APPROVED with zero findings; guide preparation is now the frontier.",
+    "Issue #78 implementation remains blocked until a new guide receives external APPROVE and explicit human lock.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -940,10 +967,14 @@
     ".agents/review/m4-issue-78-ticket-v4-adjudication-v1.json",
     ".agents/review/m4-issue-78-ticket-review-packet-v2.json",
     ".agents/review/m4-issue-78-ticket-review-packet-v2-local-audit-v1.json",
+    ".agents/review/m4-issue-78-ticket-review-transport-response-v2.json",
+    ".agents/review/m4-issue-78-ticket-review-response-v2.json",
+    ".agents/review/m4-issue-78-ticket-external-review-v2.json",
+    ".agents/review/identities/chatgpt-m4-78-ticket-v2-external-review.json",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T10:09:13+07:00"
+  "last_updated_at": "2026-08-24T10:17:55+07:00"
 }
