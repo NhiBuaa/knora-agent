@@ -1178,6 +1178,27 @@ transition authority; every later session resumes from its exact `next_valid_tra
   Issue #78. The next transition is an immutable attempt-1 dispatch and exact paste prompt for a
   fresh human-opened Issue session.
 
+### Issue #78 dispatch checkpoint — 2026-08-24
+
+- The native #77 blocker is closed, Issue #78 remains open, and the integration, default and Issue
+  branch remote heads remain exactly `1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1`,
+  `6312c4c4230032aa92ca5915803fcfaf564354fa` and
+  `4239dd8177a5870bbaa238676dbdad9ddc794ef4` respectively. The Issue worktree is clean and has no
+  implementation/test/migration diff from its source base.
+- Dispatch attempt 1 was sealed but superseded before any worker start because the runtime dispatch
+  contract added mandatory `leader_workflow_artifact` and exact `leader_prompt` return-routing
+  bindings before readiness validation. Its immutable artifacts remain audit evidence and must not
+  be used.
+- Dispatch attempt 2 is the sole active dispatch. Workflow identity is
+  `feature-delivery/m4-tools-human-approval/issue-78/attempt-2`; immutable dispatch, workspace and
+  Resume digests are `sha256:ec7695355ece5b17c810a32a88d12d496b6a9bc80549e36ecf8c9e5cc68ee2ed`,
+  `sha256:b21b49e9f38debdc09e1c2cd53fd1d3d2169473ec6c5e3f5f1ca2677899fb551` and
+  `sha256:e461037cf981f4c9d862f2a5257c2db34bda45c13419d402f327081e176d4174`.
+- The leader now waits. The repository owner opens one fresh task and pastes the exact generated
+  prompt unchanged. The worker resumes, invokes `implement` exactly once in the prepared #78
+  worktree, commits but does not push/integrate/accept/review, publishes create-once result evidence,
+  suspends to `return-2.json`, and returns the generated leader-ingestion prompt unchanged.
+
 
 
 
