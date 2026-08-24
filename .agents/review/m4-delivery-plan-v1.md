@@ -1301,3 +1301,27 @@ local/remote branch remains.
   `sha256:c012fcd32a9ede0766591f4d769d2a2d67e88d8e9dc4155895479af51feb4316`,
   `sha256:f33cdda268985f32126adc851dd7b7fa275b57bbef55f55ba2015fccd6fa9dbf` and
   `sha256:546e48e7a6d2e2effa458ccee05fba546195c875efc36c93ccb6ad5e244cebed`.
+
+### Issue #78 attempt 4 repeated result-contract failure — 2026-08-24
+
+- Attempt 4 completed the bounded technical retry at candidate
+  `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390`. The worker moved the PostgreSQL reconciliation case
+  into the required `test_reconciliation_postgres.py`, reported exact focused `82 passed`, full
+  `956 passed, 3 skipped`, Ruff/Compose green and an Alembic `0040 -> 0039 -> 0040` round trip. The
+  leader independently reran the exact focused command: `82 passed, 2 warnings in 5.08s`.
+- Return and result contracts are immutable and identity-valid with digests
+  `sha256:eeddf1f98776f8c1a80bec0fef866574eede69a53b6770ea273d410730587b7f` and
+  `sha256:cad4d35f278ecb73d494204ba03379a5b97259b39df77f0b2965330f48138de3`.
+  The candidate is clean, local-only and no acceptance/integration/review/push occurred.
+- Ingestion still fails closed. Dispatch 4 required result evidence to enumerate every changed path
+  from source base; the worker did so, including leader-owned `.agents` artifacts. However,
+  dispatch-4 `allowed_scope` omitted those coordination paths and the current
+  `_issue_session_complete` validator has no coordination exception, so `scope_valid=false`.
+- This is a repeated result-contract failure after the normal technical retry. The workflow is
+  suspended with failure evidence
+  `sha256:a662f25307220b2144bfef68387005ec09b09ad611f86250a01b41c2bbaa3ea6` and Resume Contract
+  `sha256:71eacc7cb98505d82f4f07609a6e23a0c10aa46cafe5639bcb714e6e47d79861`.
+  No attempt 5 may be inferred. Deterministic next transition is explicit repository-owner direction
+  on whether to authorize one exceptional attempt 5 that adds exactly the three leader-owned
+  coordination paths to `allowed_scope`, preserves candidate/semantics and republishes sealed result
+  evidence without further production changes.
