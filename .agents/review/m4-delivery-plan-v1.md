@@ -1061,6 +1061,24 @@ transition authority; every later session resumes from its exact `next_valid_tra
   local guide audit is `APPROVE` with zero findings. External guide review and explicit owner lock
   remain mandatory before implementation.
 
+### Issue #78 guide external review v1 outcome — 2026-08-24
+
+- Exact guide packet v1 was sent to the new authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe` for guide subject
+  `a4ed647b3559d859950681a10a518046363c1367`.
+- The normalized response validates `VALID / review_response_valid`, seals at
+  `sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f`
+  and returns `REQUEST_CHANGES` with `0 Critical / 2 Major / 0 Minor`.
+- Guide v2 must add only two security oracles: the successful authorized reconciliation sequence
+  must prove current path-Workspace/resource observation authorization before trusted snapshot
+  routing and provider observation, with zero provider-observation calls for every authorization
+  denial; and a differential case must keep the observation-routing snapshot valid while current
+  write authority independently fails, then prove every retry/write seam makes zero dispatch,
+  `create_ticket` and provider-effect calls and never treats snapshot provenance as write authority.
+- Guide v1 is superseded for locking and cannot authorize implementation. The next transition is
+  `manual-acceptance -> test-craft` revision v2, followed by a new external guide review. Final M4
+  code review remains deferred until #75–#79 are complete.
+
 
 
 

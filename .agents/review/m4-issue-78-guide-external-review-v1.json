@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8bbc86-0704-83ec-b948-061d86151fbe",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v1-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "a4ed647b3559d859950681a10a518046363c1367",
+  "ticket_id": "#78",
+  "guide_revision": "m4-78-crash-recovery-v1",
+  "guide_digest": "sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa",
+  "request_id": "review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb",
+  "packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v1.json",
+  "packet_digest": "sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597",
+  "response_reference": ".agents/review/m4-issue-78-guide-review-response-v1.json",
+  "response_digest": "sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f",
+  "transport_response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v1.json",
+  "transport_raw_text_digest": "sha256:121afb47c7e54372011cd7ed23b795c2552f49dd9d55bb2de5dbe4b1e0840fc6",
+  "transport_response_file_digest": "sha256:ab6abfa49e7d5f0f8875280e39e89cfce04bb7a87d888cc3407f835470382cbf",
+  "chat_reference": "https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "finding_classes": [
+    "authorized_observation_order_not_closed",
+    "observation_snapshot_write_authority_separation_not_proven"
+  ],
+  "prior_findings_closed": [],
+  "coverage": {
+    "criteria": [
+      "M4-78-AC-01",
+      "M4-78-AC-02",
+      "M4-78-AC-03",
+      "M4-78-AC-04",
+      "M4-78-AC-05",
+      "M4-78-AC-06",
+      "M4-78-AC-07",
+      "M4-78-AC-08",
+      "M4-78-AC-09",
+      "M4-78-AC-10",
+      "M4-78-AC-11",
+      "M4-78-AC-12",
+      "M4-78-AC-13",
+      "M4-78-AC-14"
+    ],
+    "uncovered": [
+      "M4-78-AC-02",
+      "M4-78-AC-03"
+    ]
+  },
+  "transport": "single_pasted_text_attachment",
+  "response_normalization": {
+    "status": "transport_identity_and_subject_bound_then_sealed",
+    "session_id_from": "unknown",
+    "session_id_to": "6a8bbc86-0704-83ec-b948-061d86151fbe",
+    "reviewed_commit_from": "unknown",
+    "reviewed_commit_to_exact_packet_checkpoint": "a4ed647b3559d859950681a10a518046363c1367",
+    "model_from": "GPT-5.6 Sol",
+    "model_to": null,
+    "subject_binding_basis": "The immutable packet and guide digests in the raw response exactly match the files committed at the pushed subject checkpoint; the visible authenticated session URL supplies stable transport identity.",
+    "response_digest_added": "sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f",
+    "semantic_change": false
+  },
+  "schema_retry_count": 0,
+  "summary": "Guide v1 has strong coverage for stale takeover, crash recovery, terminal and non-terminal provider outcomes, audit reconstruction and static-registry scope. Two security oracles remain open: successful reconciliation must prove current path-Workspace/resource authorization before trusted routing and provider observation, and a valid observation-routing snapshot must be proven incapable of authorizing any retry/write when current write authority independently fails.",
+  "cadence_eligible": false
+}

@@ -24,7 +24,7 @@
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_review_packet_v1_ready", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_v1_changes_requested", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -217,7 +217,10 @@
     "guide_78_v1_prepared",
     "guide_78_v1_local_audit_approve",
     "guide_78_external_review_packet_v1_ready",
-    "workflow_suspended_guide_78_review_v1_send_confirmation"
+    "workflow_suspended_guide_78_review_v1_send_confirmation",
+    "workflow_resumed_guide_78_review_v1_send_confirmation",
+    "guide_78_external_review_packet_v1_sent",
+    "guide_78_external_review_v1_request_changes"
   ],
   "review_cadence": {
     "risk": "high",
@@ -460,7 +463,19 @@
       "guide_subject_commit": "a4ed647b3559d859950681a10a518046363c1367",
       "test_case_reference": ".agents/review/m4-issue-78-test-cases-v1.json",
       "test_case_digest": "sha256:60af1b41889e2e3128abfe63774029e1a4b1f740914dbb65607e311447de8989",
-      "guide_external_review": "pending_v1_action_confirmation",
+      "guide_external_review": "REQUEST_CHANGES",
+      "guide_external_review_reference": ".agents/review/m4-issue-78-guide-external-review-v1.json",
+      "guide_external_review_response_reference": ".agents/review/m4-issue-78-guide-review-response-v1.json",
+      "guide_external_review_transport_response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v1.json",
+      "guide_external_review_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v1-external-review.json",
+      "guide_external_review_response_digest": "sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f",
+      "guide_external_review_counts": {"critical": 0, "major": 2, "minor": 0},
+      "guide_external_review_findings": [
+        "authorized_observation_order_not_closed",
+        "observation_snapshot_write_authority_separation_not_proven"
+      ],
+      "guide_external_review_chat_reference": "https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe",
+      "guide_external_review_cadence_eligible": false,
       "guide_review_packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v1.json",
       "guide_review_packet_digest": "sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597",
       "guide_review_packet_file_digest": "sha256:1c2490d8e9e2dbd66cfb6a595972a71bd4ea222e2778991e3fa269fc945c1eb1",
@@ -893,6 +908,20 @@
       "chat_reference": "https://chatgpt.com/c/6a8bb693-e31c-83ec-9fdf-fd64cdceafc9",
       "cadence_eligible": true,
       "superseded_for_cadence": false
+    },
+    {
+      "ticket": "#78",
+      "guide_revision": "m4-78-crash-recovery-v1",
+      "subject_commit": "a4ed647b3559d859950681a10a518046363c1367",
+      "guide_digest": "sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa",
+      "verdict": "REQUEST_CHANGES",
+      "critical_count": 0,
+      "major_count": 2,
+      "minor_count": 0,
+      "response_digest": "sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f",
+      "reference": ".agents/review/m4-issue-78-guide-external-review-v1.json",
+      "chat_reference": "https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe",
+      "cadence_eligible": false
     }
   ],
   "frontier_baselines": {
@@ -929,13 +958,14 @@
   "resume_contract": {
     "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v1-send-v1.json",
     "digest": "sha256:56e465e3351c4efb236a3f548b6d52409f421ae205d62664a2c4e40d3e61fe73",
-    "status": "active",
+    "status": "consumed",
+    "consumed_at": "2026-08-24T10:47:15+07:00",
     "current_state": "guide_78_external_review_packet_v1_ready_action_confirmation_required",
-    "next_valid_transition": "on fresh action-time confirmation, send exact guide packet v1 to a new isolated ChatGPT High session and validate the bound response"
+    "next_valid_transition": "revise Issue #78 structured Test Cases and manual guide to v2 for the two externally identified security oracles, then prepare a fresh guide review packet"
   },
   "blockers": [
-    "Issue #78 guide v1 and its review packet are locally VALID/APPROVE, but browser send requires fresh action-time confirmation.",
-    "Issue #78 implementation remains blocked until guide v1 receives external APPROVE and explicit human lock of its exact digest.",
+    "Issue #78 guide v1 external review returned REQUEST_CHANGES with two Major security-oracle findings; v1 cannot be locked or executed.",
+    "Issue #78 implementation remains blocked until a revised guide receives external APPROVE and explicit human lock of its exact digest.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -994,10 +1024,14 @@
     ".agents/manual-tests/milestone-4/78-crash-recovery-v1.md",
     ".agents/review/m4-issue-78-guide-review-packet-v1.json",
     ".agents/review/m4-issue-78-guide-v1-local-audit.json",
+    ".agents/review/m4-issue-78-guide-review-transport-response-v1.json",
+    ".agents/review/m4-issue-78-guide-review-response-v1.json",
+    ".agents/review/m4-issue-78-guide-external-review-v1.json",
+    ".agents/review/identities/chatgpt-m4-78-guide-v1-external-review.json",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T10:28:38+07:00"
+  "last_updated_at": "2026-08-24T10:47:15+07:00"
 }
