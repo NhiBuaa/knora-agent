@@ -224,7 +224,8 @@
     "test_craft_78_v2_completed",
     "guide_78_v2_prepared",
     "guide_78_v2_local_audit_approve",
-    "guide_78_external_review_packet_v2_ready"
+    "guide_78_external_review_packet_v2_ready",
+    "workflow_suspended_guide_78_review_v2_send_confirmation"
   ],
   "review_cadence": {
     "risk": "high",
@@ -487,7 +488,7 @@
       "guide_revision": "m4-78-crash-recovery-v2",
       "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v2.md",
       "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
-      "guide_subject_commit": null,
+      "guide_subject_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
       "test_case_reference": ".agents/review/m4-issue-78-test-cases-v2.json",
       "test_case_digest": "sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46",
       "guide_external_review": "pending_v2_action_confirmation",
@@ -971,11 +972,10 @@
     "authorized": true
   },
   "resume_contract": {
-    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v1-send-v1.json",
-    "digest": "sha256:56e465e3351c4efb236a3f548b6d52409f421ae205d62664a2c4e40d3e61fe73",
-    "status": "consumed",
-    "consumed_at": "2026-08-24T10:47:15+07:00",
-    "current_state": "guide_78_external_review_packet_v1_ready_action_confirmation_required",
+    "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v2-send-v1.json",
+    "digest": "sha256:f7fb125f72e42f43dddf0e2872f09831dfb2f745a4d99f569244a912a661a21b",
+    "status": "active",
+    "current_state": "guide_78_external_review_packet_v2_ready_action_confirmation_required",
     "next_valid_transition": "on fresh action-time confirmation, send exact guide packet v2 to a new isolated authenticated ChatGPT High session and validate the bound response"
   },
   "blockers": [
@@ -1052,5 +1052,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T10:57:25+07:00"
+  "last_updated_at": "2026-08-24T11:00:23+07:00"
 }
