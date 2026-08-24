@@ -1,7 +1,9 @@
 import importlib.util
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
@@ -10,9 +12,11 @@ from knora.main import create_app
 from knora.tools import (
     ActorContext,
     AuthorityProvenance,
+    ExecutionFenced,
     HmacDispatchEnvelopeSigner,
     InMemoryToolActionStore,
     PolicyProvenance,
+    ProposalNotExecutable,
     ProviderIdempotencyConflict,
     ProviderWriteFailed,
     ProviderWriteIndeterminate,
@@ -183,6 +187,20 @@ def execution_client(outcome):
             "target_not_found",
         ),
         (
+            ProviderWriteFailed("validation_rejected"),
+            502,
+            "execution_failed",
+            "rejection_code",
+            "validation_rejected",
+        ),
+        (
+            ProviderWriteFailed("policy_rejected"),
+            502,
+            "execution_failed",
+            "rejection_code",
+            "policy_rejected",
+        ),
+        (
             ProviderWriteIndeterminate(),
             202,
             "execution_indeterminate",
@@ -246,4 +264,74 @@ def test_execute_http_auth_workspace_and_schema_fail_before_workflow() -> None:
     assert unauthenticated.status_code == 401
     assert cross_workspace.status_code == 403
     assert injected.status_code == 422
+    assert gateway.calls == []
+
+
+@pytest.mark.parametrize(
+    ("reason", "status", "code"),
+    [
+        ("workspace_access_denied", 403, "WORKSPACE_ACCESS_DENIED"),
+        ("resource_access_denied", 403, "TOOL_RESOURCE_ACCESS_DENIED"),
+        ("execution_not_authorized", 403, "TOOL_EXECUTION_NOT_AUTHORIZED"),
+        ("invalid_tool_resource_reference", 400, "INVALID_TOOL_RESOURCE_REFERENCE"),
+        ("capability_identity_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("capability_version_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("capability_digest_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("binding_identity_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("binding_version_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("binding_digest_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("policy_identity_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("policy_version_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+        ("policy_digest_mismatch", 409, "TOOL_PROPOSAL_STALE"),
+    ],
+)
+def test_execute_http_post_acquisition_denial_matrix_is_exact(reason, status, code) -> None:
+    from knora.tools.proposal_http import _execution_response
+
+    response = _execution_response(ProposalNotExecutable("proposal", "logical", reason))
+
+    assert isinstance(response, JSONResponse)
+    assert response.status_code == status
+    assert json.loads(response.body) == {"error": {"code": code}}
+
+
+def test_execute_http_fenced_projection_has_exact_allowlist() -> None:
+    from knora.tools.proposal_http import _execution_response
+
+    response = _execution_response(ExecutionFenced("proposal", "logical"))
+
+    assert response.status_code == 409
+    assert json.loads(response.body) == {
+        "proposal_id": "proposal",
+        "logical_execution_id": "logical",
+        "lifecycle": "executing",
+        "outcome_type": "execution_fenced",
+        "reason_code": "execution_fenced",
+    }
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{",
+        "[]",
+        "{}",
+        '{"expected_revision":true}',
+        '{"expected_revision":"1"}',
+        '{"expected_revision":1,"request_fingerprint":"spoof"}',
+    ],
+)
+def test_execute_http_validation_matrix_precedes_workflow(content) -> None:
+    client, gateway, proposal_id, _ = execution_client(
+        ProviderWriteSucceeded("m4r1.provider-ticket.opaque")
+    )
+
+    response = client.post(
+        f"/v1/workspaces/workspace-a/tool-proposals/{proposal_id}/execute",
+        headers={"X-API-Key": "secret-a", "Content-Type": "application/json"},
+        content=content,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"error": {"code": "TOOL_REQUEST_INVALID"}}
     assert gateway.calls == []

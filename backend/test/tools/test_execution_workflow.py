@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from threading import Event
 
@@ -13,6 +14,7 @@ from knora.tools import (
     ApproveProposal,
     AuthorityProvenance,
     ExecuteApprovedProposal,
+    ExecutionFailed,
     ExecutionIndeterminate,
     ExecutionInProgress,
     ExecutionSucceeded,
@@ -21,6 +23,8 @@ from knora.tools import (
     PolicyProvenance,
     ProposalNotExecutable,
     ProposeWriteAction,
+    ProviderIdempotencyConflict,
+    ProviderWriteFailed,
     ProviderWriteIndeterminate,
     ProviderWriteSucceeded,
     ResolvedCapabilityContext,
@@ -367,3 +371,212 @@ def test_post_acquisition_material_mismatch_is_durably_invalidated() -> None:
     assert stored.audit[-1].payload["approval_validity"] == "invalidated"
     assert stored.admission is None
     assert gateway.calls == []
+
+
+COMPATIBILITY_MUTATIONS = (
+    ("capability_id", "other", "capability_identity_mismatch"),
+    ("capability_version", "m4.3", "capability_version_mismatch"),
+    ("capability_digest", "sha256:" + "9" * 64, "capability_digest_mismatch"),
+    ("binding_id", "binding-b", "binding_identity_mismatch"),
+    ("binding_version", "v2", "binding_version_mismatch"),
+    ("binding_digest", "sha256:" + "8" * 64, "binding_digest_mismatch"),
+    ("policy_id", "policy-b", "policy_identity_mismatch"),
+    ("policy_version", "v2", "policy_version_mismatch"),
+    ("policy_digest", "sha256:" + "7" * 64, "policy_digest_mismatch"),
+)
+
+
+def _mutate_context(context, field_name, value):
+    if field_name == "policy_id":
+        policy = PolicyProvenance.from_semantics(
+            value, context.policy.policy_version, context.policy.snapshot
+        )
+        return replace(context, policy=policy)
+    if field_name == "policy_version":
+        policy = PolicyProvenance.from_semantics(
+            context.policy.policy_id, value, context.policy.snapshot
+        )
+        return replace(context, policy=policy)
+    if field_name == "policy_digest":
+        snapshot = dict(context.policy.snapshot)
+        snapshot["execution_authority_required"] = False
+        policy = PolicyProvenance.from_semantics(
+            context.policy.policy_id, context.policy.policy_version, snapshot
+        )
+        return replace(context, policy=policy)
+    return replace(context, **{field_name: value})
+
+
+@pytest.mark.parametrize(("field_name", "value", "reason"), COMPATIBILITY_MUTATIONS)
+def test_pre_acquisition_material_mismatch_is_closed_and_never_acquires(
+    field_name, value, reason
+) -> None:
+    workflow, resolver, store, _, gateway, principal, approved = prepared_workflow()
+    resolver.context = _mutate_context(resolver.context, field_name, value)
+
+    with pytest.raises(KnoraError) as error:
+        workflow.handle(
+            ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+            principal,
+            actor("executor-a", "system"),
+        )
+
+    assert error.value.code == "TOOL_PROPOSAL_STALE"
+    stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+    assert stored is not None
+    assert stored.state == "approved"
+    assert stored.execution is None
+    assert stored.execution_stale_reason == reason
+    assert stored.audit[-1].event_type == "approval_invalidated"
+    assert gateway.calls == []
+
+
+@pytest.mark.parametrize(("field_name", "value", "reason"), COMPATIBILITY_MUTATIONS)
+def test_post_acquisition_material_mismatch_matrix_has_no_admission_or_dispatch(
+    field_name, value, reason
+) -> None:
+    workflow, resolver, store, authorizer, gateway, principal, approved = prepared_workflow()
+    original = authorizer.is_authorized
+    initial_calls = authorizer.calls
+
+    def mutate_after_first_check(current_principal, proposal):
+        authorized = original(current_principal, proposal)
+        if authorizer.calls == initial_calls + 1:
+            resolver.context = _mutate_context(resolver.context, field_name, value)
+        return authorized
+
+    authorizer.is_authorized = mutate_after_first_check
+    result = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    assert result == ProposalNotExecutable(
+        approved.projection.proposal_id,
+        approved.projection.logical_execution_id,
+        reason,
+    )
+    stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+    assert stored is not None and stored.execution is not None
+    assert stored.execution_stale_reason == reason
+    assert stored.admission is None
+    assert gateway.calls == []
+
+
+class SecondCheckResourceDenial(ExecutionResourceAuthorizer):
+    def __init__(self, code: str) -> None:
+        self.code = code
+        self.calls = 0
+
+    def authorize_current(self, principal, proposal, current, *, at_time):
+        self.calls += 1
+        if self.calls == 2:
+            raise KnoraError(self.code)
+        return super().authorize_current(principal, proposal, current, at_time=at_time)
+
+
+@pytest.mark.parametrize(
+    ("error_code", "private_reason"),
+    [
+        ("INVALID_TOOL_RESOURCE_REFERENCE", "invalid_tool_resource_reference"),
+        ("TOOL_RESOURCE_ACCESS_DENIED", "resource_access_denied"),
+    ],
+)
+def test_post_acquisition_reference_denial_is_closed_without_invalidating_approval(
+    error_code, private_reason
+) -> None:
+    resource_authorizer = SecondCheckResourceDenial(error_code)
+    workflow, _, store, _, gateway, principal, approved = prepared_workflow()
+    workflow._executor._resource_authorizer = resource_authorizer
+    workflow._executor._admission_builder._resource_authorizer = resource_authorizer
+
+    result = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    assert result.reason_code == private_reason
+    stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+    assert stored is not None and stored.execution is not None
+    assert stored.execution_stale_reason is None
+    assert stored.admission is None
+    assert stored.audit[-1].event_type == "execution_acquired"
+    assert gateway.calls == []
+
+
+@pytest.mark.parametrize(
+    "rejection_code",
+    ["target_not_found", "validation_rejected", "policy_rejected"],
+)
+def test_every_closed_provider_rejection_finalizes_exactly_once(rejection_code) -> None:
+    workflow, _, store, _, gateway, principal, approved = prepared_workflow(
+        gateway=Gateway(ProviderWriteFailed(rejection_code))
+    )
+
+    result = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    assert result == ExecutionFailed(
+        approved.projection.proposal_id,
+        approved.projection.logical_execution_id,
+        rejection_code,
+    )
+    stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+    assert stored is not None and stored.execution is not None
+    assert stored.execution.lifecycle == "failed"
+    assert stored.execution.rejection_code == rejection_code
+    assert len(gateway.calls) == 1
+
+
+def test_admission_binds_server_fingerprint_and_survives_later_authority_mutation() -> None:
+    gateway = BlockingGateway()
+    workflow, resolver, store, authorizer, _, principal, approved = prepared_workflow(
+        gateway=gateway
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(
+            workflow.handle,
+            ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+            principal,
+            actor("executor-a", "system"),
+        )
+        assert gateway.entered.wait(timeout=5)
+        stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+        assert stored is not None and stored.execution is not None and stored.admission is not None
+        claims = workflow._executor._admission_builder._signer.verify(gateway.calls[0])
+        assert stored.request_fingerprint == stored.execution.acquisition.request_fingerprint
+        assert stored.request_fingerprint == stored.admission.request_fingerprint
+        assert stored.request_fingerprint == claims["request_fingerprint"]
+        authorizer.authorized = False
+        resolver.context = replace(resolver.context, capability_digest="sha256:" + "6" * 64)
+        gateway.release.set()
+        result = pending.result(timeout=5)
+
+    assert isinstance(result, ExecutionSucceeded)
+    assert len(gateway.calls) == 1
+
+
+def test_provider_fingerprint_conflict_stays_non_terminal() -> None:
+    workflow, _, store, _, gateway, principal, approved = prepared_workflow(
+        gateway=Gateway(ProviderIdempotencyConflict())
+    )
+
+    result = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    assert isinstance(result, ExecutionInProgress)
+    assert result.reason_code == "provider_idempotency_conflict"
+    stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+    assert stored is not None and stored.execution is not None
+    assert stored.execution.lifecycle == "executing"
+    assert stored.execution.observations[-1].observation_type == "provider_idempotency_conflict"
+    assert len(gateway.calls) == 1

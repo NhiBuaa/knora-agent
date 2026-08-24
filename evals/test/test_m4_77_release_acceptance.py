@@ -81,7 +81,8 @@ def write_release_evidence(request: pytest.FixtureRequest) -> None:
         "result": "PASSED",
         "sanitized": True,
         "matrix_rows": {
-            "denial": len(matrix["denial_rows"]),
+            "pre_acquisition": len(matrix["pre_acquisition_rows"]),
+            "post_acquisition": len(matrix["denial_rows"]),
             "execution": len(matrix["execution_rows"]),
         },
     }
@@ -93,6 +94,7 @@ def write_release_evidence(request: pytest.FixtureRequest) -> None:
 
 def test_tc01_literal_denial_matrix_is_closed_and_independently_stored() -> None:
     matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+    assert len(matrix["pre_acquisition_rows"]) == 37
     reasons = {row[0] for row in matrix["denial_rows"]}
     assert reasons == {
         "workspace_access_denied",

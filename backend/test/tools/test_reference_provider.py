@@ -25,6 +25,7 @@ from knora.tools import (
     ProviderScopeDenied,
     ProviderUnavailable,
     ProviderWriteFailed,
+    ProviderWriteIndeterminate,
     ProviderWriteSucceeded,
     ReadTool,
     ReadToolCommand,
@@ -557,3 +558,86 @@ def test_provider_write_cross_binding_denies_before_idempotency_or_effect(
     )
     assert provider.provider_effect_count() == 0
     provider.close()
+
+
+def test_sqlite_provider_precommit_fault_rolls_back_ledger_and_effect(tmp_path: Path) -> None:
+    provider, _, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target",
+    )
+    provider._connection.execute(
+        "CREATE TRIGGER fail_provider_ledger BEFORE INSERT ON provider_idempotency "
+        "BEGIN SELECT RAISE(ABORT, 'injected precommit fault'); END"
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    gateway = SQLiteSupportToolGateway(provider, dispatch_verifier=signer)
+
+    outcome = gateway.create_ticket(
+        _dispatch_envelope(signer, logical_execution_id="logical-precommit-fault")
+    )
+
+    assert isinstance(outcome, ProviderUnavailable)
+    assert provider.get_execution_outcome(
+        scope="scope-a", logical_execution_id="logical-precommit-fault"
+    ) is None
+    assert provider.provider_effect_count("logical-precommit-fault") == 0
+    provider.close()
+
+
+@pytest.mark.parametrize(
+    "rejection",
+    [None, *list(ProviderTerminalFailureCode)],
+)
+def test_sqlite_commit_before_ack_remains_authoritative_after_restart(
+    tmp_path: Path, rejection: ProviderTerminalFailureCode | None
+) -> None:
+    suffix = "success" if rejection is None else rejection.value
+    database = tmp_path / f"provider-ack-loss-{suffix}.sqlite"
+    provider, _, _, _, _ = _provider_fixture(database)
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target",
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    logical_id = f"logical-ack-loss-{suffix}"
+    gateway = SQLiteSupportToolGateway(
+        provider,
+        dispatch_verifier=signer,
+        forced_rejection=rejection,
+        indeterminate_after_commit=True,
+    )
+
+    assert isinstance(
+        gateway.create_ticket(_dispatch_envelope(signer, logical_execution_id=logical_id)),
+        ProviderWriteIndeterminate,
+    )
+    expected_effects = 1 if rejection is None else 0
+    assert provider.provider_effect_count(logical_id) == expected_effects
+    provider.close()
+
+    restarted = SQLiteReferenceProvider(database)
+    observation = SQLiteSupportToolGateway(
+        restarted, dispatch_verifier=signer
+    ).get_execution_outcome(scope="scope-a", logical_execution_id=logical_id)
+    if rejection is None:
+        assert isinstance(observation, ProviderOutcomeFound)
+        assert isinstance(observation.outcome, ProviderWriteSucceeded)
+    else:
+        assert observation == ProviderOutcomeFound(ProviderWriteFailed(rejection.value))
+    assert restarted.provider_effect_count(logical_id) == expected_effects
+    restarted.close()
