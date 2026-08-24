@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_78_baseline_verified_pending_external_ticket_review",
-  "next_valid_transition": "construct and locally audit the exact Issue #78 ticket-review packet, then send it automatically through the ExternalReviewerGateway before preparing a guide",
+  "current_state": "ticket_78_ticket_review_packet_v1_ready_action_confirmation_required",
+  "next_valid_transition": "after action-time browser confirmation, send the exact Issue #78 ticket-review packet v1 to a new isolated ChatGPT High session and validate its bound response",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -195,7 +195,9 @@
     "issue_77_closed_and_worktree_branches_cleaned",
     "frontier_78_opened",
     "worktree_78_initialized",
-    "baseline_78_verified"
+    "baseline_78_verified",
+    "ticket_78_review_packet_v1_prepared",
+    "ticket_78_review_packet_v1_local_audit_approve"
   ],
   "review_cadence": {
     "risk": "high",
@@ -385,8 +387,17 @@
       "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4",
       "baseline_reference": ".agents/review/m4-issue-78-baseline-v1.json",
       "baseline_status": "passed",
-      "ticket_contract_revision": 1,
+      "ticket_contract_revision": 3,
+      "ticket_contract_reference": ".agents/review/m4-issue-78-revision-v3.md",
+      "ticket_contract_digest": "sha256:c88cfbf07ef605064ce9339cf1897c6ffff97c363b6aec47c04b55ffdfd596fa",
+      "ticket_contract_issue_body_readback_equal": true,
       "ticket_external_review": "pending",
+      "ticket_review_packet_reference": ".agents/review/m4-issue-78-ticket-review-packet-v1.json",
+      "ticket_review_packet_digest": "sha256:d2a18ea4b8c5cb9c6509e6071e60819e3d130c47d3d738db0cbd150522629af1",
+      "ticket_review_packet_file_digest": "sha256:7ecebef083845c9024d9f9c307e124046d3c5bcb0e5cee808b4a2d41986a5222",
+      "ticket_review_request_id": "review-request-sha256:da349e8e0bdf61be29ad95276f3cf820d2cdc82c0c9f526248246283c9d77a7e",
+      "ticket_review_packet_local_audit": "APPROVE",
+      "ticket_review_packet_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
       "guide_revision": null,
       "evaluation_history": null,
       "accepted_commit": null,
@@ -818,6 +829,7 @@
     "next_valid_transition": "owner confirmation consumed; external guide review completed and validated"
   },
   "blockers": [
+    "Issue #78 ticket packet v1 is locally valid and pushed but browser transport requires action-time confirmation immediately before sending the representational review request.",
     "Issue #78 implementation remains blocked until its exact ticket contract and a new manual guide receive the required external APPROVE results and the guide digest is explicitly human-locked.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
@@ -860,10 +872,11 @@
     ".agents/review/m4-issue-77-release-evidence-v1.json",
     ".agents/review/m4-issue-77-integration-evidence-v1.json",
     ".agents/review/m4-issue-78-baseline-v1.json",
+    ".agents/review/m4-issue-78-ticket-review-packet-v1.json",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T09:24:14+07:00"
+  "last_updated_at": "2026-08-24T09:35:20+07:00"
 }
