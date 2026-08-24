@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "ticket_77_guide_v7_human_locked_implementation_authorized",
-  "next_valid_transition": "run Issue #77 implement design preflight and begin vertical TDD slices against the locked guide v7 and ticket contract v9",
+  "current_state": "ticket_77_human_accepted_pending_integration",
+  "next_valid_transition": "commit and push Issue #77 acceptance evidence, reconcile PR #82 with the current integration head, verify and merge",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -23,7 +23,7 @@
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "frontier_guide_v7_human_locked_implementation_authorized", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
+    {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "human_accepted_pending_integration", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-77-m4.3"},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "blocked", "worktree": null},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
@@ -187,7 +187,10 @@
     "guide_77_v7_local_audit_approve",
     "guide_77_external_review_packet_v7_ready",
     "guide_77_external_review_v7_approve",
-    "human_guide_77_v7_approved_and_locked"
+    "human_guide_77_v7_approved_and_locked",
+    "implementation_77_completed",
+    "evaluation_77_guide_v7_executed_technical_pass",
+    "human_acceptance_77_guide_v7_approved"
   ],
   "review_cadence": {
     "risk": "high",
@@ -824,8 +827,11 @@
     ".agents/review/m4-issue-77-guide-external-review-v7.json",
     ".agents/review/identities/chatgpt-m4-77-guide-v7-external-review.json",
     ".agents/review/m4-issue-77-guide-approval-v7.json",
+    ".agents/manual-tests/milestone-4/77-authorized-execution-v7.evaluations.jsonl",
+    ".agents/review/m4-issue-77-release-evidence-v1.json",
+    "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T07:01:48+07:00"
+  "last_updated_at": "2026-08-24T08:49:59+07:00"
 }
