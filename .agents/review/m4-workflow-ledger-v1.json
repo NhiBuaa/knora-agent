@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "guide_78_v3_external_approve_pending_human_lock",
-  "next_valid_transition": "obtain explicit repository-owner approval locking exact guide m4-78-crash-recovery-v3 at sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b",
+  "current_state": "guide_78_v3_locked_dispatch_preparation",
+  "next_valid_transition": "revalidate the approved plan and source bindings, publish immutable Issue #78 dispatch attempt 1 evidence, and prepare the fresh-session Resume Contract",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -24,7 +24,7 @@
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_v3_external_approve_pending_human_lock", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_guide_v3_locked_dispatch_preparation", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
     {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
   ],
   "completed_transitions": [
@@ -238,7 +238,8 @@
     "guide_78_v3_local_audit_approve",
     "guide_78_external_review_packet_v3_ready",
     "guide_78_external_review_packet_v3_sent",
-    "guide_78_external_review_v3_approve"
+    "guide_78_external_review_v3_approve",
+    "human_guide_78_v3_approved_and_locked"
   ],
   "review_cadence": {
     "risk": "high",
@@ -559,7 +560,10 @@
       "guide_local_audit_counts": {"critical": 0, "major": 0, "minor": 0},
       "guide_local_audit_reference": ".agents/review/m4-issue-78-guide-v3-local-audit.json",
       "guide_local_audit_digest": "sha256:67d2d24aef8d43e5205df9690139fc0ef8dafdedf7cfed2977779bda64684200",
-      "human_guide_approval": "pending",
+      "human_guide_approval": "approved",
+      "guide_approval_reference": ".agents/review/m4-issue-78-guide-approval-v3.json",
+      "guide_approval_digest": "sha256:c8910f10d6b40bf59a57ac7a5d7a304c1ec9ccf5987d2d94f5e0f8983c5fa30d",
+      "guide_locked": true,
       "evaluation_history": null,
       "accepted_commit": null,
       "integrated_commit": null,
@@ -1067,8 +1071,8 @@
     "next_valid_transition": "send exact unchanged guide packet v2 in a new isolated ChatGPT High session and validate the response"
   },
   "blockers": [
-    "Issue #78 guide v3 received external APPROVE with zero findings but is not locked until the repository owner explicitly approves exact digest sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b.",
-    "Issue #78 implementation remains blocked until that exact guide digest receives explicit human lock.",
+    "Issue #78 implementation must run in a fresh human-opened Issue session from the prepared immutable dispatch; the leader session cannot implement it.",
+    "No Issue #78 worker session is considered started until its exact paste prompt is used and a matching return contract is later ingested.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -1152,11 +1156,12 @@
     ".agents/review/m4-issue-78-guide-review-response-v3.json",
     ".agents/review/m4-issue-78-guide-external-review-v3.json",
     ".agents/review/identities/chatgpt-m4-78-guide-v3-external-review.json",
+    ".agents/review/m4-issue-78-guide-approval-v3.json",
     "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-08-24T11:56:46+07:00"
+  "last_updated_at": "2026-08-24T12:06:38+07:00"
 }

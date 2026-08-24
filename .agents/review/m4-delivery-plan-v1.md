@@ -1165,6 +1165,19 @@ transition authority; every later session resumes from its exact `next_valid_tra
   Implementation, manual acceptance execution and final M4 code review remain blocked until their
   later gates.
 
+### Issue #78 guide v3 human lock — 2026-08-24
+
+- The repository owner explicitly approved and locked guide
+  `m4-78-crash-recovery-v3` at exact digest
+  `sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b`.
+  Approval evidence is `.agents/review/m4-issue-78-guide-approval-v3.json` at digest
+  `sha256:c8910f10d6b40bf59a57ac7a5d7a304c1ec9ccf5987d2d94f5e0f8983c5fa30d`.
+- The guide is immutable. Any semantic change requires a new guide revision and external/human
+  approval cycle.
+- Under the current `feature-delivery` leader/Issue-session boundary, the leader cannot implement
+  Issue #78. The next transition is an immutable attempt-1 dispatch and exact paste prompt for a
+  fresh human-opened Issue session.
+
 
 
 
