@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "guide_78_external_review_packet_v1_ready_action_confirmation_required",
-  "next_valid_transition": "on fresh action-time confirmation, send the exact Issue #78 guide-review packet v1 to a new isolated ChatGPT High session and validate its bound response before human guide lock or implementation",
+  "current_state": "guide_78_external_review_packet_v2_ready_action_confirmation_required",
+  "next_valid_transition": "on fresh action-time confirmation, send the exact Issue #78 guide-review packet v2 to a new isolated authenticated ChatGPT High session and validate its bound response before human guide lock or implementation",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
