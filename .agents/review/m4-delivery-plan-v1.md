@@ -1325,3 +1325,30 @@ local/remote branch remains.
   on whether to authorize one exceptional attempt 5 that adds exactly the three leader-owned
   coordination paths to `allowed_scope`, preserves candidate/semantics and republishes sealed result
   evidence without further production changes.
+
+### Issue #78 exceptional evidence dispatch attempt 5 — 2026-09-03
+
+- The repository owner explicitly authorized one exceptional attempt 5, authorization digest
+  `sha256:05a53892c5ecb4bfc3fa1086bb7f48bf394f5a2b22c113515812e0b316ff2cd1`.
+  It may add only the three leader-owned coordination paths to `allowed_scope`, preserve candidate
+  `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390` and existing semantics, republish schema-valid result
+  evidence and make no production, test or other repository change.
+- The evidence scope is now deterministic: exact changed paths are computed from locked guide
+  checkpoint `4239dd8177a5870bbaa238676dbdad9ddc794ef4` through fixed candidate `ccf9d2b`. This includes
+  exactly the three authorized coordination files plus Issue #78 production/test/migration paths;
+  pre-checkpoint approved spec/design/guide artifacts remain authoritative inputs, not worker scope.
+- Attempt 5 reuses the immutable attempt-4 verification because candidate and environment evidence
+  bindings are unchanged. Its dispatch/workspace/Resume digests are
+  `sha256:6f057aab011aba068ef82cf66d881fd905295b7c2b09ecea62d852ddb7d064ed`,
+  `sha256:7934bdf9a5187b62038bc106454c05a971077432fff26fb2d26ae83b9d946078` and
+  `sha256:4404867b62b9a4c640e3264ab6209a96b3dbc98b508883621c5aabb164a0fba7`.
+  The worker must call `implement` exactly once for evidence-only remediation, create no commit or
+  repository change, publish only `result-evidence-5.json`, suspend to `return-5.json`, and return
+  the exact leader-ingestion prompt.
+- Initial attempt-5 artifacts did not pass the pre-dispatch terminal validator because workspace
+  evidence omitted mandatory `baseline_status`. No worker started. The one same-input technical
+  correction remains part of authorized attempt 5 and replaces only routing filenames/identity plus
+  the missing field; it does not alter scope or candidate. Correction-1 dispatch/workspace/Resume
+  digests are `sha256:096419f8876dc584778c87910d93da9dd91aac125cac458f9331462f5b72c7e2`,
+  `sha256:8adbdb3fcf6ae0bcdc006e6a840142bba25b61ce22fd059f3992d520302b45d7` and
+  `sha256:f123f9116467efcf0d063e970cbe54b5c91e807c6496afee0ee3ab72da528f1d`.
