@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "surface": "ticket:#78",
+  "review_scope": "bounded v5 provenance delta only; v4 recovery semantics remain covered by the prior approved ticket review v2",
+  "request_id": "review-request-sha256:81064df8a98d3491ded30df97c4a67f768b4e65fbd33474b32a176464cbed120",
+  "packet_digest": "sha256:47ca354711c1d7f5ba321a330c4e2db8f5c9e0765cc368343cf9492bdbebf530",
+  "packet_file_digest": "sha256:41ebded99cd678a389bd241ffaaa6fff87f453c7e60ace77c213264650242ef8",
+  "reviewer": {
+    "provider": "ChatGPT",
+    "model": "High",
+    "chat_reference": "https://chatgpt.com/c/6a98ebf2-4838-83ec-b6b7-4ceef3673040"
+  },
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "coverage": {
+    "reviewed_change": "tested_subject_commit, evidence_publication_commit and final delivery-head provenance separation",
+    "affected_test_cases": ["M4-78-TC-09", "M4-78-TC-10"],
+    "unchanged_criteria_covered_by": ".agents/review/m4-issue-78-ticket-external-review-v2.json"
+  },
+  "summary": "The correction removes the Git self-reference while retaining exact tested-source binding, executable-scope invalidation, static-registry/no-plugin/no-vendor proof, and prior recovery semantics."
+}

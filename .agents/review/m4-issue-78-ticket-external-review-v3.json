@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "surface": "ticket:#78",
+  "ticket_contract_revision": 5,
+  "ticket_digest": "sha256:7f083a1ca10e330fe074148b5d2f43619fe1d7f99d30927a1ef2281b3adc5909",
+  "packet": ".agents/review/m4-issue-78-ticket-review-packet-v3.json",
+  "packet_digest": "sha256:47ca354711c1d7f5ba321a330c4e2db8f5c9e0765cc368343cf9492bdbebf530",
+  "request_id": "review-request-sha256:81064df8a98d3491ded30df97c4a67f768b4e65fbd33474b32a176464cbed120",
+  "transport_response": ".agents/review/m4-issue-78-ticket-review-transport-response-v3.json",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "cadence_eligible": true,
+  "review_scope": "v5 provenance delta; ticket external review v2 remains authoritative for unchanged recovery criteria"
+}
