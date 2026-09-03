@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_78_dispatch_attempt_5_correction_1_prepared_awaiting_issue_session",
-  "next_valid_transition": "wait for the human-opened Issue #78 evidence-only attempt-5 correction-1 session to return the exact leader prompt, then ingest its matching return contract",
+  "current_state": "issue_78_implementation_ingested_acceptance_execution_pending",
+  "next_valid_transition": "execute locked manual acceptance guide m4-78-crash-recovery-v3 against fixed candidate ccf9d2b and append the Evaluation with human approval pending",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -257,7 +257,9 @@
     "exceptional_issue_78_dispatch_attempt_5_authorized",
     "workflow_resumed_issue_78_dispatch_attempt_5",
     "issue_78_dispatch_attempt_5_initial_artifacts_schema_invalid_before_worker_start",
-    "issue_78_dispatch_attempt_5_correction_1_prepared"
+    "issue_78_dispatch_attempt_5_correction_1_prepared",
+    "issue_78_dispatch_attempt_5_correction_1_returned",
+    "issue_78_implementation_result_ingested"
   ],
   "review_cadence": {
     "risk": "high",
@@ -670,7 +672,7 @@
         "reason": "workspace evidence omitted mandatory baseline_status"
       },
       "issue_session_dispatch_attempt_5_correction_1": {
-        "status": "prepared",
+        "status": "validated",
         "attempt": "5-correction-1",
         "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/attempt-5-correction-1",
         "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/78",
@@ -689,7 +691,39 @@
         "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
         "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
         "repository_changes_allowed": false,
-        "worker_started": false
+        "worker_started": true,
+        "return_digest": "sha256:84c0fda07e19dff2b481d0eb7e1ae981602cc2e5847c7882031116873d48ca81",
+        "result_digest": "sha256:8650a7f67b5e4da5a384a5782493048b385d834b7070b08d73091097a40cb860",
+        "candidate_commit": "ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390",
+        "issue_session_complete": true,
+        "repository_changes_made_by_attempt": false
+      },
+      "issue_session": {
+        "status": "validated",
+        "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/attempt-5-correction-1",
+        "branch": "nhibuaa/issue-78-m4.4",
+        "worktree_path": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4",
+        "source_base": "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
+        "dispatch_record": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-5-correction-1.json",
+        "dispatch_digest": "sha256:096419f8876dc584778c87910d93da9dd91aac125cac458f9331462f5b72c7e2",
+        "workspace_digest": "sha256:8adbdb3fcf6ae0bcdc006e6a840142bba25b61ce22fd059f3992d520302b45d7",
+        "resume_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-5-correction-1.json",
+        "resume_digest": "sha256:f123f9116467efcf0d063e970cbe54b5c91e807c6496afee0ee3ab72da528f1d",
+        "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
+        "return_digest": "sha256:84c0fda07e19dff2b481d0eb7e1ae981602cc2e5847c7882031116873d48ca81",
+        "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
+        "result_digest": "sha256:8650a7f67b5e4da5a384a5782493048b385d834b7070b08d73091097a40cb860",
+        "leader_prompt": "Use $feature-delivery to ingest the returned Issue session:\n\n```yaml\naction: ingest_issue_result\nworkflow_artifact: \"D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4/.agents/review/m4-workflow-ledger-v1.json\"\nissue_result_contracts:\n  - \"D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json\"\n```"
+      },
+      "implementation": {
+        "status": "completed",
+        "ticket_commit": "ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390",
+        "evidence_reference": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
+        "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
+        "all_tests_green": true,
+        "focused_result": "82 passed, 2 warnings",
+        "full_suite_result": "956 passed, 3 skipped, 602 warnings in 76.86s",
+        "leader_prompt": "Use $feature-delivery to ingest the returned Issue session:\n\n```yaml\naction: ingest_issue_result\nworkflow_artifact: \"D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4/.agents/review/m4-workflow-ledger-v1.json\"\nissue_result_contracts:\n  - \"D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json\"\n```"
       },
       "implementation_attempt_2": {
         "status": "rejected_retryable",
@@ -1217,7 +1251,7 @@
   },
   "active_issue_dispatch": {
     "ticket": "#78",
-    "status": "prepared",
+    "status": "validated_ingested",
     "attempt": "5-correction-1",
     "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/attempt-5-correction-1",
     "dispatch_record": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-5-correction-1.json",
@@ -1229,11 +1263,12 @@
     "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
     "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
     "candidate_commit": "ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390",
-    "next_valid_transition": "ingest_issue_result"
+    "return_digest": "sha256:84c0fda07e19dff2b481d0eb7e1ae981602cc2e5847c7882031116873d48ca81",
+    "result_digest": "sha256:8650a7f67b5e4da5a384a5782493048b385d834b7070b08d73091097a40cb860",
+    "next_valid_transition": "manual_acceptance_execute"
   },
   "blockers": [
-    "Issue #78 attempt 5 is evidence-only; any repository or production/test change fails closed.",
-    "No Issue #78 result is accepted until attempt-5 correction-1 return and create-once result evidence pass immutable ingestion validation.",
+    "Issue #78 is not accepted until locked guide v3 is executed against candidate ccf9d2b and its PASSED Evaluation receives explicit human approval.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -1343,11 +1378,13 @@
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/workspace-5-correction-1.json",
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-5-correction-1.json",
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-5-correction-1.json",
+    "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
+    "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
     "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-09-03T08:55:29+07:00"
+  "last_updated_at": "2026-09-03T09:25:34+07:00"
 }

@@ -1352,3 +1352,16 @@ local/remote branch remains.
   digests are `sha256:096419f8876dc584778c87910d93da9dd91aac125cac458f9331462f5b72c7e2`,
   `sha256:8adbdb3fcf6ae0bcdc006e6a840142bba25b61ce22fd059f3992d520302b45d7` and
   `sha256:f123f9116467efcf0d063e970cbe54b5c91e807c6496afee0ee3ab72da528f1d`.
+
+### Issue #78 implementation result ingested — 2026-09-03
+
+- Attempt 5 correction-1 returned without repository changes. Return and result digests are
+  `sha256:84c0fda07e19dff2b481d0eb7e1ae981602cc2e5847c7882031116873d48ca81` and
+  `sha256:8650a7f67b5e4da5a384a5782493048b385d834b7070b08d73091097a40cb860`.
+- The feature-delivery ingestion validator returns `issue_session_complete=true`. The result's
+  exact 22-path scope equals `git diff --name-only 4239dd8..ccf9d2b`, every path is inside the sealed
+  allowlist, all dispatch/resume/workspace/return/result identities match, and attempt 5 made no
+  repository, production, test, commit, push, acceptance or integration change.
+- Fixed candidate remains `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390`. Next transition is
+  `manual-acceptance execute` using immutable guide `m4-78-crash-recovery-v3`; final code review
+  remains forbidden.
