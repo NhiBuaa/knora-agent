@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_id": "github-issue-78",
+  "surface": "ticket_review_packet",
+  "revision": 2,
+  "reviewed_commit": "37f1ef03c4667def8db23f1c0f5c09a725f4fd54",
+  "ticket_contract_revision": 4,
+  "ticket_contract_reference": ".agents/review/m4-issue-78-revision-v4.md",
+  "ticket_contract_digest": "sha256:54ccbdce1c9bda869fa480961095db7de56df5cf5e67ef2e45d5d8fc8248d930",
+  "issue_body_readback_equal": true,
+  "packet_reference": ".agents/review/m4-issue-78-ticket-review-packet-v2.json",
+  "packet_digest": "sha256:075dc8a13a781808a126b622859d877ba23219564c72a8abe1039d07fd30bada",
+  "request_id": "review-request-sha256:a538d52e4b198f73c0a405329c7aba3ae5b864001c2f5964e8b160811e2ff6c9",
+  "contract_validator": {
+    "status": "VALID",
+    "reason": "review_packet_valid"
+  },
+  "finding_closure": [
+    {
+      "issue_class": "expiry_revocation_terminal_finalization_not_observed",
+      "status": "closed_by_exact_required_oracles",
+      "evidence_refs": ["M4-78-AC-04", "M4-78-TC-01", "M4-78-TC-04", "M4-78-TC-06", "M4-78-EV-04"]
+    },
+    {
+      "issue_class": "stale_lease_terminal_observation_transition_unspecified",
+      "status": "closed_by_deterministic_transition_oracles",
+      "evidence_refs": ["M4-78-DD-04", "M4-78-AC-07", "M4-78-TC-01", "M4-78-TC-05", "M4-78-TC-07", "M4-78-EV-02"]
+    },
+    {
+      "issue_class": "static_registry_no_plugin_boundary_unverified",
+      "status": "closed_by_exact_candidate_scope_oracle",
+      "evidence_refs": ["M4-78-AC-14", "M4-78-DD-08", "M4-78-TC-10", "M4-78-CMD-04", "M4-78-EV-07"]
+    }
+  ],
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "guide_or_implementation_authorized": false,
+  "next_transition": "commit and push packet v2 checkpoint, then require fresh action-time confirmation before external browser send"
+}

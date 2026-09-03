@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "APPROVED",
+  "approval_type": "human-guide-approval",
+  "workflow_identity": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#78",
+  "guide_path": ".agents/manual-tests/milestone-4/78-crash-recovery-v3.md",
+  "guide_revision": "m4-78-crash-recovery-v3",
+  "guide_digest": "sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b",
+  "guide_blob": "f2150ebbedeeaebf8d3c052f1a87b183bec9bf47",
+  "subject_commit": "f89ab2781aed9516d81fd883e1c76cea25b720bf",
+  "external_review": {
+    "path": ".agents/review/m4-issue-78-guide-external-review-v3.json",
+    "reviewed_commit": "2d562bf487d3b9947ee230567c221014a8ab2d78",
+    "response_digest": "sha256:5d278d9267d27df9a0aeb0477db6bc1f1e50658d4637b93e0e4d4eafa2325f91",
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0,
+    "minor_count": 0
+  },
+  "approved_by": "user",
+  "approval_statement": "Tôi đã đọc và duyệt khóa guide M4.4 v3 đúng digest sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b.",
+  "approved_at": "2026-08-24T12:06:38+07:00",
+  "lock_status": "LOCKED",
+  "immutable_after_approval": true
+}

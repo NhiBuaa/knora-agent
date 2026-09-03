@@ -36,6 +36,24 @@ class ExecutionFailed:
 
 
 @dataclass(frozen=True, slots=True)
+class ReconciledSucceeded:
+    proposal_id: str
+    logical_execution_id: str
+    external_resource_reference: str
+    lifecycle: str = field(default="succeeded", init=False)
+    outcome_type: str = field(default="reconciled_succeeded", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciledFailed:
+    proposal_id: str
+    logical_execution_id: str
+    rejection_code: str
+    lifecycle: str = field(default="failed", init=False)
+    outcome_type: str = field(default="reconciled_failed", init=False)
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionIndeterminate:
     proposal_id: str
     logical_execution_id: str
@@ -63,6 +81,24 @@ class ExecutionFenced:
 
 
 @dataclass(frozen=True, slots=True)
+class ReconciliationIndeterminate:
+    proposal_id: str
+    logical_execution_id: str
+    reason_code: str = "provider_observation_unavailable"
+    lifecycle: str = field(default="executing", init=False)
+    outcome_type: str = field(default="reconciliation_indeterminate", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationOutcomeNotFound:
+    proposal_id: str
+    logical_execution_id: str
+    lifecycle: str = field(default="executing", init=False)
+    outcome_type: str = field(default="provider_outcome_not_found", init=False)
+    reason_code: str = field(default="provider_outcome_not_found", init=False)
+
+
+@dataclass(frozen=True, slots=True)
 class ProposalNotExecutable:
     proposal_id: str
     logical_execution_id: str
@@ -74,9 +110,13 @@ class ProposalNotExecutable:
 ExecutionResult = (
     ExecutionSucceeded
     | ExecutionFailed
+    | ReconciledSucceeded
+    | ReconciledFailed
     | ExecutionIndeterminate
     | ExecutionInProgress
     | ExecutionFenced
+    | ReconciliationIndeterminate
+    | ReconciliationOutcomeNotFound
     | ProposalNotExecutable
 )
 
@@ -92,9 +132,22 @@ class AuthorizedExecutionBindingSnapshot:
     policy_id: str
     policy_version: str
     policy_digest: str
+    workspace_id: str = ""
+    reference_id: str = ""
+    reference_claims_digest: str = ""
+    resource_kind: str = ""
+    resource_identity_digest: str = ""
+    external_scope: str = ""
+    provider_routing_handle: str = ""
 
     @classmethod
-    def from_context(cls, current: ResolvedCapabilityContext) -> AuthorizedExecutionBindingSnapshot:
+    def from_context(
+        cls,
+        current: ResolvedCapabilityContext,
+        *,
+        workspace_id: str = "",
+        resource: AuthorizedExternalResource | None = None,
+    ) -> AuthorizedExecutionBindingSnapshot:
         return cls(
             current.capability_id,
             current.capability_version,
@@ -105,6 +158,13 @@ class AuthorizedExecutionBindingSnapshot:
             current.policy.policy_id,
             current.policy.policy_version,
             current.policy.policy_digest,
+            workspace_id,
+            "" if resource is None else resource.reference_id,
+            "" if resource is None else resource.resource_claims_digest,
+            "" if resource is None else resource.resource_kind,
+            "" if resource is None else resource.resource_identity_digest,
+            "" if resource is None else resource.external_scope,
+            "" if resource is None else resource.provider_routing_handle,
         )
 
 
@@ -253,6 +313,21 @@ class AcquireDenied:
 @dataclass(frozen=True, slots=True)
 class AcquireRevisionConflict:
     current_revision: int
+
+
+@dataclass(frozen=True, slots=True)
+class TakeoverApplied:
+    execution: StoredExecution
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionNotStale:
+    execution: StoredExecution
+
+
+@dataclass(frozen=True, slots=True)
+class StoreExecutionFinalized:
+    execution: StoredExecution
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "canonical_projection": {
+    "projection_version": 1,
+    "round": 1,
+    "workflow_id": "feature-delivery:m4-tools-human-approval",
+    "feature_id": "github-issue-74",
+    "issue_id": "github-issue-78-guide",
+    "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+    "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+    "ticket_digest": "sha256:54ccbdce1c9bda869fa480961095db7de56df5cf5e67ef2e45d5d8fc8248d930",
+    "guide_revision": "m4-78-crash-recovery-v1",
+    "guide_digest": "sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa",
+    "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+    "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+    "acceptance_criteria": [
+      {"id": "M4-78-AC-01", "statement": "Guide executes ReconcileExecution for indeterminate and orphaned executing records."},
+      {"id": "M4-78-AC-02", "statement": "Guide proves current path-Workspace/resource authorization before provider-first observation."},
+      {"id": "M4-78-AC-03", "statement": "Guide proves trusted observation routing from AuthorizedExecutionBindingSnapshot creates no write authority."},
+      {"id": "M4-78-AC-04", "statement": "Guide finalizes success and all closed failures under expiry and key revocation with zero write/retry."},
+      {"id": "M4-78-AC-05", "statement": "Guide proves every safe retry reruns full current write authorization and compatibility."},
+      {"id": "M4-78-AC-06", "statement": "Guide proves strict PostgreSQL-time expected-generation stale takeover with one winner."},
+      {"id": "M4-78-AC-07", "statement": "Guide proves stale-terminal no-stale-persistence, exact-result takeover finalization and zero retry."},
+      {"id": "M4-78-AC-08", "statement": "Guide proves closed current/not-stale/fenced/in-progress/terminal transition outcomes and owner/generation/lease fencing."},
+      {"id": "M4-78-AC-09", "statement": "Guide proves provider-commit-before-Knora-persist recovery without duplicate."},
+      {"id": "M4-78-AC-10", "statement": "Guide proves executing-before-provider-receipt not-found takeover/retry with same identity."},
+      {"id": "M4-78-AC-11", "statement": "Guide proves unavailable/timeout/malformed/not-found remain distinct HTTP 202 non-terminal results."},
+      {"id": "M4-78-AC-12", "statement": "Guide proves only found success/closed failure terminalize with exact public mapping."},
+      {"id": "M4-78-AC-13", "statement": "Guide proves independent SQLite persistence and complete secret-safe audit reconstruction."},
+      {"id": "M4-78-AC-14", "statement": "Guide binds exact-candidate static-registry/no-plugin/no-vendor evidence to both SHAs."}
+    ],
+    "design_decisions": [
+      {"id": "M4-78-GD-01", "decision": "Ten required Test Cases cover the ticket's ten approved case families without merging distinct authority, crash or concurrency oracles."},
+      {"id": "M4-78-GD-02", "decision": "Every expected matrix is independently sourced and imports no production result, enum, serializer or mapper."},
+      {"id": "M4-78-GD-03", "decision": "Counting sentinels and content-addressed release evidence make zero provider observation/write/effect and exact ordering observable."},
+      {"id": "M4-78-GD-04", "decision": "Separate lock barriers capture fresh post-lock PostgreSQL time for takeover, observation and finalization; host clocks are non-authoritative."},
+      {"id": "M4-78-GD-05", "decision": "Public reconciliation rows have closed complete key sets, lifecycle/outcome values and HTTP statuses; retry denial remains separate from provider outcome."},
+      {"id": "M4-78-GD-06", "decision": "Candidate evaluation binds guide revision/digest, exact subject SHA, environment revision, ten case records and append-only human approval."},
+      {"id": "M4-78-GD-07", "decision": "Guide preparation adds no implementation authority; external APPROVE plus explicit human lock are mandatory."
+      }
+    ],
+    "invariants": [
+      "All ten Test Cases are required and trace to the externally approved ticket v4.",
+      "Provider observation occurs only after current Workspace/resource observation authorization.",
+      "No expired owner records an observation or final outcome.",
+      "Terminal provider truth never becomes retry and observation authority never becomes write authority.",
+      "Provider not-found is non-terminal; every write retry retains one logical identity/fingerprint and reruns current checks.",
+      "Expected identities and matrices are independent from the application result under test.",
+      "SQLite provider truth and PostgreSQL workflow/audit state are restarted and evidenced independently.",
+      "Release evidence contains digests/counters only and excludes raw provider/admission/key/credential/authority material.",
+      "Final code review is not part of this guide and remains deferred until #75 through #79 complete."
+    ],
+    "out_of_scope": [
+      "Implementation, human guide lock or manual acceptance execution before guide external APPROVE.",
+      "Dynamic plugin/discovery/provider registration or vendor-specific integration.",
+      "Issue #79 integrated release harness and final M4 code review.",
+      "A distributed transaction or provider rollback/cancellation protocol."
+    ],
+    "acceptance_policy": {
+      "authority": "human_required",
+      "policy_revision": "m4-human-required-guide-review-v1",
+      "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+      "required": true
+    },
+    "test_cases": [
+      {"id": "M4-78-TC-01", "statement": "Reconcile SQLite success/all closed failures with no PostgreSQL observation under current-owner, current-foreign and expired leases; race recovery owners and stale owner.", "oracle": "Provider-first ordering; current-owner terminalizes, foreign current lease is in progress, expired lease has no stale write and exactly one takeover winner records/finalizes exact immutable outcome; zero create_ticket/retry and exact public mapping.", "required": true},
+      {"id": "M4-78-TC-02", "statement": "Reconcile NoAdmission provider-not-found before/after strict expiry, race contenders and then authorize first write.", "oracle": "Not-found remains distinct HTTP 202; pre-expiry not stale; one post-expiry winner reruns every write check, creates one admission and dispatches once with original logical identity/fingerprint; losers make zero calls.", "required": true},
+      {"id": "M4-78-TC-03", "statement": "Race AdmissionOutstanding not-found recovery replay with delayed original dispatch.", "oracle": "One takeover, no new/replaced admission, byte-identical persisted envelope, same ID/fingerprint and at most one provider effect across restart.", "required": true},
+      {"id": "M4-78-TC-04", "statement": "Finalize all terminal outcomes under expiry/key revocation; deny observation; deny write; fault trusted routing; apply all material compatibility mismatches.", "oracle": "Expiry/revocation terminalizes with zero write; observation denial is pre-provider; temporary write denial preserves approved provenance; mismatch is stale/new approval; routing fault is sanitized non-terminal.", "required": true},
+      {"id": "M4-78-TC-05", "statement": "Use independent PostgreSQL barriers and skewed host clocks to race current/stale/changed-generation/foreign/terminal callers.", "oracle": "Fresh post-lock PostgreSQL time decides; one generation winner; typed dispositions only; no stale/loser observation or finalization write.", "required": true},
+      {"id": "M4-78-TC-06", "statement": "Inject unavailable, timeout, malformed/unknown, not-found, success and all closed failures at application/HTTP seams and compare independent complete matrices.", "oracle": "Indeterminate/not-found remain distinct 202; success is 200; closed failures are 502/TOOL_PROVIDER_FAILURE with exact rejection; complete key allowlists and no private leakage.", "required": true},
+      {"id": "M4-78-TC-07", "statement": "Trigger both crash windows, independently restart Knora/SQLite, expire lease and repeatedly reconcile.", "oracle": "Provider-committed outcome terminalizes through one stale takeover with zero retry/duplicate; no-receipt remains non-terminal until same-ID fully authorized retry; repeated calls converge.", "required": true},
+      {"id": "M4-78-TC-08", "statement": "Reconstruct all recovery timelines from append-only PostgreSQL audit and compare independent SQLite truth after restart.", "oracle": "Complete ordered authority/binding/generation/lease/observation/retry/fence/terminal provenance, independently authoritative provider ledger and no forbidden private/secret fields.", "required": true},
+      {"id": "M4-78-TC-09", "statement": "Run exact focused/full/Ruff/Compose/clean-Alembic lifecycle commands on the candidate and inspect clean status.", "oracle": "All exits zero, exact totals recorded, M1-M3 and M4.1-M4.3 regressions green, Alembic head and clean worktree.", "required": true},
+      {"id": "M4-78-TC-10", "statement": "Run production registry/composition probes and exact source-base-to-candidate dependency/entry-point/architecture scope manifest.", "oracle": "Static immutable ticket_lookup/create_ticket registry, generic provider seam, fake/SQLite adapters only and no plugin/discovery/registration/marketplace/vendor scope; both SHAs bound.", "required": true}
+    ],
+    "command_projections": [
+      {"id": "M4-78-GCMD-01", "statement": "Recreate PostgreSQL and run Alembic upgrade/current before focused and full suites; run downgrade/re-upgrade/current after full suite.", "kind": "migration"},
+      {"id": "M4-78-GCMD-02", "statement": "From backend run exact focused command for reconciliation workflow/PostgreSQL/provider/HTTP/release harness.", "kind": "verification"},
+      {"id": "M4-78-GCMD-03", "statement": "From backend run full test and eval suite serially; from root run Ruff and Compose config.", "kind": "verification"},
+      {"id": "M4-78-GCMD-04", "statement": "Generate exact candidate release evidence plus source-base/candidate registry/dependency/entry-point/architecture manifest.", "kind": "verification"}
+    ],
+    "required_evidence": [
+      {"id": "M4-78-GEV-01", "statement": "Guide file and structured Test Case artifact digests plus exact ticket review provenance.", "required": true},
+      {"id": "M4-78-GEV-02", "statement": "Per-case ordered call traces, PostgreSQL clock/lease/generation rows and named zero/nonzero sentinel counts.", "required": true},
+      {"id": "M4-78-GEV-03", "statement": "Independent application/HTTP/authority/audit matrices with recursive key comparisons and forbidden-field failures.", "required": true},
+      {"id": "M4-78-GEV-04", "statement": "Independent SQLite ledger/effect snapshots across both crash windows and restarts with logical identity/admission lineage.", "required": true},
+      {"id": "M4-78-GEV-05", "statement": "Exact candidate SHA, source base, registry/composition scope manifest and focused/full/migration/static verification exits/totals.", "required": true},
+      {"id": "M4-78-GEV-06", "statement": "One append-only Evaluation record per run with all ten case results and explicit human acceptance approval only after observed PASSED.", "required": true}
+    ],
+    "prior_findings": []
+  },
+  "packet_digest": "sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597",
+  "request_id": "review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb"
+}

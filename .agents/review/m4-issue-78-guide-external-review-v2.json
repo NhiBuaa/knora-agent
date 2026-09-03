@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review-retry.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
+  "ticket_id": "#78",
+  "guide_revision": "m4-78-crash-recovery-v2",
+  "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
+  "request_id": "review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1",
+  "packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v2.json",
+  "packet_digest": "sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b",
+  "response_reference": ".agents/review/m4-issue-78-guide-review-response-v2.json",
+  "response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
+  "transport_response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2-new-session.json",
+  "transport_raw_text_digest": "sha256:30b0384e7121932d9920ba92ec298d81e4e1ed2f7ece8e610f8aaf0bfb2a5a26",
+  "transport_response_file_digest": "sha256:23fbca76bd8a185ca9fbf8fe2370a881d96597d05070a8f8946aba28c4a5044e",
+  "chat_reference": "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "finding_classes": [
+    "valid_observation_write_denial_matrix_is_self_contradictory",
+    "nonterminal_provider_outcomes_are_not_independently_distinguished"
+  ],
+  "prior_findings_closed": ["M4-78-GR-001"],
+  "coverage": {
+    "criteria": ["M4-78-AC-01", "M4-78-AC-02", "M4-78-AC-03", "M4-78-AC-04", "M4-78-AC-05", "M4-78-AC-06", "M4-78-AC-07", "M4-78-AC-08", "M4-78-AC-09", "M4-78-AC-10", "M4-78-AC-11", "M4-78-AC-12", "M4-78-AC-13", "M4-78-AC-14"],
+    "uncovered": ["M4-78-AC-03", "M4-78-AC-11"]
+  },
+  "transport": "single_pasted_text_attachment_new_isolated_session",
+  "response_normalization": {
+    "status": "transport_identity_and_subject_bound_then_sealed",
+    "session_id_from": "unknown",
+    "session_id_to": "6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+    "reviewed_commit_to_exact_packet_checkpoint": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
+    "subject_binding_basis": "The immutable packet and guide digests in the raw response exactly match the files committed at the pushed subject checkpoint; the visible authenticated session URL supplies stable transport identity.",
+    "response_digest_added": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b",
+    "semantic_change": false
+  },
+  "prior_failed_session_reference": ".agents/review/m4-issue-78-guide-review-transport-failure-v2.json",
+  "new_session_retry_count": 1,
+  "current_session_schema_retry_count": 0,
+  "summary": "Guide v2 now has a schema-valid external REQUEST_CHANGES verdict. The successful observation-order finding is closed, but the valid-snapshot/write-denial evidence incorrectly zeroes the observation lookup/ledger seam, and TC-06 does not independently distinguish unavailable, timeout, malformed/unknown and not-found non-terminal outcomes.",
+  "cadence_eligible": false
+}

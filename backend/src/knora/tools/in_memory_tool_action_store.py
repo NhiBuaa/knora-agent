@@ -18,12 +18,15 @@ from knora.tools.execution_types import (
     AdmissionDenied,
     AuthorizedExecutionBindingSnapshot,
     DispatchAdmissionWitness,
+    ExecutionNotStale,
     ExecutionObservation,
     ExecutionRecoverySeed,
     FinalizeApplied,
     ObservationApplied,
     StoredExecution,
     StoreExecutionFenced,
+    StoreExecutionFinalized,
+    TakeoverApplied,
 )
 from knora.tools.proposal_store import _DecisionResult, _StoredProposal
 from knora.tools.proposal_types import ApprovalActor, AuditProjection, ProposalDecision
@@ -349,6 +352,8 @@ class InMemoryToolActionStore:
             if proposal is None or proposal.execution is None:
                 raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
             execution = proposal.execution
+            if execution.lifecycle != "executing":
+                return StoreExecutionFinalized(execution)
             if (
                 execution.owner != owner
                 or execution.generation != generation
@@ -401,6 +406,8 @@ class InMemoryToolActionStore:
             if proposal is None or proposal.execution is None:
                 raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
             execution = proposal.execution
+            if execution.lifecycle != "executing":
+                return StoreExecutionFinalized(execution)
             if (
                 execution.owner != owner
                 or execution.generation != generation
@@ -435,6 +442,57 @@ class InMemoryToolActionStore:
                 ),
             )
             return FinalizeApplied(finalized)
+
+    def takeover_stale_execution(
+        self,
+        workspace_id: str,
+        proposal_id: str,
+        expected_generation: int,
+        recovery_owner: str,
+        lease_duration: timedelta,
+        requested_at: datetime,
+    ) -> TakeoverApplied | ExecutionNotStale | StoreExecutionFenced | StoreExecutionFinalized:
+        with self._lock:
+            proposal = self.read_proposal(workspace_id, proposal_id)
+            if proposal is None or proposal.execution is None:
+                raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
+            execution = proposal.execution
+            if execution.lifecycle != "executing":
+                return StoreExecutionFinalized(execution)
+            if execution.generation != expected_generation:
+                return StoreExecutionFenced(execution)
+            if execution.lease_expires_at >= requested_at:
+                return ExecutionNotStale(execution)
+            next_generation = execution.generation + 1
+            taken_over = replace(
+                execution,
+                revision=execution.revision + 1,
+                generation=next_generation,
+                owner=recovery_owner,
+                lease_started_at=requested_at,
+                lease_expires_at=requested_at + lease_duration,
+            )
+            self._proposals[proposal_id] = replace(
+                proposal,
+                revision=taken_over.revision,
+                execution=taken_over,
+                audit=proposal.audit
+                + (
+                    AuditProjection(
+                        len(proposal.audit) + 1,
+                        "execution_taken_over",
+                        recovery_owner,
+                        "system",
+                        {
+                            "previous_generation": execution.generation,
+                            "generation": next_generation,
+                            "lease_started_at": requested_at,
+                            "lease_expires_at": taken_over.lease_expires_at,
+                        },
+                    ),
+                ),
+            )
+            return TakeoverApplied(taken_over)
 
     def read_execution_recovery_seed(
         self, workspace_id: str, proposal_id: str

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:a538d52e4b198f73c0a405329c7aba3ae5b864001c2f5964e8b160811e2ff6c9",
+  "review_id": "external-review:github-issue-78:m4-78-ticket-contract-v4:round-2",
+  "round": 2,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8bb693-e31c-83ec-9fdf-fd64cdceafc9",
+  "packet_digest": "sha256:075dc8a13a781808a126b622859d877ba23219564c72a8abe1039d07fd30bada",
+  "guide_revision": "m4-78-ticket-contract-v4",
+  "guide_digest": "sha256:54ccbdce1c9bda869fa480961095db7de56df5cf5e67ef2e45d5d8fc8248d930",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "APPROVE",
+  "findings": [],
+  "coverage": {
+    "criteria": ["M4-78-AC-01", "M4-78-AC-02", "M4-78-AC-03", "M4-78-AC-04", "M4-78-AC-05", "M4-78-AC-06", "M4-78-AC-07", "M4-78-AC-08", "M4-78-AC-09", "M4-78-AC-10", "M4-78-AC-11", "M4-78-AC-12", "M4-78-AC-13", "M4-78-AC-14"],
+    "uncovered": []
+  },
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "prior_findings_closed": [
+    "expiry_revocation_terminal_finalization_not_observed",
+    "stale_lease_terminal_observation_transition_unspecified",
+    "static_registry_no_plugin_boundary_unverified"
+  ],
+  "summary": "APPROVE. The round-2 v4 contract covers all fourteen acceptance criteria with required test cases and observable evidence. The expiry/key-revocation terminal path now explicitly permits authorized observation/finalization while requiring zero provider write/retry; the stale-terminal path now requires provider-first observation, no persistence under the expired lease, exactly one expected-generation PostgreSQL takeover winner, exact immutable-result finalization under the new lease, and fenced losers; and TC-10/CMD-04/EV-07 now bind the static typed CapabilityRegistry/no-plugin/no-vendor claim to exact-candidate changed-path, dependency, architecture, and focused-test evidence. The remaining recovery, authorization, retry, idempotency, crash-window, audit, HTTP-mapping, migration and concurrency requirements are represented by required cases/evidence, and Issue #79 release-harness/final-gate work remains explicitly out of scope.",
+  "reviewed_commit": "37f1ef03c4667def8db23f1c0f5c09a725f4fd54",
+  "chat_reference": "https://chatgpt.com/c/6a8bb693-e31c-83ec-9fdf-fd64cdceafc9",
+  "response_digest": "sha256:96b92ddb16583a33766ff6ab0a54381d73b26d76a28e92c6884718d9820d8d84"
+}

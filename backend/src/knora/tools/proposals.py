@@ -12,7 +12,9 @@ from knora.tools.execution import (
     ApprovedProposalExecutor,
     ExecutionAuthorizer,
     ExecutionResourceAuthorizer,
+    ReconciliationExecutor,
 )
+from knora.tools.execution_admission import ObservationReferenceResolver
 from knora.tools.execution_types import ExecutionResult
 from knora.tools.gateway import SupportToolGateway
 from knora.tools.proposal_compatibility import (
@@ -92,6 +94,7 @@ class WriteProposalWorkflow:
         execution_authorizer: ExecutionAuthorizer | None = None,
         compatibility_checker: CompatibilityCheckerV1 | None = None,
         execution_resource_authorizer: ExecutionResourceAuthorizer | None = None,
+        observation_reference_resolver: ObservationReferenceResolver | None = None,
         gateway: SupportToolGateway | None = None,
         dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
         execution_owner_factory: Callable[[], str] | None = None,
@@ -105,6 +108,7 @@ class WriteProposalWorkflow:
         self._execution_authorizer = execution_authorizer or DenyingExecutionAuthorizer()
         self._compatibility_checker = compatibility_checker or CompatibilityCheckerV1()
         self._executor = None
+        self._reconciler = None
         if (
             execution_resource_authorizer is not None
             and gateway is not None
@@ -122,6 +126,20 @@ class WriteProposalWorkflow:
                 owner_factory=execution_owner_factory,
                 lease_duration=execution_lease_duration,
             )
+            if observation_reference_resolver is not None:
+                self._reconciler = ReconciliationExecutor(
+                    resolver=capability_resolver,
+                    store=store,
+                    execution_authorizer=self._execution_authorizer,
+                    resource_authorizer=execution_resource_authorizer,
+                    observation_reference_resolver=observation_reference_resolver,
+                    gateway=gateway,
+                    signer=dispatch_signer,
+                    compatibility_checker=self._compatibility_checker,
+                    clock=self._clock,
+                    owner_factory=execution_owner_factory,
+                    lease_duration=execution_lease_duration,
+                )
 
     def handle(
         self,
@@ -163,7 +181,9 @@ class WriteProposalWorkflow:
                 raise KnoraError("TOOL_EXECUTION_NOT_AUTHORIZED")
             return self._executor.execute(command, principal, actor_context)
         if isinstance(command, ReconcileExecution):
-            raise KnoraError("TOOL_REQUEST_INVALID")
+            if self._reconciler is None:
+                raise KnoraError("TOOL_REQUEST_INVALID")
+            return self._reconciler.reconcile(command, principal, actor_context)
         raise KnoraError("TOOL_REQUEST_INVALID")
 
     def _propose(

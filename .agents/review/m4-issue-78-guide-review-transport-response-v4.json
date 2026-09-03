@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "surface": "guide:#78 v4",
+  "transport_id": "external-review-response-hex-v2",
+  "transport_authorization": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/reviews/issue-78-guide-v4-response-transport-v2.json",
+  "request_id": "review-request-sha256:46fcdad5527d11a06451396bbbddc0c00633e238ed0c08f6c312b16b76426ac6",
+  "packet_digest_hex": "b57fd40324e18fe5d2d7260365ac030132f9d6a5e719386bd693ecd514a99530",
+  "normalized_packet_digest": "sha256:b57fd40324e18fe5d2d7260365ac030132f9d6a5e719386bd693ecd514a99530",
+  "normalization_verified": true,
+  "reviewer": {
+    "provider": "ChatGPT",
+    "model": "High",
+    "chat_reference": "https://chatgpt.com/c/6a98efe3-1688-83ec-86d7-700bec4a418c"
+  },
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "summary": "The v4 provenance correction preserves the reviewed guarantees.",
+  "review_scope": "v4 TC-09/TC-10 provenance delta; unchanged v3 cases remain bound to the approved guide review v3"
+}

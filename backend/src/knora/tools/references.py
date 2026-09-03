@@ -397,3 +397,47 @@ class ReferenceVerifier:
             provider_routing_handle=record.provider_routing_handle,
             reference_id=record.reference_id,
         )
+
+    def resolve_started_execution(self, snapshot: object) -> VerifiedResourceReference | None:
+        """Resolve one previously authorized snapshot without reusing its write authority.
+
+        This deliberately reads the trusted record rather than re-verifying the expirable token.
+        The caller still owns current Workspace/resource observation authorization.
+        """
+        snapshot_fields = {
+            "workspace_id": "workspace_id",
+            "reference_id": "reference_id",
+            "capability_id": "capability_id",
+            "capability_version": "capability_version",
+            "binding_id": "binding_id",
+            "binding_version": "binding_version",
+            "binding_digest": "binding_digest",
+            "resource_kind": "resource_kind",
+            "resource_identity_digest": "resource_identity_digest",
+            "resource_claims_digest": "reference_claims_digest",
+            "provider_routing_handle": "provider_routing_handle",
+        }
+        values = {
+            record_field: getattr(snapshot, snapshot_field, None)
+            for record_field, snapshot_field in snapshot_fields.items()
+        }
+        if not all(isinstance(value, str) and value for value in values.values()):
+            return None
+        record = self._store.get_reference(values["reference_id"])
+        if record is None:
+            return None
+        if any(getattr(record, field) != values[field] for field in snapshot_fields):
+            return None
+        return VerifiedResourceReference(
+            workspace_id=record.workspace_id,
+            capability_id=record.capability_id,
+            capability_version=record.capability_version,
+            binding_id=record.binding_id,
+            binding_version=record.binding_version,
+            binding_digest=record.binding_digest,
+            resource_kind=record.resource_kind,
+            resource_identity_digest=record.resource_identity_digest,
+            resource_claims_digest=record.resource_claims_digest,
+            provider_routing_handle=record.provider_routing_handle,
+            reference_id=record.reference_id,
+        )

@@ -89,6 +89,16 @@ class ProviderObservationUnavailable:
     code: str = "provider_observation_unavailable"
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderObservationTimeout:
+    code: str = "provider_observation_timeout"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderObservationMalformed:
+    code: str = "provider_observation_malformed"
+
+
 class SupportToolGateway(Protocol):
     def lookup_ticket(
         self, request: LookupTicketRequest
@@ -114,7 +124,13 @@ class SupportToolGateway(Protocol):
 
     def get_execution_outcome(
         self, *, scope: str, logical_execution_id: str
-    ) -> ProviderOutcomeFound | ProviderOutcomeNotFound | ProviderObservationUnavailable: ...
+    ) -> (
+        ProviderOutcomeFound
+        | ProviderOutcomeNotFound
+        | ProviderObservationUnavailable
+        | ProviderObservationTimeout
+        | ProviderObservationMalformed
+    ): ...
 
 
 @dataclass
@@ -123,6 +139,8 @@ class FakeSupportToolGateway:
     calls: list[LookupTicketRequest] = field(default_factory=list)
     write_outcomes: dict[str, object] = field(default_factory=dict)
     write_calls: list[DispatchEnvelope] = field(default_factory=list)
+    observation_outcomes: dict[str, object] = field(default_factory=dict)
+    observation_calls: list[tuple[str, str]] = field(default_factory=list)
 
     def lookup_ticket(self, request: LookupTicketRequest):
         self.calls.append(request)
@@ -133,6 +151,10 @@ class FakeSupportToolGateway:
     def create_ticket(self, envelope: DispatchEnvelope):
         self.write_calls.append(envelope)
         return self.write_outcomes.get(envelope.token, ProviderWriteIndeterminate())
+
+    def get_execution_outcome(self, *, scope: str, logical_execution_id: str):
+        self.observation_calls.append((scope, logical_execution_id))
+        return self.observation_outcomes.get(logical_execution_id, ProviderOutcomeNotFound())
 
     @property
     def call_count(self) -> int:
@@ -257,7 +279,7 @@ class SQLiteSupportToolGateway:
             item.value for item in ProviderTerminalFailureCode
         }:
             return ProviderOutcomeFound(ProviderWriteFailed(value))
-        return ProviderObservationUnavailable()
+        return ProviderObservationMalformed()
 
 
 def _valid_provider_text(value: object, *, maximum: int, allow_empty: bool) -> bool:

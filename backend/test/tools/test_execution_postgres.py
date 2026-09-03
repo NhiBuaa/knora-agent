@@ -33,6 +33,7 @@ from knora.tools import (
     HmacDispatchEnvelopeSigner,
     PolicyProvenance,
     ProposeWriteAction,
+    ProviderOutcomeFound,
     ProviderWriteFailed,
     ProviderWriteSucceeded,
     ResolvedCapabilityContext,
@@ -42,8 +43,6 @@ from knora.tools import (
 from knora.tools.contracts import canonical_digest_v1
 from knora.tools.execution_types import AuthorizedExecutionBindingSnapshot
 from knora.tools.references import AuthorizedExternalResource
-
-NOW = datetime(2026, 8, 24, 9, 0, tzinfo=UTC)
 
 
 class Resolver:
@@ -112,6 +111,7 @@ class Gateway:
         self.outcome = outcome or ProviderWriteSucceeded("m4r1.provider-ticket.opaque")
         self.entered = Event()
         self.release = Event()
+        self.observations = []
 
     def create_ticket(self, envelope):
         self.calls.append(envelope)
@@ -119,6 +119,17 @@ class Gateway:
             self.entered.set()
             assert self.release.wait(timeout=10)
         return self.outcome
+
+    def get_execution_outcome(self, *, scope, logical_execution_id):
+        self.observations.append((scope, logical_execution_id))
+        return ProviderOutcomeFound(ProviderWriteSucceeded("m4r1.provider-ticket.opaque"))
+
+
+class ObservationResolver:
+    def resolve_started_execution(self, snapshot, principal, proposal, execution):
+        assert principal.workspace_id == proposal.workspace_id
+        assert snapshot == execution.acquisition.binding_snapshot
+        return "scope-a"
 
 
 def actor(actor_id: str, kind: str, *, approval: bool = False) -> ActorContext:
@@ -139,8 +150,10 @@ def prepared(
     blocking: bool = False,
     lease_duration: timedelta = timedelta(minutes=5),
     outcome=None,
+    owner_factory=None,
     store_factory=PostgresToolActionStore,
 ):
+    application_now = datetime.now(UTC)
     workspace_id = f"m4-execution-{uuid4()}"
     with SessionFactory.begin() as session:
         session.add(WorkspaceTable(id=workspace_id, name="M4 execution"))
@@ -154,13 +167,14 @@ def prepared(
         target_verifier=TargetVerifier(),
         execution_authorizer=authorizer,
         execution_resource_authorizer=ResourceAuthorizer(),
+        observation_reference_resolver=ObservationResolver(),
         gateway=gateway,
         dispatch_signer=HmacDispatchEnvelopeSigner(
             key_identity="dispatch-key", key_version="v1", secret=b"dispatch-secret"
         ),
-        execution_owner_factory=lambda: "worker-a",
+        execution_owner_factory=owner_factory or (lambda: "worker-a"),
         execution_lease_duration=lease_duration,
-        clock=lambda: NOW,
+        clock=lambda: application_now,
     )
     principal = WorkspacePrincipal(workspace_id, "key-a")
     created = workflow.handle(

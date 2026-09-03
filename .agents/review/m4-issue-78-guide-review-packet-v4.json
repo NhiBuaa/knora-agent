@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "canonical_projection": {
+    "projection_version": 1,
+    "round": 4,
+    "workflow_id": "feature-delivery:m4-tools-human-approval",
+    "feature_id": "github-issue-74",
+    "issue_id": "github-issue-78-guide",
+    "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+    "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+    "ticket_digest": "sha256:7f083a1ca10e330fe074148b5d2f43619fe1d7f99d30927a1ef2281b3adc5909",
+    "guide_revision": "m4-78-crash-recovery-v4",
+    "guide_digest": "sha256:eca3113b8f259c8f415e0b31cf2ed6e0535eadf9df6de6c5bccbb760429196de",
+    "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+    "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+    "acceptance_criteria": [
+      {
+        "id": "M4-78-AC-01",
+        "statement": "Guide executes ReconcileExecution for indeterminate and orphaned executing records."
+      },
+      {
+        "id": "M4-78-AC-02",
+        "statement": "Guide proves current path-Workspace/resource authorization before provider-first observation."
+      },
+      {
+        "id": "M4-78-AC-03",
+        "statement": "Guide proves trusted observation routing from AuthorizedExecutionBindingSnapshot creates no write authority."
+      },
+      {
+        "id": "M4-78-AC-04",
+        "statement": "Guide finalizes success and all closed failures under expiry and key revocation with zero write/retry."
+      },
+      {
+        "id": "M4-78-AC-05",
+        "statement": "Guide proves every safe retry reruns full current write authorization and compatibility."
+      },
+      {
+        "id": "M4-78-AC-06",
+        "statement": "Guide proves strict PostgreSQL-time expected-generation stale takeover with one winner."
+      },
+      {
+        "id": "M4-78-AC-07",
+        "statement": "Guide proves stale-terminal no-stale-persistence, exact-result takeover finalization and zero retry."
+      },
+      {
+        "id": "M4-78-AC-08",
+        "statement": "Guide proves closed current/not-stale/fenced/in-progress/terminal transition outcomes and owner/generation/lease fencing."
+      },
+      {
+        "id": "M4-78-AC-09",
+        "statement": "Guide proves provider-commit-before-Knora-persist recovery without duplicate."
+      },
+      {
+        "id": "M4-78-AC-10",
+        "statement": "Guide proves executing-before-provider-receipt not-found takeover/retry with same identity."
+      },
+      {
+        "id": "M4-78-AC-11",
+        "statement": "Guide proves unavailable/timeout/malformed/not-found remain distinct HTTP 202 non-terminal results."
+      },
+      {
+        "id": "M4-78-AC-12",
+        "statement": "Guide proves only found success/closed failure terminalize with exact public mapping."
+      },
+      {
+        "id": "M4-78-AC-13",
+        "statement": "Guide proves independent SQLite persistence and complete secret-safe audit reconstruction."
+      },
+      {
+        "id": "M4-78-AC-14",
+        "statement": "Guide proves tested-subject-bound static-registry/no-plugin/no-vendor evidence and a separate evidence-publication/delivery-head provenance chain without self-reference."
+      }
+    ],
+    "design_decisions": [
+      {
+        "id": "M4-78-GD-01",
+        "decision": "Ten required Test Cases cover the ticket's ten approved case families without merging distinct authority, crash or concurrency oracles."
+      },
+      {
+        "id": "M4-78-GD-02",
+        "decision": "Every expected matrix is independently sourced and imports no production result, enum, serializer or mapper."
+      },
+      {
+        "id": "M4-78-GD-03",
+        "decision": "Independent ordered sentinels prove the authorized sequence path-Workspace/resource observation authorization -> trusted snapshot routing -> provider observation, and prove every observation denial has zero provider-observation calls."
+      },
+      {
+        "id": "M4-78-GD-04",
+        "decision": "A valid observation-routing snapshot is held constant while current write authorities independently fail; every retry/admission/dispatch/create_ticket/provider-effect seam is counted and must remain zero."
+      },
+      {
+        "id": "M4-78-GD-05",
+        "decision": "Separate lock barriers capture fresh post-lock PostgreSQL time for takeover, observation and finalization; host clocks are non-authoritative."
+      },
+      {
+        "id": "M4-78-GD-06",
+        "decision": "Public reconciliation rows have closed complete key sets, lifecycle/outcome values and HTTP statuses; retry denial remains separate from provider outcome."
+      },
+      {
+        "id": "M4-78-GD-07",
+        "decision": "Candidate evaluation binds guide revision/digest, tested subject SHA, evidence-publication SHA, final delivery head, environment revision, ten case records and append-only human approval."
+      },
+      {
+        "id": "M4-78-GD-08",
+        "decision": "Guide preparation adds no implementation authority; external APPROVE plus explicit human lock are mandatory."
+      }
+    ],
+    "invariants": [
+      "All ten Test Cases are required and trace to the externally approved ticket v4.",
+      "Every authorized provider observation occurs only after current path-Workspace/resource observation authorization and trusted snapshot routing, in that exact order.",
+      "Every observation-authorization failure has zero trusted-routing and provider-observation calls.",
+      "No expired owner records an observation or final outcome.",
+      "Terminal provider truth never becomes retry and observation authority never becomes write authority.",
+      "No field, digest, identity or provenance from AuthorizedExecutionBindingSnapshot is accepted as write authority.",
+      "Provider not-found is non-terminal; every write retry retains one logical identity/fingerprint and reruns all fresh current write checks.",
+      "Expected identities and matrices are independent from the application result under test.",
+      "SQLite provider truth and PostgreSQL workflow/audit state are restarted and evidenced independently.",
+      "Release evidence contains digests/counters only and excludes raw provider/admission/key/credential/authority material.",
+      "Final code review is not part of this guide and remains deferred until #75 through #79 complete.",
+      "Release evidence subject_sha and scope_manifest.candidate equal only the clean tested subject; a descendant evidence-publication commit changes only the evidence path and cannot inherit test status as a source change."
+    ],
+    "out_of_scope": [
+      "Implementation, human guide lock or manual acceptance execution before guide external APPROVE.",
+      "Dynamic plugin/discovery/provider registration or vendor-specific integration.",
+      "Issue #79 integrated release harness and final M4 code review.",
+      "A distributed transaction or provider rollback/cancellation protocol."
+    ],
+    "acceptance_policy": {
+      "authority": "human_required",
+      "policy_revision": "m4-human-required-guide-review-v1",
+      "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+      "required": true
+    },
+    "test_cases": [
+      {
+        "id": "M4-78-TC-01",
+        "statement": "Authorize current path Workspace/resource, resolve trusted observation routing, then reconcile SQLite success/all closed failures under current-owner, current-foreign and expired leases; separately run every observation-authorization denial.",
+        "oracle": "Every authorized trace is path-Workspace/resource authorization succeeds -> trusted snapshot routing -> provider observation; every authorization failure has zero resolver/provider-observation/write/effect calls; lease behavior retains one exact terminalization and zero retry.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-02",
+        "statement": "Reconcile NoAdmission provider-not-found before/after strict expiry, race contenders and authorize first write only through fresh current write checks independent of the observation snapshot.",
+        "oracle": "Not-found remains distinct HTTP 202; one post-expiry winner reruns m4r1, write Workspace/resource, ExecutionAuthorizer and compatibility checks, creates one admission and dispatches once; snapshot fields/provenance satisfy no write check and losers make zero calls.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-03",
+        "statement": "Race AdmissionOutstanding not-found recovery replay with delayed original dispatch.",
+        "oracle": "One takeover, no new/replaced admission, byte-identical persisted envelope, same ID/fingerprint and at most one provider effect across restart.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-04",
+        "statement": "Finalize all terminal outcomes under expiry/key revocation; deny observation; then retain valid observation routing while independently denying every current write-authority seam and attempting every retry/write seam.",
+        "oracle": "Expiry/revocation terminalizes with zero write; observation denial is pre-routing/pre-provider with zero observation calls; every valid-snapshot/write-denied row performs exactly one authorized provider-observation lookup and ledger read, while admission/dispatch/create_ticket/target-lookup/provider-ledger-mutation/effect counts remain zero; mismatch remains stale/new approval.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-05",
+        "statement": "Use independent PostgreSQL barriers and skewed host clocks to race current/stale/changed-generation/foreign/terminal callers.",
+        "oracle": "Fresh post-lock PostgreSQL time decides; one generation winner; typed dispositions only; no stale/loser observation or finalization write.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-06",
+        "statement": "Inject unavailable, timeout, malformed/unknown, not-found, success and all closed failures at application/HTTP seams and compare independent complete matrices.",
+        "oracle": "A closed independent matrix gives unavailable, timeout, malformed/unknown and not-found separate exact HTTP 202 rows with distinct reason codes, lifecycle executing, no retry authority and recursive full-key comparison; success is 200; closed failures are 502/TOOL_PROVIDER_FAILURE with exact rejection; no private leakage.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-07",
+        "statement": "Trigger both crash windows, independently restart Knora/SQLite, keep observation routing valid while denying current write authority for no-receipt, then separately authorize same-identity retry.",
+        "oracle": "Provider-committed outcome terminalizes through authorized observation order and one stale takeover with zero retry/duplicate; valid snapshot with denied write authority yields zero admission/dispatch/create_ticket/effect; only all fresh checks permit same-ID retry and repeated calls converge.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-08",
+        "statement": "Reconstruct all recovery timelines from append-only PostgreSQL audit and compare independent SQLite truth after restart.",
+        "oracle": "Complete ordered authority/binding/generation/lease/observation/retry/fence/terminal provenance, independently authoritative provider ledger and no forbidden private/secret fields.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-09",
+        "statement": "Run exact focused/full/Ruff/Compose/clean-Alembic verification on the clean tested subject, then publish the generated evidence as a separately constrained descendant commit.",
+        "oracle": "All commands are green on the tested subject; evidence subject/candidate equal it, publication diff is exactly the release-evidence path, and final delivery head is separately bound.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-10",
+        "statement": "Run registry/composition probes and source-base-to-tested-subject scope manifest, then inspect the evidence-publication diff.",
+        "oracle": "Static typed registry and generic fake/SQLite boundary remain proven on the tested subject; evidence publication adds no executable/plugin/vendor scope.",
+        "required": true
+      }
+    ],
+    "command_projections": [
+      {
+        "id": "M4-78-GCMD-01",
+        "statement": "Recreate PostgreSQL and run Alembic upgrade/current before focused and full suites; run downgrade/re-upgrade/current after full suite.",
+        "kind": "migration"
+      },
+      {
+        "id": "M4-78-GCMD-02",
+        "statement": "From backend run exact focused command for reconciliation workflow/PostgreSQL/provider/HTTP/release harness.",
+        "kind": "verification"
+      },
+      {
+        "id": "M4-78-GCMD-03",
+        "statement": "From backend run full test and eval suite serially; from root run Ruff and Compose config.",
+        "kind": "verification"
+      },
+      {
+        "id": "M4-78-GCMD-04",
+        "statement": "Generate tested-subject release evidence and source-base/subject scope manifest, then verify the separate evidence-publication-only diff and delivery-head binding.",
+        "kind": "verification"
+      }
+    ],
+    "required_evidence": [
+      {
+        "id": "M4-78-GEV-01",
+        "statement": "Guide file and structured Test Case artifact digests plus exact ticket review and prior-guide-review provenance.",
+        "required": true
+      },
+      {
+        "id": "M4-78-GEV-02",
+        "statement": "Per-authorized-call ordered path-Workspace/resource authorization -> trusted snapshot routing -> provider observation traces; per-observation-denial zero provider-observation sentinels; valid-snapshot/current-write-denial matrices proving exactly one authorized provider-observation lookup/ledger read, zero admission/dispatch/create_ticket/target-lookup/provider-ledger-mutation/effect counts and no snapshot provenance in write-authorizer inputs; plus PostgreSQL clock/lease/generation rows.",
+        "required": true
+      },
+      {
+        "id": "M4-78-GEV-03",
+        "statement": "Independent application/HTTP/authority/audit matrices with separate unavailable, timeout, malformed/unknown and not-found rows, exact reason codes, lifecycle/retry state, recursive complete-key comparisons and forbidden-field failures.",
+        "required": true
+      },
+      {
+        "id": "M4-78-GEV-04",
+        "statement": "Independent SQLite ledger/effect snapshots across both crash windows and restarts with logical identity/admission lineage.",
+        "required": true
+      },
+      {
+        "id": "M4-78-GEV-05",
+        "statement": "Tested subject, evidence-publication and delivery-head SHAs; source-base/subject registry/composition scope manifest; focused/full/migration exits; and one-path publication diff.",
+        "required": true
+      },
+      {
+        "id": "M4-78-GEV-06",
+        "statement": "One append-only Evaluation record per run with all ten case results and explicit human acceptance approval only after observed PASSED.",
+        "required": true
+      }
+    ],
+    "prior_findings": [
+      {
+        "id": "M4-78-GR-001",
+        "severity": "major",
+        "issue_class": "authorized_observation_order_not_closed",
+        "criterion_ref": "M4-78-AC-02",
+        "required_change": "Require and evidence current path-Workspace/resource observation authorization succeeds before trusted snapshot routing and provider observation, plus zero provider-observation calls for every authorization failure.",
+        "closure_projection": "TC-01 steps/oracles and GEV-02 now require the exact successful-path sequence and per-denial zero observation sentinels."
+      },
+      {
+        "id": "M4-78-GR-002",
+        "severity": "major",
+        "issue_class": "observation_snapshot_write_authority_separation_not_proven",
+        "criterion_ref": "M4-78-AC-03",
+        "required_change": "Keep the observation snapshot valid while current write authority independently fails; attempt every retry/write seam and prove zero dispatch, create_ticket and provider effects, with no snapshot provenance accepted as write authority.",
+        "closure_projection": "TC-02, TC-04, TC-07 and GEV-02 require the differential valid-snapshot/write-denial matrix, one authorized observation read and zero write/effect counters with complete write-input exclusion evidence."
+      },
+      {
+        "id": "M4-78-GR-003",
+        "severity": "major",
+        "issue_class": "valid_observation_write_denial_matrix_is_self_contradictory",
+        "criterion_ref": "M4-78-AC-03",
+        "required_change": "Separate provider-observation counters from provider-write/effect counters and require the authorized observation lookup/ledger read while write/effect counters remain zero.",
+        "closure_projection": "TC-04, GEV-02 and the guide prerequisites now independently count exactly one authorized provider-observation lookup/ledger read and zero admission, dispatch, create_ticket, target lookup, provider-ledger mutation and provider-effect calls."
+      },
+      {
+        "id": "M4-78-GR-004",
+        "severity": "major",
+        "issue_class": "nonterminal_provider_outcomes_are_not_independently_distinguished",
+        "criterion_ref": "M4-78-AC-11",
+        "required_change": "Define a closed independent matrix with separate unavailable, timeout, malformed/unknown and not-found rows and exact per-variant HTTP/application outcomes.",
+        "closure_projection": "TC-06, the immutable public matrix and GEV-03 now bind four separate HTTP 202 rows to exact outcome/reason codes, lifecycle executing, no retry authority, complete keys and recursive field comparison."
+      },
+      {
+        "id": "M4-78-GR-005",
+        "severity": "major",
+        "issue_class": "release_evidence_final_commit_self_reference",
+        "criterion_ref": "M4-78-AC-14",
+        "required_change": "Separate the exact tested source from the generated evidence-publication commit and final delivery head without weakening scope/invalidation guarantees.",
+        "closure_projection": "TC-09/TC-10 and GEV-05 bind all three identities, require command execution only on the clean tested subject, and limit the publication diff to the evidence file."
+      }
+    ]
+  },
+  "packet_digest": "sha256:b57fd40324e18fe5d2d7260365ac030132f9d6a5e719386bd693ecd514a99530",
+  "request_id": "review-request-sha256:46fcdad5527d11a06451396bbbddc0c00633e238ed0c08f6c312b16b76426ac6"
+}

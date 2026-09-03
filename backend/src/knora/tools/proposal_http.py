@@ -18,8 +18,12 @@ from knora.tools.execution_types import (
     ExecutionInProgress,
     ExecutionSucceeded,
     ProposalNotExecutable,
+    ReconciledFailed,
+    ReconciledSucceeded,
+    ReconciliationIndeterminate,
+    ReconciliationOutcomeNotFound,
 )
-from knora.tools.proposal_types import ExecuteApprovedProposal
+from knora.tools.proposal_types import ExecuteApprovedProposal, ReconcileExecution
 from knora.tools.proposals import (
     ActorContext,
     AlreadyDecided,
@@ -99,13 +103,20 @@ def _execution_response(result) -> JSONResponse:
         }[public_code]
         return JSONResponse(status_code=status, content={"error": {"code": public_code}})
     status = 200
-    if isinstance(result, ExecutionFailed):
+    if isinstance(result, (ExecutionFailed, ReconciledFailed)):
         status = 502
-    elif isinstance(result, ExecutionIndeterminate):
+    elif isinstance(
+        result,
+        (
+            ExecutionIndeterminate,
+            ReconciliationIndeterminate,
+            ReconciliationOutcomeNotFound,
+        ),
+    ):
         status = 202
     elif isinstance(result, (ExecutionInProgress, ExecutionFenced)):
         status = 409
-    elif not isinstance(result, ExecutionSucceeded):
+    elif not isinstance(result, (ExecutionSucceeded, ReconciledSucceeded)):
         raise KnoraError("TOOL_PROVIDER_CONTRACT_INVALID")
     return JSONResponse(
         status_code=status,
@@ -244,6 +255,34 @@ async def execute_proposal(
         ExecuteApprovedProposal(
             proposal_id,
             payload["expected_revision"],  # type: ignore[arg-type]
+        ),
+        principal,
+        actor_context,
+    )
+    return _execution_response(result)
+
+
+@router.post("/v1/workspaces/{workspace_id}/tool-proposals/{proposal_id}/reconcile")
+async def reconcile_execution(
+    workspace_id: str,
+    proposal_id: str,
+    request: Request,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
+    actor_context: Annotated[ActorContext, Depends(get_actor_context)],
+) -> JSONResponse:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    payload = await _read_payload(request)
+    _validate_payload(payload, {"expected_lease_generation"})
+    if not isinstance(payload.get("expected_lease_generation"), int) or isinstance(
+        payload.get("expected_lease_generation"), bool
+    ):
+        raise KnoraError("TOOL_REQUEST_INVALID")
+    result = workflow.handle(
+        ReconcileExecution(
+            proposal_id,
+            payload["expected_lease_generation"],  # type: ignore[arg-type]
         ),
         principal,
         actor_context,

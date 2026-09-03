@@ -982,6 +982,227 @@ transition authority; every later session resumes from its exact `next_valid_tra
   Issue #77 implementation through `implement -> tdd`. Per-Issue code review remains disabled;
   the sole code review remains the final M4 fixed-point review after #75–#79 complete.
 
+### Issue #78 ticket external review v1 — 2026-08-24
+
+- Exact ticket contract v3 at `62a9a26d2418115e80997717a40d2796b935ed63` was reviewed in a new
+  authenticated ChatGPT High session. The canonical response validates as `VALID` and returns
+  `REQUEST_CHANGES` with `0 Critical / 3 Major / 0 Minor`.
+- The three Major findings require observable contract evidence for: terminal finalization after
+  reference expiry or key revocation with zero write retry; deterministic stale-lease takeover when
+  provider-first observation already found a terminal outcome; and an exact-candidate proof that the
+  static typed registry/no-plugin/no-vendor boundary remains intact. None requires a new module or
+  a change to the approved application interfaces.
+- Issue #78 has already consumed its two ordinary design revisions (`v2` and `v3`). Guide
+  preparation and implementation remain blocked. The next valid transition is explicit exceptional
+  authorization for ticket-contract revision v4, followed by `codebase-design`, local audit,
+  GitHub read-back equality, and a new external ticket review before any guide is created.
+
+### Issue #78 exceptional contract revision v4 — 2026-08-24
+
+- The repository owner explicitly authorized exceptional ticket-contract revision v4 to close all
+  three Major findings from external review v1 before any guide is prepared.
+- `codebase-design` retained the approved deep `WriteProposalWorkflow.handle` Interface and fixed
+  one deterministic stale-terminal sequence: provider observation precedes recovery; an expired
+  lease cannot persist; one expected-generation takeover winner records and finalizes the exact
+  immutable terminal outcome under its new lease; losers are fenced and no provider retry occurs.
+- Acceptance now requires success plus every closed provider failure to terminalize under both
+  proposal/reference expiry and key revocation with zero write calls and exact public mappings.
+  It also requires candidate-SHA-bound registry tests plus changed-path/dependency evidence proving
+  the static typed registry, generic provider seam and fake/SQLite adapters remain free of plugin,
+  discovery, runtime registration and vendor integration scope.
+- Local contract audit is `APPROVE` with zero Critical, Major or Minor findings. Publication,
+  GitHub read-back equality and external ticket review v2 remain required before guide preparation.
+
+### Issue #78 ticket review packet v2 checkpoint — 2026-08-24
+
+- Contract v4 is committed at `37f1ef03c4667def8db23f1c0f5c09a725f4fd54`, published to Issue
+  #78 and read back equal to the repository artifact after newline normalization.
+- Self-contained packet `.agents/review/m4-issue-78-ticket-review-packet-v2.json` validates `VALID`
+  at semantic digest `sha256:075dc8a13a781808a126b622859d877ba23219564c72a8abe1039d07fd30bada`
+  and request ID
+  `review-request-sha256:a538d52e4b198f73c0a405329c7aba3ae5b864001c2f5964e8b160811e2ff6c9`.
+- Local packet audit is `APPROVE` with zero findings and direct closure references for all three
+  prior Major findings. The next transition is fresh action-time owner confirmation followed by
+  external ticket review v2 in a new authenticated ChatGPT High session. No guide or implementation
+  is authorized.
+
+### Issue #78 ticket external review v2 outcome — 2026-08-24
+
+- Exact packet v2 was sent as one pasted-text attachment to the new authenticated ChatGPT High
+  session `https://chatgpt.com/c/6a8bb693-e31c-83ec-9fdf-fd64cdceafc9` for contract subject
+  `37f1ef03c4667def8db23f1c0f5c09a725f4fd54`.
+- The reviewer returned `APPROVE` with `0 Critical / 0 Major / 0 Minor`, complete AC-01 through
+  AC-14 coverage and all three v1 findings closed. The visible transport placeholder and unstable
+  model label were normalized to the URL chat identity and `model: null`; verdict, findings,
+  coverage, prior-finding closure and summary were unchanged.
+- The normalized response validates `VALID / review_response_valid` and seals at
+  `sha256:96b92ddb16583a33766ff6ab0a54381d73b26d76a28e92c6884718d9820d8d84`.
+  This fills the current #78 ticket-review cadence slot. The next transition is preparation of the
+  manual acceptance Test Cases and guide; implementation remains blocked until guide external
+  review and explicit human lock.
+
+### Issue #78 guide v1 preparation — 2026-08-24
+
+- `manual-acceptance -> test-craft` produced ten required structured Test Cases at
+  `.agents/review/m4-issue-78-test-cases-v1.json` and draft guide
+  `.agents/manual-tests/milestone-4/78-crash-recovery-v1.md`.
+- Guide v1 binds provider-first terminal reconciliation, NoAdmission first write,
+  AdmissionOutstanding replay, expiry/key-revocation finalization, authorization/mismatch denial,
+  PostgreSQL-time concurrency, public result matrices, both crash windows, audit reconstruction,
+  full regression/migration verification and exact-candidate no-plugin/no-vendor scope evidence.
+- Exact guide digest is
+  `sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa`;
+  Test Case artifact digest is
+  `sha256:60af1b41889e2e3128abfe63774029e1a4b1f740914dbb65607e311447de8989`.
+- Self-contained guide packet validates `VALID` at
+  `sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597`
+  with request ID
+  `review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb`;
+  local guide audit is `APPROVE` with zero findings. External guide review and explicit owner lock
+  remain mandatory before implementation.
+
+### Issue #78 guide external review v1 outcome — 2026-08-24
+
+- Exact guide packet v1 was sent to the new authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe` for guide subject
+  `a4ed647b3559d859950681a10a518046363c1367`.
+- The normalized response validates `VALID / review_response_valid`, seals at
+  `sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f`
+  and returns `REQUEST_CHANGES` with `0 Critical / 2 Major / 0 Minor`.
+- Guide v2 must add only two security oracles: the successful authorized reconciliation sequence
+  must prove current path-Workspace/resource observation authorization before trusted snapshot
+  routing and provider observation, with zero provider-observation calls for every authorization
+  denial; and a differential case must keep the observation-routing snapshot valid while current
+  write authority independently fails, then prove every retry/write seam makes zero dispatch,
+  `create_ticket` and provider-effect calls and never treats snapshot provenance as write authority.
+- Guide v1 is superseded for locking and cannot authorize implementation. The next transition is
+  `manual-acceptance -> test-craft` revision v2, followed by a new external guide review. Final M4
+  code review remains deferred until #75–#79 are complete.
+
+### Issue #78 guide v2 preparation — 2026-08-24
+
+- `manual-acceptance -> test-craft` revised only TC-01, TC-02, TC-04 and TC-07 to close the two
+  Major security-oracle findings. The structured artifact is
+  `.agents/review/m4-issue-78-test-cases-v2.json` at digest
+  `sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46`.
+- Guide `.agents/manual-tests/milestone-4/78-crash-recovery-v2.md` at digest
+  `sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9`
+  now requires the exact successful-path sequence `path-Workspace/resource observation
+  authorization -> trusted snapshot routing -> provider observation`, plus zero provider-observation
+  calls for every observation-authorization failure.
+- The guide also holds a valid observation-routing snapshot constant while each current write
+  authority fails independently, attempts every retry/admission/dispatch/`create_ticket` seam and
+  requires zero target lookup, provider-ledger mutation and provider effect. Snapshot fields and
+  provenance are explicitly excluded from write authority.
+- Canonical packet `.agents/review/m4-issue-78-guide-review-packet-v2.json` validates `VALID` at
+  `sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b`
+  with request ID
+  `review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1`.
+  Local audit is `APPROVE` with zero findings. External guide review and explicit owner lock remain
+  mandatory; no implementation or code review is authorized.
+
+### Issue #78 guide external review v2 transport failure — 2026-08-24
+
+- Exact packet v2 was sent in a new authenticated ChatGPT High session at
+  `https://chatgpt.com/c/6a8bc49c-f3a0-83ec-9766-379401690403`.
+- The first response and the one allowed same-session shape-only retry both failed JSON/schema
+  validation because embedded quoted phrases remained unescaped. The retry corrected the closed
+  finding-category enum and added required identity/digest placeholders, but still could not be
+  parsed. Evidence is sealed by transport digests
+  `sha256:b5b3adc8823babc934228e32d9efd8cd50c9600dbda5cd6c3d59a2953d2a8e2d`
+  and `sha256:a60c0d66272c252378c2a8b24ea2d9176289781b3318e24d0f28c55e3773bc3c`.
+- The visible projection is non-authoritative. It reports `REQUEST_CHANGES`, zero Critical, two
+  Major, and closure of both v1 findings. The new finding classes concern a closed independent
+  expected-generation transition matrix for TC-05 and field-for-field comparison of takeover-
+  finalized Knora terminal data against pre-recovery SQLite provider truth for TC-07/TC-08.
+- Under the bounded retry rule, workflow is suspended. No guide v3, human lock, implementation,
+  acceptance or final M4 code review is authorized until the owner chooses a new-session retry or
+  explicitly authorizes content-preserving normalization of the captured response.
+
+### Issue #78 guide external review v2 new-session retry — 2026-08-24
+
+- The repository owner selected a fresh-session retry of the exact unchanged packet. The packet
+  was reverified at file digest
+  `sha256:ce6a3a5c049c30c91885cba7066f25715f9ed3b6904173c2784d619bed708821`
+  and sent in authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb`.
+- The repository validator accepted the normalized and sealed response at
+  `sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b`.
+  Verdict is `REQUEST_CHANGES`, with zero Critical, two Major and zero Minor findings. This is the
+  authoritative guide-v2 verdict; the earlier schema-invalid session remains transport evidence
+  only.
+- Major `valid_observation_write_denial_matrix_is_self_contradictory` requires the valid-snapshot
+  denial matrix to permit and count authorized provider observation while keeping only admission,
+  dispatch, `create_ticket` and provider write/effect counters at zero.
+- Major `nonterminal_provider_outcomes_are_not_independently_distinguished` requires an independent
+  closed TC-06 matrix that distinguishes unavailable, timeout, malformed/unknown and not-found by
+  exact application/HTTP outcome or reason while all remain non-terminal HTTP 202 with no retry
+  authority.
+- Guide v2 is not lockable and is not cadence-eligible. The next valid transition is immutable guide
+  and Test Case revision v3 followed by fresh external guide review. Implementation, manual
+  acceptance and final M4 code review remain blocked.
+
+### Issue #78 guide v3 and external approval — 2026-08-24
+
+- Guide v3 changes only the two validated v2 Major findings. TC-04/GEV-02 now require exactly one
+  authorized provider-observation lookup and provider-ledger read while admission, dispatch,
+  `create_ticket`, target lookup, provider-ledger mutation and provider-effect counts remain zero.
+  TC-06/GEV-03 now bind unavailable, timeout, malformed/unknown and not-found to separate exact
+  HTTP 202 rows, reason codes, lifecycle `executing`, no retry authority and recursive full-key
+  comparison.
+- Immutable guide digest is
+  `sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b`.
+  Canonical packet semantic digest is
+  `sha256:e911250e00d04fa519016ff5db575b5e5ee80636e95708d1093fbe8580b98eff`
+  at subject checkpoint `2d562bf487d3b9947ee230567c221014a8ab2d78`.
+- The exact packet was sent automatically to authenticated ChatGPT High session
+  `https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c`. The repository validator accepted
+  the sealed response at
+  `sha256:5d278d9267d27df9a0aeb0477db6bc1f1e50658d4637b93e0e4d4eafa2325f91`.
+- Verdict is `APPROVE`, with zero Critical, Major and Minor findings, complete AC-01 through AC-14
+  coverage and GR-001 through GR-004 closed. This fills the latest #78 guide external-review slot.
+- Guide v3 remains unlocked until the repository owner explicitly approves the exact guide digest.
+  Implementation, manual acceptance execution and final M4 code review remain blocked until their
+  later gates.
+
+### Issue #78 guide v3 human lock — 2026-08-24
+
+- The repository owner explicitly approved and locked guide
+  `m4-78-crash-recovery-v3` at exact digest
+  `sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b`.
+  Approval evidence is `.agents/review/m4-issue-78-guide-approval-v3.json` at digest
+  `sha256:c8910f10d6b40bf59a57ac7a5d7a304c1ec9ccf5987d2d94f5e0f8983c5fa30d`.
+- The guide is immutable. Any semantic change requires a new guide revision and external/human
+  approval cycle.
+- Under the current `feature-delivery` leader/Issue-session boundary, the leader cannot implement
+  Issue #78. The next transition is an immutable attempt-1 dispatch and exact paste prompt for a
+  fresh human-opened Issue session.
+
+### Issue #78 dispatch checkpoint — 2026-08-24
+
+- The native #77 blocker is closed, Issue #78 remains open, and the integration, default and Issue
+  branch remote heads remain exactly `1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1`,
+  `6312c4c4230032aa92ca5915803fcfaf564354fa` and
+  `4239dd8177a5870bbaa238676dbdad9ddc794ef4` respectively. The Issue worktree is clean and has no
+  implementation/test/migration diff from its source base.
+- Dispatch attempt 1 was sealed but superseded before any worker start because the runtime dispatch
+  contract added mandatory `leader_workflow_artifact` and exact `leader_prompt` return-routing
+  bindings before readiness validation. Its immutable artifacts remain audit evidence and must not
+  be used.
+- Dispatch attempt 2 is the sole active dispatch. Workflow identity is
+  `feature-delivery/m4-tools-human-approval/issue-78/attempt-2`; immutable dispatch, workspace and
+  Resume digests are `sha256:ec7695355ece5b17c810a32a88d12d496b6a9bc80549e36ecf8c9e5cc68ee2ed`,
+  `sha256:b21b49e9f38debdc09e1c2cd53fd1d3d2169473ec6c5e3f5f1ca2677899fb551` and
+  `sha256:e461037cf981f4c9d862f2a5257c2db34bda45c13419d402f327081e176d4174`.
+- The leader now waits. The repository owner opens one fresh task and pastes the exact generated
+  prompt unchanged. The worker resumes, invokes `implement` exactly once in the prepared #78
+  worktree, commits but does not push/integrate/accept/review, publishes create-once result evidence,
+  suspends to `return-2.json`, and returns the generated leader-ingestion prompt unchanged.
+
+
+
+
+
 ### Forward transitions
 
 1. **Reconcile Issue #77 contract.** Skills: `feature-delivery`, `codebase-design`.
@@ -1042,3 +1263,134 @@ Completion is proven only when Issues #74–#79 are closed, PRs #80/#81 plus the
 PRs and the parent PR are merged, final review and cadence gates are green, post-merge verification
 passes, `main == origin/main`, canonical and all retained worktrees are clean, and no M4 worktree or
 local/remote branch remains.
+
+### Issue #78 implementation ingestion attempt 2 — 2026-08-24
+
+- Return contract attempt 2 is valid and preserves candidate commit
+  `283c23a2bb648f32fc3fd62e0b988a3b6cc9773c`; the worker stayed on the prepared branch/worktree,
+  committed within the path allowlist and did not push, accept, integrate, review, merge or publish.
+- Ingestion is rejected as retryable. The create-once result evidence digest is
+  `sha256:6bdbac1f6add0cbeb6a66a0bb7dffed914e36433b665b6cdcb0650b23ca6dc59`, but its JSON omits the
+  flat sealed-attribution fields required by the feature-delivery ingestion validator.
+- The leader reproduced a second independent blocker: the exact locked focused command exits 4
+  before collection because `backend/test/tools/test_reconciliation_postgres.py` does not exist;
+  zero tests ran. The worker-reported command substituted `test_execution_postgres.py`, so its green
+  result cannot satisfy the locked guide/dispatch command.
+- The one allowed retryable technical retry is dispatch attempt 3, identity
+  `feature-delivery/m4-tools-human-approval/issue-78/attempt-3`. It preserves the candidate, may
+  change only the existing #78 allowlisted scope, must call `implement` exactly once, close the
+  missing exact test artifact/command gap, rerun every exact verification, publish schema-valid
+  create-once result evidence, commit locally, and return without push or acceptance. Dispatch,
+  workspace and Resume digests are
+  `sha256:0b89722648d287f6d80fbc9e42df88e0fc45ca9b7a9ed97c5a1bbfd56dafbb6f`,
+  `sha256:1b7bc0c9d309a08d1156abbe35025880df7aba7df74b4b66bef609e1bafabf6c` and
+  `sha256:44db8b31e6cc32a2ad2e5a44fdd8e35034018ed7cdc02b81c3bf7c090d608176`.
+
+### Issue #78 technical retry attempt 3 identity reconciliation — 2026-08-24
+
+- Attempt 3 validated its Resume Contract but blocked before `implement`; it created no result
+  evidence and changed no code/test. The worker correctly observed that HEAD `62908a2` was a
+  coordination-only descendant of sealed `prepared_head=283c23a`, but the immutable attempt-3
+  contract had no rule authorizing that relationship.
+- This is a leader dispatch-contract defect, not another implementation failure, so the single
+  technical retry remains unconsumed. Candidate `283c23a` and all attempt-2 evidence are preserved.
+- Attempt 4 seals prepared coordination HEAD `62908a2` plus an exact descendant policy: current HEAD
+  may advance only through the three leader-owned files `m4-delivery-plan-v1.md`,
+  `m4-workflow-ledger-v1.json` and `milestone-4-workflow-events.jsonl`; any other descendant path
+  fails closed. Its dispatch/workspace/Resume digests are
+  `sha256:c012fcd32a9ede0766591f4d769d2a2d67e88d8e9dc4155895479af51feb4316`,
+  `sha256:f33cdda268985f32126adc851dd7b7fa275b57bbef55f55ba2015fccd6fa9dbf` and
+  `sha256:546e48e7a6d2e2effa458ccee05fba546195c875efc36c93ccb6ad5e244cebed`.
+
+### Issue #78 attempt 4 repeated result-contract failure — 2026-08-24
+
+- Attempt 4 completed the bounded technical retry at candidate
+  `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390`. The worker moved the PostgreSQL reconciliation case
+  into the required `test_reconciliation_postgres.py`, reported exact focused `82 passed`, full
+  `956 passed, 3 skipped`, Ruff/Compose green and an Alembic `0040 -> 0039 -> 0040` round trip. The
+  leader independently reran the exact focused command: `82 passed, 2 warnings in 5.08s`.
+- Return and result contracts are immutable and identity-valid with digests
+  `sha256:eeddf1f98776f8c1a80bec0fef866574eede69a53b6770ea273d410730587b7f` and
+  `sha256:cad4d35f278ecb73d494204ba03379a5b97259b39df77f0b2965330f48138de3`.
+  The candidate is clean, local-only and no acceptance/integration/review/push occurred.
+- Ingestion still fails closed. Dispatch 4 required result evidence to enumerate every changed path
+  from source base; the worker did so, including leader-owned `.agents` artifacts. However,
+  dispatch-4 `allowed_scope` omitted those coordination paths and the current
+  `_issue_session_complete` validator has no coordination exception, so `scope_valid=false`.
+- This is a repeated result-contract failure after the normal technical retry. The workflow is
+  suspended with failure evidence
+  `sha256:a662f25307220b2144bfef68387005ec09b09ad611f86250a01b41c2bbaa3ea6` and Resume Contract
+  `sha256:71eacc7cb98505d82f4f07609a6e23a0c10aa46cafe5639bcb714e6e47d79861`.
+  No attempt 5 may be inferred. Deterministic next transition is explicit repository-owner direction
+  on whether to authorize one exceptional attempt 5 that adds exactly the three leader-owned
+  coordination paths to `allowed_scope`, preserves candidate/semantics and republishes sealed result
+  evidence without further production changes.
+
+### Issue #78 exceptional evidence dispatch attempt 5 — 2026-09-03
+
+- The repository owner explicitly authorized one exceptional attempt 5, authorization digest
+  `sha256:05a53892c5ecb4bfc3fa1086bb7f48bf394f5a2b22c113515812e0b316ff2cd1`.
+  It may add only the three leader-owned coordination paths to `allowed_scope`, preserve candidate
+  `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390` and existing semantics, republish schema-valid result
+  evidence and make no production, test or other repository change.
+- The evidence scope is now deterministic: exact changed paths are computed from locked guide
+  checkpoint `4239dd8177a5870bbaa238676dbdad9ddc794ef4` through fixed candidate `ccf9d2b`. This includes
+  exactly the three authorized coordination files plus Issue #78 production/test/migration paths;
+  pre-checkpoint approved spec/design/guide artifacts remain authoritative inputs, not worker scope.
+- Attempt 5 reuses the immutable attempt-4 verification because candidate and environment evidence
+  bindings are unchanged. Its dispatch/workspace/Resume digests are
+  `sha256:6f057aab011aba068ef82cf66d881fd905295b7c2b09ecea62d852ddb7d064ed`,
+  `sha256:7934bdf9a5187b62038bc106454c05a971077432fff26fb2d26ae83b9d946078` and
+  `sha256:4404867b62b9a4c640e3264ab6209a96b3dbc98b508883621c5aabb164a0fba7`.
+  The worker must call `implement` exactly once for evidence-only remediation, create no commit or
+  repository change, publish only `result-evidence-5.json`, suspend to `return-5.json`, and return
+  the exact leader-ingestion prompt.
+- Initial attempt-5 artifacts did not pass the pre-dispatch terminal validator because workspace
+  evidence omitted mandatory `baseline_status`. No worker started. The one same-input technical
+  correction remains part of authorized attempt 5 and replaces only routing filenames/identity plus
+  the missing field; it does not alter scope or candidate. Correction-1 dispatch/workspace/Resume
+  digests are `sha256:096419f8876dc584778c87910d93da9dd91aac125cac458f9331462f5b72c7e2`,
+  `sha256:8adbdb3fcf6ae0bcdc006e6a840142bba25b61ce22fd059f3992d520302b45d7` and
+  `sha256:f123f9116467efcf0d063e970cbe54b5c91e807c6496afee0ee3ab72da528f1d`.
+
+### Issue #78 implementation result ingested — 2026-09-03
+
+- Attempt 5 correction-1 returned without repository changes. Return and result digests are
+  `sha256:84c0fda07e19dff2b481d0eb7e1ae981602cc2e5847c7882031116873d48ca81` and
+  `sha256:8650a7f67b5e4da5a384a5782493048b385d834b7070b08d73091097a40cb860`.
+- The feature-delivery ingestion validator returns `issue_session_complete=true`. The result's
+  exact 22-path scope equals `git diff --name-only 4239dd8..ccf9d2b`, every path is inside the sealed
+  allowlist, all dispatch/resume/workspace/return/result identities match, and attempt 5 made no
+  repository, production, test, commit, push, acceptance or integration change.
+- Fixed candidate remains `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390`. Next transition is
+  `manual-acceptance execute` using immutable guide `m4-78-crash-recovery-v3`; final code review
+  remains forbidden.
+
+### Issue #78 manual acceptance run 1 blocked — 2026-09-03
+
+- Manual-acceptance executed locked guide v3 against fixed candidate `ccf9d2b`. The append-only
+  Evaluation is `m4-78-crash-recovery-v3-20260903-01` in the guide-mandated history path
+  `.agents/manual-tests/milestone-4/78-crash-recovery-v2.evaluations.jsonl`, digest
+  `sha256:824c1978d32cc0e35a60fe4220928e6d9b59fd355cd2aacea6b749d8cfe53e7f`.
+- Verdict is `BLOCKED` with human approval pending. TC-09 passes from exact focused/full/Ruff/
+  Compose/Alembic evidence. TC-01–TC-08 and TC-10 are blocked because the candidate has neither
+  the guide-required deterministic release harness nor its sanitized
+  `.agents/review/m4-issue-78-release-evidence-v1.json`; current tests do not emit the ordered
+  authorization, sentinel, concurrency, restart, audit, public-matrix and exact-scope evidence.
+- The guide and expected results remain unchanged. Next transition is a fresh Issue-session
+  remediation to implement only the missing deterministic release harness/evidence and any test
+  seams required to make the locked cases executable. No per-Issue code review runs.
+
+### Issue #78 acceptance-evidence remediation dispatch — 2026-09-03
+
+- Remediation attempt 6 is prepared from clean checkpoint `a6d0714`, preserving prior candidate
+  `ccf9d2b`, locked guide v3 and its append-only BLOCKED run. It is limited to the missing
+  deterministic release harness, direct test seams and sanitized
+  `.agents/review/m4-issue-78-release-evidence-v1.json` required by TC-01–TC-08 and TC-10.
+- Dispatch/workspace/Resume digests are
+  `sha256:d670088fa33304b4127624bf2ed8d0124f07ebea15b0107aa7e4dd5d807b66b9`,
+  `sha256:39fdde6f5b43352801b414623cc74f4305bc9dba84138886bc123cce8245d5b9` and
+  `sha256:4990df7c15051c94c8d0463eab7e835a6ed2e46dcfc6e58c39cc4f5439b71e3e`.
+  The worker uses `implement -> tdd`, runs exact focused/full/Ruff/Compose/Alembic verification,
+  commits locally, publishes sealed result evidence and returns without acceptance, push,
+  integration or review.

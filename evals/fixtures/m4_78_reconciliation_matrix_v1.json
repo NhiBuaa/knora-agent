@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "source_base": "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
+  "test_cases": [
+    "M4-78-TC-01",
+    "M4-78-TC-02",
+    "M4-78-TC-03",
+    "M4-78-TC-04",
+    "M4-78-TC-05",
+    "M4-78-TC-06",
+    "M4-78-TC-07",
+    "M4-78-TC-08",
+    "M4-78-TC-09",
+    "M4-78-TC-10"
+  ],
+  "public_results": {
+    "success": {
+      "status": 200,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "external_resource_reference": "m4r1.opaque",
+        "lifecycle": "succeeded",
+        "outcome_type": "reconciled_succeeded"
+      }
+    },
+    "target_not_found": {
+      "status": 502,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "rejection_code": "target_not_found",
+        "lifecycle": "failed",
+        "outcome_type": "reconciled_failed"
+      }
+    },
+    "validation_rejected": {
+      "status": 502,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "rejection_code": "validation_rejected",
+        "lifecycle": "failed",
+        "outcome_type": "reconciled_failed"
+      }
+    },
+    "policy_rejected": {
+      "status": 502,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "rejection_code": "policy_rejected",
+        "lifecycle": "failed",
+        "outcome_type": "reconciled_failed"
+      }
+    },
+    "unavailable": {
+      "status": 202,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "reason_code": "provider_observation_unavailable",
+        "lifecycle": "executing",
+        "outcome_type": "reconciliation_indeterminate"
+      }
+    },
+    "timeout": {
+      "status": 202,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "reason_code": "provider_observation_timeout",
+        "lifecycle": "executing",
+        "outcome_type": "reconciliation_indeterminate"
+      }
+    },
+    "malformed": {
+      "status": 202,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "reason_code": "provider_observation_malformed",
+        "lifecycle": "executing",
+        "outcome_type": "reconciliation_indeterminate"
+      }
+    },
+    "not_found": {
+      "status": 202,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "lifecycle": "executing",
+        "outcome_type": "provider_outcome_not_found",
+        "reason_code": "provider_outcome_not_found"
+      }
+    },
+    "in_progress": {
+      "status": 409,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "lifecycle": "executing",
+        "outcome_type": "execution_in_progress",
+        "reason_code": "execution_in_progress"
+      }
+    },
+    "fenced": {
+      "status": 409,
+      "body": {
+        "proposal_id": "10000000-0000-4000-8000-000000000001",
+        "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+        "lifecycle": "executing",
+        "outcome_type": "execution_fenced",
+        "reason_code": "execution_fenced"
+      }
+    }
+  },
+  "sentinels": {
+    "authorization_order": "m4-78-authorization-order-v1",
+    "trusted_routing": "m4-78-trusted-routing-count-v1",
+    "provider_observation": "m4-78-provider-observation-count-v1",
+    "provider_ledger_read": "m4-78-provider-ledger-read-count-v1",
+    "retry_decision": "m4-78-retry-decision-count-v1",
+    "admission": "m4-78-admission-count-v1",
+    "dispatch": "m4-78-dispatch-count-v1",
+    "provider_write": "m4-78-provider-write-count-v1",
+    "provider_ledger_mutation": "m4-78-provider-ledger-mutation-count-v1",
+    "provider_effect": "m4-78-provider-effect-count-v1"
+  },
+  "barriers": {
+    "strict_lease_boundary": "m4-78-postgres-post-lock-time-v1",
+    "provider_commit_before_knora_persist": "m4-78-crash-provider-commit-v1",
+    "execution_persist_before_provider_receive": "m4-78-crash-no-receipt-v1",
+    "delayed_original_dispatch": "m4-78-delayed-dispatch-v1",
+    "independent_postgres_restart": "m4-78-postgres-restart-v1",
+    "independent_sqlite_restart": "m4-78-sqlite-restart-v1"
+  },
+  "case_evidence": {
+    "M4-78-TC-01": {
+      "assertions": [
+        "current observation authorization precedes trusted routing and provider observation",
+        "authorization denial has zero trusted routing, provider observation, dispatch, provider write and provider effect",
+        "current owner finalizes, current foreign owner remains in progress, and one expired-lease takeover winner finalizes the immutable observation"
+      ],
+      "nodeid_patterns": [
+        "test_reconciliation_workflow.py::test_reconcile_observes_provider_truth_before_terminalizing_an_indeterminate_execution",
+        "test_reconciliation_workflow.py::test_reconcile_preserves_closed_provider_rejection_without_another_write",
+        "test_reconciliation_workflow.py::test_observation_routing_denial_precedes_provider_observation_and_retry",
+        "test_reconciliation_postgres.py::test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_finalizing"
+      ]
+    },
+    "M4-78-TC-02": {
+      "assertions": [
+        "provider not-found remains executing and does not authorize pre-expiry takeover",
+        "post-expiry retry requires fresh current capability, resource, execution and compatibility authority",
+        "NoAdmission creates one first admission with the stored logical identity and fingerprint"
+      ],
+      "nodeid_patterns": [
+        "test_reconciliation_workflow.py::test_reconcile_not_found_stays_nonterminal_while_the_lease_is_current",
+        "test_reconciliation_workflow.py::test_not_found_retry_denial_observes_once_without_another_provider_write",
+        "test_reconciliation_postgres.py::test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_finalizing"
+      ]
+    },
+    "M4-78-TC-03": {
+      "assertions": [
+        "AdmissionOutstanding replay retains the persisted envelope and admission",
+        "same logical identity and fingerprint replay produces at most one provider effect after restart"
+      ],
+      "nodeid_patterns": [
+        "test_reference_provider.py::test_sqlite_provider_write_is_atomic_replayable_and_restart_stable",
+        "test_reference_provider.py::test_sqlite_commit_before_ack_remains_authoritative_after_restart"
+      ]
+    },
+    "M4-78-TC-04": {
+      "assertions": [
+        "terminal observation remains finalizable after proposal/reference expiry or key revocation",
+        "valid observation routing is never accepted as write authority",
+        "each denied write seam has one provider observation read and zero admission, dispatch, provider write, provider mutation and provider effect",
+        "material compatibility mismatch is stale while missing trusted routing remains non-terminal"
+      ],
+      "nodeid_patterns": [
+        "test_reconciliation_workflow.py::test_reconcile_keeps_each_ambiguous_provider_observation_nonterminal",
+        "test_reconciliation_workflow.py::test_terminal_reconciliation_survives_expiry_and_current_write_revocation",
+        "test_reconciliation_workflow.py::test_observation_routing_denial_precedes_provider_observation_and_retry",
+        "test_reconciliation_workflow.py::test_not_found_retry_denial_observes_once_without_another_provider_write",
+        "test_reference_provider.py::test_provider_outcome_not_found_is_read_only_boundary_evidence"
+      ]
+    },
+    "M4-78-TC-05": {
+      "assertions": [
+        "fresh PostgreSQL time after row-lock acquisition decides strict expiry",
+        "one expected-generation contender increments generation and stale or foreign owners are fenced",
+        "only the current unexpired winner records and finalizes"
+      ],
+      "nodeid_patterns": [
+        "test_reconciliation_postgres.py::test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_finalizing"
+      ]
+    },
+    "M4-78-TC-06": {
+      "assertions": [
+        "unavailable, timeout, malformed and not-found remain four distinct non-terminal HTTP 202 projections",
+        "success is HTTP 200 and each closed provider rejection is HTTP 502",
+        "every body has the exact recursive allowlist from the independent matrix"
+      ],
+      "nodeid_patterns": [
+        "test_m4_78_release_acceptance.py::test_tc06_closed_reconciliation_projection_matches_independent_matrix",
+        "test_reconciliation_workflow.py::test_reconcile_keeps_each_ambiguous_provider_observation_nonterminal"
+      ]
+    },
+    "M4-78-TC-07": {
+      "assertions": [
+        "provider commit before Knora persistence reconciles without another effect",
+        "execution persisted before provider receipt stays non-terminal until fresh write authority permits same-identity retry",
+        "independent SQLite restart preserves the one provider outcome"
+      ],
+      "nodeid_patterns": [
+        "test_reference_provider.py::test_sqlite_commit_before_ack_remains_authoritative_after_restart",
+        "test_reference_provider.py::test_sqlite_provider_precommit_fault_rolls_back_ledger_and_effect",
+        "test_reconciliation_workflow.py::test_reconcile_observes_provider_truth_before_terminalizing_an_indeterminate_execution",
+        "test_reconciliation_workflow.py::test_not_found_retry_denial_observes_once_without_another_provider_write"
+      ]
+    },
+    "M4-78-TC-08": {
+      "assertions": [
+        "append-only audit retains acquisition, observation, takeover and terminal order",
+        "SQLite outcome remains independently authoritative after restart",
+        "public and release evidence contains no private value material"
+      ],
+      "nodeid_patterns": [
+        "test_reconciliation_postgres.py::test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_finalizing",
+        "test_reference_provider.py::test_sqlite_reference_provider_survives_adapter_restart"
+      ]
+    },
+    "M4-78-TC-09": {
+      "assertions": [
+        "exact focused, full regression, Ruff, Compose and Alembic lifecycle commands are recorded outside this case artifact"
+      ],
+      "nodeid_patterns": [
+        "::test_release_evidence_builder_binds_every_locked_case_and_sanitized_seam"
+      ]
+    },
+    "M4-78-TC-10": {
+      "assertions": [
+        "CapabilityRegistry identity, version, digest and typed ticket_lookup/create_ticket descriptors are restart-stable",
+        "production composition has no registration, discovery, plugin, marketplace or request-controlled provider selection",
+        "source-base-to-candidate manifest contains no dependency, configuration, entry-point or vendor expansion"
+      ],
+      "nodeid_patterns": [
+        "::test_static_tool_registry_remains_allowlisted_without_runtime_registration",
+        "::test_reconciliation_remains_the_only_new_typed_write_command_surface"
+      ]
+    }
+  },
+  "forbidden_release_value_classes": [
+    "raw provider routing value",
+    "raw provider identifier",
+    "dispatch envelope bytes",
+    "reference or signing key material",
+    "credential value",
+    "authority secret",
+    "raw command output"
+  ]
+}
