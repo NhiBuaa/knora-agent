@@ -1380,3 +1380,17 @@ local/remote branch remains.
 - The guide and expected results remain unchanged. Next transition is a fresh Issue-session
   remediation to implement only the missing deterministic release harness/evidence and any test
   seams required to make the locked cases executable. No per-Issue code review runs.
+
+### Issue #78 acceptance-evidence remediation dispatch — 2026-09-03
+
+- Remediation attempt 6 is prepared from clean checkpoint `a6d0714`, preserving prior candidate
+  `ccf9d2b`, locked guide v3 and its append-only BLOCKED run. It is limited to the missing
+  deterministic release harness, direct test seams and sanitized
+  `.agents/review/m4-issue-78-release-evidence-v1.json` required by TC-01–TC-08 and TC-10.
+- Dispatch/workspace/Resume digests are
+  `sha256:d670088fa33304b4127624bf2ed8d0124f07ebea15b0107aa7e4dd5d807b66b9`,
+  `sha256:39fdde6f5b43352801b414623cc74f4305bc9dba84138886bc123cce8245d5b9` and
+  `sha256:4990df7c15051c94c8d0463eab7e835a6ed2e46dcfc6e58c39cc4f5439b71e3e`.
+  The worker uses `implement -> tdd`, runs exact focused/full/Ruff/Compose/Alembic verification,
+  commits locally, publishes sealed result evidence and returns without acceptance, push,
+  integration or review.

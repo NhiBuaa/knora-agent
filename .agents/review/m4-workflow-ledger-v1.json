@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_78_acceptance_blocked_release_evidence_remediation_pending",
-  "next_valid_transition": "prepare a fresh Issue #78 remediation dispatch to implement the locked deterministic release harness and missing acceptance evidence without changing guide v3",
+  "current_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session",
+  "next_valid_transition": "wait for the human-opened Issue #78 remediation-1 attempt-6 session to return the exact leader prompt, then ingest its matching return contract",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -260,7 +260,8 @@
     "issue_78_dispatch_attempt_5_correction_1_prepared",
     "issue_78_dispatch_attempt_5_correction_1_returned",
     "issue_78_implementation_result_ingested",
-    "evaluation_78_guide_v3_executed_blocked"
+    "evaluation_78_guide_v3_executed_blocked",
+    "issue_78_acceptance_evidence_remediation_attempt_6_prepared"
   ],
   "review_cadence": {
     "risk": "high",
@@ -754,6 +755,28 @@
         "M4-78-TC-10"
       ],
       "acceptance_blocker": "locked deterministic release harness/output .agents/review/m4-issue-78-release-evidence-v1.json is absent; pytest alone cannot prove the required sentinel, concurrency, restart, audit and exact-candidate matrices",
+      "remediation_dispatch": {
+        "status": "prepared",
+        "attempt": 6,
+        "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/remediation-1-attempt-6",
+        "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/78",
+        "branch": "nhibuaa/issue-78-m4.4",
+        "worktree_path": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4",
+        "source_base": "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
+        "evidence_scope_base": "4239dd8177a5870bbaa238676dbdad9ddc794ef4",
+        "prepared_head": "a6d07148e3233a74f22934f07289e8ba0922e2ed",
+        "dispatch_record": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-6.json",
+        "dispatch_digest": "sha256:d670088fa33304b4127624bf2ed8d0124f07ebea15b0107aa7e4dd5d807b66b9",
+        "workspace_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/workspace-6.json",
+        "workspace_digest": "sha256:39fdde6f5b43352801b414623cc74f4305bc9dba84138886bc123cce8245d5b9",
+        "resume_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-6.json",
+        "resume_digest": "sha256:4990df7c15051c94c8d0463eab7e835a6ed2e46dcfc6e58c39cc4f5439b71e3e",
+        "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-6.json",
+        "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-6.json",
+        "blocked_cases": ["M4-78-TC-01","M4-78-TC-02","M4-78-TC-03","M4-78-TC-04","M4-78-TC-05","M4-78-TC-06","M4-78-TC-07","M4-78-TC-08","M4-78-TC-10"],
+        "guide_revision": "m4-78-crash-recovery-v3",
+        "worker_started": false
+      },
       "accepted_commit": null,
       "integrated_commit": null,
       "pr": null,
@@ -1270,20 +1293,18 @@
   "active_issue_dispatch": {
     "ticket": "#78",
     "status": "validated_ingested",
-    "attempt": "5-correction-1",
-    "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/attempt-5-correction-1",
-    "dispatch_record": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-5-correction-1.json",
-    "dispatch_digest": "sha256:096419f8876dc584778c87910d93da9dd91aac125cac458f9331462f5b72c7e2",
-    "workspace_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/workspace-5-correction-1.json",
-    "workspace_digest": "sha256:8adbdb3fcf6ae0bcdc006e6a840142bba25b61ce22fd059f3992d520302b45d7",
-    "resume_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-5-correction-1.json",
-    "resume_digest": "sha256:f123f9116467efcf0d063e970cbe54b5c91e807c6496afee0ee3ab72da528f1d",
-    "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
-    "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
-    "candidate_commit": "ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390",
-    "return_digest": "sha256:84c0fda07e19dff2b481d0eb7e1ae981602cc2e5847c7882031116873d48ca81",
-    "result_digest": "sha256:8650a7f67b5e4da5a384a5782493048b385d834b7070b08d73091097a40cb860",
-    "next_valid_transition": "manual_acceptance_execute"
+    "status": "prepared",
+    "attempt": 6,
+    "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/remediation-1-attempt-6",
+    "dispatch_record": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-6.json",
+    "dispatch_digest": "sha256:d670088fa33304b4127624bf2ed8d0124f07ebea15b0107aa7e4dd5d807b66b9",
+    "workspace_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/workspace-6.json",
+    "workspace_digest": "sha256:39fdde6f5b43352801b414623cc74f4305bc9dba84138886bc123cce8245d5b9",
+    "resume_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-6.json",
+    "resume_digest": "sha256:4990df7c15051c94c8d0463eab7e835a6ed2e46dcfc6e58c39cc4f5439b71e3e",
+    "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-6.json",
+    "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-6.json",
+    "next_valid_transition": "ingest_issue_result"
   },
   "blockers": [
     "Issue #78 manual acceptance run m4-78-crash-recovery-v3-20260903-01 is BLOCKED: the locked deterministic release evidence artifact is absent.",
@@ -1399,6 +1420,9 @@
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-5-correction-1.json",
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
+    "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/workspace-6.json",
+    "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-6.json",
+    "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-6.json",
     ".agents/manual-tests/milestone-4/78-crash-recovery-v2.evaluations.jsonl",
     "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
@@ -1406,5 +1430,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-09-03T09:28:37+07:00"
+  "last_updated_at": "2026-09-03T09:32:14+07:00"
 }
