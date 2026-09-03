@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "canonical_projection": {
+    "projection_version": 1,
+    "round": 1,
+    "workflow_id": "feature-delivery:m4-tools-human-approval",
+    "feature_id": "github-issue-74",
+    "issue_id": "github-issue-78",
+    "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+    "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+    "ticket_digest": "sha256:c88cfbf07ef605064ce9339cf1897c6ffff97c363b6aec47c04b55ffdfd596fa",
+    "guide_revision": "m4-78-ticket-contract-v3",
+    "guide_digest": "sha256:c88cfbf07ef605064ce9339cf1897c6ffff97c363b6aec47c04b55ffdfd596fa",
+    "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+    "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+    "acceptance_criteria": [
+      {"id": "M4-78-AC-01", "statement": "ReconcileExecution handles both an indeterminate observation and an orphaned executing record with no durable provider-invocation observation."},
+      {"id": "M4-78-AC-02", "statement": "Recovery first calls get_execution_outcome with the stored logical execution identity after current path-Workspace and WorkspaceResourceAuthorizer checks."},
+      {"id": "M4-78-AC-03", "statement": "ObservationReferenceResolver.resolve_started_execution validates the immutable AuthorizedExecutionBindingSnapshot against proposal/execution state and resolves only the trusted opaque routing handle; it creates no write authority."},
+      {"id": "M4-78-AC-04", "statement": "Provider observation and terminal finalization remain allowed after original proposal/reference expiry or key revocation when current Workspace/resource observation authorization passes; missing or mismatched snapshot/trusted-store state remains typed non-terminal and never becomes failed."},
+      {"id": "M4-78-AC-05", "statement": "Any provider retry reruns full m4r1 side-effect verification, current Workspace/resource authorization, ExecutionAuthorizer and exact capability/binding/policy compatibility; expired or revoked reference/key and material mismatch forbid retry and require new proposal/approval."},
+      {"id": "M4-78-AC-06", "statement": "takeover_stale_execution uses PostgreSQL time, exact expected generation and a strictly expired lease; Applied increments generation once and changes owner/deadline atomically."},
+      {"id": "M4-78-AC-07", "statement": "Current lease returns ExecutionNotStale, changed generation returns ExecutionFenced, terminal state returns persisted outcome, and stale owners cannot observe or finalize after takeover."},
+      {"id": "M4-78-AC-08", "statement": "record_execution_observation and finalize_execution enforce exact current owner/generation plus unexpired lease and expose only approved typed outcomes."},
+      {"id": "M4-78-AC-09", "statement": "Crash after provider commit but before Knora persistence reconciles provider-authoritative success or closed failure without a duplicate side effect."},
+      {"id": "M4-78-AC-10", "statement": "Crash after Knora persists executing but before provider receipt stays non-terminal, observes not-found, takes over only when stale, and retries with the same stored logical ID/fingerprint only after all current write checks pass."},
+      {"id": "M4-78-AC-11", "statement": "provider_observation_unavailable, timeout and unknown/malformed observed outcome map to ReconciliationIndeterminate HTTP 202; provider not-found maps to distinct ProviderOutcomeNotFound HTTP 202; neither terminalizes or grants retry authority."},
+      {"id": "M4-78-AC-12", "statement": "Only found(succeeded) or found(failed(closed_code)) may finalize; closed failure maps to 502/TOOL_PROVIDER_FAILURE."},
+      {"id": "M4-78-AC-13", "statement": "SQLite provider state/idempotency survives Knora restart independently of ToolActionStore, and recovery, takeover, authorization, observation, retry, fencing and finalization are reconstructable from append-only audit."}
+    ],
+    "design_decisions": [
+      {"id": "M4-78-DD-01", "decision": "Keep ReconcileExecution behind WriteProposalWorkflow.handle; callers cannot orchestrate observe, takeover, retry, admission or finalization."},
+      {"id": "M4-78-DD-02", "decision": "Separate current observation authorization from write authority. Observation may resolve trusted routing for an already-started execution after expiry/revocation, but a provider write reruns every current execution and compatibility check."},
+      {"id": "M4-78-DD-03", "decision": "Observe provider-owned SQLite truth before any takeover or retry decision. Point-in-time not-found is non-terminal and cannot retire an outstanding admission."},
+      {"id": "M4-78-DD-04", "decision": "Use PostgreSQL compare-and-swap takeover with fresh post-lock database time, expected generation and strict lease expiry; generation and owner fence every later observation/finalization."},
+      {"id": "M4-78-DD-05", "decision": "NoAdmission may create the first admission only after full current write authorization; AdmissionOutstanding may only replay the byte-identical persisted envelope. Both reuse the immutable logical execution ID and fingerprint."},
+      {"id": "M4-78-DD-06", "decision": "Provider not-found, unavailable, timeout and malformed/unknown observations remain typed non-terminal. Only closed provider outcomes may finalize."},
+      {"id": "M4-78-DD-07", "decision": "Retain the static typed capability registry and provider-owned reference boundary; do not add plugins, dynamic discovery or a vendor-specific integration."}
+    ],
+    "invariants": [
+      "Every provider observation follows current path-Workspace and resource-observation authorization.",
+      "Observation/read authority never constructs an admission envelope and never grants provider-write authority.",
+      "Every retry reruns current execution authority, exact approved capability/binding/policy compatibility and complete m4r1 write validity.",
+      "Provider truth is read before takeover or retry; provider not-found is never interpreted as failed.",
+      "One immutable logical execution ID and fingerprint survive every generation and retry.",
+      "At most one admission exists per logical execution; AdmissionOutstanding replay is byte-identical.",
+      "Concurrent takeover has one atomic winner; stale owners cannot append an observation or terminal outcome.",
+      "Reference/proposal expiry blocks a new write start or retry but does not block authorized observation/finalization of an already-started execution.",
+      "SQLite remains authoritative for external outcome and idempotency independently of PostgreSQL ToolActionStore.",
+      "Raw provider routing, envelope bytes, credentials, key material and authority secrets never enter public or audit projections."
+    ],
+    "out_of_scope": [
+      "Dynamic plugins, capability discovery, runtime provider registration or a vendor marketplace.",
+      "Editing an immutable proposal or silently reusing approval after material capability, binding, policy or target change.",
+      "Distributed transaction, cross-store rollback or provider-atomic cancellation.",
+      "M4.5 integrated release harness and final M4 fixed-point code review, owned by Issue #79 and the final feature gate."
+    ],
+    "acceptance_policy": {
+      "authority": "human_required",
+      "policy_revision": "m4-human-required-guide-review-v1",
+      "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+      "required": true
+    },
+    "test_cases": [
+      {"id": "M4-78-TC-01", "statement": "Seed executing AdmissionOutstanding states whose SQLite outcome is success or each closed rejection while PostgreSQL has no observation, then reconcile before lease expiry and after restart.", "oracle": "Provider truth is observed first, exactly one authorized current owner records one observation/audit and finalizes success to succeeded or the named rejection to failed; no provider write occurs and restart reconstructs the same result.", "required": true},
+      {"id": "M4-78-TC-02", "statement": "Seed executing NoAdmission after Knora persisted acquisition but before admission/provider receipt; observe provider not-found before and after strict lease expiry, race takeover contenders, then authorize retry.", "oracle": "Not-found remains HTTP 202 and non-terminal. Before expiry takeover returns ExecutionNotStale. After expiry exactly one expected-generation contender atomically increments generation/owner/deadline, reruns all current write checks, creates the first admission and dispatches once with the original logical ID/fingerprint; losers make zero provider calls.", "required": true},
+      {"id": "M4-78-TC-03", "statement": "Seed AdmissionOutstanding with provider not-found, expire its lease, race authorized replay with a delayed original owner and concurrent takeover contenders.", "oracle": "One takeover wins; retry reuses the exact persisted envelope and never creates another admission. Delayed original and replay converge through provider same-ID/same-fingerprint idempotency to at most one logical external effect; stale owners cannot observe or finalize.", "required": true},
+      {"id": "M4-78-TC-04", "statement": "Exercise current observation authority denial, write-authority revocation, proposal/reference expiry, key revocation, missing/mismatched snapshot/trusted-store state and every material capability/binding/policy incompatibility across observation-only and retry paths.", "oracle": "Observation denial occurs before provider lookup. Authorized observation can continue after expiry/key revocation without granting write. Retry fails closed unless every current write check passes; temporary authority denial preserves approved, material mismatch remains stale/non-executable, and missing/mismatched routing state remains typed non-terminal rather than failed.", "required": true},
+      {"id": "M4-78-TC-05", "statement": "Race current-lease, stale-lease, changed-generation and already-terminal reconciliation callers under deterministic PostgreSQL lock barriers and skewed non-database clocks.", "oracle": "Fresh post-lock PostgreSQL time decides strict staleness. Results are exactly ExecutionNotStale, one Applied takeover, ExecutionFenced, or persisted terminal outcome; generation increments once and stale owner observation/finalization writes are absent.", "required": true},
+      {"id": "M4-78-TC-06", "statement": "Inject provider observation unavailable, timeout, not-found, malformed/unknown result, found success and every found closed rejection at application and HTTP seams.", "oracle": "Unavailable/timeout/malformed/unknown map to ReconciliationIndeterminate 202; not-found maps to ProviderOutcomeNotFound 202; neither changes lifecycle or grants retry. Only success and approved closed rejections terminalize, with exact closed public fields and no private leakage.", "required": true},
+      {"id": "M4-78-TC-07", "statement": "Crash after provider commit before PostgreSQL observation and crash after executing commit before provider receipt; restart Knora and SQLite independently and repeatedly reconcile.", "oracle": "Committed provider outcome finalizes without a duplicate; no-receipt path remains non-terminal until safe stale takeover/retry, always reuses logical identity/fingerprint, and produces at most one provider effect across restarts.", "required": true},
+      {"id": "M4-78-TC-08", "statement": "Reconstruct append-only audit after takeover, observation-only denial/success, write retry denial/success, fencing and terminal finalization.", "oracle": "Audit contains actor/authority decisions, binding snapshot, generations, leases, provider observations, retry decision and terminal result while excluding raw routing, envelope bytes, keys, credentials and secrets; SQLite outcome remains independently authoritative.", "required": true},
+      {"id": "M4-78-TC-09", "statement": "Run focused M4.4 recovery tests, complete repository pytest, Ruff, Compose and clean Alembic upgrade plus downgrade/re-upgrade on the exact candidate.", "oracle": "All focused, regression, static, composition and migration checks are green on the exact candidate SHA.", "required": true}
+    ],
+    "command_projections": [
+      {"id": "M4-78-CMD-01", "statement": "Clean PostgreSQL recreation and Alembic upgrade/downgrade/re-upgrade with pinned worktree runtime.", "kind": "migration"},
+      {"id": "M4-78-CMD-02", "statement": "Focused Issue #78 and full repository pytest with worktree-pinned PYTHONPATH and sequential PostgreSQL execution.", "kind": "verification"},
+      {"id": "M4-78-CMD-03", "statement": "Ruff and Docker Compose configuration verification.", "kind": "verification"}
+    ],
+    "required_evidence": [
+      {"id": "M4-78-EV-01", "statement": "Provider-first call ordering and zero-call observation-denial evidence for every current Workspace/resource authorization branch.", "required": true},
+      {"id": "M4-78-EV-02", "statement": "PostgreSQL takeover CAS rows with fresh post-lock time, expected generation, one winner, exact owner/deadline transition and stale-owner observation/finalization fencing.", "required": true},
+      {"id": "M4-78-EV-03", "statement": "NoAdmission first-admission and AdmissionOutstanding byte-identical replay evidence, both retaining one logical ID/fingerprint and at most one provider effect under delayed-original and retry races.", "required": true},
+      {"id": "M4-78-EV-04", "statement": "Separate observation-authority and write-authority matrices covering expiry, key revocation, snapshot/trusted-store faults, temporary authority denial and every material compatibility mismatch.", "required": true},
+      {"id": "M4-78-EV-05", "statement": "Independent SQLite ledger state before/after Knora restart for not-found, success and every closed rejection, plus both crash windows and repeated reconciliation without duplicate effects.", "required": true},
+      {"id": "M4-78-EV-06", "statement": "Exact application/HTTP non-terminal and terminal projection allowlists, append-only audit reconstruction, candidate SHA and governed verification totals/exits.", "required": true}
+    ],
+    "prior_findings": []
+  },
+  "packet_digest": "sha256:d2a18ea4b8c5cb9c6509e6071e60819e3d130c47d3d738db0cbd150522629af1",
+  "request_id": "review-request-sha256:da349e8e0bdf61be29ad95276f3cf820d2cdc82c0c9f526248246283c9d77a7e"
+}

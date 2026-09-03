@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:0097e9b4a7bf9dc5f4e225b511419f9e3ad296d15606e886ea2f78ce30bb32eb",
+  "review_id": "m4-78-guide-v1-chatgpt-r1",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8bbc86-0704-83ec-b948-061d86151fbe",
+  "packet_digest": "sha256:226fd84317eef44a182a472dddfc4b74c24438a64ba942626baffe70a2d58597",
+  "guide_revision": "m4-78-crash-recovery-v1",
+  "guide_digest": "sha256:34f678cc8a63cedac0f6fb19cb09ae938d10634a115386432b1720cfec016aaa",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "findings": [
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "authorized_observation_order_not_closed",
+      "criterion_ref": "M4-78-AC-02",
+      "affected_case_ids": ["M4-78-TC-01", "M4-78-TC-04"],
+      "affected_fields": ["test_cases.M4-78-TC-01.oracle", "test_cases.M4-78-TC-04.oracle", "required_evidence.M4-78-GEV-02"],
+      "problem": "AC-02 requires current path-Workspace/resource authorization before provider observation, but TC-01's oracle states only \"Provider-first ordering\" and does not name the required successful-path authorization-before-provider sequence. TC-04 proves that observation denial is pre-provider, which closes the negative denial path but does not independently prove ordering on an authorized reconciliation. Because the required evidence merely records ordered traces, an implementation could satisfy the stated TC-01 oracle while observing the provider before the required current authorization check. The acceptance criterion explicitly requires that authorization ordering.",
+      "required_change": "Make at least one required reconciliation oracle explicitly require and independently assert the successful-path sequence: current path-Workspace/resource observation authorization succeeds before any provider observation, followed by trusted snapshot routing and provider observation. Require ordered call-trace evidence and a zero-provider-observation sentinel for every authorization-failure variant; do not describe the required order merely as provider-first."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "observation_snapshot_write_authority_separation_not_proven",
+      "criterion_ref": "M4-78-AC-03",
+      "affected_case_ids": ["M4-78-TC-02", "M4-78-TC-04", "M4-78-TC-07"],
+      "affected_fields": ["test_cases.M4-78-TC-02.oracle", "test_cases.M4-78-TC-04.statement", "test_cases.M4-78-TC-04.oracle", "test_cases.M4-78-TC-07.oracle", "required_evidence.M4-78-GEV-02"],
+      "problem": "AC-03 requires proof that AuthorizedExecutionBindingSnapshot is observation-routing authority only and cannot become write authority. The projected cases separately exercise trusted routing, write denial and fully authorized retries, but no oracle forces the decisive differential case in which the observation snapshot remains valid/usable while current write authorization is absent, expired, revoked or otherwise denied, with create_ticket/dispatch/effect counters required to remain zero. Consequently the tests can prove that retries normally rerun checks without proving that the snapshot itself is structurally incapable of authorizing a write.",
+      "required_change": "Add an explicit required negative authority-separation procedure/oracle: retain a valid trusted observation-routing snapshot, make current write authority fail independently, allow the observation path as applicable, then attempt every retry/write seam and require zero create_ticket, dispatch and provider-effect counts. The oracle must state that only fresh current write authorization plus compatibility can authorize the retry and that no field or provenance from AuthorizedExecutionBindingSnapshot is accepted as write authority."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-78-AC-01", "M4-78-AC-02", "M4-78-AC-03", "M4-78-AC-04", "M4-78-AC-05", "M4-78-AC-06", "M4-78-AC-07", "M4-78-AC-08", "M4-78-AC-09", "M4-78-AC-10", "M4-78-AC-11", "M4-78-AC-12", "M4-78-AC-13", "M4-78-AC-14"],
+    "uncovered": ["M4-78-AC-02", "M4-78-AC-03"]
+  },
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "prior_findings_closed": [],
+  "summary": "REQUEST_CHANGES. The ten required cases provide strong projected coverage for stale takeover, PostgreSQL-time fencing, both crash windows, exact terminal/non-terminal HTTP mappings, independent SQLite truth/audit reconstruction, regression verification and static-registry scope. Two security boundaries remain insufficiently deterministic: the successful authorized path does not explicitly prove current path-Workspace/resource authorization before provider observation, and the observation-routing snapshot is not independently proven incapable of supplying write authority. The packet declares no prior findings, so there are no prior findings to close.",
+  "reviewed_commit": "a4ed647b3559d859950681a10a518046363c1367",
+  "chat_reference": "https://chatgpt.com/c/6a8bbc86-0704-83ec-b948-061d86151fbe",
+  "response_digest": "sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f"
+}

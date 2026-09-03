@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_id": "github-issue-78",
+  "guide_revision": "m4-78-crash-recovery-v2",
+  "guide_reference": ".agents/manual-tests/milestone-4/78-crash-recovery-v2.md",
+  "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
+  "test_case_reference": ".agents/review/m4-issue-78-test-cases-v2.json",
+  "test_case_digest": "sha256:31cf74d345a36737a7124c30f78ab58e551a2198bb8a5054d717f2c00683cf46",
+  "prior_review_reference": ".agents/review/m4-issue-78-guide-external-review-v1.json",
+  "prior_review_response_digest": "sha256:46e1ad15a650cf214a2ca349849c4c997aee8c33fe12bf042ef6e6cf8972401f",
+  "packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v2.json",
+  "packet_digest": "sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b",
+  "packet_file_digest": "sha256:ce6a3a5c049c30c91885cba7066f25715f9ed3b6904173c2784d619bed708821",
+  "request_id": "review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1",
+  "checks": {
+    "packet_contract_valid": true,
+    "all_ticket_acceptance_criteria_traced": true,
+    "all_ten_required_cases_present": true,
+    "successful_observation_order_names_path_workspace_resource_authorization_before_trusted_routing_and_provider_observation": true,
+    "every_observation_authorization_failure_requires_zero_provider_observation": true,
+    "valid_observation_snapshot_with_independent_current_write_denial_is_required": true,
+    "every_retry_write_seam_has_named_zero_dispatch_create_ticket_lookup_ledger_and_effect_oracles": true,
+    "snapshot_fields_and_provenance_are_explicitly_excluded_from_write_authority": true,
+    "all_unaffected_v1_lifecycle_concurrency_public_audit_regression_and_scope_oracles_preserved": true,
+    "implementation_human_lock_acceptance_and_final_review_not_authorized": true
+  },
+  "prior_finding_dispositions": [
+    {
+      "id": "M4-78-GR-001",
+      "issue_class": "authorized_observation_order_not_closed",
+      "status": "projected_closed",
+      "evidence": [
+        "M4-78-TC-01",
+        "M4-78-GEV-02"
+      ]
+    },
+    {
+      "id": "M4-78-GR-002",
+      "issue_class": "observation_snapshot_write_authority_separation_not_proven",
+      "status": "projected_closed",
+      "evidence": [
+        "M4-78-TC-02",
+        "M4-78-TC-04",
+        "M4-78-TC-07",
+        "M4-78-GEV-02"
+      ]
+    }
+  ],
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "next_transition": "commit and push guide review packet v2, then require fresh action-time confirmation before external guide review"
+}

@@ -225,4 +225,16 @@ class WorkspaceResourceAuthorizer:
             external_scope=binding.external_scope,
         )
 
+    def authorize_started_execution(
+        self,
+        principal: WorkspacePrincipal,
+        *,
+        workspace_id: str,
+        resource_kind: str,
+    ) -> ExternalScopeBinding:
+        """Authorize observation of a pre-authorized execution without re-verifying its token."""
+        if principal is None or principal.workspace_id != workspace_id or not resource_kind:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
+        return self.resolve_binding(principal.workspace_id)
+
     authorize = authorize_resource

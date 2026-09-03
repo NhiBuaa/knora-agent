@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "canonical_projection": {
+    "projection_version": 1,
+    "round": 3,
+    "workflow_id": "feature-delivery:m4-tools-human-approval",
+    "feature_id": "github-issue-74",
+    "issue_id": "github-issue-78",
+    "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+    "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+    "ticket_digest": "sha256:7f083a1ca10e330fe074148b5d2f43619fe1d7f99d30927a1ef2281b3adc5909",
+    "guide_revision": "m4-78-ticket-contract-v5",
+    "guide_digest": "sha256:7f083a1ca10e330fe074148b5d2f43619fe1d7f99d30927a1ef2281b3adc5909",
+    "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+    "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+    "acceptance_criteria": [
+      {
+        "id": "M4-78-AC-01",
+        "statement": "ReconcileExecution handles both an indeterminate observation and an orphaned executing record with no durable provider-invocation observation."
+      },
+      {
+        "id": "M4-78-AC-02",
+        "statement": "Recovery first calls get_execution_outcome with the stored logical execution identity after current path-Workspace and WorkspaceResourceAuthorizer checks."
+      },
+      {
+        "id": "M4-78-AC-03",
+        "statement": "ObservationReferenceResolver.resolve_started_execution validates the immutable AuthorizedExecutionBindingSnapshot against proposal/execution state and resolves only the trusted opaque routing handle; it creates no write authority."
+      },
+      {
+        "id": "M4-78-AC-04",
+        "statement": "Authorized provider observation and terminal finalization remain allowed after proposal/reference expiry or key revocation. Found success and every closed failure terminalize with exact public mappings and zero provider write/retry; missing or mismatched trusted routing state remains typed non-terminal."
+      },
+      {
+        "id": "M4-78-AC-05",
+        "statement": "Any provider retry reruns full m4r1 side-effect verification, current Workspace/resource authorization, ExecutionAuthorizer and exact capability/binding/policy compatibility; expiry, key revocation and material mismatch forbid retry and require new proposal/approval."
+      },
+      {
+        "id": "M4-78-AC-06",
+        "statement": "takeover_stale_execution uses fresh PostgreSQL transaction time, exact expected generation and strict lease expiry; one Applied result increments generation once and changes owner/deadline atomically."
+      },
+      {
+        "id": "M4-78-AC-07",
+        "statement": "For a provider-first terminal result under an expired lease, no persistence occurs under the stale lease; one takeover winner records the exact immutable observed result and finalizes under its new lease, while losers and stale owners are fenced and no provider retry occurs."
+      },
+      {
+        "id": "M4-78-AC-08",
+        "statement": "Current lease returns ExecutionNotStale, changed generation returns ExecutionFenced, terminal state returns persisted outcome, a current foreign lease returns ExecutionInProgress, and record/finalize require exact current owner/generation plus unexpired lease."
+      },
+      {
+        "id": "M4-78-AC-09",
+        "statement": "Crash after provider commit but before Knora persistence reconciles provider-authoritative success or closed failure through the stale-terminal sequence when necessary, without duplicate side effect."
+      },
+      {
+        "id": "M4-78-AC-10",
+        "statement": "Crash after Knora persists executing but before provider receipt stays non-terminal, observes not-found, takes over only when stale, and retries with the same stored logical ID/fingerprint only after all current write checks pass."
+      },
+      {
+        "id": "M4-78-AC-11",
+        "statement": "provider_observation_unavailable, timeout and unknown/malformed observed outcome map to ReconciliationIndeterminate HTTP 202; provider not-found maps to ProviderOutcomeNotFound HTTP 202; neither terminalizes or grants retry authority."
+      },
+      {
+        "id": "M4-78-AC-12",
+        "statement": "Only found(succeeded) or found(failed(closed_code)) may finalize; every closed failure maps to 502/TOOL_PROVIDER_FAILURE with its allowlisted rejection code."
+      },
+      {
+        "id": "M4-78-AC-13",
+        "statement": "SQLite provider state/idempotency survives Knora restart independently of ToolActionStore, and recovery, takeover, authorization, observation, retry, fencing and finalization are reconstructable from append-only audit."
+      },
+      {
+        "id": "M4-78-AC-14",
+        "statement": "Exact tested-subject evidence proves CapabilityRegistry remains static and typed, the provider-owned reference seam remains generic with fake/SQLite adapters, and a separate evidence-publication commit cannot self-referentially replace the tested source or add executable scope."
+      }
+    ],
+    "design_decisions": [
+      {
+        "id": "M4-78-DD-01",
+        "decision": "Keep ReconcileExecution behind WriteProposalWorkflow.handle; callers cannot orchestrate observe, takeover, retry, admission or finalization."
+      },
+      {
+        "id": "M4-78-DD-02",
+        "decision": "Separate current observation authorization from write authority. Observation may resolve trusted routing for an already-started execution after expiry/revocation, but a provider write reruns every current execution and compatibility check."
+      },
+      {
+        "id": "M4-78-DD-03",
+        "decision": "Observe provider-owned SQLite truth before any takeover or retry decision. A terminal result is immutable for the logical execution identity; not-found is point-in-time non-terminal and cannot retire an outstanding admission."
+      },
+      {
+        "id": "M4-78-DD-04",
+        "decision": "A terminal result plus expired lease follows one sequence: do not persist under the expired lease, CAS takeover using the observed generation, then let only the Applied winner record that exact result and finalize under the new current lease. No second provider read or provider write is needed."
+      },
+      {
+        "id": "M4-78-DD-05",
+        "decision": "Use PostgreSQL compare-and-swap takeover with fresh post-lock database time, expected generation and strict lease expiry; generation and owner fence every later observation/finalization."
+      },
+      {
+        "id": "M4-78-DD-06",
+        "decision": "NoAdmission may create the first admission only after full current write authorization; AdmissionOutstanding may only replay the byte-identical persisted envelope. Both reuse the immutable logical execution ID and fingerprint."
+      },
+      {
+        "id": "M4-78-DD-07",
+        "decision": "Provider not-found, unavailable, timeout and malformed/unknown observations remain typed non-terminal. Only closed provider outcomes may finalize."
+      },
+      {
+        "id": "M4-78-DD-08",
+        "decision": "Retain the static typed registry and generic provider-owned reference seam; release evidence binds the clean tested-subject commit, while an evidence-publication commit and final delivery head are separately auditable provenance identities."
+      }
+    ],
+    "invariants": [
+      "Every provider observation follows current path-Workspace and resource-observation authorization.",
+      "Observation/read authority never constructs an admission envelope and never grants provider-write authority.",
+      "Every retry reruns current execution authority, exact approved capability/binding/policy compatibility and complete m4r1 write validity.",
+      "Provider truth is read before takeover or retry; provider not-found is never interpreted as failed.",
+      "No observation or finalization is persisted under an expired lease; a stale-terminal path has one takeover winner and zero provider write calls.",
+      "A provider terminal outcome is immutable for one logical execution identity and cannot be converted into a retry.",
+      "One immutable logical execution ID and fingerprint survive every generation and retry.",
+      "At most one admission exists per logical execution; AdmissionOutstanding replay is byte-identical.",
+      "Concurrent takeover has one atomic winner; stale owners cannot append an observation or terminal outcome.",
+      "Reference/proposal expiry or key revocation blocks a new write start/retry but not authorized observation/finalization of an already-started execution.",
+      "SQLite remains authoritative for external outcome and idempotency independently of PostgreSQL ToolActionStore.",
+      "Raw provider routing, envelope bytes, credentials, key material and authority secrets never enter public or audit projections."
+    ],
+    "out_of_scope": [
+      "Dynamic plugins, capability discovery, runtime provider registration, a vendor marketplace, vendor SDK/configuration or vendor-specific integration.",
+      "Editing an immutable proposal or silently reusing approval after material capability, binding, policy or target change.",
+      "Distributed transaction, cross-store rollback or provider-atomic cancellation.",
+      "M4.5 integrated release harness and final M4 fixed-point code review, owned by Issue #79 and the final feature gate."
+    ],
+    "acceptance_policy": {
+      "authority": "human_required",
+      "policy_revision": "m4-human-required-guide-review-v1",
+      "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+      "required": true
+    },
+    "test_cases": [
+      {
+        "id": "M4-78-TC-01",
+        "statement": "Seed AdmissionOutstanding with SQLite success and each closed rejection while PostgreSQL has no observation; reconcile under an unexpired current-owner lease, an unexpired foreign lease and a strictly expired lease after restart.",
+        "oracle": "Authorization and provider lookup occur first. Current owner records/finalizes; current foreign lease returns ExecutionInProgress. Expired lease permits no stale persistence: exactly one expected-generation takeover wins, records the exact immutable observed terminal result and finalizes under its new lease; losers/stale owners are fenced, no second provider lookup is required, zero create_ticket/retry calls occur and terminal public mapping is exact.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-02",
+        "statement": "Seed executing NoAdmission after Knora persisted acquisition but before admission/provider receipt; observe provider not-found before and after strict lease expiry, race takeover contenders, then authorize retry.",
+        "oracle": "Not-found remains HTTP 202 and non-terminal. Before expiry takeover returns ExecutionNotStale. After expiry exactly one expected-generation contender atomically increments generation/owner/deadline, reruns all current write checks, creates the first admission and dispatches once with the original logical ID/fingerprint; losers make zero provider calls.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-03",
+        "statement": "Seed AdmissionOutstanding with provider not-found, expire its lease, race authorized replay with a delayed original owner and concurrent takeover contenders.",
+        "oracle": "One takeover wins; retry reuses the exact persisted envelope and never creates another admission. Delayed original and replay converge through provider same-ID/same-fingerprint idempotency to at most one logical external effect; stale owners cannot observe or finalize.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-04",
+        "statement": "With current observation authorization allowed, reconcile found success and every found closed rejection separately after proposal/reference expiry and after reference-key revocation; also exercise observation denial, write-authority revocation, missing/mismatched trusted routing and every material compatibility mismatch.",
+        "oracle": "Expiry/key revocation cases terminalize to succeeded or failed with exact public fields, append observation/finalization audit and make zero create_ticket/retry calls. Observation denial occurs before provider lookup. Retry fails closed unless every current write check passes; temporary write-authority denial preserves approved, material mismatch remains stale/non-executable, and missing/mismatched routing stays typed non-terminal rather than failed.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-05",
+        "statement": "Race current-lease, stale-lease, changed-generation and already-terminal reconciliation callers under deterministic PostgreSQL lock barriers and skewed non-database clocks, including a stale lease whose provider-first outcome is terminal.",
+        "oracle": "Fresh post-lock PostgreSQL time decides strict staleness. Results are exactly ExecutionNotStale, one Applied takeover, ExecutionFenced, ExecutionInProgress or persisted terminal outcome. Generation increments once; the terminal takeover winner alone records/finalizes, stale writes are absent and no terminal observation becomes a retry.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-06",
+        "statement": "Inject provider observation unavailable, timeout, not-found, malformed/unknown result, found success and every found closed rejection at application and HTTP seams, including expiry/key-revocation terminal cases.",
+        "oracle": "Unavailable/timeout/malformed/unknown map to ReconciliationIndeterminate 202; not-found maps to ProviderOutcomeNotFound 202; neither changes lifecycle or grants retry. Success terminalizes with the allowlisted success envelope; each closed rejection terminalizes to failed and 502/TOOL_PROVIDER_FAILURE with its exact rejection code, with zero private leakage and zero provider writes on observation-only paths.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-07",
+        "statement": "Crash after provider commit before PostgreSQL observation and crash after executing commit before provider receipt; allow the first lease to expire, restart Knora and SQLite independently and repeatedly reconcile.",
+        "oracle": "Committed provider outcome follows provider-first lookup, one stale takeover, exact-result record/finalize and zero retry/duplicate. No-receipt path remains non-terminal until safe stale takeover/retry, always reuses logical identity/fingerprint and produces at most one provider effect across restarts.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-08",
+        "statement": "Reconstruct append-only audit after stale-terminal takeover, observation-only denial/success, expiry/key-revocation finalization, write retry denial/success, fencing and terminal finalization.",
+        "oracle": "Audit contains actor/authority decisions, binding snapshot, generations, leases, provider observations, retry decision and terminal result while excluding raw routing, envelope bytes, keys, credentials and secrets; SQLite outcome remains independently authoritative.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-09",
+        "statement": "Run focused M4.4 recovery tests, complete repository pytest, Ruff, Compose and clean Alembic upgrade plus downgrade/re-upgrade on one clean tested-subject commit; publish generated evidence separately.",
+        "oracle": "All focused, regression, static, composition and migration checks are green on the exact tested subject; evidence subject/candidate equal it, and the publication commit is a descendant changing only the evidence path.",
+        "required": true
+      },
+      {
+        "id": "M4-78-TC-10",
+        "statement": "On the exact tested subject, run focused CapabilityRegistry immutability/static-descriptor tests and produce a source-base-to-subject changed-path, dependency and architecture manifest; separately inspect the evidence-publication diff.",
+        "oracle": "The subject manifest binds source base and tested subject and proves no dependency/config/entry-point/vendor additions, no dynamic registry mutation/discovery/registration surface, CapabilityRegistry remains the static typed ticket_lookup/create_ticket registry, SupportToolGateway remains provider-generic, and the evidence-publication diff adds no executable scope.",
+        "required": true
+      }
+    ],
+    "command_projections": [
+      {
+        "id": "M4-78-CMD-01",
+        "statement": "Clean PostgreSQL recreation and Alembic upgrade/downgrade/re-upgrade with pinned worktree runtime.",
+        "kind": "migration"
+      },
+      {
+        "id": "M4-78-CMD-02",
+        "statement": "Focused Issue #78 and full repository pytest with worktree-pinned PYTHONPATH and sequential PostgreSQL execution.",
+        "kind": "verification"
+      },
+      {
+        "id": "M4-78-CMD-03",
+        "statement": "Ruff and Docker Compose configuration verification.",
+        "kind": "verification"
+      },
+      {
+        "id": "M4-78-CMD-04",
+        "statement": "Exact source-base-to-tested-subject changed-path/dependency/architecture scope audit, focused static CapabilityRegistry contract tests, and a separate evidence-publication-only diff audit.",
+        "kind": "verification"
+      }
+    ],
+    "required_evidence": [
+      {
+        "id": "M4-78-EV-01",
+        "statement": "Provider-first call ordering and zero-call observation-denial evidence for every current Workspace/resource authorization branch.",
+        "required": true
+      },
+      {
+        "id": "M4-78-EV-02",
+        "statement": "PostgreSQL stale-terminal sequence rows: provider terminal observed first, no write under expired lease, one exact-generation takeover winner, exact new owner/deadline, exact observed outcome record/finalize under the new lease, fenced losers/stale owners and zero provider retry.",
+        "required": true
+      },
+      {
+        "id": "M4-78-EV-03",
+        "statement": "NoAdmission first-admission and AdmissionOutstanding byte-identical replay evidence, both retaining one logical ID/fingerprint and at most one provider effect under delayed-original and retry races.",
+        "required": true
+      },
+      {
+        "id": "M4-78-EV-04",
+        "statement": "Observation/finalization matrix for found success and every closed rejection under both expiry and key revocation, with current observation authorization, exact terminal mappings and zero create_ticket/retry; separate write-authority matrix covers temporary denial and every material mismatch.",
+        "required": true
+      },
+      {
+        "id": "M4-78-EV-05",
+        "statement": "Independent SQLite ledger state before/after Knora restart for not-found, success and every closed rejection, including stale-terminal takeover, both crash windows and repeated reconciliation without duplicate effects.",
+        "required": true
+      },
+      {
+        "id": "M4-78-EV-06",
+        "statement": "Exact application/HTTP non-terminal and terminal projection allowlists, append-only audit reconstruction, candidate SHA and governed verification totals/exits.",
+        "required": true
+      },
+      {
+        "id": "M4-78-EV-07",
+        "statement": "Tested-subject-SHA-bound source-base/subject manifest and focused tests proving the static typed registry, generic provider seam, fake/SQLite adapters and absence of plugin/discovery/runtime-registration/vendor scope; separately, the evidence-publication commit, final delivery head and one-path publication diff.",
+        "required": true
+      }
+    ],
+    "prior_findings": [
+      {
+        "severity": "major",
+        "issue_class": "expiry_revocation_terminal_finalization_not_observed",
+        "status": "addressed",
+        "affected_case_ids": [
+          "M4-78-TC-01",
+          "M4-78-TC-04",
+          "M4-78-TC-06"
+        ],
+        "closure": "Required cases now finalize found success and every closed failure under both expiry and key revocation, assert exact public terminal mappings and zero provider write/retry."
+      },
+      {
+        "severity": "major",
+        "issue_class": "stale_lease_terminal_observation_transition_unspecified",
+        "status": "addressed",
+        "affected_case_ids": [
+          "M4-78-TC-01",
+          "M4-78-TC-05",
+          "M4-78-TC-07"
+        ],
+        "closure": "DD-04 and required oracles now mandate provider-first terminal observation, no stale persistence, one exact-generation takeover winner, same immutable outcome record/finalize under the new lease, fenced losers and zero retry."
+      },
+      {
+        "severity": "major",
+        "issue_class": "static_registry_no_plugin_boundary_unverified",
+        "status": "addressed",
+        "affected_case_ids": [
+          "M4-78-TC-10"
+        ],
+        "closure": "TC-10, CMD-04 and EV-07 require candidate-SHA-bound focused registry tests plus changed-path/dependency/architecture evidence for no plugin, discovery, registration or vendor scope."
+      },
+      {
+        "severity": "major",
+        "issue_class": "release_evidence_final_commit_self_reference",
+        "status": "addressed",
+        "affected_case_ids": [
+          "M4-78-TC-09",
+          "M4-78-TC-10"
+        ],
+        "closure": "The tested subject is explicitly separate from the descendant evidence-publication commit and final delivery head; result provenance binds all identities and the publication diff is limited to the release evidence."
+      }
+    ]
+  },
+  "packet_digest": "sha256:47ca354711c1d7f5ba321a330c4e2db8f5c9e0765cc368343cf9492bdbebf530",
+  "request_id": "review-request-sha256:81064df8a98d3491ded30df97c4a67f768b4e65fbd33474b32a176464cbed120"
+}

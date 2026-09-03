@@ -35,6 +35,16 @@ class ExecutionResourceAuthorizer(Protocol):
     ) -> AuthorizedExternalResource: ...
 
 
+class ObservationReferenceResolver(Protocol):
+    def resolve_started_execution(
+        self,
+        snapshot,
+        principal: WorkspacePrincipal,
+        proposal: _StoredProposal,
+        execution: StoredExecution,
+    ) -> str | None: ...
+
+
 class DispatchAdmissionBuilder:
     """Revalidate current authority and seal one immutable dispatch admission."""
 

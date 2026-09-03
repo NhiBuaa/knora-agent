@@ -35,12 +35,15 @@ from knora.tools.execution_types import (
     AdmissionDenied,
     AuthorizedExecutionBindingSnapshot,
     DispatchAdmissionWitness,
+    ExecutionNotStale,
     ExecutionObservation,
     ExecutionRecoverySeed,
     FinalizeApplied,
     ObservationApplied,
     StoredExecution,
     StoreExecutionFenced,
+    StoreExecutionFinalized,
+    TakeoverApplied,
 )
 from knora.tools.proposal_store import _StoredProposal
 
@@ -322,6 +325,8 @@ class PostgresExecutionStoreMixin:
                 database_time = session.scalar(select(func.clock_timestamp()))
                 assert isinstance(database_time, datetime)
                 execution = self._stored_execution(session, row)
+                if execution.lifecycle != "executing":
+                    return StoreExecutionFinalized(execution)
                 if (
                     execution.owner != owner
                     or execution.generation != generation
@@ -386,6 +391,8 @@ class PostgresExecutionStoreMixin:
                 database_time = session.scalar(select(func.clock_timestamp()))
                 assert isinstance(database_time, datetime)
                 execution = self._stored_execution(session, row)
+                if execution.lifecycle != "executing":
+                    return StoreExecutionFinalized(execution)
                 if (
                     execution.owner != owner
                     or execution.generation != generation
@@ -433,6 +440,63 @@ class PostgresExecutionStoreMixin:
             None if admission is None else admission.admission_identity,
             None if admission is None else admission.canonical_envelope_digest,
         )
+
+    def takeover_stale_execution(
+        self,
+        workspace_id: str,
+        proposal_id: str,
+        expected_generation: int,
+        recovery_owner: str,
+        lease_duration: timedelta,
+        requested_at: datetime,
+    ) -> TakeoverApplied | ExecutionNotStale | StoreExecutionFenced | StoreExecutionFinalized:
+        del requested_at
+        try:
+            with self._session_factory.begin() as session:
+                row = session.scalar(
+                    select(ToolExecutionTable)
+                    .where(
+                        ToolExecutionTable.proposal_id == proposal_id,
+                        ToolExecutionTable.workspace_id == workspace_id,
+                    )
+                    .with_for_update()
+                )
+                if row is None:
+                    raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
+                database_time = session.scalar(select(func.transaction_timestamp()))
+                assert isinstance(database_time, datetime)
+                execution = self._stored_execution(session, row)
+                if execution.lifecycle != "executing":
+                    return StoreExecutionFinalized(execution)
+                if execution.generation != expected_generation:
+                    return StoreExecutionFenced(execution)
+                if execution.lease_expires_at >= database_time:
+                    return ExecutionNotStale(execution)
+                row.owner = recovery_owner
+                row.generation += 1
+                row.lease_started_at = database_time
+                row.lease_expires_at = database_time + lease_duration
+                row.revision += 1
+                proposal_row = session.get(ToolProposalTable, proposal_id)
+                assert proposal_row is not None
+                proposal_row.revision = row.revision
+                proposal_row.updated_at = datetime.now(UTC)
+                self._append_audit(
+                    session,
+                    proposal_row,
+                    event_type="execution_taken_over",
+                    actor_id=recovery_owner,
+                    payload={
+                        "previous_generation": execution.generation,
+                        "generation": row.generation,
+                        "lease_started_at": database_time,
+                        "lease_expires_at": row.lease_expires_at,
+                    },
+                )
+                session.flush()
+                return TakeoverApplied(self._stored_execution(session, row))
+        except SQLAlchemyError as error:
+            raise KnoraError("PERSISTENCE_OPERATION_FAILED") from error
 
     def advance_dispatch_epochs(
         self,

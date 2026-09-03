@@ -15,11 +15,14 @@ from knora.tools.execution_types import (
     AdmissionDenied,
     AuthorizedExecutionBindingSnapshot,
     DispatchAdmissionWitness,
+    ExecutionNotStale,
     ExecutionRecoverySeed,
     FinalizeApplied,
     ObservationApplied,
     StoredExecution,
     StoreExecutionFenced,
+    StoreExecutionFinalized,
+    TakeoverApplied,
 )
 from knora.tools.proposal_types import ApprovalActor, AuditProjection, ProposalDecision
 
@@ -141,7 +144,7 @@ class ToolActionStore(Protocol):
         rejection_code: str | None,
         external_resource_reference: str | None,
         requested_at: datetime,
-    ) -> ObservationApplied | StoreExecutionFenced: ...
+    ) -> ObservationApplied | StoreExecutionFenced | StoreExecutionFinalized: ...
 
     def finalize_execution(
         self,
@@ -153,7 +156,17 @@ class ToolActionStore(Protocol):
         rejection_code: str | None,
         external_resource_reference: str | None,
         requested_at: datetime,
-    ) -> FinalizeApplied | StoreExecutionFenced: ...
+    ) -> FinalizeApplied | StoreExecutionFenced | StoreExecutionFinalized: ...
+
+    def takeover_stale_execution(
+        self,
+        workspace_id: str,
+        proposal_id: str,
+        expected_generation: int,
+        recovery_owner: str,
+        lease_duration: timedelta,
+        requested_at: datetime,
+    ) -> TakeoverApplied | ExecutionNotStale | StoreExecutionFenced | StoreExecutionFinalized: ...
 
     def read_execution_recovery_seed(
         self, workspace_id: str, proposal_id: str
