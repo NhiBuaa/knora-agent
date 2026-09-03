@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from knora.domain.access import WorkspacePrincipal
+from knora.domain.errors import KnoraError
 from knora.tools import (
     ActorContext,
     ApproveProposal,
@@ -90,9 +91,31 @@ class ResourceAuthorizer:
         )
 
 
+class CountingResourceAuthorizer(ResourceAuthorizer):
+    def __init__(self) -> None:
+        self.calls = 0
+        self.allowed = True
+
+    def authorize_current(self, principal, proposal, current, *, at_time):
+        self.calls += 1
+        if not self.allowed:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
+        return super().authorize_current(principal, proposal, current, at_time=at_time)
+
+
 class ExecutionAuthorizer:
     def is_authorized(self, principal, proposal) -> bool:
         return principal.workspace_id == proposal.workspace_id
+
+
+class ToggleExecutionAuthorizer(ExecutionAuthorizer):
+    def __init__(self) -> None:
+        self.calls = 0
+        self.allowed = True
+
+    def is_authorized(self, principal, proposal) -> bool:
+        self.calls += 1
+        return self.allowed and super().is_authorized(principal, proposal)
 
 
 class ObservationResolver:
@@ -104,6 +127,23 @@ class ObservationResolver:
         assert principal.workspace_id == proposal.workspace_id
         assert snapshot == execution.acquisition.binding_snapshot
         return "scope-a"
+
+
+class DeniedObservationResolver:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def resolve_started_execution(self, snapshot, principal, proposal, execution):
+        self.calls += 1
+        return None
+
+
+class MutableClock:
+    def __init__(self) -> None:
+        self.now = NOW
+
+    def __call__(self):
+        return self.now
 
 
 class Gateway:
@@ -276,22 +316,125 @@ def test_reconcile_keeps_each_ambiguous_provider_observation_nonterminal(
     assert len(gateway.write_calls) == 1
 
 
-def _prepared_reconciliation_workflow(*, observed=None):
+def test_terminal_reconciliation_survives_expiry_and_current_write_revocation() -> None:
+    clock = MutableClock()
+    resource_authorizer = CountingResourceAuthorizer()
+    execution_authorizer = ToggleExecutionAuthorizer()
+    observation_resolver = ObservationResolver()
+    workflow, gateway, principal, approved = _prepared_reconciliation_workflow(
+        clock=clock,
+        resource_authorizer=resource_authorizer,
+        execution_authorizer=execution_authorizer,
+        observation_resolver=observation_resolver,
+    )
+    workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+    write_authorization_counts = (resource_authorizer.calls, execution_authorizer.calls)
+    clock.now += timedelta(days=1)
+    resource_authorizer.allowed = execution_authorizer.allowed = False
+
+    result = workflow.handle(
+        ReconcileExecution(approved.projection.proposal_id, 1),
+        principal,
+        actor("recovery-a", "system"),
+    )
+
+    assert isinstance(result, ReconciledSucceeded)
+    assert observation_resolver.calls == 1
+    assert (resource_authorizer.calls, execution_authorizer.calls) == write_authorization_counts
+    assert len(gateway.write_calls) == 1
+
+
+def test_observation_routing_denial_precedes_provider_observation_and_retry() -> None:
+    resolver = DeniedObservationResolver()
+    workflow, gateway, principal, approved = _prepared_reconciliation_workflow(
+        observation_resolver=resolver
+    )
+    workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    result = workflow.handle(
+        ReconcileExecution(approved.projection.proposal_id, 1),
+        principal,
+        actor("recovery-a", "system"),
+    )
+
+    assert result == ReconciliationIndeterminate(
+        approved.projection.proposal_id,
+        approved.projection.logical_execution_id,
+        "observation_routing_unavailable",
+    )
+    assert resolver.calls == 1
+    assert gateway.observation_calls == []
+    assert len(gateway.write_calls) == 1
+
+
+def test_not_found_retry_denial_observes_once_without_another_provider_write() -> None:
+    clock = MutableClock()
+    resource_authorizer = CountingResourceAuthorizer()
+    execution_authorizer = ToggleExecutionAuthorizer()
+    owners = iter(("worker-a", "recovery-b"))
+    workflow, gateway, principal, approved = _prepared_reconciliation_workflow(
+        observed=ProviderOutcomeNotFound(),
+        clock=clock,
+        resource_authorizer=resource_authorizer,
+        execution_authorizer=execution_authorizer,
+        owner_factory=lambda: next(owners),
+        lease_duration=timedelta(seconds=1),
+    )
+    workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+    prior_resource_calls = resource_authorizer.calls
+    clock.now += timedelta(seconds=2)
+    execution_authorizer.allowed = False
+
+    with pytest.raises(KnoraError) as error:
+        workflow.handle(
+            ReconcileExecution(approved.projection.proposal_id, 1),
+            principal,
+            actor("recovery-a", "system"),
+        )
+
+    assert error.value.code == "TOOL_EXECUTION_NOT_AUTHORIZED"
+    assert gateway.observation_calls == [("scope-a", approved.projection.logical_execution_id)]
+    assert resource_authorizer.calls == prior_resource_calls + 1
+    assert len(gateway.write_calls) == 1
+
+
+def _prepared_reconciliation_workflow(
+    *,
+    observed=None,
+    clock=None,
+    resource_authorizer=None,
+    execution_authorizer=None,
+    observation_resolver=None,
+    owner_factory=None,
+    lease_duration=timedelta(minutes=2),
+):
     gateway = Gateway(observed=observed)
     workflow = WriteProposalWorkflow(
         capability_resolver=Resolver(),
         store=InMemoryToolActionStore(),
         target_verifier=TargetVerifier(),
-        execution_authorizer=ExecutionAuthorizer(),
-        execution_resource_authorizer=ResourceAuthorizer(),
-        observation_reference_resolver=ObservationResolver(),
+        execution_authorizer=execution_authorizer or ExecutionAuthorizer(),
+        execution_resource_authorizer=resource_authorizer or ResourceAuthorizer(),
+        observation_reference_resolver=observation_resolver or ObservationResolver(),
         gateway=gateway,
         dispatch_signer=HmacDispatchEnvelopeSigner(
             key_identity="dispatch-key", key_version="v1", secret=b"dispatch-secret"
         ),
-        execution_owner_factory=lambda: "worker-a",
-        execution_lease_duration=timedelta(minutes=2),
-        clock=lambda: NOW,
+        execution_owner_factory=owner_factory or (lambda: "worker-a"),
+        execution_lease_duration=lease_duration,
+        clock=clock or (lambda: NOW),
     )
     principal = WorkspacePrincipal("workspace-a", "key-a")
     created = workflow.handle(

@@ -44,8 +44,6 @@ from knora.tools.contracts import canonical_digest_v1
 from knora.tools.execution_types import AuthorizedExecutionBindingSnapshot
 from knora.tools.references import AuthorizedExternalResource
 
-NOW = datetime(2026, 8, 24, 9, 0, tzinfo=UTC)
-
 
 class Resolver:
     def __init__(self, workspace_id: str) -> None:
@@ -155,6 +153,7 @@ def prepared(
     owner_factory=None,
     store_factory=PostgresToolActionStore,
 ):
+    application_now = datetime.now(UTC)
     workspace_id = f"m4-execution-{uuid4()}"
     with SessionFactory.begin() as session:
         session.add(WorkspaceTable(id=workspace_id, name="M4 execution"))
@@ -175,7 +174,7 @@ def prepared(
         ),
         execution_owner_factory=owner_factory or (lambda: "worker-a"),
         execution_lease_duration=lease_duration,
-        clock=lambda: NOW,
+        clock=lambda: application_now,
     )
     principal = WorkspacePrincipal(workspace_id, "key-a")
     created = workflow.handle(
