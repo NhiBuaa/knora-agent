@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_78_implementation_ingested_acceptance_execution_pending",
-  "next_valid_transition": "execute locked manual acceptance guide m4-78-crash-recovery-v3 against fixed candidate ccf9d2b and append the Evaluation with human approval pending",
+  "current_state": "issue_78_acceptance_blocked_release_evidence_remediation_pending",
+  "next_valid_transition": "prepare a fresh Issue #78 remediation dispatch to implement the locked deterministic release harness and missing acceptance evidence without changing guide v3",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -259,7 +259,8 @@
     "issue_78_dispatch_attempt_5_initial_artifacts_schema_invalid_before_worker_start",
     "issue_78_dispatch_attempt_5_correction_1_prepared",
     "issue_78_dispatch_attempt_5_correction_1_returned",
-    "issue_78_implementation_result_ingested"
+    "issue_78_implementation_result_ingested",
+    "evaluation_78_guide_v3_executed_blocked"
   ],
   "review_cadence": {
     "risk": "high",
@@ -735,7 +736,24 @@
         "technical_retry_number": 1,
         "technical_retry_limit_reached": true
       },
-      "evaluation_history": null,
+      "evaluation_history": ".agents/manual-tests/milestone-4/78-crash-recovery-v2.evaluations.jsonl",
+      "evaluation_run_id": "m4-78-crash-recovery-v3-20260903-01",
+      "evaluation_digest": "sha256:824c1978d32cc0e35a60fe4220928e6d9b59fd355cd2aacea6b749d8cfe53e7f",
+      "evaluation_verdict": "BLOCKED",
+      "evaluation_human_approval": "pending",
+      "evaluation_passed_cases": ["M4-78-TC-09"],
+      "evaluation_blocked_cases": [
+        "M4-78-TC-01",
+        "M4-78-TC-02",
+        "M4-78-TC-03",
+        "M4-78-TC-04",
+        "M4-78-TC-05",
+        "M4-78-TC-06",
+        "M4-78-TC-07",
+        "M4-78-TC-08",
+        "M4-78-TC-10"
+      ],
+      "acceptance_blocker": "locked deterministic release harness/output .agents/review/m4-issue-78-release-evidence-v1.json is absent; pytest alone cannot prove the required sentinel, concurrency, restart, audit and exact-candidate matrices",
       "accepted_commit": null,
       "integrated_commit": null,
       "pr": null,
@@ -1268,7 +1286,8 @@
     "next_valid_transition": "manual_acceptance_execute"
   },
   "blockers": [
-    "Issue #78 is not accepted until locked guide v3 is executed against candidate ccf9d2b and its PASSED Evaluation receives explicit human approval.",
+    "Issue #78 manual acceptance run m4-78-crash-recovery-v3-20260903-01 is BLOCKED: the locked deterministic release evidence artifact is absent.",
+    "A fresh Issue-session remediation must implement the missing harness/evidence and rerun every affected locked case before human approval can be requested.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -1380,11 +1399,12 @@
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-5-correction-1.json",
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-5-correction-1.json",
     "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-5-correction-1.json",
+    ".agents/manual-tests/milestone-4/78-crash-recovery-v2.evaluations.jsonl",
     "https://chatgpt.com/c/6a8bce5b-ec54-83ec-a02c-23b5a8c9db7c",
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-09-03T09:25:34+07:00"
+  "last_updated_at": "2026-09-03T09:28:37+07:00"
 }

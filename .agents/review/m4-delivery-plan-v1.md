@@ -1365,3 +1365,18 @@ local/remote branch remains.
 - Fixed candidate remains `ccf9d2b5a4a543466e4c7d0b2d690adbd9cec390`. Next transition is
   `manual-acceptance execute` using immutable guide `m4-78-crash-recovery-v3`; final code review
   remains forbidden.
+
+### Issue #78 manual acceptance run 1 blocked — 2026-09-03
+
+- Manual-acceptance executed locked guide v3 against fixed candidate `ccf9d2b`. The append-only
+  Evaluation is `m4-78-crash-recovery-v3-20260903-01` in the guide-mandated history path
+  `.agents/manual-tests/milestone-4/78-crash-recovery-v2.evaluations.jsonl`, digest
+  `sha256:824c1978d32cc0e35a60fe4220928e6d9b59fd355cd2aacea6b749d8cfe53e7f`.
+- Verdict is `BLOCKED` with human approval pending. TC-09 passes from exact focused/full/Ruff/
+  Compose/Alembic evidence. TC-01–TC-08 and TC-10 are blocked because the candidate has neither
+  the guide-required deterministic release harness nor its sanitized
+  `.agents/review/m4-issue-78-release-evidence-v1.json`; current tests do not emit the ordered
+  authorization, sentinel, concurrency, restart, audit, public-matrix and exact-scope evidence.
+- The guide and expected results remain unchanged. Next transition is a fresh Issue-session
+  remediation to implement only the missing deterministic release harness/evidence and any test
+  seams required to make the locked cases executable. No per-Issue code review runs.
