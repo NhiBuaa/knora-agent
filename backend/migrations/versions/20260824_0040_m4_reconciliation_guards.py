@@ -179,6 +179,35 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS tool_action_audit_immutable ON tool_action_audit_events")
+    op.execute(
+        "DROP TRIGGER IF EXISTS tool_execution_observation_immutable "
+        "ON tool_execution_observations"
+    )
+    op.execute("DROP TRIGGER IF EXISTS tool_execution_material_immutable ON tool_executions")
+    op.execute("DROP TRIGGER IF EXISTS tool_proposal_material_immutable ON tool_proposals")
+    op.execute(
+        "DELETE FROM tool_action_audit_events WHERE event_type = 'execution_taken_over'"
+    )
+    op.execute(
+        "DELETE FROM tool_execution_observations WHERE observation_type IN "
+        "('reconciled_succeeded','reconciled_failed','provider_outcome_not_found',"
+        "'provider_observation_unavailable','provider_observation_timeout',"
+        "'provider_observation_malformed')"
+    )
+    op.execute(
+        "UPDATE tool_executions SET generation = 1, revision = CASE "
+        "WHEN lifecycle = 'executing' THEN 2 ELSE 3 END "
+        "WHERE generation <> 1 OR revision <> CASE "
+        "WHEN lifecycle = 'executing' THEN 2 ELSE 3 END"
+    )
+    op.execute(
+        "UPDATE tool_proposals SET revision = CASE "
+        "WHEN state = 'executing' THEN 2 "
+        "WHEN state IN ('succeeded','failed') THEN 3 "
+        "ELSE revision END "
+        "WHERE state IN ('executing','succeeded','failed')"
+    )
     op.drop_constraint(
         "ck_tool_action_audit_event_type", "tool_action_audit_events", type_="check"
     )
@@ -251,5 +280,24 @@ def downgrade() -> None:
           THEN RAISE EXCEPTION 'tool execution terminal outcome is immutable'; END IF;
           RETURN NEW;
         END $$;
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER tool_action_audit_immutable
+        BEFORE UPDATE OR DELETE ON tool_action_audit_events
+        FOR EACH ROW EXECUTE FUNCTION prevent_tool_audit_mutation();
+
+        CREATE TRIGGER tool_execution_observation_immutable
+        BEFORE UPDATE OR DELETE ON tool_execution_observations
+        FOR EACH ROW EXECUTE FUNCTION prevent_tool_observation_mutation();
+
+        CREATE TRIGGER tool_execution_material_immutable
+        BEFORE UPDATE OR DELETE ON tool_executions
+        FOR EACH ROW EXECUTE FUNCTION prevent_tool_execution_material_mutation();
+
+        CREATE TRIGGER tool_proposal_material_immutable
+        BEFORE UPDATE ON tool_proposals
+        FOR EACH ROW EXECUTE FUNCTION prevent_tool_proposal_material_update();
         """
     )
