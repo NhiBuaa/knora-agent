@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "record_type": "feature_delivery_governance_reconciliation",
+  "recorded_at": "2026-09-06T09:45:49+07:00",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "reconciled_ticket": "#78",
+  "prior_ledger_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session",
+  "prior_integration_head": "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
+  "authoritative_observations": {
+    "github_issue": {"reference": "https://github.com/NhiBuaa/knora-agent/issues/78", "state": "closed", "close_reason": "completed"},
+    "pull_request": {"reference": "https://github.com/NhiBuaa/knora-agent/pull/83", "state": "merged"},
+    "accepted_subject": "7d3c328f225962005b683d60750a2439f0d59c39",
+    "integration_branch": "nhibuaa/m4-tools-human-approval",
+    "integration_head": "536107394eee73e28b8d8df22e31c64500974787",
+    "integration_head_subject": "Reconcile merged Issue 78 PR"
+  },
+  "reconciliation": {
+    "issue_78_state": "integrated_closed_verified",
+    "issue_79_state": "frontier_preparation",
+    "next_valid_transition": "validate Issue #79 ticket/guide-plan source bindings and prepare M4.5 manual-acceptance dispatch",
+    "does_not_claim": ["Issue #79 acceptance", "Issue #79 integration", "final M4 code review", "publication or closure of Issue #74"]
+  },
+  "evidence_references": [".agents/review/m4-workflow-ledger-v1.json", ".agents/review/m4-issue-78-release-evidence-v1.json", "https://github.com/NhiBuaa/knora-agent/issues/78", "https://github.com/NhiBuaa/knora-agent/pull/83"]
+}

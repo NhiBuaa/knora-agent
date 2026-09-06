@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session",
-  "next_valid_transition": "wait for the human-opened Issue #78 remediation-1 attempt-6 session to return the exact leader prompt, then ingest its matching return contract",
+  "current_state": "issue_79_frontier_ready_for_release_gate_preparation",
+  "next_valid_transition": "validate Issue #79 ticket/guide-plan source bindings and prepare M4.5 manual-acceptance dispatch",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -16,16 +16,16 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
-    "current_head_resolution": "durable frontier checkpoint after Issue #77 close and cleanup; source base for Issue #78",
+    "current_head": "536107394eee73e28b8d8df22e31c64500974787",
+    "current_head_resolution": "Issue #78 integrated through merged PR #83 and reconciled at the feature integration head; source base for Issue #79",
     "published": true
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
-    {"ticket": "#78", "blocked_by": ["#77"], "state": "frontier_technical_retry_dispatched_awaiting_issue_session", "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4"},
-    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "blocked", "worktree": null}
+    {"ticket": "#78", "blocked_by": ["#77"], "state": "integrated_closed_verified", "worktree": null},
+    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "frontier_preparation", "worktree": "C:/Developer/Projects/knora-agent-worktree"}
   ],
   "completed_transitions": [
     "specify",
@@ -261,8 +261,13 @@
     "issue_78_dispatch_attempt_5_correction_1_returned",
     "issue_78_implementation_result_ingested",
     "evaluation_78_guide_v3_executed_blocked",
-    "issue_78_acceptance_evidence_remediation_attempt_6_prepared"
+    "issue_78_acceptance_evidence_remediation_attempt_6_prepared",
+    "issue_78_acceptance_evidence_remediation_completed",
+    "integration_completed_78_pr_83_verified",
+    "issue_78_closed_and_governance_reconciled",
+    "frontier_79_opened"
   ],
+  "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
     "risk": "high",
     "required_external_reviews": 11,
@@ -1430,5 +1435,5 @@
     "https://github.com/NhiBuaa/knora-agent/issues/78",
     "https://github.com/NhiBuaa/knora-agent/issues/74"
   ],
-  "last_updated_at": "2026-09-03T09:32:14+07:00"
+  "last_updated_at": "2026-09-06T09:45:49+07:00"
 }
