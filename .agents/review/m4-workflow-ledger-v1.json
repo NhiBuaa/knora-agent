@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_frontier_ready_for_release_gate_preparation",
-  "next_valid_transition": "validate Issue #79 ticket/guide-plan source bindings and prepare M4.5 manual-acceptance dispatch",
+  "current_state": "issue_79_ticket_packet_ready_for_external_review",
+  "next_valid_transition": "obtain and validate independent external review of the exact Issue #79 ticket packet v1",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -16,8 +16,8 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "536107394eee73e28b8d8df22e31c64500974787",
-    "current_head_resolution": "Issue #78 integrated through merged PR #83 and reconciled at the feature integration head; source base for Issue #79",
+    "current_head": "5af5c5c914ea904fe1e14de1acff859113d53244",
+    "current_head_resolution": "Issue #78 integrated through merged PR #83, then the shared governance checkpoint was committed and pushed; exact source base for Issue #79",
     "published": true
   },
   "ticket_graph": [
@@ -265,7 +265,10 @@
     "issue_78_acceptance_evidence_remediation_completed",
     "integration_completed_78_pr_83_verified",
     "issue_78_closed_and_governance_reconciled",
-    "frontier_79_opened"
+    "frontier_79_opened",
+    "issue_79_baseline_validated_with_owner_approved_known_failure",
+    "issue_79_ticket_contract_v1_prepared",
+    "issue_79_ticket_review_packet_v1_validated"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -792,7 +795,28 @@
       "exceptional_contract_revision_4_authorization_digest": "sha256:4c7111bfab2fed96b3b6ce2a18847ec0ff329f0dc807c150974a066d7be97cbe",
       "exceptional_contract_revision_4_authorized_at": "2026-08-24T10:00:53+07:00"
     },
-    "#79": {"guide_revision": null, "evaluation_history": null, "accepted_commit": null, "integrated_commit": null, "pr": null, "design_revisions": 0}
+    "#79": {
+      "source_base_commit": "5af5c5c914ea904fe1e14de1acff859113d53244",
+      "worktree": "C:/Developer/Projects/knora-agent-worktree",
+      "branch": "codex/issue-79-m4-release-gate",
+      "baseline_reference": ".agents/review/m4-issue-79-baseline-v1.json",
+      "baseline_status": "known_failure_approved_for_continuation",
+      "baseline_result": "963 passed, 3 skipped, 1 known root-CWD Alembic failure; Ruff, Compose and Alembic head passed",
+      "ticket_contract_revision": 1,
+      "ticket_contract_reference": ".agents/review/m4-issue-79-revision-v1.md",
+      "ticket_contract_digest": "sha256:64ffdb8f4db92d1260baebd9cd932d713b6233431fe2089119456d51aa1938d6",
+      "ticket_review_packet_reference": ".agents/review/m4-issue-79-ticket-review-packet-v1.json",
+      "ticket_review_packet_digest": "sha256:ee7b7ee3ab56f78b87877ba04fb3d25fce0e3f2d153736bca6117661d814e218",
+      "ticket_review_request_id": "review-request-sha256:b3a92af36a98c58107bb2692dfbc172d68604041eab1922881ff4ba68c28601b",
+      "ticket_external_review": "PENDING",
+      "guide_revision": null,
+      "evaluation_history": null,
+      "accepted_commit": null,
+      "integrated_commit": null,
+      "pr": null,
+      "design_revisions": 0,
+      "final_m4_review_authorized": false
+    }
   },
   "external_review_history": [
     {
@@ -1295,25 +1319,10 @@
     "current_state": "issue_78_attempt_4_ingest_blocked_repeated_result_contract_failure",
     "next_valid_transition": "obtain explicit repository-owner direction on exceptional Issue #78 dispatch attempt 5"
   },
-  "active_issue_dispatch": {
-    "ticket": "#78",
-    "status": "validated_ingested",
-    "status": "prepared",
-    "attempt": 6,
-    "workflow_identity": "feature-delivery/m4-tools-human-approval/issue-78/remediation-1-attempt-6",
-    "dispatch_record": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/dispatch-6.json",
-    "dispatch_digest": "sha256:d670088fa33304b4127624bf2ed8d0124f07ebea15b0107aa7e4dd5d807b66b9",
-    "workspace_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/workspace-6.json",
-    "workspace_digest": "sha256:39fdde6f5b43352801b414623cc74f4305bc9dba84138886bc123cce8245d5b9",
-    "resume_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/resume-6.json",
-    "resume_digest": "sha256:4990df7c15051c94c8d0463eab7e835a6ed2e46dcfc6e58c39cc4f5439b71e3e",
-    "return_contract": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/return-6.json",
-    "result_evidence": "D:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-78/result-evidence-6.json",
-    "next_valid_transition": "ingest_issue_result"
-  },
+  "active_issue_dispatch": null,
   "blockers": [
-    "Issue #78 manual acceptance run m4-78-crash-recovery-v3-20260903-01 is BLOCKED: the locked deterministic release evidence artifact is absent.",
-    "A fresh Issue-session remediation must implement the missing harness/evidence and rerun every affected locked case before human approval can be requested.",
+    "Issue #79 cannot dispatch until its exact ticket packet and locked manual guide receive the required independent external reviews.",
+    "The approved starting baseline has one known root-CWD Alembic harness failure; the Issue #79 worker must remediate it and return a green exact-SHA verification.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
   "authoritative_artifacts": [
@@ -1433,7 +1442,11 @@
     "https://github.com/NhiBuaa/knora-agent/pull/82",
     "https://github.com/NhiBuaa/knora-agent/issues/77",
     "https://github.com/NhiBuaa/knora-agent/issues/78",
-    "https://github.com/NhiBuaa/knora-agent/issues/74"
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    ".agents/review/m4-issue-79-baseline-v1.json",
+    ".agents/review/m4-issue-79-revision-v1.md",
+    ".agents/review/m4-issue-79-ticket-review-packet-v1.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/baseline-2.junit.xml"
   ],
-  "last_updated_at": "2026-09-06T09:45:49+07:00"
+  "last_updated_at": "2026-09-06T10:42:26+07:00"
 }
