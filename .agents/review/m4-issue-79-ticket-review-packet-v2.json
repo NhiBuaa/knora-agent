@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "base_packet_digest": "sha256:ee7b7ee3ab56f78b87877ba04fb3d25fce0e3f2d153736bca6117661d814e218",
+  "payload": {
+    "delta": {
+      "round": 2,
+      "design_digest": "sha256:9d312b299d7f1ba55c130a2ee66a88edd12af0d148abd0467ca703e636ba32e8",
+      "ticket_digest": "sha256:d93b7f41035b0c531549e21834183aa5cfc46b74bd2540ddd334974f2f4b9fd1",
+      "guide_revision": "pre-guide:ticket-contract-m4-79-v2",
+      "guide_digest": "sha256:d93b7f41035b0c531549e21834183aa5cfc46b74bd2540ddd334974f2f4b9fd1",
+      "design_decisions": [
+        {"id":"M4-79-DD-01","decision":"The v2 frontier baseline binds accepted runs, integrated commits, merged PRs and closed blocker state for #75-#78; #79 starts at shared checkpoint 5af5c5c."},
+        {"id":"M4-79-DD-02","decision":"This is a ticket-only pre-guide review. Its sentinel revision/digest cannot satisfy guide review, guide approval, guide lock or acceptance."},
+        {"id":"M4-79-DD-03","decision":"Independent fixtures enumerate every public lookup, proposal/decision, execution and reconciliation row with status, exact recursive key/value allowlist, forbidden fields, state effects and provider counters."},
+        {"id":"M4-79-DD-04","decision":"SQLite independently owns one restart-stable success or closed target_not_found, validation_rejected or policy_rejected outcome per logical identity/fingerprint."},
+        {"id":"M4-79-DD-05","decision":"tested_subject_sha precedes an evidence-only publication commit, candidate Evaluation append and separate human-approval append; every descendant is selectively invalidated by changed scope."},
+        {"id":"M4-79-DD-06","decision":"Use KNORA_DATABASE_URL with sanitized effective 127.0.0.1/knora evidence, root invocation CWD and the worktree interpreter."},
+        {"id":"M4-79-DD-07","decision":"Final pytest evidence inventories every collected/pass/fail/skip/xfail node, classifies the three pre-existing PDF skips and forbids added or weakened non-pass coverage."},
+        {"id":"M4-79-DD-08","decision":"#79 produces only a non-binding final-review readiness checklist; the leader creates the real fixed-point descriptor only after #79 integration and closure."},
+        {"id":"M4-79-DD-09","decision":"The roadmap/release-ledger completion projection is part of the tested subject before guide execution; later mutation invalidates #79 acceptance."}
+      ],
+      "invariants": [
+        "The #79 native frontier is proven by immutable #75-#78 acceptance, integration, PR and closure identities.",
+        "Ticket review is not guide review or acceptance authority.",
+        "Authentication, path Workspace and resource authorization precede provider access.",
+        "Only a human ApprovalActor decides immutable proposals; exactly one concurrent CAS wins.",
+        "Every provider write requires current authority and exact compatibility.",
+        "One logical identity/fingerprint produces at most one provider effect across crash and restart.",
+        "Provider not-found and ambiguous observations remain non-terminal; stale owners remain fenced.",
+        "Evidence excludes credentials, raw routing, envelope bytes, key material and raw command output.",
+        "The starting baseline is non-green until the root-CWD Alembic defect is fixed without suppression.",
+        "Evidence-only descendants never silently change the tested subject or acceptance validity.",
+        "main remains pinned and the final code-review descriptor is not created by the worker."
+      ],
+      "acceptance_policy": {
+        "authority":"human_required",
+        "policy_revision":"m4-human-required-guide-review-v1",
+        "policy_digest":"sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+        "required":true,
+        "status":"ticket_review_only_guide_not_prepared"
+      },
+      "test_cases": [
+        {"id":"M4-79-TC-01","statement":"Execute every independently defined ticket-lookup success/error row, including auth, Workspace, reference, scope, not-found, unavailable and malformed-provider variants.","oracle":"Each row matches literal HTTP status plus recursive body keys/values and forbidden fields; every denied row has zero provider lookup and only the authorized success/provider-result rows have the declared lookup count.","required":true},
+        {"id":"M4-79-TC-02","statement":"Execute independent proposal create/read/approve/reject, validation, not-found, forbidden-actor, already-decided, stale, expired and revision-conflict matrices plus concurrent human decisions.","oracle":"Every row matches literal status/body/state/audit/counter expectations; material fields never mutate, model/system has zero decision writes, and one human CAS winner persists.","required":true},
+        {"id":"M4-79-TC-03","statement":"Execute independent execution success, target_not_found, validation_rejected, policy_rejected, indeterminate, in-progress, fenced, idempotency-conflict, authority-denial and compatibility-stale rows.","oracle":"Every row matches literal public and durable matrices; denied/stale rows have zero admission/write/effect, valid execution keeps one server-owned identity/fingerprint and one effect.","required":true},
+        {"id":"M4-79-TC-04","statement":"Race direct execution and same/different-fingerprint replays across PostgreSQL admission and SQLite idempotency.","oracle":"One admission/current owner wins; same identity/fingerprint replays one outcome, different fingerprint conflicts and exactly one provider ticket/effect exists.","required":true},
+        {"id":"M4-79-TC-05","statement":"Across independent restarts, execute reconciliation rows for success; each closed target_not_found, validation_rejected and policy_rejected; unavailable; timeout; malformed; not-found; in-progress; and fenced outcomes in both crash windows.","oracle":"Each row is restart-stable and field-for-field exact. Rejections create no provider ticket/effect and finalize to their exact 502 result; committed success never duplicates; no-receipt/ambiguous rows remain non-terminal until separately authorized same-identity recovery.","required":true},
+        {"id":"M4-79-TC-06","statement":"Race current, foreign, strictly stale and changed-generation reconciliation owners using fresh post-lock PostgreSQL time.","oracle":"There is one takeover winner and one generation increment; current foreign remains in progress, stale/losing owners are fenced, and only the current unexpired owner records/finalizes.","required":true},
+        {"id":"M4-79-TC-07","statement":"Reconstruct append-only audit for all lookup, proposal, decision, admission, execution authority, crash, takeover/retry, observation and finalization paths.","oracle":"Ordered records contain caller/proposal/approval/execution actors, authority and immutable snapshots, generations, provider identity and outcome while a recursive leak scan is empty.","required":true},
+        {"id":"M4-79-TC-08","statement":"From repository root with KNORA_DATABASE_URL and pinned interpreter, run the known Alembic test and clean upgrade/downgrade/re-upgrade.","oracle":"Focused test and lifecycle exit zero at head 20260824_0040; evidence binds effective sanitized DB, CWD and interpreter; no skip/xfail/weakening occurs.","required":true},
+        {"id":"M4-79-TC-09","statement":"At tested_subject_sha run focused M4, full repository pytest, Ruff and Compose, then generate the deterministic release artifact without tracked-content drift.","oracle":"All required nodes pass; counts and complete node inventories prove no added skip/xfail; the three pre-existing PDF skips are unchanged/classified; evidence binds exact subject, locked guide, environment and invocations.","required":true},
+        {"id":"M4-79-TC-10","statement":"Classify source-base-to-tested-subject and every later evidence descendant, verify the roadmap/release projection, main identity and final-review readiness template.","oracle":"No unapproved expansion exists; affected cases rerun; descendants are evidence-only or invalidate acceptance; main is unchanged and no actual fixed-point descriptor is created/pinned/validated/invoked.","required":true},
+        {"id":"M4-79-TC-11","statement":"Before execution verify human approval and digest lock of the exact guide, then append candidate and separate approval Evaluations to one history.","oracle":"Guide bytes/digest stay immutable; before/after history digests show append-only growth with unchanged prior records; candidate binds tested/evidence heads and pending approval; separate record names the exact PASSED run and explicit human approval.","required":true}
+      ],
+      "command_projections": [
+        {"id":"M4-79-CMD-01","statement":"Root-CWD Alembic regression and clean lifecycle with KNORA_DATABASE_URL, sanitized effective database identity and pinned interpreter.","kind":"migration"},
+        {"id":"M4-79-CMD-02","statement":"Focused integrated M4 matrices and release harness at tested_subject_sha.","kind":"verification"},
+        {"id":"M4-79-CMD-03","statement":"Complete repository pytest with node-level pass/fail/skip/xfail inventory and no new non-pass coverage.","kind":"verification"},
+        {"id":"M4-79-CMD-04","statement":"Ruff, Compose and tracked-content identity verification.","kind":"verification"}
+      ],
+      "required_evidence": [
+        {"id":"M4-79-EV-01","statement":"Immutable accepted-run, integration-commit, merged-PR and closed-state identities for #75-#78 plus exact 5af5c5c source base.","required":true},
+        {"id":"M4-79-EV-02","statement":"Independent literal public matrices for every lookup, proposal/decision, execution and reconciliation row with status/body/state/counters.","required":true},
+        {"id":"M4-79-EV-03","statement":"PostgreSQL one-winner decision/admission/takeover rows and stale-owner fencing.","required":true},
+        {"id":"M4-79-EV-04","statement":"Independent SQLite success and each closed rejection across both crash windows/restarts with logical lineage and exact effect counts.","required":true},
+        {"id":"M4-79-EV-05","statement":"Append-only audit reconstruction and recursive zero-leak scan.","required":true},
+        {"id":"M4-79-EV-06","statement":"Root-CWD Alembic repair and lifecycle evidence with KNORA_DATABASE_URL, sanitized effective DB, CWD, interpreter and exits.","required":true},
+        {"id":"M4-79-EV-07","statement":"tested_subject_sha verification plus full collected/pass/fail/skip/xfail node inventory, classified three PDF skips and zero new skip/xfail.","required":true},
+        {"id":"M4-79-EV-08","statement":"Evidence publication and Evaluation descendant graph with evidence-only diffs and selective-invalidation decisions.","required":true},
+        {"id":"M4-79-EV-09","statement":"Exact guide approval/digest lock and Evaluation-history before/after digests proving immutable prior records and separate human approval append.","required":true},
+        {"id":"M4-79-EV-10","statement":"Roadmap/release projection at tested subject, unchanged main proof and non-binding final-review readiness checklist with actual descriptor absent.","required":true}
+      ],
+      "prior_findings": [
+        {"id":"M4-79-R1-01","category":"scope","issue_class":"native_frontier_not_established","criterion_ref":"M4-79-AC-01,M4-79-AC-07,M4-79-AC-08","affected_case_ids":["M4-79-TC-09","M4-79-TC-10"],"affected_fields":["frontier"],"problem":"Frontier identities absent.","required_change":"Bind prior accepted/integrated/closed identities.","status":"addressed_in_v2"},
+        {"id":"M4-79-R1-02","category":"coverage","issue_class":"ticket_guide_and_evidence_contract_gaps","criterion_ref":"M4-79-AC-01,M4-79-AC-02,M4-79-AC-03,M4-79-AC-04,M4-79-AC-05,M4-79-AC-06,M4-79-AC-07,M4-79-AC-08","affected_case_ids":["M4-79-TC-01","M4-79-TC-02","M4-79-TC-03","M4-79-TC-05","M4-79-TC-07","M4-79-TC-08","M4-79-TC-09","M4-79-TC-10","M4-79-TC-11"],"affected_fields":["guide_phase","matrices","sha_sequence","skip_inventory","database_identity","final_review_boundary","design_digest"],"problem":"Round 1 lacked closed executable and reproducible bindings.","required_change":"Apply all round-1 Major corrections.","status":"addressed_in_v2"}
+      ]
+    }
+  },
+  "packet_digest": "sha256:9b9516f41412b7b349254acfa5867a0c8de1da283273ad0ec8abd003f18fe8af",
+  "request_id": "review-request-sha256:c8619f088939b4a5279fda50586e448e94db38a4886eb31e1310e1de91d6690c"
+}

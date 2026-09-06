@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "evidence_id": "m4-issue-79-frontier-baseline-v2",
+  "recorded_at": "2026-09-06T11:08:00+07:00",
+  "supersedes": ".agents/review/m4-issue-79-baseline-v1.json",
+  "github_frontier": {
+    "issue_79": {"reference":"https://github.com/NhiBuaa/knora-agent/issues/79","state":"open","assignee":null,"label":"ready-for-agent"},
+    "blockers": [
+      {"issue":"#75","state":"closed","accepted_run":"m4-75-ticket-lookup-v2-20260822-03-approved","tested_subject":"ab6eccc4051c9450b8dd95c6a0026b217daf0479","integrated_commit":"2a7e2832b37bccac29adcb6c049871024f3864a3","pr":"https://github.com/NhiBuaa/knora-agent/pull/80"},
+      {"issue":"#76","state":"closed","accepted_run":"m4-76-write-proposal-v5-20260823-01-approved","tested_subject":"56cd3be0f291cd40b46f3cbd9dbc43173094d5b7","integrated_commit":"d7742d1d266807b2f487ae1d7917271c1556114a","pr":"https://github.com/NhiBuaa/knora-agent/pull/81"},
+      {"issue":"#77","state":"closed","accepted_run":"m4-77-authorized-execution-v7-20260824-01-approved-correction","tested_subject":"b3a1f16646b4e910e1c3121ffbb1117ab6cd4ce5","integrated_commit":"46491b91f248d004c5c9f693c3986befdf06ca66","pr":"https://github.com/NhiBuaa/knora-agent/pull/82"},
+      {"issue":"#78","state":"closed","accepted_run":"m4-78-crash-recovery-v4-20260903-02-approved","tested_subject":"7d3c328f225962005b683d60750a2439f0d59c39","evidence_publication_commit":"65298f58e4e7bcb06f54501f87ecedaeb3e0962b","merge_commit":"616a5edbce5d928434753698a5efca43d6ced977","reconciled_integration_commit":"536107394eee73e28b8d8df22e31c64500974787","pr":"https://github.com/NhiBuaa/knora-agent/pull/83"}
+    ],
+    "observation_reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json"
+  },
+  "workspace": {
+    "branch":"codex/issue-79-m4-release-gate",
+    "worktree":"C:/Developer/Projects/knora-agent-worktree",
+    "source_base":"5af5c5c914ea904fe1e14de1acff859113d53244",
+    "source_base_parent":"536107394eee73e28b8d8df22e31c64500974787",
+    "integration_branch":"nhibuaa/m4-tools-human-approval",
+    "integration_remote_head":"5af5c5c914ea904fe1e14de1acff859113d53244",
+    "default_branch_head":"6312c4c4230032aa92ca5915803fcfaf564354fa",
+    "default_branch_unchanged":true
+  },
+  "verification": {
+    "invocation_cwd":"C:/Developer/Projects/knora-agent-worktree",
+    "interpreter":"C:/Developer/Projects/knora-agent-worktree/.venv/Scripts/python.exe",
+    "effective_database":{"environment_variable":"KNORA_DATABASE_URL","host":"127.0.0.1","port":5432,"database":"knora","secret_material_recorded":false},
+    "alembic_head":"20260824_0040",
+    "pytest":{"collected":967,"passed":963,"failed":1,"skipped":3,"xfailed":0,"status":"known_failure_approved_for_continuation"},
+    "skipped_nodes":[
+      "backend.test.adapters.pdf.test_pypdf::test_locked_baseline_raw_and_page_boundaries",
+      "backend.test.adapters.pdf.test_pypdf::test_locked_baseline_stream_boundaries",
+      "backend.test.adapters.pdf.test_pypdf::test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy"
+    ],
+    "skip_policy":"All three are pre-existing locked PDF baseline cases; the worker must prove no added skip/xfail and must classify every non-pass node on the final exact subject.",
+    "known_failure":"backend/test/tools/test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit",
+    "known_failure_cause":"backend/alembic.ini resolves relative script_location=migrations against process CWD",
+    "worker_closure":"Root-CWD focused test and complete suite must pass; skipping, xfail, assertion weakening or backend-CWD-only evidence is forbidden.",
+    "junit":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/baseline-2.junit.xml",
+    "ruff":"PASSED","compose":"PASSED","alembic_upgrade":"PASSED"
+  },
+  "continuation_authority":{"authority":"repository_owner","status":"approved","scope":"dispatch #79 with the known baseline defect assigned to its worker","baseline_green":false}
+}
