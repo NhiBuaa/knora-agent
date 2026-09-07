@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:d00a25c662ab5dd12f105232838e3af4af066f5d305070542c15287321151356",
+  "review_id": "external-review:github-issue-79:m4-79-integrated-release-gate-v2:round-2",
+  "round": 2,
+  "provider": "codex-independent-agent",
+  "model": null,
+  "session_id": "/root/issue79_guide_reviewer_v2",
+  "packet_digest": "sha256:1eec8239e02b8982def04b70eef6d9eff8582a20cdc1b3f08c0d52dd4a69a701",
+  "guide_revision": "m4-79-integrated-release-gate-v2",
+  "guide_digest": "sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "APPROVE",
+  "findings": [],
+  "coverage": {"criteria":["M4-79-AC-01","M4-79-AC-02","M4-79-AC-03","M4-79-AC-04","M4-79-AC-05","M4-79-AC-06","M4-79-AC-07","M4-79-AC-08","M4-79-AC-09"],"uncovered":[]},
+  "summary": "APPROVE. TC-10 and prerequisites bind the #75-#78 frontier to source base 5af5c5c; TC-08 supplies exact root-CWD collection/execution and lifecycle plus anti-suppression integrity evidence; final review/integration remain deferred.",
+  "response_digest": "sha256:54b1a42cc48fe10dd6421c9b894d5c73d49af7a604371a897ebb402e67dfad43"
+}

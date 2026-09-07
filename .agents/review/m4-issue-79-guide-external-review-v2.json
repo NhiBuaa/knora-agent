@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "surface": "manual-guide:#79",
+  "revision": 2,
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "packet_reference": ".agents/review/m4-issue-79-guide-review-packet-v2.json",
+  "packet_digest": "sha256:1eec8239e02b8982def04b70eef6d9eff8582a20cdc1b3f08c0d52dd4a69a701",
+  "response_reference": ".agents/review/m4-issue-79-guide-review-response-v2.json",
+  "response_digest": "sha256:54b1a42cc48fe10dd6421c9b894d5c73d49af7a604371a897ebb402e67dfad43",
+  "provider": "codex-independent-agent",
+  "session_identity": "/root/issue79_guide_reviewer_v2",
+  "advisory_only": true,
+  "code_review_invoked": false,
+  "cadence_eligible": true,
+  "prior_findings_closed": ["M4-79-GR-001", "M4-79-GR-002"],
+  "reviewed_commit": "30c54bd7dd85333c20dee7f3942f1dfa72043309",
+  "reviewed_at": "2026-09-07T18:45:48+07:00"
+}

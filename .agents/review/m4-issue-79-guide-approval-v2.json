@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "status": "APPROVED",
+  "approval_type": "delegated-repository-owner-guide-approval",
+  "workflow_identity": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "guide_path": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.md",
+  "guide_revision": "m4-79-integrated-release-gate-v2",
+  "guide_digest": "sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63",
+  "guide_blob": "9046c4855dca5141ca6c679362b4c7dd5acef59d",
+  "subject_commit": "30c54bd7dd85333c20dee7f3942f1dfa72043309",
+  "external_review": {"path":".agents/review/m4-issue-79-guide-external-review-v2.json","packet_digest":"sha256:1eec8239e02b8982def04b70eef6d9eff8582a20cdc1b3f08c0d52dd4a69a701","response_digest":"sha256:54b1a42cc48fe10dd6421c9b894d5c73d49af7a604371a897ebb402e67dfad43","verdict":"APPROVE","critical_count":0,"major_count":0,"minor_count":0},
+  "approved_by": "repository_owner_delegated_to_feature_leader",
+  "approval_statement": "The repository owner authorized the leader to lock the #79 guide after independent external APPROVE; this approval binds exactly guide digest sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63.",
+  "approval_source": "explicit current leader-task delegation before external review",
+  "approved_at": "2026-09-07T18:45:48+07:00",
+  "lock_status": "LOCKED",
+  "immutable_after_approval": true
+}
