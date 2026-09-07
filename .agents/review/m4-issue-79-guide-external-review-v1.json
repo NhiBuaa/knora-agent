@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "surface": "manual-guide:#79",
+  "revision": 1,
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "packet_reference": ".agents/review/m4-issue-79-guide-review-packet-v1.json",
+  "packet_digest": "sha256:f5c9a6ad42f728b4097b570c19a62f091a426b571896475b05fe0dacdb494e2c",
+  "response_reference": ".agents/review/m4-issue-79-guide-review-response-v1.json",
+  "provider": "codex-independent-agent",
+  "session_identity": "/root/issue79_guide_reviewer_v1",
+  "advisory_only": true,
+  "code_review_invoked": false,
+  "cadence_eligible": false,
+  "disposition": "guide_v1_not_locked; findings carried to guide_v2 packet",
+  "reviewed_at": "2026-09-07T00:00:00+07:00"
+}
