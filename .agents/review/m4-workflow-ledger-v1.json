@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_implementation_blocked_locked_postgres_regression_hang",
-  "next_valid_transition": "prepare a fresh bounded Issue #79 continuation to diagnose and remediate the locked PostgreSQL/Alembic regression hang in the preserved worktree",
+  "current_state": "awaiting_issue_sessions",
+  "next_valid_transition": "repository owner opens a fresh worker session and pastes the exact Issue #79 diagnostic continuation prompt for attempt 4",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -282,7 +282,8 @@
     "issue_79_docker_engine_reachability_revalidated",
     "issue_79_continuation_dispatch_attempt_3_prepared",
     "issue_79_dispatch_attempt_3_returned_blocked_postgres_regression_hang",
-    "issue_79_return_attempt_3_ingested_blocked"
+    "issue_79_return_attempt_3_ingested_blocked",
+    "issue_79_diagnostic_continuation_dispatch_attempt_4_prepared"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -838,11 +839,11 @@
       "guide_approval_reference": ".agents/review/m4-issue-79-guide-approval-v2.json",
       "guide_lock_status": "LOCKED",
       "prepared_head": "71e5dea1fe56e3b4268be9e961185397f2e91b20",
-      "dispatch_attempt": 3,
+      "dispatch_attempt": 4,
       "superseded_dispatches": [{"attempt":1,"dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-1.json","reason":"renderer-derived leader_prompt mismatch detected before worker start; no worker or implementation activity occurred"}],
-      "dispatch": {"workspace_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-3.json","workspace_digest":"sha256:a3bb6fa1a8dccc241a92869181fb6d9b17064c08474d7f1adaf37d807656202f","resume_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-3.json","resume_digest":"sha256:9484f0dbb10271a9dbc16ca8dc60925af05cd812736d61560fee623ff54c7826","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-3.json","dispatch_digest":"sha256:6b544c8102ef6648e87d19a6ffd1c79d2aba31443e29b03c0421980ee3b5e68c","return_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-3.json","result_evidence_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-3.json","continuation_of_return":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-2.json"},
-      "implementation_status": "blocked_technical_diagnosis_required",
-      "implementation_blocker": "Locked root-CWD PostgreSQL/Alembic regression hangs after collection despite Docker engine and Compose PostgreSQL health.",
+      "dispatch": {"workspace_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-4.json","workspace_digest":"sha256:4be88b674dd1f1e9bd92ad77e2977009cdb1d5a8eac3d500b424030d186c3e29","resume_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-4.json","resume_digest":"sha256:0aea8ba9b58c8913826c83ebb3a8b1973ed80eaac3db46e3047914dfe1fcfc9b","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-4.json","dispatch_digest":"sha256:facfae4447b44b7e8a5e5df663908a71f735b74560c42eb787ea62c5ebcd1071","return_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-4.json","result_evidence_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-4.json","continuation_of_return":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-3.json"},
+      "implementation_status": "diagnostic_continuation_prepared_awaiting_worker",
+      "implementation_blocker": null,
       "attempt_3_return_digest": "sha256:6427b930942ed5ee54af1be8eb66eadc25fa899ba409bd564a7b54dc2e50a6b2",
       "attempt_3_ingest_blocked_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/ingest-blocked-3.json",
       "attempt_3_ingest_blocked_digest": "sha256:69284cd78089fc5725264b4c2668bd6de681b18f97c70c2b195b5fe59e0ce250",
@@ -1369,10 +1370,9 @@
     "current_state": "issue_78_attempt_4_ingest_blocked_repeated_result_contract_failure",
     "next_valid_transition": "obtain explicit repository-owner direction on exceptional Issue #78 dispatch attempt 5"
   },
-  "active_issue_dispatch": null,
+  "active_issue_dispatch": {"ticket":"#79","attempt":4,"workflow_identity":"feature-delivery/m4-tools-human-approval/github-issue-79/attempt-4","state":"prepared_awaiting_human_opened_worker_session","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-4.json","dispatch_digest":"sha256:facfae4447b44b7e8a5e5df663908a71f735b74560c42eb787ea62c5ebcd1071","preserved_worker_changes":true},
   "blockers": [
-    "Issue #79 is blocked on a technical diagnosis: the locked root-CWD PostgreSQL/Alembic regression hangs after collection even though Docker and Compose PostgreSQL are healthy.",
-    "Issue #79 worker changes remain uncommitted in C:/Developer/Projects/knora-agent-worktree and must be preserved for the diagnostic continuation.",
+    "Issue #79 attempt 4 must diagnose the locked root-CWD PostgreSQL/Alembic regression hang, preserve all previous worker changes and prove the exact node green before claiming completion.",
     "The approved starting baseline has one known root-CWD Alembic harness failure; the Issue #79 worker must remediate it and return a green exact-SHA verification.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
@@ -1519,7 +1519,10 @@
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-3.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-3.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-3.json",
-    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/ingest-blocked-3.json"
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/ingest-blocked-3.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-4.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-4.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-4.json"
   ],
-  "last_updated_at": "2026-09-07T19:25:34+07:00"
+  "last_updated_at": "2026-09-07T19:27:00+07:00"
 }
