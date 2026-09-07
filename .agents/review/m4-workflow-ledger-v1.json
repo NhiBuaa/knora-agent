@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "awaiting_issue_sessions",
-  "next_valid_transition": "repository owner opens a fresh worker session and pastes the exact prepared Issue #79 prompt; then return its reserved contract for ingestion",
+  "current_state": "issue_79_implementation_blocked_docker_unavailable",
+  "next_valid_transition": "after the repository owner restores Docker Desktop Linux engine, prepare a fresh continuation dispatch that preserves and revalidates the worker's uncommitted Issue #79 changes",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -276,7 +276,9 @@
     "issue_79_guide_v2_delegated_owner_approved_and_locked",
     "issue_79_dispatch_attempt_1_prepared",
     "issue_79_dispatch_attempt_1_superseded_before_worker_start_due_to_prompt_binding",
-    "issue_79_dispatch_attempt_2_prepared"
+    "issue_79_dispatch_attempt_2_prepared",
+    "issue_79_dispatch_attempt_2_returned_blocked_docker_unavailable",
+    "issue_79_return_attempt_2_ingested_blocked"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -834,7 +836,9 @@
       "prepared_head": "71e5dea1fe56e3b4268be9e961185397f2e91b20",
       "dispatch_attempt": 2,
       "superseded_dispatches": [{"attempt":1,"dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-1.json","reason":"renderer-derived leader_prompt mismatch detected before worker start; no worker or implementation activity occurred"}],
-      "dispatch": {"workspace_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-2.json","workspace_digest":"sha256:71c4da0069939e2cf03018e85357879a93ec6162e4813b08286ee3f4add269fe","resume_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-2.json","resume_digest":"sha256:5bc5a1cee4f7dee92dfa8193c5c3530efbbae34a1a0ae99db94e3ce8a4f08f2a","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json","dispatch_digest":"sha256:14019e952bdac3c4684b5d5bcbc4032b44ce209e2fbce1557c059f6eaa0188d6","return_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-2.json","result_evidence_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-2.json"},
+      "dispatch": {"workspace_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-2.json","workspace_digest":"sha256:71c4da0069939e2cf03018e85357879a93ec6162e4813b08286ee3f4add269fe","resume_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-2.json","resume_digest":"sha256:5bc5a1cee4f7dee92dfa8193c5c3530efbbae34a1a0ae99db94e3ce8a4f08f2a","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json","dispatch_digest":"sha256:14019e952bdac3c4684b5d5bcbc4032b44ce209e2fbce1557c059f6eaa0188d6","return_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-2.json","return_digest":"sha256:6105cf93c29fe73925d1bf13dbbe1b6819bc1f2d8ce1325c7cf0dd00b95cb2f3","result_evidence_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-2.json","ingest_blocked_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/ingest-blocked-2.json","ingest_blocked_digest":"sha256:bd1957fc4ef3e29bde775e22a38fcec8660f23103a854d3d23a5b51a40facdf3"},
+      "implementation_status": "blocked_external_environment",
+      "implementation_blocker": "Docker Desktop Linux engine unavailable; no committed implementation or green required verification",
       "evaluation_history": null,
       "accepted_commit": null,
       "integrated_commit": null,
@@ -1358,9 +1362,10 @@
     "current_state": "issue_78_attempt_4_ingest_blocked_repeated_result_contract_failure",
     "next_valid_transition": "obtain explicit repository-owner direction on exceptional Issue #78 dispatch attempt 5"
   },
-  "active_issue_dispatch": {"ticket":"#79","attempt":2,"workflow_identity":"feature-delivery/m4-tools-human-approval/github-issue-79/attempt-2","state":"prepared_awaiting_human_opened_worker_session","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json","dispatch_digest":"sha256:14019e952bdac3c4684b5d5bcbc4032b44ce209e2fbce1557c059f6eaa0188d6"},
+  "active_issue_dispatch": null,
   "blockers": [
-    "Issue #79 dispatch attempt 2 is prepared; implementation cannot begin until the repository owner opens a fresh worker session and pastes the exact generated prompt.",
+    "Docker Desktop Linux engine is unavailable; Issue #79 cannot run its required PostgreSQL focused regression, complete suite or Alembic lifecycle.",
+    "Issue #79 worker changes remain uncommitted in C:/Developer/Projects/knora-agent-worktree and must be preserved/revalidated by a fresh continuation dispatch after Docker is restored.",
     "The approved starting baseline has one known root-CWD Alembic harness failure; the Issue #79 worker must remediate it and return a green exact-SHA verification.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
@@ -1500,7 +1505,9 @@
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-1.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-2.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-2.json",
-    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json"
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-2.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/ingest-blocked-2.json"
   ],
-  "last_updated_at": "2026-09-07T18:47:00+07:00"
+  "last_updated_at": "2026-09-07T18:48:00+07:00"
 }
