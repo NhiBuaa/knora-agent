@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_ticket_packet_ready_for_external_review",
-  "next_valid_transition": "obtain and validate independent external review of the exact Issue #79 ticket packet v1",
+  "current_state": "issue_79_ticket_contract_externally_approved_prepare_manual_guide",
+  "next_valid_transition": "prepare the Issue #79 structured Test Cases and manual guide, then obtain its independent external review before locking",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -25,7 +25,7 @@
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "integrated_closed_verified", "worktree": null},
-    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "frontier_preparation", "worktree": "C:/Developer/Projects/knora-agent-worktree"}
+    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "ticket_contract_approved_prepare_guide", "worktree": "C:/Developer/Projects/knora-agent-worktree"}
   ],
   "completed_transitions": [
     "specify",
@@ -268,7 +268,8 @@
     "frontier_79_opened",
     "issue_79_baseline_validated_with_owner_approved_known_failure",
     "issue_79_ticket_contract_v1_prepared",
-    "issue_79_ticket_review_packet_v1_validated"
+    "issue_79_ticket_review_packet_v1_validated",
+    "issue_79_ticket_contract_v2_externally_approved"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -799,16 +800,20 @@
       "source_base_commit": "5af5c5c914ea904fe1e14de1acff859113d53244",
       "worktree": "C:/Developer/Projects/knora-agent-worktree",
       "branch": "codex/issue-79-m4-release-gate",
-      "baseline_reference": ".agents/review/m4-issue-79-baseline-v1.json",
+      "baseline_reference": ".agents/review/m4-issue-79-frontier-baseline-v2.json",
       "baseline_status": "known_failure_approved_for_continuation",
       "baseline_result": "963 passed, 3 skipped, 1 known root-CWD Alembic failure; Ruff, Compose and Alembic head passed",
-      "ticket_contract_revision": 1,
-      "ticket_contract_reference": ".agents/review/m4-issue-79-revision-v1.md",
-      "ticket_contract_digest": "sha256:64ffdb8f4db92d1260baebd9cd932d713b6233431fe2089119456d51aa1938d6",
-      "ticket_review_packet_reference": ".agents/review/m4-issue-79-ticket-review-packet-v1.json",
-      "ticket_review_packet_digest": "sha256:ee7b7ee3ab56f78b87877ba04fb3d25fce0e3f2d153736bca6117661d814e218",
-      "ticket_review_request_id": "review-request-sha256:b3a92af36a98c58107bb2692dfbc172d68604041eab1922881ff4ba68c28601b",
-      "ticket_external_review": "PENDING",
+      "ticket_contract_revision": 2,
+      "ticket_contract_reference": ".agents/review/m4-issue-79-revision-v2.md",
+      "ticket_contract_digest": "sha256:d93b7f41035b0c531549e21834183aa5cfc46b74bd2540ddd334974f2f4b9fd1",
+      "ticket_review_packet_reference": ".agents/review/m4-issue-79-ticket-review-packet-v2.json",
+      "ticket_review_packet_digest": "sha256:9b9516f41412b7b349254acfa5867a0c8de1da283273ad0ec8abd003f18fe8af",
+      "ticket_review_request_id": "review-request-sha256:c8619f088939b4a5279fda50586e448e94db38a4886eb31e1310e1de91d6690c",
+      "ticket_external_review": "APPROVE",
+      "ticket_external_review_reference": ".agents/review/m4-issue-79-ticket-external-review-v2.json",
+      "ticket_external_review_response_reference": ".agents/review/m4-issue-79-ticket-review-response-v2.json",
+      "ticket_external_review_response_digest": "sha256:4bf3069ed2398ff92645814febe4a4c5c940261c7512e88786bfe4a00ea2033b",
+      "ticket_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
       "guide_revision": null,
       "evaluation_history": null,
       "accepted_commit": null,
@@ -819,6 +824,20 @@
     }
   },
   "external_review_history": [
+    {
+      "surface": "ticket:#79",
+      "revision": 2,
+      "ticket_contract_revision": 2,
+      "subject_commit": "1dcf9c8b499e56ac0ee849a684ff759ed706d2b5",
+      "verdict": "APPROVE",
+      "critical_count": 0,
+      "major_count": 0,
+      "minor_count": 0,
+      "response_digest": "sha256:4bf3069ed2398ff92645814febe4a4c5c940261c7512e88786bfe4a00ea2033b",
+      "reference": ".agents/review/m4-issue-79-ticket-external-review-v2.json",
+      "cadence_eligible": true,
+      "supersedes": ".agents/review/m4-issue-79-ticket-review-response-v1.json"
+    },
     {
       "surface": "spec_design",
       "revision": 1,
@@ -1448,5 +1467,5 @@
     ".agents/review/m4-issue-79-ticket-review-packet-v1.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/baseline-2.junit.xml"
   ],
-  "last_updated_at": "2026-09-06T10:42:26+07:00"
+  "last_updated_at": "2026-09-07T18:30:20+07:00"
 }
