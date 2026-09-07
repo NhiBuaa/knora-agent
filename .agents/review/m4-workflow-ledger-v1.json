@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_ticket_contract_externally_approved_prepare_manual_guide",
-  "next_valid_transition": "prepare the Issue #79 structured Test Cases and manual guide, then obtain its independent external review before locking",
+  "current_state": "awaiting_issue_sessions",
+  "next_valid_transition": "repository owner opens a fresh worker session and pastes the exact prepared Issue #79 prompt; then return its reserved contract for ingestion",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -25,7 +25,7 @@
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "integrated_closed_verified", "worktree": null},
-    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "ticket_contract_approved_prepare_guide", "worktree": "C:/Developer/Projects/knora-agent-worktree"}
+    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "dispatch_prepared_awaiting_worker", "worktree": "C:/Developer/Projects/knora-agent-worktree"}
   ],
   "completed_transitions": [
     "specify",
@@ -269,7 +269,14 @@
     "issue_79_baseline_validated_with_owner_approved_known_failure",
     "issue_79_ticket_contract_v1_prepared",
     "issue_79_ticket_review_packet_v1_validated",
-    "issue_79_ticket_contract_v2_externally_approved"
+    "issue_79_ticket_contract_v2_externally_approved",
+    "issue_79_guide_v1_external_review_request_changes",
+    "issue_79_guide_v2_prepared",
+    "issue_79_guide_v2_external_review_approved",
+    "issue_79_guide_v2_delegated_owner_approved_and_locked",
+    "issue_79_dispatch_attempt_1_prepared",
+    "issue_79_dispatch_attempt_1_superseded_before_worker_start_due_to_prompt_binding",
+    "issue_79_dispatch_attempt_2_prepared"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -814,7 +821,20 @@
       "ticket_external_review_response_reference": ".agents/review/m4-issue-79-ticket-review-response-v2.json",
       "ticket_external_review_response_digest": "sha256:4bf3069ed2398ff92645814febe4a4c5c940261c7512e88786bfe4a00ea2033b",
       "ticket_external_review_counts": {"critical": 0, "major": 0, "minor": 0},
-      "guide_revision": null,
+      "guide_revision": "m4-79-integrated-release-gate-v2",
+      "guide_digest": "sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63",
+      "guide_test_cases_reference": ".agents/review/m4-issue-79-test-cases-v2.json",
+      "guide_external_review": "APPROVE",
+      "guide_external_review_reference": ".agents/review/m4-issue-79-guide-external-review-v2.json",
+      "guide_external_review_response_reference": ".agents/review/m4-issue-79-guide-review-response-v2.json",
+      "guide_external_review_response_digest": "sha256:54b1a42cc48fe10dd6421c9b894d5c73d49af7a604371a897ebb402e67dfad43",
+      "guide_approval": "approved_delegated_repository_owner",
+      "guide_approval_reference": ".agents/review/m4-issue-79-guide-approval-v2.json",
+      "guide_lock_status": "LOCKED",
+      "prepared_head": "71e5dea1fe56e3b4268be9e961185397f2e91b20",
+      "dispatch_attempt": 2,
+      "superseded_dispatches": [{"attempt":1,"dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-1.json","reason":"renderer-derived leader_prompt mismatch detected before worker start; no worker or implementation activity occurred"}],
+      "dispatch": {"workspace_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-2.json","workspace_digest":"sha256:71c4da0069939e2cf03018e85357879a93ec6162e4813b08286ee3f4add269fe","resume_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-2.json","resume_digest":"sha256:5bc5a1cee4f7dee92dfa8193c5c3530efbbae34a1a0ae99db94e3ce8a4f08f2a","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json","dispatch_digest":"sha256:14019e952bdac3c4684b5d5bcbc4032b44ce209e2fbce1557c059f6eaa0188d6","return_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-2.json","result_evidence_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-2.json"},
       "evaluation_history": null,
       "accepted_commit": null,
       "integrated_commit": null,
@@ -1338,9 +1358,9 @@
     "current_state": "issue_78_attempt_4_ingest_blocked_repeated_result_contract_failure",
     "next_valid_transition": "obtain explicit repository-owner direction on exceptional Issue #78 dispatch attempt 5"
   },
-  "active_issue_dispatch": null,
+  "active_issue_dispatch": {"ticket":"#79","attempt":2,"workflow_identity":"feature-delivery/m4-tools-human-approval/github-issue-79/attempt-2","state":"prepared_awaiting_human_opened_worker_session","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json","dispatch_digest":"sha256:14019e952bdac3c4684b5d5bcbc4032b44ce209e2fbce1557c059f6eaa0188d6"},
   "blockers": [
-    "Issue #79 cannot dispatch until its exact ticket packet and locked manual guide receive the required independent external reviews.",
+    "Issue #79 dispatch attempt 2 is prepared; implementation cannot begin until the repository owner opens a fresh worker session and pastes the exact generated prompt.",
     "The approved starting baseline has one known root-CWD Alembic harness failure; the Issue #79 worker must remediate it and return a green exact-SHA verification.",
     "Final M4 code review remains forbidden until #75–#79 are accepted, integrated and closed."
   ],
@@ -1465,7 +1485,22 @@
     ".agents/review/m4-issue-79-baseline-v1.json",
     ".agents/review/m4-issue-79-revision-v1.md",
     ".agents/review/m4-issue-79-ticket-review-packet-v1.json",
-    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/baseline-2.junit.xml"
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/baseline-2.junit.xml",
+    ".agents/review/m4-issue-79-frontier-baseline-v2.json",
+    ".agents/review/m4-issue-79-revision-v2.md",
+    ".agents/review/m4-issue-79-ticket-review-packet-v2.json",
+    ".agents/review/m4-issue-79-ticket-external-review-v2.json",
+    ".agents/review/m4-issue-79-test-cases-v2.json",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.md",
+    ".agents/review/m4-issue-79-guide-review-packet-v2.json",
+    ".agents/review/m4-issue-79-guide-external-review-v2.json",
+    ".agents/review/m4-issue-79-guide-approval-v2.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-1.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-1.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-1.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-2.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-2.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-2.json"
   ],
-  "last_updated_at": "2026-09-07T18:30:20+07:00"
+  "last_updated_at": "2026-09-07T18:47:00+07:00"
 }
