@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-remediation-guide-external-review-v4-response-1",
+  "review_kind": "advisory_external_guide_review",
+  "reviewed_at": "2026-09-08T13:20:00+07:00",
+  "reviewed_artifacts": {
+    "final_review_result_sha256": "c3dc09bd4dd306f55821c8bba78b4f7482f43dec10ce2c39bda7e8b89cc67917",
+    "prior_block_response_sha256": "2cbb9adb0d5fca1b1aa0170c1603f6e1bec7a676b26798e5f5ae6ce09863c8c3",
+    "guide_sha256": "ff0eff4dac729ad19c4a2b13f4b2eb64c3ffa58c2c95d81648ce7043675d73e9",
+    "test_case_sha256": "a1bf215c36c5df6537d6b218527d712732cc0eb2d849b9a14fd06b7a37c21713"
+  },
+  "verdict": "APPROVE",
+  "evidence": [
+    "EXT-V3-01 is closed: both matrices require independently authored fixtures and expected envelopes and prohibit importing, deriving, mirroring, or reading expectations from production mappers, serializers, enums, or types.",
+    "EXT-V3-02 is closed: recursive zero-hit scanning explicitly covers every public projection, error envelope, and captured audit snapshot for rejection_code, raw provider data, provider routing data, keys, credentials, and internal exception material.",
+    "The preserved closed status/code contracts, sanitized failure_code, current sanitized ToolProposalProjection on every result, regression, append-only Evaluation and separate human approval leave no identified acceptance gap for either Major finding."
+  ],
+  "limitations": "Advisory guide review only; it is not code or implementation approval.",
+  "source": "External reviewer ChatGPT conversation 6a9fa25e-dbac-83ec-976b-ee7bd9353f01"
+}
