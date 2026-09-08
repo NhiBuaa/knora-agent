@@ -302,7 +302,8 @@
     "integration_79_attempt_8_cleanly_merged_and_verified",
     "final_feature_review_request_changes_recorded",
     "issue_79_guide_v3_external_review_block_recorded",
-    "issue_79_guide_v4_external_review_approved_and_owner_locked"
+    "issue_79_guide_v4_external_review_approved_and_owner_locked",
+    "issue_79_final_feature_review_remediation_dispatch_attempt_9_prepared"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -858,7 +859,7 @@
       "guide_approval_reference": ".agents/review/m4-issue-79-guide-approval-v4.json",
       "guide_lock_status": "LOCKED",
       "prepared_head": "71e5dea1fe56e3b4268be9e961185397f2e91b20",
-      "dispatch_attempt": "5-correction-1",
+      "dispatch_attempt": "9",
       "superseded_dispatches": [{"attempt":1,"dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-1.json","reason":"renderer-derived leader_prompt mismatch detected before worker start; no worker or implementation activity occurred"}],
       "dispatch": {"workspace_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-5-correction-1.json","workspace_digest":"sha256:b4601538c4ba80114c2c8fd201f520c04db1bc0fd403840032f786260555bcad","resume_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-5-correction-1.json","resume_digest":"sha256:c1f42b0df99903a8e693b605cefbfe9205f65e0e2a1a6c9dfc7450c3127fc236","dispatch_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-5-correction-1.json","dispatch_digest":"sha256:6e6f142f608e3d9ece068303dab7e805c9798cca295db0adf7f5f3da04b5b211","return_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-5-correction-1.json","result_evidence_reference":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-5-correction-1.json","continuation_of_return":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-4.json","supersedes_invalid_unstarted_dispatch":"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-5.json"},
       "implementation_status": "integrated_final_review_remediation_pending",
@@ -915,6 +916,26 @@
         "guide_v4_external_approval_reference": ".agents/review/m4-issue-79-remediation-guide-external-review-v4-response-1.json",
         "guide_v4_approval_reference": ".agents/review/m4-issue-79-guide-approval-v4.json",
         "next_action": "fresh isolated worker remediation dispatch"
+      },
+      "issue_session_dispatch": {
+        "status": "prepared",
+        "attempt": 9,
+        "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-9",
+        "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+        "branch": "codex/issue-79-final-review-remediation-1",
+        "worktree_path": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation",
+        "source_base": "ccffcf57e778d6f7f7fdf436e7506b21ef5b47c9",
+        "workspace_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-9.json",
+        "workspace_digest": "sha256:886b0a723ee8a710ca9e49f6ae856fa0e54f9fce67642d487b2451b6bf9776bf",
+        "resume_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-9.json",
+        "resume_digest": "sha256:3979f0f0931ec4d3cb4e5b2de138e22cf7e2d254a38e55d39123c27e21bf49a8",
+        "dispatch_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-9.json",
+        "dispatch_digest": "sha256:60130fc829a3ca76fc458354e954d9407594fbc022a82880de00298a11b6a7b7",
+        "return_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-9.json",
+        "result_evidence_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-9.json",
+        "baseline": "969 passed, 3 skipped; Ruff and Compose passed",
+        "allowed_scope": "two final-review Major findings only",
+        "guide_revision": "m4-79-integrated-release-gate-v4"
       },
       "pr": null,
       "design_revisions": 0,
@@ -1436,7 +1457,13 @@
     "current_state": "issue_78_attempt_4_ingest_blocked_repeated_result_contract_failure",
     "next_valid_transition": "obtain explicit repository-owner direction on exceptional Issue #78 dispatch attempt 5"
   },
-  "active_issue_dispatch": null,
+  "active_issue_dispatch": {
+    "ticket": "#79",
+    "attempt": 9,
+    "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-9",
+    "dispatch_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-9.json",
+    "next_valid_transition": "ingest_issue_result"
+  },
   "blockers": [
     "Final feature-level code review and its review-cadence evidence gate remain required before delivery can complete.",
     "No push, merge to main, publication, deployment, or GitHub Issue closure is authorized by this integration checkpoint."
@@ -1607,6 +1634,9 @@
     ".agents/review/m4-issue-79-remediation-guide-external-review-packet-v4.md",
     ".agents/review/m4-issue-79-remediation-guide-external-review-v4-response-1.json",
     ".agents/review/m4-issue-79-guide-approval-v4.json"
+    ,"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-9.json"
+    ,"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-9.json"
+    ,"C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-9.json"
   ],
   "last_updated_at": "2026-09-08T13:27:00+07:00"
 }
