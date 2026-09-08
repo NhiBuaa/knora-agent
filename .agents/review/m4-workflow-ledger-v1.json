@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_attempt_8_accepted_pending_clean_integration",
-  "next_valid_transition": "reconcile accepted Issue #79 attempt-8 remediation with the current integration head, then run non-overlapping integration verification",
+  "current_state": "all_m4_tickets_integrated_final_feature_review_ready",
+  "next_valid_transition": "create the immutable final fixed-point descriptor and invoke code-review once at feature level",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
@@ -16,8 +16,8 @@
     "branch": "nhibuaa/m4-tools-human-approval",
     "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "27b544a0a25793baf66d0a632296dd27d23cb774",
-    "current_head_resolution": "Issue #79 acceptance remediation was previously integrated through 4b96c0a; 27b544a records the later reproducible integration verification hang that attempt 8 remediates.",
+    "current_head": "ac082a178aa37d127836a401b6924177b8382c91",
+    "current_head_resolution": "Issue #79 attempt-8 remediation was cleanly merged and verified in a fresh detached worktree at this exact integration head; the following coordination checkpoint records that proof.",
     "published": false
   },
   "ticket_graph": [
@@ -25,7 +25,7 @@
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "integrated_closed_verified", "worktree": null},
-    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "accepted_pending_integration", "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-integration-remediation-2"}
+    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "integrated_verified_pending_final_feature_review", "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-integration-remediation-2"}
   ],
   "completed_transitions": [
     "specify",
@@ -298,7 +298,8 @@
     "issue_79_dispatch_attempt_7_returned_blocked_by_integration_verification_hang",
     "issue_79_dispatch_attempt_8_hang_remediation_returned_and_ingested",
     "evaluation_79_hang_remediation_candidate_executed",
-    "human_acceptance_79_hang_remediation_approved"
+    "human_acceptance_79_hang_remediation_approved",
+    "integration_79_attempt_8_cleanly_merged_and_verified"
   ],
   "reconciliation_history": [{"revision": 1, "recorded_at": "2026-09-06T09:45:49+07:00", "reference": ".agents/review/m4-issue-78-governance-reconciliation-v1.json", "reason": "The durable ledger stopped before Issue #78 acceptance/integration, while GitHub and the feature integration branch show PR #83 merged and Issue #78 closed.", "prior_state": "issue_78_acceptance_evidence_remediation_dispatched_awaiting_issue_session", "reconciled_state": "issue_79_frontier_ready_for_release_gate_preparation", "integration_head": "536107394eee73e28b8d8df22e31c64500974787"}],
   "review_cadence": {
@@ -895,7 +896,11 @@
       "attempt_3_ingest_blocked_digest": "sha256:69284cd78089fc5725264b4c2668bd6de681b18f97c70c2b195b5fe59e0ce250",
       "evaluation_history": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.evaluations.jsonl",
       "accepted_commit": "a0a82a9ca8d4b81b2bf5d6ebcb43813020e7dde1",
-      "integrated_commit": null,
+      "integrated_commit": "ac082a178aa37d127836a401b6924177b8382c91",
+      "integration_evidence": ".agents/review/m4-issue-79-integration-evidence-v2.json",
+      "acceptance_impact": "all_issue_79_cases_invalidated_by_shared_bootstrap_change_then_rerun_and_approved",
+      "integration_verification": "969 passed, 3 locked baseline skips; Ruff, Compose and diff check passed on clean detached integration worktree",
+      "worktree_disposition": "issue remediation worktree clean retained; detached verification worktree clean retained",
       "pr": null,
       "design_revisions": 0,
       "final_m4_review_authorized": false
@@ -1418,8 +1423,8 @@
   },
   "active_issue_dispatch": null,
   "blockers": [
-    "Issue #79 is accepted but not yet integrated; clean reconciliation and fresh integration verification are still required.",
-    "Final M4 code review remains forbidden until #75–#79 are accepted and integrated."
+    "Final feature-level code review and its review-cadence evidence gate remain required before delivery can complete.",
+    "No push, merge to main, publication, deployment, or GitHub Issue closure is authorized by this integration checkpoint."
   ],
   "authoritative_artifacts": [
     ".agents/review/m4-delivery-plan-v1.md",
@@ -1574,7 +1579,8 @@
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-8.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-8.json",
     "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-8.json",
-    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.evaluations.jsonl"
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.evaluations.jsonl",
+    ".agents/review/m4-issue-79-integration-evidence-v2.json"
   ],
-  "last_updated_at": "2026-09-08T12:15:00+07:00"
+  "last_updated_at": "2026-09-08T12:22:00+07:00"
 }
