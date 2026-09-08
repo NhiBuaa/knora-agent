@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_manual_acceptance_approved_pending_integration",
-  "next_valid_transition": "reconcile accepted Issue #79 commit with the current integration head and integrate after selective-invalidation analysis",
+  "current_state": "issue_79_integrated_pending_verification_hang",
+  "next_valid_transition": "diagnose and resolve the integration-worktree full-pytest hang, then rerun integration verification before final feature review",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
