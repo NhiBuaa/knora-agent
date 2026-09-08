@@ -7,6 +7,7 @@ import inspect
 import json
 import subprocess
 from pathlib import Path
+from typing import cast
 
 from knora.tools import CapabilityRegistry, ReconcileExecution, SupportToolGateway
 from knora.tools.execution_types import (
@@ -18,7 +19,7 @@ from knora.tools.execution_types import (
     ReconciliationOutcomeNotFound,
 )
 from knora.tools.proposal_http import _execution_response
-from knora.tools.proposal_types import TypedWriteCommand
+from knora.tools.proposal_types import ToolProposalProjection, TypedWriteCommand
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MATRIX_PATH = REPOSITORY_ROOT / "evals" / "fixtures" / "m4_78_reconciliation_matrix_v1.json"
@@ -30,6 +31,15 @@ FOCUSED_FILES = (
     "test/tools/test_proposal_http.py",
     "::test_release_evidence_builder_binds_every_locked_case_and_sanitized_seam",
 )
+
+INDEPENDENT_PROPOSAL_PROJECTION = {
+    "proposal_id": "10000000-0000-4000-8000-000000000001",
+    "workspace_id": "workspace-a",
+    "state": "approved",
+    "revision": 1,
+    "logical_execution_id": "20000000-0000-4000-8000-000000000002",
+    "audit": [],
+}
 
 
 def _sha256(path: Path) -> str:
@@ -208,28 +218,47 @@ def test_locked_release_matrix_is_independent_and_complete() -> None:
 
 
 def test_tc06_closed_reconciliation_projection_matches_independent_matrix() -> None:
-    matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))["public_results"]
     proposal_id = "10000000-0000-4000-8000-000000000001"
     logical_id = "20000000-0000-4000-8000-000000000002"
+    projection = cast(ToolProposalProjection, INDEPENDENT_PROPOSAL_PROJECTION)
     results = {
-        "success": ReconciledSucceeded(proposal_id, logical_id, "m4r1.opaque"),
-        "target_not_found": ReconciledFailed(proposal_id, logical_id, "target_not_found"),
-        "validation_rejected": ReconciledFailed(
-            proposal_id, logical_id, "validation_rejected"
+        "success": ReconciledSucceeded(
+            proposal_id, logical_id, "m4r1.opaque", projection=projection
         ),
-        "policy_rejected": ReconciledFailed(proposal_id, logical_id, "policy_rejected"),
+        "target_not_found": ReconciledFailed(
+            proposal_id, logical_id, "target_not_found", projection=projection
+        ),
+        "validation_rejected": ReconciledFailed(
+            proposal_id, logical_id, "validation_rejected", projection=projection
+        ),
+        "policy_rejected": ReconciledFailed(
+            proposal_id, logical_id, "policy_rejected", projection=projection
+        ),
         "unavailable": ReconciliationIndeterminate(
-            proposal_id, logical_id, "provider_observation_unavailable"
+            proposal_id,
+            logical_id,
+            "provider_observation_unavailable",
+            projection=projection,
         ),
         "timeout": ReconciliationIndeterminate(
-            proposal_id, logical_id, "provider_observation_timeout"
+            proposal_id,
+            logical_id,
+            "provider_observation_timeout",
+            projection=projection,
         ),
         "malformed": ReconciliationIndeterminate(
-            proposal_id, logical_id, "provider_observation_malformed"
+            proposal_id,
+            logical_id,
+            "provider_observation_malformed",
+            projection=projection,
         ),
-        "not_found": ReconciliationOutcomeNotFound(proposal_id, logical_id),
-        "in_progress": ExecutionInProgress(proposal_id, logical_id),
-        "fenced": ExecutionFenced(proposal_id, logical_id),
+        "not_found": ReconciliationOutcomeNotFound(
+            proposal_id, logical_id, projection=projection
+        ),
+        "in_progress": ExecutionInProgress(
+            proposal_id, logical_id, projection=projection
+        ),
+        "fenced": ExecutionFenced(proposal_id, logical_id, projection=projection),
     }
 
     observed = {}
@@ -240,7 +269,80 @@ def test_tc06_closed_reconciliation_projection_matches_independent_matrix() -> N
             "body": json.loads(response.body),
         }
 
-    assert observed == matrix
+    expected = {
+        "success": {
+            "status": 200,
+            "body": {
+                "proposal_id": proposal_id,
+                "logical_execution_id": logical_id,
+                "external_resource_reference": "m4r1.opaque",
+                "lifecycle": "succeeded",
+                "outcome_type": "reconciled_succeeded",
+                "proposal": INDEPENDENT_PROPOSAL_PROJECTION,
+            },
+        },
+        **{
+            name: {
+                "status": 502,
+                "body": {
+                    "error": {
+                        "code": "TOOL_PROVIDER_FAILURE",
+                        "failure_code": failure_code,
+                    },
+                    "proposal": INDEPENDENT_PROPOSAL_PROJECTION,
+                },
+            }
+            for name, failure_code in {
+                "target_not_found": "target_not_found",
+                "validation_rejected": "validation_rejected",
+                "policy_rejected": "policy_rejected",
+            }.items()
+        },
+        **{
+            name: {
+                "status": 202,
+                "body": {
+                    "proposal_id": proposal_id,
+                    "logical_execution_id": logical_id,
+                    "reason_code": reason_code,
+                    "lifecycle": "executing",
+                    "outcome_type": "reconciliation_indeterminate",
+                    "proposal": INDEPENDENT_PROPOSAL_PROJECTION,
+                },
+            }
+            for name, reason_code in {
+                "unavailable": "provider_observation_unavailable",
+                "timeout": "provider_observation_timeout",
+                "malformed": "provider_observation_malformed",
+            }.items()
+        },
+        "not_found": {
+            "status": 202,
+            "body": {
+                "proposal_id": proposal_id,
+                "logical_execution_id": logical_id,
+                "lifecycle": "executing",
+                "outcome_type": "provider_outcome_not_found",
+                "reason_code": "provider_outcome_not_found",
+                "proposal": INDEPENDENT_PROPOSAL_PROJECTION,
+            },
+        },
+        "in_progress": {
+            "status": 409,
+            "body": {
+                "error": {"code": "TOOL_EXECUTION_IN_PROGRESS"},
+                "proposal": INDEPENDENT_PROPOSAL_PROJECTION,
+            },
+        },
+        "fenced": {
+            "status": 409,
+            "body": {
+                "error": {"code": "TOOL_EXECUTION_FENCED"},
+                "proposal": INDEPENDENT_PROPOSAL_PROJECTION,
+            },
+        },
+    }
+    assert observed == expected
 
 
 def test_release_evidence_builder_binds_every_locked_case_and_sanitized_seam() -> None:

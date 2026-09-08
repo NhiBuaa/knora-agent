@@ -190,7 +190,12 @@ def test_prior_release_harnesses_do_not_mutate_committed_evidence(tmp_path: Path
             "evals/test/test_m4_78_release_acceptance.py",
         ],
         cwd=REPOSITORY_ROOT,
-        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+            env={
+                **os.environ,
+                "PYTHONPATH": os.pathsep.join(
+                    (str(tmp_path), str(REPOSITORY_ROOT / "backend" / "src"))
+                ),
+            },
         capture_output=True,
         text=True,
     )

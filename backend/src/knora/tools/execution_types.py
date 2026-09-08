@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Any
 
 from knora.tools.contracts import freeze_canonical_value
-from knora.tools.proposal_types import ResolvedCapabilityContext
+from knora.tools.proposal_types import ResolvedCapabilityContext, ToolProposalProjection
 from knora.tools.references import AuthorizedExternalResource
 
 
@@ -24,6 +24,7 @@ class ExecutionSucceeded:
     external_resource_reference: str
     lifecycle: str = field(default="succeeded", init=False)
     outcome_type: str = field(default="execution_succeeded", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +34,7 @@ class ExecutionFailed:
     rejection_code: str
     lifecycle: str = field(default="failed", init=False)
     outcome_type: str = field(default="execution_failed", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +44,7 @@ class ReconciledSucceeded:
     external_resource_reference: str
     lifecycle: str = field(default="succeeded", init=False)
     outcome_type: str = field(default="reconciled_succeeded", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +54,7 @@ class ReconciledFailed:
     rejection_code: str
     lifecycle: str = field(default="failed", init=False)
     outcome_type: str = field(default="reconciled_failed", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +64,7 @@ class ExecutionIndeterminate:
     lifecycle: str = field(default="executing", init=False)
     outcome_type: str = field(default="execution_indeterminate", init=False)
     reason_code: str = field(default="indeterminate_external_outcome", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +74,7 @@ class ExecutionInProgress:
     lifecycle: str = field(default="executing", init=False)
     outcome_type: str = field(default="execution_in_progress", init=False)
     reason_code: str = "execution_in_progress"
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +84,7 @@ class ExecutionFenced:
     lifecycle: str = field(default="executing", init=False)
     outcome_type: str = field(default="execution_fenced", init=False)
     reason_code: str = field(default="execution_fenced", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +94,7 @@ class ReconciliationIndeterminate:
     reason_code: str = "provider_observation_unavailable"
     lifecycle: str = field(default="executing", init=False)
     outcome_type: str = field(default="reconciliation_indeterminate", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +104,7 @@ class ReconciliationOutcomeNotFound:
     lifecycle: str = field(default="executing", init=False)
     outcome_type: str = field(default="provider_outcome_not_found", init=False)
     reason_code: str = field(default="provider_outcome_not_found", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +114,7 @@ class ProposalNotExecutable:
     reason_code: str
     lifecycle: str = field(default="executing", init=False)
     outcome_type: str = field(default="proposal_not_executable", init=False)
+    projection: ToolProposalProjection | None = field(default=None, kw_only=True, compare=False)
 
 
 ExecutionResult = (

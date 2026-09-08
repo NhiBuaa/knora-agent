@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
+from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.main import create_app
 from knora.tools import (
@@ -17,6 +18,7 @@ from knora.tools import (
     InMemoryReferenceStore,
     InMemoryToolActionStore,
     PolicyProvenance,
+    ProposeWriteAction,
     ReferenceKey,
     ReferenceKeyRing,
     ReferenceVerifier,
@@ -24,6 +26,12 @@ from knora.tools import (
     VerifiedProposalTarget,
     WriteProposalWorkflow,
 )
+from knora.tools.execution_types import (
+    ExecutionFailed,
+    ExecutionInProgress,
+    ReconciledFailed,
+)
+from knora.tools.proposal_types import ToolProposalProjection
 
 
 class HttpCapabilityResolver:
@@ -203,6 +211,114 @@ def proposal_payload() -> dict[str, str]:
         "title": "Cannot sign in",
         "description": "Customer cannot complete SSO sign-in.",
     }
+
+
+class HttpExecutionResultWorkflow:
+    def __init__(self, result) -> None:
+        self.result = result
+
+    def handle(self, command, principal, actor_context):
+        assert command.proposal_id == "proposal-a"
+        assert principal.workspace_id == "workspace-a"
+        assert actor_context.actor_kind == "human"
+        return self.result
+
+
+def execution_projection() -> ToolProposalProjection:
+    workflow = WriteProposalWorkflow(
+        capability_resolver=HttpCapabilityResolver(),
+        store=InMemoryToolActionStore(),
+        target_verifier=HttpTargetVerifier(),
+    )
+    result = workflow.handle(
+        ProposeWriteAction(
+            "create_ticket",
+            "m4r1.target.opaque",
+            "Cannot sign in",
+            "Customer cannot complete SSO sign-in.",
+        ),
+        WorkspacePrincipal("workspace-a", "proposal-a"),
+        HttpActorContextProvider("human").resolve(WorkspacePrincipal("workspace-a", "proposal-a")),
+    )
+    return result.projection
+
+
+def execution_result_client(result) -> TestClient:
+    authenticator = ApiKeyAuthenticator(
+        (
+            ApiCredential(
+                key_id="proposal-a",
+                key_hash=hash_api_key("proposal-key"),
+                workspace_id="workspace-a",
+                enabled=True,
+            ),
+        )
+    )
+    return TestClient(
+        create_app(
+            write_proposal_workflow=HttpExecutionResultWorkflow(result),
+            api_key_authenticator=authenticator,
+            tool_actor_context_provider=HttpActorContextProvider("human"),
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("route", "result"),
+    [
+        (
+            "execute",
+            ExecutionFailed(
+                "proposal-a",
+                "logical-a",
+                "validation_rejected",
+                projection=execution_projection(),
+            ),
+        ),
+        (
+            "reconcile",
+            ReconciledFailed(
+                "proposal-a",
+                "logical-a",
+                "policy_rejected",
+                projection=execution_projection(),
+            ),
+        ),
+        (
+            "execute",
+            ExecutionInProgress(
+                "proposal-a",
+                "logical-a",
+                projection=execution_projection(),
+            ),
+        ),
+    ],
+)
+def test_execution_http_returns_closed_errors_and_current_sanitized_projection(
+    route, result
+) -> None:
+    client = execution_result_client(result)
+    response = client.post(
+        f"/v1/workspaces/workspace-a/tool-proposals/proposal-a/{route}",
+        headers={"X-API-Key": "proposal-key"},
+        json={"expected_revision": 1}
+        if route == "execute"
+        else {"expected_lease_generation": 1},
+    )
+
+    expected_status = 502 if isinstance(result, (ExecutionFailed, ReconciledFailed)) else 409
+    assert response.status_code == expected_status
+    body = response.json()
+    assert body["proposal"]["proposal_id"] == result.projection.proposal_id
+    assert body["proposal"]["state"] == "proposed"
+    assert "rejection_code" not in body
+    if isinstance(result, (ExecutionFailed, ReconciledFailed)):
+        assert body["error"] == {
+            "code": "TOOL_PROVIDER_FAILURE",
+            "failure_code": result.rejection_code,
+        }
+    else:
+        assert body["error"] == {"code": "TOOL_EXECUTION_IN_PROGRESS"}
 
 
 def test_proposal_http_routes_are_workspace_scoped_and_typed() -> None:
