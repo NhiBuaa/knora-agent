@@ -3,8 +3,8 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "active",
-  "current_state": "issue_79_remediation_acceptance_candidate_pending_owner_approval",
-  "next_valid_transition": "record explicit repository-owner approval or rejection for Evaluation m4-79-integrated-release-gate-v2-20260908-02-candidate",
+  "current_state": "issue_79_integrated_remediation_verification_reproducibly_hanging",
+  "next_valid_transition": "prepare a fresh bounded Issue #79 dispatch to diagnose the integration-worktree-only pytest hang",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
   "default_branch": {
