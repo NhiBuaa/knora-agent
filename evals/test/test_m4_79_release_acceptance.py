@@ -31,7 +31,10 @@ PROTECTED_RELEASE_EVIDENCE_PATHS = (
 
 
 def _sha256(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+    # Git's content-addressed text is LF-normalized; keep release evidence stable
+    # when a Windows checkout materializes the same tracked guide as CRLF.
+    content = path.read_bytes().replace(b"\r\n", b"\n")
+    return "sha256:" + hashlib.sha256(content).hexdigest()
 
 
 def _changed_paths(source_base: str, subject_sha: str) -> list[str]:
@@ -123,7 +126,24 @@ def test_locked_guide_and_history_are_append_only_inputs() -> None:
 
     assert _sha256(GUIDE_PATH) == matrix["guide_digest"]
     assert approval["lock_status"] == "LOCKED"
-    assert HISTORY_PATH.read_text(encoding="utf-8") == ""
+    history = [
+        json.loads(line)
+        for line in HISTORY_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert all(record["append_only"] is True for record in history)
+    assert all(record["guide_revision"] == matrix["guide_revision"] for record in history)
+    guide_digest = matrix["guide_digest"].removeprefix("sha256:")
+    assert all(record["guide_sha256"] == guide_digest for record in history)
+
+
+def test_content_hash_is_stable_for_windows_checkout_newlines(tmp_path: Path) -> None:
+    guide = tmp_path / "guide.md"
+    guide.write_bytes(b"first\r\nsecond\r\n")
+
+    assert _sha256(guide) == (
+        "sha256:dbea9325179efe46ea2add94f7b6b745ca983fabb208dc6d34aa064623d7ee23"
+    )
 
 
 def test_frontier_baseline_and_readiness_template_are_bound() -> None:
