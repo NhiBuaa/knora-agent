@@ -8,8 +8,6 @@ import json
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from knora.tools import CapabilityRegistry, ReconcileExecution, SupportToolGateway
 from knora.tools.execution_types import (
     ExecutionFenced,
@@ -24,7 +22,6 @@ from knora.tools.proposal_types import TypedWriteCommand
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MATRIX_PATH = REPOSITORY_ROOT / "evals" / "fixtures" / "m4_78_reconciliation_matrix_v1.json"
-EVIDENCE_PATH = REPOSITORY_ROOT / ".agents" / "review" / "m4-issue-78-release-evidence-v1.json"
 GUIDE_DIGEST = "sha256:03b95fdaba97203c3ecfe228efb17cf4899baf15717733de07ab42f151d6693b"
 FOCUSED_FILES = (
     "test/tools/test_reconciliation_workflow.py",
@@ -175,42 +172,6 @@ def _build_release_evidence(
         literal for literal in forbidden_literals if literal in serialized
     ]
     return evidence
-
-
-@pytest.fixture(scope="session", autouse=True)
-def write_release_evidence(request: pytest.FixtureRequest) -> None:
-    yield
-    nodeids = [item.nodeid.replace("\\", "/") for item in request.session.items]
-    if not all(any(required in nodeid for nodeid in nodeids) for required in FOCUSED_FILES):
-        return
-    if request.session.testsfailed:
-        EVIDENCE_PATH.unlink(missing_ok=True)
-        return
-    subject_sha = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPOSITORY_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    evidence = _build_release_evidence(
-        subject_sha=subject_sha,
-        executed_nodeids=nodeids,
-        changed_paths=_changed_paths(
-            "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1", subject_sha
-        ),
-    )
-    missing_cases = [
-        case_id
-        for case_id, case in evidence["cases"].items()  # type: ignore[union-attr]
-        if not case["executed_nodeids"]
-    ]
-    if missing_cases:
-        raise AssertionError(f"release evidence missing executed coverage: {missing_cases}")
-    EVIDENCE_PATH.write_text(
-        json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
 
 
 def test_static_tool_registry_remains_allowlisted_without_runtime_registration() -> None:

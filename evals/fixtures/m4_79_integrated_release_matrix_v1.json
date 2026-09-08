@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "matrix_id": "m4-79-integrated-release-matrix-v1",
+  "source_base": "5af5c5c914ea904fe1e14de1acff859113d53244",
+  "guide_revision": "m4-79-integrated-release-gate-v2",
+  "guide_digest": "sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63",
+  "test_cases": ["M4-79-TC-01", "M4-79-TC-02", "M4-79-TC-03", "M4-79-TC-04", "M4-79-TC-05", "M4-79-TC-06", "M4-79-TC-07", "M4-79-TC-08", "M4-79-TC-09", "M4-79-TC-10", "M4-79-TC-11"],
+  "case_evidence": {
+    "M4-79-TC-01": {"nodeid_patterns": ["test_proposal_http.py::test_http_workspace_authorization_observably_precedes_one_scoped_lookup"], "assertions": ["denied lookup rows make zero provider calls"]},
+    "M4-79-TC-02": {"nodeid_patterns": ["test_proposals.py::test_concurrent_decision_has_one_cas_winner_and_loser_reads_winner"], "assertions": ["one human decision CAS winner preserves immutable material"]},
+    "M4-79-TC-03": {"nodeid_patterns": ["test_execution_workflow.py::test_"], "assertions": ["current execution authority and projections are closed"]},
+    "M4-79-TC-04": {"nodeid_patterns": ["test_execution_postgres.py::test_"], "assertions": ["one admission/effect wins concurrent execution"]},
+    "M4-79-TC-05": {"nodeid_patterns": ["test_reconciliation_workflow.py::test_"], "assertions": ["reconciliation rows remain restart-stable"]},
+    "M4-79-TC-06": {"nodeid_patterns": ["test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit"], "assertions": ["strict-expiry migration round trip is root-CWD independent"]},
+    "M4-79-TC-07": {"nodeid_patterns": ["test_reconciliation_postgres.py::test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_finalizing"], "assertions": ["audit ordering records takeover and terminalization"]},
+    "M4-79-TC-08": {"nodeid_patterns": ["test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit"], "assertions": ["root-CWD collection and migration lifecycle are required"]},
+    "M4-79-TC-09": {"nodeid_patterns": ["test_m4_79_release_acceptance.py::test_release_evidence_builder_requires_every_locked_case"], "assertions": ["exact-subject verification inventory is bound"]},
+    "M4-79-TC-10": {"nodeid_patterns": ["test_m4_79_release_acceptance.py::test_frontier_baseline_and_readiness_template_are_bound"], "assertions": ["native frontier and deferred review boundary are explicit"]},
+    "M4-79-TC-11": {"nodeid_patterns": ["test_m4_79_release_acceptance.py::test_locked_guide_and_history_are_append_only_inputs"], "assertions": ["guide lock and evaluation history are immutable inputs"]}
+  },
+  "forbidden_value_classes": ["credential value", "raw provider routing value", "dispatch envelope bytes", "reference or signing key material", "raw command output"]
+}

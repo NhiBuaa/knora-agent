@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import hashlib
 import inspect
 import json
-import subprocess
 from dataclasses import asdict, fields
 from pathlib import Path
 
@@ -32,66 +30,7 @@ from knora.tools.execution_types import AuthorizedExecutionBindingSnapshot, Exec
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MATRIX_PATH = REPOSITORY_ROOT / "evals" / "fixtures" / "m4_77_public_matrix_v1.json"
-EVIDENCE_PATH = REPOSITORY_ROOT / ".agents" / "review" / "m4-issue-77-release-evidence-v1.json"
 CASE_IDS = tuple(f"M4-77-TC-{number:02d}" for number in range(1, 13))
-
-
-def _sha256(path: Path) -> str:
-    return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def write_release_evidence(request: pytest.FixtureRequest) -> None:
-    yield
-    if request.session.testsfailed:
-        EVIDENCE_PATH.unlink(missing_ok=True)
-        return
-    subject_sha = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPOSITORY_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
-    evidence = {
-        "schema_version": 1,
-        "evidence_id": "m4-issue-77-release-evidence-v1",
-        "subject_sha": subject_sha,
-        "guide_revision": "m4-77-authorized-execution-v7",
-        "guide_digest": "sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93",
-        "test_cases": list(CASE_IDS),
-        "matrix_digest": _sha256(MATRIX_PATH),
-        "registry": {
-            "identity": CapabilityRegistry.registry_identity,
-            "version": CapabilityRegistry.registry_version,
-            "digest": CapabilityRegistry.static().registry_digest,
-            "capability_ids": list(CapabilityRegistry.static().capability_ids),
-        },
-        "provider_boundary": {
-            "identity": "sqlite-reference-provider-v1",
-            "idempotency_ledger": "provider_owned",
-            "tool_action_store_independent": True,
-        },
-        "sentinels": {
-            "gateway": "m4-77-counting-gateway-v1",
-            "provider_effect": "m4-77-sqlite-effect-count-v1",
-            "admission": "m4-77-postgres-admission-count-v1",
-        },
-        "result": "PASSED",
-        "sanitized": True,
-        "matrix_rows": {
-            "pre_acquisition": len(matrix["pre_acquisition_rows"]),
-            "post_acquisition": len(matrix["denial_rows"]),
-            "execution": len(matrix["execution_rows"]),
-        },
-    }
-    EVIDENCE_PATH.write_text(
-        json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
-
-
 def test_tc01_literal_denial_matrix_is_closed_and_independently_stored() -> None:
     matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
     assert len(matrix["pre_acquisition_rows"]) == 37
