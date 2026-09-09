@@ -1,0 +1,28 @@
+{
+  "artifact_id": "m4-issue-79-attempt-10-manual-tc08",
+  "schema_version": 1,
+  "observed_at": "2026-09-09T09:24:20+07:00",
+  "subject_sha": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+  "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-2",
+  "environment": {
+    "docker_engine": "29.7.2",
+    "postgres_service": "compose postgres only; healthy",
+    "database_identity": {"host": "127.0.0.1", "port": 5432, "name": "knora", "connect_timeout_seconds": 3}
+  },
+  "setup": {
+    "first_node_result": "blocked by an empty new database with no workspaces table",
+    "resolution": "alembic upgrade head completed before rerunning the required node"
+  },
+  "commands": [
+    {
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-2",
+      "command": "python -m pytest backend/test/tools/test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit",
+      "result": "1 passed"
+    },
+    {"command": "python -m alembic -c backend/alembic.ini upgrade 20260824_0040", "result": "passed"},
+    {"command": "python -m alembic -c backend/alembic.ini downgrade 20260824_0039", "result": "passed"},
+    {"command": "python -m alembic -c backend/alembic.ini upgrade 20260824_0040", "result": "passed"},
+    {"command": "python -m alembic -c backend/alembic.ini current", "result": "20260824_0040 (head)"}
+  ],
+  "verdict": "PASS"
+}
