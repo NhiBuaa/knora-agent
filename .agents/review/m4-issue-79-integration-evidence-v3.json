@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-10",
+  "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+  "feature_branch": "nhibuaa/m4-tools-human-approval",
+  "integration_worktree": "C:/Developer/Projects/knora-agent-m4-integration",
+  "source_base": "b7e9cdb2af00b1c4bcc5c41788f7a26d521eeaf0",
+  "accepted_worker_commit": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+  "reconciliation": {
+    "status": "clean",
+    "merge_method": "merge_commit",
+    "integration_commit": "783483403e977e5529a7bc585bf60808265e96d0",
+    "worker_commit_is_ancestor": true,
+    "conflict_resolution": "none",
+    "changed_scope": [
+      "backend/src/knora/tools/execution_types.py",
+      "backend/src/knora/tools/proposal_http.py",
+      "backend/src/knora/tools/proposals.py",
+      "backend/test/adapters/http/test_tools.py",
+      "backend/test/tools/test_proposal_http.py",
+      "evals/test/test_m4_77_release_acceptance.py",
+      "evals/test/test_m4_78_release_acceptance.py",
+      "evals/test/test_m4_79_release_acceptance.py"
+    ]
+  },
+  "verification": {
+    "cwd": "C:/Developer/Projects/knora-agent-m4-integration",
+    "interpreter": "C:/Developer/Projects/knora-agent-worktree/.venv/Scripts/python.exe",
+    "pythonpath": "C:/Developer/Projects/knora-agent-m4-integration/backend/src",
+    "database": {
+      "environment_variable": "KNORA_DATABASE_URL",
+      "host": "127.0.0.1",
+      "port": 5432,
+      "database": "knora",
+      "credentials_recorded": false
+    },
+    "docker_engine": "29.7.2",
+    "focused_suite": "160 passed, 5 warnings",
+    "full_suite": "972 passed, 3 skipped, 11 warnings",
+    "ruff": "passed",
+    "compose_config": "passed",
+    "git_diff_check": "passed",
+    "calibration_fixture_integrity": "passed after restoring LF worktree bytes required by repository eol=lf attributes"
+  },
+  "acceptance_impact": {
+    "decision": "preserved_all_cases",
+    "guide_revision": "m4-79-integrated-release-gate-v4",
+    "guide_digest": "sha256:ff0eff4dac729ad19c4a2b13f4b2eb64c3ffa58c2c95d81648ce7043675d73e9",
+    "evaluation_reference": ".agents/review/m4-issue-79-evaluation-10-approved.json",
+    "evaluation_digest": "sha256:c95ed0eda53672eab544a98178c76382a10f5313e1b5967d339a907bb759bd37",
+    "evaluation_run_id": "m4-79-integrated-release-gate-v4-20260909-02-approved",
+    "human_approval": "approved",
+    "invalidated_cases": [],
+    "reason": "The integrated production/test scope is exactly the accepted worker scope; guide, evaluation history, source bindings and runtime environment remained unchanged. Integration added only ancestry and coordination artifacts, and all integration verification passed."
+  },
+  "worktree_disposition": {
+    "integration": "clean_retained",
+    "worker": "clean_retained",
+    "default_branch": "main unchanged at 6312c4c4230032aa92ca5915803fcfaf564354fa"
+  },
+  "recorded_at": "2026-09-09T10:07:04+07:00"
+}
