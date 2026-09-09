@@ -66,12 +66,38 @@ def _transport_value(value):
         return {
             projection_field.name: _transport_value(getattr(value, projection_field.name))
             for projection_field in fields(value)
+            if not _is_private_transport_field(projection_field.name)
         }
     if isinstance(value, Mapping):
-        return {key: _transport_value(nested) for key, nested in value.items()}
+        return {
+            key: _transport_value(nested)
+            for key, nested in value.items()
+            if not _is_private_transport_field(key)
+        }
     if isinstance(value, Sequence) and not isinstance(value, bytes | bytearray | str):
         return [_transport_value(item) for item in value]
     return value
+
+
+def _is_private_transport_field(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    return value.casefold() in {
+        "rejection_code",
+        "provider_id",
+        "provider_resource_id",
+        "provider_ticket_id",
+        "provider_routing_handle",
+        "external_scope",
+        "envelope_token",
+        "secret",
+        "credential",
+        "credentials",
+        "mac",
+        "exception",
+        "internal_exception",
+        "raw_provider_response",
+    }
 
 
 def _decision_response(result) -> JSONResponse:
@@ -110,6 +136,22 @@ def _execution_response(result) -> JSONResponse:
         )
     status = 200
     if isinstance(result, (ExecutionFailed, ReconciledFailed)):
+        if result.rejection_code == "provider_scope_denied":
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {"code": "TOOL_RESOURCE_ACCESS_DENIED"},
+                    "proposal": proposal,
+                },
+            )
+        if result.rejection_code == "provider_request_rejected":
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": {"code": "TOOL_PROVIDER_REQUEST_FAILED"},
+                    "proposal": proposal,
+                },
+            )
         return JSONResponse(
             status_code=502,
             content={

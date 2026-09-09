@@ -18,6 +18,8 @@ from knora.tools import (
     PolicyProvenance,
     ProposalNotExecutable,
     ProviderIdempotencyConflict,
+    ProviderRequestRejected,
+    ProviderScopeDenied,
     ProviderWriteFailed,
     ProviderWriteIndeterminate,
     ProviderWriteSucceeded,
@@ -266,6 +268,57 @@ def test_execute_http_uses_closed_sanitized_result_matrix(
     else:
         assert body == {**expected_result, "proposal": body["proposal"]}
     assert len(gateway.calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("outcome", "status", "code"),
+    [
+        (ProviderRequestRejected(), 502, "TOOL_PROVIDER_REQUEST_FAILED"),
+        (ProviderScopeDenied(), 403, "TOOL_RESOURCE_ACCESS_DENIED"),
+    ],
+)
+def test_execute_http_maps_definitive_provider_denials_without_202(
+    outcome, status: int, code: str
+) -> None:
+    client, gateway, proposal_id, _ = execution_client(outcome)
+
+    response = client.post(
+        f"/v1/workspaces/workspace-a/tool-proposals/{proposal_id}/execute",
+        headers={"X-API-Key": "secret-a"},
+        json={"expected_revision": 1},
+    )
+
+    assert response.status_code == status
+    assert response.json()["error"] == {"code": code}
+    assert response.json()["proposal"]["state"] == "failed"
+    assert len(gateway.calls) == 1
+
+
+def _nested_keys(value):
+    if isinstance(value, dict):
+        keys = set(value)
+        for nested in value.values():
+            keys.update(_nested_keys(nested))
+        return keys
+    if isinstance(value, list):
+        keys = set()
+        for nested in value:
+            keys.update(_nested_keys(nested))
+        return keys
+    return set()
+
+
+def test_execute_http_recursively_sanitizes_rejection_code_from_audit_projection() -> None:
+    client, _, proposal_id, _ = execution_client(ProviderWriteFailed("policy_rejected"))
+
+    response = client.post(
+        f"/v1/workspaces/workspace-a/tool-proposals/{proposal_id}/execute",
+        headers={"X-API-Key": "secret-a"},
+        json={"expected_revision": 1},
+    )
+
+    assert response.status_code == 502
+    assert "rejection_code" not in _nested_keys(response.json())
 
 
 def test_execute_http_auth_workspace_and_schema_fail_before_workflow() -> None:

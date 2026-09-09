@@ -30,6 +30,18 @@ class TicketLookupResult:
     def reference(self) -> str:
         return self.ticket_reference
 
+    def validate(self) -> TicketLookupResult:
+        """Validate the complete provider result before it crosses the application seam."""
+        if not _valid_provider_text(self.ticket_reference, maximum=4096, allow_empty=False):
+            raise ValueError("ticket_reference is not valid provider text")
+        if not _valid_provider_text(self.title, maximum=200, allow_empty=False):
+            raise ValueError("title is not valid provider text")
+        if not _valid_provider_text(self.status, maximum=100, allow_empty=False):
+            raise ValueError("status is not valid provider text")
+        if not _valid_provider_text(self.summary, maximum=10_000, allow_empty=True):
+            raise ValueError("summary is not valid provider text")
+        return self
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderScopeDenied:
@@ -69,6 +81,13 @@ class ProviderWriteIndeterminate:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderRequestRejected:
+    """A provider proved that it rejected the request before receiving a write."""
+
+    code: str = "provider_request_rejected"
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderIdempotencyConflict:
     code: str = "provider_idempotency_conflict"
 
@@ -80,7 +99,7 @@ class ProviderOutcomeNotFound:
 
 @dataclass(frozen=True, slots=True)
 class ProviderOutcomeFound:
-    outcome: ProviderWriteSucceeded | ProviderWriteFailed
+    outcome: ProviderWriteSucceeded | ProviderWriteFailed | ProviderRequestRejected
     code: str = "found"
 
 
@@ -116,6 +135,7 @@ class SupportToolGateway(Protocol):
         ProviderWriteSucceeded
         | ProviderWriteFailed
         | ProviderWriteIndeterminate
+        | ProviderRequestRejected
         | ProviderIdempotencyConflict
         | ProviderScopeDenied
         | ProviderUnavailable
@@ -172,6 +192,7 @@ class SQLiteSupportToolGateway:
         dispatch_verifier: HmacDispatchEnvelopeSigner | None = None,
         forced_rejection: ProviderTerminalFailureCode | None = None,
         indeterminate_after_commit: bool = False,
+        forced_request_rejection: bool = False,
     ) -> None:
         self.provider = provider
         self.calls: list[LookupTicketRequest] = []
@@ -179,6 +200,7 @@ class SQLiteSupportToolGateway:
         self._dispatch_verifier = dispatch_verifier
         self._forced_rejection = forced_rejection
         self._indeterminate_after_commit = indeterminate_after_commit
+        self._forced_request_rejection = forced_request_rejection
 
     def lookup_ticket(self, request: LookupTicketRequest):
         self.calls.append(request)
@@ -234,6 +256,8 @@ class SQLiteSupportToolGateway:
             )
             if target_authorization == "scope_denied":
                 return ProviderScopeDenied()
+            if self._forced_request_rejection:
+                return ProviderRequestRejected()
             result = self.provider.create_ticket(
                 scope=_required_text(claims, "external_scope"),
                 provider_routing_handle=_required_text(claims, "provider_routing_handle"),
@@ -251,14 +275,12 @@ class SQLiteSupportToolGateway:
             )
         except sqlite3.Error:
             return ProviderUnavailable()
-        except (KeyError, TypeError, ValueError):
+        except Exception:
             return ProviderContractInvalid()
-        if result[0] == "conflict":
-            return ProviderIdempotencyConflict()
-        if result[0] == "failed":
-            outcome = ProviderWriteFailed(result[1])
-        else:
-            outcome = ProviderWriteSucceeded(result[1])
+        try:
+            outcome = _parse_provider_write_result(result)
+        except (TypeError, ValueError):
+            return ProviderContractInvalid()
         if self._indeterminate_after_commit:
             return ProviderWriteIndeterminate()
         return outcome
@@ -270,15 +292,28 @@ class SQLiteSupportToolGateway:
             )
         except sqlite3.Error:
             return ProviderObservationUnavailable()
+        except Exception:
+            return ProviderObservationMalformed()
         if result is None:
             return ProviderOutcomeNotFound()
-        outcome_type, value = result
-        if outcome_type == "succeeded":
-            return ProviderOutcomeFound(ProviderWriteSucceeded(value))
-        if outcome_type == "failed" and value in {
-            item.value for item in ProviderTerminalFailureCode
-        }:
-            return ProviderOutcomeFound(ProviderWriteFailed(value))
+        try:
+            if not isinstance(result, tuple) or len(result) != 2:
+                raise ValueError("provider outcome must be a two-item tuple")
+            outcome_type, value = result
+            if not isinstance(outcome_type, str) or not isinstance(value, str):
+                raise ValueError("provider outcome fields must be text")
+            if outcome_type == "succeeded" and _valid_provider_text(
+                value, maximum=4096, allow_empty=False
+            ):
+                return ProviderOutcomeFound(ProviderWriteSucceeded(value))
+            if outcome_type == "failed" and value in {
+                item.value for item in ProviderTerminalFailureCode
+            }:
+                return ProviderOutcomeFound(ProviderWriteFailed(value))
+            if outcome_type == "request_rejected" and value == "no_write_received":
+                return ProviderOutcomeFound(ProviderRequestRejected())
+        except (TypeError, ValueError):
+            pass
         return ProviderObservationMalformed()
 
 
@@ -289,6 +324,32 @@ def _valid_provider_text(value: object, *, maximum: int, allow_empty: bool) -> b
         and len(value) <= maximum
         and (allow_empty or bool(value))
     )
+
+
+def _parse_provider_write_result(
+    result: object,
+) -> (
+    ProviderWriteSucceeded
+    | ProviderWriteFailed
+    | ProviderRequestRejected
+    | ProviderIdempotencyConflict
+):
+    if not isinstance(result, tuple) or len(result) != 2:
+        raise ValueError("provider write result must be a two-item tuple")
+    outcome_type, value = result
+    if not isinstance(outcome_type, str) or not isinstance(value, str):
+        raise ValueError("provider write result fields must be text")
+    if outcome_type == "conflict" and value == "provider_idempotency_conflict":
+        return ProviderIdempotencyConflict()
+    if outcome_type == "failed" and value in {item.value for item in ProviderTerminalFailureCode}:
+        return ProviderWriteFailed(value)
+    if outcome_type == "succeeded" and _valid_provider_text(
+        value, maximum=4096, allow_empty=False
+    ):
+        return ProviderWriteSucceeded(value)
+    if outcome_type == "request_rejected" and value == "no_write_received":
+        return ProviderRequestRejected()
+    raise ValueError("unknown provider write result")
 
 
 def _provider_intent_fingerprint(intent: dict[str, object]) -> str:
