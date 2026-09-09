@@ -169,6 +169,16 @@ def execution_client(outcome):
     return client, gateway, proposal_id, approved.json()["logical_execution_id"]
 
 
+def current_response_projection() -> dict[str, object]:
+    client, _, proposal_id, _ = execution_client(ProviderWriteIndeterminate())
+    response = client.get(
+        f"/v1/workspaces/workspace-a/tool-proposals/{proposal_id}",
+        headers={"X-API-Key": "secret-a"},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
 @pytest.mark.parametrize(
     ("outcome", "status", "outcome_type", "variant_field", "variant_value"),
     [
@@ -228,7 +238,7 @@ def test_execute_http_uses_closed_sanitized_result_matrix(
     )
 
     assert response.status_code == status
-    assert response.json() == {
+    expected_result = {
         "proposal_id": proposal_id,
         "logical_execution_id": logical_id,
         "lifecycle": {
@@ -240,6 +250,21 @@ def test_execute_http_uses_closed_sanitized_result_matrix(
         "outcome_type": outcome_type,
         variant_field: variant_value,
     }
+    body = response.json()
+    assert body["proposal"]["proposal_id"] == proposal_id
+    assert "rejection_code" not in body
+    if isinstance(outcome, ProviderWriteFailed):
+        assert body == {
+            "error": {"code": "TOOL_PROVIDER_FAILURE", "failure_code": variant_value},
+            "proposal": body["proposal"],
+        }
+    elif isinstance(outcome, ProviderIdempotencyConflict):
+        assert body == {
+            "error": {"code": "TOOL_PROVIDER_IDEMPOTENCY_CONFLICT"},
+            "proposal": body["proposal"],
+        }
+    else:
+        assert body == {**expected_result, "proposal": body["proposal"]}
     assert len(gateway.calls) == 1
 
 
@@ -288,25 +313,29 @@ def test_execute_http_auth_workspace_and_schema_fail_before_workflow() -> None:
 def test_execute_http_post_acquisition_denial_matrix_is_exact(reason, status, code) -> None:
     from knora.tools.proposal_http import _execution_response
 
-    response = _execution_response(ProposalNotExecutable("proposal", "logical", reason))
+    projection = current_response_projection()
+    response = _execution_response(
+        ProposalNotExecutable("proposal", "logical", reason, projection=projection)
+    )
 
     assert isinstance(response, JSONResponse)
     assert response.status_code == status
-    assert json.loads(response.body) == {"error": {"code": code}}
+    assert json.loads(response.body) == {
+        "error": {"code": code},
+        "proposal": projection,
+    }
 
 
 def test_execute_http_fenced_projection_has_exact_allowlist() -> None:
     from knora.tools.proposal_http import _execution_response
 
-    response = _execution_response(ExecutionFenced("proposal", "logical"))
+    projection = current_response_projection()
+    response = _execution_response(ExecutionFenced("proposal", "logical", projection=projection))
 
     assert response.status_code == 409
     assert json.loads(response.body) == {
-        "proposal_id": "proposal",
-        "logical_execution_id": "logical",
-        "lifecycle": "executing",
-        "outcome_type": "execution_fenced",
-        "reason_code": "execution_fenced",
+        "error": {"code": "TOOL_EXECUTION_FENCED"},
+        "proposal": projection,
     }
 
 

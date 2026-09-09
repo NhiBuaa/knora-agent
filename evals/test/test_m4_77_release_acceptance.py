@@ -61,13 +61,14 @@ def test_tc02_server_owned_execute_schema_has_no_identity_inputs() -> None:
 
 def test_tc03_post_acquisition_denial_projection_is_closed() -> None:
     projection = asdict(ProposalNotExecutable("proposal", "logical", "resource_access_denied"))
-    assert set(projection) == {
+    assert set(projection) - {"projection"} == {
         "proposal_id",
         "logical_execution_id",
         "reason_code",
         "lifecycle",
         "outcome_type",
     }
+    assert projection["projection"] is None
 
 
 def test_tc04_registry_is_static_versioned_and_has_no_plugin_epoch() -> None:

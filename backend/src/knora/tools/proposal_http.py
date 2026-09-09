@@ -87,6 +87,9 @@ def _decision_response(result) -> JSONResponse:
 
 
 def _execution_response(result) -> JSONResponse:
+    if result.projection is None:
+        raise KnoraError("TOOL_PROVIDER_CONTRACT_INVALID")
+    proposal = jsonable_encoder(_transport_value(result.projection))
     if isinstance(result, ProposalNotExecutable):
         public_code = {
             "workspace_access_denied": "WORKSPACE_ACCESS_DENIED",
@@ -101,10 +104,22 @@ def _execution_response(result) -> JSONResponse:
             "TOOL_EXECUTION_NOT_AUTHORIZED": 403,
             "TOOL_PROPOSAL_STALE": 409,
         }[public_code]
-        return JSONResponse(status_code=status, content={"error": {"code": public_code}})
+        return JSONResponse(
+            status_code=status,
+            content={"error": {"code": public_code}, "proposal": proposal},
+        )
     status = 200
     if isinstance(result, (ExecutionFailed, ReconciledFailed)):
-        status = 502
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "TOOL_PROVIDER_FAILURE",
+                    "failure_code": result.rejection_code,
+                },
+                "proposal": proposal,
+            },
+        )
     elif isinstance(
         result,
         (
@@ -115,13 +130,26 @@ def _execution_response(result) -> JSONResponse:
     ):
         status = 202
     elif isinstance(result, (ExecutionInProgress, ExecutionFenced)):
-        status = 409
+        public_code = (
+            "TOOL_PROVIDER_IDEMPOTENCY_CONFLICT"
+            if isinstance(result, ExecutionInProgress)
+            and result.reason_code == "provider_idempotency_conflict"
+            else (
+                "TOOL_EXECUTION_FENCED"
+                if isinstance(result, ExecutionFenced)
+                else "TOOL_EXECUTION_IN_PROGRESS"
+            )
+        )
+        return JSONResponse(
+            status_code=409,
+            content={"error": {"code": public_code}, "proposal": proposal},
+        )
     elif not isinstance(result, (ExecutionSucceeded, ReconciledSucceeded)):
         raise KnoraError("TOOL_PROVIDER_CONTRACT_INVALID")
-    return JSONResponse(
-        status_code=status,
-        content=jsonable_encoder(_transport_value(result)),
-    )
+    payload = _transport_value(result)
+    del payload["projection"]
+    payload["proposal"] = proposal
+    return JSONResponse(status_code=status, content=jsonable_encoder(payload))
 
 
 def _validate_payload(payload: dict[str, object], fields: set[str]) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -179,12 +180,28 @@ class WriteProposalWorkflow:
         if isinstance(command, ExecuteApprovedProposal):
             if self._executor is None:
                 raise KnoraError("TOOL_EXECUTION_NOT_AUTHORIZED")
-            return self._executor.execute(command, principal, actor_context)
+            return self._with_current_projection(
+                self._executor.execute(command, principal, actor_context),
+                command.proposal_id,
+                principal,
+            )
         if isinstance(command, ReconcileExecution):
             if self._reconciler is None:
                 raise KnoraError("TOOL_REQUEST_INVALID")
-            return self._reconciler.reconcile(command, principal, actor_context)
+            return self._with_current_projection(
+                self._reconciler.reconcile(command, principal, actor_context),
+                command.proposal_id,
+                principal,
+            )
         raise KnoraError("TOOL_REQUEST_INVALID")
+
+    def _with_current_projection(
+        self,
+        result: ExecutionResult,
+        proposal_id: str,
+        principal: WorkspacePrincipal,
+    ) -> ExecutionResult:
+        return replace(result, projection=self.read(proposal_id, principal))
 
     def _propose(
         self,
