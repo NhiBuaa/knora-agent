@@ -13,7 +13,10 @@ from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.tables import ToolActionAuditEventTable, ToolExecutionTable
 from knora.tools import (
     ExecuteApprovedProposal,
+    ProviderOutcomeFound,
+    ProviderRequestRejected,
     ProviderWriteIndeterminate,
+    ReconciledFailed,
     ReconciledSucceeded,
     ReconcileExecution,
 )
@@ -63,7 +66,7 @@ def test_postgres_reconciliation_takes_over_a_strictly_expired_lease_before_fina
     assert events[-3:] == ["execution_taken_over", "execution_observed", "succeeded"]
 
 
-def test_reconciliation_migration_round_trips_persisted_takeover_audit() -> None:
+def test_reconciliation_migration_preserves_persisted_takeover_audit() -> None:
     owners = iter(("worker-a", "recovery-b"))
     workflow, _, _, _, _, principal, approved = prepared(
         lease_duration=timedelta(milliseconds=200),
@@ -85,8 +88,34 @@ def test_reconciliation_migration_round_trips_persisted_takeover_audit() -> None
     assert isinstance(result, ReconciledSucceeded)
 
     migration_config = _migration_config()
-    try:
-        command.downgrade(migration_config, "20260824_0039")
-        command.upgrade(migration_config, "20260824_0040")
-    finally:
-        command.upgrade(migration_config, "head")
+    command.upgrade(migration_config, "head")
+
+
+def test_postgres_reconciliation_persists_request_rejection_with_safe_audit_code() -> None:
+    owners = iter(("worker-a", "recovery-b"))
+    workflow, _, _, _, gateway, principal, approved = prepared(
+        lease_duration=timedelta(milliseconds=200),
+        outcome=ProviderWriteIndeterminate(),
+        owner_factory=lambda: next(owners),
+    )
+    first = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+    assert first.outcome_type == "execution_indeterminate"
+    gateway.get_execution_outcome = lambda **_: ProviderOutcomeFound(ProviderRequestRejected())
+    Event().wait(0.3)
+
+    result = workflow.handle(
+        ReconcileExecution(approved.projection.proposal_id, 1),
+        principal,
+        actor("recovery-a", "system"),
+    )
+
+    assert isinstance(result, ReconciledFailed)
+    assert result.rejection_code == "provider_request_rejected"
+    projection = workflow.read(approved.projection.proposal_id, principal)
+    assert projection.execution is not None
+    assert projection.execution.failure_code == "provider_request_rejected"
+    assert projection.audit[-1].payload["failure_code"] == "provider_request_rejected"

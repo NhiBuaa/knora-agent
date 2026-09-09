@@ -46,6 +46,7 @@ from knora.tools.execution_types import (
     TakeoverApplied,
 )
 from knora.tools.proposal_store import _StoredProposal
+from knora.tools.proposal_types import safe_failure_code
 
 
 class PostgresExecutionStoreMixin:
@@ -120,7 +121,7 @@ class PostgresExecutionStoreMixin:
                     return AcquireDenied(row.execution_stale_reason)
                 if row.revision != expected_revision:
                     return AcquireRevisionConflict(row.revision)
-                database_time = session.scalar(select(func.clock_timestamp()))
+                database_time = session.scalar(select(func.transaction_timestamp()))
                 assert isinstance(database_time, datetime)
                 if database_time >= row.expires_at:
                     return AcquireDenied("expired")
@@ -172,7 +173,7 @@ class PostgresExecutionStoreMixin:
                 session.flush()
                 row.state = "executing"
                 row.revision = expected_revision + 1
-                row.updated_at = datetime.now(UTC)
+                row.updated_at = database_time
                 self._append_audit(
                     session,
                     row,
@@ -243,7 +244,7 @@ class PostgresExecutionStoreMixin:
                     .with_for_update()
                 )
                 assert workspace_epoch is not None
-                database_time = session.scalar(select(func.clock_timestamp()))
+                database_time = session.scalar(select(func.transaction_timestamp()))
                 assert isinstance(database_time, datetime)
                 execution = self._stored_execution(session, execution_row)
                 if (
@@ -322,7 +323,7 @@ class PostgresExecutionStoreMixin:
                 )
                 if row is None:
                     raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
-                database_time = session.scalar(select(func.clock_timestamp()))
+                database_time = session.scalar(select(func.transaction_timestamp()))
                 assert isinstance(database_time, datetime)
                 execution = self._stored_execution(session, row)
                 if execution.lifecycle != "executing":
@@ -355,7 +356,7 @@ class PostgresExecutionStoreMixin:
                     actor_id=owner,
                     payload={
                         "observation_type": observation_type,
-                        "rejection_code": rejection_code,
+                        "failure_code": safe_failure_code(rejection_code),
                         "generation": generation,
                     },
                 )
@@ -388,7 +389,7 @@ class PostgresExecutionStoreMixin:
                 )
                 if row is None:
                     raise KnoraError("TOOL_PROPOSAL_NOT_FOUND")
-                database_time = session.scalar(select(func.clock_timestamp()))
+                database_time = session.scalar(select(func.transaction_timestamp()))
                 assert isinstance(database_time, datetime)
                 execution = self._stored_execution(session, row)
                 if execution.lifecycle != "executing":
@@ -409,14 +410,14 @@ class PostgresExecutionStoreMixin:
                 assert proposal_row is not None
                 proposal_row.state = lifecycle
                 proposal_row.revision = row.revision
-                proposal_row.updated_at = datetime.now(UTC)
+                proposal_row.updated_at = database_time
                 self._append_audit(
                     session,
                     proposal_row,
                     event_type=lifecycle,
                     actor_id=owner,
                     payload={
-                        "rejection_code": rejection_code,
+                        "failure_code": safe_failure_code(rejection_code),
                         "external_resource_reference": external_resource_reference,
                         "generation": generation,
                     },
@@ -480,7 +481,7 @@ class PostgresExecutionStoreMixin:
                 proposal_row = session.get(ToolProposalTable, proposal_id)
                 assert proposal_row is not None
                 proposal_row.revision = row.revision
-                proposal_row.updated_at = datetime.now(UTC)
+                proposal_row.updated_at = database_time
                 self._append_audit(
                     session,
                     proposal_row,

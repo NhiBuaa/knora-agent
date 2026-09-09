@@ -6,7 +6,7 @@ from threading import Event
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select
 
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.tables import (
@@ -34,6 +34,8 @@ from knora.tools import (
     PolicyProvenance,
     ProposeWriteAction,
     ProviderOutcomeFound,
+    ProviderRequestRejected,
+    ProviderScopeDenied,
     ProviderWriteFailed,
     ProviderWriteSucceeded,
     ResolvedCapabilityContext,
@@ -495,6 +497,93 @@ def test_postgres_database_time_not_requested_at_controls_acquisition_and_admiss
     assert isinstance(acquired, AcquireApplied)
     assert acquired.execution.lease_started_at < future_host_time
     assert acquired.execution.lease_started_at < proposal.expires_at
+
+
+def test_postgres_execution_transitions_capture_transaction_time_once() -> None:
+    _, _, store, _, _, principal, approved = prepared()
+    statements: list[str] = []
+
+    def record_statement(*args) -> None:
+        statements.append(args[2])
+
+    event.listen(SessionFactory.kw["bind"], "before_cursor_execute", record_statement)
+    try:
+        acquired = store.acquire_execution(
+            principal.workspace_id,
+            approved.projection.proposal_id,
+            approved.projection.revision,
+            "worker-a",
+            timedelta(minutes=5),
+            AuthorizedExecutionBindingSnapshot.from_context(Resolver(principal.workspace_id).context),
+            datetime.now(UTC),
+        )
+        assert isinstance(acquired, AcquireApplied)
+        observed = store.record_execution_observation(
+            principal.workspace_id,
+            approved.projection.proposal_id,
+            "worker-a",
+            1,
+            "failed",
+            "policy_rejected",
+            None,
+            datetime.now(UTC),
+        )
+        assert observed.execution.observations[-1].sequence == 1
+        finalized = store.finalize_execution(
+            principal.workspace_id,
+            approved.projection.proposal_id,
+            "worker-a",
+            1,
+            "failed",
+            "policy_rejected",
+            None,
+            datetime.now(UTC),
+        )
+        assert finalized.execution.lifecycle == "failed"
+    finally:
+        event.remove(SessionFactory.kw["bind"], "before_cursor_execute", record_statement)
+
+    observed_sql = "\n".join(statements).casefold()
+    transaction_time_queries = sum(
+        "select transaction_timestamp" in statement.casefold() for statement in statements
+    )
+    assert transaction_time_queries == 3
+    assert "clock_timestamp" not in observed_sql
+
+
+@pytest.mark.parametrize(
+    ("outcome", "failure_code"),
+    [
+        (ProviderRequestRejected(), "provider_request_rejected"),
+        (ProviderScopeDenied(), "provider_scope_denied"),
+    ],
+)
+def test_postgres_persists_closed_provider_denials_with_safe_audit_code(
+    outcome, failure_code: str
+) -> None:
+    workflow, _, _, _, _, principal, approved = prepared(outcome=outcome)
+
+    result = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    assert result.rejection_code == failure_code
+    projection = workflow.read(approved.projection.proposal_id, principal)
+    assert projection.execution is not None
+    assert projection.execution.failure_code == failure_code
+    assert projection.audit[-1].payload["failure_code"] == failure_code
+    assert "rejection_code" not in projection.audit[-1].payload
+    with SessionFactory() as session:
+        execution = session.get(ToolExecutionTable, approved.projection.proposal_id)
+        observation = session.scalar(
+            select(ToolExecutionObservationTable).where(
+                ToolExecutionObservationTable.proposal_id == approved.projection.proposal_id
+            )
+        )
+    assert execution is not None and execution.rejection_code == failure_code
+    assert observation is not None and observation.observation_type == failure_code
 
 
 def test_postgres_admission_binds_current_epochs_without_retargeting() -> None:
