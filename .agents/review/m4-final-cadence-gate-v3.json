@@ -1,0 +1,11 @@
+{
+  "effective_risk_level": "high",
+  "evidence_digest": "sha256:49a4ae6727a70da47e0e3f860d6b1ed7023e1b32d077f40dabe8b2257e2f6f80",
+  "missing_evidence": [
+    "final feature review must be APPROVE"
+  ],
+  "required_external_review_count": 11,
+  "satisfied_external_review_count": 11,
+  "schema_version": 1,
+  "status": "blocked"
+}

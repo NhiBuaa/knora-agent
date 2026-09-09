@@ -1,0 +1,12 @@
+{
+  "effective_risk_level": "high",
+  "evidence_digest": "sha256:754af8dc156098b6b9303df398d22abab94f98daea334c2d87eb189b96310dff",
+  "evidence_reference": ".agents/review/m4-final-cadence-evidence-v4.json",
+  "missing_evidence": [],
+  "plan_reference": ".agents/review/m4-review-cadence-plan-v1.json",
+  "required_external_review_count": 11,
+  "satisfied_external_review_count": 11,
+  "schema_version": 1,
+  "status": "ready",
+  "validated_at": "2026-09-09T21:47:00+07:00"
+}

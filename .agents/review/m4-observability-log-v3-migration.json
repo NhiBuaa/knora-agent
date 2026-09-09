@@ -1,0 +1,27 @@
+{
+  "artifact_id": "m4-observability-log-v3-migration",
+  "created_at": "2026-09-09T17:45:23+07:00",
+  "feature_id": "github-issue-74",
+  "migration_semantics": "The successor records only transitions validated by the current schema. It does not rewrite, rename, replay, or claim canonical equivalence for predecessor events. The ledger carries both references and makes the frozen predecessor available for audit.",
+  "predecessor_log": {
+    "disposition": "frozen_retained_unmodified",
+    "incompatible_record": {
+      "event_id": "m4-issue-79-guide-v6-correction-2-external-approved",
+      "line": 10,
+      "transition": "guide_external_review_completed",
+      "validator_disposition": "rejected_by_current_transition_enum"
+    },
+    "reference": ".agents/review/milestone-4-workflow-events-v2.jsonl",
+    "sha256": "36bcace9aebb6ef529467cdde4f520e21368edc7a349bf02af355ec3e66ebf86"
+  },
+  "reason": "The append-only v2 log contains a legacy event transition that is rejected by the current validator, preventing further validated appends.",
+  "schema_version": 1,
+  "status": "completed",
+  "successor_log": {
+    "reference": ".agents/review/milestone-4-workflow-events-v3.jsonl",
+    "validator_reference": "C:/Users/NhiBuaa/.agents/skills/feature-delivery/scripts/emit_observability_event.py",
+    "validator_sha256": "da2d557cc87316d296ca541becc8c81b76e2589aea9168697d8f77a55eed528f",
+    "write_policy": "append_only"
+  },
+  "workflow_id": "feature-delivery:m4-tools-human-approval"
+}

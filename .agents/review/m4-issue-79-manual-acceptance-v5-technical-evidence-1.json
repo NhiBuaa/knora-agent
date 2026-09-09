@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-manual-acceptance-v5-technical-evidence-1",
+  "recorded_at": "2026-09-09T12:31:21+07:00",
+  "guide_revision": "m4-79-integrated-release-gate-v5",
+  "guide_reference": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v5.md",
+  "guide_digest": "sha256:fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+  "test_cases_reference": ".agents/review/m4-issue-79-test-cases-v5.json",
+  "test_cases_digest": "sha256:471cd3eac173df599d127544a0207f697c61dc3083f029d604d9a648a928fe49",
+  "candidate": {
+    "subject_sha": "e3230e9833db90287098993fe9ec1c1443df13cb",
+    "branch": "codex/issue-79-final-review-remediation-3",
+    "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+    "source_base": "7097116557745d5bf2c72d0ab5d4542b529131e2"
+  },
+  "environment": {
+    "python_version": "3.12.14",
+    "interpreter": "C:/Developer/Projects/knora-agent-worktree/.venv/Scripts/python.exe",
+    "docker_server": "29.7.2",
+    "postgres_target": "127.0.0.1:5432/knora",
+    "credentials_recorded": false,
+    "database_container_health": "healthy"
+  },
+  "commands": [
+    {
+      "id": "focused-contract-suite",
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+      "command": "python -m pytest backend/test/tools/test_execution_workflow.py backend/test/tools/test_reconciliation_workflow.py backend/test/tools/test_execution_postgres.py backend/test/tools/test_reconciliation_postgres.py backend/test/tools/test_read_tool.py backend/test/tools/test_proposal_http.py backend/test/adapters/http/test_tools.py evals/test/test_m4_77_release_acceptance.py evals/test/test_m4_78_release_acceptance.py evals/test/test_m4_79_release_acceptance.py",
+      "exit_code": 0,
+      "result": "189 passed, 5 warnings in 9.98s",
+      "tested_subject_sha": "e3230e9833db90287098993fe9ec1c1443df13cb"
+    },
+    {
+      "id": "root-cwd-migration-round-trip",
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+      "command": "python -m pytest backend/test/tools/test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit",
+      "exit_code": 0,
+      "result": "1 passed, 3 warnings in 1.58s; migration downgrade 20260824_0039, upgrade 20260824_0040 and final head completed",
+      "tested_subject_sha": "e3230e9833db90287098993fe9ec1c1443df13cb"
+    },
+    {
+      "id": "full-regression-suite",
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+      "command": "python -m pytest",
+      "exit_code": 0,
+      "result": "981 passed, 3 skipped, 11 warnings in 65.84s; only the three locked PDF baseline skips remained",
+      "tested_subject_sha": "e3230e9833db90287098993fe9ec1c1443df13cb"
+    },
+    {
+      "id": "ruff",
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+      "command": "ruff check .",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "id": "compose-config",
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+      "command": "docker compose config --quiet",
+      "exit_code": 0,
+      "result": "Passed; only existing unset optional credential-variable warnings were emitted"
+    },
+    {
+      "id": "scope-and-main",
+      "cwd": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3",
+      "command": "git diff --check and verify branch/source scope",
+      "exit_code": 0,
+      "result": "Clean worktree; 15 changed paths match dispatch-11 scope; main remains 6312c4c4230032aa92ca5915803fcfaf564354fa"
+    }
+  ],
+  "forbidden_field_scan": {
+    "status": "zero_hit_assertions",
+    "scope": "focused and full release-contract tests",
+    "categories": ["rejection_code", "raw provider data", "provider routing", "keys", "credentials", "internal exception material"]
+  },
+  "worker_result_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json",
+  "worker_result_digest": "sha256:b1353d253ed3b05c179c3781e7777f97fdac130f7ab434885c6a160851ce08fa",
+  "verdict_basis": "All required technical observations executed against the exact remediation subject; explicit repository-owner approval is still required for a PASSED Evaluation.",
+  "human_approval": "pending",
+  "append_only": true
+}

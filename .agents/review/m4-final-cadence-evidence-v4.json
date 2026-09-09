@@ -1,0 +1,104 @@
+{
+  "final_feature_review": {
+    "reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-result-v4.json",
+    "sequence": 19,
+    "status": "APPROVE"
+  },
+  "spec_design_external_review": {
+    "reference": ".agents/review/m4-spec-design-external-review-v5.json",
+    "sequence": 1,
+    "status": "completed"
+  },
+  "tickets": [
+    {
+      "human_acceptance": {
+        "reference": ".agents/manual-tests/milestone-4/75-ticket-lookup-v2.evaluations.jsonl",
+        "sequence": 4,
+        "status": "approved"
+      },
+      "manual_guide_external_review": {
+        "reference": ".agents/review/m4-issue-75-guide-external-review-v2.json",
+        "sequence": 3,
+        "status": "completed"
+      },
+      "ticket_external_review": {
+        "reference": ".agents/review/m4-issue-75-ticket-external-review-v3.json",
+        "sequence": 2,
+        "status": "completed"
+      },
+      "ticket_id": "#75"
+    },
+    {
+      "human_acceptance": {
+        "reference": ".agents/manual-tests/milestone-4/76-write-proposal-v5.evaluations.jsonl",
+        "sequence": 7,
+        "status": "approved"
+      },
+      "manual_guide_external_review": {
+        "reference": ".agents/review/m4-issue-76-guide-external-review-v5.json",
+        "sequence": 6,
+        "status": "completed"
+      },
+      "ticket_external_review": {
+        "reference": ".agents/review/m4-issue-76-ticket-external-review-v3.json",
+        "sequence": 5,
+        "status": "completed"
+      },
+      "ticket_id": "#76"
+    },
+    {
+      "human_acceptance": {
+        "reference": ".agents/manual-tests/milestone-4/77-authorized-execution-v7.evaluations.jsonl",
+        "sequence": 10,
+        "status": "approved"
+      },
+      "manual_guide_external_review": {
+        "reference": ".agents/review/m4-issue-77-guide-external-review-v7.json",
+        "sequence": 9,
+        "status": "completed"
+      },
+      "ticket_external_review": {
+        "reference": ".agents/review/m4-issue-77-ticket-external-review-v10.json",
+        "sequence": 8,
+        "status": "completed"
+      },
+      "ticket_id": "#77"
+    },
+    {
+      "human_acceptance": {
+        "reference": ".agents/review/m4-issue-78-release-evidence-v1.json",
+        "sequence": 13,
+        "status": "approved"
+      },
+      "manual_guide_external_review": {
+        "reference": ".agents/review/m4-issue-78-guide-external-review-v3.json",
+        "sequence": 12,
+        "status": "completed"
+      },
+      "ticket_external_review": {
+        "reference": ".agents/review/m4-issue-78-ticket-external-review-v2.json",
+        "sequence": 11,
+        "status": "completed"
+      },
+      "ticket_id": "#78"
+    },
+    {
+      "human_acceptance": {
+        "reference": ".agents/review/m4-issue-79-evaluation-12-correction-1-approved.json",
+        "sequence": 18,
+        "status": "approved"
+      },
+      "manual_guide_external_review": {
+        "reference": ".agents/review/m4-issue-79-remediation-guide-external-review-v6-correction-3-response-1.json",
+        "sequence": 17,
+        "status": "completed"
+      },
+      "ticket_external_review": {
+        "reference": ".agents/review/m4-issue-79-ticket-external-review-v2.json",
+        "sequence": 14,
+        "status": "completed"
+      },
+      "ticket_id": "#79"
+    }
+  ]
+}

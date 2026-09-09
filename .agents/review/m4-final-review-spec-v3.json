@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "axis": "spec",
+  "review_kind": "final_feature_review_axis",
+  "fixed_point_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-fixed-point-v3.json",
+  "fixed_point_digest": "sha256:84f5d90fdb52553e15990fdfefa5f229fda00d56d355a744c30b5c5a15a1852e",
+  "subject_commit": "2e66060b9ca7628acddf3b5d9a87d0c75fa92654",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "structural_evidence": [],
+  "findings": [
+    {
+      "severity": "major",
+      "location": "backend/src/knora/tools/execution.py:265-286,537-555; backend/migrations/versions/20260824_0039_m4_tool_execution_guards.py:30-50; backend/migrations/versions/20260824_0040_m4_reconciliation_guards.py:54-64",
+      "evidence": "Execution persists provider_request_rejected/provider_scope_denied and reconciled_request_rejected as failed observations, but PostgreSQL constraints permit only target_not_found, validation_rejected, policy_rejected and a closed observation-type list excluding those values.",
+      "problem": "Definitive provider denials cannot be persisted on PostgreSQL.",
+      "harm": "The production path raises PERSISTENCE_OPERATION_FAILED/500 instead of the required TOOL_PROVIDER_REQUEST_FAILED/502 or TOOL_RESOURCE_ACCESS_DENIED/403, and loses durable terminal evidence.",
+      "fix": "Align the PostgreSQL terminal/observation constraints and migration guards with the specified closed provider outcomes, or map these outcomes to an allowed canonical representation; add PostgreSQL coverage for both denial paths."
+    },
+    {
+      "severity": "major",
+      "location": "backend/src/knora/adapters/postgres/tool_execution_store.py:123-127,246-253,325-335,391-401",
+      "evidence": "acquire_execution, authorize_and_admit_dispatch, record_execution_observation and finalize_execution use SELECT clock_timestamp(); only takeover_stale_execution at lines 466-474 uses transaction_timestamp().",
+      "problem": "Lease expiry and fencing decisions do not use the required single transaction_timestamp captured per transaction.",
+      "harm": "A transaction can make lease decisions against a moving database clock, violating the fixed-time CAS/fencing contract and allowing inconsistent expiry/finalization behavior.",
+      "fix": "Capture PostgreSQL transaction_timestamp() once in each transaction and use that value for all lease comparisons and timestamps involved in the transition."
+    },
+    {
+      "severity": "major",
+      "location": "backend/src/knora/tools/proposal_types.py:314-355; backend/src/knora/tools/proposals.py:347-418; backend/src/knora/tools/proposal_http.py:115-194",
+      "evidence": "ToolProposalProjection defines proposal metadata and audit only; _project never projects _StoredProposal.execution; execution HTTP responses include top-level result fields but the nested proposal remains execution-free.",
+      "problem": "The required sanitized execution projection is absent from every current proposal projection.",
+      "harm": "GET/read and execution responses cannot expose the durable execution lifecycle, generation, observations or terminal state required for safe recovery and audit reconstruction.",
+      "fix": "Add a dedicated sanitized execution projection to ToolProposalProjection, populate it from StoredExecution, and serialize it for all result/read paths while excluding provider IDs, routing handles, secrets and internal exceptions."
+    },
+    {
+      "severity": "major",
+      "location": "backend/src/knora/tools/in_memory_tool_action_store.py:533-560; backend/src/knora/adapters/postgres/tool_execution_store.py:704-731",
+      "evidence": "Both _PRIVATE_AUDIT_FIELDS sets include rejection_code; execution finalization passes rejection_code into audit payloads, which _sanitize_audit_payload removes before persistence/projection.",
+      "problem": "Closed ProviderTerminalFailureCode values are removed from Knora audit evidence.",
+      "harm": "The append-only audit can show only failed/reconciled_failed without identifying target_not_found, validation_rejected or policy_rejected, violating the specification's definitive-failure visibility and audit-reconstruction requirement.",
+      "fix": "Store a validated safe failure_code for the closed terminal enum in sanitized audit payloads and execution projection; continue redacting arbitrary/raw provider error fields."
+    }
+  ],
+  "report": "Completed isolated spec-axis review of immutable fixed point 6312c4c4230032aa92ca5915803fcfaf564354fa..2e66060b9ca7628acddf3b5d9a87d0c75fa92654 with empty structural evidence. Four major findings require remediation before final approval.",
+  "recorded_at": "2026-09-09T16:08:56+07:00"
+}

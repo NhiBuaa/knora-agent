@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-11",
+  "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+  "feature_branch": "nhibuaa/m4-tools-human-approval",
+  "integration_worktree": "C:/Developer/Projects/knora-agent-m4-integration",
+  "source_base": "7097116557745d5bf2c72d0ab5d4542b529131e2",
+  "accepted_worker_commit": "e3230e9833db90287098993fe9ec1c1443df13cb",
+  "integration_commit": "2e66060b9ca7628acddf3b5d9a87d0c75fa92654",
+  "reconciliation": {
+    "status": "clean",
+    "merge_method": "merge_commit",
+    "integration_commit": "2e66060b9ca7628acddf3b5d9a87d0c75fa92654",
+    "worker_commit_is_ancestor": true,
+    "worker_tree_equals_integrated_tree": true,
+    "conflict_preview": "clean_no_conflicts",
+    "conflict_resolution": "none",
+    "changed_file_count": 15,
+    "changed_scope": [
+      "backend/src/knora/adapters/http/tools.py",
+      "backend/src/knora/adapters/postgres/tool_execution_store.py",
+      "backend/src/knora/tools/__init__.py",
+      "backend/src/knora/tools/capabilities.py",
+      "backend/src/knora/tools/execution.py",
+      "backend/src/knora/tools/gateway.py",
+      "backend/src/knora/tools/in_memory_tool_action_store.py",
+      "backend/src/knora/tools/proposal_http.py",
+      "backend/src/knora/tools/proposal_integration.py",
+      "backend/src/knora/tools/read.py",
+      "backend/test/adapters/http/test_tools.py",
+      "backend/test/tools/test_execution_workflow.py",
+      "backend/test/tools/test_proposal_integration.py",
+      "backend/test/tools/test_read_tool.py",
+      "backend/test/tools/test_reference_provider.py"
+    ],
+    "diff_sha256": "sha256:c8569772c408e76ba3fbd669f0d24eeb6838b782fb76cf204c889919109c21b9",
+    "diff_check": "passed"
+  },
+  "verification": {
+    "cwd": "C:/Developer/Projects/knora-agent-m4-integration",
+    "interpreter": "C:/Developer/Projects/knora-agent-worktree/.venv/Scripts/python.exe",
+    "pythonpath": "C:/Developer/Projects/knora-agent-m4-integration/backend/src",
+    "database": {
+      "environment_variable": "KNORA_DATABASE_URL",
+      "host": "127.0.0.1",
+      "port": 5432,
+      "database": "knora",
+      "credentials_recorded": false
+    },
+    "docker_engine": "29.7.2",
+    "focused_suite": "189 passed, 5 warnings",
+    "root_cwd_migration": "1 passed, 3 warnings",
+    "full_suite": "981 passed, 3 skipped, 11 warnings",
+    "ruff": "passed",
+    "compose_config": "passed; existing unset optional credential-variable warnings only",
+    "git_diff_check": "passed",
+    "main_unchanged": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+    "environment_note": "The shared virtual environment has an editable source binding to another worktree; every pytest command explicitly bound PYTHONPATH to this integration worktree backend/src."
+  },
+  "acceptance_impact": {
+    "decision": "preserved_all_cases",
+    "guide_revision": "m4-79-integrated-release-gate-v5",
+    "guide_digest": "sha256:fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+    "evaluation_reference": ".agents/review/m4-issue-79-evaluation-11-approved.json",
+    "evaluation_digest": "sha256:50673e00c4d189cee526c91e143db464d7b24c79b5ee0335756e1db44f2604e1",
+    "evaluation_history": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v5.evaluations.jsonl",
+    "evaluation_history_digest": "sha256:e14637aed9d0840771589c1d9b06b2e56e1d8050aa3339c50b1eea1376ff1cc7",
+    "evaluation_run_id": "m4-79-integrated-release-gate-v5-20260909-01-approved",
+    "human_approval": "approved",
+    "invalidated_cases": [],
+    "revalidated_cases": ["M4-79-TC-01","M4-79-TC-02","M4-79-TC-03","M4-79-TC-04","M4-79-TC-05","M4-79-TC-06","M4-79-TC-07","M4-79-TC-08","M4-79-TC-09","M4-79-TC-10","M4-79-TC-11","M4-79-TC-12","M4-79-TC-13"],
+    "reason": "The integrated tree is identical to the accepted worker tree; source bindings, guide v5, approved Evaluation history and execution environment remain valid. All focused, migration and full regression verification passed on the integration worktree."
+  },
+  "worktree_disposition": {
+    "integration": "source_clean_coordination_changes_retained",
+    "worker": "clean_retained",
+    "default_branch": "main unchanged at 6312c4c4230032aa92ca5915803fcfaf564354fa"
+  },
+  "recorded_at": "2026-09-09T15:59:00+07:00"
+}

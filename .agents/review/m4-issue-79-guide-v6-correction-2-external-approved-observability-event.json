@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "event_id": "m4-issue-79-guide-v6-correction-2-external-approved",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "transition": "guide_external_review_completed",
+  "skill": "feature-delivery",
+  "execution_revision": "m4-79-integrated-release-gate-v6-correction-2",
+  "started_at": "2026-09-09T17:12:00+07:00",
+  "finished_at": "2026-09-09T17:12:00+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:ded69a957e4e670d31478c92a5e66f1293cc168eda05b36054a3803510833c28",
+  "output_digest": "sha256:8361af9ffcbdc61d2358c5c2a30fe7a4c3d613a65fbfbcb8c3750af017eb965d",
+  "evidence_references": [
+    ".agents/review/m4-issue-79-remediation-guide-external-review-v6-correction-3-response-1.json",
+    ".agents/review/m4-issue-79-remediation-guide-external-review-packet-v6-correction-3.md",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v6-correction-2.md",
+    ".agents/review/m4-issue-79-test-cases-v6-correction-1.json"
+  ]
+}
+
