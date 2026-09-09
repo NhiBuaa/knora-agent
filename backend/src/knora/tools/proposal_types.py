@@ -16,6 +16,20 @@ from knora.tools.contracts import (
 
 REJECT_REASONS = {"not_approved", "incorrect_target", "incorrect_parameters", "other"}
 ACTOR_KINDS = {"human", "model", "system"}
+SAFE_FAILURE_CODES = frozenset(
+    {
+        "target_not_found",
+        "validation_rejected",
+        "policy_rejected",
+        "provider_request_rejected",
+        "provider_scope_denied",
+    }
+)
+
+
+def safe_failure_code(value: str | None) -> str | None:
+    """Return only a closed, public-safe execution failure identity."""
+    return value if value in SAFE_FAILURE_CODES else None
 
 
 class ProposalDecision(StrEnum):
@@ -311,6 +325,28 @@ class AuditProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class ExecutionObservationProjection:
+    sequence: int
+    observation_type: str
+    failure_code: str | None
+    external_resource_reference: str | None
+    observed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionProjection:
+    lifecycle: str
+    revision: int
+    generation: int
+    lease_started_at: datetime
+    lease_expires_at: datetime
+    observations: tuple[ExecutionObservationProjection, ...]
+    failure_code: str | None
+    external_resource_reference: str | None
+    finalized_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class ToolProposalProjection:
     proposal_id: str
     workspace_id: str
@@ -353,6 +389,7 @@ class ToolProposalProjection:
     stale: bool
     non_executable_reason: str | None
     audit: tuple[AuditProjection, ...] = ()
+    execution: ExecutionProjection | None = None
 
     def __post_init__(self) -> None:
         frozen = freeze_canonical_value(self.parameters)

@@ -29,7 +29,12 @@ from knora.tools.execution_types import (
     TakeoverApplied,
 )
 from knora.tools.proposal_store import _DecisionResult, _StoredProposal
-from knora.tools.proposal_types import ApprovalActor, AuditProjection, ProposalDecision
+from knora.tools.proposal_types import (
+    ApprovalActor,
+    AuditProjection,
+    ProposalDecision,
+    safe_failure_code,
+)
 
 
 class InMemoryToolActionStore:
@@ -383,7 +388,7 @@ class InMemoryToolActionStore:
                         _sanitize_audit_payload(
                             {
                                 "observation_type": observation_type,
-                                "rejection_code": rejection_code,
+                                "failure_code": safe_failure_code(rejection_code),
                                 "generation": generation,
                             }
                         ),
@@ -437,7 +442,7 @@ class InMemoryToolActionStore:
                         "system",
                         _sanitize_audit_payload(
                             {
-                                "rejection_code": rejection_code,
+                                "failure_code": safe_failure_code(rejection_code),
                                 "external_resource_reference": external_resource_reference,
                                 "generation": generation,
                             }

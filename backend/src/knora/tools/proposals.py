@@ -16,7 +16,7 @@ from knora.tools.execution import (
     ReconciliationExecutor,
 )
 from knora.tools.execution_admission import ObservationReferenceResolver
-from knora.tools.execution_types import ExecutionResult
+from knora.tools.execution_types import ExecutionResult, StoredExecution
 from knora.tools.gateway import SupportToolGateway
 from knora.tools.proposal_compatibility import (
     CompatibilityCheckerV1,
@@ -32,6 +32,8 @@ from knora.tools.proposal_types import (
     CapabilityResolver,
     DenyingProposalTargetVerifier,
     ExecuteApprovedProposal,
+    ExecutionObservationProjection,
+    ExecutionProjection,
     ProposalApproved,
     ProposalCreated,
     ProposalDecision,
@@ -45,6 +47,7 @@ from knora.tools.proposal_types import (
     TypedWriteCommand,
     VerifiedProposalTarget,
     normalize_proposal_text,
+    safe_failure_code,
 )
 
 
@@ -415,4 +418,30 @@ class WriteProposalWorkflow:
             stale=stale,
             non_executable_reason=reason,
             audit=proposal.audit,
+            execution=_project_execution(proposal.execution),
         )
+
+
+def _project_execution(execution: StoredExecution | None) -> ExecutionProjection | None:
+    if execution is None:
+        return None
+    return ExecutionProjection(
+        lifecycle=execution.lifecycle,
+        revision=execution.revision,
+        generation=execution.generation,
+        lease_started_at=execution.lease_started_at,
+        lease_expires_at=execution.lease_expires_at,
+        observations=tuple(
+            ExecutionObservationProjection(
+                sequence=observation.sequence,
+                observation_type=observation.observation_type,
+                failure_code=safe_failure_code(observation.rejection_code),
+                external_resource_reference=observation.external_resource_reference,
+                observed_at=observation.observed_at,
+            )
+            for observation in execution.observations
+        ),
+        failure_code=safe_failure_code(execution.rejection_code),
+        external_resource_reference=execution.external_resource_reference,
+        finalized_at=execution.finalized_at,
+    )
