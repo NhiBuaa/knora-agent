@@ -14,10 +14,28 @@
   },
   "integration": {
     "branch": "nhibuaa/m4-tools-human-approval",
-    "worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
+    "worktree": "C:/Developer/Projects/knora-agent-m4-integration",
     "initial_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
-    "current_head": "00aa40b8239d149916560f5ab081dea6bd398d08",
-    "current_head_resolution": "Issue #79 attempt-9 was prepared from ccffcf5; 00aa40b is the committed coordination record for that dispatch. The attempt's code commit is not integrated because independent full-suite verification failed.",
+    "current_head": "a9323c3486b143dcd2665c9241688b5bfacd0736",
+    "current_head_resolution": "The active integration worktree is C:/Developer/Projects/knora-agent-m4-integration at a9323c3. Issue #79 attempt-10 is accepted pending clean reconciliation; worker commit 2f4e9ba is not yet integrated.",
+    "revalidation": {
+      "recorded_at": "2026-09-09T09:57:25+07:00",
+      "status": "passed",
+      "implementation_plan_reference": ".agents/review/m4-delivery-plan-v1.md",
+      "implementation_plan_digest": "sha256:395b9c22577aab3dd4643e3d327706851a28abb2793e617fc24aa71d68e2af12",
+      "implementation_plan_revision": 2,
+      "specification_reference": "docs/design/milestone-4-tools-human-approval.md",
+      "specification_digest": "sha256:9d312b299d7f1ba55c130a2ee66a88edd12af0d148abd0467ca703e636ba32e8",
+      "acceptance_guide_reference": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v4.md",
+      "acceptance_guide_digest": "sha256:ff0eff4dac729ad19c4a2b13f4b2eb64c3ffa58c2c95d81648ce7043675d73e9",
+      "dispatch_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-10.json",
+      "dispatch_digest": "sha256:f6650fab362a494fc64e081a6e269b18851fec67e55bccde702f651ca40d381d",
+      "source_base": "b7e9cdb2af00b1c4bcc5c41788f7a26d521eeaf0",
+      "accepted_worker_commit": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+      "accepted_worker_worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-2",
+      "scope_status": "exactly_eight_approved_files",
+      "conflict_preview": "clean_no_conflicts"
+    },
     "published": false
   },
   "ticket_graph": [
