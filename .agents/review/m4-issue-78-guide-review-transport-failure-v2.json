@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "status": "failed",
+  "reason": "repeated_schema_invalid",
+  "retryable": false,
+  "request_id": "review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1",
+  "packet_reference": ".agents/review/m4-issue-78-guide-review-packet-v2.json",
+  "packet_digest": "sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b",
+  "guide_revision": "m4-78-crash-recovery-v2",
+  "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
+  "reviewed_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
+  "chat_reference": "https://chatgpt.com/c/6a8bc49c-f3a0-83ec-9766-379401690403",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-78-guide-v2-external-review.json",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2.txt",
+      "raw_text_digest": "sha256:b5b3adc8823babc934228e32d9efd8cd50c9600dbda5cd6c3d59a2953d2a8e2d",
+      "raw_text_length": 5354,
+      "schema_errors": [
+        "invalid_json_unescaped_embedded_quotes",
+        "finding_category_outside_closed_enum",
+        "missing_session_id",
+        "missing_response_digest"
+      ]
+    },
+    {
+      "attempt": 2,
+      "response_reference": ".agents/review/m4-issue-78-guide-review-transport-response-v2-schema-retry.txt",
+      "raw_text_digest": "sha256:a60c0d66272c252378c2a8b24ea2d9176289781b3318e24d0f28c55e3773bc3c",
+      "raw_text_length": 5378,
+      "schema_errors": [
+        "invalid_json_unescaped_embedded_quotes"
+      ],
+      "retry_semantics": "same_session_same_substantive_review_shape_only"
+    }
+  ],
+  "visible_non_authoritative_projection": {
+    "verdict": "REQUEST_CHANGES",
+    "critical_count": 0,
+    "major_count": 2,
+    "minor_count": 0,
+    "finding_classes": [
+      "expected_generation_transition_matrix_not_closed",
+      "takeover_exact_terminal_result_not_proven"
+    ],
+    "prior_findings_closed": [
+      "M4-78-GR-001",
+      "M4-78-GR-002"
+    ]
+  },
+  "authority": "transport evidence only; no validated external-review verdict, guide lock, implementation or acceptance authority",
+  "next_transition": "suspend for owner direction after repeated schema-invalid response"
+}

@@ -936,6 +936,40 @@ population/latency remediation slices through native GitHub dependencies.
 - Write or destructive actions require explicit human approval by default.
 - Tool input must be schema-validated; side effects require an idempotency key and audit trail.
 - An agent cannot infer access rights that were not supplied by the authenticated caller.
+- `WorkspacePrincipal`, proposal actor, approval actor and execution authority are separate
+  semantics. Human approval does not grant execution authority; the current execution authority
+  must be revalidated immediately before an external write side effect.
+- A write proposal and its approval bind stable capability identity/version/digest, the exact
+  Workspace-to-external-scope binding identity/version/digest, an integrity-protected resource
+  reference and a policy provenance bundle covering authorization, approval and execution semantics.
+  A material incompatibility makes the proposal stale/non-executable and requires a new proposal
+  and approval. A policy or capability `latest` lookup may not silently replace the approved value.
+- Proposal material fields are immutable. An action, target, parameter, capability, scope-binding or
+  policy change creates a new proposal identity; approval/rejection races have one atomic CAS winner.
+- A read-only tool must authenticate and authorize the Workspace, resolve the capability and
+  authorize the resource/scope before invoking its provider. Unauthorized or cross-Workspace
+  requests fail before provider lookup. Resource references must be server-minted or integrity-
+  protected and scope-bound; caller-supplied global IDs are insufficient.
+- The write lifecycle is `proposed -> approved/rejected -> executing -> succeeded/failed`.
+  `indeterminate_external_outcome` and `provider_outcome_not_found` are typed execution
+  observations, not additional lifecycle states. Expiry blocks a new execution but not
+  reconciliation of an execution that already began.
+- Concurrent execution uses one immutable logical idempotency identity. The durable action store
+  fences stale owners with an execution lease generation; stale owners cannot finalize after a
+  takeover. Provider-side idempotency is an independent final guard against duplicate logical
+  external effects.
+- Reconciliation has observation authority only. It must use current Workspace/resource
+  authorization. If an external write retry is required, it must re-run current execution
+  authorization and exact approved capability, binding and policy compatibility checks, reusing the
+  same logical identity. Provider `not found` during reconciliation is not automatically failure.
+- An orphaned `executing` record may be recovered even without a persisted observation. Recovery
+  first reads the provider's authoritative outcome by logical identity, then may take over a stale
+  lease atomically. The provider/reference adapter owns an external state/idempotency ledger
+  independent from Knora's action store; Knora must not fabricate provider success or failure.
+- Temporary execution-authority revocation can keep a valid proposal `approved` while blocking
+  execution. Material capability, binding or policy mismatch makes it stale/non-executable; an
+  in-flight execution remains immutable and reconciliation-only until its provider outcome is
+  resolved, without allowing a new side effect under changed authority.
 
 ## Verification
 

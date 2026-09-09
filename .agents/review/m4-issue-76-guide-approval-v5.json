@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "APPROVED",
+  "approval_type": "human-guide-approval",
+  "workflow_identity": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#76",
+  "guide_path": ".agents/manual-tests/milestone-4/76-write-proposal-v5.md",
+  "guide_revision": "m4-76-write-proposal-v5",
+  "guide_digest": "sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee",
+  "guide_blob": "64d726da62cae7abccff0d5ff247cf63373f692b",
+  "subject_commit": "bb8a8e1ed1458c952958dab289661381748df7f1",
+  "external_review": {
+    "path": ".agents/review/m4-issue-76-guide-external-review-v5.json",
+    "reviewed_commit": "5a49abc237445c4998034af8cda484a5e1c02b95",
+    "response_digest": "sha256:671c463831bbb27a75a41004109995fa1f0d41febc1574b5eada5d3858362512",
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0,
+    "minor_count": 0
+  },
+  "approved_by": "user",
+  "approval_statement": "Tôi đã đọc và duyệt khóa guide M4.2 v5 đúng digest sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee.",
+  "approved_at": "2026-08-23T10:56:17+07:00",
+  "lock_status": "LOCKED",
+  "immutable_after_approval": true
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:f03889eca527e785e686a20a401eba4597805cd966597ebab0317c104d0551b1",
+  "review_id": "m4-78-guide-v2-chatgpt-r1",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": "GPT-5.6 Sol",
+  "session_id": "6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+  "packet_digest": "sha256:f9eb60ff284b6406097788cd19b237adad4f039f511965b6505544bc51f5d35b",
+  "guide_revision": "m4-78-crash-recovery-v2",
+  "guide_digest": "sha256:c4c748d2a6e9971acbeb3a8cf51b8796d72b8a5b1805b4e861f5746ff8250ee9",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "valid_observation_write_denial_matrix_is_self_contradictory",
+      "criterion_ref": "M4-78-AC-03",
+      "affected_case_ids": ["M4-78-TC-04", "M4-78-TC-07"],
+      "affected_fields": ["M4-78-TC-04.oracle", "M4-78-GEV-02.statement"],
+      "problem": "The guide says a valid AuthorizedExecutionBindingSnapshot may route provider observation while current write authority is independently denied, but TC-04 and GEV-02 simultaneously require lookup/provider-ledger counts to remain zero in that valid-snapshot/write-denial matrix. Provider observation necessarily exercises the observation lookup/ledger seam, so this oracle can only satisfy its zero-count condition by suppressing the very authorized observation needed to prove that observation authority remains usable yet grants no write authority. TC-07 has the correct shape by requiring zero admission/dispatch/create_ticket/effect while allowing observation, but GEV-02 makes the required release evidence contradictory.",
+      "required_change": "Separate provider-observation counters from provider-write/effect counters. For the valid-snapshot/current-write-denial rows, require the authorized observation lookup/ledger call and its ordered authorization-routing evidence to occur, while admission, dispatch, create_ticket and provider-effect/write counters remain exactly zero and snapshot provenance remains absent from every write-authorizer input. Align TC-04 and GEV-02 with that same differential oracle."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "nonterminal_provider_outcomes_are_not_independently_distinguished",
+      "criterion_ref": "M4-78-AC-11",
+      "affected_case_ids": ["M4-78-TC-06"],
+      "affected_fields": ["M4-78-TC-06.oracle", "M4-78-GEV-03.statement"],
+      "problem": "M4-78-AC-11 requires unavailable, timeout, malformed and not-found to remain distinct HTTP 202 non-terminal results. TC-06 injects those variants, but its pass oracle only requires 'Indeterminate/not-found remain distinct 202'. That permits unavailable, timeout and malformed/unknown to collapse to one undifferentiated result and still pass. The generic requirement for independent complete matrices in GEV-03 does not close the gap because no closed per-variant application/HTTP outcome or reason values are required by the oracle.",
+      "required_change": "Define an independently sourced closed TC-06 matrix with a separate expected row for unavailable, timeout, malformed/unknown and not-found. Require exact per-variant application result/outcome or reason, HTTP 202 status, unchanged non-terminal lifecycle, no retry authority, complete key set and recursive expected-versus-actual comparison so none of the four variants can collapse into another."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-78-AC-01", "M4-78-AC-02", "M4-78-AC-03", "M4-78-AC-04", "M4-78-AC-05", "M4-78-AC-06", "M4-78-AC-07", "M4-78-AC-08", "M4-78-AC-09", "M4-78-AC-10", "M4-78-AC-11", "M4-78-AC-12", "M4-78-AC-13", "M4-78-AC-14"],
+    "uncovered": ["M4-78-AC-03", "M4-78-AC-11"]
+  },
+  "prior_findings_closed": ["M4-78-GR-001"],
+  "summary": "REQUEST_CHANGES. v2 closes the prior authorized observation-order finding through the explicit authorization -> trusted routing -> provider-observation sequence and denial sentinels. The prior observation/write-authority separation finding is not yet closed because the required valid-snapshot/write-denial evidence contradictorily requires zero observation lookup/provider-ledger activity. Separately, TC-06 does not close AC-11's required distinction among unavailable, timeout, malformed and not-found non-terminal HTTP 202 outcomes. The remaining acceptance criteria, PostgreSQL-time fencing/takeover, crash-window recovery, SQLite/audit independence, verification commands and static-registry scope are adequately projected.",
+  "reviewed_commit": "fd68b7fcf3286bdd60ae27dc373604bc40279eab",
+  "chat_reference": "https://chatgpt.com/c/6a8bc8b9-26d0-83ec-bd2b-6b843b95d9fb",
+  "response_digest": "sha256:19e0b5c2adcbd7bde27a722e3c4da8025f3108be9fd17a69834660081397d45b"
+}

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "ticket_reference": "https://github.com/NhiBuaa/knora-agent/issues/76",
+  "review_reference": "integration:.agents/review/m4-issue-76-child-code-review-v2.json@db4d91d9eca3f6451c80ab9f110d50a0e36e0e5d",
+  "source_head": "f30bdb078f4c499cda4f76d21f3e7d1d3ebcd94f",
+  "subject_sha": "2b5a31e2fc7df3f6bb21bc5edecb40af3cf45264",
+  "recorded_at": "2026-08-23T09:01:03.2367305+07:00",
+  "changed_scope": [
+    "backend/src/knora/main.py",
+    "backend/src/knora/tools/__init__.py",
+    "backend/src/knora/tools/capabilities.py",
+    "backend/src/knora/tools/proposal_integration.py",
+    "backend/src/knora/tools/proposals.py",
+    "backend/test/tools/test_proposal_http.py",
+    "backend/test/tools/test_proposal_integration.py",
+    "backend/test/tools/test_read_tool.py"
+  ],
+  "criteria_satisfied": [
+    "Current human approval authority is validated before proposal lookup; unauthorized human, model and system actors receive the same 403 for existing and absent proposal identities while an authorized human receives 404 for absence.",
+    "CapabilityRegistry.static exposes canonical typed/versioned ticket_lookup read and create_ticket write descriptors without a dynamic loading path.",
+    "RegistryCapabilityResolver adapts the accepted static capability and exact Workspace binding to CapabilityResolver.resolve_for_proposal.",
+    "ReferenceProposalTargetVerifier adapts the accepted ReferenceVerifier and preserves the locked malformed-syntax 400 versus non-leaking integrity/scope/store 403 taxonomy.",
+    "Application composition builds the proposal workflow from the accepted registry, binding and reference seams and uses PostgresToolActionStore by default; tests may inject InMemoryToolActionStore.",
+    "No provider write, execution lifecycle behavior, plugin framework or public proposal abstraction was added."
+  ],
+  "tests": {
+    "red_observed": [
+      {
+        "behavior": "proposal-independent human authority before proposal lookup",
+        "command": "python -m pytest backend/test/tools/test_proposal_http.py -k unauthorized_decision_actor_cannot_enumerate -q",
+        "result": "6 failed: an unauthorized decision actor received 404 for an absent proposal but 403 for an existing proposal"
+      },
+      {
+        "behavior": "accepted static registry and real m4r1 proposal integration",
+        "command": "python -m pytest backend/test/tools/test_read_tool.py::test_static_registry_exposes_typed_create_ticket_write_capability backend/test/tools/test_proposal_integration.py -q",
+        "result": "collection failed: knora.tools.proposal_integration did not exist"
+      }
+    ],
+    "focused_commands": [
+      {
+        "command": "PYTHONPATH=backend/src KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@127.0.0.1:5432/knora python -m pytest backend/test/tools backend/test/adapters/http/test_tool_lookup.py -q",
+        "result": "152 passed"
+      }
+    ],
+    "full_suite": {
+      "command": "PYTHONPATH=backend/src KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@127.0.0.1:5432/knora python -m pytest -q",
+      "result": "825 passed, 3 skipped",
+      "all_tests_green": true
+    },
+    "all_tests_green": true
+  },
+  "typecheck": {
+    "configured": false,
+    "closest_static_verification": "python -m ruff check .",
+    "result": "passed"
+  },
+  "additional_verification": {
+    "docker_compose_config": "passed",
+    "fresh_database_alembic_upgrade": "passed at 20260822_0037",
+    "diff_check": "passed"
+  },
+  "structural_evidence": {
+    "owning_module": "knora.tools application capability, proposal-authority and reference-integration seams; knora.main composition root",
+    "interface_changes": [],
+    "seam_changes": [
+      "proposal-independent HumanApprovalAuthorizer.authorize_current followed by proposal-bound separation-of-duties validation",
+      "static CapabilityRegistry create_ticket descriptor adapted through CapabilityResolver.resolve_for_proposal",
+      "ReferenceVerifier adapted through ProposalTargetVerifier.verify_for_proposal",
+      "create_app production composition defaults to PostgresToolActionStore"
+    ],
+    "responsibilities_added": [
+      "bounded composition between the accepted M4.1 registry/reference seams and M4.2 proposal seam",
+      "non-enumerating proposal-decision authority ordering"
+    ],
+    "files_created": [
+      "backend/src/knora/tools/proposal_integration.py",
+      "backend/test/tools/test_proposal_integration.py"
+    ],
+    "largest_changed_source_file": {
+      "path": "backend/src/knora/main.py",
+      "after_lines": 315
+    },
+    "largest_new_source_file": {
+      "path": "backend/src/knora/tools/proposal_integration.py",
+      "after_lines": 89
+    },
+    "trigger_disposition": "none",
+    "rationale": "The new adapter module owns one cohesive integration responsibility behind the already-approved resolver and verifier protocols. Every production source file remains below 400 lines, no added production responsibility exceeds 150 lines, and no function approaches 80 lines."
+  },
+  "acceptance": {
+    "guide_revision": "m4-76-write-proposal-v3",
+    "previous_approved_run": "m4-76-write-proposal-v3-20260823-01-approved",
+    "previous_run_status": "invalidated append-only by m4-76-write-proposal-v3-20260823-review-v2-invalidation-01",
+    "affected_cases": [
+      "M4-76-TC-02",
+      "M4-76-TC-03",
+      "M4-76-TC-08"
+    ],
+    "new_run_status": "pending execution on a new exact subject",
+    "human_approval": "pending"
+  }
+}

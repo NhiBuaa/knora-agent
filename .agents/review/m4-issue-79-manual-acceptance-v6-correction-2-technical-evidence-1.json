@@ -1,0 +1,61 @@
+{
+  "append_only": true,
+  "artifact_id": "m4-issue-79-manual-acceptance-v6-correction-2-technical-evidence-1",
+  "candidate": {
+    "branch": "codex/issue-79-final-review-remediation-5",
+    "source_base": "2e66060b9ca7628acddf3b5d9a87d0c75fa92654",
+    "subject_sha": "c8359296e878d716b60b3a05fb39e6affbe4c901",
+    "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-5"
+  },
+  "commands": [
+    {
+      "id": "worker-full-regression",
+      "result": "985 passed, 3 skipped",
+      "source": "validated worker return evidence",
+      "tested_subject_sha": "c8359296e878d716b60b3a05fb39e6affbe4c901"
+    },
+    {
+      "id": "leader-focused-postgres-remediation",
+      "result": "18 passed, 1 warning in 6.29s",
+      "tested_subject_sha": "c8359296e878d716b60b3a05fb39e6affbe4c901"
+    },
+    {
+      "id": "leader-postgres-migration",
+      "result": "upgrade through 20260909_0041 completed against the verification database",
+      "tested_subject_sha": "c8359296e878d716b60b3a05fb39e6affbe4c901"
+    },
+    {
+      "id": "ruff",
+      "result": "All checks passed"
+    },
+    {
+      "id": "compose-config",
+      "result": "Passed; only unset optional credential-variable warnings were emitted"
+    },
+    {
+      "id": "scope-and-main",
+      "result": "Eight changed files are within the dispatched remediation scope; worker worktree is clean and main remains 6312c4c4230032aa92ca5915803fcfaf564354fa"
+    }
+  ],
+  "environment": {
+    "credentials_recorded": false,
+    "docker_server": "29.7.2",
+    "postgres_migration_head": "20260909_0041",
+    "postgres_target": "127.0.0.1:5432/knora",
+    "python_interpreter": "C:/Developer/Projects/knora-agent-worktree-issue79-integration-remediation/backend/.venv/Scripts/python.exe",
+    "pythonpath_bound_to_candidate": true
+  },
+  "guide_digest": "sha256:71dfea13506f01203024372386aad2553c35edd3e2c8fdbade1d3af609f973b1",
+  "guide_reference": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v6-correction-2.md",
+  "guide_revision": "m4-79-integrated-release-gate-v6-correction-2",
+  "human_approval": "pending",
+  "recorded_at": "2026-09-09T21:22:32+07:00",
+  "return_contract_digest": "sha256:3a2c5e7ea83b6609862f3b08fead45cd6ee7c9fb595e90b85a873e48aa44b06a",
+  "return_contract_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-12-correction-1.json",
+  "schema_version": 1,
+  "test_cases_digest": "sha256:ded228ccea7baaa403410929d78bd6578199c199285595778bac3fe930ab2483",
+  "test_cases_reference": ".agents/review/m4-issue-79-test-cases-v6-correction-1.json",
+  "verdict_basis": "All required technical observations for inherited TC-01 through TC-13 and remediation TC-14 through TC-17 have passed at the exact candidate commit. Explicit repository-owner approval remains required before a PASSED Evaluation may be appended.",
+  "worker_result_digest": "sha256:5658e95b27b359d6c2e4849a03fb17865063a90bfd3d63e61a2e407d394506df",
+  "worker_result_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-12-correction-1.json"
+}

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "default_branch": "main",
+  "default_branch_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "default_branch_unchanged": true,
+  "main_worktree_disposition": "preserved_dirty_design_artifacts",
+  "main_dirty_paths": [
+    "CONTEXT.md",
+    "docs/PROJECT_OVERVIEW.md",
+    "docs/standards/architecture.md",
+    ".agents/review/milestone-4-workflow-events.jsonl",
+    ".agents/review/m4-integration-initialization-v1.json",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/design/milestone-4-tools-human-approval.md"
+  ],
+  "integration_branch": "nhibuaa/m4-tools-human-approval",
+  "integration_worktree": "D:/Developer/Projects/knora-agent-worktree/m4-integration",
+  "integration_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "frontier": ["#75", "#76"],
+  "issue_worktrees_created": [
+    {
+      "ticket": "#75",
+      "title": "M4.1",
+      "path": "D:/Developer/Projects/knora-agent-worktree/issue-75-m4.1",
+      "branch": "nhibuaa/issue-75-m4.1",
+      "source_base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+      "head_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+      "clean": true
+    },
+    {
+      "ticket": "#76",
+      "title": "M4.2",
+      "path": "D:/Developer/Projects/knora-agent-worktree/issue-76-m4.2",
+      "branch": "nhibuaa/issue-76-m4.2",
+      "source_base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+      "head_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+      "clean": true
+    }
+  ],
+  "baseline": {
+    "environment": {
+      "docker_engine": "29.6.2",
+      "postgres_container": "m4-integration-postgres-1",
+      "database_url_override": "postgresql+psycopg://knora:knora@127.0.0.1:5432/knora",
+      "execution_mode": "deterministic-local",
+      "database_reset_between_worktrees": true
+    },
+    "integration": {
+      "pytest": {
+        "status": "passed",
+        "summary": "672 passed, 3 skipped",
+        "command": "KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@127.0.0.1:5432/knora .venv\\Scripts\\python.exe -m pytest"
+      },
+      "ruff": {
+        "status": "passed",
+        "summary": "All checks passed",
+        "command": ".venv\\Scripts\\ruff.exe check ."
+      },
+      "compose_config": {
+        "status": "passed",
+        "summary": "docker compose config --quiet exited 0",
+        "command": "docker compose config --quiet"
+      },
+      "alembic": {
+        "status": "passed",
+        "summary": "upgrade head exited 0",
+        "command": "KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@127.0.0.1:5432/knora alembic upgrade head"
+      }
+    },
+    "frontier": {
+      "#75": {
+        "pytest": {"status": "passed", "summary": "672 passed, 3 skipped"},
+        "ruff": {"status": "passed", "summary": "All checks passed"},
+        "compose_config": {"status": "passed", "summary": "docker compose config --quiet exited 0"}
+      },
+      "#76": {
+        "pytest": {"status": "passed", "summary": "672 passed, 3 skipped"},
+        "ruff": {"status": "passed", "summary": "All checks passed"},
+        "compose_config": {"status": "passed", "summary": "docker compose config --quiet exited 0"}
+      }
+    }
+  },
+  "prior_attempt": {
+    "status": "blocked_before_frontier_worktrees",
+    "blocker": "Docker daemon unavailable at npipe:////./pipe/dockerDesktopLinuxEngine",
+    "resolution": "Docker started; frontier worktrees were verified and baseline rerun after a clean database reset",
+    "concurrent_run_disposition": "discarded_as_non_authoritative_due_to_shared_database_interference"
+  },
+  "status": "initialized",
+  "blocker": null,
+  "initialized_at": "2026-08-22T10:55:40+07:00",
+  "next_valid_transition": "plan_review_cadence",
+  "evidence_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "https://github.com/NhiBuaa/knora-agent/issues/75",
+    "https://github.com/NhiBuaa/knora-agent/issues/76",
+    "docs/design/milestone-4-tools-human-approval.md",
+    "C:/Users/Nhi/.agents/skills/feature-delivery/scripts/emit_observability_event.py"
+  ]
+}

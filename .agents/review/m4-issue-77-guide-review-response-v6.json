@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:820aa5d135c09f3d9e92218f5b56d41fe093d368784255bf893218756df62f0b",
+  "round": 1,
+  "packet_digest": "sha256:f84a852e20efba84cca3c8157c9306cea3b732d1befe4d4f600d11e6c7aac081",
+  "guide_revision": "m4-77-authorized-execution-v6",
+  "guide_digest": "sha256:f0d24858b8f33951c1f2e0a44f252f953e8158fbf67137950a44a775dd9cd386",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "review_id": "external-review:github-issue-77:m4-77-authorized-execution-v6:round-1:6a8af484-7eec-83ec-a492-0d4f0d7ec657",
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8af484-7eec-83ec-a492-0d4f0d7ec657",
+  "reviewed_commit": "93d12b907ec82e71ee03620fe6c565c7fbc352c3",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "material_reference_mismatch_stale_invalidation_not_exercised",
+      "criterion_ref": "M4-77-AC-01",
+      "affected_case_ids": [
+        "M4-77-TC-01"
+      ],
+      "affected_fields": [
+        "pre_acquisition_closed_denial_rows",
+        "M4-77-TC-01.steps",
+        "M4-77-TC-01.expected_results",
+        "M4-77-EV-01",
+        "prior_findings.M4-77-GR-009"
+      ],
+      "problem": "AC-01 explicitly requires a material capability/binding/policy/reference mismatch to durably stale the proposal and invalidate old approval.  The guide also requires fixtures with exact and mismatched reference versions,  but TC-01's durable-state rule says the only material mismatch rows are the nine capability/binding/policy variants and classifies every m4r1 syntax/trust/key/expiry denial as preserving the approved state.  No independently enumerated material reference-mismatch row proves stale/invalidation and old-approval non-reuse. Consequently an implementation that mishandles the acceptance criterion's material reference mismatch can still satisfy the current TC-01 matrix, so the v5 pre-acquisition-matrix finding is not fully closed.",
+      "required_change": "Add independently sourced literal TC-01 row(s) for the material reference-mismatch variant(s) required by AC-01, including at minimum the already-seeded mismatched-reference-version condition where applicable. Bind each row to its exact application/HTTP oracle, direct durable before/after proposal and approval state, typed stale/invalidation reason, named zero-activity sentinels, and old-approval retry proving restoration cannot reuse the invalidated approval. Keep temporary m4r1 trust/key/expiry failures separately classified rather than using them as substitutes for the material reference-mismatch branch."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "post_acquisition_reference_denial_matrix_incomplete",
+      "criterion_ref": "M4-77-AC-03 / M4-77-AC-09",
+      "affected_case_ids": [
+        "M4-77-TC-03",
+        "M4-77-TC-04",
+        "M4-77-TC-10"
+      ],
+      "affected_fields": [
+        "post_acquisition_denial_rows",
+        "M4-77-TC-03.steps",
+        "M4-77-TC-04.expected_results",
+        "M4-77-TC-10.steps",
+        "M4-77-EV-02",
+        "M4-77-EV-06",
+        "prior_findings.M4-77-GR-004",
+        "prior_findings.M4-77-GR-007"
+      ],
+      "problem": "The guide declares its denial tables exhaustive,  yet the TC-03 post-acquisition matrix enumerates non-canonical bytes, MAC corruption and protected-claim corruption without the separately named protected-scope corruption branch, even though protected-scope corruption is a distinct m4r1 denial in the guide.  The same post-acquisition matrix contains no reference-expiry row, while TC-04 explicitly exercises admission across reference expiry.  TC-04 only requires a generic mutation-first denial and therefore does not independently bind that denial to the complete ProposalNotExecutable/application/HTTP oracle and identity/field-shape evidence required by AC-09. A materially nonconforming post-lock protected-scope or reference-expiry denial can therefore escape the supposedly complete independent matrix and still pass the stated tests.",
+      "required_change": "Extend the independently sourced post-acquisition denial matrix to cover every distinct m4r1/reference denial that can occur at the post-lock admission decision, including protected-scope corruption and the admission-side reference-expiry branch exercised by TC-04. For each added row require exact private/application/HTTP result, independently reloaded proposal/logical-execution identities, zero admission/audit/gateway/provider activity as applicable, durable state oracle, and inclusion in TC-10's exhaustive matrix and post-restart non-finalization checks. If any named branch is genuinely impossible after acquisition, make that impossibility an observable independently proven oracle rather than silently omitting the branch."
+    }
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": [
+      "M4-77-AC-01",
+      "M4-77-AC-03",
+      "M4-77-AC-09"
+    ]
+  },
+  "prior_findings_closed": [
+    "M4-77-GR-001",
+    "M4-77-GR-002",
+    "M4-77-GR-003",
+    "M4-77-GR-005",
+    "M4-77-GR-006",
+    "M4-77-GR-008",
+    "M4-77-GR-010"
+  ],
+  "summary": "Guide v6 materially closes the provider-conflict durability finding: TC-07 seals the required content-addressed conflict correlation record and TC-10 requires post-PostgreSQL-restart generation-1 executing state, unchanged identities, zero terminal/finalization rows, zero terminal-audit delta, zero operation-correlated finalization writes and unchanged terminal digest.  However, the pre-acquisition contract still lacks an explicit material reference-mismatch stale/invalidation row, and the purportedly exhaustive post-acquisition matrix omits distinct reference-integrity/expiry branches. Those gaps allow materially nonconforming authorization/admission behavior to pass, so findings are non-empty and AC-01, AC-03 and AC-09 are not adequately proven.",
+  "response_digest": "sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef"
+}

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evidence_id": "m4-issue-79-integration-evidence-v2",
+  "ticket": "#79",
+  "recorded_at": "2026-09-08T12:22:00+07:00",
+  "integration": {
+    "branch": "nhibuaa/m4-tools-human-approval",
+    "pre_integration_head": "7bb0263bea992a8a3707c8257d53d31968c16934",
+    "source_branch": "codex/issue-79-integration-hang-remediation-2",
+    "source_acceptance_commit": "a0a82a9ca8d4b81b2bf5d6ebcb43813020e7dde1",
+    "merge_commit": "ac082a178aa37d127836a401b6924177b8382c91",
+    "default_branch": "main",
+    "default_branch_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+    "default_branch_unchanged": true,
+    "publication_performed": false
+  },
+  "accepted_evaluation": {
+    "run_id": "m4-79-integrated-release-gate-v2-20260908-03-approved",
+    "guide_revision": "m4-79-integrated-release-gate-v2",
+    "guide_digest": "sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63",
+    "history": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.evaluations.jsonl",
+    "history_digest": "sha256:a880650333754661a94aebc0690dcf2cc0e6f1e041e4720331a586f4b4a5d18a",
+    "human_approval": "approved"
+  },
+  "changed_scope": [
+    "backend/test/conftest.py",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.evaluations.jsonl"
+  ],
+  "selective_invalidation": {
+    "decision": "rerun_all_issue_79_cases_then_accept",
+    "reason": "The remediation changes the shared pytest bootstrap. All locked Issue #79 cases were rerun under the candidate and approved in the append-only Evaluation before integration.",
+    "result": "valid_after_rerun"
+  },
+  "verification": {
+    "clean_worktree": "C:/Developer/Projects/knora-agent-worktree-m4-integration-verify",
+    "clean_worktree_head": "ac082a178aa37d127836a401b6924177b8382c91",
+    "full_pytest": "969 passed, 3 locked PDF baseline skips, 0 failures, 0 xfails",
+    "ruff": "PASS",
+    "docker_compose_config": "PASS",
+    "git_diff_check": "PASS",
+    "environment_note": "The pre-existing integration checkout retained a stale LF byte representation of an M3 checksum fixture and produced five unrelated M3 checksum/authority failures. A newly created clean detached worktree at the exact merge head restored the tracked CRLF representation and passed the full suite. No source or test assertion was changed during this verification."
+  },
+  "worktree_disposition": {
+    "issue_worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-integration-remediation-2",
+    "issue_worktree_status": "clean_retained_pending_explicit_cleanup_direction",
+    "verification_worktree": "C:/Developer/Projects/knora-agent-worktree-m4-integration-verify",
+    "verification_worktree_status": "clean_retained_as_reproducible_integration_evidence"
+  },
+  "next_valid_transition": "create final feature fixed-point descriptor and invoke one feature-level code review; do not push, merge to main, publish, deploy, or close GitHub issues without separate authorization"
+}

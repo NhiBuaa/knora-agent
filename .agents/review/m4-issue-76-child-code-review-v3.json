@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "review_id": "m4-issue-76-child-code-review-v3",
+  "reviewed_at": "2026-08-23T09:35:00+07:00",
+  "ticket": "#76",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/81",
+  "review_kind": "child_issue_review",
+  "final_m4_review": false,
+  "fixed_point": {
+    "base_commit": "98f75f1b392165abab2ec0195d53a9bd0f8095d3",
+    "merge_base_commit": "98f75f1b392165abab2ec0195d53a9bd0f8095d3",
+    "merge_base_semantics": true,
+    "head_commit": "94052df151dfe7830b225f2d0612b4118baa1783",
+    "diff_command": "git diff 98f75f1b392165abab2ec0195d53a9bd0f8095d3..94052df151dfe7830b225f2d0612b4118baa1783",
+    "commit_list": [
+      "608fe5966bc74ff29c3513c0af14e83425b4c706",
+      "34d74ad3a47ca313d84696cc5f3d1f0ccece38d2",
+      "509cc077091450672ff623276ac151104316c7f7",
+      "dcc849faa837140f4a9c07b58319c190ae7a35c8",
+      "0488da651c046f0b50c510d21c877cb43d4b087a",
+      "fa00b58c4d111cb6a64cef1fa898991ba4cde59a",
+      "2ace7751d7341f9759d43d10af9463844ae738be",
+      "628a5d092dc53a8d29bef2cd3849ba2197aab727",
+      "7389068814392e55866f367be15e532fafc8d6aa",
+      "5ff73daf03af543362ce0204bd55483efb9cf9d4",
+      "889c387a743fe0d7a2429f2118935a79f81210d7",
+      "7d661bcefe6afae0053db95e31988998620a13e6",
+      "6b30b648e65a329fc80d1ba5074c17053e6e5b85",
+      "625bca22c07b5c12640358ae8dea941f6d9d8373",
+      "0713b7239328dc565430dbf6bfb8e27fd21320ea",
+      "f40c21f9e1b83cecccfc3858af5a5630cd9059c2",
+      "b070f2e2d526d5bd634415a591c5a9a7f8a1dc96",
+      "ebfeb02a8b6c7cd97399b5a9f9b2d9aa6fd640a8",
+      "3f7c98be8787e9c070d99e14c446ab88678e2870",
+      "cda55a8d2d4ef3c668ec4d737355513b1623c38c",
+      "f30bdb078f4c499cda4f76d21f3e7d1d3ebcd94f",
+      "2b5a31e2fc7df3f6bb21bc5edecb40af3cf45264",
+      "5214c2e808853fd6792960794533214d7dd4e58a",
+      "e0ba1f293ecb0124f384d97a2db5e65677ef3b68",
+      "94052df151dfe7830b225f2d0612b4118baa1783"
+    ]
+  },
+  "machine_result": {
+    "status": "completed",
+    "pass": false,
+    "verdict": "REQUEST_CHANGES",
+    "critical_count": 0,
+    "major_count": 4,
+    "findings": [
+      {
+        "severity": "major",
+        "location": "backend/src/knora/tools/proposal_types.py:85",
+        "evidence": "PolicyProvenance is frozen only shallowly: its default snapshot is a mutable dict containing a mutable list (lines 101-107), from_semantics returns another shallow dict (line 135), and __post_init__ validates the digest only once. WriteProposalWorkflow later persists policy_digest and a fresh copy of the potentially mutated snapshot separately (backend/src/knora/tools/proposals.py:199-202), while approval behavior reads separation_of_duties from that snapshot (lines 56-62). A read-only runtime probe changed snapshot['separation_of_duties'] after construction; the retained digest was sha256:f95187c95ea46b795cfa84ccaa7d3427a9b2a214c4b1bd1ccb3efc26941dc462 while recomputing from the mutated semantics produced sha256:09222b3f5171f79069ced3e26d636b0ff80eca1c80caf326ae05ed19c14bb2da.",
+        "problem": "The supposedly immutable policy provenance can change after its digest is validated, so a proposal can persist policy semantics that are not represented by its policy digest. Concurrent mutation can also interleave the separate field reads during proposal creation.",
+        "harm": "Approval and separation-of-duties behavior can be governed by unattested semantics, while later compatibility checks compare only identity/version/digest and may treat the materially different policy as compatible. This breaks the repository's exact immutable policy-binding authorization boundary.",
+        "fix": "Canonicalize and deeply freeze/copy the policy snapshot at construction, retain no caller-owned mutable containers, and ensure proposal creation consumes one internally consistent policy value. Add tests that attempt top-level and nested mutation and prove the digest and persisted semantics cannot diverge.",
+        "axis": "standards"
+      },
+      {
+        "severity": "major",
+        "location": ".agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl:8",
+        "evidence": "The locked guide requires that '#76 tests use its fake and do not import #75 concrete registry/provider code' and that a counting provider-write sentinel remain zero (.agents/manual-tests/milestone-4/76-write-proposal-v3.md:171-173). The final approved run nevertheless marks TC-08 PASS while citing backend/test/tools/test_proposal_integration.py, which directly imports and constructs CapabilityRegistry and ReferenceVerifier at lines 13, 23, and 94-101. No changed test_proposal*.py file contains a gateway, sentinel, write_count, or provider_write assertion, yet the approved record reports provider_write_count: 0.",
+        "problem": "The final PASSED acceptance record silently reinterprets a locked test instead of satisfying it and reports a sentinel result for which the cited test suite contains no sentinel.",
+        "harm": "The human-approved release evidence does not prove the locked acceptance contract, so the quality gate can report success without observing the prohibited provider-write behavior and without obtaining approval for the post-integration test boundary.",
+        "fix": "Append an invalidation for this run, publish and obtain review/human approval for a new guide revision that accurately describes the reconciled #75 integration boundary, add the required counting provider-write sentinel, and rerun the exact locked cases on the new subject.",
+        "axis": "standards"
+      },
+      {
+        "severity": "minor",
+        "location": "backend/src/knora/tools/proposal_contracts.py:15",
+        "evidence": "The new proposal_contracts.py duplicates _canonical_value, canonical_json_v1, canonical_digest_v1, DIGEST_PATTERN, and require_digest almost verbatim from the existing shared backend/src/knora/tools/contracts.py:17-72. Proposal types and request fingerprints import the duplicate (proposal_types.py:11; proposals.py:14), while capability, reference, and proposal-integration code imports the original shared contract (capabilities.py:8; references.py:14; proposal_integration.py:13).",
+        "problem": "One immutable canonical-json-v1 contract now has two implementation authorities inside the same tool boundary.",
+        "harm": "A canonicalization or validation correction applied to only one copy would make capability/reference digests and proposal policy/parameter/request fingerprints disagree while all remain labeled canonical-json-v1, creating avoidable compatibility and idempotency failures and requiring shotgun edits.",
+        "fix": "Remove proposal_contracts.py, route proposal code through the existing knora.tools.contracts module, and keep one shared canonicalization conformance test suite.",
+        "axis": "standards"
+      },
+      {
+        "severity": "major",
+        "location": "backend/src/knora/tools/proposals.py:163",
+        "evidence": "The approved design requires a policy-selected, server-derived expiry bound into immutable proposal intent. PolicyProvenance has no expiry semantics (proposal_types.py:85-107), RegistryCapabilityResolver returns no expires_at (proposal_integration.py:43-52), and the production workflow therefore substitutes an unproven hard-coded one-hour lifetime. The expiry test instead supplies an absolute expiry through FakeCapabilityResolver (test_proposals.py:628-658), so it does not exercise real composition.",
+        "problem": "Production proposal expiry is not selected by or cryptographically bound to the policy provenance that the human approves.",
+        "harm": "A policy requiring a shorter or longer approval lifetime is ignored; later execution can remain eligible beyond policy intent or expire prematurely while carrying a policy digest that does not describe the effective lifetime.",
+        "fix": "Add typed proposal-expiry semantics to trusted policy composition, include them in the policy snapshot/digest, derive expires_at through RegistryCapabilityResolver using a trusted clock, remove the independent one-hour fallback, and test a non-default lifetime through real registry composition.",
+        "axis": "spec"
+      },
+      {
+        "severity": "major",
+        "location": "backend/test/tools/test_proposal_postgres.py:85",
+        "evidence": "Issue #76 explicitly requires persistence tests proving complete read-back reconstruction, stale/expired projections, and absence of provider persistence coupling. This PostgreSQL suite verifies mutation guards, lifecycle constraints, and CAS, but never changes the current resolver or clock, reconstructs and compares every persisted provenance field, creates a materially changed replacement, or installs a provider-write sentinel. The only expiry test uses InMemoryToolActionStore (test_proposals.py:628-658), while the final acceptance record at .agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl:8 claims these cases passed using file-level references and an unsupported provider_write_count of zero.",
+        "problem": "Several explicit persistence acceptance requirements have no meaningful PostgreSQL-backed verification, despite the accepted evaluation claiming them as proven.",
+        "harm": "PostgreSQL mapping errors in provenance, timestamps, replacement identity, or provider isolation can regress while all current tests and the recorded acceptance result remain green.",
+        "fix": "Add PostgreSQL-backed tests that reload and compare every immutable provenance field and audit decision, create a materially changed replacement with new proposal/logical IDs, exercise stale and expired projections after durable read-back, and prove provider isolation with a counting sentinel or equivalent enforceable boundary. Then append corrected acceptance evidence for the new exact subject.",
+        "axis": "spec"
+      }
+    ],
+    "axes": {
+      "standards": {
+        "status": "completed",
+        "axis": "standards",
+        "findings": [
+          {
+            "severity": "major",
+            "location": "backend/src/knora/tools/proposal_types.py:85",
+            "evidence": "PolicyProvenance is frozen only shallowly: its default snapshot is a mutable dict containing a mutable list (lines 101-107), from_semantics returns another shallow dict (line 135), and __post_init__ validates the digest only once. WriteProposalWorkflow later persists policy_digest and a fresh copy of the potentially mutated snapshot separately (backend/src/knora/tools/proposals.py:199-202), while approval behavior reads separation_of_duties from that snapshot (lines 56-62). A read-only runtime probe changed snapshot['separation_of_duties'] after construction; the retained digest was sha256:f95187c95ea46b795cfa84ccaa7d3427a9b2a214c4b1bd1ccb3efc26941dc462 while recomputing from the mutated semantics produced sha256:09222b3f5171f79069ced3e26d636b0ff80eca1c80caf326ae05ed19c14bb2da.",
+            "problem": "The supposedly immutable policy provenance can change after its digest is validated, so a proposal can persist policy semantics that are not represented by its policy digest. Concurrent mutation can also interleave the separate field reads during proposal creation.",
+            "harm": "Approval and separation-of-duties behavior can be governed by unattested semantics, while later compatibility checks compare only identity/version/digest and may treat the materially different policy as compatible. This breaks the repository's exact immutable policy-binding authorization boundary.",
+            "fix": "Canonicalize and deeply freeze/copy the policy snapshot at construction, retain no caller-owned mutable containers, and ensure proposal creation consumes one internally consistent policy value. Add tests that attempt top-level and nested mutation and prove the digest and persisted semantics cannot diverge."
+          },
+          {
+            "severity": "major",
+            "location": ".agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl:8",
+            "evidence": "The locked guide requires that '#76 tests use its fake and do not import #75 concrete registry/provider code' and that a counting provider-write sentinel remain zero (.agents/manual-tests/milestone-4/76-write-proposal-v3.md:171-173). The final approved run nevertheless marks TC-08 PASS while citing backend/test/tools/test_proposal_integration.py, which directly imports and constructs CapabilityRegistry and ReferenceVerifier at lines 13, 23, and 94-101. No changed test_proposal*.py file contains a gateway, sentinel, write_count, or provider_write assertion, yet the approved record reports provider_write_count: 0.",
+            "problem": "The final PASSED acceptance record silently reinterprets a locked test instead of satisfying it and reports a sentinel result for which the cited test suite contains no sentinel.",
+            "harm": "The human-approved release evidence does not prove the locked acceptance contract, so the quality gate can report success without observing the prohibited provider-write behavior and without obtaining approval for the post-integration test boundary.",
+            "fix": "Append an invalidation for this run, publish and obtain review/human approval for a new guide revision that accurately describes the reconciled #75 integration boundary, add the required counting provider-write sentinel, and rerun the exact locked cases on the new subject."
+          },
+          {
+            "severity": "minor",
+            "location": "backend/src/knora/tools/proposal_contracts.py:15",
+            "evidence": "The new proposal_contracts.py duplicates _canonical_value, canonical_json_v1, canonical_digest_v1, DIGEST_PATTERN, and require_digest almost verbatim from the existing shared backend/src/knora/tools/contracts.py:17-72. Proposal types and request fingerprints import the duplicate (proposal_types.py:11; proposals.py:14), while capability, reference, and proposal-integration code imports the original shared contract (capabilities.py:8; references.py:14; proposal_integration.py:13).",
+            "problem": "One immutable canonical-json-v1 contract now has two implementation authorities inside the same tool boundary.",
+            "harm": "A canonicalization or validation correction applied to only one copy would make capability/reference digests and proposal policy/parameter/request fingerprints disagree while all remain labeled canonical-json-v1, creating avoidable compatibility and idempotency failures and requiring shotgun edits.",
+            "fix": "Remove proposal_contracts.py, route proposal code through the existing knora.tools.contracts module, and keep one shared canonicalization conformance test suite."
+          }
+        ],
+        "report": "Three Standards findings: mutable policy provenance can invalidate the authorization digest binding; the approved acceptance record does not satisfy its locked guide; and canonical-json-v1 was duplicated across the reconciled tool boundary. The previously reported authorization-before-lookup, static create_ticket registration, real reference verification, PostgreSQL CAS, and append-only mutation protections are present in the pinned head."
+      },
+      "spec": {
+        "status": "completed",
+        "axis": "spec",
+        "findings": [
+          {
+            "severity": "major",
+            "location": "backend/src/knora/tools/proposals.py:163",
+            "evidence": "The approved design requires a policy-selected, server-derived expiry bound into immutable proposal intent. PolicyProvenance has no expiry semantics (proposal_types.py:85-107), RegistryCapabilityResolver returns no expires_at (proposal_integration.py:43-52), and the production workflow therefore substitutes an unproven hard-coded one-hour lifetime. The expiry test instead supplies an absolute expiry through FakeCapabilityResolver (test_proposals.py:628-658), so it does not exercise real composition.",
+            "problem": "Production proposal expiry is not selected by or cryptographically bound to the policy provenance that the human approves.",
+            "harm": "A policy requiring a shorter or longer approval lifetime is ignored; later execution can remain eligible beyond policy intent or expire prematurely while carrying a policy digest that does not describe the effective lifetime.",
+            "fix": "Add typed proposal-expiry semantics to trusted policy composition, include them in the policy snapshot/digest, derive expires_at through RegistryCapabilityResolver using a trusted clock, remove the independent one-hour fallback, and test a non-default lifetime through real registry composition."
+          },
+          {
+            "severity": "major",
+            "location": "backend/test/tools/test_proposal_postgres.py:85",
+            "evidence": "Issue #76 explicitly requires persistence tests proving complete read-back reconstruction, stale/expired projections, and absence of provider persistence coupling. This PostgreSQL suite verifies mutation guards, lifecycle constraints, and CAS, but never changes the current resolver or clock, reconstructs and compares every persisted provenance field, creates a materially changed replacement, or installs a provider-write sentinel. The only expiry test uses InMemoryToolActionStore (test_proposals.py:628-658), while the final acceptance record at .agents/manual-tests/milestone-4/76-write-proposal-v3.evaluations.jsonl:8 claims these cases passed using file-level references and an unsupported provider_write_count of zero.",
+            "problem": "Several explicit persistence acceptance requirements have no meaningful PostgreSQL-backed verification, despite the accepted evaluation claiming them as proven.",
+            "harm": "PostgreSQL mapping errors in provenance, timestamps, replacement identity, or provider isolation can regress while all current tests and the recorded acceptance result remain green.",
+            "fix": "Add PostgreSQL-backed tests that reload and compare every immutable provenance field and audit decision, create a materially changed replacement with new proposal/logical IDs, exercise stale and expired projections after durable read-back, and prove provider isolation with a counting sentinel or equivalent enforceable boundary. Then append corrected acceptance evidence for the new exact subject."
+          }
+        ],
+        "report": "Two major spec gaps remain. Authorization ordering, real m4r1 verification/composition, static create_ticket registration, atomic CAS, database immutability, compatibility projections, and absence of a provider-write call path are otherwise present. The correctly pinned full suite passed: 825 passed, 3 skipped."
+      }
+    },
+    "report": "## Standards\n\nThree Standards findings: mutable policy provenance can invalidate the authorization digest binding; the approved acceptance record does not satisfy its locked guide; and canonical-json-v1 was duplicated across the reconciled tool boundary. The previously reported authorization-before-lookup, static create_ticket registration, real reference verification, PostgreSQL CAS, and append-only mutation protections are present in the pinned head.\n\n## Spec\n\nTwo major spec gaps remain. Authorization ordering, real m4r1 verification/composition, static create_ticket registration, atomic CAS, database immutability, compatibility projections, and absence of a provider-write call path are otherwise present. The correctly pinned full suite passed: 825 passed, 3 skipped."
+  },
+  "acceptance_impact": {
+    "accepted_run_id": "m4-76-write-proposal-v3-20260823-02-approved",
+    "accepted_subject_sha": "5214c2e808853fd6792960794533214d7dd4e58a",
+    "status": "invalidated",
+    "affected_case_ids": ["M4-76-TC-01", "M4-76-TC-04", "M4-76-TC-06", "M4-76-TC-07", "M4-76-TC-08"],
+    "required_action": "Append invalidation. The two allowed child-review remediation cycles are exhausted; suspend and request explicit workflow direction before any further remediation."
+  },
+  "next_valid_transition": "append acceptance invalidation, record exhausted remediation bound, suspend for explicit human direction"
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "run_id": "m4-79-integrated-release-gate-v5-20260909-01-candidate",
+  "observed_at": "2026-09-09T12:31:21+07:00",
+  "executor": "Codex manual-acceptance execute against Issue #79 attempt-11 exact subject",
+  "guide_revision": "m4-79-integrated-release-gate-v5",
+  "guide_sha256": "fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+  "candidate": {
+    "commit_sha": "e3230e9833db90287098993fe9ec1c1443df13cb",
+    "branch": "codex/issue-79-final-review-remediation-3",
+    "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3"
+  },
+  "technical_evidence_reference": ".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json",
+  "technical_evidence_digest": "sha256:e1f57d1359ef6283d268714e2131a6e6ab0e72a7ee44bb0076f946122a94cfad",
+  "test_results": [
+    {"id": "M4-79-TC-01", "outcome": "PASS", "observation": "Focused provider/read/HTTP suite passed authorization-before-lookup and malformed lookup contract coverage; no test failure or untyped boundary error was observed.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json", "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"]},
+    {"id": "M4-79-TC-02", "outcome": "PASS", "observation": "Focused and full suites passed proposal lifecycle, immutable material/audit ordering and human decision coverage.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-03", "outcome": "PASS", "observation": "Execution workflow and HTTP contract coverage passed typed terminal, no-write rejection, scope-denial, in-progress/fenced and sanitized projection assertions.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json", "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"]},
+    {"id": "M4-79-TC-04", "outcome": "PASS", "observation": "Execution race and idempotency coverage passed with no duplicate admission/effect failure.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-05", "outcome": "PASS", "observation": "Reconciliation workflow/PostgreSQL coverage passed crash-window, terminal/non-terminal, exact-resource authorization and sanitized projection assertions.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json", "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"]},
+    {"id": "M4-79-TC-06", "outcome": "PASS", "observation": "PostgreSQL strict-expiry takeover and fencing tests passed in the focused and full suites.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-07", "outcome": "PASS", "observation": "Public/audit sanitization assertions passed with zero forbidden-field failures in the exact focused and full release-contract suites.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-08", "outcome": "PASS", "observation": "The required root-CWD migration round-trip passed; upgrade 0040, downgrade 0039, re-upgrade and final head all completed successfully.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-09", "outcome": "PASS", "observation": "Exact-subject focused and full regression passed with 981 passed and only the three locked PDF baseline skips; Ruff and Compose config passed.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json", "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"]},
+    {"id": "M4-79-TC-10", "outcome": "PASS", "observation": "All 15 changed paths remain within the dispatch-11 remediation scope, the worker worktree is clean, and main remains 6312c4c4230032aa92ca5915803fcfaf564354fa; final review stayed deferred.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-11", "outcome": "PASS", "observation": "Guide v5 and its Test Case artifact retain their approved locked digests; this run is a new append-only candidate and does not rewrite earlier history.", "evidence": [".agents/review/m4-issue-79-guide-approval-v5.json", ".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id": "M4-79-TC-12", "outcome": "PASS", "observation": "Provider boundary normalization coverage passed malformed lookup/create/observation shape and exception guards without an untyped 500.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json", "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"]},
+    {"id": "M4-79-TC-13", "outcome": "PASS", "observation": "Current exact-resource observation authorization and provider scope-denial mappings passed in the focused reconciliation/contract coverage.", "evidence": [".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json", "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"]}
+  ],
+  "verification": {
+    "subject_sha": "e3230e9833db90287098993fe9ec1c1443df13cb",
+    "focused": "189 passed, 5 warnings",
+    "root_cwd_migration": "1 passed, 3 warnings",
+    "full_pytest": "981 passed, 3 skipped, 11 warnings",
+    "ruff": "PASS",
+    "docker_compose_config": "PASS",
+    "docker_server": "29.7.2",
+    "main_unchanged": "6312c4c4230032aa92ca5915803fcfaf564354fa"
+  },
+  "verdict": "BLOCKED",
+  "human_approval": "pending",
+  "blocker": "All technical cases passed. Explicit repository-owner approval is required before a PASSED Evaluation may be appended and Issue #79 may proceed to reconciliation/integration.",
+  "append_only": true
+}

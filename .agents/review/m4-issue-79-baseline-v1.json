@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "evidence_id": "m4-issue-79-baseline-v1",
+  "recorded_at": "2026-09-06T10:42:26+07:00",
+  "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+  "branch": "codex/issue-79-m4-release-gate",
+  "worktree_path": "C:/Developer/Projects/knora-agent-worktree",
+  "source_base": "5af5c5c914ea904fe1e14de1acff859113d53244",
+  "integration_branch": "nhibuaa/m4-tools-human-approval",
+  "integration_head": "5af5c5c914ea904fe1e14de1acff859113d53244",
+  "default_branch": "main",
+  "default_branch_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "default_branch_unchanged": true,
+  "git_clean": true,
+  "database_url_shape": "postgresql+psycopg://<redacted>@127.0.0.1:5432/knora?connect_timeout=3",
+  "alembic_revision": "20260824_0040",
+  "full_suite": {
+    "cwd": "C:/Developer/Projects/knora-agent-worktree",
+    "tests": 967,
+    "passed": 963,
+    "skipped": 3,
+    "failed": 1,
+    "duration_seconds": 68.425,
+    "status": "known_failure_approved_for_continuation",
+    "junit_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/baseline-2.junit.xml"
+  },
+  "known_failure": {
+    "nodeid": "backend/test/tools/test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit",
+    "root_cwd_result": "FAILED",
+    "backend_cwd_result": "PASSED in the prior diagnostic run",
+    "diagnosis": "backend/alembic.ini uses relative script_location = migrations, so the migration round-trip is CWD-dependent when the suite is launched from the repository root",
+    "classification": "pre_existing_integration_harness_gap",
+    "worker_required_remediation": "Make the Alembic round-trip CWD-independent and prove the focused root-CWD test plus the complete repository verification green on the exact candidate SHA."
+  },
+  "other_gates": {
+    "ruff": "PASSED",
+    "docker_compose_config": "PASSED",
+    "alembic_upgrade_to_head": "PASSED"
+  },
+  "continuation_authority": {
+    "status": "approved",
+    "authority": "repository_owner",
+    "source": "explicit confirmation in the current leader task",
+    "scope": "continue Issue #79 preparation and dispatch with the known baseline failure declared and assigned to the worker",
+    "does_not_authorize": [
+      "claiming the baseline is green",
+      "leader-session implementation",
+      "closing Issue #79",
+      "merging or publishing the feature"
+    ]
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-test-cases-v6",
+  "requirement_source": "docs/design/milestone-4-tools-human-approval.md",
+  "remediation_source": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-spec-v3.json",
+  "fixed_point_source": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-fixed-point-v3.json",
+  "supersedes": "m4-issue-79-test-cases-v5",
+  "mode": "test-cases",
+  "inherited_cases": {
+    "reference": ".agents/review/m4-issue-79-test-cases-v5.json",
+    "ids": [
+      "M4-79-TC-01",
+      "M4-79-TC-02",
+      "M4-79-TC-03",
+      "M4-79-TC-04",
+      "M4-79-TC-05",
+      "M4-79-TC-06",
+      "M4-79-TC-07",
+      "M4-79-TC-08",
+      "M4-79-TC-09",
+      "M4-79-TC-10",
+      "M4-79-TC-11",
+      "M4-79-TC-12",
+      "M4-79-TC-13"
+    ],
+    "semantic_status": "unchanged_and_required"
+  },
+  "coverage": {
+    "included_axes": [
+      "data_shape_and_contract",
+      "state_and_lifecycle",
+      "async_and_concurrency",
+      "security_and_bounds"
+    ],
+    "omitted_axes": [
+      {
+        "axis": "ui_and_observable_transitions",
+        "reason": "The remediation changes persistence, lease CAS timing, typed projections and audit serialization, not an interactive UI."
+      }
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "M4-79-TC-14",
+      "requirement": "M4 closed provider-outcome persistence",
+      "risk": "PostgreSQL constraints may reject closed provider terminal outcomes, producing an untyped 500 and losing durable evidence.",
+      "seam": "PostgreSQL execution/reconciliation store and migration guards",
+      "prerequisites": [
+        "Independent provider rejection, scope denial and reconciled request rejection fixtures.",
+        "PostgreSQL migration at the exact tested subject."
+      ],
+      "steps": [
+        "Execute provider_request_rejected, provider_scope_denied and reconciled_request_rejected through execution and reconciliation.",
+        "Inspect persisted observations, terminal state, migrations and append-only audit after every transition.",
+        "Capture HTTP envelopes, write/effect counters and recursively scan public/audit evidence."
+      ],
+      "expected_results": [
+        "provider_request_rejected is durable and maps to 502 TOOL_PROVIDER_REQUEST_FAILED.",
+        "provider_scope_denied is durable and maps to 403 TOOL_RESOURCE_ACCESS_DENIED, never indeterminate 202.",
+        "reconciled_request_rejected is reconstructable without a constraint error or untyped 500.",
+        "Only specified closed values are accepted; arbitrary provider text is rejected/redacted.",
+        "Safe failure_code is retained while rejection_code and raw provider material are absent."
+      ],
+      "evidence_to_capture": [
+        "migration revision and constraint evidence",
+        "durable row/audit snapshots",
+        "HTTP envelopes",
+        "provider-call/write/effect counters",
+        "recursive forbidden-field scan"
+      ]
+    },
+    {
+      "id": "M4-79-TC-15",
+      "requirement": "M4 fixed transaction-time lease and fencing",
+      "risk": "Moving database-clock reads can make lease/CAS decisions inconsistent inside one transaction.",
+      "seam": "PostgreSQL lease, fencing and stale-takeover transitions",
+      "prerequisites": [
+        "A database harness that can advance the clock between statements without ending the transaction.",
+        "Current, foreign, stale and generation-mismatched owner fixtures."
+      ],
+      "steps": [
+        "Exercise acquire, authorize/admit, observe, finalize and stale-takeover transitions under one transaction.",
+        "Race owners over the lock barrier and record the captured transaction timestamp, lease and generation values."
+      ],
+      "expected_results": [
+        "Each transition uses one transaction_timestamp for lease comparisons, CAS predicates and transition timestamps.",
+        "Later wall-clock movement cannot change an in-flight classification.",
+        "Exactly one valid owner or strict-expiry takeover wins without duplicate effect; invalid owners are fenced."
+      ],
+      "evidence_to_capture": [
+        "SQL/transaction identity",
+        "captured timestamp",
+        "lease/generation rows",
+        "CAS result",
+        "ordered audit facts"
+      ]
+    },
+    {
+      "id": "M4-79-TC-16",
+      "requirement": "M4 sanitized execution projection",
+      "risk": "Proposal reads and execution/reconciliation results may omit durable execution lifecycle state or leak trusted-store material.",
+      "seam": "ToolProposalProjection and HTTP result serialization",
+      "prerequisites": [
+        "In-memory and PostgreSQL-backed proposal stores.",
+        "Fixtures for success, terminal, indeterminate, in-progress, fenced and authority-denied outcomes."
+      ],
+      "steps": [
+        "Create, read, execute and reconcile a proposal through both stores.",
+        "Reload the proposal and compare nested projection fields across every result.",
+        "Run the recursive public allowlist scan."
+      ],
+      "expected_results": [
+        "Every current ToolProposalProjection includes sanitized execution lifecycle, generation, observations and terminal state where available.",
+        "Execution and reconciliation responses carry the same current nested proposal projection.",
+        "Provider IDs, routing handles, secrets, raw provider payloads, internal exceptions and rejection_code are absent recursively.",
+        "The projection survives reload and recovery and is sufficient for public lifecycle reconstruction."
+      ],
+      "evidence_to_capture": [
+        "HTTP JSON responses",
+        "projection schema/allowlist",
+        "reload snapshots",
+        "recursive zero-hit scan"
+      ]
+    },
+    {
+      "id": "M4-79-TC-17",
+      "requirement": "M4 safe failure-code audit reconstruction",
+      "risk": "Sanitization may erase the closed failure identity or leak the private rejection_code.",
+      "seam": "Append-only audit sanitizer and execution projection",
+      "prerequisites": [
+        "Independent fixtures for target_not_found, validation_rejected, policy_rejected and the approved provider request-rejection code.",
+        "Both in-memory and PostgreSQL persistence paths."
+      ],
+      "steps": [
+        "Run each closed terminal failure through execution and reconciliation.",
+        "Rebuild ordered audit from both stores after persistence and reload.",
+        "Validate the safe code and scan every nested public/audit value."
+      ],
+      "expected_results": [
+        "Only validated safe failure_code remains in audit and the sanitized execution projection.",
+        "rejection_code, arbitrary provider errors, routing data, credentials and internal exceptions never appear.",
+        "The safe code survives PostgreSQL persistence, reload and HTTP serialization.",
+        "Unknown/unvalidated codes fail closed rather than being persisted or projected."
+      ],
+      "evidence_to_capture": [
+        "audit rows",
+        "reload and HTTP projections",
+        "validation result",
+        "recursive forbidden-field scan"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "run_id": "m4-79-integrated-release-gate-v4-20260909-02-approved",
+  "supersedes_run_id": "m4-79-integrated-release-gate-v4-20260909-02-candidate",
+  "observed_at": "2026-09-09T09:33:41+07:00",
+  "executor": "Codex manual-acceptance with explicit repository-owner approval",
+  "guide_revision": "m4-79-integrated-release-gate-v4",
+  "guide_sha256": "ff0eff4dac729ad19c4a2b13f4b2eb64c3ffa58c2c95d81648ce7043675d73e9",
+  "candidate": {
+    "commit_sha": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+    "branch": "codex/issue-79-final-review-remediation-2",
+    "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-2"
+  },
+  "test_results": [
+    {"id": "M4-79-TC-01", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-02", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-03", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-04", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-05", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-06", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-07", "outcome": "PASS", "observation": "Approved technical result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-08", "outcome": "PASS", "observation": "Approved root-CWD migration round-trip result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-09", "outcome": "PASS", "observation": "Approved exact-subject regression result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-10", "outcome": "PASS", "observation": "Approved scope and deferred-review result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]},
+    {"id": "M4-79-TC-11", "outcome": "PASS", "observation": "Approved guide-lock and append-only history result preserved.", "evidence": ["m4-79-integrated-release-gate-v4-20260909-02-candidate"]}
+  ],
+  "verification": {
+    "subject_sha": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+    "technical_evaluation": "m4-79-integrated-release-gate-v4-20260909-02-candidate"
+  },
+  "verdict": "PASSED",
+  "human_approval": "approved",
+  "human_approval_evidence": "Repository owner explicitly approved PASSED for Evaluation m4-79-integrated-release-gate-v4-20260909-02-candidate in the active Codex task.",
+  "append_only": true
+}

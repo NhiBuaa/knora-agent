@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "codex-agent:/root/m4_75_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-75-ticket-external-review.json",
+  "reviewed_at": "2026-08-22T05:04:03Z",
+  "reviewed_commit": "0648faf8eabd4d89da7435152bd9679a8938741d",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "ticket_id": "#75",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "https://github.com/NhiBuaa/knora-agent/issues/75",
+    ".agents/review/m4-issue-75-revision-v2.md",
+    "docs/design/milestone-4-tools-human-approval.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/standards/architecture.md",
+    "CONTEXT.md",
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-review-cadence-plan-v1.json",
+    "git diff 6312c4c4230032aa92ca5915803fcfaf564354fa..0648faf8eabd4d89da7435152bd9679a8938741d"
+  ],
+  "summary": "The revised #75 ticket is decision-complete with one m4r1 representation, exact authorization-before-gateway behavior, typed read boundary and deterministic provider evidence. Advisory review only."
+}

@@ -1,0 +1,22 @@
+{
+  "event_id": "m4-issue-79-integrated-attempt-11",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "transition": "integration_completed",
+  "skill": "feature-delivery",
+  "execution_revision": "m4-79-integration-attempt-11",
+  "started_at": "2026-09-09T12:54:42+07:00",
+  "finished_at": "2026-09-09T15:59:00+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:50673e00c4d189cee526c91e143db464d7b24c79b5ee0335756e1db44f2604e1",
+  "output_digest": "sha256:db0516681f3d97789d5ba75a138ef4ce9b9e498c70343f796341e6acc431f129",
+  "evidence_references": [
+    ".agents/review/m4-issue-79-integration-evidence-v4.json",
+    ".agents/review/m4-issue-79-evaluation-11-approved.json",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v5.evaluations.jsonl",
+    ".agents/review/m4-workflow-ledger-v1.json"
+  ],
+  "schema_version": 1
+}

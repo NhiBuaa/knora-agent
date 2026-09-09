@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "revision": 3,
+  "affected_ticket_design_revision": {
+    "#75": 2,
+    "#76": 2
+  },
+  "source_subjects": [
+    "160e43359609e68f66410bc9768b1ecd94987f56",
+    "608fe5966bc74ff29c3513c0af14e83425b4c706"
+  ],
+  "status": "revised_pending_external_review",
+  "changes": [
+    {
+      "finding": "M4.1 read-provider HTTP mapping was not decision-complete",
+      "disposition": "Added an exact provider-scope/not-found/unavailable/contract-invalid status and public error-code matrix."
+    },
+    {
+      "finding": "M4.2 decision/stale/expiry/reject-reason HTTP outcomes were not exact",
+      "disposition": "Added closed public codes for decision authorization, validation, already-decided, stale, expired and revision conflict."
+    },
+    {
+      "finding": "unknown validation/provider bodies could leak implementation defaults",
+      "disposition": "Required normalized M4 error envelopes and deterministic unknown-provider handling."
+    }
+  ],
+  "guide_disposition": "Both unapproved v1 guides remain immutable review subjects with REQUEST_CHANGES; new v2 guide files are required after this design is approved.",
+  "next_valid_transition": "external_re_review_exact_revision"
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "evidence_id": "m4-issue-78-baseline-v1",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_id": "github-issue-78",
+  "recorded_at": "2026-08-24T09:23:25+07:00",
+  "source_base_commit": "1cbf7d5f64bc94bd4d9313c2cf0fef46237b59e1",
+  "branch": "nhibuaa/issue-78-m4.4",
+  "worktree": "D:/Developer/Projects/knora-agent-worktree/issue-78-m4.4",
+  "environment": {
+    "os": "Windows",
+    "python": "3.14.6",
+    "postgresql": "16.14",
+    "docker_project": "m4-integration",
+    "source_resolution": "PYTHONPATH pinned to the Issue #78 worktree root and backend/src",
+    "database_resolution": "local PostgreSQL URL pinned to 127.0.0.1"
+  },
+  "verification": {
+    "full_pytest": "947 passed, 3 skipped",
+    "ruff": "PASS",
+    "docker_compose_config": "PASS",
+    "alembic_current": "20260824_0039 (head)",
+    "git_status_after_generated_evidence_restore": "clean"
+  },
+  "generated_evidence_disposition": {
+    "artifact": ".agents/review/m4-issue-77-release-evidence-v1.json",
+    "reason": "the M4.3 release harness generated a worktree-subject projection during the full suite",
+    "disposition": "restored byte-for-byte to the locked Issue #77 acceptance Git blob",
+    "restored_blob": "dd83113e9c413c3986f1b939d016602f70a13407"
+  },
+  "default_branch_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "default_branch_unchanged": true,
+  "result": "PASSED"
+}

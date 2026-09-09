@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8ae39b-ff88-83ec-8db4-f7ff5e02263e",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-guide-v5-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "3bff38a6813f620daf97ec009cf35d65b1ecdc8c",
+  "ticket_id": "#77",
+  "guide_revision": "m4-77-authorized-execution-v5",
+  "guide_digest": "sha256:69059cf83119a407d34d74d3b1e5249ba5a95672ce53c78946f1d92d5fcd605c",
+  "request_id": "review-request-sha256:6834cd9141b887c3847941fd4a63b77ddc4fc907811dae18d824629dbfb9723f",
+  "packet_reference": ".agents/review/m4-issue-77-guide-review-packet-v5.json",
+  "packet_digest": "sha256:3bd8ef211bd57998986cb99563d41b29d231c6ddda128da17f287e66a8fd4d43",
+  "response_reference": ".agents/review/m4-issue-77-guide-review-response-v5.json",
+  "response_digest": "sha256:90e6fc7e1444e24662f46ef397425438955db2c9c886d33e969f0ba6baaac12b",
+  "transport_raw_digest": "sha256:e899274f80cdfedbe434d97941ea6a9657e1d1010f29ebbaece0a70c1a53ff77",
+  "chat_reference": "https://chatgpt.com/c/6a8ae39b-ff88-83ec-8db4-f7ff5e02263e",
+  "transport": "single_pasted_attachment_after_bounded_native_upload_failure",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "prior_findings_closed": [
+    "M4-77-GR-001",
+    "M4-77-GR-002",
+    "M4-77-GR-003",
+    "M4-77-GR-004",
+    "M4-77-GR-005",
+    "M4-77-GR-006",
+    "M4-77-GR-007",
+    "M4-77-GR-008"
+  ],
+  "finding_classes": [
+    "pre_acquisition_denial_matrix_not_fully_exercised",
+    "provider_conflict_non_finalization_not_durably_proven"
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": [
+      "M4-77-AC-01",
+      "M4-77-AC-09"
+    ]
+  },
+  "summary": "Guide v5 fully closes both guide-v4 Major findings. Two new Major guide/test-craft gaps remain: TC-01 does not explicitly enumerate and prove authentication, expiry and validation pre-acquisition denial branches, and the provider-idempotency-conflict path lacks restart-stable durable non-finalization evidence tied to zero terminal/finalization writes and terminal audit rows."
+}

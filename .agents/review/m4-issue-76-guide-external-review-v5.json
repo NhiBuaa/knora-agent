@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "APPROVE",
+  "reviewer": "chatgpt:6a8a6cad-a048-83ec-84c1-729ab5ab9428",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-76-guide-v5-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "5a49abc237445c4998034af8cda484a5e1c02b95",
+  "ticket_id": "#76",
+  "guide_revision": "m4-76-write-proposal-v5",
+  "guide_digest": "sha256:d5034d0dbbc9421a9fa9f9e99b123436bb1b7728a4783876ea8bc28caf70a2ee",
+  "request_id": "review-request-sha256:2ff6c0cd9e577ebc8d261bc360fedaf3692af21c343e726c9c667ea6f4f3679f",
+  "packet_digest": "sha256:a3d80b5cfb50d2085f51c5b96f2a19cb3e462d430cc006625de97df5beb84bd1",
+  "response_reference": ".agents/review/m4-issue-76-guide-review-response-v5.json",
+  "response_digest": "sha256:671c463831bbb27a75a41004109995fa1f0d41febc1574b5eada5d3858362512",
+  "chat_reference": "https://chatgpt.com/c/6a8a6cad-a048-83ec-84c1-729ab5ab9428",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "findings": [],
+  "coverage": {
+    "criteria": [
+      "M4-76-AC-01",
+      "M4-76-AC-02",
+      "M4-76-AC-03",
+      "M4-76-AC-04",
+      "M4-76-AC-05",
+      "M4-76-AC-06",
+      "M4-76-AC-07",
+      "M4-76-AC-08"
+    ],
+    "uncovered": []
+  },
+  "summary": "All AC-01 through AC-08 have required observable Test Cases and evidence oracles. The two OPEN prior findings are directly closed: TC-03 plus EV-02 require an ordered counting lookup sentinel proving zero denied lookups and authorization before exactly one authorized scoped lookup, while TC-07 plus EV-04 require condition-by-condition before/after PostgreSQL-backed composition recreation for temporary denial, every capability/binding/policy mismatch, and expiry with durable identity. Security ordering, PostgreSQL reconstruction, concurrency, canonical implementation, accepted #75 integration, and zero provider-write claims are tied to observable counters/traces/reconstruction evidence rather than unsupported prose. The guide preserves the #76 boundary and introduces no execution, reconciliation, vendor-write, plugin, or final-M4-review behavior."
+}

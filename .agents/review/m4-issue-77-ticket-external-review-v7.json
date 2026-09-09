@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8ab38d-bf38-83ec-805b-917743be619f",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-ticket-v7-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "caff4a7e94b7373f03e18c1cc001a09c7f2464f2",
+  "ticket_id": "#77",
+  "contract_revision": "m4-77-ticket-contract-v7",
+  "ticket_digest": "sha256:f0c5cf68b4cfec0889d7c5127817293c12bb61b0f53781dcf8ef4d7b219ee922",
+  "request_id": "review-request-sha256:a7e46ff73246f0690b0e6e4ef8e353187798c482f275d7523dc56b140757c333",
+  "packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v7.json",
+  "base_packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v6.json",
+  "packet_digest": "sha256:748458cb2c501781f3538ee2661938d176e59d0c6f9d710ffe533e99d798b05b",
+  "response_reference": ".agents/review/m4-issue-77-ticket-review-response-v7.json",
+  "response_digest": "sha256:6ee3612ed850828441a6ceaef3eeb80a2d38a45a129710884bf12bb4a13c0918",
+  "chat_reference": "https://chatgpt.com/c/6a8ab38d-bf38-83ec-805b-917743be619f",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "finding_classes": [
+    "post_admission_fault_branch_state_oracle_gap",
+    "server_owned_fingerprint_provenance_oracle_gap",
+    "material_incompatibility_stale_transition_oracle_gap",
+    "public_projection_sanitization_oracle_gap"
+  ],
+  "summary": "Ticket contract v7 closes all three v6 findings but remains blocked by four new Major oracle and security gaps. No manual guide or implementation may begin."
+}

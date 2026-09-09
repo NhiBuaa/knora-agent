@@ -1,0 +1,23 @@
+{
+  "event_id": "m4-issue-79-manual-acceptance-v5-approved",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "transition": "evaluation_executed",
+  "skill": "feature-delivery+manual-acceptance",
+  "execution_revision": "m4-79-manual-acceptance-v5-owner-approval-01",
+  "started_at": "2026-09-09T12:43:50+07:00",
+  "finished_at": "2026-09-09T12:43:50+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:00b9505225136a474f59ed0f183363611180a7f647743a0d75eb7fdc7603f396",
+  "output_digest": "sha256:e14637aed9d0840771589c1d9b06b2e56e1d8050aa3339c50b1eea1376ff1cc7",
+  "evidence_references": [
+    ".agents/review/m4-issue-79-evaluation-11-approved.json",
+    ".agents/review/m4-issue-79-evaluation-11-candidate.json",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v5.evaluations.jsonl",
+    ".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json",
+    ".agents/review/m4-workflow-ledger-v1.json"
+  ],
+  "schema_version": 1
+}

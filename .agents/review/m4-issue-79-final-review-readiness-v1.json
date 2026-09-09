@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-final-review-readiness-v1",
+  "purpose": "Non-binding readiness checklist only; the feature leader creates the actual fixed-point descriptor after Issue #79 acceptance and integration.",
+  "actual_fixed_point_descriptor": null,
+  "code_review_invoked": false,
+  "preconditions": ["Issue #79 accepted", "Issue #79 integrated", "Issue #79 closed", "main revalidated unchanged", "integration head freshly resolved"]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "m4-issue-79-remediation-attempt-12-correction-1-integrated",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "transition": "integration_completed",
+  "skill": "feature-delivery",
+  "execution_revision": "m4-79-final-review-remediation-attempt-12-correction-1-integration",
+  "started_at": "2026-09-09T21:28:50+07:00",
+  "finished_at": "2026-09-09T21:34:15+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:2c29177907a3c2a4c0db2acc0b8551e7aba7f800e73cbf71eb20f5d8f0b892af",
+  "output_digest": "sha256:802a87af3f3626d70bafef81e7165c540ff8bf65",
+  "evidence_references": [
+    ".agents/review/m4-issue-79-integration-evidence-v5.json",
+    ".agents/review/m4-issue-79-evaluation-12-correction-1-approved.json",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v6-correction-1.evaluations.jsonl"
+  ]
+}

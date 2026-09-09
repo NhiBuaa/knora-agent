@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "event_id": "m4-final-feature-review-v4-approved",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": null,
+  "transition": "review_completed",
+  "skill": "feature-delivery",
+  "execution_revision": "m4-final-feature-review-v4",
+  "started_at": "2026-09-09T21:35:00+07:00",
+  "finished_at": "2026-09-09T21:47:00+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:d777e36efa7043de0524dfdc71b16cacc329877f439cdfeaecfbe1c1588ddd29",
+  "output_digest": "sha256:5a393e6e7d690bca1b591caa720d10720532e4c64e3ee0387820c4f646a8907d",
+  "evidence_references": [
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-fixed-point-v4.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-result-v4.json",
+    ".agents/review/m4-final-cadence-evidence-v4.json"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "reviewer_id": "codex-agent:/root/m4_spec_design_external_review",
+  "identity_kind": "execution-task",
+  "task_path": "/root/m4_spec_design_external_review",
+  "provider": "codex",
+  "source_authority": "collaboration-agent-task",
+  "purpose": "independent M4 specification and design review",
+  "created_at": "2026-08-22T04:52:02Z"
+}

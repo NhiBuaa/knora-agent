@@ -1,0 +1,20 @@
+{
+  "approval": "approved_repository_owner",
+  "approval_evidence": "Repository owner explicitly approved the exact guide SHA-256 in the active feature-delivery session.",
+  "approved_at": "2026-09-09T11:14:35+07:00",
+  "artifact_id": "m4-issue-79-guide-approval-v5",
+  "external_review_packet_reference": ".agents/review/m4-issue-79-remediation-guide-external-review-packet-v5.md",
+  "external_review_packet_sha256": "68ee7a4297869799c3ec47f5ab5a4e18fa71b196c747231d4d815a0752027232",
+  "external_review_response_reference": ".agents/review/m4-issue-79-remediation-guide-external-review-v5-response-1.json",
+  "external_review_response_sha256": "ab2a6dd16b69ec9511112366e5af0fbe8f4fcd5e41c3668b93af9c91d27815db",
+  "external_review_verdict": "APPROVE",
+  "guide_reference": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v5.md",
+  "guide_revision": "m4-79-integrated-release-gate-v5",
+  "guide_sha256": "fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+  "lock_semantics": "The guide bytes at the approved SHA-256 are immutable; semantic changes require a new guide revision and append-only review/approval records.",
+  "lock_status": "LOCKED",
+  "schema_version": 1,
+  "test_cases_reference": ".agents/review/m4-issue-79-test-cases-v5.json",
+  "test_cases_sha256": "471cd3eac173df599d127544a0207f697c61dc3083f029d604d9a648a928fe49",
+  "ticket": "#79"
+}

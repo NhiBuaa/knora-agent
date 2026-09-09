@@ -548,3 +548,203 @@ class QuestionTraceTable(Base):
     provider_metadata: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolProposalTable(Base):
+    __tablename__ = "tool_proposals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    capability_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    binding_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    binding_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    binding_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    policy_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    target_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    target_reference_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    target_reference_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_resource_identity_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    target_resource_claims_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    resource_kind: Mapped[str] = mapped_column(String(100), nullable=False)
+    parameters: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    parameters_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(200), nullable=False)
+    caller_principal_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    caller_key_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    proposal_actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    proposal_actor_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    proposal_actor_authority_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    proposal_actor_authority_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    proposal_actor_authority_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    logical_execution_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    decision_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_actor_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    decision_actor_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    decision_authority_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    decision_authority_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    decision_authority_digest: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    execution_stale_reason: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolProposalDecisionTable(Base):
+    __tablename__ = "tool_proposal_decisions"
+    __table_args__ = (UniqueConstraint("proposal_id", name="uq_tool_proposal_decision_proposal"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    resulting_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    authority_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    authority_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    authority_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolActionAuditEventTable(Base):
+    __tablename__ = "tool_action_audit_events"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "sequence", name="uq_tool_action_audit_sequence"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    actor_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolExecutionTable(Base):
+    __tablename__ = "tool_executions"
+
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), primary_key=True
+    )
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    logical_execution_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(200), nullable=False)
+    lifecycle: Mapped[str] = mapped_column(String(20), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    owner: Mapped[str] = mapped_column(String(200), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    lease_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    binding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    acquisition_identity: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    acquisition_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    acquisition_audit_identity: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    acquisition_audit_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    rejection_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    external_resource_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolDispatchAdmissionTable(Base):
+    __tablename__ = "tool_dispatch_admissions"
+
+    logical_execution_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), unique=True, nullable=False
+    )
+    admission_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    admission_identity: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    admission_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(100), nullable=False)
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(200), nullable=False)
+    capability_identity: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    capability_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    binding_identity: Mapped[str] = mapped_column(String(200), nullable=False)
+    binding_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    binding_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_identity: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    policy_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    reference_identity: Mapped[str] = mapped_column(String(100), nullable=False)
+    reference_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    reference_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    reference_claims_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    resource_identity_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    canonical_target_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    canonical_parameter_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    complete_intent_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    reference_key_epoch: Mapped[int] = mapped_column(Integer, nullable=False)
+    workspace_dispatch_epoch: Mapped[int] = mapped_column(Integer, nullable=False)
+    authority_decision_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    authority_witness_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    owner: Mapped[str] = mapped_column(String(200), nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    database_issue_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    envelope_signing_key_identity: Mapped[str] = mapped_column(String(200), nullable=False)
+    envelope_signing_key_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    routing_snapshot_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    canonical_envelope_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    admission_audit_identity: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    admission_audit_digest: Mapped[str] = mapped_column(String(200), nullable=False)
+    envelope_token: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ToolExecutionObservationTable(Base):
+    __tablename__ = "tool_execution_observations"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "sequence", name="uq_tool_execution_observation_sequence"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_proposals.id", ondelete="RESTRICT"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    observation_type: Mapped[str] = mapped_column(String(60), nullable=False)
+    rejection_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    external_resource_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ToolDispatchGlobalEpochTable(Base):
+    __tablename__ = "tool_dispatch_global_epochs"
+
+    singleton_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reference_key_epoch: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ToolWorkspaceDispatchEpochTable(Base):
+    __tablename__ = "tool_workspace_dispatch_epochs"
+
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), primary_key=True
+    )
+    workspace_dispatch_epoch: Mapped[int] = mapped_column(Integer, nullable=False)

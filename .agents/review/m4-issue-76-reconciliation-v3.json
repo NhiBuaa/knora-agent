@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket": "#76",
+  "pr": "https://github.com/NhiBuaa/knora-agent/pull/81",
+  "accepted_run_id": "m4-76-write-proposal-v5-20260823-01-approved",
+  "accepted_subject_sha": "56cd3be0f291cd40b46f3cbd9dbc43173094d5b7",
+  "approval_evidence_commit": "1a5283a4bbefefc2968c4a66729f5d8aedd89b82",
+  "integration_head_reconciled": "fd19e4040a08d86419dde087a87a9dd6787f8175",
+  "reconciliation_merge_commit": "7398784eb7dad82a9b3852c17f905053ed103ab6",
+  "merged_scope": [
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-issue-76-child-code-review-v2.json",
+    ".agents/review/m4-issue-76-child-code-review-v3.json",
+    ".agents/review/m4-workflow-ledger-v1.json",
+    ".agents/review/milestone-4-workflow-events.jsonl"
+  ],
+  "acceptance_impact": {
+    "disposition": "preserved_all_cases",
+    "affected_case_ids": [],
+    "reason": "Reconciliation changed only governed planning, historical review and workflow metadata. Production code, test code, locked guide, accepted subject behavior, database schema and execution environment were unchanged.",
+    "rerun_required": false
+  },
+  "verification": {
+    "focused": "134 passed",
+    "full": "851 passed, 3 skipped",
+    "isolated_environment_retry": "The known intermittent Python 3.14 multiprocessing.spawn M2 PDF case failed once, then its five-layout isolated suite passed 5/5 and the unchanged full suite passed 851/3 skipped.",
+    "ruff": "passed",
+    "compose": "passed",
+    "diff_check": "passed",
+    "clean_database_migration": "20260822_0037 (head)",
+    "provider_write_count": 0
+  },
+  "review": {
+    "child_review_run": false,
+    "final_m4_review_run": false,
+    "policy": "final_feature_only"
+  },
+  "next_valid_transition": "Commit and push reconciliation evidence, merge PR #81 into the integration branch with a merge commit, verify the integration head, close Issue #76, and clean the Issue #76 branch/worktree."
+}

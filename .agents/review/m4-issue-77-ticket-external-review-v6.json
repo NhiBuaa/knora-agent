@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8aabea-c860-83ec-bec2-e6c7c3324be1",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-ticket-v6-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "9247621531a01742523f55942a04b329b1f928fe",
+  "ticket_id": "#77",
+  "contract_revision": "m4-77-ticket-contract-v6",
+  "ticket_digest": "sha256:bedf225e465f6897e5354500a7956f33e33793ea31b9cd6df474afa6f191ddaf",
+  "request_id": "review-request-sha256:1dfb0672037e10b08f8cbe40f08cd852f5c432fa797365f9fc8b7fe373fade8b",
+  "packet_reference": ".agents/review/m4-issue-77-ticket-review-packet-v6.json",
+  "packet_digest": "sha256:fc292332c86d0ea2426a0ada78afb990584a63643be5c96c9ab657a45b503ded",
+  "response_reference": ".agents/review/m4-issue-77-ticket-review-response-v6.json",
+  "response_digest": "sha256:4b276bd674f80c70302bcb21314e487292316cf1ccabfdaad4eb0730e9dfbb6a",
+  "chat_reference": "https://chatgpt.com/c/6a8aabea-c860-83ec-bec2-e6c7c3324be1",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "finding_classes": [
+    "dispatch_admission_ambiguous_commit_readback_gap",
+    "finalization_expiry_fence_state_oracle_gap",
+    "provider_closed_rejection_atomicity_gap"
+  ],
+  "summary": "Ticket contract v6 resolves the eight v5 findings but remains blocked by three Major oracle and release-evidence gaps. No manual guide or implementation may begin."
+}

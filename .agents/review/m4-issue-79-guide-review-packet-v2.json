@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "canonical_projection": {
+    "projection_version": 1,
+    "round": 2,
+    "workflow_id": "feature-delivery:m4-tools-human-approval",
+    "feature_id": "github-issue-74",
+    "issue_id": "github-issue-79",
+    "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+    "design_digest": "sha256:9d312b299d7f1ba55c130a2ee66a88edd12af0d148abd0467ca703e636ba32e8",
+    "ticket_digest": "sha256:d93b7f41035b0c531549e21834183aa5cfc46b74bd2540ddd334974f2f4b9fd1",
+    "guide_revision": "m4-79-integrated-release-gate-v2",
+    "guide_digest": "sha256:2fd9e003b075db000aa3a581766976b632cc8aef2bbf5b24b3939655213baf63",
+    "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+    "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+    "acceptance_criteria": [
+      {"id":"M4-79-AC-01","statement":"Locked guide and append-only Evaluation lifecycle cover M4.1-M4.4."},
+      {"id":"M4-79-AC-02","statement":"Lookup proves authorization before provider access."},
+      {"id":"M4-79-AC-03","statement":"Proposal/approval preserves binding, immutability and human-only CAS decision."},
+      {"id":"M4-79-AC-04","statement":"Execution uses current authority and one idempotent external effect."},
+      {"id":"M4-79-AC-05","statement":"Reference provider/reconciliation covers crashes, restart, fencing and every closed outcome."},
+      {"id":"M4-79-AC-06","statement":"Audit reconstruction is complete and sanitized."},
+      {"id":"M4-79-AC-07","statement":"Exact-subject M1-M3/M4 verification and selective invalidation are recorded."},
+      {"id":"M4-79-AC-08","statement":"main remains unchanged and actual final review stays deferred."},
+      {"id":"M4-79-AC-09","statement":"Root-CWD Alembic failure is repaired without suppression."}
+    ],
+    "design_decisions": [
+      {"id":"M4-79-GD-01","decision":"Guide v2 has eleven observable cases matching the approved ticket contract and closes the v1 frontier-identity and non-suppressible root-CWD Alembic findings."},
+      {"id":"M4-79-GD-02","decision":"All public expectations use independent literal matrices with status, recursive allowlists, durable effects and provider counters."},
+      {"id":"M4-79-GD-03","decision":"The guide separates tested_subject_sha from evidence-only and approval descendants and requires selective invalidation for all other change."},
+      {"id":"M4-79-GD-04","decision":"KNORA_DATABASE_URL, root CWD, pinned interpreter, sanitized effective database and Alembic head are mandatory evidence facets."},
+      {"id":"M4-79-GD-05","decision":"The worker produces only a final-review readiness template, never a fixed-point descriptor or code review."},
+      {"id":"M4-79-GD-06","decision":"Frontier identities for #75-#78 are bound before execution; literal root-CWD collect/run and Alembic lifecycle commands plus source-integrity evidence make suppression detectable."}
+    ],
+    "invariants": [
+      "Guide is unusable until independent review APPROVE and exact-digest delegated owner lock.",
+      "Every Evaluation is append-only; earlier guide/history bytes never change.",
+      "Denied paths reach no provider; one logical identity creates at most one external effect.",
+      "Known Alembic failure must become a root-CWD green regression without weakening.",
+      "Every final-suite non-pass node is individually inventoried; new skip/xfail is forbidden.",
+      "main remains unchanged and final code-review remains leader-only and deferred."
+    ],
+    "out_of_scope": [
+      "Ticket-contract revision or guide semantics not reflected in the externally approved v2 packet.",
+      "Dynamic plugins, runtime provider registration, marketplace or vendor SDK integration.",
+      "Suppressing tests, fabricating evidence, accepting/integrating/merging/pushing/publishing or closing issues.",
+      "Creating, pinning, validating or invoking the actual final fixed-point descriptor/code-review."
+    ],
+    "acceptance_policy": {"authority":"human_required","policy_revision":"m4-human-required-guide-review-v1","policy_digest":"sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4","required":true},
+    "test_cases": [
+      {"id":"M4-79-TC-01","statement":"Lookup authorization matrix.","oracle":"Exact independent public matrix and zero provider calls on denials.","required":true},
+      {"id":"M4-79-TC-02","statement":"Proposal/decision immutability and human CAS matrix.","oracle":"Human-only one-winner decision, immutable material and exact audit/projection.","required":true},
+      {"id":"M4-79-TC-03","statement":"Execution authority/projection matrix.","oracle":"Exact matrix with zero side effects on denied/stale rows and one identity on valid row.","required":true},
+      {"id":"M4-79-TC-04","statement":"Execution race/idempotency.","oracle":"One admission/effect; same replay and different-fingerprint conflict.","required":true},
+      {"id":"M4-79-TC-05","statement":"Crash/restart/reconciliation outcome matrix.","oracle":"Success, each closed rejection and every non-terminal row are distinct and restart-stable.","required":true},
+      {"id":"M4-79-TC-06","statement":"Strict-expiry takeover race.","oracle":"One post-lock takeover and stale-owner fencing.","required":true},
+      {"id":"M4-79-TC-07","statement":"Audit reconstruction and leak scan.","oracle":"Complete ordered facts and zero forbidden values.","required":true},
+      {"id":"M4-79-TC-08","statement":"Root-CWD exact focused Alembic regression collection/execution, source-integrity and literal lifecycle.","oracle":"Exact root-CWD node is collected/executed/passed without suppression; 0040 lifecycle is green.","required":true},
+      {"id":"M4-79-TC-09","statement":"Exact-subject focused/full/Ruff/Compose verification.","oracle":"Required nodes pass, pre-existing skips only, and release evidence binds exact facets.","required":true},
+      {"id":"M4-79-TC-10","statement":"Native #75-#78 frontier proof, scope/invalidation and final-review deferral.","oracle":"Immutable frontier identities anchor source base; only evidence-only descendants preserve validity; main unchanged and descriptor absent.","required":true},
+      {"id":"M4-79-TC-11","statement":"Guide lock and append-only Evaluation lifecycle.","oracle":"Exact guide lock and immutable history before/after with separate approval append.","required":true}
+    ],
+    "command_projections": [
+      {"id":"M4-79-GCMD-01","statement":"Root-CWD Alembic focused/lifecycle verification using KNORA_DATABASE_URL.","kind":"migration"},
+      {"id":"M4-79-GCMD-02","statement":"Focused M4 matrix/release harness at tested_subject_sha.","kind":"verification"},
+      {"id":"M4-79-GCMD-03","statement":"Complete node-inventoried repository pytest.","kind":"verification"},
+      {"id":"M4-79-GCMD-04","statement":"Ruff, Compose, tracked-content and branch identity verification.","kind":"verification"}
+    ],
+    "required_evidence": [
+      {"id":"M4-79-GEV-01","statement":"Independent public matrices/counters for M4.1-M4.4.","required":true},
+      {"id":"M4-79-GEV-02","statement":"PostgreSQL/SQLite concurrency, crash, restart and audit evidence.","required":true},
+      {"id":"M4-79-GEV-03","statement":"Literal root-CWD focused-node collection/execution, test/fixture/config integrity diff and Alembic lifecycle evidence with effective DB/CWD/interpreter/revision identity.","required":true},
+      {"id":"M4-79-GEV-04","statement":"Exact-subject node inventory and deterministic release artifact.","required":true},
+      {"id":"M4-79-GEV-05","statement":"#75-#78 accepted-run/integration/merged-PR/closed-state frontier validation anchored to source base, scope/invalidation graph, roadmap projection, unchanged main and deferred review template.","required":true},
+      {"id":"M4-79-GEV-06","statement":"Guide digest lock plus append-only candidate/approval Evaluation history proof.","required":true}
+    ],
+    "prior_findings": [
+      {"id":"M4-79-GR-001","severity":"major","issue_class":"native_frontier_identity_not_observable","criterion_ref":"M4-79-AC-01,M4-79-AC-07,M4-79-AC-08","required_change":"Name the source base and require #75-#78 accepted-run, integration, merged-PR and closed-state identities before execution, bound to scope/invalidation evidence.","closure_projection":"TC-10 and GEV-05 now require validation of the immutable #75-#78 frontier from source base 5af5c5c before execution and bind it to the scope manifest."},
+      {"id":"M4-79-GR-002","severity":"major","issue_class":"alembic_remediation_can_be_weakened_without_detectable_failure","criterion_ref":"M4-79-AC-09","required_change":"Specify exact root-CWD focused node and lifecycle commands and require collected/executed identity plus test/fixture/config integrity evidence that rejects suppression.","closure_projection":"TC-08 and GEV-03 now name root-CWD collect/run and upgrade/downgrade/re-upgrade/current commands, prohibit suppression and require integrity evidence."}
+    ]
+  },
+  "packet_digest": "sha256:1eec8239e02b8982def04b70eef6d9eff8582a20cdc1b3f08c0d52dd4a69a701",
+  "request_id": "review-request-sha256:d00a25c662ab5dd12f105232838e3af4af066f5d305070542c15287321151356"
+}

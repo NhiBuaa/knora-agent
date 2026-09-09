@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "ticket": "#76",
+  "review_reference": "integration:.agents/review/m4-issue-76-child-code-review-v1.json",
+  "approved_scope": "Remediate every child review v1 finding without changing the approved M4.2 application abstractions or performing a provider write.",
+  "design_preflight": {
+    "owning_module": "knora.tools",
+    "interface": "WriteProposalWorkflow.handle(TypedWriteCommand, WorkspacePrincipal, ActorContext) plus ToolActionStore and Workspace-scoped proposal HTTP routes",
+    "approved_seams": [
+      "CapabilityResolver.resolve_for_proposal",
+      "ProposalTargetVerifier.verify_for_proposal",
+      "HumanApprovalAuthorizer",
+      "ExecutionAuthorizer",
+      "CompatibilityCheckerV1",
+      "ToolActionStore atomic create/read/decision boundary",
+      "request-scoped trusted ActorContext provider",
+      "Workspace-scoped proposal HTTP routes"
+    ],
+    "current_responsibilities": [
+      "immutable proposal construction and canonical intent binding",
+      "human approve/reject policy and decision CAS",
+      "current executable/stale/expired projection",
+      "PostgreSQL proposal, decision and append-only audit persistence",
+      "HTTP authentication, Workspace authorization and safe projection mapping"
+    ],
+    "new_responsibility": "Make the existing seams enforce fail-closed request-scoped actor authority, canonical-json-v1 provenance, exact compatibility reasons, complete target fingerprinting and database lifecycle/immutability contracts.",
+    "anticipated_files": [
+      "backend/src/knora/tools/proposal_contracts.py",
+      "backend/src/knora/tools/proposals.py",
+      "backend/src/knora/tools/proposal_http.py",
+      "backend/src/knora/tools/__init__.py",
+      "backend/src/knora/adapters/postgres/tool_action_store.py",
+      "backend/src/knora/adapters/postgres/tables.py",
+      "backend/migrations/versions/20260822_0037_m4_tool_proposals.py",
+      "backend/src/knora/main.py",
+      "backend/test/tools/test_proposals.py",
+      "backend/test/tools/test_proposal_http.py",
+      "backend/test/tools/test_proposal_postgres.py"
+    ],
+    "extraction_required": true,
+    "rationale": "proposals.py is 579 lines and owns both typed value contracts and workflow behavior. Extracting cohesive proposal value/canonical/compatibility contracts keeps the workflow deep and below the 400-line source trigger without adding a framework."
+  },
+  "confirmed_test_seams": {
+    "authority": "Issue #76, locked guide m4-76-write-proposal-v3 and the approved M4 design already confirm these seams.",
+    "seams": [
+      "WriteProposalWorkflow application contract",
+      "request-scoped HTTP actor authority boundary",
+      "CompatibilityCheckerV1 and ExecutionAuthorizer projection boundary",
+      "PostgreSQL ToolActionStore and migration constraints",
+      "real integrity-protected proposal target verifier after #75 integration"
+    ]
+  },
+  "tdd_slices": [
+    {
+      "id": "M4-76-R1",
+      "behavior": "No global authenticated-human fallback; proposal actor and approval authority are request-scoped and fail closed.",
+      "first_red_test": "Default app exposes no proposal route and unauthorized human/model/system decisions create no decision."
+    },
+    {
+      "id": "M4-76-R2",
+      "behavior": "Title/description and every provenance digest implement canonical-json-v1, exact whitespace/scalar bounds and surrogate rejection.",
+      "first_red_test": "Leading/trailing whitespace and surrogate matrices fail while a 10000-scalar description succeeds."
+    },
+    {
+      "id": "M4-76-R3",
+      "behavior": "Typed CompatibilityCheckerV1 emits exact closed mismatch reasons; resolver failure is stale; default execution authorization denies.",
+      "first_red_test": "Approved projection matrix for capability/binding/policy identity/version/digest, resolver failure and temporary authority denial."
+    },
+    {
+      "id": "M4-76-R4",
+      "behavior": "Proposal target claims and provider request fingerprint bind reference ID, resource kind, resource identity/claims digests, exact capability/binding and parameters.",
+      "first_red_test": "Independent literal fingerprint oracle changes for every target claim and excludes policy/lease/logical ID."
+    },
+    {
+      "id": "M4-76-R5",
+      "behavior": "PostgreSQL persists proposal/approval authority provenance and protects expiry, material fields, lifecycle, decisions and audit with closed constraints.",
+      "first_red_test": "Mutation matrix and invalid direct SQL lifecycle/decision rows fail at the database boundary."
+    },
+    {
+      "id": "M4-76-R6",
+      "behavior": "A real concurrent PostgreSQL approve/reject race has one deterministic atomic winner and one persisted loser projection.",
+      "first_red_test": "Barrier-released approve and reject calls through separate transactions."
+    },
+    {
+      "id": "M4-76-R7",
+      "behavior": "The production proposal target verifier uses the accepted #75 integrity/reference seams; malformed/MAC/key/expiry/claim/store matrices fail before persistence.",
+      "first_red_test": "Locked TC-02 reference matrix after reconciling #76 with integrated #75.",
+      "dependency": "#75 must be accepted and integrated before this slice and final M4.2 acceptance."
+    }
+  ],
+  "constraints": [
+    "No provider write or execution/reconciliation behavior in #76.",
+    "Do not claim TC-02 target-reference coverage using an always-accepting fake.",
+    "Do not run PostgreSQL test suites concurrently.",
+    "Rerun locked guide v3 only after reconciliation with the accepted #75 integration head."
+  ]
+}

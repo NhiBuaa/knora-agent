@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "revision": 1,
+  "source_commit": "dae634d0903d80c231b68d908301b7110c5f9c25",
+  "source_reviews": [
+    ".agents/review/m4-spec-design-external-review-v1.json",
+    ".agents/review/m4-issue-75-ticket-external-review-v1.json",
+    ".agents/review/m4-issue-76-ticket-external-review-v1.json"
+  ],
+  "status": "revised_pending_external_review",
+  "changes": [
+    {
+      "finding": "spec-design public/application/store contract",
+      "disposition": "Added closed command/result/projection, HTTP request/error and PostgreSQL ToolActionStore contracts."
+    },
+    {
+      "finding": "spec-design provider ledger and crash contract",
+      "disposition": "Added typed SupportToolGateway operations, provider observations/errors, SQLite atomic ledger and four deterministic fault seams."
+    },
+    {
+      "finding": "spec-design compatibility semantics",
+      "disposition": "Added canonical-json-v1, CompatibilityCheckerV1 exact-equality predicate, closed stale reasons and temporary authority-denial exception."
+    },
+    {
+      "finding": "spec-design ExternalResourceReference integrity",
+      "disposition": "Selected m4r1 authenticated envelope plus trusted reference store, active/retiring/revoked key semantics and fail-closed verification order."
+    },
+    {
+      "finding": "Issue #75 exact resource-reference and gateway contract",
+      "disposition": "Revised the ticket to require the single m4r1 representation, verifier/key lifecycle, typed lookup request/results, safe HTTP mapping and zero-call denial tests."
+    },
+    {
+      "finding": "spec-design atomic decision winner",
+      "disposition": "Defined first committed expected-revision CAS as linearization point and AlreadyDecided loser behavior without actor precedence."
+    },
+    {
+      "finding": "spec-design PR identity wording",
+      "disposition": "Replaced assumed PR numbers with one PR per Issue and ledger-recorded actual GitHub identities."
+    },
+    {
+      "finding": "Issue #76 public/trusted actor contract",
+      "disposition": "Added exact proposal HTTP ownership, typed title/description, extra-field rejection, trusted actor derivation and safe error tests."
+    },
+    {
+      "finding": "Issue #76 durable persistence/audit contract",
+      "disposition": "Added PostgreSQL ToolActionStore, immutable material fields, atomic decision/audit and reconstruction acceptance criteria."
+    },
+    {
+      "finding": "Issue #76 parallel resolver seam",
+      "disposition": "Added CapabilityResolver.resolve_for_proposal interface, fake adapter and prohibition on #75 concrete imports."
+    }
+  ],
+  "next_valid_transition": "external_re_review_exact_revision"
+}

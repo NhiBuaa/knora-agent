@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "revision": 2,
+  "source_commit": "0648faf8eabd4d89da7435152bd9679a8938741d",
+  "source_review": ".agents/review/m4-spec-design-external-review-v2.json",
+  "status": "revised_pending_external_review",
+  "changes": [
+    {
+      "finding": "observation after reference expiry or key revocation",
+      "disposition": "Separated full side-effect verification from an observation-only resolver backed by an immutable authorized execution binding snapshot and current Workspace/resource authorization."
+    },
+    {
+      "finding": "typed execution lease and fencing CAS",
+      "disposition": "Defined PostgreSQL-clock acquire, takeover, observation and finalization operations, exact predicates, generation increment and closed outcomes."
+    },
+    {
+      "finding": "complete request fingerprint",
+      "disposition": "Bound canonical operation, capability, external scope, target/resource claims and normalized parameters; every attempt loads the immutable stored fingerprint and logical ID."
+    },
+    {
+      "finding": "closed provider terminal failure",
+      "disposition": "Defined target_not_found, validation_rejected and policy_rejected; unknown or malformed failures remain contract-invalid/observation-unavailable and non-definitive."
+    },
+    {
+      "finding": "Issue #77/#78 exact acceptance contracts",
+      "disposition": "Added committed ticket revisions covering acquisition/finalization, observation-only recovery, expiry/revocation, takeover and both crash windows."
+    }
+  ],
+  "selective_review_invalidation": {
+    "ticket_75_review": "preserved: revision 2 affects only write execution/reconciliation contracts",
+    "ticket_76_review": "preserved: revision 2 does not change proposal/human-decision contracts"
+  },
+  "next_valid_transition": "external_re_review_exact_revision"
+}

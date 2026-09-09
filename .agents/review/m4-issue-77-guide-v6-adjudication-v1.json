@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "ticket_id": "#77",
+  "guide_revision": "m4-77-authorized-execution-v6",
+  "reviewed_commit": "93d12b907ec82e71ee03620fe6c565c7fbc352c3",
+  "external_review_reference": ".agents/review/m4-issue-77-guide-external-review-v6.json",
+  "external_review_response_digest": "sha256:0e66eb00a6999db9c6aa3a8dd4ff85062b5d350683460930d030978a6658daef",
+  "status": "design_required",
+  "findings": [
+    {
+      "issue_class": "material_reference_mismatch_stale_invalidation_not_exercised",
+      "severity": "major",
+      "disposition": "sustained_with_contract_ambiguity",
+      "evidence": [
+        ".agents/review/m4-issue-77-revision-v8.md:35",
+        ".agents/review/m4-issue-77-revision-v8.md:166",
+        ".agents/manual-tests/milestone-4/77-authorized-execution-v6.md:134",
+        ".agents/manual-tests/milestone-4/77-authorized-execution-v6.md:157",
+        "docs/design/milestone-4-tools-human-approval.md:108",
+        "docs/design/milestone-4-tools-human-approval.md:113"
+      ],
+      "reason": "Ticket revision v8 requires a distinct material reference incompatibility to persist stale/invalidated state with a typed reason, while the approved design limits CompatibilityCheckerV1 and its closed typed reason taxonomy to capability, scope-binding and policy identity/version/digest mismatches. Guide v7 cannot invent a reference mismatch reason or silently reinterpret it as a binding reason.",
+      "next_action": "Return to Design/ticket-contract clarification before sealing guide v7. The recommended correction is to restore the approved design split: material capability/scope-binding/policy incompatibility is stale, while malformed, integrity, trust, key and expiry reference denials fail closed and require a new proposal without inventing a new CompatibilityReason."
+    },
+    {
+      "issue_class": "post_acquisition_reference_denial_matrix_incomplete",
+      "severity": "major",
+      "disposition": "sustained_guide_test_craft_change",
+      "evidence": [
+        ".agents/review/m4-issue-77-revision-v8.md:63",
+        ".agents/review/m4-issue-77-revision-v8.md:186",
+        ".agents/manual-tests/milestone-4/77-authorized-execution-v6.md:214",
+        ".agents/manual-tests/milestone-4/77-authorized-execution-v6.md:304",
+        ".agents/manual-tests/milestone-4/77-authorized-execution-v6.md:344"
+      ],
+      "reason": "The post-acquisition denial matrix omits protected-scope corruption and reference expiry even though both are reachable admission checks; TC-04 supplies only the time boundary and TC-10 consumes the incomplete TC-03 matrix.",
+      "next_action": "After contract clarification, add exact protected-scope-corruption and reference-expiry rows with ProposalNotExecutable(resource_access_denied), HTTP 403 TOOL_RESOURCE_ACCESS_DENIED, independently sourced durable identities, zero admission/audit/gateway/provider activity, TC-04 clock linkage and TC-10 post-restart non-finalization evidence."
+    }
+  ],
+  "abstraction_change_required": false,
+  "implementation_authorized": false,
+  "code_review_authorized": false,
+  "recommended_next_transition": "exceptional_ticket_contract_correction_v9_then_external_ticket_review"
+}

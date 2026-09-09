@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:7f6dab795a535eff9100d8a3b89b2f27869f9a02cc8fa06a9eb0fa06380349ed",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v3:round-1:6a8a87a4-7fc8-83ec-8681-fb07dd5a6d06",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8a87a4-7fc8-83ec-8681-fb07dd5a6d06",
+  "packet_digest": "sha256:d623f7ed9b9ff223a7e6dad5cd828fadfd366536ae0ffb02d78948fc0e5501ff",
+  "guide_revision": "m4-77-ticket-contract-v3",
+  "guide_digest": "sha256:c6d367cbdc974f3be8c78ce654b27c5695c82e54806a3eec1fa5ac4334cc5e07",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "authority_permit_linearization_gap",
+      "criterion_ref": "M4-77-AC-01",
+      "affected_case_ids": ["M4-77-TC-01"],
+      "affected_fields": ["second_authority_check", "authorize_execution_dispatch", "permit_issuance"],
+      "problem": "The second current authorization/compatibility check is separate from authorize_execution_dispatch, which revalidates only owner/generation/deadline, leaving a change window before permit minting.",
+      "harm": "Authority or compatibility may change after the stated last check while a permit is still minted from no-longer-current authority.",
+      "required_change": "Linearize the second authorization/compatibility decision with permit issuance or make dispatch authorization revalidate those decisions itself, and test revocation in that exact barrier."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "provider_deadline_time_authority_gap",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-02", "M4-77-TC-05"],
+      "affected_fields": ["dispatch_permit_deadline", "provider_clock", "postgres_deadline", "sqlite_write"],
+      "problem": "The provider validates a PostgreSQL-derived permit deadline but the contract does not bind the provider's time authority or test provider receipt after the PostgreSQL deadline under provider clock skew.",
+      "harm": "A stale generation-1 permit can appear valid to a skewed provider after PostgreSQL expiry and create the first side effect while Issue #78 may authorize a higher generation.",
+      "required_change": "Anchor provider deadline validation to PostgreSQL ordering or an explicit bounded trusted-clock contract and prove delayed post-deadline receipt with provider/process clock skew creates zero SQLite writes."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": []
+  },
+  "summary": "v3 materially specifies atomic provider durability, conflict lifecycle, generation scope and PostgreSQL lease-time oracles, but authority is not linearized with permit issuance and provider-side permit expiry still lacks a time-authority contract that proves no stale write after the PostgreSQL deadline.",
+  "chat_reference": "https://chatgpt.com/c/6a8a87a4-7fc8-83ec-8681-fb07dd5a6d06",
+  "response_digest": "sha256:53115a5920d1bb02ff16eccc947849a102d98084333929ffdffb8bfa2fb2573b"
+}

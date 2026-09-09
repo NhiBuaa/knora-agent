@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-remediation-guide-external-review-v3-response-1",
+  "review_kind": "advisory_external_guide_review",
+  "reviewed_at": "2026-09-08T13:10:00+07:00",
+  "reviewed_artifacts": {
+    "final_review_result_sha256": "c3dc09bd4dd306f55821c8bba78b4f7482f43dec10ce2c39bda7e8b89cc67917",
+    "guide_sha256": "1ab563dce3bf3a24b71aa577c85b07f6ad1e433d0c2fd44d60780a1602e1e8be",
+    "test_case_sha256": "55137e9e0f5360a6896eea71c8a99f505b282e9bccbb6c22b3a62197e48c17d0"
+  },
+  "verdict": "BLOCK",
+  "findings": [
+    {
+      "id": "EXT-V3-01",
+      "requirement": "The recursive forbidden-field scan must explicitly list routing data, credentials, keys, and internal exceptions alongside rejection_code and raw provider data."
+    },
+    {
+      "id": "EXT-V3-02",
+      "requirement": "The independent matrices must explicitly state that fixtures and expected envelopes are not derived from production mappers, serializers, enums, or types."
+    }
+  ],
+  "disposition": "Create an immutable v4 guide and structured-test revision; do not alter v3 or its review history.",
+  "source": "External reviewer ChatGPT conversation 6a9fa25e-dbac-83ec-976b-ee7bd9353f01"
+}

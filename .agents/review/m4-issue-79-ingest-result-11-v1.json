@@ -1,0 +1,108 @@
+{
+  "acceptance": {
+    "guide_digest": "sha256:fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+    "guide_external_review": "APPROVE",
+    "guide_owner_approval": "approved_repository_owner",
+    "guide_revision": "m4-79-integrated-release-gate-v5",
+    "next_valid_transition": "manual_acceptance_execute",
+    "status": "not_executed"
+  },
+  "artifact_id": "m4-issue-79-final-review-remediation-attempt-11-ingest-result",
+  "branch": "codex/issue-79-final-review-remediation-3",
+  "changed_scope": [
+    "Typed provider lookup/result validation and malformed boundary normalization.",
+    "ProviderRequestRejected typed no-write outcome and public 502 mapping.",
+    "Exact current-resource/scope observation authorization before trusted routing.",
+    "Definitive provider scope denial as terminal 403 rather than indeterminate 202.",
+    "Provider tuple/type/arity/outcome guards and boundary exception normalization.",
+    "Recursive public and audit sanitization across in-memory and PostgreSQL stores.",
+    "Preservation of accepted M4.77, M4.78, and M4.79 coverage."
+  ],
+  "dispatch": {
+    "digest": "sha256:0b07eb2191927a39d321e7e7c248df5edee374d9546770ecf6257efbcf22e8d5",
+    "reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-11.json",
+    "resume_digest": "sha256:dc50aaffcb04fbddc7ebe393a7e9c688de3137573aa6172e73cefd91ec6a26dd",
+    "resume_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-11.json",
+    "workspace_digest": "sha256:5b6cf60634f36aca1617ea0fd1381c5bcfc7e48b1c303c60b83ab079253e473d",
+    "workspace_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-11.json"
+  },
+  "feature_branch": "nhibuaa/m4-tools-human-approval",
+  "independent_verification": {
+    "acceptance_performed": false,
+    "commit_pushed": false,
+    "compose": "passed with only existing unset optional credential-variable warnings",
+    "diff_check": "passed",
+    "focused": "189 passed, 5 warnings",
+    "full_suite": "981 passed, 3 skipped, 11 warnings",
+    "integration_performed": false,
+    "review_performed": false,
+    "ruff": "passed",
+    "source_base_is_ancestor": true,
+    "worktree_clean": true
+  },
+  "integration": {
+    "reason": "Ingestion validates the worker result but does not confer acceptance or integration authority.",
+    "status": "not_attempted"
+  },
+  "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+  "recorded_at": "2026-09-09T12:08:00+07:00",
+  "result_evidence": {
+    "digest": "sha256:b1353d253ed3b05c179c3781e7777f97fdac130f7ab434885c6a160851ce08fa",
+    "reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-11.json"
+  },
+  "return_contract": {
+    "digest": "sha256:e358b9468e15c0ea2b26ce6b0129bfd24575c8d30dc705f6ea2e8405d6440f3b",
+    "reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-11.json",
+    "validation": "passed"
+  },
+  "schema_version": 1,
+  "scope": {
+    "changed_files": [
+      "backend/src/knora/adapters/http/tools.py",
+      "backend/src/knora/adapters/postgres/tool_execution_store.py",
+      "backend/src/knora/tools/__init__.py",
+      "backend/src/knora/tools/capabilities.py",
+      "backend/src/knora/tools/execution.py",
+      "backend/src/knora/tools/gateway.py",
+      "backend/src/knora/tools/in_memory_tool_action_store.py",
+      "backend/src/knora/tools/proposal_http.py",
+      "backend/src/knora/tools/proposal_integration.py",
+      "backend/src/knora/tools/read.py",
+      "backend/test/adapters/http/test_tools.py",
+      "backend/test/tools/test_execution_workflow.py",
+      "backend/test/tools/test_proposal_integration.py",
+      "backend/test/tools/test_read_tool.py",
+      "backend/test/tools/test_reference_provider.py"
+    ],
+    "supporting_export_decision": {
+      "decision": "accepted_direct_supporting_export",
+      "path": "backend/src/knora/tools/__init__.py",
+      "rationale": "Exports the typed ProviderRequestRejected outcome required by the approved gateway/provider boundary remediation; it adds no new module responsibility or independent behavior."
+    },
+    "validated_against": "dispatch-11 allowed scope"
+  },
+  "source_base": "7097116557745d5bf2c72d0ab5d4542b529131e2",
+  "status": "ingested_validated_pending_manual_acceptance",
+  "structural_evidence": {
+    "deferred_leader_only_actions": [
+      "accept",
+      "integrate",
+      "review",
+      "merge",
+      "push",
+      "publish",
+      "deploy",
+      "close/reopen Issue"
+    ],
+    "interface_changes": [
+      "TicketLookupResult validates provider fields at the application seam.",
+      "ProviderRequestRejected is a typed provider outcome exported through knora.tools.",
+      "Provider write/observation parsers reject malformed tuple, type, arity and unknown outcomes.",
+      "Observation authorization checks the stored exact resource and current binding without expirable write-token revalidation."
+    ],
+    "new_module_responsibility": false
+  },
+  "subject_commit": "e3230e9833db90287098993fe9ec1c1443df13cb",
+  "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-11",
+  "worktree_path": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3"
+}

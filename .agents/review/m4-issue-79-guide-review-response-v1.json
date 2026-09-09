@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:cf9ec374e769ea41141b26cdb6170a1bd3b74369d9fa669b7e707e48f5e216ec",
+  "review_id": "external-review:github-issue-79:m4-79-integrated-release-gate-v1:round-1",
+  "round": 1,
+  "provider": "codex-independent-agent",
+  "model": null,
+  "session_id": "/root/issue79_guide_reviewer_v1",
+  "packet_digest": "sha256:f5c9a6ad42f728b4097b570c19a62f091a426b571896475b05fe0dacdb494e2c",
+  "guide_revision": "m4-79-integrated-release-gate-v1",
+  "guide_digest": "sha256:28a47d5fc2144b9a4c3ee756b38966ce2d7689b4ba79803a2967b4e25e7e5d2d",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "findings": [
+    {"severity":"major","category":"scope","issue_class":"native_frontier_identity_not_observable","criterion_ref":"M4-79-AC-01,M4-79-AC-07,M4-79-AC-08","affected_case_ids":["M4-79-TC-09","M4-79-TC-10"],"affected_fields":["prerequisites","steps","expected_results","evidence_to_capture"],"problem":"The guide only requests a generic source-base-to-tested-subject manifest. It does not name source base 5af5c5c or require the accepted-run, integration, merged-PR and closed-blocker identities for #75-#78, so an operator cannot independently establish the candidate is bound to the approved native frontier.","required_change":"Amend TC-10 to name source base 5af5c5c and require collection, validation and release-evidence capture of #75-#78 accepted-run, integration, merged-PR and closed-state identities before execution; reject any absent or inconsistent identity."},
+    {"severity":"major","category":"evidence","issue_class":"alembic_remediation_can_be_weakened_without_detectable_failure","criterion_ref":"M4-79-AC-09","affected_case_ids":["M4-79-TC-08"],"affected_fields":["steps","expected_results","evidence_to_capture"],"problem":"The guide prohibits suppression but does not name the focused root-CWD node/literal lifecycle invocations or require collection/execution and assertion-bearing source integrity evidence. The regression could be weakened or substituted without a detectable failure.","required_change":"Specify the exact root-CWD focused pytest node and Alembic lifecycle commands using the pinned interpreter and KNORA_DATABASE_URL; require collection/execution identity and before/after test, fixture and configuration integrity evidence; reject skip, xfail, deselection, backend-CWD substitution and weakening."}
+  ],
+  "coverage": {"criteria":["M4-79-AC-01","M4-79-AC-02","M4-79-AC-03","M4-79-AC-04","M4-79-AC-05","M4-79-AC-06","M4-79-AC-07","M4-79-AC-08","M4-79-AC-09"],"uncovered":[]},
+  "normalization": {"source":"independent reviewer response","semantic_change":false,"category_mapping":{"contract_binding":"scope","regression_integrity":"evidence"}},
+  "response_digest": "sha256:49f5621c94363c363fb52e4a09584a09db6f9fa13411205278ee857c9e71bc58"
+}

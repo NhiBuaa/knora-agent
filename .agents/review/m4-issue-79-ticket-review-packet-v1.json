@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "canonical_projection": {
+    "projection_version": 1,
+    "round": 1,
+    "workflow_id": "feature-delivery:m4-tools-human-approval",
+    "feature_id": "github-issue-74",
+    "issue_id": "github-issue-79",
+    "spec_digest": "sha256:9dc8c8afaaff60c5baa2badcb594194e053226e5434c62818795c9f25325fd26",
+    "design_digest": "sha256:9004fe0ebc1687a9a8558f9e113b0d510d61d233b966e6b088d3f49244109ea2",
+    "ticket_digest": "sha256:64ffdb8f4db92d1260baebd9cd932d713b6233431fe2089119456d51aa1938d6",
+    "guide_revision": "m4-79-ticket-contract-v1",
+    "guide_digest": "sha256:64ffdb8f4db92d1260baebd9cd932d713b6233431fe2089119456d51aa1938d6",
+    "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+    "data_egress_policy_digest": "sha256:e938c94f0cd0fe0ebf7972042fc4b86403bfd962455a80817810550d505ea668",
+    "acceptance_criteria": [
+      {"id": "M4-79-AC-01", "statement": "One approved locked manual guide covers integrated M4.1-M4.4 behavior and all executions append immutable Evaluation records."},
+      {"id": "M4-79-AC-02", "statement": "Read-only ticket lookup proves authorization-before-provider-call for authorized, unauthorized and cross-Workspace requests."},
+      {"id": "M4-79-AC-03", "statement": "Proposal and approval evidence proves exact target/capability/scope/policy binding, immutable material fields, model/system approval rejection and one durable concurrent decision winner."},
+      {"id": "M4-79-AC-04", "statement": "Execution evidence proves current execution authority, revocation fail-closed behavior, one server-owned logical idempotency identity and no duplicate external effect."},
+      {"id": "M4-79-AC-05", "statement": "Reference-provider evidence proves independent external state/idempotency ownership, both crash windows, strict stale-owner fencing, provider-not-found recovery and closed success/failure/non-terminal semantics."},
+      {"id": "M4-79-AC-06", "statement": "Append-only audit reconstruction covers caller, proposal actor, approval actor, execution authority, immutable policy/binding snapshots, attempts, provider identity, observations and outcome/failure without private leakage."},
+      {"id": "M4-79-AC-07", "statement": "Focused M4 and complete M1-M3 regression verification are green on one exact candidate SHA and changed-scope invalidation is recorded."},
+      {"id": "M4-79-AC-08", "statement": "Integration readiness preserves main at 6312c4c4230032aa92ca5915803fcfaf564354fa and prepares but does not invoke the final feature code-review before Issue acceptance, integration and closure."},
+      {"id": "M4-79-AC-09", "statement": "The known root-CWD Alembic round-trip failure is repaired without weakening or suppressing its test, and the root-CWD focused test plus full suite are green."}
+    ],
+    "design_decisions": [
+      {"id": "M4-79-DD-01", "decision": "Treat #79 as integrated acceptance and release evidence, not a redesign of approved M4 seams."},
+      {"id": "M4-79-DD-02", "decision": "Bind every release assertion to one exact candidate SHA, locked guide digest, executed node IDs and sanitized evidence output."},
+      {"id": "M4-79-DD-03", "decision": "Use observable provider-call/effect counters and exact public projection allowlists; prose or test names alone are insufficient evidence."},
+      {"id": "M4-79-DD-04", "decision": "Keep PostgreSQL Knora workflow truth and SQLite provider outcome/idempotency truth independently restartable and reconstructable."},
+      {"id": "M4-79-DD-05", "decision": "Classify the Alembic relative script_location defect as a required bounded integration-harness remediation owned by the worker."},
+      {"id": "M4-79-DD-06", "decision": "Run PostgreSQL acceptance serially against the worktree-pinned 127.0.0.1 database endpoint and use fresh database time for lease semantics."},
+      {"id": "M4-79-DD-07", "decision": "Record selective invalidation from the source-base-to-candidate scope manifest and rerun every affected accepted case."},
+      {"id": "M4-79-DD-08", "decision": "Defer the sole final fixed-point code-review to the feature leader after #79 is accepted, integrated and closed."}
+    ],
+    "invariants": [
+      "Authentication, path Workspace authorization and resource authorization precede any provider lookup or write.",
+      "Only a human ApprovalActor may approve or reject; model and system actors are forbidden.",
+      "Proposal material, capability/binding/policy snapshots, logical execution identity and request fingerprint remain immutable.",
+      "Every provider write requires current execution authority and exact current compatibility.",
+      "One logical execution identity produces at most one external effect across concurrency, restart and reconciliation.",
+      "Provider not-found and indeterminate observation remain non-terminal and never fabricate failure or authorize retry by themselves.",
+      "Stale owners cannot record observations or terminal outcomes after generation takeover.",
+      "Audit and release evidence exclude credentials, key material, raw provider routing and raw command output.",
+      "The starting baseline is explicitly non-green until the root-CWD Alembic defect is fixed and verified.",
+      "The leader session does not implement #79 and main remains unchanged."
+    ],
+    "out_of_scope": [
+      "Dynamic plugins, capability discovery, runtime provider registration, marketplace support or vendor SDK integration.",
+      "Changing approved M4 public behavior, lifecycle semantics or ownership boundaries without governed redesign/replan.",
+      "Weakening, skipping, xfail-marking or suppressing the known Alembic regression.",
+      "Executing the final feature-level code-review, accepting or integrating #79, merging, pushing, publishing, deploying, or closing #79/#74 from the worker session."
+    ],
+    "acceptance_policy": {
+      "authority": "human_required",
+      "policy_revision": "m4-human-required-guide-review-v1",
+      "policy_digest": "sha256:b94533a83ce9c6b4e2e9c3ad152d35d98c67e9f1e90a44ce9b4cbfb537f69ed4",
+      "required": true
+    },
+    "test_cases": [
+      {"id": "M4-79-TC-01", "statement": "Exercise authorized, unauthenticated/unauthorized, malformed and cross-Workspace ticket lookup through the public HTTP seam.", "oracle": "Only the authorized request reaches the provider and returns the allowlisted lookup projection; every denial returns the exact closed error and provider lookup count remains zero.", "required": true},
+      {"id": "M4-79-TC-02", "statement": "Create proposals across exact valid bindings and every target/capability/scope/policy mismatch; attempt decisions as human, model and system actors and race human approve/reject CAS contenders.", "oracle": "Material fields and server-owned identities are immutable, non-human decisions are forbidden before mutation, and exactly one concurrent human decision persists with ordered audit.", "required": true},
+      {"id": "M4-79-TC-03", "statement": "Execute an approved proposal under current authority, then repeat with authority revocation and each material compatibility mismatch before provider admission.", "oracle": "The valid path dispatches once with the stored logical ID/fingerprint; every denied/stale path fails closed with zero new admission, provider write or effect and the approved proposal remains accurately projected.", "required": true},
+      {"id": "M4-79-TC-04", "statement": "Race direct execution and repeated same-identity calls across the PostgreSQL admission boundary and SQLite idempotency ledger.", "oracle": "One current owner/admission wins, same-identity replay returns one persisted outcome, different fingerprint conflicts, and exactly one provider ticket/effect exists.", "required": true},
+      {"id": "M4-79-TC-05", "statement": "Inject both crash windows, restart Knora/PostgreSQL and SQLite provider state independently, and repeatedly reconcile found, not-found, unavailable, timeout and malformed outcomes.", "oracle": "Provider-committed truth finalizes without duplicate; no-receipt remains non-terminal until authorized same-identity retry; ambiguous observations remain 202; closed success/failure use exact terminal projections.", "required": true},
+      {"id": "M4-79-TC-06", "statement": "Race current, foreign, stale and changed-generation reconciliation owners with fresh post-lock PostgreSQL time.", "oracle": "Current foreign ownership remains in progress, strict expiry has one takeover winner, generation increments once, stale owners are fenced and only the current unexpired winner records/finalizes.", "required": true},
+      {"id": "M4-79-TC-07", "statement": "Reconstruct audit for lookup denial/success, proposal creation and decision, execution authorization, admission, crash observation, takeover/retry, provider outcome and terminal finalization.", "oracle": "Ordered append-only evidence identifies all required actors, authority and immutable snapshots while containing no secret, raw routing, raw envelope or private provider identifier material.", "required": true},
+      {"id": "M4-79-TC-08", "statement": "From the repository root, run the exact Alembic migration round-trip regression that failed in the starting baseline, then run clean upgrade/downgrade/re-upgrade to head.", "oracle": "The focused test and lifecycle pass without changing CWD to backend, head is 20260824_0040, and no assertion is skipped, weakened or suppressed.", "required": true},
+      {"id": "M4-79-TC-09", "statement": "Generate the deterministic integrated release artifact and run focused M4, full repository pytest, Ruff and Compose verification on one candidate SHA.", "oracle": "Every required case appears exactly once with executed node IDs and sanitized observations; all commands are green and evidence binds exact candidate, guide, environment and command identities.", "required": true},
+      {"id": "M4-79-TC-10", "statement": "Compare source base to candidate, classify every changed path and evaluate acceptance invalidation while checking default and integration branch identities.", "oracle": "No unapproved seam/dependency/plugin/vendor expansion exists, every affected accepted case is rerun, main remains 6312c4c4230032aa92ca5915803fcfaf564354fa, and final code-review is only prepared for the leader.", "required": true}
+    ],
+    "command_projections": [
+      {"id": "M4-79-CMD-01", "statement": "Root-CWD focused Alembic round-trip and clean upgrade/downgrade/re-upgrade to 20260824_0040.", "kind": "migration"},
+      {"id": "M4-79-CMD-02", "statement": "Focused integrated M4 release tests with worktree-pinned Python and serial PostgreSQL use.", "kind": "verification"},
+      {"id": "M4-79-CMD-03", "statement": "Complete repository pytest from the repository root with the pinned 127.0.0.1 database URL.", "kind": "verification"},
+      {"id": "M4-79-CMD-04", "statement": "Ruff and Docker Compose configuration verification.", "kind": "verification"}
+    ],
+    "required_evidence": [
+      {"id": "M4-79-EV-01", "statement": "Exact GitHub Issue #79 criteria traceability to locked Test Cases and release-artifact assertions.", "required": true},
+      {"id": "M4-79-EV-02", "statement": "Authorization-before-side-effect counters and exact public lookup/proposal/execution/reconciliation projection matrices.", "required": true},
+      {"id": "M4-79-EV-03", "statement": "PostgreSQL decision/admission/takeover concurrency rows proving one winner, exact generations and stale-owner fencing.", "required": true},
+      {"id": "M4-79-EV-04", "statement": "Independent SQLite outcome/idempotency state across both crash windows and restarts with one logical effect.", "required": true},
+      {"id": "M4-79-EV-05", "statement": "Append-only audit reconstruction with required actor, authority, binding, attempt and terminal fields plus a zero-leak scan.", "required": true},
+      {"id": "M4-79-EV-06", "statement": "Root-CWD Alembic defect remediation proof, clean migration lifecycle and head identity.", "required": true},
+      {"id": "M4-79-EV-07", "statement": "Exact candidate SHA, locked guide digest, environment identity, executed node IDs and green focused/full/Ruff/Compose command summaries.", "required": true},
+      {"id": "M4-79-EV-08", "statement": "Source-base-to-candidate scope manifest, selective invalidation result, unchanged main proof and deferred final-review descriptor preparation.", "required": true}
+    ],
+    "prior_findings": []
+  },
+  "packet_digest": "sha256:ee7b7ee3ab56f78b87877ba04fb3d25fce0e3f2d153736bca6117661d814e218",
+  "request_id": "review-request-sha256:b3a92af36a98c58107bb2692dfbc172d68604041eab1922881ff4ba68c28601b"
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_76_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-76-ticket-external-review.json",
+  "reviewed_commit": "dcc849faa837140f4a9c07b58319c190ae7a35c8",
+  "ticket_id": "#76",
+  "guide_revision": "m4-76-write-proposal-v2",
+  "guide_digest": "sha256:258100ee80175de0cabcca95d7110681b60f1ada23dd9ba0a5c3179d90fedeed",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 2,
+  "findings": [
+    {
+      "severity": "major",
+      "section": "TC-07",
+      "problem": "Invoking an execution route crosses from #76 into blocked #77/#78 scope.",
+      "required_change": "Assert temporary/stale/expired semantics only through #76 project_proposal/GET without ExecuteApprovedProposal."
+    },
+    {
+      "severity": "minor",
+      "section": "Prerequisites",
+      "problem": "Database URL is not written as a copy-pasteable PowerShell environment assignment.",
+      "required_change": "Use exact $env:KNORA_DATABASE_URL assignment with 127.0.0.1."
+    },
+    {
+      "severity": "minor",
+      "section": "TC-06",
+      "problem": "Policy replacement wording implies client-supplied policy snapshot.",
+      "required_change": "Mutate trusted current policy fixture, then create with only allowed request fields."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "evidence_id": "m4-issue-77-integration-evidence-v1",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket_id": "github-issue-77",
+  "recorded_at": "2026-08-24T09:16:47+07:00",
+  "accepted_subject_sha": "b3a1f16646b4e910e1c3121ffbb1117ab6cd4ce5",
+  "acceptance_evidence_commit": "10a2064dacd71a4c30af0c9c991b3e09935ae04d",
+  "accepted_run_id": "m4-77-authorized-execution-v7-20260824-01",
+  "guide_revision": "m4-77-authorized-execution-v7",
+  "guide_digest": "sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93",
+  "pull_request": "https://github.com/NhiBuaa/knora-agent/pull/82",
+  "merge_commit": "46491b91f248d004c5c9f693c3986befdf06ca66",
+  "integration_branch": "nhibuaa/m4-tools-human-approval",
+  "previous_integration_head": "b1d101e3636bb3a1ee013d304f70e37b9cb61418",
+  "default_branch_head": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "default_branch_unchanged": true,
+  "verification": {
+    "source_resolution": "PYTHONPATH pinned to the integration worktree root and backend/src",
+    "database_resolution": "KNORA_DATABASE_URL pinned to the local m4-integration PostgreSQL boundary",
+    "full_pytest": "947 passed, 3 skipped",
+    "ruff": "PASS",
+    "docker_compose_config": "PASS",
+    "fresh_database_upgrade": "PASS: 20260824_0039",
+    "migration_lifecycle": "PASS: 20260824_0039 -> 20260824_0038 -> 20260822_0037 -> 20260824_0039",
+    "final_alembic_head": "20260824_0039"
+  },
+  "non_authoritative_attempts": [
+    {
+      "outcome": "collection_failed",
+      "reason": "canonical editable install was selected because the worktree PYTHONPATH was not pinned",
+      "product_regression": false
+    },
+    {
+      "outcome": "operator_cancelled_after_stall",
+      "reason": "the worktree PYTHONPATH was pinned but the exact local PostgreSQL URL prerequisite was omitted",
+      "product_regression": false,
+      "cleanup": "the exact disposable database created by this attempt was removed before the authoritative rerun"
+    }
+  ],
+  "selective_invalidation": {
+    "decision": "preserve_all_issue_77_acceptance",
+    "reason": "the integration base was unchanged and the only post-acceptance source commit contained append-only workflow evidence; the merge commit introduced no additional runtime, schema, environment, or Test Case input change",
+    "rerun_required": false
+  },
+  "final_code_review": "deferred_until_issues_75_through_79_are_integrated",
+  "result": "PASSED"
+}

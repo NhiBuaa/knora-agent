@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "surface": "guide:#78",
+  "guide_revision": "m4-78-crash-recovery-v4",
+  "guide_digest": "sha256:eca3113b8f259c8f415e0b31cf2ed6e0535eadf9df6de6c5bccbb760429196de",
+  "ticket_contract": ".agents/review/m4-issue-78-revision-v5.md",
+  "ticket_digest": "sha256:7f083a1ca10e330fe074148b5d2f43619fe1d7f99d30927a1ef2281b3adc5909",
+  "packet": ".agents/review/m4-issue-78-guide-review-packet-v4.json",
+  "packet_digest": "sha256:b57fd40324e18fe5d2d7260365ac030132f9d6a5e719386bd693ecd514a99530",
+  "request_id": "review-request-sha256:46fcdad5527d11a06451396bbbddc0c00633e238ed0c08f6c312b16b76426ac6",
+  "transport_response": ".agents/review/m4-issue-78-guide-review-transport-response-v4.json",
+  "verdict": "APPROVE",
+  "critical_count": 0,
+  "major_count": 0,
+  "minor_count": 0,
+  "cadence_eligible": true,
+  "review_scope": "v4 TC-09/TC-10 provenance delta; v3 external guide review remains authoritative for the unchanged case set"
+}

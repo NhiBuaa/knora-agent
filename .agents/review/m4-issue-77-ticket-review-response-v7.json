@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:a7e46ff73246f0690b0e6e4ef8e353187798c482f275d7523dc56b140757c333",
+  "review_id": "external-review:github-issue-77:m4-77-ticket-contract-v7:round-1:6a8ab38d-bf38-83ec-805b-917743be619f",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8ab38d-bf38-83ec-805b-917743be619f",
+  "packet_digest": "sha256:748458cb2c501781f3538ee2661938d176e59d0c6f9d710ffe533e99d798b05b",
+  "guide_revision": "m4-77-ticket-contract-v7",
+  "guide_digest": "sha256:f0c5cf68b4cfec0889d7c5127817293c12bb61b0f53781dcf8ef4d7b219ee922",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "post_admission_fault_branch_state_oracle_gap",
+      "criterion_ref": "M4-77-AC-07",
+      "affected_case_ids": ["M4-77-TC-08"],
+      "affected_fields": ["provider_outcome_count", "execution_lifecycle", "indeterminate_external_outcome", "logical_execution_id", "request_fingerprint"],
+      "problem": "TC-08 enumerates three deterministic fault locations but its oracle collapses them to 'provider has zero or one outcome'. That oracle can pass an invalid branch: after-admission-before-gateway and pre-SQLite-commit must prove zero provider outcome/effect, while post-SQLite-commit-before-ack must prove exactly one durable replayable outcome. The oracle also does not explicitly require every post-admission uncertainty branch to leave Knora executing with the same admission/logical ID/fingerprint and the typed indeterminate_external_outcome.",
+      "required_change": "Make TC-08 branch-specific. Require exactly zero provider ledger/effect for the before-gateway and pre-commit branches, exactly one durable replayable ledger outcome/effect-or-closed-rejection for the committed-before-ack branch, and in every not-yet-finalized post-admission branch assert lifecycle=executing, the unchanged admission/logical ID/fingerprint, and the exact indeterminate_external_outcome projection. Preserve zero retry/replay/takeover authority."
+    },
+    {
+      "severity": "major",
+      "category": "coverage",
+      "issue_class": "server_owned_fingerprint_provenance_oracle_gap",
+      "criterion_ref": "M4-77-AC-02",
+      "affected_case_ids": ["M4-77-TC-02", "M4-77-TC-05", "M4-77-TC-07"],
+      "affected_fields": ["logical_execution_id", "request_fingerprint", "canonical_json_v1", "normalized_parameters", "caller_input"],
+      "problem": "The contract requires request_fingerprint to be server-computed from the exact canonical-json-v1 operation/capability/scope/reference/target/normalized title-description intent, and requires both fingerprint and logical execution ID to be immutable and never caller inputs. Existing tests prove persistence, propagation and provider-side recomputation, but none independently proves the original server computation or that application/HTTP callers cannot supply or influence either identity.",
+      "required_change": "Add a required application/HTTP plus store oracle that independently recomputes the expected canonical-json-v1 fingerprint from authoritative normalized inputs, compares it with proposal/acquisition/admission/envelope/provider values, proves the logical execution ID and fingerprint are absent from writable caller input or rejected if injected, and proves both remain immutable across the complete generation-1 path."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "material_incompatibility_stale_transition_oracle_gap",
+      "criterion_ref": "M4-77-AC-01",
+      "affected_case_ids": ["M4-77-TC-01"],
+      "affected_fields": ["temporary_execution_authority_denial", "material_incompatibility", "proposal_state", "approval_validity"],
+      "problem": "The exact contract requires temporary execution-authority denial to leave the immutable proposal approved, while material capability/binding/policy/reference incompatibility must make it stale and require a new proposal and human approval. TC-01 only asserts the denial, absence of execution artifacts and zero provider calls; it does not observe the required post-denial proposal/approval state. A system that leaves materially incompatible approval reusable could therefore pass TC-01.",
+      "required_change": "Extend TC-01 with durable before/after proposal and approval state assertions: temporary execution-authority denial must preserve approved state unchanged, while every material incompatibility class must produce the exact stale/invalidation state that prevents later reuse and requires a new proposal and human approval."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "public_projection_sanitization_oracle_gap",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-10", "M4-77-TC-11"],
+      "affected_fields": ["public_projection", "provider_id", "routing_handle", "envelope_bytes", "mac", "credentials", "authority_secrets"],
+      "problem": "AC-09 explicitly requires sanitized public projections and EV-06 names a sanitized public result matrix, but TC-10's application/HTTP oracle checks status/result mappings without an allowlist or forbidden-field assertion. TC-11's exclusion oracle applies to the canonical audit projection, not the public application/HTTP responses. EV-06 can therefore be claimed without a required Test Case that fails on public leakage.",
+      "required_change": "Add an explicit application/HTTP oracle, preferably to TC-10, that compares the complete public projection against its allowed schema for every success, closed rejection, indeterminate, conflict and fenced result and asserts absence of raw provider IDs/routing handles, envelope bytes/MAC, key or credential material, authority secrets and all other private admission fields."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": []
+  },
+  "summary": "Revision 7 directly closes the three named external-review-v6 Major classes and preserves the sole deep WriteProposalWorkflow.handle Interface, generation-1-only boundary, static typed registry, and Issue #78 ownership of reconciliation/takeover/retry. Four independent required-oracle gaps remain, so the zero-finding approval condition is not met.",
+  "chat_reference": "https://chatgpt.com/c/6a8ab38d-bf38-83ec-805b-917743be619f",
+  "response_digest": "sha256:6ee3612ed850828441a6ceaef3eeb80a2d38a45a129710884bf12bb4a13c0918"
+}

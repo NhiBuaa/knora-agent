@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "run_id": "m4-79-integrated-release-gate-v4-20260909-01-candidate",
+  "observed_at": "2026-09-09T09:18:09+07:00",
+  "executor": "Codex manual-acceptance using independently validated Issue #79 attempt-10 evidence",
+  "guide_revision": "m4-79-integrated-release-gate-v4",
+  "guide_sha256": "ff0eff4dac729ad19c4a2b13f4b2eb64c3ffa58c2c95d81648ce7043675d73e9",
+  "candidate": {
+    "commit_sha": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+    "branch": "codex/issue-79-final-review-remediation-2",
+    "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-2"
+  },
+  "test_results": [
+    {
+      "id": "M4-79-TC-01",
+      "outcome": "PASS",
+      "observation": "The exact-subject full suite passed the authorization-before-lookup coverage; no production behavior changed after its verification.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/full-suite-10.log"]
+    },
+    {
+      "id": "M4-79-TC-02",
+      "outcome": "PASS",
+      "observation": "The exact-subject full suite passed proposal, decision, immutability, and audit lifecycle coverage.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/full-suite-10.log"]
+    },
+    {
+      "id": "M4-79-TC-03",
+      "outcome": "PASS",
+      "observation": "The independently authored execution matrix and adapter/workflow tests passed: terminal 502 failures, closed 409 in-progress/fenced envelopes, and current sanitized projections are covered.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-10.json"]
+    },
+    {
+      "id": "M4-79-TC-04",
+      "outcome": "PASS",
+      "observation": "The exact-subject full suite passed duplicate-free execution and idempotency race coverage.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/full-suite-10.log"]
+    },
+    {
+      "id": "M4-79-TC-05",
+      "outcome": "PASS",
+      "observation": "The independently authored reconciliation matrix and the release-acceptance suites passed, covering closed 502/409/202 outcomes and sanitized current projections.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-10.json"]
+    },
+    {
+      "id": "M4-79-TC-06",
+      "outcome": "PASS",
+      "observation": "The exact-subject full suite passed PostgreSQL reconciliation takeover and fencing coverage.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/full-suite-10.log"]
+    },
+    {
+      "id": "M4-79-TC-07",
+      "outcome": "PASS",
+      "observation": "The exact-subject HTTP and release-acceptance suites passed the sanitized projection and forbidden-field assertions.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-10.json"]
+    },
+    {
+      "id": "M4-79-TC-08",
+      "outcome": "BLOCKED",
+      "observation": "The required root-CWD migration round-trip cannot run today: Docker retried once and the dockerDesktopLinuxEngine pipe is absent, so PostgreSQL is not runtime-reachable.",
+      "evidence": ["C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-10.json"]
+    },
+    {
+      "id": "M4-79-TC-09",
+      "outcome": "PASS",
+      "observation": "Independent exact-subject verification passed focused 160 tests and the full suite with 972 passed and 3 pre-existing locked PDF skips; Ruff, Compose config, and diff check passed.",
+      "evidence": [".agents/review/m4-issue-79-ingest-acceptance-10-v1.json"]
+    },
+    {
+      "id": "M4-79-TC-10",
+      "outcome": "PASS",
+      "observation": "All eight changed paths are within dispatch scope; main remains 6312c4c4230032aa92ca5915803fcfaf564354fa, the candidate is unintegrated, and final review remains deferred.",
+      "evidence": [".agents/review/m4-issue-79-ingest-acceptance-10-v1.json"]
+    },
+    {
+      "id": "M4-79-TC-11",
+      "outcome": "PASS",
+      "observation": "The guide and structured Test Cases retain their approved locked SHA-256 identities; this candidate is appended to a new v4 history without modifying prior guide revisions or histories.",
+      "evidence": [".agents/review/m4-issue-79-guide-approval-v4.json"]
+    }
+  ],
+  "verification": {
+    "subject_sha": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+    "focused": "160 passed",
+    "full_pytest": "972 passed, 3 locked PDF baseline skips",
+    "ruff": "PASS",
+    "docker_compose_config_at_verification": "PASS",
+    "main_unchanged": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+    "current_dependency_check": "Docker engine unavailable after one retry"
+  },
+  "verdict": "BLOCKED",
+  "human_approval": "pending",
+  "blocker": "M4-79-TC-08 requires a runtime-reachable Docker/PostgreSQL environment; historical pass evidence cannot substitute for its required current manual execution.",
+  "append_only": true
+}

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_spec_design_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-spec-design-external-review.json",
+  "reviewed_at": "2026-08-22T04:52:02Z",
+  "reviewed_commit": "dae634d0903d80c231b68d908301b7110c5f9c25",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 2,
+  "findings": [
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md:51-69,100-110; .agents/review/m4-delivery-plan-v1.md:31-49; GitHub Issue #74 — Implementation Decisions",
+      "problem": "The design names typed commands, application seams, store seams and HTTP routes but does not define their command fields, result projections, typed transition outcomes, public error bodies or request/response schemas.",
+      "required_change": "Add decision-complete typed contracts for every WriteProposalWorkflow command/result, ReadTool command/result, proposal and execution projection, ToolActionStore transition result, and HTTP request/response/error surface. Bind actor provenance to trusted context explicitly and define the closed public status/error taxonomy before guide preparation or implementation."
+    },
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md:8-16,81-110; .agents/review/m4-delivery-plan-v1.md:43-49,95-109; GitHub Issues #75, #77 and #78",
+      "problem": "The SupportToolGateway and reference-provider boundary lacks an executable request/result/error contract and an explicit provider-ledger state machine.",
+      "required_change": "Specify typed lookup_ticket, create_ticket and get_execution_outcome inputs and outputs; a closed provider error/observation taxonomy; atomic logical-identity and fingerprint rules; durable provider outcomes; deterministic fault seams; and restart-independent contract tests."
+    },
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md:31-45,88-94; docs/standards/architecture.md:942-946,961-972; GitHub Issue #74 — Exact binding and policy decisions",
+      "problem": "The artifacts require exact compatibility but do not define the compatibility predicate, canonical digest domain or authority that determines compatibility.",
+      "required_change": "Define a versioned compatibility-check contract with explicit inputs, outputs and reason codes; lock canonical serialization/digests; prohibit latest resolution; default to exact identity/version/digest equality; and keep current-authority denial distinct from stale projection."
+    },
+    {
+      "severity": "major",
+      "location": "docs/design/milestone-4-tools-human-approval.md:47-49,74-79; CONTEXT.md:293-295; GitHub Issue #75 — Acceptance criteria",
+      "problem": "ExternalResourceReference does not select one integrity/unforgeability representation or define canonical protected bytes, key resolution, rotation/revocation and fail-closed outcomes.",
+      "required_change": "Choose one authenticated representation and verifier contract, define key-version lifecycle and verification order, and guarantee no unverified provider identity reaches the gateway."
+    },
+    {
+      "severity": "minor",
+      "location": "docs/design/milestone-4-tools-human-approval.md:67-69; GitHub Issue #76 — concurrent approve/reject criterion",
+      "problem": "Deterministic atomic winner lacks a linearization rule.",
+      "required_change": "Define the winner as the first expected-revision CAS commit and return the persisted winner/revision to every loser without actor precedence."
+    },
+    {
+      "severity": "minor",
+      "location": ".agents/review/m4-delivery-plan-v1.md:18-21,143-145",
+      "problem": "The phrase Child PRs #75–#79 can be read as preassigning PR numbers equal to issue numbers.",
+      "required_change": "Refer to one PR per issue and record actual GitHub PR identities after creation."
+    }
+  ],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "https://github.com/NhiBuaa/knora-agent/issues/75",
+    "https://github.com/NhiBuaa/knora-agent/issues/76",
+    "https://github.com/NhiBuaa/knora-agent/issues/77",
+    "https://github.com/NhiBuaa/knora-agent/issues/78",
+    "https://github.com/NhiBuaa/knora-agent/issues/79",
+    "CONTEXT.md",
+    "docs/PROJECT_OVERVIEW.md",
+    "docs/standards/architecture.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-review-cadence-plan-v1.json",
+    "git diff 6312c4c4230032aa92ca5915803fcfaf564354fa..dae634d0903d80c231b68d908301b7110c5f9c25"
+  ]
+}

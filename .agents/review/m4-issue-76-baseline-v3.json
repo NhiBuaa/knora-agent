@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "ticket": "#76",
+  "subject_commit": "fa00b58c4d111cb6a64cef1fa898991ba4cde59a",
+  "environment_revision": "windows-python-3.14.6-postgresql-127.0.0.1-alembic-20260816_0036",
+  "database_url_host": "127.0.0.1",
+  "status": "passed",
+  "verification": [
+    {"command": "python -m pytest", "result": "672 passed, 3 skipped, 602 warnings", "exit_code": 0},
+    {"command": "ruff check .", "result": "All checks passed", "exit_code": 0},
+    {"command": "docker compose config --quiet", "result": "passed with optional unset-variable warnings", "exit_code": 0},
+    {"command": "clean database then alembic upgrade head", "result": "20260816_0036", "exit_code": 0}
+  ],
+  "selective_validity": "Subsequent commits add only external-review/baseline evidence and do not change code, tests, dependencies or environment."
+}

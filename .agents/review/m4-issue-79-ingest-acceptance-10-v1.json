@@ -1,0 +1,54 @@
+{
+  "artifact_id": "m4-issue-79-final-review-remediation-attempt-10-ingest-acceptance",
+  "schema_version": 1,
+  "recorded_at": "2026-09-08T15:41:00+07:00",
+  "status": "ingested_validated_pending_manual_acceptance",
+  "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-10",
+  "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+  "feature_branch": "nhibuaa/m4-tools-human-approval",
+  "source_base": "b7e9cdb2af00b1c4bcc5c41788f7a26d521eeaf0",
+  "branch": "codex/issue-79-final-review-remediation-2",
+  "worktree_path": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-2",
+  "subject_commit": "2f4e9bac9bcfe679a4c21d8dc7b0587e8f9c2184",
+  "return_contract": {
+    "reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-10.json",
+    "digest": "sha256:331208d986ec3a23b64f7dfda743cb8e5f2633247a1925fe13f0746c07dab154",
+    "validation": "passed"
+  },
+  "result_evidence": {
+    "reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-10.json",
+    "digest": "sha256:151dde5ecb575f4adedc23c52a5e866ed3f80c361f4e68cb01cbfe9fab560d2d"
+  },
+  "independent_verification": {
+    "focused": "160 passed",
+    "full_suite": "972 passed, 3 skipped",
+    "ruff": "passed",
+    "compose": "passed with only unset optional local credential warnings",
+    "diff_check": "passed",
+    "worktree_clean": true,
+    "source_base_is_ancestor": true
+  },
+  "scope": {
+    "changed_files": [
+      "backend/src/knora/tools/execution_types.py",
+      "backend/src/knora/tools/proposal_http.py",
+      "backend/src/knora/tools/proposals.py",
+      "backend/test/adapters/http/test_tools.py",
+      "backend/test/tools/test_proposal_http.py",
+      "evals/test/test_m4_77_release_acceptance.py",
+      "evals/test/test_m4_78_release_acceptance.py",
+      "evals/test/test_m4_79_release_acceptance.py"
+    ],
+    "validated_against": "dispatch-10 allowed scope"
+  },
+  "acceptance": {
+    "status": "not_executed",
+    "guide_revision": "m4-79-integrated-release-gate-v4",
+    "guide_digest": "sha256:ff0eff4dac729ad19c4a2b13f4b2eb64c3ffa58c2c95d81648ce7043675d73e9",
+    "next_valid_transition": "manual-acceptance execute"
+  },
+  "integration": {
+    "status": "not_attempted",
+    "reason": "Ingestion does not confer acceptance or integration authority."
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "artifact_id": "m4-issue-79-ingest-result-12-correction-1",
+  "dispatch_digest": "sha256:ddd2ee6e26cf1e8e8b4af57821af7f019d845b3b3322b83af39ad582c8b4a972",
+  "dispatch_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-12-correction-1.json",
+  "independent_verification": {
+    "compose": "passed",
+    "focused_postgres": "18 passed, 1 warning",
+    "postgres_migration": "upgrade through 20260909_0041 passed against 127.0.0.1:5432/knora",
+    "ruff": "passed"
+  },
+  "issue_reference": "https://github.com/NhiBuaa/knora-agent/issues/79",
+  "manual_acceptance": {
+    "candidate_evaluation_digest": "sha256:b19c2c71e32ecc2c9089c7fff236b847cfa7b7e8f7993782aa0e26b5b89fcdb5",
+    "candidate_evaluation_reference": ".agents/review/m4-issue-79-evaluation-12-correction-1-candidate.json",
+    "candidate_run_id": "m4-79-integrated-release-gate-v6-correction-2-20260909-01-candidate",
+    "evaluation_history": ".agents/manual-tests/milestone-4/79-integrated-release-gate-v6-correction-1.evaluations.jsonl",
+    "evaluation_history_digest": "sha256:98df1adf345c9aa658d05ad11c3e343fb19d81f10023c83adcf318de8886a86d",
+    "human_approval": "pending",
+    "status": "technical_cases_passed_pending_repository_owner",
+    "verdict": "BLOCKED"
+  },
+  "next_valid_transition": "record_repository_owner_acceptance_approval_or_rejection",
+  "result_evidence_digest": "sha256:5658e95b27b359d6c2e4849a03fb17865063a90bfd3d63e61a2e407d394506df",
+  "result_evidence_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/result-evidence-12-correction-1.json",
+  "resume_digest": "sha256:10080d70cde8455f200b8381612c387bf0d289cbca82aac6ab477ed99c7f6e5f",
+  "resume_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-12-correction-1.json",
+  "return_digest": "sha256:3a2c5e7ea83b6609862f3b08fead45cd6ee7c9fb595e90b85a873e48aa44b06a",
+  "return_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/return-12-correction-1.json",
+  "schema_version": 1,
+  "scope_decision": "accepted: the eight actual changed files are within the bound persistence, projection, audit, migration, test, and roadmap remediation responsibilities",
+  "source_base_is_ancestor": true,
+  "status": "validated_manual_acceptance_pending",
+  "subject_commit": "c8359296e878d716b60b3a05fb39e6affbe4c901",
+  "tested_subject_commit": "c8359296e878d716b60b3a05fb39e6affbe4c901",
+  "validated_at": "2026-09-09T21:22:32+07:00",
+  "workflow_identity": "feature-delivery/m4-tools-human-approval/github-issue-79/attempt-12-correction-1",
+  "workspace_digest": "sha256:17cf6444405f64d0df93fb3f1c685c44d78b210d89878df3e8c41bee6bac3810",
+  "workspace_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-12-correction-1.json",
+  "worktree_clean": true
+}

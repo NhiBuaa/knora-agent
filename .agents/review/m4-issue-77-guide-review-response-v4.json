@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:c7eca9a7571fc1af39b922c207781b70fbb1a850e6559160baa2a3519a9dde4a",
+  "round": 1,
+  "packet_digest": "sha256:32fe199ba0366f2cd39f1c413ea7d403692c6c761899599d81aaed34d68d8ca4",
+  "guide_revision": "m4-77-authorized-execution-v4",
+  "guide_digest": "sha256:ca7a3aed942864408e08db0a3bc2cdf85f63dcaf2c71abd8650bad43901101f0",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "review_id": "external-review:github-issue-77:m4-77-authorized-execution-v4:round-1:6a8ad946-5a1c-83ec-a111-fe70a1290014",
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8ad946-5a1c-83ec-a111-fe70a1290014",
+  "reviewed_commit": "c63d10c5b683d4d99e166b1c1d97627ebff38f18",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 2,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "post_lock_finalization_clock_source_not_proven",
+      "criterion_ref": "M4-77-AC-08",
+      "affected_case_ids": [
+        "M4-77-TC-10"
+      ],
+      "affected_fields": [
+        "steps",
+        "expected_results",
+        "evidence_to_capture",
+        "fresh_post_lock_database_time"
+      ],
+      "problem": "M4-77-AC-08 requires generation-1 observation/finalization to use fresh post-lock PostgreSQL time. TC-10 proves expired-owner fencing and zero PostgreSQL writes, but its executable procedure does not create a discriminating observation/finalization clock test: it does not start observation/finalization before lease expiry, block that operation on the relevant PostgreSQL lock until after expiry, compare transaction-start/application time against a fresh post-lock clock_timestamp(), and capture the deciding database-time sample. The expected result only states that expired operations use fresh post-lock PostgreSQL time, while the evidence list contains execution snapshots, observation/audit identities, row-set digest and write traces but no post-lock database-time evidence. A materially nonconforming implementation using transaction-start or application time for observation/finalization can therefore satisfy the stated fencing/zero-write observations in the tested scheduling arrangement. The separate TC-04 clock test applies to acquisition/admission expiry and does not prove the distinct observation/finalization requirement.",
+      "required_change": "Extend TC-10 with discriminating observation and finalization races on both sides of the generation-1 lease boundary. For each operation, begin before expiry, hold it behind the governing PostgreSQL lock, cross expiry while blocked, skew non-database/application clocks, then release the lock and require the decision to use a captured post-lock clock_timestamp() that is later than the lease deadline. Add a before-expiry control proving the same path is not spuriously fenced. Evidence must record the lease deadline, transaction/application clock values, fresh post-lock PostgreSQL time, lock ordering and resulting state/write counts for observation and finalization independently."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "denial_matrix_identity_values_not_independently_closed",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": [
+        "M4-77-TC-03",
+        "M4-77-TC-10"
+      ],
+      "affected_fields": [
+        "post_acquisition_denial_matrix",
+        "proposal_id",
+        "logical_execution_id",
+        "application_projection",
+        "independent_matrix_fixture"
+      ],
+      "problem": "The v4 denial table closes the ProposalNotExecutable result type, lifecycle, outcome_type, reason_code, HTTP status, HTTP key set and public error code, but it does not independently close the values or value domains of proposal_id and logical_execution_id. The execution-outcome table explicitly requires both IDs to be canonical lowercase RFC 4122 UUIDs read from durable proposal/execution identity, whereas the denial section only says those two fields are present. TC-03 and TC-10 then require comparison with an independently loaded exact row and complete field/value domains without specifying an independent source or equality oracle for the two denial identities. Consequently a denial mapper that substitutes the wrong proposal or logical-execution identity can satisfy the written denial-row oracle if the fixture checks only shape/static values or derives the identity from the produced projection. This leaves M4-77-GR-007 incompletely closed because its required exact ProposalNotExecutable application projection is not fully independently specified.",
+      "required_change": "Close proposal_id and logical_execution_id in the denial matrix itself: define their canonical value domain and require exact equality to independently seeded/reloaded durable proposal and acquisition logical-execution identities for every denial scenario. State that the independent TC-03/TC-10 fixture obtains those expected identities from scenario authority established before invoking the application/HTTP seam and must never copy or derive them from the returned ProposalNotExecutable projection or production mapper. Capture expected-versus-actual identity values per row in release evidence. Apply this oracle in both TC-03 and TC-10."
+    }
+  ],
+  "coverage": {
+    "criteria": [
+      "M4-77-AC-01",
+      "M4-77-AC-02",
+      "M4-77-AC-03",
+      "M4-77-AC-04",
+      "M4-77-AC-05",
+      "M4-77-AC-06",
+      "M4-77-AC-07",
+      "M4-77-AC-08",
+      "M4-77-AC-09",
+      "M4-77-AC-10"
+    ],
+    "uncovered": [
+      "M4-77-AC-08",
+      "M4-77-AC-09"
+    ]
+  },
+  "prior_findings_closed": [
+    "M4-77-GR-001",
+    "M4-77-GR-002",
+    "M4-77-GR-003",
+    "M4-77-GR-004",
+    "M4-77-GR-005",
+    "M4-77-GR-006"
+  ],
+  "summary": "Guide v4 substantially preserves the approved generation-1, static-registry and no-#78-recovery boundaries and retains strong acquisition, admission, provider-atomicity, fencing, audit, DI-isolation and regression evidence. It cannot be approved yet because TC-10 does not contain an executable oracle proving fresh post-lock PostgreSQL time specifically for observation/finalization, and the new post-acquisition denial matrix does not independently close the two dynamic identity values in every ProposalNotExecutable application projection. Therefore M4-77-AC-08 and M4-77-AC-09 are not yet adequately proven, and M4-77-GR-007 is not fully closed.",
+  "response_digest": "sha256:95e5fb4cbe5449438a0a293698c1794ee367ccca6b8565dfcc9eb70f2077d507"
+}

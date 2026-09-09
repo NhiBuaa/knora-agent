@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "chatgpt:6a8ad2d8-e1e4-83ec-8018-87b4b204af0a",
+  "reviewer_identity_reference": ".agents/review/identities/chatgpt-m4-77-guide-v3-external-review.json",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "reviewed_commit": "f6f87a4456d7bfa1ce9ceb8411427ae39bfa6abe",
+  "ticket_id": "#77",
+  "guide_revision": "m4-77-authorized-execution-v3",
+  "guide_digest": "sha256:8e75255ec3756ec1d16a6ba5e8eee5e85b29b2abb1ab1f8002a4365e9b5ea906",
+  "request_id": "review-request-sha256:1aee7930a2f292a69c614a8892c1b2e0b787244bbd947389801354bba75690df",
+  "packet_reference": ".agents/review/m4-issue-77-guide-review-packet-v3.json",
+  "packet_digest": "sha256:dde5fbe09b0d4680305cb65f32cc656fa612aa02c6723be4b4530f448859701f",
+  "response_reference": ".agents/review/m4-issue-77-guide-review-response-v3.json",
+  "response_digest": "sha256:55931b1e9e093ad688f857760ed7a17a45976cc12930651747940d88b1a90461",
+  "transport_raw_digest": "sha256:42f1bd6be7bc7fc094fbd3cf3e95b72ad7dbfac197b6f83bdae67bf3cd053f4e",
+  "chat_reference": "https://chatgpt.com/c/6a8ad2d8-e1e4-83ec-8018-87b4b204af0a",
+  "transport": "single_pasted_attachment_after_bounded_native_upload_failure",
+  "critical_count": 0,
+  "major_count": 1,
+  "minor_count": 0,
+  "prior_findings_closed": ["M4-77-GR-001", "M4-77-GR-002", "M4-77-GR-003", "M4-77-GR-004", "M4-77-GR-005", "M4-77-GR-006"],
+  "finding_classes": ["incomplete_post_acquisition_result_matrix"],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": ["M4-77-AC-09"]
+  },
+  "summary": "Guide v3 closes the exact post-acquisition denial, provider cross-binding and production test-adapter-isolation findings. One Major remains: the independently sourced public-result contract must classify every post-acquisition TC-03 denial into an exact application/HTTP result shape or exact existing error envelope."
+}

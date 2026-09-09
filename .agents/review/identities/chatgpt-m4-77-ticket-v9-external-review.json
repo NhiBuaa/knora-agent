@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "reviewer_id": "chatgpt:6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "identity_kind": "isolated_external_chat",
+  "provider": "chatgpt",
+  "model": null,
+  "reasoning_effort": "High",
+  "chat_identity": "6a8b02e6-6270-83ec-8c5d-157070135a92",
+  "source_authority": "authenticated_browser_external-review-session",
+  "purpose": "independent M4 Issue #77 ticket contract v9 review",
+  "created_at": "2026-08-23T21:18:00+07:00"
+}

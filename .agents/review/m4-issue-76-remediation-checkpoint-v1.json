@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "ticket": "#76",
+  "status": "checkpointed_dependency_pending",
+  "recorded_at": "2026-08-22T16:36:58.6286521+07:00",
+  "subject_commit": "625bca22c07b5c12640358ae8dea941f6d9d8373",
+  "review_reference": "integration:.agents/review/m4-issue-76-child-code-review-v1.json",
+  "preflight_reference": ".agents/review/m4-issue-76-remediation-preflight-v1.json",
+  "preflight_digest": "sha256:3c9db8b59af137685495f28b2dd5a429a061b3ae93c868758ef220d1d6f567bd",
+  "completed_slices": [
+    "M4-76-R1 request-scoped actor and approval authority with fail-closed composition",
+    "M4-76-R2 canonical-json-v1 parameter and provenance validation",
+    "M4-76-R3 exact CompatibilityCheckerV1 reasons and deny-by-default execution projection",
+    "M4-76-R4 complete provider-target request fingerprint binding",
+    "M4-76-R5 PostgreSQL provenance, lifecycle, decision and immutability enforcement",
+    "M4-76-R6 real concurrent PostgreSQL approve/reject atomic winner",
+    "bounded structural extraction of proposal contracts, types, store and compatibility policy"
+  ],
+  "pending_slice": {
+    "id": "M4-76-R7",
+    "reason": "Final proposal target verifier composition and locked integrity/reference matrix require the accepted #75 m4r1 verifier/minter seam after #75 integration.",
+    "blocking_ticket": "#75",
+    "constraint": "Do not substitute an always-accepting fake and do not run M4.2 acceptance before reconciliation with the integrated #75 head."
+  },
+  "verification": {
+    "focused": {
+      "command": "python -m pytest backend/test/tools/test_proposals.py backend/test/tools/test_proposal_http.py backend/test/tools/test_proposal_postgres.py -q",
+      "result": "87 passed"
+    },
+    "full_suite": {
+      "command": "python -m pytest",
+      "result": "759 passed, 3 skipped"
+    },
+    "ruff": "PASS: ruff check .",
+    "compose": "PASS: docker compose config --quiet",
+    "migration": "PASS: clean PostgreSQL database upgraded to 20260822_0037"
+  },
+  "structural_evidence": {
+    "owning_module": "knora.tools",
+    "interface_changes": [],
+    "seam_changes": [
+      "request-scoped ActorContextProvider",
+      "exact CompatibilityCheckerV1",
+      "deny-by-default ExecutionAuthorizer",
+      "transaction-shaped ToolActionStore persistence"
+    ],
+    "files_created": [
+      "backend/src/knora/tools/proposal_contracts.py",
+      "backend/src/knora/tools/proposal_types.py",
+      "backend/src/knora/tools/proposal_store.py",
+      "backend/src/knora/tools/proposal_compatibility.py"
+    ],
+    "largest_changed_source_file": {
+      "path": "backend/src/knora/tools/proposal_types.py",
+      "before_lines": 0,
+      "after_lines": 359
+    },
+    "workflow_module": {
+      "path": "backend/src/knora/tools/proposals.py",
+      "before_lines": 503,
+      "after_lines": 339
+    },
+    "trigger_disposition": "extracted",
+    "rationale": "Canonical value contracts, persistence contracts and exact compatibility policy are cohesive responsibilities; the public knora.tools abstraction remains unchanged and no plugin framework or provider write was introduced."
+  },
+  "acceptance_status": "not_run_after_remediation",
+  "worktree_status_before_record": "clean",
+  "next_valid_transition": "After #75 is accepted and integrated, reconcile #76 with the integration head, compose the real accepted reference verifier, run M4-76-R7 and the locked guide v3, then obtain new human PASSED approval."
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "event_id": "m4-issue-79-remediation-dispatch-attempt-12-prepared",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "transition": "acceptance_prepared",
+  "skill": "feature-delivery+session-continuity",
+  "execution_revision": "m4-79-final-review-remediation-dispatch-attempt-12",
+  "started_at": "2026-09-09T17:34:55+07:00",
+  "finished_at": "2026-09-09T17:45:00+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:99262acbdbe195f6d2a34bdbe439bef495133723b816ddcb845253a3fa79720e",
+  "output_digest": "sha256:78dd2633d537bde2c1712e68905ca0b543efea3f51bc76c4683789194fa3780f",
+  "evidence_references": [
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/workspace-12.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/resume-12.json",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/handoffs/issue-79/dispatch-12.json",
+    "C:/Developer/Projects/knora-agent-m4-integration/.agents/review/m4-issue-79-guide-approval-v6-correction-2.json",
+    "C:/Developer/Projects/knora-agent-m4-integration/.agents/review/m4-observability-log-v3-migration.json",
+    "C:/Developer/Projects/knora-agent-m4-integration/.agents/review/m4-workflow-ledger-v1.json"
+  ]
+}

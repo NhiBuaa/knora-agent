@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "verdict": "REQUEST_CHANGES",
+  "reviewer": "codex-agent:/root/m4_76_ticket_external_review",
+  "reviewer_identity_reference": ".agents/review/identities/codex-agent-m4-76-ticket-external-review.json",
+  "reviewed_at": "2026-08-22T04:52:02Z",
+  "reviewed_commit": "dae634d0903d80c231b68d908301b7110c5f9c25",
+  "base_commit": "6312c4c4230032aa92ca5915803fcfaf564354fa",
+  "ticket_id": "#76",
+  "critical_count": 0,
+  "major_count": 3,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "location": "Issue #76 — What to build / Acceptance criteria",
+      "problem": "Public proposal surfaces and their trusted actor boundary are absent.",
+      "required_change": "Add Workspace-scoped create/read/approve/reject endpoints, typed title/description validation, safe status mapping, trusted actor derivation and no-provider-write tests."
+    },
+    {
+      "severity": "major",
+      "location": "Issue #76 — durable projections/audit",
+      "problem": "Persistence and audit ownership is not directly testable.",
+      "required_change": "Require PostgreSQL ToolActionStore persistence, immutable material snapshots, atomic decision/provenance audit, reconstruction and race tests."
+    },
+    {
+      "severity": "major",
+      "location": "Issue #76 — Blocked by / parallel delivery seam",
+      "problem": "The ticket declares no dependency on #75 but does not name the approved narrow CapabilityResolver seam.",
+      "required_change": "Bind #76 to CapabilityResolver.resolve_for_proposal plus a fake and prohibit imports of #75 concrete registry/provider code before integration."
+    }
+  ],
+  "scope_references": [
+    "https://github.com/NhiBuaa/knora-agent/issues/76",
+    "https://github.com/NhiBuaa/knora-agent/issues/74",
+    "CONTEXT.md",
+    "docs/standards/architecture.md",
+    "docs/adr/0015-human-approved-tool-execution-boundary.md",
+    "docs/design/milestone-4-tools-human-approval.md",
+    ".agents/review/m4-delivery-plan-v1.md",
+    ".agents/review/m4-review-cadence-plan-v1.json"
+  ]
+}

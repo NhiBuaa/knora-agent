@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "run_id": "m4-79-integrated-release-gate-v5-20260909-01-approved",
+  "supersedes_run_id": "m4-79-integrated-release-gate-v5-20260909-01-candidate",
+  "observed_at": "2026-09-09T12:43:50+07:00",
+  "executor": "Codex manual-acceptance with explicit repository-owner approval",
+  "guide_revision": "m4-79-integrated-release-gate-v5",
+  "guide_sha256": "fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+  "candidate": {
+    "commit_sha": "e3230e9833db90287098993fe9ec1c1443df13cb",
+    "branch": "codex/issue-79-final-review-remediation-3",
+    "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-3"
+  },
+  "technical_evidence_reference": ".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json",
+  "technical_evidence_digest": "sha256:e1f57d1359ef6283d268714e2131a6e6ab0e72a7ee44bb0076f946122a94cfad",
+  "test_results": [
+    {"id":"M4-79-TC-01","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-02","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-03","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-04","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-05","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-06","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-07","outcome":"PASS","observation":"Approved technical result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-08","outcome":"PASS","observation":"Approved root-CWD migration round-trip result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-09","outcome":"PASS","observation":"Approved exact-subject regression, Ruff and Compose result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-10","outcome":"PASS","observation":"Approved scope, clean-worktree and unchanged-main result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-11","outcome":"PASS","observation":"Approved guide-lock and append-only history result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-12","outcome":"PASS","observation":"Approved provider-boundary normalization result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]},
+    {"id":"M4-79-TC-13","outcome":"PASS","observation":"Approved exact-resource authorization and provider scope-denial result preserved from the candidate run.","evidence":["m4-79-integrated-release-gate-v5-20260909-01-candidate",".agents/review/m4-issue-79-manual-acceptance-v5-technical-evidence-1.json"]}
+  ],
+  "verification": {
+    "subject_sha": "e3230e9833db90287098993fe9ec1c1443df13cb",
+    "technical_evaluation": "m4-79-integrated-release-gate-v5-20260909-01-candidate",
+    "technical_evidence_digest": "sha256:e1f57d1359ef6283d268714e2131a6e6ab0e72a7ee44bb0076f946122a94cfad",
+    "main_unchanged": "6312c4c4230032aa92ca5915803fcfaf564354fa"
+  },
+  "verdict": "PASSED",
+  "human_approval": "approved",
+  "human_approval_evidence": "Repository owner explicitly approved PASSED for m4-79-integrated-release-gate-v5-20260909-01-candidate: Tôi phê duyệt PASSED cho m4-79-integrated-release-gate-v5-20260909-01-candidate",
+  "append_only": true
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "APPROVED",
+  "approval_type": "human-guide-approval",
+  "workflow_identity": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#77",
+  "guide_path": ".agents/manual-tests/milestone-4/77-authorized-execution-v7.md",
+  "guide_revision": "m4-77-authorized-execution-v7",
+  "guide_digest": "sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93",
+  "guide_blob": "29f33025acd00e49ecc21964b36caa702701a9de",
+  "subject_commit": "f165b11ea504e2ebf7e623076e1192c15d5398e2",
+  "external_review": {
+    "path": ".agents/review/m4-issue-77-guide-external-review-v7.json",
+    "reviewed_commit": "a7e59d6aba182bc2cba1a7dcae799d18eba5c539",
+    "response_digest": "sha256:240b0f1718024568262cfadbd9fd9a1f66dd192a28b17ceecfa3a20f99c5121c",
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0,
+    "minor_count": 0
+  },
+  "approved_by": "user",
+  "approval_statement": "Tôi đã đọc và duyệt khóa guide M4.3 v7 đúng digest sha256:c345a3f1ef55aa229238e66ebcb4c18c9228f5715449c6a9469efbfe09cc8d93.",
+  "approved_at": "2026-08-24T07:01:48+07:00",
+  "lock_status": "LOCKED",
+  "immutable_after_approval": true
+}

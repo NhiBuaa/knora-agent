@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "event_id": "m4-issue-79-guide-v6-correction-2-prepared",
+  "workflow_id": "feature-delivery:m4-tools-human-approval",
+  "feature_id": "github-issue-74",
+  "ticket_id": "#79",
+  "transition": "acceptance_prepared",
+  "skill": "feature-delivery+manual-acceptance",
+  "execution_revision": "m4-79-integrated-release-gate-v6-correction-2",
+  "started_at": "2026-09-09T17:05:51+07:00",
+  "finished_at": "2026-09-09T17:05:51+07:00",
+  "status": "completed",
+  "retry_count": 0,
+  "input_digest": "sha256:85f03b1e935ab2c19fc818ef0e3192356383aa4209df824e655a75c941e1e1a2",
+  "output_digest": "sha256:ded69a957e4e670d31478c92a5e66f1293cc168eda05b36054a3803510833c28",
+  "evidence_references": [
+    ".agents/review/m4-issue-79-remediation-guide-external-review-v6-correction-2-response-1.json",
+    ".agents/manual-tests/milestone-4/79-integrated-release-gate-v6-correction-2.md",
+    ".agents/review/m4-issue-79-test-cases-v6-correction-1.json",
+    ".agents/review/m4-issue-79-remediation-guide-external-review-packet-v6-correction-3.md",
+    "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-spec-v3.json"
+  ]
+}
+

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-remediation-guide-external-review-v5-response-1",
+  "review_kind": "advisory_external_guide_review",
+  "reviewed_at": "2026-09-09T11:10:00+07:00",
+  "reviewer": "codex-independent-guide-reviewer",
+  "session_id": "/root/guide_v5_external_review",
+  "packet_reference": ".agents/review/m4-issue-79-remediation-guide-external-review-packet-v5.md",
+  "packet_digest": "sha256:68ee7a4297869799c3ec47f5ab5a4e18fa71b196c747231d4d815a0752027232",
+  "reviewed_artifacts": {
+    "fixed_point_digest": "sha256:3006e223dd9685808b370c78c4656f983aad70529bb28dfb4f082f9c5e5dcd0f",
+    "final_review_result_digest": "sha256:e4f10e48a82498300ce7454910558b44cb4c4d44bce9a45aacf99d9ac5b70446",
+    "guide_digest": "sha256:fdfa18f89b1456c2660082ff23cb0a469fcb7b4fa4331b3bc2a59d9a1183e773",
+    "test_cases_digest": "sha256:471cd3eac173df599d127544a0207f697c61dc3083f029d604d9a648a928fe49"
+  },
+  "verdict": "APPROVE",
+  "findings": [],
+  "evidence": [
+    "TC-01 and TC-12 make lookup/provider boundary normalization and typed malformed-result handling observable.",
+    "TC-03 and TC-05 make the proven-no-write provider_request_rejected outcome and exact public mappings observable.",
+    "TC-05 and TC-13 require exact current-resource authorization before trusted/provider observation and distinguish provider_scope_denied as 403.",
+    "TC-03, TC-05 and TC-07 require recursive zero-hit sanitization for forbidden provider, routing, credential, key, exception and rejection_code material.",
+    "TC-09 and TC-10 preserve accepted frontier identity, remediation scope, main identity and the leader-only final-review boundary.",
+    "TC-11 preserves guide/history immutability and append-only human acceptance."
+  ],
+  "scope_assessment": "No concrete gap found; the guide is explicitly bounded to Issue #79 remediation.",
+  "disposition": "APPROVE guide for repository-owner approval; this advisory result does not approve code, acceptance, integration or final feature review."
+}

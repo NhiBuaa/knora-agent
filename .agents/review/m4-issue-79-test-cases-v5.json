@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "artifact_id": "m4-issue-79-test-cases-v5",
+  "requirement_source": "docs/design/milestone-4-tools-human-approval.md",
+  "remediation_source": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-result-v2.json",
+  "fixed_point_source": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-fixed-point-v2.json",
+  "supersedes": "m4-issue-79-test-cases-v4",
+  "mode": "test-cases",
+  "coverage": {
+    "included_axes": ["data_shape_and_contract", "state_and_lifecycle", "async_and_concurrency", "security_and_bounds"],
+    "omitted_axes": [{"axis": "ui_and_observable_transitions", "reason": "The remediation changes typed HTTP JSON contracts and authorization boundaries, not an interactive UI."}]
+  },
+  "test_cases": [
+    {
+      "id": "M4-79-TC-01",
+      "requirement": "M4-79-AC-02",
+      "risk": "Lookup may accept malformed typed provider data or expose an unnormalized response-model failure.",
+      "seam": "HTTP/provider-counter contract",
+      "prerequisites": ["Independent lookup matrix includes authorized, denied, malformed typed-result and response-model failure rows."],
+      "steps": ["Execute all authorized and denied lookup rows.", "Inject malformed provider results and response-model validation failures at the boundary.", "Capture status/body and provider-call counters."],
+      "expected_results": ["Exact public status/body allowlist.", "Denied rows make zero provider lookup calls.", "Malformed provider data normalizes to 502 TOOL_PROVIDER_CONTRACT_INVALID rather than an untyped 500."],
+      "evidence_to_capture": ["independent matrix digest", "row counters", "sanitized projections", "error-envelope evidence"]
+    },
+    {
+      "id": "M4-79-TC-02",
+      "requirement": "M4-79-AC-03",
+      "risk": "Human decision authority or CAS behavior may regress while remediation changes adjacent contracts.",
+      "seam": "proposal workflow and PostgreSQL audit",
+      "steps": ["Exercise create/read/approve/reject/not-found/expired/stale/validation rows and race human decision contenders."],
+      "expected_results": ["Model/system denial precedes mutation.", "Exactly one human CAS decision wins; material and audit ordering remain immutable."],
+      "evidence_to_capture": ["durable before/after state", "audit", "independent matrix"]
+    },
+    {
+      "id": "M4-79-TC-03",
+      "requirement": "M4 execution HTTP contract",
+      "risk": "Execution outcomes expose an incomplete public error/projection contract or misclassify definitive provider outcomes.",
+      "seam": "execution HTTP mapper and sanitized ToolProposalProjection",
+      "prerequisites": ["Independent execution matrix includes success, terminal failure, provider-request-rejected, provider-scope-denied, indeterminate, in-progress, fenced, authority-denial and stale rows."],
+      "steps": ["Build fixtures and expected envelopes without importing, deriving, mirroring or reading values from production mappers, serializers, enums or types.", "Execute every row through HTTP.", "Recursively scan every public projection, error and audit snapshot for rejection_code, raw provider data, provider routing, keys, credentials and internal exception material."],
+      "expected_results": ["Terminal provider failure is exactly 502/TOOL_PROVIDER_FAILURE with only sanitized failure_code and no rejection_code.", "A proven no-write provider rejection is exactly 502/TOOL_PROVIDER_REQUEST_FAILED.", "A definitive provider scope denial is exactly 403/TOOL_RESOURCE_ACCESS_DENIED and does not leave an indeterminate execution.", "In-progress is exactly 409/TOOL_EXECUTION_IN_PROGRESS and fenced is exactly 409/TOOL_EXECUTION_FENCED.", "Every result contains the current sanitized proposal projection with lifecycle, revision and audit information.", "Forbidden-field scan has zero hits; denied/stale rows retain zero admission/write/effect."],
+      "evidence_to_capture": ["independent matrix source and digest", "recursive response allowlists", "projection/audit snapshots", "admission/write/effect counters", "zero-hit forbidden-field scan"]
+    },
+    {
+      "id": "M4-79-TC-04",
+      "requirement": "M4-79-AC-04",
+      "risk": "Provider idempotency or duplicate-write protection may regress.",
+      "seam": "PostgreSQL admission plus SQLite idempotency",
+      "steps": ["Race direct/replayed execution using the same identity/fingerprint, then a conflicting fingerprint."],
+      "expected_results": ["One admission/effect only.", "Same input replays and the conflicting input is typed."],
+      "evidence_to_capture": ["admission", "ledger", "effect count"]
+    },
+    {
+      "id": "M4-79-TC-05",
+      "requirement": "M4 reconciliation HTTP contract",
+      "risk": "Crash recovery collapses terminal/non-terminal provider outcomes, bypasses current resource authorization or loses the public projection.",
+      "seam": "reconciliation HTTP mapper, SQLite restart and sanitized ToolProposalProjection",
+      "prerequisites": ["Independent reconciliation matrix includes success, all terminal rejections, provider-request-rejected, unavailable, timeout, malformed, not-found, in-progress, fenced, scope-denied and exact-resource-authorization rows."],
+      "steps": ["Build fixtures and expected envelopes without importing, deriving, mirroring or reading values from production mappers, serializers, enums or types.", "Restart Knora and SQLite independently across both crash windows.", "Exercise every matrix row and recursively scan every public projection, error and audit snapshot for forbidden material."],
+      "expected_results": ["Terminal failures are distinct 502/TOOL_PROVIDER_FAILURE results with sanitized failure_code and no rejection_code.", "A proven no-write provider rejection is 502/TOOL_PROVIDER_REQUEST_FAILED.", "Current exact-resource authorization is checked before trusted provider observation; denial does not call the provider.", "In-progress and fenced are exact 409 envelopes.", "Ambiguous/not-found remains 202 non-terminal and every result exposes a current sanitized proposal projection.", "Forbidden-field scan has zero hits."],
+      "evidence_to_capture": ["independent matrix source and digest", "SQLite snapshots", "HTTP allowlist matrix", "restart trace", "authorization decision and provider counters", "projection/audit snapshots", "zero-hit forbidden-field scan"]
+    },
+    {
+      "id": "M4-79-TC-06",
+      "requirement": "M4-79-AC-05",
+      "risk": "Strict-expiry takeover and fencing may regress while observation authorization is tightened.",
+      "seam": "PostgreSQL reconciliation store",
+      "steps": ["Race current, foreign, stale and generation-mismatched owners over the lock barrier."],
+      "expected_results": ["Exactly one post-lock strict-expiry takeover increments generation once; only current unexpired ownership may observe/finalize."],
+      "evidence_to_capture": ["clock", "lease rows", "fencing"]
+    },
+    {
+      "id": "M4-79-TC-07",
+      "requirement": "M4-79-AC-06",
+      "risk": "Internal rejection or provider/routing material may leak through audit reconstruction.",
+      "seam": "append-only audit/sanitizer",
+      "steps": ["Reconstruct ordered audit across lookup, proposal, decision, admission, authority, crash, takeover, observation and terminal outcomes.", "Recursively scan every public, audit and release artifact."],
+      "expected_results": ["Complete ordered facts with no rejection_code, raw provider data, provider routing data, keys, credentials or internal exception material."],
+      "evidence_to_capture": ["timeline", "SQLite comparison", "recursive zero-hit scan"]
+    },
+    {
+      "id": "M4-79-TC-08",
+      "requirement": "M4-79-AC-09",
+      "risk": "The known root-CWD migration regression may be hidden or weakened during remediation.",
+      "seam": "Alembic configuration/migration test",
+      "steps": ["At root CWD collect and run backend/test/tools/test_reconciliation_postgres.py::test_reconciliation_migration_round_trips_persisted_takeover_audit.", "Run upgrade 20260824_0040, downgrade 20260824_0039, re-upgrade and current via -c backend/alembic.ini."],
+      "expected_results": ["Each command exits zero at revision 20260824_0040; no skip, xfail, deselection, assertion weakening or backend-CWD substitute."],
+      "evidence_to_capture": ["argv/CWD/interpreter/effective DB/exits", "node identities", "revision records"]
+    },
+    {
+      "id": "M4-79-TC-09",
+      "requirement": "M4-79-AC-07",
+      "risk": "The remediation may break an accepted frontier or introduce a new untracked test exception.",
+      "seam": "release harness/repository verification",
+      "steps": ["At tested_subject_sha run affected public-contract tests, full pytest, Ruff and Compose."],
+      "expected_results": ["Required nodes pass; only the three locked baseline skips remain."],
+      "evidence_to_capture": ["node inventory", "commands", "release digest"]
+    },
+    {
+      "id": "M4-79-TC-10",
+      "requirement": "M4-79-AC-08",
+      "risk": "Remediation scope may widen or mutate the default branch.",
+      "seam": "frontier/Git scope/invalidation/readiness",
+      "steps": ["Validate #75-#78 frontier identities, bind changed paths to the remediation scope, and verify main is unchanged."],
+      "expected_results": ["Missing/inconsistent identity rejects the candidate.", "No final fixed-point review is created in the worker session."],
+      "evidence_to_capture": ["frontier validation", "scope/invalidation", "main identity", "deferred-review boundary"]
+    },
+    {
+      "id": "M4-79-TC-11",
+      "requirement": "M4-79-AC-01",
+      "risk": "Guide or Evaluation history may be rewritten instead of appended.",
+      "seam": "manual-acceptance history",
+      "steps": ["Record guide/history digests before execution, append a candidate Evaluation, then append separate explicit human approval only after owner review."],
+      "expected_results": ["Guide/history remain immutable and every new run is append-only."],
+      "evidence_to_capture": ["guide digest", "history digests", "JSONL records"]
+    },
+    {
+      "id": "M4-79-TC-12",
+      "requirement": "M4 public provider contract matrix",
+      "risk": "Provider tuple/object shape and response-model failures can escape as untyped exceptions or 500 responses.",
+      "seam": "read/gateway/provider boundary",
+      "prerequisites": ["Independent malformed-result fixtures cover absent fields, wrong types, wrong tuple arity, unexpected exceptions and unknown provider outcomes."],
+      "steps": ["Inject each malformed result at lookup, create-ticket and outcome-observation boundaries.", "Observe HTTP response and durable lifecycle."],
+      "expected_results": ["Lookup malformed data maps to 502 TOOL_PROVIDER_CONTRACT_INVALID.", "Create/reconcile malformed data maps to the specified typed contract-invalid or non-terminal observation outcome without an untyped 500 or fabricated terminal failure."],
+      "evidence_to_capture": ["fixture digest", "typed outcome", "HTTP envelope", "lifecycle and audit snapshot"]
+    },
+    {
+      "id": "M4-79-TC-13",
+      "requirement": "M4 current observation authorization",
+      "risk": "A Workspace-bound principal may observe a stored resource after exact resource/scope authority is revoked or changed.",
+      "seam": "observation authorizer before trusted routing",
+      "prerequisites": ["Stored execution includes exact external scope/resource identity and claims digest; test can revoke or alter current resource authority without expiring the write token."],
+      "steps": ["Start an execution, change current exact resource authorization, then reconcile from a valid Workspace principal.", "Repeat with current matching authorization and with provider_scope_denied."],
+      "expected_results": ["Observation is denied before trusted-store/provider routing when exact current resource authority is absent or mismatched.", "Matching authority permits observation.", "Provider scope denial is 403 TOOL_RESOURCE_ACCESS_DENIED rather than 202 indeterminate."],
+      "evidence_to_capture": ["stored binding snapshot", "current authorization decision", "provider-call counter", "HTTP envelope", "audit evidence"]
+    }
+  ]
+}

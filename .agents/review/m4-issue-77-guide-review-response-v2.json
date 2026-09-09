@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "request_id": "review-request-sha256:c30c0c135b3808b23aa4839fa9fc816499d831136bd9f973a1365e70fedcfe31",
+  "review_id": "external-review:github-issue-77:m4-77-authorized-execution-v2:round-1:6a8acb51-6d60-83ec-9009-24fda2a88c7f",
+  "round": 1,
+  "provider": "chatgpt",
+  "model": null,
+  "session_id": "6a8acb51-6d60-83ec-9009-24fda2a88c7f",
+  "packet_digest": "sha256:3339916fdc4ee8f5bbc8b722a3b170480c92fc097351db3e1b8b28c768ad50bd",
+  "guide_revision": "m4-77-authorized-execution-v2",
+  "guide_digest": "sha256:1fd51587723113f6e55fddaf6f9bf4e07c6a8aaa6f3fe038f1fe2c24bfb18238",
+  "verdict_validator_digest": "sha256:30fec77aa597c41a655d293517c57a57279d597d91bed20646b5f508fdad5b28",
+  "reviewed_commit": "89b7e1c408a1d4a9034256202954eadbe1d24f4b",
+  "verdict": "REQUEST_CHANGES",
+  "critical_count": 0,
+  "major_count": 4,
+  "minor_count": 0,
+  "findings": [
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "post_acquisition_nonkey_denial_oracle_incomplete",
+      "criterion_ref": "M4-77-AC-03",
+      "affected_case_ids": ["M4-77-TC-03"],
+      "affected_fields": ["workspace_authority", "resource_authority", "execution_authority", "capability_selector", "binding_selector", "policy_selector", "canonical_bytes", "mac", "protected_claims", "trusted_store"],
+      "problem": "TC-03 mutates every authority/selector and corrupts canonical bytes, MAC, protected claims and trusted-store state, but gives deterministic admit/deny outcomes only for the key-lifecycle rows. A non-key mismatch could still reach admission or dispatch without violating the written expected results.",
+      "required_change": "For every authority mutation, selector mismatch, byte/MAC/claim corruption and trusted-store delete/replace/mismatch row, require the exact typed denial after post-lock reload, zero admission and zero gateway/provider calls, with a compatible control row."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "provider_cross_binding_oracle_missing",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-07"],
+      "affected_fields": ["dispatch_envelope_binding", "workspace_scope", "provider_verification", "sqlite_ledger", "provider_effect"],
+      "problem": "TC-07 tests tampering and cross-binding separately, but only tampering has an explicit reject-before-mutation oracle. A cross-bound envelope could reach target lookup, ledger mutation or an effect without violating the stated expectations.",
+      "required_change": "Require cross-binding rejection before target lookup and before any SQLite ledger/effect mutation, with zero provider rows/effects, sanitized typed result and independent verification-order evidence."
+    },
+    {
+      "severity": "major",
+      "category": "security",
+      "issue_class": "test_only_trusted_adapter_production_isolation_unproven",
+      "criterion_ref": "M4-77-AC-06",
+      "affected_case_ids": ["M4-77-TC-07", "M4-77-TC-12"],
+      "affected_fields": ["trusted_signing_adapter", "mutation_adapter", "production_dependency_injection", "application_surface", "http_surface"],
+      "problem": "The guide requires mutation and trusted-signing adapters to be unreachable through production application/HTTP dependency injection, but TC-12 probes only registration, discovery and plugin loading, not resolution or invocation of those test-only adapters.",
+      "required_change": "Probe every production application/HTTP dependency-injection surface for resolving or invoking each test-only signer and authority mutator; require structural/typed unavailability and zero registry/state/provider changes."
+    },
+    {
+      "severity": "major",
+      "category": "oracle",
+      "issue_class": "public_result_closed_allowlist_not_fully_specified",
+      "criterion_ref": "M4-77-AC-09",
+      "affected_case_ids": ["M4-77-TC-10"],
+      "affected_fields": ["outcome_type", "variant_field", "application_projection", "http_body", "http_status"],
+      "problem": "TC-10 names common public fields and two HTTP mappings but does not enumerate every outcome's exact lifecycle, HTTP status, variant-specific field and allowed value/domain. The expected allowlist can therefore become implementation-derived.",
+      "required_change": "Define the complete immutable public-result matrix for every outcome_type, lifecycle, HTTP status and variant-specific field/value domain, with every other field forbidden, and load the expected matrix independently from production serialization."
+    }
+  ],
+  "coverage": {
+    "criteria": ["M4-77-AC-01", "M4-77-AC-02", "M4-77-AC-03", "M4-77-AC-04", "M4-77-AC-05", "M4-77-AC-06", "M4-77-AC-07", "M4-77-AC-08", "M4-77-AC-09", "M4-77-AC-10"],
+    "uncovered": []
+  },
+  "summary": "All ten acceptance criteria have assigned test coverage and the three prior v1 findings are procedurally addressed, but four fresh Major oracle/security gaps prevent deterministic approval.",
+  "chat_reference": "https://chatgpt.com/c/6a8acb51-6d60-83ec-9009-24fda2a88c7f",
+  "transport_raw_digest": "sha256:ad8bf5bd219b45d32d60732d676a78deb0beb8bc5c12c152552634fb5cd196d1",
+  "response_digest": "sha256:edca8011408db973899a5ca5788aaae0db1e85ea82dd98b37a2e37fc463f602a"
+}

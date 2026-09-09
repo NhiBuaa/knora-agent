@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "ticket": "#75",
+  "review_reference": "integration:.agents/review/m4-issue-75-child-code-review-v1.json",
+  "approved_scope": "Remediate every child review v1 finding without changing the approved M4.1 abstractions.",
+  "design_preflight": {
+    "owning_module": "knora.tools",
+    "interface": "ReadTool.execute plus ExternalResourceReferenceMinter/ReferenceVerifier, WorkspaceResourceAuthorizer, SupportToolGateway and the Workspace-scoped HTTP route",
+    "approved_seams": [
+      "static CapabilityRegistry",
+      "ExternalResourceReference mint/verify boundary",
+      "WorkspaceResourceAuthorizer before SupportToolGateway",
+      "SQLite reference-provider boundary independent from ToolActionStore",
+      "Workspace-scoped HTTP route"
+    ],
+    "current_responsibilities": [
+      "capability resolution and Workspace binding",
+      "opaque reference integrity verification",
+      "provider lookup/result mapping",
+      "HTTP authentication/authorization and schema handling"
+    ],
+    "new_responsibility": "Make the existing seams exactly implement canonical-json-v1, fail-closed binding/key/reference/provider contracts and production-safe composition.",
+    "anticipated_files": [
+      "backend/src/knora/tools/contracts.py",
+      "backend/src/knora/tools/capabilities.py",
+      "backend/src/knora/tools/references.py",
+      "backend/src/knora/tools/gateway.py",
+      "backend/src/knora/tools/http.py",
+      "backend/src/knora/main.py",
+      "backend/test/tools/test_read_tool.py",
+      "backend/test/tools/test_http.py",
+      "backend/test/tools/test_reference_provider.py"
+    ],
+    "extraction_required": true,
+    "rationale": "references.py is already near the 400-line review trigger and canonical value/digest logic is also required by later proposal execution; extracting one cohesive contracts module keeps the public tool interfaces small without creating a plugin framework."
+  },
+  "confirmed_test_seams": {
+    "authority": "The approved delivery plan, Issue #75 and locked guide m4-75-ticket-lookup-v2 already confirm these seams.",
+    "seams": [
+      "ReadTool application contract",
+      "reference mint/verify contract",
+      "SQLite provider contract",
+      "HTTP route contract",
+      "normal create_app composition"
+    ]
+  },
+  "tdd_slices": [
+    {"id":"M4-75-R1","behavior":"Missing exact Workspace binding denies before gateway","first_red_test":"application zero-call denial with bindings={}"},
+    {"id":"M4-75-R2","behavior":"Exact canonical m4r1 payload/MAC/key-ring/authorized-mint contract","first_red_test":"canonical payload and retiring/revoked mint matrix"},
+    {"id":"M4-75-R3","behavior":"Raw provider ID remains inside provider adapter","first_red_test":"application request type has opaque routing handle only"},
+    {"id":"M4-75-R4","behavior":"Runtime composition contains no fake adapter or committed reference key","first_red_test":"create_app default fail-closed composition probe"},
+    {"id":"M4-75-R5","behavior":"Authentication and path Workspace authorization precede malformed JSON","first_red_test":"unauthenticated/cross-Workspace malformed-body HTTP matrix"},
+    {"id":"M4-75-R6","behavior":"Malformed SQLite provider state maps contract-invalid","first_red_test":"BLOB/wrong-type provider row lookup"},
+    {"id":"M4-75-R7","behavior":"Complete denial, HTTP and SQLite defense-in-depth matrices","first_red_test":"locked guide matrix with per-case gateway counters"}
+  ]
+}
