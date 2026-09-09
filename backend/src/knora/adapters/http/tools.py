@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from knora.adapters.http.routes import authenticate_principal
 from knora.domain.access import WorkspacePrincipal
@@ -50,4 +50,7 @@ async def ticket_lookup(
     if not reference.strip():
         raise KnoraError("TOOL_REQUEST_INVALID")
     result = read_tool.execute(ReadToolCommand(reference), principal)
-    return TicketLookupResponse.model_validate(result, from_attributes=True)
+    try:
+        return TicketLookupResponse.model_validate(result, from_attributes=True)
+    except (TypeError, ValueError, ValidationError) as error:
+        raise KnoraError("TOOL_PROVIDER_CONTRACT_INVALID") from error

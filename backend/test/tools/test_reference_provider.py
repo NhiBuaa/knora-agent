@@ -20,8 +20,10 @@ from knora.tools import (
     LookupTicketRequest,
     ProviderContractInvalid,
     ProviderIdempotencyConflict,
+    ProviderObservationMalformed,
     ProviderOutcomeFound,
     ProviderOutcomeNotFound,
+    ProviderRequestRejected,
     ProviderScopeDenied,
     ProviderUnavailable,
     ProviderWriteFailed,
@@ -270,6 +272,55 @@ def test_sqlite_gateway_maps_malformed_provider_result_shapes_to_contract_invali
     outcome = gateway.lookup_ticket(_lookup_request(minted))
 
     assert isinstance(outcome, ProviderContractInvalid)
+    provider.close()
+
+
+def test_sqlite_gateway_maps_proven_no_write_rejection_to_typed_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider, minted, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    provider.register_ticket(
+        scope="scope-a",
+        provider_resource_id="provider-ticket-75",
+        title="Target",
+        status="open",
+        summary="Target",
+    )
+    signer = HmacDispatchEnvelopeSigner(
+        key_identity="provider-dispatch-key",
+        key_version="v1",
+        secret=b"provider-dispatch-secret",
+    )
+    monkeypatch.setattr(
+        provider,
+        "create_ticket",
+        lambda **_: ("request_rejected", "no_write_received"),
+    )
+    gateway = SQLiteSupportToolGateway(provider, dispatch_verifier=signer)
+
+    outcome = gateway.create_ticket(
+        _dispatch_envelope(signer, logical_execution_id="logical-rejected")
+    )
+
+    assert outcome == ProviderRequestRejected()
+    assert provider.provider_effect_count() == 0
+    provider.close()
+
+
+def test_sqlite_gateway_closes_unexpected_observation_exception(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provider, _, _, _, _ = _provider_fixture(tmp_path / "provider.sqlite")
+    monkeypatch.setattr(
+        provider,
+        "get_execution_outcome",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("unexpected provider failure")),
+    )
+    gateway = SQLiteSupportToolGateway(provider)
+
+    outcome = gateway.get_execution_outcome(scope="scope-a", logical_execution_id="logical-a")
+
+    assert isinstance(outcome, ProviderObservationMalformed)
     provider.close()
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -694,6 +694,38 @@ class PostgresExecutionStoreMixin:
                 event_type=event_type,
                 actor_id=actor_id,
                 actor_kind="system",
-                payload=thaw_canonical_value(freeze_canonical_value(payload)),
+                payload=thaw_canonical_value(
+                    freeze_canonical_value(_sanitize_audit_payload(payload))
+                ),
             )
         )
+
+
+_PRIVATE_AUDIT_FIELDS = {
+    "rejection_code",
+    "provider_id",
+    "provider_resource_id",
+    "provider_ticket_id",
+    "provider_routing_handle",
+    "external_scope",
+    "envelope_token",
+    "secret",
+    "credential",
+    "credentials",
+    "mac",
+    "exception",
+    "internal_exception",
+    "raw_provider_response",
+}
+
+
+def _sanitize_audit_payload(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            key: _sanitize_audit_payload(nested)
+            for key, nested in value.items()
+            if not isinstance(key, str) or key.casefold() not in _PRIVATE_AUDIT_FIELDS
+        }
+    if isinstance(value, Sequence) and not isinstance(value, bytes | bytearray | str):
+        return [_sanitize_audit_payload(item) for item in value]
+    return value

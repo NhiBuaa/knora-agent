@@ -229,12 +229,66 @@ class WorkspaceResourceAuthorizer:
         self,
         principal: WorkspacePrincipal,
         *,
-        workspace_id: str,
-        resource_kind: str,
-    ) -> ExternalScopeBinding:
-        """Authorize observation of a pre-authorized execution without re-verifying its token."""
-        if principal is None or principal.workspace_id != workspace_id or not resource_kind:
+        snapshot: object,
+    ) -> AuthorizedExternalResource:
+        """Authorize observation against the stored exact resource and current scope binding.
+
+        The durable reference record is resolved without checking the expirable write token. This
+        keeps started executions observable after token expiry while still requiring the current
+        Workspace binding and the exact resource claims to match the execution snapshot.
+        """
+        workspace_id = getattr(snapshot, "workspace_id", None)
+        if principal is None or principal.workspace_id != workspace_id:
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
-        return self.resolve_binding(principal.workspace_id)
+        binding = self.resolve_binding(principal.workspace_id)
+        if self._reference_verifier is None:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
+        try:
+            verified = self._reference_verifier.resolve_started_execution(snapshot)
+        except Exception as error:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED") from error
+        if verified is None:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
+        expected = {
+            "workspace_id": principal.workspace_id,
+            "reference_id": getattr(snapshot, "reference_id", None),
+            "capability_id": getattr(snapshot, "capability_id", None),
+            "capability_version": getattr(snapshot, "capability_version", None),
+            "binding_id": binding.binding_id,
+            "binding_version": binding.version,
+            "binding_digest": binding.digest,
+            "resource_kind": getattr(snapshot, "resource_kind", None),
+            "resource_identity_digest": getattr(snapshot, "resource_identity_digest", None),
+            "resource_claims_digest": getattr(snapshot, "reference_claims_digest", None),
+            "provider_routing_handle": getattr(snapshot, "provider_routing_handle", None),
+        }
+        verified_values = {
+            "workspace_id": verified.workspace_id,
+            "reference_id": verified.reference_id,
+            "capability_id": verified.capability_id,
+            "capability_version": verified.capability_version,
+            "binding_id": verified.binding_id,
+            "binding_version": verified.binding_version,
+            "binding_digest": verified.binding_digest,
+            "resource_kind": verified.resource_kind,
+            "resource_identity_digest": verified.resource_identity_digest,
+            "resource_claims_digest": verified.resource_claims_digest,
+            "provider_routing_handle": verified.provider_routing_handle,
+        }
+        if expected != verified_values or getattr(
+            snapshot, "external_scope", None
+        ) != binding.external_scope:
+            raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
+        return AuthorizedExternalResource(
+            reference_id=verified.reference_id,
+            binding_id=binding.binding_id,
+            binding_version=binding.version,
+            binding_digest=binding.digest,
+            resource_kind=verified.resource_kind,
+            provider_routing_handle=verified.provider_routing_handle,
+            resource_identity_digest=verified.resource_identity_digest,
+            resource_claims_digest=verified.resource_claims_digest,
+            external_scope=binding.external_scope,
+        )
 
     authorize = authorize_resource

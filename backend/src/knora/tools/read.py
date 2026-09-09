@@ -61,7 +61,10 @@ class ReadTool:
             )
         )
         if isinstance(outcome, TicketLookupResult):
-            return outcome
+            try:
+                return outcome.validate()
+            except (TypeError, ValueError, AttributeError) as error:
+                raise KnoraError("TOOL_PROVIDER_CONTRACT_INVALID") from error
         if isinstance(outcome, ProviderScopeDenied):
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         if isinstance(outcome, ProviderResourceNotFound):

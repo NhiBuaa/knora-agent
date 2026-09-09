@@ -24,6 +24,8 @@ from knora.tools import (
     ProposalNotExecutable,
     ProposeWriteAction,
     ProviderIdempotencyConflict,
+    ProviderRequestRejected,
+    ProviderScopeDenied,
     ProviderWriteFailed,
     ProviderWriteIndeterminate,
     ProviderWriteSucceeded,
@@ -531,6 +533,31 @@ def test_every_closed_provider_rejection_finalizes_exactly_once(rejection_code) 
     assert stored.execution.lifecycle == "failed"
     assert stored.execution.rejection_code == rejection_code
     assert len(gateway.calls) == 1
+
+
+@pytest.mark.parametrize("outcome, rejection_code", [
+    (ProviderRequestRejected(), "provider_request_rejected"),
+    (ProviderScopeDenied(), "provider_scope_denied"),
+])
+def test_definitive_provider_denials_finalize_without_indeterminate_retry_state(
+    outcome, rejection_code: str
+) -> None:
+    workflow, _, store, _, gateway, principal, approved = prepared_workflow(
+        gateway=Gateway(outcome)
+    )
+
+    result = workflow.handle(
+        ExecuteApprovedProposal(approved.projection.proposal_id, 1),
+        principal,
+        actor("executor-a", "system"),
+    )
+
+    assert isinstance(result, ExecutionFailed)
+    assert result.rejection_code == rejection_code
+    stored = store.read_proposal("workspace-a", approved.projection.proposal_id)
+    assert stored is not None and stored.execution is not None
+    assert stored.execution.lifecycle == "failed"
+    assert stored.execution.observations[-1].observation_type == rejection_code
 
 
 def test_admission_binds_server_fingerprint_and_survives_later_authority_mutation() -> None:

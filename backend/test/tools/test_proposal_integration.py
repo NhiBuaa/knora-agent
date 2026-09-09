@@ -21,8 +21,10 @@ from knora.tools import (
     ReferenceKeyRing,
     ReferenceRecord,
     ReferenceVerifier,
+    WorkspaceResourceAuthorizer,
     WriteProposalWorkflow,
 )
+from knora.tools.execution_types import AuthorizedExecutionBindingSnapshot
 from knora.tools.proposal_integration import (
     ReferenceProposalTargetVerifier,
     RegistryCapabilityResolver,
@@ -249,4 +251,46 @@ def test_real_reference_integrity_scope_and_store_fail_closed(mismatch: str) -> 
             reference,
         )
 
+    assert error.value.code == "TOOL_RESOURCE_ACCESS_DENIED"
+
+
+def test_observation_authorizer_requires_current_exact_resource_authority() -> None:
+    binding = _binding()
+    ring = ReferenceKeyRing((ReferenceKey("k1", b"test-only-reference-secret"),))
+    minted = _mint(ring=ring, binding=binding)
+    store = InMemoryReferenceStore((minted.record,))
+    verifier = ReferenceVerifier(store, ring, clock=lambda: NOW)
+    snapshot = AuthorizedExecutionBindingSnapshot(
+        capability_id="create_ticket",
+        capability_version="m4.2",
+        capability_digest=CapabilityRegistry.static().resolve("create_ticket").digest,
+        binding_id=binding.binding_id,
+        binding_version=binding.version,
+        binding_digest=binding.digest,
+        policy_id=PolicyProvenance().policy_id,
+        policy_version=PolicyProvenance().policy_version,
+        policy_digest=PolicyProvenance().policy_digest,
+        workspace_id="workspace-a",
+        reference_id=minted.record.reference_id,
+        reference_claims_digest=minted.record.resource_claims_digest,
+        resource_kind=minted.record.resource_kind,
+        resource_identity_digest=minted.record.resource_identity_digest,
+        external_scope=binding.external_scope,
+        provider_routing_handle=minted.record.provider_routing_handle,
+    )
+
+    authorizer = WorkspaceResourceAuthorizer(
+        bindings={"workspace-a": binding}, reference_verifier=verifier
+    )
+    resolved = authorizer.authorize_started_execution(
+        WorkspacePrincipal("workspace-a", "key-a"), snapshot=snapshot
+    )
+    assert resolved.reference_id == snapshot.reference_id
+    assert resolved.external_scope == binding.external_scope
+
+    authorizer_without_verifier = WorkspaceResourceAuthorizer(bindings={"workspace-a": binding})
+    with pytest.raises(KnoraError) as error:
+        authorizer_without_verifier.authorize_started_execution(
+            WorkspacePrincipal("workspace-a", "key-a"), snapshot=snapshot
+        )
     assert error.value.code == "TOOL_RESOURCE_ACCESS_DENIED"

@@ -137,7 +137,9 @@ class ReferenceObservationResolver:
         bindings: Mapping[str, ExternalScopeBinding],
         verifier: ReferenceVerifier,
     ) -> None:
-        self._authorizer = WorkspaceResourceAuthorizer(bindings=bindings)
+        self._authorizer = WorkspaceResourceAuthorizer(
+            bindings=bindings, reference_verifier=verifier
+        )
         self._verifier = verifier
 
     def resolve_started_execution(self, snapshot, principal, proposal, execution) -> str | None:
@@ -162,19 +164,13 @@ class ReferenceObservationResolver:
             or not snapshot.external_scope
         ):
             return None
-        binding = self._authorizer.authorize_started_execution(
-            principal,
-            workspace_id=snapshot.workspace_id,
-            resource_kind=snapshot.resource_kind,
-        )
-        if (
-            binding.binding_id != snapshot.binding_id
-            or binding.version != snapshot.binding_version
-            or binding.digest != snapshot.binding_digest
-            or binding.external_scope != snapshot.external_scope
-        ):
+        try:
+            resource = self._authorizer.authorize_started_execution(
+                principal,
+                snapshot=snapshot,
+            )
+        except KnoraError:
             return None
-        verified = self._verifier.resolve_started_execution(snapshot)
-        if verified is None or verified.provider_routing_handle != snapshot.provider_routing_handle:
+        if resource.provider_routing_handle != snapshot.provider_routing_handle:
             return None
-        return snapshot.external_scope
+        return resource.external_scope

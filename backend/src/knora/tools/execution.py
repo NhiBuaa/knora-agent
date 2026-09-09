@@ -47,6 +47,7 @@ from knora.tools.gateway import (
     ProviderObservationUnavailable,
     ProviderOutcomeFound,
     ProviderOutcomeNotFound,
+    ProviderRequestRejected,
     ProviderScopeDenied,
     ProviderUnavailable,
     ProviderWriteFailed,
@@ -273,6 +274,16 @@ class ApprovedProposalExecutor:
             rejection_code = str(outcome.rejection_code)
             external_reference = None
             lifecycle = "failed"
+        elif isinstance(outcome, ProviderRequestRejected):
+            observation_type = "provider_request_rejected"
+            rejection_code = outcome.code
+            external_reference = None
+            lifecycle = "failed"
+        elif isinstance(outcome, ProviderScopeDenied):
+            observation_type = "provider_scope_denied"
+            rejection_code = outcome.code
+            external_reference = None
+            lifecycle = "failed"
         elif isinstance(outcome, ProviderIdempotencyConflict):
             observed = self._store.record_execution_observation(
                 proposal.workspace_id,
@@ -299,7 +310,6 @@ class ApprovedProposalExecutor:
                 ProviderWriteIndeterminate,
                 ProviderUnavailable,
                 ProviderContractInvalid,
-                ProviderScopeDenied,
             ),
         ):
             observed = self._store.record_execution_observation(
@@ -537,6 +547,11 @@ class ReconciliationExecutor:
             lifecycle = "failed"
             rejection_code = str(outcome.rejection_code)
             external_reference = None
+        elif isinstance(outcome, ProviderRequestRejected):
+            observation_type = "reconciled_request_rejected"
+            lifecycle = "failed"
+            rejection_code = outcome.code
+            external_reference = None
         else:
             return ReconciliationIndeterminate(
                 proposal.proposal_id,
@@ -651,6 +666,10 @@ class ReconciliationExecutor:
             outcome = ProviderWriteIndeterminate()
         if isinstance(outcome, (ProviderWriteSucceeded, ProviderWriteFailed)):
             return self._record_terminal(proposal, execution, outcome)
+        if isinstance(outcome, (ProviderRequestRejected, ProviderScopeDenied)):
+            return self._record_outcome(
+                proposal, execution.owner, execution.generation, outcome
+            )
         return self._record_indeterminate(proposal, execution, "indeterminate_external_outcome")
 
     def _revalidate_retry(

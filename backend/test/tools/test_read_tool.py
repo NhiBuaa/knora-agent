@@ -316,6 +316,21 @@ def test_provider_outcomes_have_closed_mappings_and_one_call(outcome, code) -> N
     assert gateway.call_count == 1
 
 
+def test_malformed_typed_lookup_result_is_closed_at_application_boundary() -> None:
+    tool, gateway, token, record, _, _ = prepared_tool()
+    gateway.outcomes[record.provider_routing_handle] = TicketLookupResult(
+        ticket_reference=object(),  # type: ignore[arg-type]
+        title="Cannot sign in",
+        status="open",
+        summary="Customer cannot complete SSO sign-in.",
+    )
+
+    with pytest.raises(KnoraError) as error:
+        tool.execute(ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a"))
+
+    assert error.value.code == "TOOL_PROVIDER_CONTRACT_INVALID"
+
+
 def test_reference_store_claim_mismatch_fails_closed_before_gateway() -> None:
     tool, gateway, token, record, _, store = prepared_tool()
     store.register(replace(record, workspace_id="workspace-b"))
