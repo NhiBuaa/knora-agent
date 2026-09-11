@@ -26,6 +26,22 @@ The following workflows are active for governed delivery: `feature-delivery`, `g
 Do not install, activate, trust, or grant permissions to additional skills without explicit user
 authorization.
 
+## Worktree location policy
+
+The sole container for every future non-primary Git worktree is
+`C:\Developer\Projects\knora-agent-worktree`.
+
+- Create each worktree as a direct child of that container, for example
+  `C:\Developer\Projects\knora-agent-worktree\issue-<number>-<slug>`.
+- Before creating one, verify that the container exists and that the proposed child path is unused.
+- A branch is a Git ref, not a directory; use one unique branch per isolated worktree, and bind it
+  to a path inside the canonical container.
+- Do not create sibling worktree paths such as
+  `C:\Developer\Projects\knora-agent-worktree-issue-<number>-<slug>`, nor use any other
+  directory unless the user explicitly changes this policy.
+- Before removing a worktree, verify it is clean and obtain an explicit disposition for its branch;
+  never delete or prune a branch merely because its worktree is being removed.
+
 ## Verification
 
 Run from the repository root:
