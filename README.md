@@ -1,21 +1,23 @@
 # Knora Agent
 
-Knora là AI support và knowledge agent trả lời dựa trên tài liệu có citation.
-[Milestone 1](docs/specs/done/milestone-1-cited-rag.md) và
-[Milestone 2](docs/specs/done/milestone-2-production-ingestion.md) đã hoàn tất. Milestone 2 cung
-cấp PDF ingestion production-shaped: upload tạo durable job, worker xử lý và activate derivation,
-HTTP có polling/retry/serving projection, và Document Version hiện tại có thể được reprocess với
-idempotency, audit và supersession semantics đã được phê duyệt.
+Knora là AI support và knowledge agent trả lời dựa trên tài liệu có citation. Milestones 1–4 đã
+hoàn tất. Milestone 2 cung cấp PDF ingestion production-shaped: upload tạo durable job, worker xử
+lý và activate derivation, HTTP có polling/retry/serving projection, và Document Version hiện tại
+có thể được reprocess với idempotency, audit và supersession semantics đã được phê duyệt.
+Milestone 3 bổ sung hybrid retrieval và evaluation có provenance. Milestone 4 bổ sung ticket
+lookup cùng luồng write proposal → human approval → execution/reconciliation có kiểm soát.
 
 Knora is a workspace-scoped AI support and knowledge agent. It answers questions from uploaded
 documents and returns citations that reviewers can trace back to the source material.
 
 ## At a glance
 
-- **Focus:** cited retrieval, workspace isolation, PDF ingestion and measurable evaluation.
+- **Focus:** cited retrieval, workspace isolation, production PDF ingestion, hybrid
+  retrieval/evaluation, and controlled support tools.
 - **Stack:** Python, FastAPI, PostgreSQL, pgvector, Docker and provider adapters.
 - **Local demo:** deterministic-local mode runs without an external provider API key.
-- **Current status:** Milestones 1 and 2 are complete; Milestone 3 remains active and its evaluation claims are kept bounded by the documented datasets and measurement rules.
+- **Current status:** Milestones 1–4 are complete. Evaluation and tool-execution claims remain
+  bounded by their documented evidence and contracts.
 - **Hosted demo:** none is advertised; the README documents the reproducible local workflow.
 
 Đọc [bức tranh tổng quan](docs/PROJECT_OVERVIEW.md) trước để hiểu product boundary và roadmap.
@@ -380,9 +382,9 @@ Semantic metrics are baseline observations; CV claims require at least 50 cases 
 dataset size and measurement method. See [evaluation guidance](docs/evaluation.md) for provenance,
 repeatability and report boundaries.
 
-Milestone 3 now includes the 50-case `m3-dataset-v1` data contract, pinned to `m3-corpus-v1`.
-It records separate retrieval relevance, answer/evidence, and refusal expectations. It is not yet
-accepted by the Milestone 1 runner: metric execution and reporting remain later Milestone 3 work.
+Milestone 3 completed the `m3-dataset-v1`/`m3-corpus-v1` data contract, Production Retrieval V2,
+and its accepted evaluation evidence. Metric and quality claims remain limited to the recorded
+provenance and measurement scope in [evaluation guidance](docs/evaluation.md).
 
 Issue #56 đã hoàn thành Production Retrieval V2: native Gemini API `gemini-embedding-2` với input
 policy bất đối xứng bất biến, calibration threshold `0.657410732025`, re-embedding trên Chunk Sets
@@ -398,6 +400,9 @@ Manual acceptance `issue-56-v5` đã PASS; final code review được gom vào r
 - [Issue #50 M3 evaluation dataset acceptance evidence](.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl)
 - [Issue #56 Production Retrieval V2 authority](docs/design/m3-retrieval-rrf-v2-authority-proposal-r9.md)
 - [Issue #56 accepted execution evidence](.agents/manual-tests/milestone-3/56-production-retrieval-v2.evaluations.jsonl)
+- [Milestone 4 design](docs/design/milestone-4-tools-human-approval.md)
+- [ADR 0015 — Human-approved tool execution boundary](docs/adr/0015-human-approved-tool-execution-boundary.md)
+- [Milestone 4 release PR](https://github.com/NhiBuaa/knora-agent/pull/84)
 - [Spec Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - [Module seams Milestone 1](docs/design/milestone-1-module-seams.md)
 - [Module seams Milestone 2](docs/design/milestone-2-module-seams.md)
@@ -435,3 +440,9 @@ Manual acceptance `issue-56-v5` đã PASS; final code review được gom vào r
   `1ac2aac7259d2dcd0faf307883aeafb471e8ac0d` có `434 passed, 3 approved skipped`; ba locked
   manual PDF fixtures chạy riêng với `KNORA_RUN_MANUAL_ACCEPTANCE=1` đều pass. Traceability map
   118/118 criteria về evidence `PASSED`, không còn technical blocker.
+- Milestone 3 đã hoàn tất qua [Issue #48](https://github.com/NhiBuaa/knora-agent/issues/48) và
+  [PR #73](https://github.com/NhiBuaa/knora-agent/pull/73). Các claim evaluation vẫn bị giới hạn
+  bởi dataset, provenance và measurement scope đã ghi nhận.
+- Milestone 4 đã hoàn tất qua [Issue #74](https://github.com/NhiBuaa/knora-agent/issues/74) và
+  [PR #84](https://github.com/NhiBuaa/knora-agent/pull/84): `ticket_lookup`, immutable proposal,
+  human approval/rejection, authorized execution, provider-authoritative reconciliation và audit.

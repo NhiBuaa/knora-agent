@@ -3,7 +3,7 @@
   "workflow_id": "feature-delivery:m4-tools-human-approval",
   "feature_id": "github-issue-74",
   "status": "completed",
-  "current_state": "feature_delivery_completed_without_publication",
+  "current_state": "feature_delivery_completed_published_to_main",
   "next_valid_transition": "none",
   "commit_policy": "per-slice",
   "acceptance_mode": "human_required",
@@ -74,14 +74,21 @@
       "revalidated_cases": ["M4-79-TC-01","M4-79-TC-02","M4-79-TC-03","M4-79-TC-04","M4-79-TC-05","M4-79-TC-06","M4-79-TC-07","M4-79-TC-08","M4-79-TC-09","M4-79-TC-10","M4-79-TC-11","M4-79-TC-12","M4-79-TC-13"],
       "reason": "The integrated tree equals the accepted worker tree; guide/source bindings and environment remained unchanged, and all integration verification passed."
     },
-    "published": false
+    "published": true,
+    "publication": {
+      "status": "merged_to_main",
+      "pull_request": "https://github.com/NhiBuaa/knora-agent/pull/84",
+      "merge_commit": "a2e1f760e3bbeba249a9509c47afb8afe8eaf88c",
+      "merged_at": "2026-09-09T15:12:46Z",
+      "base_branch": "main"
+    }
   },
   "ticket_graph": [
     {"ticket": "#75", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#76", "blocked_by": [], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#77", "blocked_by": ["#75", "#76"], "state": "integrated_closed_cleaned", "worktree": null},
     {"ticket": "#78", "blocked_by": ["#77"], "state": "integrated_closed_verified", "worktree": null},
-    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "integrated_closed_final_review_ready", "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-5", "branch": "codex/issue-79-final-review-remediation-5", "source_base": "2e66060b9ca7628acddf3b5d9a87d0c75fa92654", "dispatch_attempt": "12-correction-1", "subject_commit": "c8359296e878d716b60b3a05fb39e6affbe4c901", "integrated_commit": "802a87af3f3626d70bafef81e7165c540ff8bf65", "github_state": "closed", "github_closed_at": "2026-09-09T03:18:11Z", "github_reference": "https://github.com/NhiBuaa/knora-agent/issues/79"}
+    {"ticket": "#79", "blocked_by": ["#75", "#76", "#77", "#78"], "state": "integrated_closed_final_review_approved_published", "worktree": "C:/Developer/Projects/knora-agent-worktree-issue79-final-review-remediation-5", "branch": "codex/issue-79-final-review-remediation-5", "source_base": "2e66060b9ca7628acddf3b5d9a87d0c75fa92654", "dispatch_attempt": "12-correction-1", "subject_commit": "c8359296e878d716b60b3a05fb39e6affbe4c901", "integrated_commit": "802a87af3f3626d70bafef81e7165c540ff8bf65", "github_state": "closed", "github_closed_at": "2026-09-09T03:18:11Z", "github_reference": "https://github.com/NhiBuaa/knora-agent/issues/79"}
   ],
   "completed_transitions": [
     "specify",
@@ -1816,7 +1823,11 @@
     "final_pr_base": "main",
     "merge_method": "merge_commit",
     "delete_remote_branches_after_verified_merge": true,
-    "authorized": true
+    "authorized": true,
+    "status": "completed",
+    "pull_request": "https://github.com/NhiBuaa/knora-agent/pull/84",
+    "merge_commit": "a2e1f760e3bbeba249a9509c47afb8afe8eaf88c",
+    "merged_at": "2026-09-09T15:12:46Z"
   },
   "resume_contract": {
     "reference": "C:/Users/Nhi/AppData/Local/Temp/agent-handoffs/m4-tools-human-approval-issue-78-guide-v2-transport-failure-v1.json",
@@ -1879,8 +1890,7 @@
     }
   },
   "blockers": [
-    "No delivery blocker remains: final feature review v4 is APPROVE with 0 Critical and 0 Major findings, and the deterministic high-risk cadence gate is ready with 11/11 required external reviews.",
-    "No push, merge to main, publication, or deployment is authorized by this final-review checkpoint."
+    "No delivery blocker remains: final feature review v4 is APPROVE with 0 Critical and 0 Major findings, the deterministic high-risk cadence gate has 11/11 required external reviews, and PR #84 is merged to main."
   ],
   "final_review_gate": {
     "status": "approved",
@@ -1898,7 +1908,7 @@
     "major_count": 0,
     "reason": "The final feature-level review completed on immutable integrated head 802a87 after the accepted Issue #79 remediation; it returned APPROVE with no Critical or Major findings.",
     "cadence_gate": {"status": "ready", "validator_reference": "C:/Users/NhiBuaa/.agents/skills/feature-delivery/scripts/validate_review_cadence_evidence.py", "gate_reference": ".agents/review/m4-final-cadence-gate-v4.json", "gate_digest": "sha256:a1563dcf3d52e2ef7c6c48ff6481bae68cb7ff9d1c337b220364a38dde7c3633", "evidence_reference": ".agents/review/m4-final-cadence-evidence-v4.json", "evidence_digest": "sha256:754af8dc156098b6b9303df398d22abab94f98daea334c2d87eb189b96310dff"},
-    "next_valid_transition": "checkpoint_completion_without_publication",
+    "next_valid_transition": "none",
     "latest_axis_review": {
       "axis": "spec",
       "fixed_point_reference": "C:/Developer/Projects/knora-agent/.git/feature-delivery/m4-tools-human-approval/final-review-fixed-point-v4.json",
@@ -2176,5 +2186,5 @@
          ,".agents/review/m4-final-cadence-gate-v4.json"
          ,".agents/review/m4-final-feature-review-v4-observability-event.json"
    ],
-     "last_updated_at": "2026-09-09T21:47:00+07:00"
+     "last_updated_at": "2026-09-14T13:43:59+07:00"
 }

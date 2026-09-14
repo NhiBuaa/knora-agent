@@ -119,15 +119,13 @@ slice riêng; issue history không phải completion proof của M4–M6.
 
 ### Milestone 4 — Tools và human approval
 
-Status / history: active delivery under parent
-[Issue #74](https://github.com/NhiBuaa/knora-agent/issues/74). The approved Design and Specify
-artifacts have been decomposed into Issues
+Status / history: completed through [Issue #74](https://github.com/NhiBuaa/knora-agent/issues/74)
+and merged [PR #84](https://github.com/NhiBuaa/knora-agent/pull/84) at
+`a2e1f760e3bbeba249a9509c47afb8afe8eaf88c`. Issues
 [#75](https://github.com/NhiBuaa/knora-agent/issues/75)–[#79](https://github.com/NhiBuaa/knora-agent/issues/79)
-with native blocking edges. The feature integration branch is initialized at pinned `main` commit
-`6312c4c4230032aa92ca5915803fcfaf564354fa`. Issues #75–#79 are accepted, integrated and closed.
-The fixed-point final review has requested a narrow #79 remediation before final approval. Exact
-mutable delivery state, heads, guide revisions and next transition live in
-`.agents/review/m4-workflow-ledger-v1.json` rather than this roadmap.
+are accepted, integrated and closed. The final fixed-point review v4 returned `APPROVE` with zero
+Critical and Major findings. The durable release evidence and transition history remain in
+`.agents/review/m4-workflow-ledger-v1.json` and `.agents/review/m4-final-cadence-evidence-v4.json`.
 
 #### Goal
 

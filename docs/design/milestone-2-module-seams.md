@@ -89,6 +89,13 @@ The PostgreSQL adapter for durable Ingestion Jobs is
 `knora/adapters/postgres/ingestion_job_store.py`. It owns submission, claim, lease, retry, public
 status, reprocess, idempotency and audit transactions delivered by Issues #15, #17 and #19.
 
+Issue #85 preserved this public adapter seam while decomposing its private implementation by
+transaction family. `ingestion_job_store.py` is now the compatible facade and composition root;
+`knora.adapters.postgres.ingestion_jobs.{lifecycle,submission,coordination}` are private
+implementation modules. Application callers still import neither that package nor a second
+concrete store. The refactor changed no application port, schema, migration, clock contract, or
+transaction boundary.
+
 Worker coordination depends on a consumer-owned `IngestionJobCoordinationStore` application port,
 initially beside `ProcessIngestionJob` in `knora/ingestion/job_processing.py`. The existing
 PostgreSQL adapter implements this port as well as `PdfSubmissionStore`; a separate concrete store
@@ -239,7 +246,11 @@ backend/
 │       ├── postgres/
 │       │   ├── tables.py
 │       │   ├── ingestion_store.py
-│       │   └── ingestion_job_store.py
+│       │   ├── ingestion_job_store.py  # compatible facade and composition root
+│       │   └── ingestion_jobs/         # private implementation package
+│       │       ├── lifecycle.py
+│       │       ├── submission.py
+│       │       └── coordination.py
 │       ├── object_store/
 │       │   ├── filesystem.py
 │       │   └── s3.py
