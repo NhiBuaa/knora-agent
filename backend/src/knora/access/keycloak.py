@@ -37,10 +37,12 @@ class KeycloakAuthenticator:
         issuer: str,
         audience: str,
         token_validator: Callable[[str], Mapping[str, object]] | None = None,
+        api_key_authenticator=None,
     ) -> None:
         self.issuer = issuer.rstrip("/")
         self.audience = audience
         self._token_validator = token_validator
+        self.api_key_authenticator = api_key_authenticator
 
     def authenticate(self, authorization_header: str | None) -> WorkspacePrincipal:
         if not authorization_header or not authorization_header.startswith("Bearer "):
@@ -48,8 +50,12 @@ class KeycloakAuthenticator:
         token = authorization_header[7:].strip()
         if not token:
             raise KnoraError("UNAUTHENTICATED")
-        claims = self._token_validator(token) if self._token_validator else _payload(token)
+        if self._token_validator is None:
+            raise KnoraError("UNAUTHENTICATED")
+        claims = self._token_validator(token)
         try:
+            if not isinstance(claims, Mapping):
+                raise ValueError
             if claims.get("iss", "").rstrip("/") != self.issuer:
                 raise ValueError
             aud = claims.get("aud")

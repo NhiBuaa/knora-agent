@@ -54,7 +54,12 @@ def authenticate_principal(
     authenticator=Depends(get_authenticator),
 ) -> WorkspacePrincipal:
     if authorization and isinstance(authenticator, KeycloakAuthenticator):
-        return authenticator.authenticate(authorization)
+        try:
+            return authenticator.authenticate(authorization)
+        except KnoraError:
+            if authenticator.api_key_authenticator is not None:
+                return authenticator.api_key_authenticator.authenticate(x_api_key)
+            raise
     if authorization and hasattr(authenticator, "authenticate"):
         try:
             return authenticator.authenticate(authorization)

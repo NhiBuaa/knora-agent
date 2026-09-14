@@ -240,6 +240,14 @@ def create_app(
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
     )
+    if keycloak_authenticator is not None:
+        keycloak_authenticator.api_key_authenticator = application.state.api_key_authenticator
+    elif settings.keycloak_issuer and settings.keycloak_audience:
+        keycloak_authenticator = KeycloakAuthenticator(
+            issuer=settings.keycloak_issuer,
+            audience=settings.keycloak_audience,
+            api_key_authenticator=application.state.api_key_authenticator,
+        )
     application.state.authenticator = keycloak_authenticator or application.state.api_key_authenticator
     application.state.embedding_configuration = selected_embedding_configuration
     selected_write_proposal_workflow = write_proposal_workflow
