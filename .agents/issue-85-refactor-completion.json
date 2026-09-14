@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "workflow_identity": "refactor",
+  "issue": "GitHub Issue #85",
+  "status": "completed",
+  "scope": "Behavior-preserving decomposition of PostgresIngestionJobStore",
+  "authoritative_inputs": {
+    "issue": "https://github.com/NhiBuaa/knora-agent/issues/85",
+    "design": "docs/design/postgres-ingestion-job-store-refactor.md",
+    "plan": "docs/plans/postgres-ingestion-job-store-refactor--gh-85/revisions/r0001/implementation-plan.md"
+  },
+  "implementation": {
+    "commit": "f2736859fffceb2d9ae6e0b097b71cf4aacc2804",
+    "merged_pull_request": "https://github.com/NhiBuaa/knora-agent/pull/86",
+    "merge_commit": "9a92b7a5d7b554bce1b34842d88fb218c687e50d",
+    "merged_at": "2026-09-11T03:28:53Z",
+    "issue_closed_at": "2026-09-11T03:28:54Z"
+  },
+  "result": {
+    "public_seam": "knora.adapters.postgres.ingestion_job_store.PostgresIngestionJobStore",
+    "private_modules": [
+      "knora.adapters.postgres.ingestion_jobs.lifecycle",
+      "knora.adapters.postgres.ingestion_jobs.submission",
+      "knora.adapters.postgres.ingestion_jobs.coordination"
+    ],
+    "behavior_contract": "preserved",
+    "schema_or_migration_change": false,
+    "application_port_change": false
+  },
+  "verification": {
+    "focused_stage_3": "68 passed",
+    "full_pytest": "985 passed, 3 skipped",
+    "ruff": "passed",
+    "compileall": "passed",
+    "compose_config": "passed"
+  },
+  "review": {
+    "verdict": "APPROVE",
+    "critical_count": 0,
+    "major_count": 0
+  },
+  "remaining_blockers": []
+}

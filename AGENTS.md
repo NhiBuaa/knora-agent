@@ -11,11 +11,19 @@ Before changing the repository, read:
 - [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md) for production-ingestion
   interfaces and target directory ownership.
 
-Completed product slices are [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
-and [Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md).
-Milestone 2's closed specification and design ledger is
-[GitHub Issue #14](https://github.com/NhiBuaa/knora-agent/issues/14); its accepted release gate is
-[GitHub Issue #21](https://github.com/NhiBuaa/knora-agent/issues/21).
+Completed product slices are [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md),
+[Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md),
+Milestone 3 (accepted through [Issue #48](https://github.com/NhiBuaa/knora-agent/issues/48) and
+[PR #73](https://github.com/NhiBuaa/knora-agent/pull/73)), and Milestone 4 (accepted through
+[Issue #74](https://github.com/NhiBuaa/knora-agent/issues/74) and
+[PR #84](https://github.com/NhiBuaa/knora-agent/pull/84)). Milestone 2's closed specification
+and design ledger is [GitHub Issue #14](https://github.com/NhiBuaa/knora-agent/issues/14); its
+accepted release gate is [GitHub Issue #21](https://github.com/NhiBuaa/knora-agent/issues/21).
+
+The behavior-preserving `PostgresIngestionJobStore` decomposition is complete through
+[Issue #85](https://github.com/NhiBuaa/knora-agent/issues/85) and
+[PR #86](https://github.com/NhiBuaa/knora-agent/pull/86). Its compatible public facade remains at
+`knora.adapters.postgres.ingestion_job_store`; private collaborators are implementation details.
 
 ## Governed workflows
 
