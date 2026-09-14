@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from knora.access.api_keys import ApiKeyAuthenticator
+from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.http.schemas import (
     HealthResponse,
     IngestionJobStatusResponse,
@@ -31,8 +32,8 @@ from knora.providers.embedding import EmbeddingConfiguration
 router = APIRouter()
 
 
-def get_authenticator(request: Request) -> ApiKeyAuthenticator:
-    return request.app.state.api_key_authenticator
+def get_authenticator(request: Request):
+    return request.app.state.authenticator
 
 
 def get_ingest_document(request: Request) -> IngestDocument:
@@ -49,8 +50,16 @@ def get_ingestion_jobs(request: Request) -> IngestionJobs | None:
 
 def authenticate_principal(
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
-    authenticator: Annotated[ApiKeyAuthenticator, Depends(get_authenticator)] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    authenticator=Depends(get_authenticator),
 ) -> WorkspacePrincipal:
+    if authorization and isinstance(authenticator, KeycloakAuthenticator):
+        return authenticator.authenticate(authorization)
+    if authorization and hasattr(authenticator, "authenticate"):
+        try:
+            return authenticator.authenticate(authorization)
+        except KnoraError:
+            pass
     return authenticator.authenticate(x_api_key)
 
 

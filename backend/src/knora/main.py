@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
+from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
@@ -88,6 +89,7 @@ def create_app(
     ingestion_jobs: IngestionJobs | None = None,
     answer_question: AnswerQuestion | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
+    keycloak_authenticator: KeycloakAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
     ingestion_worker: ProcessIngestionJob | None = None,
     object_store: ObjectStore | None = None,
@@ -238,6 +240,7 @@ def create_app(
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
     )
+    application.state.authenticator = keycloak_authenticator or application.state.api_key_authenticator
     application.state.embedding_configuration = selected_embedding_configuration
     selected_write_proposal_workflow = write_proposal_workflow
     if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
