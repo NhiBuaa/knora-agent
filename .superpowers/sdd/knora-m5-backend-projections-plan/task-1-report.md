@@ -11,3 +11,5 @@ Concerns: JWT cryptographic verification is delegated through optional token_val
 ## Fix review follow-up
 
 Applied review fixes: removed unsigned claim-only production path (validator is mandatory), preserved API-key fallback on absent/invalid Bearer, wired configured Keycloak settings into runtime composition, ensured malformed claims map to UNAUTHENTICATED, and retained immutable capability checks on principal. TDD command evidence unavailable because pytest is not installed; compileall passed.
+
+Additional tests added: Keycloak valid/expired/wrong issuer/wrong audience/malformed and capability guard. Environment still lacks pytest and ruff, so execution unavailable.

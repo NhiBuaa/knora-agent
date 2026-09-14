@@ -107,6 +107,7 @@ async def ingest_document(
 ) -> IngestionResponse | PdfSubmissionResponse:
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("documents:write")
 
     filename = safe_source_name(file.filename or "")
     media_type = media_type_for_filename(filename)

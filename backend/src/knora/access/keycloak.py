@@ -26,9 +26,8 @@ def _payload(token: str) -> Mapping[str, object]:
 class KeycloakAuthenticator:
     """Validate bounded Keycloak claims and map them to a workspace principal.
 
-    Signature/JWKS verification can be supplied by ``token_validator``; the default
-    performs strict claim validation and is suitable for deployments that terminate
-    JWT verification at the gateway.
+    Cryptographic JWT/JWKS verification is supplied by the required ``token_validator``
+    seam; construction without one rejects all bearer tokens.
     """
 
     def __init__(
