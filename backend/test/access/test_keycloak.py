@@ -26,8 +26,11 @@ def test_valid_token_maps_principal():
 ])
 def test_invalid_claims_rejected(claims):
     with pytest.raises(KnoraError):
-        KeycloakAuthenticator(issuer="https://issuer", audience="api", token_validator=lambda t, c=claims: c).authenticate("Bearer x.y.z")
-
+        KeycloakAuthenticator(
+            issuer="https://issuer",
+            audience="api",
+            token_validator=lambda t, c=claims: c,
+        ).authenticate("Bearer x.y.z")
 
 def test_malformed_token_rejected_without_validator():
     with pytest.raises(KnoraError):
