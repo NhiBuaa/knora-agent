@@ -6,7 +6,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from knora.access.api_keys import ApiKeyAuthenticator
 from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.http.schemas import (
     HealthResponse,
@@ -51,7 +50,7 @@ def get_ingestion_jobs(request: Request) -> IngestionJobs | None:
 def authenticate_principal(
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-    authenticator=Depends(get_authenticator),
+    authenticator=Depends(get_authenticator),  # noqa: B008
 ) -> WorkspacePrincipal:
     if authorization and isinstance(authenticator, KeycloakAuthenticator):
         try:

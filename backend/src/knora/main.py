@@ -248,7 +248,7 @@ def create_app(
             audience=settings.keycloak_audience,
             api_key_authenticator=application.state.api_key_authenticator,
         )
-    application.state.authenticator = keycloak_authenticator or application.state.api_key_authenticator
+    application.state.authenticator = (keycloak_authenticator or application.state.api_key_authenticator)
     application.state.embedding_configuration = selected_embedding_configuration
     selected_write_proposal_workflow = write_proposal_workflow
     if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
