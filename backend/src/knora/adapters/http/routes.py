@@ -314,18 +314,18 @@ def read_operator_trace(
 
 
 @router.get(
-    "/v1/workspaces/{workspace_id}/operator/evaluations/{trace_id}",
+    "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}",
     response_model=OperatorProjectionResponse,
 )
 def read_operator_evaluation(
     workspace_id: str,
-    trace_id: str,
+    report_id: str,
     principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
     service: Annotated[OperatorObservability, Depends(get_operator_observability)],
 ) -> OperatorProjectionResponse:
     return OperatorProjectionResponse(
         data=service.read_evaluation(
-            trace_id=trace_id, workspace_id=workspace_id, principal=principal
+            trace_id=report_id, workspace_id=workspace_id, principal=principal
         )
     )
 

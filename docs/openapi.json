@@ -1707,9 +1707,9 @@
         "summary": "Get Ingestion Job Status"
       }
     },
-    "/v1/workspaces/{workspace_id}/operator/evaluations/{trace_id}": {
+    "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}": {
       "get": {
-        "operationId": "read_operator_evaluation_v1_workspaces__workspace_id__operator_evaluations__trace_id__get",
+        "operationId": "read_operator_evaluation_v1_workspaces__workspace_id__operator_evaluations__report_id__get",
         "parameters": [
           {
             "in": "path",
@@ -1722,10 +1722,10 @@
           },
           {
             "in": "path",
-            "name": "trace_id",
+            "name": "report_id",
             "required": true,
             "schema": {
-              "title": "Trace Id",
+              "title": "Report Id",
               "type": "string"
             }
           },

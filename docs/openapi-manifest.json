@@ -2,6 +2,6 @@
   "contract": "docs/openapi.json",
   "openapi": "3.1.0",
   "schema_version": 1,
-  "sha256": "4f28d3b55737ee9ff20891abbc4e60cd5f6e51d96e0e3d27a8cad13107b35b53",
+  "sha256": "e0d8442f4aa8a3869b3b0f6355c4f3982b8046853408dc9791f240cc235059b7",
   "source": "knora.main:app"
 }

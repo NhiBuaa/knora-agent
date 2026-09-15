@@ -18,7 +18,7 @@ REQUIRED_PATHS = {
     "/v1/workspaces/{workspace_id}/documents",
     "/v1/workspaces/{workspace_id}/documents/{document_id}",
     "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}",
-    "/v1/workspaces/{workspace_id}/operator/evaluations/{trace_id}",
+    "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}",
     "/v1/workspaces/{workspace_id}/operator/operations",
 }
 
@@ -64,4 +64,3 @@ def test_openapi_export_is_deterministic_and_matches_checked_artifacts() -> None
     second = _run_export("--check")
     assert second.returncode == 0, second.stderr or second.stdout
     assert OPENAPI_PATH.read_bytes() == contract_bytes
-

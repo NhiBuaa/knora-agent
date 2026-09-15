@@ -17,7 +17,6 @@ from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.document_reader import PostgresDocumentReader
-from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.object_reconciliation import (
@@ -25,6 +24,7 @@ from knora.adapters.postgres.object_reconciliation import (
     PostgresObjectReferenceResolver,
 )
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
+from knora.adapters.postgres.operator_reader import PostgresOperatorReader
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
@@ -242,9 +242,10 @@ def create_app(
         alert_policy=AlertPolicyV1() if selected_alert_configuration is not None else None,
         alert_configuration=selected_alert_configuration,
     )
+    operator_reader = PostgresOperatorReader(SessionFactory)
     application.state.operator_observability = operator_observability or OperatorObservability(
-        trace_reader=PostgresEvaluationReader(SessionFactory),
-        evaluation_reader=PostgresEvaluationReader(SessionFactory),
+        trace_reader=operator_reader,
+        evaluation_reader=operator_reader,
         operations_reader=selected_metrics_store,
     )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
