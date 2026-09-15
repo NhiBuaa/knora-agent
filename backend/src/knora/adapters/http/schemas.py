@@ -138,6 +138,13 @@ class OperatorTraceResponse(BaseModel):
     validation_outcome: str
 
 
+class OperatorEvaluationResponse(BaseModel):
+    report_id: str
+    workspace_id: str
+    availability: Literal["unavailable"]
+    observation_failure: Literal["EVALUATION_REPORT_UNAVAILABLE"]
+
+
 class OperatorHistogramResponse(BaseModel):
     count: int
     sum: float

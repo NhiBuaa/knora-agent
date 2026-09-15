@@ -14,6 +14,7 @@ from knora.adapters.http.schemas import (
     HealthResponse,
     IngestionJobStatusResponse,
     IngestionResponse,
+    OperatorEvaluationResponse,
     OperatorOperationsResponse,
     OperatorTraceResponse,
     PdfSubmissionResponse,
@@ -326,14 +327,14 @@ def read_operator_trace(
 
 @router.get(
     "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}",
-    response_model=OperatorTraceResponse,
+    response_model=OperatorEvaluationResponse,
 )
 def read_operator_evaluation(
     workspace_id: str,
     report_id: str,
     principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
     service: Annotated[OperatorObservability, Depends(get_operator_observability)],
-) -> OperatorTraceResponse:
+) -> OperatorEvaluationResponse:
     try:
         projection = service.read_evaluation(
             report_id=report_id, workspace_id=workspace_id, principal=principal
@@ -346,7 +347,7 @@ def read_operator_evaluation(
         ) from error
     except (RuntimeError, ValueError) as error:
         raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
-    return OperatorTraceResponse.model_validate(projection, from_attributes=True)
+    return OperatorEvaluationResponse.model_validate(projection, from_attributes=True)
 
 
 @router.get(

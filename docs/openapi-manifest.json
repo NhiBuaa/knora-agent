@@ -2,9 +2,9 @@
   "contract": "docs/openapi.json",
   "openapi": "3.1.0",
   "schema_version": 1,
-  "sha256": "139a65ce727fd68ef18b1891d4f80971d1216914de8137adfe5afba2f29a24ec",
+  "sha256": "6dc130d3ebf735290eb4eb7eb5bae52cb48736a883de83a85034e7118089b04c",
   "source": "knora.main:app",
   "typescript_client": "frontend/generated/knora-openapi.ts",
   "typescript_client_generator": "knora-openapi-local@1.0.0",
-  "typescript_client_sha256": "e1d281891ae3240e574278aae099574bfc7d4f7280cd4fd8d7a0ba6573130147"
+  "typescript_client_sha256": "d984add83a4c35a973f02ef1eac95e0b33dff1ab622ceab78d47a2a6ea3dee13"
 }

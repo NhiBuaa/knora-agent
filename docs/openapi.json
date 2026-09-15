@@ -655,6 +655,36 @@
         "title": "OperatorCandidateResponse",
         "type": "object"
       },
+      "OperatorEvaluationResponse": {
+        "properties": {
+          "availability": {
+            "const": "unavailable",
+            "title": "Availability",
+            "type": "string"
+          },
+          "observation_failure": {
+            "const": "EVALUATION_REPORT_UNAVAILABLE",
+            "title": "Observation Failure",
+            "type": "string"
+          },
+          "report_id": {
+            "title": "Report Id",
+            "type": "string"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "workspace_id",
+          "availability",
+          "observation_failure"
+        ],
+        "title": "OperatorEvaluationResponse",
+        "type": "object"
+      },
       "OperatorHistogramResponse": {
         "properties": {
           "buckets": {
@@ -2085,7 +2115,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperatorTraceResponse"
+                  "$ref": "#/components/schemas/OperatorEvaluationResponse"
                 }
               }
             },

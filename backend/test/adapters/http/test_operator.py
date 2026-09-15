@@ -35,7 +35,12 @@ class FakeOperator:
         }
 
     def read_evaluation(self, *, report_id, workspace_id, principal):
-        return self.read_trace(trace_id=report_id, workspace_id=workspace_id, principal=principal)
+        return {
+            "report_id": report_id,
+            "workspace_id": workspace_id,
+            "availability": "unavailable",
+            "observation_failure": "EVALUATION_REPORT_UNAVAILABLE",
+        }
 
     def read_operations(self, *, workspace_id, principal):
         return {
@@ -79,7 +84,12 @@ def test_operator_routes_use_typed_workspace_scoped_projections() -> None:
         "/v1/workspaces/workspace-a/operator/evaluations/report-a", headers=headers
     )
     assert evaluation.status_code == 200
-    assert evaluation.json()["trace_id"] == "report-a"
+    assert evaluation.json() == {
+        "report_id": "report-a",
+        "workspace_id": "workspace-a",
+        "availability": "unavailable",
+        "observation_failure": "EVALUATION_REPORT_UNAVAILABLE",
+    }
 
     operations = client.get(
         "/v1/workspaces/workspace-a/operator/operations", headers=headers

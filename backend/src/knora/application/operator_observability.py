@@ -1,7 +1,8 @@
 """Capability-guarded, secret-safe operator read projections."""
 
 from collections.abc import Mapping
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Literal, Protocol
 
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
@@ -12,11 +13,25 @@ class TraceReader(Protocol):
 
 
 class EvaluationReader(Protocol):
-    def read_evaluation(self, *, report_id: str, workspace_id: str) -> object: ...
+    def read_evaluation(
+        self, *, report_id: str, workspace_id: str
+    ) -> "OperatorEvaluationResponse": ...
 
 
 class OperationsReader(Protocol):
     def snapshot(self, *, workspace_id: str) -> object: ...
+
+
+@dataclass(frozen=True)
+class OperatorEvaluationResponse:
+    """Explicit response when persisted evaluation reports are not available."""
+
+    report_id: str
+    workspace_id: str
+    availability: Literal["unavailable"] = "unavailable"
+    observation_failure: Literal["EVALUATION_REPORT_UNAVAILABLE"] = (
+        "EVALUATION_REPORT_UNAVAILABLE"
+    )
 
 
 _SENSITIVE_KEYS = {"api_key", "authorization", "access_token", "secret", "password"}
@@ -72,7 +87,7 @@ class OperatorObservability:
 
     def read_evaluation(
         self, *, report_id: str, workspace_id: str, principal: WorkspacePrincipal
-    ) -> object:
+    ) -> OperatorEvaluationResponse:
         self._authorize(workspace_id=workspace_id, principal=principal)
         return _sanitize(
             self._evaluation_reader.read_evaluation(

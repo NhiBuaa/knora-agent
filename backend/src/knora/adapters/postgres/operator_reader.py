@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import sessionmaker
 
 from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
+from knora.application.operator_observability import OperatorEvaluationResponse
 
 
 class PostgresOperatorReader:
@@ -17,4 +18,4 @@ class PostgresOperatorReader:
         return self._reader.read_trace(trace_id=trace_id, workspace_id=workspace_id)
 
     def read_evaluation(self, *, report_id: str, workspace_id: str) -> object:
-        return self._reader.read_trace(trace_id=report_id, workspace_id=workspace_id)
+        return OperatorEvaluationResponse(report_id=report_id, workspace_id=workspace_id)

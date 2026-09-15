@@ -114,6 +114,12 @@ export type OperatorCandidateResponse = {
   vector_contribution?: Record<string, unknown> | null;
   workspace_id: string;
 };
+export type OperatorEvaluationResponse = {
+  availability: string;
+  observation_failure: string;
+  report_id: string;
+  workspace_id: string;
+};
 export type OperatorHistogramResponse = {
   buckets: Array<Array<unknown>>;
   count: number;
@@ -206,7 +212,7 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/documents/{document_id}/deletion-request": DocumentDeletionRequestResponse;
   "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive": DocumentResponse;
   "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}": IngestionJobStatusResponse;
-  "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}": OperatorTraceResponse;
+  "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}": OperatorEvaluationResponse;
   "/v1/workspaces/{workspace_id}/operator/operations": OperatorOperationsResponse;
   "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}": OperatorTraceResponse;
 }
