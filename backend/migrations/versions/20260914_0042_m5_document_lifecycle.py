@@ -39,10 +39,16 @@ def upgrade() -> None:
             sa.Column("state", sa.String(20), nullable=False, server_default="requested"),
             sa.Column("failure_reason", sa.String(100), nullable=True),
             sa.Column(
-                "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
             ),
             sa.Column(
-                "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+                "updated_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.func.now(),
+                nullable=False,
             ),
             sa.UniqueConstraint("workspace_id", "document_id", "idempotency_key"),
         )
