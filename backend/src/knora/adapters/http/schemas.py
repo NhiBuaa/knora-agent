@@ -92,3 +92,7 @@ class DocumentDeletionRequestResponse(BaseModel):
     document_id: str
     state: Literal["requested", "blocked", "processing", "succeeded", "failed"]
     failure_reason: str | None = None
+
+
+class OperatorProjectionResponse(BaseModel):
+    data: object

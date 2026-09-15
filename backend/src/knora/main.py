@@ -17,6 +17,7 @@ from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.document_reader import PostgresDocumentReader
+from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.object_reconciliation import (
@@ -31,6 +32,7 @@ from knora.answering.retrieval_configuration import (
     resolve_retrieval_configuration,
 )
 from knora.api.routes import router
+from knora.application.operator_observability import OperatorObservability
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import ObjectStoreSettings, settings
@@ -105,6 +107,7 @@ def create_app(
     operational_metrics_store: OperationalMetricsStore | None = None,
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
+    operator_observability: OperatorObservability | None = None,
     write_proposal_workflow: WriteProposalWorkflow | None = None,
     tool_actor_context_provider: ActorContextProvider | None = None,
     read_tool: ReadTool | None = None,
@@ -238,6 +241,11 @@ def create_app(
         telemetry=operational_telemetry or LoggingOperationalTelemetry(),
         alert_policy=AlertPolicyV1() if selected_alert_configuration is not None else None,
         alert_configuration=selected_alert_configuration,
+    )
+    application.state.operator_observability = operator_observability or OperatorObservability(
+        trace_reader=PostgresEvaluationReader(SessionFactory),
+        evaluation_reader=PostgresEvaluationReader(SessionFactory),
+        operations_reader=selected_metrics_store,
     )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)

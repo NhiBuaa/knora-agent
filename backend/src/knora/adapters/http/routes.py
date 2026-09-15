@@ -14,10 +14,12 @@ from knora.adapters.http.schemas import (
     HealthResponse,
     IngestionJobStatusResponse,
     IngestionResponse,
+    OperatorProjectionResponse,
     PdfSubmissionResponse,
     ReprocessRequest,
     ReprocessResponse,
 )
+from knora.application.operator_observability import OperatorObservability
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
@@ -55,6 +57,10 @@ def get_document_lifecycle(request: Request):
     return request.app.state.document_lifecycle
 
 
+def get_operator_observability(request: Request) -> OperatorObservability:
+    return request.app.state.operator_observability
+
+
 def authenticate_principal(
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
@@ -73,6 +79,16 @@ def authenticate_principal(
         except KnoraError:
             pass
     return authenticator.authenticate(x_api_key)
+
+
+def require_operator_read(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("operator:read")
+    return principal
 
 
 def require_documents_read(
@@ -280,6 +296,52 @@ def request_document_deletion(
         idempotency_key,
     )
     return DocumentDeletionRequestResponse.model_validate(projection, from_attributes=True)
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}",
+    response_model=OperatorProjectionResponse,
+)
+def read_operator_trace(
+    workspace_id: str,
+    trace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[OperatorObservability, Depends(get_operator_observability)],
+) -> OperatorProjectionResponse:
+    return OperatorProjectionResponse(
+        data=service.read_trace(trace_id=trace_id, workspace_id=workspace_id, principal=principal)
+    )
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/evaluations/{trace_id}",
+    response_model=OperatorProjectionResponse,
+)
+def read_operator_evaluation(
+    workspace_id: str,
+    trace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[OperatorObservability, Depends(get_operator_observability)],
+) -> OperatorProjectionResponse:
+    return OperatorProjectionResponse(
+        data=service.read_evaluation(
+            trace_id=trace_id, workspace_id=workspace_id, principal=principal
+        )
+    )
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/operations",
+    response_model=OperatorProjectionResponse,
+)
+def read_operator_operations(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[OperatorObservability, Depends(get_operator_observability)],
+) -> OperatorProjectionResponse:
+    return OperatorProjectionResponse(
+        data=service.read_operations(workspace_id=workspace_id, principal=principal)
+    )
 
 
 def _job_status_payload(projection) -> dict[str, object]:
