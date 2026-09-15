@@ -10,6 +10,7 @@ ROOT = Path(__file__).parents[3]
 EXPORT_SCRIPT = ROOT / "scripts" / "export_openapi.py"
 OPENAPI_PATH = ROOT / "docs" / "openapi.json"
 MANIFEST_PATH = ROOT / "docs" / "openapi-manifest.json"
+CLIENT_PATH = ROOT / "frontend" / "generated" / "knora-openapi.ts"
 
 REQUIRED_PATHS = {
     "/health",
@@ -60,6 +61,13 @@ def test_openapi_export_is_deterministic_and_matches_checked_artifacts() -> None
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     assert manifest["contract"] == "docs/openapi.json"
     assert manifest["sha256"] == digest
+    assert manifest["typescript_client"] == "frontend/generated/knora-openapi.ts"
+    assert manifest["typescript_client_sha256"] == hashlib.sha256(
+        CLIENT_PATH.read_bytes()
+    ).hexdigest()
+    client = CLIENT_PATH.read_text(encoding="utf-8")
+    assert "export interface KnoraClient" in client
+    assert "/v1/questions/stream" in client
 
     second = _run_export("--check")
     assert second.returncode == 0, second.stderr or second.stdout

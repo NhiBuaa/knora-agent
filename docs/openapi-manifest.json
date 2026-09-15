@@ -3,5 +3,7 @@
   "openapi": "3.1.0",
   "schema_version": 1,
   "sha256": "e0d8442f4aa8a3869b3b0f6355c4f3982b8046853408dc9791f240cc235059b7",
-  "source": "knora.main:app"
+  "source": "knora.main:app",
+  "typescript_client": "frontend/generated/knora-openapi.ts",
+  "typescript_client_sha256": "c7d31416925ad66935c55635999bfebdcc2206841220ddef337f0d45c482cc9a"
 }
