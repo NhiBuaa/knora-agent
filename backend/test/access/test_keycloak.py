@@ -91,6 +91,21 @@ def test_validator_failure_is_normalized_to_unauthenticated():
         ).authenticate("Bearer signed-token")
 
 
+def test_malformed_claim_types_are_normalized_to_unauthenticated():
+    with pytest.raises(KnoraError, match="UNAUTHENTICATED"):
+        KeycloakAuthenticator(
+            issuer="https://issuer",
+            audience="api",
+            token_validator=lambda _token: {
+                "iss": None,
+                "aud": "api",
+                "exp": time.time() + 60,
+                "sub": "u",
+                "workspace_id": "w",
+            },
+        ).authenticate("Bearer signed-token")
+
+
 def test_missing_bearer_capability_is_not_unrestricted():
     principal = KeycloakAuthenticator(
         issuer="https://issuer",

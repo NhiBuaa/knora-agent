@@ -102,5 +102,5 @@ class KeycloakAuthenticator:
             else:
                 capabilities = ()
             return WorkspacePrincipal(workspace, subject, capabilities)
-        except (KeyError, TypeError, ValueError) as exc:
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
             raise KnoraError("UNAUTHENTICATED") from exc

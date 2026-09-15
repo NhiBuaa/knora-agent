@@ -64,8 +64,11 @@ def authenticate_principal(
 
 
 def require_documents_write(
+    workspace_id: str,
     principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
 ) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     principal.require_capability("documents:write")
     return principal
 
@@ -75,15 +78,6 @@ def get_ingest_document(
     _principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
 ) -> IngestDocument:
     return request.app.state.ingest_document
-
-
-def get_authorized_ingest_document(
-    request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
-) -> IngestDocument:
-    principal.require_capability("documents:write")
-    resolver = request.app.dependency_overrides.get(get_ingest_document, get_ingest_document)
-    return resolver(request)
 
 
 def media_type_for_filename(filename: str) -> str:
@@ -115,18 +109,14 @@ async def ingest_document(
     response: Response,
     source_key: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
-    service: Annotated[IngestDocument, Depends(get_authorized_ingest_document)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+    service: Annotated[IngestDocument, Depends(get_ingest_document)],
     ingestion_jobs: Annotated[IngestionJobs | None, Depends(get_ingestion_jobs)],
     embedding_configuration: Annotated[
         EmbeddingConfiguration, Depends(get_embedding_configuration)
     ],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> IngestionResponse | PdfSubmissionResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("documents:write")
-
     filename = safe_source_name(file.filename or "")
     media_type = media_type_for_filename(filename)
     declared_media_type = (file.content_type or "").split(";", 1)[0].casefold()
