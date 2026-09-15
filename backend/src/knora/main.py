@@ -16,6 +16,7 @@ from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityC
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
+from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.object_reconciliation import (
@@ -33,6 +34,7 @@ from knora.api.routes import router
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import ObjectStoreSettings, settings
+from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.job_processing import (
     AttemptTimingV1,
     PdfDerivationHandler,
@@ -87,6 +89,8 @@ def create_app(
     *,
     ingest_document: IngestDocument | None = None,
     ingestion_jobs: IngestionJobs | None = None,
+    document_reader: DocumentReader | None = None,
+    document_lifecycle: DocumentLifecycleService | None = None,
     answer_question: AnswerQuestion | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
     keycloak_authenticator: KeycloakAuthenticator | None = None,
@@ -129,9 +133,7 @@ def create_app(
                 await close_generation()
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
-    selected_embedding_configuration = (
-        embedding_configuration or providers.embedding_configuration
-    )
+    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider,
         generation_provider=providers.generation_provider,
@@ -239,6 +241,11 @@ def create_app(
     )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
+    )
+    selected_document_reader = document_reader or PostgresDocumentReader(SessionFactory)
+    application.state.document_reader = selected_document_reader
+    application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
+        selected_document_reader
     )
     application.state.embedding_configuration = selected_embedding_configuration
     application.state.authenticator = application.state.api_key_authenticator

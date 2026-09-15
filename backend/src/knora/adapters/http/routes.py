@@ -8,6 +8,9 @@ from starlette.concurrency import run_in_threadpool
 
 from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.http.schemas import (
+    DocumentDeletionRequestResponse,
+    DocumentListResponse,
+    DocumentResponse,
     HealthResponse,
     IngestionJobStatusResponse,
     IngestionResponse,
@@ -17,6 +20,7 @@ from knora.adapters.http.schemas import (
 )
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.jobs import (
     IngestionJobs,
@@ -43,6 +47,14 @@ def get_ingestion_jobs(request: Request) -> IngestionJobs | None:
     return getattr(request.app.state, "ingestion_jobs", None)
 
 
+def get_document_reader(request: Request):
+    return request.app.state.document_reader
+
+
+def get_document_lifecycle(request: Request):
+    return request.app.state.document_lifecycle
+
+
 def authenticate_principal(
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
@@ -61,6 +73,26 @@ def authenticate_principal(
         except KnoraError:
             pass
     return authenticator.authenticate(x_api_key)
+
+
+def require_documents_read(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("documents:read")
+    return principal
+
+
+def require_documents_delete(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("documents:delete")
+    return principal
 
 
 def require_documents_write(
@@ -166,6 +198,90 @@ async def ingest_document(
     return IngestionResponse.model_validate(result, from_attributes=True)
 
 
+@router.get("/v1/workspaces/{workspace_id}/documents", response_model=DocumentListResponse)
+def list_documents(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_read)],
+    reader: Annotated[DocumentReader, Depends(get_document_reader)],
+) -> DocumentListResponse:
+    projection = reader.list_documents(workspace_id=workspace_id, principal=principal)
+    return DocumentListResponse(
+        documents=[
+            DocumentResponse.model_validate(item, from_attributes=True)
+            for item in projection.documents
+        ]
+    )
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}", response_model=DocumentResponse
+)
+def read_document(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_read)],
+    reader: Annotated[DocumentReader, Depends(get_document_reader)],
+) -> DocumentResponse:
+    projection = reader.read_document(
+        workspace_id=workspace_id,
+        document_id=document_id,
+        principal=principal,
+    )
+    return DocumentResponse.model_validate(projection, from_attributes=True)
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}/archive", response_model=DocumentResponse
+)
+def archive_document(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+    lifecycle: Annotated[DocumentLifecycleService, Depends(get_document_lifecycle)],
+    revision: Annotated[int | None, Header(alias="If-Match")] = None,
+) -> DocumentResponse:
+    projection = lifecycle.archive(workspace_id, document_id, principal, revision)
+    return DocumentResponse.model_validate(projection, from_attributes=True)
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive",
+    response_model=DocumentResponse,
+)
+def unarchive_document(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+    lifecycle: Annotated[DocumentLifecycleService, Depends(get_document_lifecycle)],
+    revision: Annotated[int | None, Header(alias="If-Match")] = None,
+) -> DocumentResponse:
+    projection = lifecycle.unarchive(workspace_id, document_id, principal, revision)
+    return DocumentResponse.model_validate(projection, from_attributes=True)
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}/deletion-request",
+    response_model=DocumentDeletionRequestResponse,
+    status_code=202,
+)
+def request_document_deletion(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_delete)],
+    lifecycle: Annotated[DocumentLifecycleService, Depends(get_document_lifecycle)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> DocumentDeletionRequestResponse:
+    if not idempotency_key:
+        raise KnoraError("MISSING_IDEMPOTENCY_KEY")
+    projection = lifecycle.request_deletion(
+        workspace_id,
+        document_id,
+        principal,
+        idempotency_key,
+    )
+    return DocumentDeletionRequestResponse.model_validate(projection, from_attributes=True)
+
+
 def _job_status_payload(projection) -> dict[str, object]:
     payload: dict[str, object] = {
         "ingestion_job_id": projection.ingestion_job_id,
@@ -258,9 +374,11 @@ async def reprocess_document_version(
         ),
         principal,
     )
-    response.status_code = 200 if result.outcome != "created" and result.status in {
-        "succeeded", "superseded", "failed"
-    } else 202
+    response.status_code = (
+        200
+        if result.outcome != "created" and result.status in {"succeeded", "superseded", "failed"}
+        else 202
+    )
     return ReprocessResponse(
         ingestion_job_id=result.ingestion_job_id,
         document_version_id=result.document_version_id,

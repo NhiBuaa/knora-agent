@@ -35,9 +35,7 @@ class SuccessfulJobResultResponse(BaseModel):
 
 class IngestionJobStatusResponse(BaseModel):
     ingestion_job_id: str
-    status: Literal[
-        "queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"
-    ]
+    status: Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
     attempt_count: int
     max_attempts: int
     next_attempt_at: datetime | None = None
@@ -49,9 +47,9 @@ class IngestionJobStatusResponse(BaseModel):
     current_document_version_id: str | None
     served_document_version_id: str | None
     serving_state: Literal["unavailable", "current", "previous"]
-    failure_reason: Literal[
-        "retry_exhausted", "terminal_input", "terminal_config", "resource_limit"
-    ] | None = None
+    failure_reason: (
+        Literal["retry_exhausted", "terminal_input", "terminal_config", "resource_limit"] | None
+    ) = None
     error_code: str | None = None
     result: SuccessfulJobResultResponse | None = None
     replacement_document_version_id: str | None = None
@@ -69,6 +67,25 @@ class ReprocessResponse(BaseModel):
     ingestion_job_id: str
     document_version_id: str
     outcome: Literal["created", "reused", "idempotency_replay"]
-    status: Literal[
-        "queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"
-    ]
+    status: Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
+
+
+class DocumentResponse(BaseModel):
+    document_id: str
+    workspace_id: str
+    source_key: str
+    source_name: str
+    archived: bool
+    revision: int
+    current_document_version_id: str | None = None
+    serving_state: str
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentResponse]
+
+
+class DocumentDeletionRequestResponse(BaseModel):
+    request_id: str
+    document_id: str
+    state: Literal["requested", "blocked", "processing", "succeeded", "failed"]
