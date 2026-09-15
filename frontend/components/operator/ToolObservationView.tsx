@@ -11,12 +11,13 @@ const LABELS: Record<string, string> = {
   indeterminate_external_outcome: "Indeterminate external outcome",
 };
 
-export function ToolObservationView({ state, detail }: { state: string; detail?: string }) {
+export function ToolObservationView({ state, detail }: { state?: string; detail?: string }) {
+  const label = state ? (LABELS[state] ?? "Observation unavailable") : "M4 observation unavailable";
   return (
     <section aria-labelledby="tool-observation-heading">
       <h2 id="tool-observation-heading">M4 tool observation</h2>
-      <p>{LABELS[state] ?? "Observation unavailable"}</p>
-      {detail && <p>{detail}</p>}
+      <p>{label}</p>
+      {detail ? <p>{detail}</p> : !state && <p>No authorized lifecycle relation was supplied by the backend.</p>}
       <p>Read-only observation; approvals and execution remain backend-owned.</p>
     </section>
   );

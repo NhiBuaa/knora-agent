@@ -13,6 +13,7 @@ export function OperationsView({ operations }: { operations: OperatorOperationsR
           return <div key={key}><dt>{key}</dt><dd data-state={metric.state}>{metric.value}</dd></div>;
         })}
       </dl>
+      <p role="status">Alerts: Unavailable</p>
     </section>
   );
 }
