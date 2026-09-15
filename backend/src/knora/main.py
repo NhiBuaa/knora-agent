@@ -242,7 +242,9 @@ def create_app(
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
     )
-    selected_document_reader = document_reader or PostgresDocumentReader(SessionFactory)
+    selected_document_reader = document_reader or PostgresDocumentReader(
+        SessionFactory, lifecycle_maintenance=job_store
+    )
     application.state.document_reader = selected_document_reader
     application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
         selected_document_reader
@@ -339,6 +341,7 @@ def create_app(
             "PDF_INGESTION_NOT_CONFIGURED": 503,
             "INGESTION_JOB_NOT_FOUND": 404,
             "DOCUMENT_VERSION_NOT_FOUND": 404,
+            "DOCUMENT_NOT_FOUND": 404,
             "SOURCE_OBJECT_NOT_AVAILABLE": 404,
             "DOCUMENT_VERSION_NOT_CURRENT": 409,
             "INVALID_CONFIG_MODE": 400,

@@ -5,6 +5,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 
 DeletionState = Literal["requested", "blocked", "processing", "succeeded", "failed"]
+ServingState = Literal["unavailable", "current", "previous"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,7 +17,7 @@ class DocumentProjection:
     archived: bool
     revision: int
     current_document_version_id: str | None = None
-    serving_state: str = "unavailable"
+    serving_state: ServingState = "unavailable"
     ingestion_job_id: str | None = None
     ingestion_status: str | None = None
 

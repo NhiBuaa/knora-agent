@@ -78,7 +78,9 @@ class DocumentResponse(BaseModel):
     archived: bool
     revision: int
     current_document_version_id: str | None = None
-    serving_state: str
+    serving_state: Literal["unavailable", "current", "previous"]
+    ingestion_job_id: str | None = None
+    ingestion_status: str | None = None
 
 
 class DocumentListResponse(BaseModel):
