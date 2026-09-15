@@ -92,8 +92,6 @@ class AnswerQuestion:
             raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
 
         embedding_ended = self._clock()
-        if stage_callback is not None:
-            stage_callback("selecting_evidence")
         retrieval_started = embedding_ended
         retrieval = self._store.retrieve_candidates(
             workspace_id=command.workspace_id,
@@ -115,6 +113,8 @@ class AnswerQuestion:
             retrieval_embedding_set_ids = ()
             retrieval_chunk_set_ids = ()
         retrieval_ended = self._clock()
+        if stage_callback is not None:
+            stage_callback("selecting_evidence")
         selection = select_evidence(candidates, retrieval_configuration)
         selection_ended = self._clock()
         retrieval_latency_ms = (selection_ended - retrieval_started) * 1000
