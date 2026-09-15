@@ -61,10 +61,14 @@ class AnswerQuestion:
         self,
         command: QuestionCommand,
         principal: WorkspacePrincipal,
+        *,
+        stage_callback: Callable[[str], None] | None = None,
     ) -> QuestionResult:
         started = self._clock()
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        if stage_callback is not None:
+            stage_callback("retrieving")
         retrieval_configuration = self._retrieval_configuration
         if self._retrieval_configuration_resolver is not None:
             retrieval_configuration = self._retrieval_configuration_resolver.resolve(
@@ -88,6 +92,8 @@ class AnswerQuestion:
             raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
 
         embedding_ended = self._clock()
+        if stage_callback is not None:
+            stage_callback("selecting_evidence")
         retrieval_started = embedding_ended
         retrieval = self._store.retrieve_candidates(
             workspace_id=command.workspace_id,
@@ -152,6 +158,8 @@ class AnswerQuestion:
             f"E{index}": item.candidate
             for index, item in enumerate(selection.selected, start=1)
         }
+        if stage_callback is not None:
+            stage_callback("generating")
         generation = await self._generation_provider.generate(
             question=command.question,
             evidence=tuple(
@@ -262,11 +270,28 @@ class AnswerQuestion:
     ) -> AsyncIterator[QuestionEvent]:
         """Execute the validated question flow with ordered SSE stage events."""
         yield QuestionEvent(stage="started", payload={})
-        yield QuestionEvent(stage="retrieving", payload={})
-        yield QuestionEvent(stage="selecting_evidence", payload={})
-        yield QuestionEvent(stage="generating", payload={})
+        stages: asyncio.Queue[str] = asyncio.Queue()
+
+        def record_stage(stage: str) -> None:
+            stages.put_nowait(stage)
+
+        task = asyncio.create_task(self.execute(command, principal, stage_callback=record_stage))
         try:
-            result = await self.execute(command, principal)
+            while not task.done() or not stages.empty():
+                if not stages.empty():
+                    yield QuestionEvent(stage=stages.get_nowait(), payload={})
+                    continue
+                next_stage = asyncio.create_task(stages.get())
+                done, _ = await asyncio.wait(
+                    {task, next_stage},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if next_stage in done:
+                    yield QuestionEvent(stage=next_stage.result(), payload={})
+                else:
+                    next_stage.cancel()
+                    await asyncio.gather(next_stage, return_exceptions=True)
+            result = await task
         except KnoraError as error:
             yield QuestionEvent(
                 stage="failure",
@@ -281,6 +306,10 @@ class AnswerQuestion:
                 terminal=True,
             )
             return
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
         if result.decision == "REFUSAL":
             yield QuestionEvent(

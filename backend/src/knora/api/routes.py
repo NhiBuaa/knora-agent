@@ -35,6 +35,7 @@ async def answer_question(
 
 @router.post(
     "/v1/questions/stream",
+    response_class=StreamingResponse,
     responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}},
 )
 async def stream_question(

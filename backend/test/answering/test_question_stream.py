@@ -37,9 +37,13 @@ async def test_execute_stream_emits_ordered_stages_and_one_validated_terminal_ev
         trace_id="trace-1",
     )
 
-    async def execute(command, principal):
+    async def execute(command, principal, **kwargs):
         assert command == QuestionCommand("workspace-a", "What is the policy?")
         assert principal.workspace_id == "workspace-a"
+        stage_callback = kwargs["stage_callback"]
+        stage_callback("retrieving")
+        stage_callback("selecting_evidence")
+        stage_callback("generating")
         return result
 
     service.execute = execute
@@ -65,10 +69,31 @@ async def test_execute_stream_emits_ordered_stages_and_one_validated_terminal_ev
 
 
 @pytest.mark.asyncio
+async def test_execute_stream_does_not_hang_when_execution_fails_before_a_stage() -> None:
+    service = AnswerQuestion.__new__(AnswerQuestion)
+
+    async def execute(command, principal, **kwargs):
+        raise RuntimeError("provider unavailable")
+
+    service.execute = execute
+    events = [
+        event
+        async for event in service.execute_stream(
+            QuestionCommand("workspace-a", "What is the policy?"),
+            WorkspacePrincipal("workspace-a", "key-1"),
+        )
+    ]
+
+    assert [event.stage for event in events] == ["started", "failure"]
+    assert events[-1].payload == {"error_code": "INTERNAL_ERROR"}
+    assert events[-1].terminal is True
+
+
+@pytest.mark.asyncio
 async def test_execute_stream_emits_refusal_terminal_without_citations() -> None:
     service = AnswerQuestion.__new__(AnswerQuestion)
 
-    async def execute(command, principal):
+    async def execute(command, principal, **kwargs):
         return QuestionResult(
             workspace_id=command.workspace_id,
             decision="REFUSAL",

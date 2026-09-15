@@ -63,3 +63,14 @@ def test_question_stream_rejects_workspace_mismatch_before_streaming() -> None:
     assert response.status_code == 403
     assert response.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
     assert service.calls == []
+
+
+def test_question_stream_openapi_advertises_only_event_stream() -> None:
+    service = RecordingStreamService([])
+
+    response = client_with(service).get("/openapi.json")
+
+    content = response.json()["paths"]["/v1/questions/stream"]["post"]["responses"]["200"][
+        "content"
+    ]
+    assert set(content) == {"text/event-stream"}
