@@ -7,7 +7,7 @@ export class QuestionStreamError extends Error {
 }
 
 export function streamUnavailable(response: Response): boolean {
-  return response.status === 404 || response.status === 405 || response.status === 501 || !response.headers.get("content-type")?.toLowerCase().includes("text/event-stream");
+  return response.status === 404 || response.status === 405 || response.status === 501;
 }
 
 export async function consumeQuestionStream(response: Response, onEvent: (event: QuestionEvent) => void, signal?: AbortSignal): Promise<void> {

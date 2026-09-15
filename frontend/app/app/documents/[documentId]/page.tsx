@@ -1,2 +1,3 @@
 import { DocumentDetail } from "@/components/documents/DocumentDetail";
-export default async function DocumentPage({ params }: { params: { documentId: string } }) { return <DocumentDetail workspaceId={process.env.NEXT_PUBLIC_DEFAULT_WORKSPACE_ID ?? "default"} documentId={params.documentId} />; }
+import { getSession } from "@/lib/auth/session";
+export default async function DocumentPage({ params }: { params: { documentId: string } }) { const session = await getSession(); const workspaceId = session?.workspaceIds[0]; if (!workspaceId) return <p role="alert">No workspace is available for this session.</p>; return <DocumentDetail workspaceId={workspaceId} documentId={params.documentId} canRequestDeletion={session?.capabilities.includes("operator:read") ?? false} />; }
