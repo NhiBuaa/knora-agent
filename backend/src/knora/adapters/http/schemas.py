@@ -91,3 +91,4 @@ class DocumentDeletionRequestResponse(BaseModel):
     request_id: str
     document_id: str
     state: Literal["requested", "blocked", "processing", "succeeded", "failed"]
+    failure_reason: str | None = None

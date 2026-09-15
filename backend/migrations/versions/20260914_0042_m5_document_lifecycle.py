@@ -24,17 +24,29 @@ def upgrade() -> None:
             sa.Column("document_id", sa.String(36), sa.ForeignKey("documents.id", ondelete="RESTRICT"), nullable=False),
             sa.Column("idempotency_key", sa.String(255), nullable=False),
             sa.Column("state", sa.String(20), nullable=False, server_default="requested"),
+            sa.Column("failure_reason", sa.String(100), nullable=True),
             sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
             sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
             sa.UniqueConstraint("workspace_id", "document_id", "idempotency_key"),
         )
         op.create_index("ix_document_deletion_requests_workspace_id", "document_deletion_requests", ["workspace_id"])
         op.create_index("ix_document_deletion_requests_document_id", "document_deletion_requests", ["document_id"])
+    elif "failure_reason" not in {
+        c["name"] for c in inspector.get_columns("document_deletion_requests")
+    }:
+        op.add_column(
+            "document_deletion_requests",
+            sa.Column("failure_reason", sa.String(100), nullable=True),
+        )
 
 
 def downgrade() -> None:
     inspector = sa.inspect(op.get_bind())
     if "document_deletion_requests" in inspector.get_table_names():
+        if "failure_reason" in {
+            c["name"] for c in inspector.get_columns("document_deletion_requests")
+        }:
+            op.drop_column("document_deletion_requests", "failure_reason")
         op.drop_table("document_deletion_requests")
     if "archived" in {c["name"] for c in inspector.get_columns("documents")}:
         op.drop_column("documents", "archived")

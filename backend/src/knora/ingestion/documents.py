@@ -32,6 +32,7 @@ class DocumentDeletionRequestProjection:
     request_id: str
     document_id: str
     state: DeletionState
+    failure_reason: str | None = None
 
 
 class DocumentReader(Protocol):
