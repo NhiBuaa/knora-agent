@@ -1,11 +1,17 @@
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from dataclasses import asdict
 from math import isfinite
 from time import get_clock_info, perf_counter
 
 from knora.answering.evidence import EvidenceSelection, select_evidence
 from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
-from knora.answering.interface import CitationProjection, QuestionCommand, QuestionResult
+from knora.answering.interface import (
+    CitationProjection,
+    QuestionCommand,
+    QuestionEvent,
+    QuestionResult,
+)
 from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
 from knora.answering.stores import (
     AnsweringStore,
@@ -247,6 +253,56 @@ class AnswerQuestion:
             citations=citations,
             refusal_reason=refusal_reason,
             trace_id=trace_id,
+        )
+
+    async def execute_stream(
+        self,
+        command: QuestionCommand,
+        principal: WorkspacePrincipal,
+    ) -> AsyncIterator[QuestionEvent]:
+        """Execute the validated question flow with ordered SSE stage events."""
+        yield QuestionEvent(stage="started", payload={})
+        yield QuestionEvent(stage="retrieving", payload={})
+        yield QuestionEvent(stage="selecting_evidence", payload={})
+        yield QuestionEvent(stage="generating", payload={})
+        try:
+            result = await self.execute(command, principal)
+        except KnoraError as error:
+            yield QuestionEvent(
+                stage="failure",
+                payload={"error_code": error.code},
+                terminal=True,
+            )
+            return
+        except Exception:
+            yield QuestionEvent(
+                stage="failure",
+                payload={"error_code": "INTERNAL_ERROR"},
+                terminal=True,
+            )
+            return
+
+        if result.decision == "REFUSAL":
+            yield QuestionEvent(
+                stage="refusal",
+                payload={
+                    "refusal_reason": result.refusal_reason,
+                    "trace_id": result.trace_id,
+                },
+                terminal=True,
+            )
+            return
+        yield QuestionEvent(
+            stage="final_validated",
+            payload={
+                "workspace_id": result.workspace_id,
+                "decision": result.decision,
+                "answer": result.answer,
+                "citations": [asdict(citation) for citation in result.citations],
+                "refusal_reason": result.refusal_reason,
+                "trace_id": result.trace_id,
+            },
+            terminal=True,
         )
 
     @staticmethod

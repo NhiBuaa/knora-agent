@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -38,6 +40,22 @@ class QuestionResponse(BaseModel):
     citations: list[CitationResponse]
     refusal_reason: str | None
     trace_id: str
+
+
+class QuestionEventResponse(BaseModel):
+    """Logical shape carried by one record of the question SSE stream."""
+
+    stage: Literal[
+        "started",
+        "retrieving",
+        "selecting_evidence",
+        "generating",
+        "final_validated",
+        "refusal",
+        "failure",
+    ]
+    payload: dict[str, object]
+    terminal: bool = False
 
 
 class HealthResponse(BaseModel):

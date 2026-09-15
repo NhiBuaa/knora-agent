@@ -1,10 +1,33 @@
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
 class QuestionCommand:
     workspace_id: str
     question: str
+
+
+@dataclass(frozen=True, slots=True)
+class QuestionEvent:
+    """One ordered, non-token event in the question streaming contract."""
+
+    stage: Literal[
+        "started",
+        "retrieving",
+        "selecting_evidence",
+        "generating",
+        "final_validated",
+        "refusal",
+        "failure",
+    ]
+    payload: dict[str, object]
+    terminal: bool = False
+
+    @property
+    def data(self) -> dict[str, object]:
+        """Compatibility alias for transports that call the event body ``data``."""
+        return self.payload
 
 
 @dataclass(frozen=True, slots=True)
