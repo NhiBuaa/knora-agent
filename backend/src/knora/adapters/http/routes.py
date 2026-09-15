@@ -35,10 +35,6 @@ def get_authenticator(request: Request):
     return request.app.state.authenticator
 
 
-def get_ingest_document(request: Request) -> IngestDocument:
-    return request.app.state.ingest_document
-
-
 def get_embedding_configuration(request: Request) -> EmbeddingConfiguration:
     return request.app.state.embedding_configuration
 
@@ -65,6 +61,29 @@ def authenticate_principal(
         except KnoraError:
             pass
     return authenticator.authenticate(x_api_key)
+
+
+def require_documents_write(
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    principal.require_capability("documents:write")
+    return principal
+
+
+def get_ingest_document(
+    request: Request,
+    _principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+) -> IngestDocument:
+    return request.app.state.ingest_document
+
+
+def get_authorized_ingest_document(
+    request: Request,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> IngestDocument:
+    principal.require_capability("documents:write")
+    resolver = request.app.dependency_overrides.get(get_ingest_document, get_ingest_document)
+    return resolver(request)
 
 
 def media_type_for_filename(filename: str) -> str:
@@ -97,7 +116,7 @@ async def ingest_document(
     source_key: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
     principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
-    service: Annotated[IngestDocument, Depends(get_ingest_document)],
+    service: Annotated[IngestDocument, Depends(get_authorized_ingest_document)],
     ingestion_jobs: Annotated[IngestionJobs | None, Depends(get_ingestion_jobs)],
     embedding_configuration: Annotated[
         EmbeddingConfiguration, Depends(get_embedding_configuration)

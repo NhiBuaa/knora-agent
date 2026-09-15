@@ -5,6 +5,8 @@ import json
 import time
 from collections.abc import Callable, Mapping
 
+import jwt
+
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 
@@ -36,10 +38,33 @@ class KeycloakAuthenticator:
         issuer: str,
         audience: str,
         token_validator: Callable[[str], Mapping[str, object]] | None = None,
+        jwks_url: str | None = None,
+        jwks_cache_ttl_seconds: int = 300,
         api_key_authenticator=None,
     ) -> None:
         self.issuer = issuer.rstrip("/")
         self.audience = audience
+        if jwks_cache_ttl_seconds <= 0:
+            raise ValueError("jwks_cache_ttl_seconds must be positive")
+        if token_validator is None and jwks_url:
+            client = jwt.PyJWKClient(
+                jwks_url,
+                cache_jwk_set=True,
+                lifespan=jwks_cache_ttl_seconds,
+            )
+
+            def validate_with_jwks(raw_token: str) -> Mapping[str, object]:
+                signing_key = client.get_signing_key_from_jwt(raw_token)
+                return jwt.decode(
+                    raw_token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    issuer=self.issuer,
+                    audience=self.audience,
+                    options={"require": ["exp", "iss", "aud", "sub"]},
+                )
+
+            token_validator = validate_with_jwks
         self._token_validator = token_validator
         self.api_key_authenticator = api_key_authenticator
 
@@ -51,7 +76,10 @@ class KeycloakAuthenticator:
             raise KnoraError("UNAUTHENTICATED")
         if self._token_validator is None:
             raise KnoraError("UNAUTHENTICATED")
-        claims = self._token_validator(token)
+        try:
+            claims = self._token_validator(token)
+        except Exception as exc:
+            raise KnoraError("UNAUTHENTICATED") from exc
         try:
             if not isinstance(claims, Mapping):
                 raise ValueError

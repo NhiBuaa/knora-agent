@@ -248,6 +248,8 @@ def create_app(
         keycloak_authenticator = KeycloakAuthenticator(
             issuer=settings.keycloak_issuer,
             audience=settings.keycloak_audience,
+            jwks_url=settings.keycloak_jwks_url,
+            jwks_cache_ttl_seconds=settings.keycloak_jwks_cache_ttl_seconds,
             api_key_authenticator=application.state.api_key_authenticator,
         )
     application.state.authenticator = (
@@ -307,6 +309,7 @@ def create_app(
         status = {
             "UNAUTHENTICATED": 401,
             "WORKSPACE_ACCESS_DENIED": 403,
+            "CAPABILITY_ACCESS_DENIED": 403,
             "INVALID_SOURCE_KEY": 400,
             "INVALID_SOURCE_NAME": 400,
             "UNSUPPORTED_DOCUMENT_TYPE": 400,
