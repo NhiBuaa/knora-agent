@@ -12,11 +12,11 @@ class TraceReader(Protocol):
 
 
 class EvaluationReader(Protocol):
-    def read_trace(self, *, trace_id: str, workspace_id: str) -> object: ...
+    def read_evaluation(self, *, report_id: str, workspace_id: str) -> object: ...
 
 
 class OperationsReader(Protocol):
-    def snapshot(self) -> object: ...
+    def snapshot(self, *, workspace_id: str) -> object: ...
 
 
 _SENSITIVE_KEYS = {"api_key", "authorization", "access_token", "secret", "password"}
@@ -38,8 +38,8 @@ def _sanitize(value: object) -> object:
 
         materialized = asdict(value)
         sanitized = _sanitize(materialized)
-        # Preserve typed projections (notably OperationalSnapshot) for callers that
-        # consume their attributes, while still rebuilding records containing secrets.
+        # Preserve typed projections when no secret was present; public HTTP schemas
+        # validate the materialized mapping when sanitization removed a field.
         return value if sanitized == materialized else sanitized
     return value
 
@@ -71,13 +71,15 @@ class OperatorObservability:
         )
 
     def read_evaluation(
-        self, *, trace_id: str, workspace_id: str, principal: WorkspacePrincipal
+        self, *, report_id: str, workspace_id: str, principal: WorkspacePrincipal
     ) -> object:
         self._authorize(workspace_id=workspace_id, principal=principal)
         return _sanitize(
-            self._evaluation_reader.read_trace(trace_id=trace_id, workspace_id=workspace_id)
+            self._evaluation_reader.read_evaluation(
+                report_id=report_id, workspace_id=workspace_id
+            )
         )
 
     def read_operations(self, *, workspace_id: str, principal: WorkspacePrincipal) -> object:
         self._authorize(workspace_id=workspace_id, principal=principal)
-        return _sanitize(self._operations_reader.snapshot())
+        return _sanitize(self._operations_reader.snapshot(workspace_id=workspace_id))

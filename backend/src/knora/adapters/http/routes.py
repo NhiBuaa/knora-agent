@@ -14,7 +14,8 @@ from knora.adapters.http.schemas import (
     HealthResponse,
     IngestionJobStatusResponse,
     IngestionResponse,
-    OperatorProjectionResponse,
+    OperatorOperationsResponse,
+    OperatorTraceResponse,
     PdfSubmissionResponse,
     ReprocessRequest,
     ReprocessResponse,
@@ -300,47 +301,83 @@ def request_document_deletion(
 
 @router.get(
     "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}",
-    response_model=OperatorProjectionResponse,
+    response_model=OperatorTraceResponse,
 )
 def read_operator_trace(
     workspace_id: str,
     trace_id: str,
     principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
     service: Annotated[OperatorObservability, Depends(get_operator_observability)],
-) -> OperatorProjectionResponse:
-    return OperatorProjectionResponse(
-        data=service.read_trace(trace_id=trace_id, workspace_id=workspace_id, principal=principal)
-    )
+) -> OperatorTraceResponse:
+    try:
+        projection = service.read_trace(
+            trace_id=trace_id, workspace_id=workspace_id, principal=principal
+        )
+    except LookupError as error:
+        raise KnoraError(
+            "OPERATOR_OBSERVATION_NOT_FOUND"
+            if "not found" in str(error).casefold()
+            else "OPERATOR_OBSERVATION_FAILED"
+        ) from error
+    except (RuntimeError, ValueError) as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    return OperatorTraceResponse.model_validate(projection, from_attributes=True)
 
 
 @router.get(
     "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}",
-    response_model=OperatorProjectionResponse,
+    response_model=OperatorTraceResponse,
 )
 def read_operator_evaluation(
     workspace_id: str,
     report_id: str,
     principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
     service: Annotated[OperatorObservability, Depends(get_operator_observability)],
-) -> OperatorProjectionResponse:
-    return OperatorProjectionResponse(
-        data=service.read_evaluation(
-            trace_id=report_id, workspace_id=workspace_id, principal=principal
+) -> OperatorTraceResponse:
+    try:
+        projection = service.read_evaluation(
+            report_id=report_id, workspace_id=workspace_id, principal=principal
         )
-    )
+    except LookupError as error:
+        raise KnoraError(
+            "OPERATOR_OBSERVATION_NOT_FOUND"
+            if "not found" in str(error).casefold()
+            else "OPERATOR_OBSERVATION_FAILED"
+        ) from error
+    except (RuntimeError, ValueError) as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    return OperatorTraceResponse.model_validate(projection, from_attributes=True)
 
 
 @router.get(
     "/v1/workspaces/{workspace_id}/operator/operations",
-    response_model=OperatorProjectionResponse,
+    response_model=OperatorOperationsResponse,
 )
 def read_operator_operations(
     workspace_id: str,
     principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
     service: Annotated[OperatorObservability, Depends(get_operator_observability)],
-) -> OperatorProjectionResponse:
-    return OperatorProjectionResponse(
-        data=service.read_operations(workspace_id=workspace_id, principal=principal)
+) -> OperatorOperationsResponse:
+    try:
+        snapshot = service.read_operations(workspace_id=workspace_id, principal=principal)
+    except LookupError as error:
+        raise KnoraError("OPERATOR_OBSERVATION_NOT_FOUND") from error
+    except (RuntimeError, ValueError) as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    if isinstance(snapshot, dict):
+        return OperatorOperationsResponse.model_validate(snapshot)
+    return OperatorOperationsResponse(
+        workspace_id=workspace_id,
+        metrics=snapshot.metrics,
+        configuration_version=snapshot.configuration_version,
+        histograms={
+            name: {
+                "count": histogram.count,
+                "sum": histogram.sum,
+                "buckets": list(histogram.buckets),
+            }
+            for name, histogram in snapshot.histograms.items()
+        },
     )
 
 

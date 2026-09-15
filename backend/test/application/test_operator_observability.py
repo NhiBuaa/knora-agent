@@ -15,7 +15,7 @@ class TraceReader:
 
 @dataclass
 class OperationsReader:
-    def snapshot(self):
+    def snapshot(self, *, workspace_id):
         return OperationalSnapshot(
             metrics={"queue_depth": 0}, configuration_version="metrics-v1"
         )

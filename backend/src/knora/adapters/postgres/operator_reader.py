@@ -16,3 +16,5 @@ class PostgresOperatorReader:
     def read_trace(self, *, trace_id: str, workspace_id: str) -> object:
         return self._reader.read_trace(trace_id=trace_id, workspace_id=workspace_id)
 
+    def read_evaluation(self, *, report_id: str, workspace_id: str) -> object:
+        return self._reader.read_trace(trace_id=report_id, workspace_id=workspace_id)

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -94,5 +94,58 @@ class DocumentDeletionRequestResponse(BaseModel):
     failure_reason: str | None = None
 
 
-class OperatorProjectionResponse(BaseModel):
-    data: object
+JsonValue = Any
+
+
+class OperatorCandidateResponse(BaseModel):
+    chunk_id: str
+    document_version_id: str
+    chunk_set_id: str
+    source_key: str
+    chunk_ordinal: int
+    workspace_id: str
+    content: str
+    start_line: int
+    end_line: int
+    final_rank: int
+    fusion_score: float
+    final_decision: str
+    decision_reason: str | None = None
+    vector_contribution: dict[str, JsonValue] | None = None
+    fts_contribution: dict[str, JsonValue] | None = None
+
+
+class OperatorTraceResponse(BaseModel):
+    trace_id: str
+    workspace_id: str
+    retrieval_configuration_id: str
+    embedding_configuration_id: str
+    candidates: list[OperatorCandidateResponse]
+    alias_mapping: dict[str, str]
+    provider_metadata: dict[str, JsonValue]
+    retrieval_latency_ms: float
+    trace_schema_version: int
+    branch_observation_schema_version: int
+    fusion_policy_version: str | None = None
+    embedding_set_ids: list[str]
+    chunk_set_ids: list[str]
+    candidate_decisions: list[dict[str, JsonValue]]
+    branch_observations: list[dict[str, JsonValue]]
+    decision: str
+    answer: str | None = None
+    refusal_reason: str | None = None
+    parsed_markers: list[str]
+    validation_outcome: str
+
+
+class OperatorHistogramResponse(BaseModel):
+    count: int
+    sum: float
+    buckets: list[tuple[float, int]]
+
+
+class OperatorOperationsResponse(BaseModel):
+    workspace_id: str
+    metrics: dict[str, int | float]
+    configuration_version: str
+    histograms: dict[str, OperatorHistogramResponse]

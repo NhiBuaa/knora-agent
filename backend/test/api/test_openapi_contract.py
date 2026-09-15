@@ -62,6 +62,7 @@ def test_openapi_export_is_deterministic_and_matches_checked_artifacts() -> None
     assert manifest["contract"] == "docs/openapi.json"
     assert manifest["sha256"] == digest
     assert manifest["typescript_client"] == "frontend/generated/knora-openapi.ts"
+    assert manifest["typescript_client_generator"] == "knora-openapi-local@1.0.0"
     assert manifest["typescript_client_sha256"] == hashlib.sha256(
         CLIENT_PATH.read_bytes()
     ).hexdigest()

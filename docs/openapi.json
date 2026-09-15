@@ -552,16 +552,334 @@
         "title": "IngestionResponse",
         "type": "object"
       },
-      "OperatorProjectionResponse": {
+      "OperatorCandidateResponse": {
         "properties": {
-          "data": {
-            "title": "Data"
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "chunk_ordinal": {
+            "title": "Chunk Ordinal",
+            "type": "integer"
+          },
+          "chunk_set_id": {
+            "title": "Chunk Set Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "decision_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Reason"
+          },
+          "document_version_id": {
+            "title": "Document Version Id",
+            "type": "string"
+          },
+          "end_line": {
+            "title": "End Line",
+            "type": "integer"
+          },
+          "final_decision": {
+            "title": "Final Decision",
+            "type": "string"
+          },
+          "final_rank": {
+            "title": "Final Rank",
+            "type": "integer"
+          },
+          "fts_contribution": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fts Contribution"
+          },
+          "fusion_score": {
+            "title": "Fusion Score",
+            "type": "number"
+          },
+          "source_key": {
+            "title": "Source Key",
+            "type": "string"
+          },
+          "start_line": {
+            "title": "Start Line",
+            "type": "integer"
+          },
+          "vector_contribution": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector Contribution"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
           }
         },
         "required": [
-          "data"
+          "chunk_id",
+          "document_version_id",
+          "chunk_set_id",
+          "source_key",
+          "chunk_ordinal",
+          "workspace_id",
+          "content",
+          "start_line",
+          "end_line",
+          "final_rank",
+          "fusion_score",
+          "final_decision"
         ],
-        "title": "OperatorProjectionResponse",
+        "title": "OperatorCandidateResponse",
+        "type": "object"
+      },
+      "OperatorHistogramResponse": {
+        "properties": {
+          "buckets": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "sum": {
+            "title": "Sum",
+            "type": "number"
+          }
+        },
+        "required": [
+          "count",
+          "sum",
+          "buckets"
+        ],
+        "title": "OperatorHistogramResponse",
+        "type": "object"
+      },
+      "OperatorOperationsResponse": {
+        "properties": {
+          "configuration_version": {
+            "title": "Configuration Version",
+            "type": "string"
+          },
+          "histograms": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/OperatorHistogramResponse"
+            },
+            "title": "Histograms",
+            "type": "object"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "metrics",
+          "configuration_version",
+          "histograms"
+        ],
+        "title": "OperatorOperationsResponse",
+        "type": "object"
+      },
+      "OperatorTraceResponse": {
+        "properties": {
+          "alias_mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Alias Mapping",
+            "type": "object"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "branch_observation_schema_version": {
+            "title": "Branch Observation Schema Version",
+            "type": "integer"
+          },
+          "branch_observations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Branch Observations",
+            "type": "array"
+          },
+          "candidate_decisions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidate Decisions",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/OperatorCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "chunk_set_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chunk Set Ids",
+            "type": "array"
+          },
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "embedding_configuration_id": {
+            "title": "Embedding Configuration Id",
+            "type": "string"
+          },
+          "embedding_set_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Embedding Set Ids",
+            "type": "array"
+          },
+          "fusion_policy_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fusion Policy Version"
+          },
+          "parsed_markers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Parsed Markers",
+            "type": "array"
+          },
+          "provider_metadata": {
+            "additionalProperties": true,
+            "title": "Provider Metadata",
+            "type": "object"
+          },
+          "refusal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal Reason"
+          },
+          "retrieval_configuration_id": {
+            "title": "Retrieval Configuration Id",
+            "type": "string"
+          },
+          "retrieval_latency_ms": {
+            "title": "Retrieval Latency Ms",
+            "type": "number"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "trace_schema_version": {
+            "title": "Trace Schema Version",
+            "type": "integer"
+          },
+          "validation_outcome": {
+            "title": "Validation Outcome",
+            "type": "string"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trace_id",
+          "workspace_id",
+          "retrieval_configuration_id",
+          "embedding_configuration_id",
+          "candidates",
+          "alias_mapping",
+          "provider_metadata",
+          "retrieval_latency_ms",
+          "trace_schema_version",
+          "branch_observation_schema_version",
+          "embedding_set_ids",
+          "chunk_set_ids",
+          "candidate_decisions",
+          "branch_observations",
+          "decision",
+          "parsed_markers",
+          "validation_outcome"
+        ],
+        "title": "OperatorTraceResponse",
         "type": "object"
       },
       "PdfSubmissionResponse": {
@@ -1767,7 +2085,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperatorProjectionResponse"
+                  "$ref": "#/components/schemas/OperatorTraceResponse"
                 }
               }
             },
@@ -1838,7 +2156,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperatorProjectionResponse"
+                  "$ref": "#/components/schemas/OperatorOperationsResponse"
                 }
               }
             },
@@ -1918,7 +2236,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperatorProjectionResponse"
+                  "$ref": "#/components/schemas/OperatorTraceResponse"
                 }
               }
             },
