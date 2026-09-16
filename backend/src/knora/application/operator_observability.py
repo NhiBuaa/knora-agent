@@ -3,6 +3,7 @@
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from inspect import Parameter, signature
 from typing import Literal, Protocol
 
 from knora.domain.access import WorkspacePrincipal
@@ -35,23 +36,22 @@ class OperatorEvaluationResponse:
     )
 
 
-_SENSITIVE_KEYS = {"api_key", "authorization", "access_token", "secret", "password"}
 _SENSITIVE_KEY_PARTS = (
-    "api_key",
-    "access_token",
+    "apikey",
+    "accesstoken",
+    "refreshtoken",
+    "idtoken",
     "authorization",
-    "key_hash",
-    "raw_token",
+    "keyhash",
+    "rawtoken",
     "secret",
     "password",
-    "token",
 )
 
 
 def _is_sensitive_key(key: object) -> bool:
-    normalized = re.sub(r"(?<!^)(?=[A-Z])", "_", str(key)).casefold()
-    normalized = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
-    return normalized in _SENSITIVE_KEYS or any(
+    normalized = re.sub(r"[^a-z0-9]", "", str(key).casefold())
+    return normalized == "token" or any(
         part in normalized for part in _SENSITIVE_KEY_PARTS
     )
 
@@ -76,6 +76,18 @@ def _sanitize(value: object) -> object:
         # validate the materialized mapping when sanitization removed a field.
         return value if sanitized == materialized else sanitized
     return value
+
+
+def _snapshot_operations(reader: OperationsReader, *, workspace_id: str) -> object:
+    snapshot = reader.snapshot
+    parameters = signature(snapshot).parameters
+    supports_workspace = "workspace_id" in parameters or any(
+        parameter.kind is Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
+    if supports_workspace:
+        return snapshot(workspace_id=workspace_id)
+    # A legacy global snapshot cannot safely serve a workspace-scoped endpoint.
+    raise KnoraError("OPERATOR_OBSERVATION_FAILED")
 
 
 class OperatorObservability:
@@ -116,4 +128,6 @@ class OperatorObservability:
 
     def read_operations(self, *, workspace_id: str, principal: WorkspacePrincipal) -> object:
         self._authorize(workspace_id=workspace_id, principal=principal)
-        return _sanitize(self._operations_reader.snapshot(workspace_id=workspace_id))
+        return _sanitize(
+            _snapshot_operations(self._operations_reader, workspace_id=workspace_id)
+        )
