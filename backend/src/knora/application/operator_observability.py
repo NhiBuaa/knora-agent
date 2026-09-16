@@ -1,5 +1,6 @@
 """Capability-guarded, secret-safe operator read projections."""
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol
@@ -35,6 +36,24 @@ class OperatorEvaluationResponse:
 
 
 _SENSITIVE_KEYS = {"api_key", "authorization", "access_token", "secret", "password"}
+_SENSITIVE_KEY_PARTS = (
+    "api_key",
+    "access_token",
+    "authorization",
+    "key_hash",
+    "raw_token",
+    "secret",
+    "password",
+    "token",
+)
+
+
+def _is_sensitive_key(key: object) -> bool:
+    normalized = re.sub(r"(?<!^)(?=[A-Z])", "_", str(key)).casefold()
+    normalized = re.sub(r"[^a-z0-9]+", "_", normalized).strip("_")
+    return normalized in _SENSITIVE_KEYS or any(
+        part in normalized for part in _SENSITIVE_KEY_PARTS
+    )
 
 
 def _sanitize(value: object) -> object:
@@ -42,7 +61,7 @@ def _sanitize(value: object) -> object:
         return {
             str(key): _sanitize(item)
             for key, item in value.items()
-            if str(key).casefold() not in _SENSITIVE_KEYS
+            if not _is_sensitive_key(key)
         }
     if isinstance(value, list):
         return [_sanitize(item) for item in value]

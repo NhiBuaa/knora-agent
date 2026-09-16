@@ -10,7 +10,20 @@ from knora.ingestion.operational_observability import OperationalSnapshot
 @dataclass
 class TraceReader:
     def read_trace(self, *, trace_id, workspace_id):
-        return {"trace_id": trace_id, "workspace_id": workspace_id, "answer": "safe"}
+        return {
+            "trace_id": trace_id,
+            "workspace_id": workspace_id,
+            "answer": "safe",
+            "provider_metadata": {
+                "provider_request_id": "request-a",
+                "provider_api_key": "TEST_SENTINEL",
+                "nested": {
+                    "raw_token": "TEST_SENTINEL",
+                    "key_hash": "TEST_SENTINEL",
+                    "safe": "value",
+                },
+            },
+        }
 
 
 @dataclass
@@ -43,7 +56,10 @@ def test_operator_trace_preserves_workspace_provenance_and_sanitizes_secrets():
         trace_id="trace-a", workspace_id="ws-a", principal=principal(("operator:read",))
     )
     assert result["workspace_id"] == "ws-a"
-    assert "api_key" not in result
+    assert result["provider_metadata"] == {
+        "provider_request_id": "request-a",
+        "nested": {"safe": "value"},
+    }
 
 
 def test_operator_operations_distinguishes_zero_metrics_from_missing():
