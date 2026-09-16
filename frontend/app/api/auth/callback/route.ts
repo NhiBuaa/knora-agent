@@ -11,6 +11,9 @@ export async function GET(request: Request) {
     const session = await exchangeCode(code, transaction.redirectUri, transaction.codeVerifier, transaction.nonce);
     const response = NextResponse.redirect(new URL("/app", request.url));
     const value = await encodeSession(session);
-    const cookie = sessionCookie(value); response.cookies.set(cookie.name, cookie.value, cookie.options as never); return response;
+    const cookie = sessionCookie(value); response.cookies.set(cookie.name, cookie.value, cookie.options as never);
+    const transactionCookie = clearAuthorizationTransactionCookie();
+    response.cookies.set(transactionCookie.name, transactionCookie.value, transactionCookie.options as never);
+    return response;
   } catch { return NextResponse.json({ error: "AUTHENTICATION_FAILED" }, { status: 401 }); }
 }
