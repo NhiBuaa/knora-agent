@@ -14,8 +14,18 @@ These rules are normative for Knora unless superseded by an approved Standard or
 
 - `/health` is public and returns only minimal service status. It must not expose dependency
   details, secrets, model configuration or stack traces; debug endpoints are disabled by default.
-- Every Workspace endpoint requires `X-API-Key` and must execute in this order:
-  `authenticate key → create principal → authorize workspace → lookup resource`.
+- Every Workspace endpoint requires either a validated Keycloak bearer token or `X-API-Key`.
+  Bearer authentication is the browser/BFF path; `X-API-Key` remains supported for CLI, legacy
+  clients and non-OIDC integrations.
+- Workspace endpoints must execute authorization in this order:
+  `validate credential → create principal → authorize workspace → authorize capability → lookup
+  resource or begin side effect`. Authorization failures must stop before resource lookup or side
+  effects. Bearer principals fail closed when the required capability is absent. Legacy API-key
+  principals retain their existing Workspace-scoped compatibility behavior.
+- M5 capabilities are `documents:read` for document and ingestion-job projections,
+  `documents:write` for ingestion, archive, unarchive and reprocess, `documents:delete` for deletion
+  requests, `questions:ask` for synchronous and streaming Q&A, and `operator:read` for operator
+  observations.
 - Missing or invalid credentials return HTTP 401 with `UNAUTHENTICATED`. A valid principal used
   against another Workspace returns HTTP 403 with `WORKSPACE_ACCESS_DENIED`.
 - Authorization failures must not reveal whether a requested resource exists.

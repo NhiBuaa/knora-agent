@@ -8,6 +8,7 @@ from sqlalchemy import event, select, update
 
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
+from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
@@ -54,6 +55,41 @@ def ingest(
         ),
         WorkspacePrincipal(workspace_id=workspace_id, key_id="test"),
     )
+
+
+@pytest.mark.parametrize("hybrid", [False, True])
+def test_archive_excludes_new_retrieval_and_unarchive_restores_it(hybrid) -> None:
+    workspace = f"archive-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace, name="Archive test"))
+    ingested = ingest(workspace, "refunds")
+    configuration = EmbeddingConfiguration.milestone_one_local()
+    retrieval = replace(
+        RetrievalConfiguration.milestone_three_hybrid()
+        if hybrid else RetrievalConfiguration.milestone_one(),
+        min_similarity=-1.0,
+    )
+    store = PostgresAnsweringStore(SessionFactory)
+    arguments = dict(
+        workspace_id=workspace, query_text="refund",
+        query_vector=DeterministicEmbeddingProvider().embed(["refund"], configuration).vectors[0],
+        embedding_configuration=configuration, retrieval_configuration=retrieval,
+    )
+    before = store.retrieve_candidates(**arguments)
+    assert len(before) > 0
+    reader = PostgresDocumentReader(SessionFactory)
+    lifecycle_args = dict(
+        workspace_id=workspace, document_id=ingested.document_id,
+        principal=WorkspacePrincipal(workspace, "test"),
+    )
+    reader.archive(**lifecycle_args)
+    archived = store.retrieve_candidates(**arguments)
+    assert len(archived) == 0
+    assert archived.embedding_set_ids == ()
+    assert archived.chunk_set_ids == ()
+    reader.unarchive(**lifecycle_args)
+    restored = store.retrieve_candidates(**arguments)
+    assert [item.chunk_id for item in restored] == [item.chunk_id for item in before]
 
 
 def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
