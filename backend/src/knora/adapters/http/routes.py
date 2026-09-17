@@ -455,12 +455,10 @@ async def reprocess_document_version(
     document_version_id: str,
     payload: ReprocessRequest,
     response: Response,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
     ingestion_jobs: Annotated[IngestionJobs | None, Depends(get_ingestion_jobs)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ReprocessResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     if ingestion_jobs is None:
         raise KnoraError("PDF_INGESTION_NOT_CONFIGURED")
     result = await run_in_threadpool(

@@ -40,3 +40,40 @@ def test_capability_is_checked_before_ingest_service_resolution() -> None:
 
     assert response.status_code == 403
     assert response.json() == {"error": {"code": "CAPABILITY_ACCESS_DENIED"}}
+
+
+def test_documents_write_capability_is_checked_before_reprocess_lookup() -> None:
+    authenticator = KeycloakAuthenticator(
+        issuer="https://issuer",
+        audience="knora-api",
+        token_validator=lambda _token: {
+            "iss": "https://issuer",
+            "aud": "knora-api",
+            "exp": time.time() + 60,
+            "sub": "operator-1",
+            "workspace_id": "workspace-a",
+            "capabilities": [],
+        },
+    )
+    app = create_app(
+        keycloak_authenticator=authenticator,
+        api_key_authenticator=ApiKeyAuthenticator(()),
+    )
+
+    class JobsMustNotExecute:
+        def reprocess_document_version(self, *_args, **_kwargs):
+            raise AssertionError("reprocess lookup executed before capability authorization")
+
+    app.state.ingestion_jobs = JobsMustNotExecute()
+
+    response = TestClient(app).post(
+        "/v1/workspaces/workspace-a/document-versions/version-a/reprocess",
+        headers={
+            "Authorization": "Bearer valid-token",
+            "Idempotency-Key": "reprocess-1",
+        },
+        json={"config_mode": "current"},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"error": {"code": "CAPABILITY_ACCESS_DENIED"}}
