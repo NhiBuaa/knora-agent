@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
+from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
@@ -15,6 +16,7 @@ from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityC
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
+from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.object_reconciliation import (
@@ -22,6 +24,7 @@ from knora.adapters.postgres.object_reconciliation import (
     PostgresObjectReferenceResolver,
 )
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
+from knora.adapters.postgres.operator_reader import PostgresOperatorReader
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
@@ -29,9 +32,11 @@ from knora.answering.retrieval_configuration import (
     resolve_retrieval_configuration,
 )
 from knora.api.routes import router
+from knora.application.operator_observability import OperatorObservability
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import ObjectStoreSettings, settings
+from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.job_processing import (
     AttemptTimingV1,
     PdfDerivationHandler,
@@ -86,8 +91,11 @@ def create_app(
     *,
     ingest_document: IngestDocument | None = None,
     ingestion_jobs: IngestionJobs | None = None,
+    document_reader: DocumentReader | None = None,
+    document_lifecycle: DocumentLifecycleService | None = None,
     answer_question: AnswerQuestion | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
+    keycloak_authenticator: KeycloakAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
     ingestion_worker: ProcessIngestionJob | None = None,
     object_store: ObjectStore | None = None,
@@ -99,6 +107,7 @@ def create_app(
     operational_metrics_store: OperationalMetricsStore | None = None,
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
+    operator_observability: OperatorObservability | None = None,
     write_proposal_workflow: WriteProposalWorkflow | None = None,
     tool_actor_context_provider: ActorContextProvider | None = None,
     read_tool: ReadTool | None = None,
@@ -127,9 +136,7 @@ def create_app(
                 await close_generation()
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
-    selected_embedding_configuration = (
-        embedding_configuration or providers.embedding_configuration
-    )
+    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider,
         generation_provider=providers.generation_provider,
@@ -235,10 +242,35 @@ def create_app(
         alert_policy=AlertPolicyV1() if selected_alert_configuration is not None else None,
         alert_configuration=selected_alert_configuration,
     )
+    operator_reader = PostgresOperatorReader(SessionFactory)
+    application.state.operator_observability = operator_observability or OperatorObservability(
+        trace_reader=operator_reader,
+        evaluation_reader=operator_reader,
+        operations_reader=selected_metrics_store,
+    )
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
     )
+    selected_document_reader = document_reader or PostgresDocumentReader(SessionFactory)
+    application.state.document_reader = selected_document_reader
+    application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
+        selected_document_reader
+    )
     application.state.embedding_configuration = selected_embedding_configuration
+    application.state.authenticator = application.state.api_key_authenticator
+    if keycloak_authenticator is not None:
+        keycloak_authenticator.api_key_authenticator = application.state.api_key_authenticator
+    elif settings.keycloak_issuer and settings.keycloak_audience:
+        keycloak_authenticator = KeycloakAuthenticator(
+            issuer=settings.keycloak_issuer,
+            audience=settings.keycloak_audience,
+            jwks_url=settings.keycloak_jwks_url,
+            jwks_cache_ttl_seconds=settings.keycloak_jwks_cache_ttl_seconds,
+            api_key_authenticator=application.state.api_key_authenticator,
+        )
+    application.state.authenticator = (
+        keycloak_authenticator or application.state.api_key_authenticator
+    )
     selected_write_proposal_workflow = write_proposal_workflow
     if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
         if tool_scope_bindings is None or tool_reference_verifier is None:
@@ -293,6 +325,7 @@ def create_app(
         status = {
             "UNAUTHENTICATED": 401,
             "WORKSPACE_ACCESS_DENIED": 403,
+            "CAPABILITY_ACCESS_DENIED": 403,
             "INVALID_SOURCE_KEY": 400,
             "INVALID_SOURCE_NAME": 400,
             "UNSUPPORTED_DOCUMENT_TYPE": 400,
@@ -315,7 +348,10 @@ def create_app(
             "PDF_INGESTION_NOT_CONFIGURED": 503,
             "INGESTION_JOB_NOT_FOUND": 404,
             "DOCUMENT_VERSION_NOT_FOUND": 404,
+            "DOCUMENT_NOT_FOUND": 404,
             "SOURCE_OBJECT_NOT_AVAILABLE": 404,
+            "OPERATOR_OBSERVATION_NOT_FOUND": 404,
+            "OPERATOR_OBSERVATION_FAILED": 503,
             "DOCUMENT_VERSION_NOT_CURRENT": 409,
             "INVALID_CONFIG_MODE": 400,
             "CONFIG_SOURCE_JOB_REQUIRED": 400,

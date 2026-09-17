@@ -57,7 +57,28 @@ class DocumentTable(Base):
         nullable=True,
     )
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DocumentDeletionRequestTable(Base):
+    __tablename__ = "document_deletion_requests"
+    __table_args__ = (UniqueConstraint("workspace_id", "document_id", "idempotency_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), index=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default="requested")
+    failure_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class DocumentVersionTable(Base):
@@ -70,9 +91,7 @@ class DocumentVersionTable(Base):
             "document_id",
             "normalized_content_checksum",
             unique=True,
-            postgresql_where=text(
-                "raw_sha256 IS NULL AND normalized_content_checksum IS NOT NULL"
-            ),
+            postgresql_where=text("raw_sha256 IS NULL AND normalized_content_checksum IS NOT NULL"),
         ),
     )
 
@@ -177,9 +196,7 @@ class IngestionJobTable(Base):
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class IngestionJobAttemptTable(Base):
@@ -411,8 +428,7 @@ class ChunkSetTable(Base):
             "chunking_configuration_id",
             unique=True,
             postgresql_where=text(
-                "parser_configuration_id IS NOT NULL AND "
-                "normalizer_configuration_id IS NOT NULL"
+                "parser_configuration_id IS NOT NULL AND normalizer_configuration_id IS NOT NULL"
             ),
         ),
     )

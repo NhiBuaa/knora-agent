@@ -149,6 +149,7 @@ class PostgresAnsweringStore(AnsweringStore):
             .join(DocumentTable, DocumentTable.active_embedding_set_id == EmbeddingSetTable.id)
             .where(
                 DocumentTable.workspace_id == workspace_id,
+                DocumentTable.archived.is_(False),
                 EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
                 EmbeddingSetTable.status == "completed",
             )
@@ -224,6 +225,7 @@ class PostgresAnsweringStore(AnsweringStore):
             )
             .where(
                 DocumentTable.workspace_id == workspace_id,
+                DocumentTable.archived.is_(False),
                 DocumentTable.active_embedding_set_id == EmbeddingSetTable.id,
                 EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
                 EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
@@ -362,6 +364,7 @@ class PostgresAnsweringStore(AnsweringStore):
             .join(EmbeddingSetTable, EmbeddingSetTable.id == DocumentTable.active_embedding_set_id)
             .where(
                 DocumentTable.workspace_id == workspace_id,
+                DocumentTable.archived.is_(False),
                 EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
                 EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
                 EmbeddingSetTable.status == "completed",
@@ -440,6 +443,7 @@ class PostgresAnsweringStore(AnsweringStore):
             .where(
                 ChunkTable.id.in_(chunk_ids),
                 DocumentTable.workspace_id == workspace_id,
+                DocumentTable.archived.is_(False),
                 EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
                 EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
                 EmbeddingSetTable.status == "completed",

@@ -344,7 +344,13 @@ Từ repository root:
 .\.venv\Scripts\python -m pytest
 .\.venv\Scripts\ruff check .
 docker compose config --quiet
+\.\.venv\Scripts\python scripts\export_openapi.py --check
 ```
+
+`docs/openapi.json` là contract HTTP đã được sinh từ `knora.main:app`; digest và metadata nằm
+trong `docs/openapi-manifest.json`. Sau khi thay đổi route hoặc schema, chạy
+`\.\.venv\Scripts\python scripts\export_openapi.py` rồi chạy lại lệnh `--check` để phát hiện
+contract drift. Không chỉnh sửa thủ công các file generated này.
 
 ## Chạy evaluation
 

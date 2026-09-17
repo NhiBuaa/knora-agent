@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     retrieval_configuration_id: str = "retrieval-m1-v1"
     vector_min_similarity: float | None = None
     api_credentials_json: str = "[]"
+    keycloak_issuer: str | None = None
+    keycloak_audience: str | None = None
+    keycloak_jwks_url: str | None = None
+    keycloak_jwks_cache_ttl_seconds: int = 300
     retrieval_configuration_id: str = "retrieval-m1-v1"
     provider_mode: str = "deterministic-local"
     gemini_api_key: SecretStr | None = None

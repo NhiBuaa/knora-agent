@@ -6,17 +6,25 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from knora.access.api_keys import ApiKeyAuthenticator
+from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.http.schemas import (
+    DocumentDeletionRequestResponse,
+    DocumentListResponse,
+    DocumentResponse,
     HealthResponse,
     IngestionJobStatusResponse,
     IngestionResponse,
+    OperatorEvaluationResponse,
+    OperatorOperationsResponse,
+    OperatorTraceResponse,
     PdfSubmissionResponse,
     ReprocessRequest,
     ReprocessResponse,
 )
+from knora.application.operator_observability import OperatorObservability
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.jobs import (
     IngestionJobs,
@@ -31,12 +39,8 @@ from knora.providers.embedding import EmbeddingConfiguration
 router = APIRouter()
 
 
-def get_authenticator(request: Request) -> ApiKeyAuthenticator:
-    return request.app.state.api_key_authenticator
-
-
-def get_ingest_document(request: Request) -> IngestDocument:
-    return request.app.state.ingest_document
+def get_authenticator(request: Request):
+    return request.app.state.authenticator
 
 
 def get_embedding_configuration(request: Request) -> EmbeddingConfiguration:
@@ -47,11 +51,83 @@ def get_ingestion_jobs(request: Request) -> IngestionJobs | None:
     return getattr(request.app.state, "ingestion_jobs", None)
 
 
+def get_document_reader(request: Request):
+    return request.app.state.document_reader
+
+
+def get_document_lifecycle(request: Request):
+    return request.app.state.document_lifecycle
+
+
+def get_operator_observability(request: Request) -> OperatorObservability:
+    return request.app.state.operator_observability
+
+
 def authenticate_principal(
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
-    authenticator: Annotated[ApiKeyAuthenticator, Depends(get_authenticator)] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    authenticator=Depends(get_authenticator),  # noqa: B008
 ) -> WorkspacePrincipal:
+    if authorization and isinstance(authenticator, KeycloakAuthenticator):
+        try:
+            return authenticator.authenticate(authorization)
+        except KnoraError:
+            if authenticator.api_key_authenticator is not None:
+                return authenticator.api_key_authenticator.authenticate(x_api_key)
+            raise
+    if authorization and hasattr(authenticator, "authenticate"):
+        try:
+            return authenticator.authenticate(authorization)
+        except KnoraError:
+            pass
     return authenticator.authenticate(x_api_key)
+
+
+def require_operator_read(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("operator:read")
+    return principal
+
+
+def require_documents_read(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("documents:read")
+    return principal
+
+
+def require_documents_delete(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("documents:delete")
+    return principal
+
+
+def require_documents_write(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+) -> WorkspacePrincipal:
+    if principal.workspace_id != workspace_id:
+        raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("documents:write")
+    return principal
+
+
+def get_ingest_document(
+    request: Request,
+    _principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+) -> IngestDocument:
+    return request.app.state.ingest_document
 
 
 def media_type_for_filename(filename: str) -> str:
@@ -83,7 +159,7 @@ async def ingest_document(
     response: Response,
     source_key: Annotated[str, Form()],
     file: Annotated[UploadFile, File()],
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
     service: Annotated[IngestDocument, Depends(get_ingest_document)],
     ingestion_jobs: Annotated[IngestionJobs | None, Depends(get_ingestion_jobs)],
     embedding_configuration: Annotated[
@@ -91,9 +167,6 @@ async def ingest_document(
     ],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> IngestionResponse | PdfSubmissionResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-
     filename = safe_source_name(file.filename or "")
     media_type = media_type_for_filename(filename)
     declared_media_type = (file.content_type or "").split(";", 1)[0].casefold()
@@ -143,6 +216,172 @@ async def ingest_document(
     return IngestionResponse.model_validate(result, from_attributes=True)
 
 
+@router.get("/v1/workspaces/{workspace_id}/documents", response_model=DocumentListResponse)
+def list_documents(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_read)],
+    reader: Annotated[DocumentReader, Depends(get_document_reader)],
+) -> DocumentListResponse:
+    projection = reader.list_documents(workspace_id=workspace_id, principal=principal)
+    return DocumentListResponse(
+        documents=[
+            DocumentResponse.model_validate(item, from_attributes=True)
+            for item in projection.documents
+        ]
+    )
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}", response_model=DocumentResponse
+)
+def read_document(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_read)],
+    reader: Annotated[DocumentReader, Depends(get_document_reader)],
+) -> DocumentResponse:
+    projection = reader.read_document(
+        workspace_id=workspace_id,
+        document_id=document_id,
+        principal=principal,
+    )
+    return DocumentResponse.model_validate(projection, from_attributes=True)
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}/archive", response_model=DocumentResponse
+)
+def archive_document(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+    lifecycle: Annotated[DocumentLifecycleService, Depends(get_document_lifecycle)],
+    revision: Annotated[int | None, Header(alias="If-Match")] = None,
+) -> DocumentResponse:
+    projection = lifecycle.archive(workspace_id, document_id, principal, revision)
+    return DocumentResponse.model_validate(projection, from_attributes=True)
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive",
+    response_model=DocumentResponse,
+)
+def unarchive_document(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
+    lifecycle: Annotated[DocumentLifecycleService, Depends(get_document_lifecycle)],
+    revision: Annotated[int | None, Header(alias="If-Match")] = None,
+) -> DocumentResponse:
+    projection = lifecycle.unarchive(workspace_id, document_id, principal, revision)
+    return DocumentResponse.model_validate(projection, from_attributes=True)
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/documents/{document_id}/deletion-request",
+    response_model=DocumentDeletionRequestResponse,
+    status_code=202,
+)
+def request_document_deletion(
+    workspace_id: str,
+    document_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_delete)],
+    lifecycle: Annotated[DocumentLifecycleService, Depends(get_document_lifecycle)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> DocumentDeletionRequestResponse:
+    if not idempotency_key:
+        raise KnoraError("MISSING_IDEMPOTENCY_KEY")
+    projection = lifecycle.request_deletion(
+        workspace_id,
+        document_id,
+        principal,
+        idempotency_key,
+    )
+    return DocumentDeletionRequestResponse.model_validate(projection, from_attributes=True)
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}",
+    response_model=OperatorTraceResponse,
+)
+def read_operator_trace(
+    workspace_id: str,
+    trace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[OperatorObservability, Depends(get_operator_observability)],
+) -> OperatorTraceResponse:
+    try:
+        projection = service.read_trace(
+            trace_id=trace_id, workspace_id=workspace_id, principal=principal
+        )
+    except LookupError as error:
+        raise KnoraError(
+            "OPERATOR_OBSERVATION_NOT_FOUND"
+            if "not found" in str(error).casefold()
+            else "OPERATOR_OBSERVATION_FAILED"
+        ) from error
+    except (RuntimeError, ValueError) as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    return OperatorTraceResponse.model_validate(projection, from_attributes=True)
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}",
+    response_model=OperatorEvaluationResponse,
+)
+def read_operator_evaluation(
+    workspace_id: str,
+    report_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[OperatorObservability, Depends(get_operator_observability)],
+) -> OperatorEvaluationResponse:
+    try:
+        projection = service.read_evaluation(
+            report_id=report_id, workspace_id=workspace_id, principal=principal
+        )
+    except LookupError as error:
+        raise KnoraError(
+            "OPERATOR_OBSERVATION_NOT_FOUND"
+            if "not found" in str(error).casefold()
+            else "OPERATOR_OBSERVATION_FAILED"
+        ) from error
+    except (RuntimeError, ValueError) as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    return OperatorEvaluationResponse.model_validate(projection, from_attributes=True)
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/operations",
+    response_model=OperatorOperationsResponse,
+)
+def read_operator_operations(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[OperatorObservability, Depends(get_operator_observability)],
+) -> OperatorOperationsResponse:
+    try:
+        snapshot = service.read_operations(workspace_id=workspace_id, principal=principal)
+    except LookupError as error:
+        raise KnoraError("OPERATOR_OBSERVATION_NOT_FOUND") from error
+    except (RuntimeError, ValueError) as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    if isinstance(snapshot, dict):
+        return OperatorOperationsResponse.model_validate(snapshot)
+    return OperatorOperationsResponse(
+        workspace_id=workspace_id,
+        metrics=snapshot.metrics,
+        configuration_version=snapshot.configuration_version,
+        histograms={
+            name: {
+                "count": histogram.count,
+                "sum": histogram.sum,
+                "buckets": list(histogram.buckets),
+            }
+            for name, histogram in snapshot.histograms.items()
+        },
+    )
+
+
 def _job_status_payload(projection) -> dict[str, object]:
     payload: dict[str, object] = {
         "ingestion_job_id": projection.ingestion_job_id,
@@ -188,11 +427,9 @@ async def get_ingestion_job_status(
     workspace_id: str,
     ingestion_job_id: str,
     response: Response,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_read)],
     ingestion_jobs: Annotated[IngestionJobs | None, Depends(get_ingestion_jobs)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     if ingestion_jobs is None:
         raise KnoraError("PDF_INGESTION_NOT_CONFIGURED")
     projection = await run_in_threadpool(
@@ -216,12 +453,10 @@ async def reprocess_document_version(
     document_version_id: str,
     payload: ReprocessRequest,
     response: Response,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_documents_write)],
     ingestion_jobs: Annotated[IngestionJobs | None, Depends(get_ingestion_jobs)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ReprocessResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     if ingestion_jobs is None:
         raise KnoraError("PDF_INGESTION_NOT_CONFIGURED")
     result = await run_in_threadpool(
@@ -235,9 +470,11 @@ async def reprocess_document_version(
         ),
         principal,
     )
-    response.status_code = 200 if result.outcome != "created" and result.status in {
-        "succeeded", "superseded", "failed"
-    } else 202
+    response.status_code = (
+        200
+        if result.outcome != "created" and result.status in {"succeeded", "superseded", "failed"}
+        else 202
+    )
     return ReprocessResponse(
         ingestion_job_id=result.ingestion_job_id,
         document_version_id=result.document_version_id,

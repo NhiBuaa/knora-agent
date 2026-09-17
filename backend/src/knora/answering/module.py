@@ -1,11 +1,17 @@
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from dataclasses import asdict
 from math import isfinite
 from time import get_clock_info, perf_counter
 
 from knora.answering.evidence import EvidenceSelection, select_evidence
 from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
-from knora.answering.interface import CitationProjection, QuestionCommand, QuestionResult
+from knora.answering.interface import (
+    CitationProjection,
+    QuestionCommand,
+    QuestionEvent,
+    QuestionResult,
+)
 from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
 from knora.answering.stores import (
     AnsweringStore,
@@ -55,10 +61,14 @@ class AnswerQuestion:
         self,
         command: QuestionCommand,
         principal: WorkspacePrincipal,
+        *,
+        stage_callback: Callable[[str], None] | None = None,
     ) -> QuestionResult:
         started = self._clock()
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        if stage_callback is not None:
+            stage_callback("retrieving")
         retrieval_configuration = self._retrieval_configuration
         if self._retrieval_configuration_resolver is not None:
             retrieval_configuration = self._retrieval_configuration_resolver.resolve(
@@ -103,6 +113,8 @@ class AnswerQuestion:
             retrieval_embedding_set_ids = ()
             retrieval_chunk_set_ids = ()
         retrieval_ended = self._clock()
+        if stage_callback is not None:
+            stage_callback("selecting_evidence")
         selection = select_evidence(candidates, retrieval_configuration)
         selection_ended = self._clock()
         retrieval_latency_ms = (selection_ended - retrieval_started) * 1000
@@ -146,6 +158,8 @@ class AnswerQuestion:
             f"E{index}": item.candidate
             for index, item in enumerate(selection.selected, start=1)
         }
+        if stage_callback is not None:
+            stage_callback("generating")
         generation = await self._generation_provider.generate(
             question=command.question,
             evidence=tuple(
@@ -247,6 +261,77 @@ class AnswerQuestion:
             citations=citations,
             refusal_reason=refusal_reason,
             trace_id=trace_id,
+        )
+
+    async def execute_stream(
+        self,
+        command: QuestionCommand,
+        principal: WorkspacePrincipal,
+    ) -> AsyncIterator[QuestionEvent]:
+        """Execute the validated question flow with ordered SSE stage events."""
+        yield QuestionEvent(stage="started", payload={})
+        stages: asyncio.Queue[str] = asyncio.Queue()
+
+        def record_stage(stage: str) -> None:
+            stages.put_nowait(stage)
+
+        task = asyncio.create_task(self.execute(command, principal, stage_callback=record_stage))
+        try:
+            while not task.done() or not stages.empty():
+                if not stages.empty():
+                    yield QuestionEvent(stage=stages.get_nowait(), payload={})
+                    continue
+                next_stage = asyncio.create_task(stages.get())
+                done, _ = await asyncio.wait(
+                    {task, next_stage},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if next_stage in done:
+                    yield QuestionEvent(stage=next_stage.result(), payload={})
+                else:
+                    next_stage.cancel()
+                    await asyncio.gather(next_stage, return_exceptions=True)
+            result = await task
+        except KnoraError as error:
+            yield QuestionEvent(
+                stage="failure",
+                payload={"error_code": error.code},
+                terminal=True,
+            )
+            return
+        except Exception:
+            yield QuestionEvent(
+                stage="failure",
+                payload={"error_code": "INTERNAL_ERROR"},
+                terminal=True,
+            )
+            return
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+        if result.decision == "REFUSAL":
+            yield QuestionEvent(
+                stage="refusal",
+                payload={
+                    "refusal_reason": result.refusal_reason,
+                    "trace_id": result.trace_id,
+                },
+                terminal=True,
+            )
+            return
+        yield QuestionEvent(
+            stage="final_validated",
+            payload={
+                "workspace_id": result.workspace_id,
+                "decision": result.decision,
+                "answer": result.answer,
+                "citations": [asdict(citation) for citation in result.citations],
+                "refusal_reason": result.refusal_reason,
+                "trace_id": result.trace_id,
+            },
+            terminal=True,
         )
 
     @staticmethod

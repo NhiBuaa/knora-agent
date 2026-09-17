@@ -27,7 +27,7 @@ class PostgresOperationalMetricsStore:
         self._session_factory = session_factory
         self._retry_window = retry_window
 
-    def snapshot(self) -> OperationalSnapshot:
+    def snapshot(self, *, workspace_id: str | None = None) -> OperationalSnapshot:
         with self._session_factory() as session:
             now = session.scalar(select(func.clock_timestamp()))
             if now is None:
@@ -39,23 +39,40 @@ class PostgresOperationalMetricsStore:
                     IngestionJobTable.next_attempt_at <= now,
                 ),
             )
+            job_scope = (
+                IngestionJobTable.workspace_id == workspace_id
+                if workspace_id is not None
+                else True
+            )
             queue_depth = session.scalar(
-                select(func.count()).select_from(IngestionJobTable).where(eligible)
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(eligible, job_scope)
             )
             oldest_created = session.scalar(
-                select(func.min(IngestionJobTable.created_at)).where(eligible)
+                select(func.min(IngestionJobTable.created_at)).where(eligible, job_scope)
             )
             oldest_age = 0.0
             if oldest_created is not None:
                 oldest_age = max(0.0, (now - oldest_created).total_seconds())
             window_start = now - self._retry_window
+            attempt_scope = (
+                IngestionJobTable.workspace_id == workspace_id
+                if workspace_id is not None
+                else True
+            )
             closed_attempts = (
                 session.scalar(
                     select(func.count())
                     .select_from(IngestionJobAttemptTable)
+                    .join(
+                        IngestionJobTable,
+                        IngestionJobTable.id == IngestionJobAttemptTable.ingestion_job_id,
+                    )
                     .where(
                         IngestionJobAttemptTable.closed_at >= window_start,
                         IngestionJobAttemptTable.closed_at <= now,
+                        attempt_scope,
                     )
                 )
                 or 0
@@ -64,10 +81,15 @@ class PostgresOperationalMetricsStore:
                 session.scalar(
                     select(func.count())
                     .select_from(IngestionJobAttemptTable)
+                    .join(
+                        IngestionJobTable,
+                        IngestionJobTable.id == IngestionJobAttemptTable.ingestion_job_id,
+                    )
                     .where(
                         IngestionJobAttemptTable.closed_at >= window_start,
                         IngestionJobAttemptTable.closed_at <= now,
                         IngestionJobAttemptTable.retry_policy_result == "schedule_retry",
+                        attempt_scope,
                     )
                 )
                 or 0
@@ -79,7 +101,14 @@ class PostgresOperationalMetricsStore:
                     session.scalar(
                         select(func.count())
                         .select_from(IngestionJobAttemptTable)
+                        .join(
+                            IngestionJobTable,
+                            IngestionJobTable.id == IngestionJobAttemptTable.ingestion_job_id,
+                        )
                         .where(
+                            IngestionJobTable.workspace_id == workspace_id
+                            if workspace_id is not None
+                            else True,
                             IngestionJobAttemptTable.closed_at.is_not(None),
                             IngestionJobAttemptTable.closure_cause == "lease_expired",
                             IngestionJobAttemptTable.failure_cause == "lease_expired",
@@ -88,7 +117,20 @@ class PostgresOperationalMetricsStore:
                     or 0
                 ),
                 "cleanup_attempt_total": int(
-                    session.scalar(select(func.count()).select_from(ObjectLifecycleAttemptTable))
+                    session.scalar(
+                        select(func.count())
+                        .select_from(ObjectLifecycleAttemptTable)
+                        .join(
+                            ObjectLifecycleWorkTable,
+                            ObjectLifecycleWorkTable.id
+                            == ObjectLifecycleAttemptTable.object_lifecycle_work_id,
+                        )
+                        .where(
+                            ObjectLifecycleWorkTable.workspace_id == workspace_id
+                            if workspace_id is not None
+                            else True
+                        )
+                    )
                     or 0
                 ),
                 "cleanup_failure_total": int(
@@ -96,6 +138,13 @@ class PostgresOperationalMetricsStore:
                         select(func.count())
                         .select_from(ObjectLifecycleAttemptTable)
                         .where(
+                            ObjectLifecycleAttemptTable.object_lifecycle_work_id.in_(
+                                select(ObjectLifecycleWorkTable.id).where(
+                                    ObjectLifecycleWorkTable.workspace_id == workspace_id
+                                )
+                            )
+                            if workspace_id is not None
+                            else True,
                             ObjectLifecycleAttemptTable.closed_at.is_not(None),
                             ObjectLifecycleAttemptTable.disposition == "failed",
                         )
@@ -107,6 +156,9 @@ class PostgresOperationalMetricsStore:
                         select(func.count())
                         .select_from(ObjectLifecycleWorkTable)
                         .where(
+                            ObjectLifecycleWorkTable.workspace_id == workspace_id
+                            if workspace_id is not None
+                            else True,
                             ObjectLifecycleWorkTable.artifact_class == "orphan",
                             ObjectLifecycleWorkTable.discovery_recorded_at.is_not(None),
                         )
@@ -118,6 +170,9 @@ class PostgresOperationalMetricsStore:
                         select(func.count())
                         .select_from(ObjectLifecycleWorkTable)
                         .where(
+                            ObjectLifecycleWorkTable.workspace_id == workspace_id
+                            if workspace_id is not None
+                            else True,
                             or_(
                                 and_(
                                     ObjectLifecycleWorkTable.artifact_class == "orphan",
@@ -149,7 +204,7 @@ class PostgresOperationalMetricsStore:
                 ).join(
                     IngestionJobTable,
                     IngestionJobTable.id == IngestionJobAttemptTable.ingestion_job_id,
-                )
+                ).where(job_scope)
             ).all()
             eligibility_by_job_attempt: dict[tuple[str, int], object] = {}
             for job_id, attempt_number, _, _, retry_next in claim_latency_rows:
