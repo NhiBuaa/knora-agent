@@ -4,6 +4,11 @@ from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
 from knora.main import create_app
+from knora.tools.lifecycle_projection import (
+    ToolLifecycleListProjection,
+    ToolLifecycleObservationFailure,
+    ToolLifecycleUnavailable,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +56,18 @@ class FakeOperator:
         }
 
 
-def _client() -> tuple[TestClient, str]:
+@dataclass(frozen=True)
+class FakeLifecycle:
+    result: object
+    calls: list[int] | None = None
+
+    def read_lifecycle(self, *, workspace_id, principal):
+        if self.calls is not None:
+            self.calls.append(1)
+        return self.result
+
+
+def _client(*, lifecycle=None) -> tuple[TestClient, str]:
     raw_key = "operator-route-key"
     app = create_app(
         api_key_authenticator=ApiKeyAuthenticator(
@@ -65,6 +81,7 @@ def _client() -> tuple[TestClient, str]:
             )
         ),
         operator_observability=FakeOperator(),
+        tool_lifecycle_reader=lifecycle,
     )
     return TestClient(app), raw_key
 
@@ -114,3 +131,39 @@ def test_operator_routes_reject_cross_workspace_and_map_missing_resource() -> No
 
     unauthenticated = client.get("/v1/workspaces/workspace-a/operator/operations")
     assert unauthenticated.status_code == 401
+
+
+def test_tool_lifecycle_route_returns_unavailable_projection() -> None:
+    client, raw_key = _client(lifecycle=FakeLifecycle(ToolLifecycleUnavailable()))
+    response = client.get(
+        "/v1/workspaces/workspace-a/operator/tool-lifecycle",
+        headers={"X-API-Key": raw_key},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"availability": "unavailable", "items": [], "code": None}
+
+
+def test_tool_lifecycle_route_denies_cross_workspace_before_reader() -> None:
+    calls: list[int] = []
+    lifecycle = FakeLifecycle(ToolLifecycleListProjection(items=()), calls)
+    client, raw_key = _client(lifecycle=lifecycle)
+    response = client.get(
+        "/v1/workspaces/workspace-b/operator/tool-lifecycle",
+        headers={"X-API-Key": raw_key},
+    )
+    assert response.status_code == 403
+    assert calls == []
+
+
+def test_tool_lifecycle_route_exposes_observation_failure_without_private_fields() -> None:
+    client, raw_key = _client(lifecycle=FakeLifecycle(ToolLifecycleObservationFailure()))
+    response = client.get(
+        "/v1/workspaces/workspace-a/operator/tool-lifecycle",
+        headers={"X-API-Key": raw_key},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "availability": "observation_failure",
+        "items": [],
+        "code": "TOOL_LIFECYCLE_OBSERVATION_FAILED",
+    }
