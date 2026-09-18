@@ -14,6 +14,7 @@ export function DocumentDetail({ workspaceId, documentId, capabilities = [] }: P
   const [jobStatus, setJobStatus] = useState<IngestionJobStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const deletionKey = useRef<string | null>(null);
+  const reprocessKey = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
     void (async () => { const response = await browserRequest(`/v1/workspaces/${encodeURIComponent(workspaceId)}/documents/${encodeURIComponent(documentId)}`); if (!active) return; if (!response.ok) { setError(`Unable to load document (${response.status})`); return; } const loaded = await response.json() as DocumentResponse; setDocument(loaded); if (loaded.ingestion_job_id) setJobId(loaded.ingestion_job_id); })();
@@ -33,9 +34,10 @@ export function DocumentDetail({ workspaceId, documentId, capabilities = [] }: P
   }
   async function reprocess() {
     if (!document?.current_document_version_id) return;
-    const response = await browserRequest(`/v1/workspaces/${encodeURIComponent(workspaceId)}/document-versions/${encodeURIComponent(document.current_document_version_id)}/reprocess`, { method: "POST", headers: { "Idempotency-Key": requestId() }, body: JSON.stringify({ config_mode: "current" }) });
+    if (!reprocessKey.current) reprocessKey.current = requestId();
+    const response = await browserRequest(`/v1/workspaces/${encodeURIComponent(workspaceId)}/document-versions/${encodeURIComponent(document.current_document_version_id)}/reprocess`, { method: "POST", headers: { "Idempotency-Key": reprocessKey.current }, body: JSON.stringify({ config_mode: "current" }) });
     if (!response.ok) { setError(`Unable to reprocess document (${response.status})`); return; }
-    const result = await response.json() as ReprocessResponse; setJobStatus(null); setJobId(result.ingestion_job_id);
+    const result = await response.json() as ReprocessResponse; reprocessKey.current = null; setJobStatus(null); setJobId(result.ingestion_job_id);
   }
   if (error && !document) return <p role="alert">{error}</p>; if (!document) return <p>Loading document…</p>;
   const canDelete = capabilities.includes("documents:delete"); const canWrite = capabilities.includes("documents:write");

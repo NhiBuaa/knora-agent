@@ -36,13 +36,22 @@ describe("document management", () => {
       .mockResolvedValueOnce(jsonResponse({ documents: [document] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DocumentList workspaceId="ws-1" />);
+    render(<DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />);
     await screen.findByText("guide.pdf");
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(new Headers(fetchMock.mock.calls[1][1].headers).get("If-Match")).toBe("7");
     expect(screen.getByRole("alert")).toHaveTextContent("changed");
+  });
+
+  it("hides document write controls when documents:write is absent", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ documents: [document] })));
+    render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
+    await screen.findByText("guide.pdf");
+    expect(screen.queryByLabelText("Document file")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Upload document" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
   });
 
   it("uploads a file through the BFF and renders the backend submission state", async () => {
@@ -58,7 +67,7 @@ describe("document management", () => {
       .mockResolvedValueOnce(jsonResponse({ documents: [] }));
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<DocumentList workspaceId="ws-1" />);
+    render(<DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />);
     await screen.findByText("No documents yet.");
     fireEvent.change(screen.getByLabelText("Document file"), {
       target: { files: [new File(["%PDF"], "manual.pdf", { type: "application/pdf" })] },
@@ -124,5 +133,24 @@ describe("document management", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     expect(screen.getByText("succeeded")).toBeInTheDocument();
+  });
+
+  it("reuses one idempotency key when reprocess is retried after a lost response", async () => {
+    vi.stubGlobal("crypto", { randomUUID: vi.fn().mockReturnValueOnce("reprocess-key-one").mockReturnValueOnce("reprocess-key-two") });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(document))
+      .mockResolvedValueOnce(jsonResponse({ detail: "timeout" }, 503))
+      .mockResolvedValueOnce(jsonResponse({ ingestion_job_id: "job-4", document_version_id: "version-4", outcome: "idempotency_replay", status: "processing" }, 202))
+      .mockResolvedValueOnce(jsonResponse({ ingestion_job_id: "job-4", status: "succeeded", poll_after_seconds: 0 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<DocumentDetail workspaceId="ws-1" documentId="doc-1" capabilities={["documents:write"]} />);
+    await screen.findByText("guide.pdf");
+    fireEvent.click(screen.getByRole("button", { name: "Reprocess document" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "Reprocess document" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const keys = fetchMock.mock.calls.filter((call) => call[1]?.method === "POST").map((call) => new Headers(call[1].headers).get("Idempotency-Key"));
+    expect(keys[0]).toBe("reprocess-key-one");
+    expect(keys[1]).toBe("reprocess-key-one");
   });
 });
