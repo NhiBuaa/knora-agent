@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
 from knora.access.keycloak import KeycloakAuthenticator
-from knora.domain.errors import KnoraError
 from knora.main import create_app
 
 
