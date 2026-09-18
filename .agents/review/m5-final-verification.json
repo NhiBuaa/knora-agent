@@ -1,6 +1,6 @@
 {
   "slice": "M5.4",
-  "subject_commit": "cbe4668",
+  "subject_commit": "b7efdcd",
   "status": "verified_with_blocked_live_browser_acceptance",
   "verification": {
     "backend_pytest": "1041 passed, 3 skipped",
