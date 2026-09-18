@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { EvaluationView } from "../../components/operator/EvaluationView";
 import { OperationsView } from "../../components/operator/OperationsView";
 import { ToolObservationView } from "../../components/operator/ToolObservationView";
+import { TraceView } from "../../components/operator/TraceView";
 
 describe("operator views", () => {
   it("renders an unavailable evaluation without inventing a score", () => {
@@ -57,5 +58,34 @@ describe("operator views", () => {
 
     expect(screen.getByText("M4 observation unavailable")).toBeInTheDocument();
     expect(screen.getByText("No authorized lifecycle relation was supplied by the backend.")).toBeInTheDocument();
+  });
+
+  it("renders the backend lifecycle observation on a trace detail view", () => {
+    render(
+      <TraceView
+        trace={{
+          alias_mapping: {},
+          branch_observation_schema_version: 1,
+          branch_observations: [{ branch: "tool", status: "approved", detail: "Backend recorded approval" }],
+          candidate_decisions: [],
+          candidates: [],
+          chunk_set_ids: [],
+          decision: "answer",
+          embedding_configuration_id: "embed-v1",
+          embedding_set_ids: [],
+          parsed_markers: [],
+          provider_metadata: {},
+          retrieval_configuration_id: "retrieval-v1",
+          retrieval_latency_ms: 0,
+          trace_id: "trace-1",
+          trace_schema_version: 2,
+          validation_outcome: "valid",
+          workspace_id: "ws-1",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Approved")).toBeInTheDocument();
+    expect(screen.getByText("Backend recorded approval")).toBeInTheDocument();
   });
 });

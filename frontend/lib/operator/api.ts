@@ -37,9 +37,17 @@ export function isOperatorEvaluation(value: unknown): value is OperatorEvaluatio
 }
 
 export function isOperatorOperations(value: unknown): value is OperatorOperationsResponse {
-  return !!value && typeof value === "object" && "metrics" in value && "histograms" in value;
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { metrics?: unknown; histograms?: unknown };
+  return isRecord(candidate.metrics) && isRecord(candidate.histograms);
 }
 
 export function isOperatorTrace(value: unknown): value is OperatorTraceResponse {
-  return !!value && typeof value === "object" && "trace_id" in value && "candidates" in value;
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { trace_id?: unknown; candidates?: unknown };
+  return typeof candidate.trace_id === "string" && Array.isArray(candidate.candidates);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
