@@ -1,0 +1,3 @@
+/docs/openapi.json text eol=lf
+/docs/openapi-manifest.json text eol=lf
+/frontend/generated/knora-openapi.ts text eol=lf
