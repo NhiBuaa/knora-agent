@@ -2,10 +2,11 @@ import { TraceView } from "../../../../components/operator/TraceView";
 import { isOperatorTrace } from "../../../../lib/operator/api";
 import { readOperatorBff } from "../../../../lib/operator/bff";
 
-export default async function TraceDetailPage({ params }: { params: { traceId: string } }) {
+export default async function TraceDetailPage({ params }: { params: Promise<{ traceId: string }> }) {
+  const { traceId } = await params;
   let response: Response;
   try {
-    response = await readOperatorBff(`/api/operator/traces/${encodeURIComponent(params.traceId)}`);
+    response = await readOperatorBff(`/api/operator/traces/${encodeURIComponent(traceId)}`);
   } catch {
     return <p role="status">Trace observation unavailable.</p>;
   }

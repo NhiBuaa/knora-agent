@@ -2,10 +2,11 @@ import { EvaluationView } from "../../../../components/operator/EvaluationView";
 import { isOperatorEvaluation } from "../../../../lib/operator/api";
 import { readOperatorBff } from "../../../../lib/operator/bff";
 
-export default async function EvaluationDetailPage({ params }: { params: { reportId: string } }) {
+export default async function EvaluationDetailPage({ params }: { params: Promise<{ reportId: string }> }) {
+  const { reportId } = await params;
   let response: Response;
   try {
-    response = await readOperatorBff(`/api/operator/evaluations/${encodeURIComponent(params.reportId)}`);
+    response = await readOperatorBff(`/api/operator/evaluations/${encodeURIComponent(reportId)}`);
   } catch {
     return <p role="status">Evaluation observation unavailable.</p>;
   }
