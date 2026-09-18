@@ -14,6 +14,7 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}"
   | "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}"
   | "/v1/workspaces/{workspace_id}/operator/operations"
+  | "/v1/workspaces/{workspace_id}/operator/tool-lifecycle"
   | "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}";
 
 export type Body_ingest_document_v1_workspaces__workspace_id__documents_post = {
@@ -185,6 +186,47 @@ export type ReprocessResponse = {
 export type SuccessfulJobResultResponse = {
   document_version_id: string;
 };
+export type ToolLifecycleApprovalResponse = {
+  actor_kind?: string | null;
+  decided_at?: string | null;
+  decision?: string | null;
+};
+export type ToolLifecycleExecutionObservationResponse = {
+  failure_code?: string | null;
+  observation_type: string;
+  observed_at: string;
+  sequence: number;
+};
+export type ToolLifecycleExecutionResponse = {
+  failure_code?: string | null;
+  finalized_at?: string | null;
+  generation: number;
+  lifecycle: string;
+  observations: Array<ToolLifecycleExecutionObservationResponse>;
+  revision: number;
+};
+export type ToolLifecycleItemResponse = {
+  approval: ToolLifecycleApprovalResponse;
+  execution?: ToolLifecycleExecutionResponse | null;
+  proposal: ToolLifecycleProposalResponse;
+  reconciliation?: ToolLifecycleReconciliationResponse | null;
+};
+export type ToolLifecycleProposalResponse = {
+  proposal_id: string;
+  revision: number;
+  state: string;
+};
+export type ToolLifecycleReconciliationResponse = {
+  failure_code?: string | null;
+  observation_type?: string | null;
+  observed_at?: string | null;
+  status: string;
+};
+export type ToolLifecycleResponse = {
+  availability: "available" | "unavailable" | "observation_failure";
+  code?: string | null;
+  items?: Array<ToolLifecycleItemResponse>;
+};
 export type ValidationError = {
   ctx?: Record<string, unknown>;
   input?: unknown;
@@ -214,6 +256,7 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}": IngestionJobStatusResponse;
   "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}": OperatorEvaluationResponse;
   "/v1/workspaces/{workspace_id}/operator/operations": OperatorOperationsResponse;
+  "/v1/workspaces/{workspace_id}/operator/tool-lifecycle": ToolLifecycleResponse;
   "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}": OperatorTraceResponse;
 }
 

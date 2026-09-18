@@ -29,7 +29,11 @@ export async function decodeAuthorizationTransaction(value: string | undefined):
     if (!payloadValue || !signatureValue) return null;
     const expected = createHmac("sha256", secret()).update(payloadValue).digest();
     const provided = Buffer.from(signatureValue, "base64url");
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+    if (
+      signatureValue !== expected.toString("base64url") ||
+      provided.length !== expected.length ||
+      !timingSafeEqual(provided, expected)
+    ) return null;
     const payload = JSON.parse(Buffer.from(payloadValue, "base64url").toString("utf8")) as Record<string, unknown>;
     if (typeof payload.state !== "string" || typeof payload.nonce !== "string" || typeof payload.codeVerifier !== "string" || typeof payload.codeChallenge !== "string" || typeof payload.redirectUri !== "string" || typeof payload.expiresAt !== "number") return null;
     if (payload.expiresAt <= Math.floor(Date.now() / 1000)) return null;

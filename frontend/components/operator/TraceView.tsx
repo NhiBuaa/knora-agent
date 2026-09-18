@@ -3,11 +3,29 @@ import type { OperatorTraceResponse } from "../../generated/knora-openapi";
 import { presentMetric } from "../../lib/operator/presentation";
 import { ToolObservationView } from "./ToolObservationView";
 
+const LIFECYCLE_STATES = new Set([
+  "proposed",
+  "approved",
+  "rejected",
+  "executing",
+  "succeeded",
+  "failed",
+  "reconciliation",
+  "indeterminate_external_outcome",
+]);
+
 export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
   const latency = presentMetric(trace.retrieval_latency_ms);
-  const lifecycleObservation = trace.branch_observations.find((observation) =>
-    typeof observation.lifecycle === "string" || typeof observation.state === "string" || typeof observation.status === "string",
-  );
+  const lifecycleObservation = trace.branch_observations.find((observation) => {
+    const state = typeof observation.lifecycle === "string"
+      ? observation.lifecycle
+      : typeof observation.state === "string"
+        ? observation.state
+        : typeof observation.status === "string"
+          ? observation.status
+          : undefined;
+    return state !== undefined && LIFECYCLE_STATES.has(state);
+  });
   const lifecycleState = lifecycleObservation
     ? (typeof lifecycleObservation.lifecycle === "string"
       ? lifecycleObservation.lifecycle

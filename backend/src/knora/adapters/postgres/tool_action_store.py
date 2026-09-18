@@ -65,6 +65,15 @@ class PostgresToolActionStore(PostgresExecutionStoreMixin):
             )
             return None if row is None else self._to_stored(session, row)
 
+    def list_proposals(self, workspace_id: str) -> tuple[_StoredProposal, ...]:
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(ToolProposalTable)
+                .where(ToolProposalTable.workspace_id == workspace_id)
+                .order_by(ToolProposalTable.created_at, ToolProposalTable.id)
+            ).all()
+            return tuple(self._to_stored(session, row) for row in rows)
+
     def decide_proposal(
         self,
         workspace_id: str,

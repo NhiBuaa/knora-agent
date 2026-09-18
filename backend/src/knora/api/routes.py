@@ -26,6 +26,7 @@ async def answer_question(
 ) -> QuestionResponse:
     if principal.workspace_id != payload.workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("questions:ask")
     result = await service.execute(
         QuestionCommand(workspace_id=payload.workspace_id, question=payload.question),
         principal,
@@ -45,6 +46,7 @@ async def stream_question(
 ) -> StreamingResponse:
     if principal.workspace_id != payload.workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
+    principal.require_capability("questions:ask")
 
     async def event_body():
         async for event in service.execute_stream(

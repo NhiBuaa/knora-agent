@@ -138,7 +138,11 @@ class PostgresOperationalMetricsStore:
                         select(func.count())
                         .select_from(ObjectLifecycleAttemptTable)
                         .where(
-                            ObjectLifecycleAttemptTable.workspace_id == workspace_id
+                            ObjectLifecycleAttemptTable.object_lifecycle_work_id.in_(
+                                select(ObjectLifecycleWorkTable.id).where(
+                                    ObjectLifecycleWorkTable.workspace_id == workspace_id
+                                )
+                            )
                             if workspace_id is not None
                             else True,
                             ObjectLifecycleAttemptTable.closed_at.is_not(None),

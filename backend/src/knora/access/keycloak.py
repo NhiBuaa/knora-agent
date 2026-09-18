@@ -90,9 +90,9 @@ class KeycloakAuthenticator:
                 raise ValueError
             if float(claims["exp"]) <= time.time():
                 raise ValueError
-            subject = str(claims["sub"])
+            subject = claims["sub"]
             workspace = str(claims.get("workspace_id") or claims.get("workspace"))
-            if not subject or workspace in {"", "None"}:
+            if not isinstance(subject, str) or not subject or workspace in {"", "None"}:
                 raise ValueError
             raw_caps = claims.get("capabilities", ())
             if isinstance(raw_caps, str):
