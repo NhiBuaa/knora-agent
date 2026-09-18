@@ -21,6 +21,7 @@ REQUIRED_PATHS = {
     "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}",
     "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}",
     "/v1/workspaces/{workspace_id}/operator/operations",
+    "/v1/workspaces/{workspace_id}/operator/tool-lifecycle",
 }
 
 

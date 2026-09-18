@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -156,3 +156,51 @@ class OperatorOperationsResponse(BaseModel):
     metrics: dict[str, int | float]
     configuration_version: str
     histograms: dict[str, OperatorHistogramResponse]
+
+
+class ToolLifecycleProposalResponse(BaseModel):
+    proposal_id: str
+    state: str
+    revision: int
+
+
+class ToolLifecycleApprovalResponse(BaseModel):
+    decision: str | None = None
+    decided_at: datetime | None = None
+    actor_kind: str | None = None
+
+
+class ToolLifecycleExecutionObservationResponse(BaseModel):
+    sequence: int
+    observation_type: str
+    failure_code: str | None = None
+    observed_at: datetime
+
+
+class ToolLifecycleExecutionResponse(BaseModel):
+    lifecycle: str
+    revision: int
+    generation: int
+    observations: list[ToolLifecycleExecutionObservationResponse]
+    failure_code: str | None = None
+    finalized_at: datetime | None = None
+
+
+class ToolLifecycleReconciliationResponse(BaseModel):
+    status: str
+    observation_type: str | None = None
+    failure_code: str | None = None
+    observed_at: datetime | None = None
+
+
+class ToolLifecycleItemResponse(BaseModel):
+    proposal: ToolLifecycleProposalResponse
+    approval: ToolLifecycleApprovalResponse
+    execution: ToolLifecycleExecutionResponse | None = None
+    reconciliation: ToolLifecycleReconciliationResponse | None = None
+
+
+class ToolLifecycleResponse(BaseModel):
+    availability: Literal["available", "unavailable", "observation_failure"]
+    items: list[ToolLifecycleItemResponse] = Field(default_factory=list)
+    code: str | None = None
