@@ -82,6 +82,7 @@ from knora.tools import (
     SupportToolGateway,
     ToolActionStore,
 )
+from knora.tools.lifecycle_projection import ToolLifecycleProjectionReader
 from knora.tools.proposal_http import ActorContextProvider
 from knora.tools.proposal_http import router as proposal_router
 from knora.tools.proposals import ExecutionAuthorizer, WriteProposalWorkflow
@@ -116,6 +117,7 @@ def create_app(
     tool_reference_verifier: ReferenceVerifier | None = None,
     tool_proposal_policy: PolicyProvenance | None = None,
     tool_action_store: ToolActionStore | None = None,
+    tool_lifecycle_reader: ToolLifecycleProjectionReader | None = None,
     tool_execution_authorizer: ExecutionAuthorizer | None = None,
     support_tool_gateway: SupportToolGateway | None = None,
     tool_dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
@@ -271,6 +273,7 @@ def create_app(
     application.state.authenticator = (
         keycloak_authenticator or application.state.api_key_authenticator
     )
+    selected_tool_action_store = tool_action_store or PostgresToolActionStore(SessionFactory)
     selected_write_proposal_workflow = write_proposal_workflow
     if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
         if tool_scope_bindings is None or tool_reference_verifier is None:
@@ -292,7 +295,7 @@ def create_app(
                 bindings=tool_scope_bindings,
                 policy=tool_proposal_policy or PolicyProvenance(),
             ),
-            store=tool_action_store or PostgresToolActionStore(SessionFactory),
+            store=selected_tool_action_store,
             target_verifier=ReferenceProposalTargetVerifier(tool_reference_verifier),
             execution_authorizer=tool_execution_authorizer,
             execution_resource_authorizer=(
@@ -319,6 +322,9 @@ def create_app(
     application.state.tool_actor_context_provider = tool_actor_context_provider
 
     application.state.read_tool = read_tool
+    application.state.tool_lifecycle_reader = (
+        tool_lifecycle_reader or ToolLifecycleProjectionReader(selected_tool_action_store)
+    )
 
     @application.exception_handler(KnoraError)
     async def handle_knora_error(request: Request, error: KnoraError) -> JSONResponse:

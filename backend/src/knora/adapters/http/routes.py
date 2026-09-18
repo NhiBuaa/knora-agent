@@ -20,6 +20,7 @@ from knora.adapters.http.schemas import (
     PdfSubmissionResponse,
     ReprocessRequest,
     ReprocessResponse,
+    ToolLifecycleResponse,
 )
 from knora.application.operator_observability import OperatorObservability
 from knora.domain.access import WorkspacePrincipal
@@ -35,6 +36,12 @@ from knora.ingestion.jobs import (
 from knora.ingestion.module import MAX_RAW_BYTES, IngestDocument
 from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.tools.lifecycle_projection import (
+    ToolLifecycleListProjection,
+    ToolLifecycleObservationFailure,
+    ToolLifecycleProjectionReader,
+    ToolLifecycleUnavailable,
+)
 
 router = APIRouter()
 
@@ -61,6 +68,10 @@ def get_document_lifecycle(request: Request):
 
 def get_operator_observability(request: Request) -> OperatorObservability:
     return request.app.state.operator_observability
+
+
+def get_tool_lifecycle_reader(request: Request) -> ToolLifecycleProjectionReader:
+    return request.app.state.tool_lifecycle_reader
 
 
 def authenticate_principal(
@@ -380,6 +391,82 @@ def read_operator_operations(
             for name, histogram in snapshot.histograms.items()
         },
     )
+
+
+def _tool_lifecycle_payload(result) -> dict[str, object]:
+    if isinstance(result, ToolLifecycleUnavailable):
+        return {"availability": "unavailable", "items": [], "code": None}
+    if isinstance(result, ToolLifecycleObservationFailure):
+        return {"availability": "observation_failure", "items": [], "code": result.code}
+    if not isinstance(result, ToolLifecycleListProjection):
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED")
+    return {
+        "availability": "available",
+        "code": None,
+        "items": [
+            {
+                "proposal": {
+                    "proposal_id": item.proposal.proposal_id,
+                    "state": item.proposal.state,
+                    "revision": item.proposal.revision,
+                },
+                "approval": {
+                    "decision": item.approval.decision,
+                    "decided_at": item.approval.decided_at,
+                    "actor_kind": item.approval.actor_kind,
+                },
+                "execution": (
+                    {
+                        "lifecycle": item.execution.lifecycle,
+                        "revision": item.execution.revision,
+                        "generation": item.execution.generation,
+                        "observations": [
+                            {
+                                "sequence": observation.sequence,
+                                "observation_type": observation.observation_type,
+                                "failure_code": observation.failure_code,
+                                "observed_at": observation.observed_at,
+                            }
+                            for observation in item.execution.observations
+                        ],
+                        "failure_code": item.execution.failure_code,
+                        "finalized_at": item.execution.finalized_at,
+                    }
+                    if item.execution is not None
+                    else None
+                ),
+                "reconciliation": (
+                    {
+                        "status": item.reconciliation.status,
+                        "observation_type": item.reconciliation.observation_type,
+                        "failure_code": item.reconciliation.failure_code,
+                        "observed_at": item.reconciliation.observed_at,
+                    }
+                    if item.reconciliation is not None
+                    else None
+                ),
+            }
+            for item in result.items
+        ],
+    }
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/operator/tool-lifecycle",
+    response_model=ToolLifecycleResponse,
+)
+def read_tool_lifecycle(
+    workspace_id: str,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    reader: Annotated[ToolLifecycleProjectionReader, Depends(get_tool_lifecycle_reader)],
+) -> ToolLifecycleResponse:
+    try:
+        result = reader.read_lifecycle(workspace_id=workspace_id, principal=principal)
+    except KnoraError:
+        raise
+    except Exception as error:
+        raise KnoraError("OPERATOR_OBSERVATION_FAILED") from error
+    return ToolLifecycleResponse.model_validate(_tool_lifecycle_payload(result))
 
 
 def _job_status_payload(projection) -> dict[str, object]:
