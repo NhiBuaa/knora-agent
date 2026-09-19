@@ -43,7 +43,7 @@
           "config": {
             "user.attribute": "workspace_ids",
             "claim.name": "workspace_ids",
-            "jsonType.label": "JSON",
+            "jsonType.label": "String",
             "multivalued": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -58,7 +58,7 @@
           "config": {
             "user.attribute": "capabilities",
             "claim.name": "capabilities",
-            "jsonType.label": "JSON",
+            "jsonType.label": "String",
             "multivalued": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",
@@ -81,6 +81,8 @@
   "users": [
     {
       "username": "m5-user",
+      "firstName": "M5",
+      "lastName": "User",
       "email": "m5-user@example.test",
       "enabled": true,
       "emailVerified": true,
@@ -93,6 +95,8 @@
     },
     {
       "username": "m5-operator",
+      "firstName": "M5",
+      "lastName": "Operator",
       "email": "m5-operator@example.test",
       "enabled": true,
       "emailVerified": true,
@@ -106,6 +110,8 @@
     },
     {
       "username": "m5-other-workspace",
+      "firstName": "M5",
+      "lastName": "Other Workspace",
       "email": "m5-other-workspace@example.test",
       "enabled": true,
       "emailVerified": true,
@@ -118,6 +124,8 @@
     },
     {
       "username": "m5-no-operator",
+      "firstName": "M5",
+      "lastName": "No Operator",
       "email": "m5-no-operator@example.test",
       "enabled": true,
       "emailVerified": true,
