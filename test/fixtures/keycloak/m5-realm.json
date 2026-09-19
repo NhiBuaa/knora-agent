@@ -87,7 +87,7 @@
       "attributes": {
         "workspace_id": ["m5-workspace"],
         "workspace_ids": ["m5-workspace"],
-        "capabilities": ["documents:write", "questions:ask"]
+        "capabilities": ["documents:read", "documents:write", "questions:ask"]
       },
       "credentials": [{"type": "password", "value": "m5-user-password", "temporary": false}]
     },
@@ -99,7 +99,7 @@
       "attributes": {
         "workspace_id": ["m5-workspace"],
         "workspace_ids": ["m5-workspace"],
-        "capabilities": ["documents:write", "questions:ask", "operator:read"]
+        "capabilities": ["documents:read", "documents:write", "questions:ask", "operator:read"]
       },
       "realmRoles": ["operator"],
       "credentials": [{"type": "password", "value": "m5-operator-password", "temporary": false}]
@@ -112,7 +112,7 @@
       "attributes": {
         "workspace_id": ["m5-other-workspace"],
         "workspace_ids": ["m5-other-workspace"],
-        "capabilities": ["documents:write", "questions:ask"]
+        "capabilities": ["documents:read", "documents:write", "questions:ask"]
       },
       "credentials": [{"type": "password", "value": "m5-other-workspace-password", "temporary": false}]
     },
@@ -124,7 +124,7 @@
       "attributes": {
         "workspace_id": ["m5-workspace"],
         "workspace_ids": ["m5-workspace"],
-        "capabilities": ["documents:write", "questions:ask"]
+        "capabilities": ["documents:read", "documents:write", "questions:ask"]
       },
       "credentials": [{"type": "password", "value": "m5-no-operator-password", "temporary": false}]
     }
