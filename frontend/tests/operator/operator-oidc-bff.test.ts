@@ -45,4 +45,22 @@ describe("operator OIDC BFF authentication", () => {
     await expect(response.json()).resolves.toEqual({ detail: "UNAUTHENTICATED" });
     expect(forwardOperatorRequest).not.toHaveBeenCalled();
   });
+
+  it("denies a session with no claimed workspace before attempting an operator backend request", async () => {
+    vi.mocked(getSession).mockResolvedValue({
+      subject: "operator-1",
+      accessToken: "oidc-access-token",
+      workspaceIds: [],
+      capabilities: ["operator.read"],
+      expiresAt: 1_800_000_000,
+    });
+
+    const response = await proxyOperatorPath(
+      (workspaceId) => `/v1/workspaces/${workspaceId}/operator/operations`,
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ detail: "WORKSPACE_ACCESS_DENIED" });
+    expect(forwardOperatorRequest).not.toHaveBeenCalled();
+  });
 });
