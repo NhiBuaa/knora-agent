@@ -1,24 +1,41 @@
 import { defineConfig, devices } from "@playwright/test";
 
 import { m5E2EEnvironment } from "./tests/e2e/support/environment";
+import type { M5E2EEnvironment } from "./tests/e2e/support/environment";
 
 const environment = m5E2EEnvironment();
-const runtimeEnvironmentNames = [
-  "KEYCLOAK_AUTHORIZATION_URL",
-  "KEYCLOAK_TOKEN_URL",
-  "KEYCLOAK_JWKS_URL",
-  "KEYCLOAK_ISSUER",
-  "KEYCLOAK_AUDIENCE",
-  "KEYCLOAK_CLIENT_ID",
-  "KEYCLOAK_REDIRECT_URI",
-  "KNORA_API_URL",
-  "KNORA_BACKEND_URL",
-  "SESSION_SECRET",
-] as const;
 
-const runtimeEnvironment = Object.fromEntries(
-  runtimeEnvironmentNames.map((name) => [name, process.env[name] ?? ""]),
-);
+export function m5E2ERuntimeEnvironment(values: M5E2EEnvironment) {
+  const issuer = values.keycloakIssuer.replace(/\/+$/, "");
+  const runtimeValue = (name: string, fallback: string) => process.env[name]?.trim() || fallback;
+
+  return {
+    KEYCLOAK_AUTHORIZATION_URL: runtimeValue(
+      "KEYCLOAK_AUTHORIZATION_URL",
+      `${issuer}/protocol/openid-connect/auth`,
+    ),
+    KEYCLOAK_TOKEN_URL: runtimeValue(
+      "KEYCLOAK_TOKEN_URL",
+      `${issuer}/protocol/openid-connect/token`,
+    ),
+    KEYCLOAK_JWKS_URL: runtimeValue(
+      "KEYCLOAK_JWKS_URL",
+      `${issuer}/protocol/openid-connect/certs`,
+    ),
+    KEYCLOAK_ISSUER: runtimeValue("KEYCLOAK_ISSUER", values.keycloakIssuer),
+    KEYCLOAK_AUDIENCE: runtimeValue("KEYCLOAK_AUDIENCE", "knora-web"),
+    KEYCLOAK_CLIENT_ID: runtimeValue("KEYCLOAK_CLIENT_ID", "knora-web"),
+    KEYCLOAK_REDIRECT_URI: runtimeValue(
+      "KEYCLOAK_REDIRECT_URI",
+      `${values.baseUrl.replace(/\/+$/, "")}/api/auth/callback`,
+    ),
+    KNORA_API_URL: runtimeValue("KNORA_API_URL", values.apiUrl),
+    KNORA_BACKEND_URL: runtimeValue("KNORA_BACKEND_URL", values.apiUrl),
+    SESSION_SECRET: runtimeValue("SESSION_SECRET", "m5-e2e-test-session-secret"),
+  };
+}
+
+const runtimeEnvironment = m5E2ERuntimeEnvironment(environment);
 
 export default defineConfig({
   testDir: "./tests/e2e",

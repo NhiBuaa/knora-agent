@@ -18,7 +18,7 @@ for (const [name, value] of Object.entries({
   process.env[name] = value;
 }
 
-const { default: config } = await import("../../../playwright.config");
+const { default: config, m5E2ERuntimeEnvironment } = await import("../../../playwright.config");
 
 describe("Playwright live runner", () => {
   it("starts a deterministic production web server before tests", () => {
@@ -53,5 +53,49 @@ describe("Playwright live runner", () => {
       M5_E2E_KEYCLOAK_ISSUER: "http://localhost:8180/realms/m5-e2e",
     };
     expect(webServerEnv).toMatchObject(expectedRuntimeEnvironment);
+  });
+
+  it("derives safe runtime defaults from only the M5 environment", () => {
+    const explicitNames = [
+      "KEYCLOAK_AUTHORIZATION_URL",
+      "KEYCLOAK_TOKEN_URL",
+      "KEYCLOAK_JWKS_URL",
+      "KEYCLOAK_ISSUER",
+      "KEYCLOAK_AUDIENCE",
+      "KEYCLOAK_CLIENT_ID",
+      "KEYCLOAK_REDIRECT_URI",
+      "KNORA_API_URL",
+      "KNORA_BACKEND_URL",
+      "SESSION_SECRET",
+    ];
+    const previous = Object.fromEntries(explicitNames.map((name) => [name, process.env[name]]));
+    for (const name of explicitNames) delete process.env[name];
+
+    try {
+      expect(m5E2ERuntimeEnvironment({
+        baseUrl: "http://localhost:3000",
+        apiUrl: "http://localhost:8000",
+        keycloakIssuer: "http://localhost:8180/realms/m5-e2e",
+      })).toEqual({
+        KEYCLOAK_AUTHORIZATION_URL:
+          "http://localhost:8180/realms/m5-e2e/protocol/openid-connect/auth",
+        KEYCLOAK_TOKEN_URL:
+          "http://localhost:8180/realms/m5-e2e/protocol/openid-connect/token",
+        KEYCLOAK_JWKS_URL:
+          "http://localhost:8180/realms/m5-e2e/protocol/openid-connect/certs",
+        KEYCLOAK_ISSUER: "http://localhost:8180/realms/m5-e2e",
+        KEYCLOAK_AUDIENCE: "knora-web",
+        KEYCLOAK_CLIENT_ID: "knora-web",
+        KEYCLOAK_REDIRECT_URI: "http://localhost:3000/api/auth/callback",
+        KNORA_API_URL: "http://localhost:8000",
+        KNORA_BACKEND_URL: "http://localhost:8000",
+        SESSION_SECRET: "m5-e2e-test-session-secret",
+      });
+    } finally {
+      for (const [name, value] of Object.entries(previous)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
   });
 });
