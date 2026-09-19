@@ -3,12 +3,20 @@ import { expect, type Browser, type BrowserContext, type Page } from "@playwrigh
 export type M5E2EIdentity = "user" | "operator" | "other-workspace" | "no-operator";
 
 type Credentials = { username: string; password: string };
+type SessionShape = { workspaceId: string; capability: string };
 
 const credentialsEnvironmentNames: Record<M5E2EIdentity, readonly [string, string]> = {
   user: ["M5_E2E_USER_USERNAME", "M5_E2E_USER_PASSWORD"],
   operator: ["M5_E2E_OPERATOR_USERNAME", "M5_E2E_OPERATOR_PASSWORD"],
   "other-workspace": ["M5_E2E_OTHER_WORKSPACE_USERNAME", "M5_E2E_OTHER_WORKSPACE_PASSWORD"],
   "no-operator": ["M5_E2E_NO_OPERATOR_USERNAME", "M5_E2E_NO_OPERATOR_PASSWORD"],
+};
+
+const expectedSessionShapes: Record<M5E2EIdentity, SessionShape> = {
+  user: { workspaceId: "m5-workspace", capability: "documents:read" },
+  operator: { workspaceId: "m5-workspace", capability: "operator:read" },
+  "other-workspace": { workspaceId: "m5-other-workspace", capability: "documents:read" },
+  "no-operator": { workspaceId: "m5-workspace", capability: "documents:read" },
 };
 
 function credentialsFor(identity: M5E2EIdentity): Credentials {
@@ -50,4 +58,12 @@ export async function loginAs(page: Page, identity: M5E2EIdentity): Promise<void
   }
   await page.waitForURL("**/app");
   await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  const response = await page.request.get("/api/auth/session");
+  expect(response).toBeOK();
+  const body = await response.json() as {
+    session?: { workspaceIds?: unknown; capabilities?: unknown } | null;
+  };
+  const expected = expectedSessionShapes[identity];
+  expect(body.session?.workspaceIds).toEqual(expect.arrayContaining([expected.workspaceId]));
+  expect(body.session?.capabilities).toEqual(expect.arrayContaining([expected.capability]));
 }

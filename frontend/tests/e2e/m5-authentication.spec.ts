@@ -3,6 +3,15 @@ import { expect, test } from "@playwright/test";
 import { loginAs, newRoleContext } from "./support/auth";
 import { m5E2EEnvironment } from "./support/environment";
 
+test("a real user login exposes the expected safe session shape", async ({ browser }) => {
+  const context = await newRoleContext(browser, "user");
+  const page = await context.newPage();
+
+  await loginAs(page, "user");
+
+  await context.close();
+});
+
 test("a user completes the real authorization-code login and can log out", async ({ browser }) => {
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
