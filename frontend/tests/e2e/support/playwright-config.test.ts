@@ -14,4 +14,28 @@ describe("Playwright live runner", () => {
       reuseExistingServer: false,
     });
   });
+
+  it("declares the Next start script and forwards runtime variables", async () => {
+    const packageJson = await import("../../../package.json");
+    expect(packageJson.default.scripts.start).toBe("next start");
+
+    const webServerEnv = config.webServer && !Array.isArray(config.webServer)
+      ? config.webServer.env
+      : undefined;
+    expect(webServerEnv).toBeDefined();
+    for (const name of [
+      "KEYCLOAK_AUTHORIZATION_URL",
+      "KEYCLOAK_TOKEN_URL",
+      "KEYCLOAK_JWKS_URL",
+      "KEYCLOAK_ISSUER",
+      "KEYCLOAK_AUDIENCE",
+      "KEYCLOAK_CLIENT_ID",
+      "KEYCLOAK_REDIRECT_URI",
+      "KNORA_API_URL",
+      "KNORA_BACKEND_URL",
+      "SESSION_SECRET",
+    ]) {
+      expect(webServerEnv).toHaveProperty(name);
+    }
+  });
 });
