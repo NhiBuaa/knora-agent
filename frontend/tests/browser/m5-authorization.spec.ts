@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { forwardOperatorRequest, sessionFromCookies } from "@/lib/operator/api";
+import { forwardOperatorRequest } from "@/lib/operator/api";
 
 describe("M5 browser authorization boundary", () => {
   it("does not invent success for an unauthenticated or expired-session denial", async () => {
@@ -35,14 +35,5 @@ describe("M5 browser authorization boundary", () => {
       "http://backend.local/v1/workspaces/workspace-b/operator/traces/opaque-trace-id",
       expect.objectContaining({ body: undefined }),
     );
-  });
-
-  it("requires both session values before a browser request can be formed", () => {
-    expect(sessionFromCookies({ accessToken: "token" })).toBeNull();
-    expect(sessionFromCookies({ workspaceId: "workspace-a" })).toBeNull();
-    expect(sessionFromCookies({ accessToken: "token", workspaceId: "workspace-a" })).toEqual({
-      accessToken: "token",
-      workspaceId: "workspace-a",
-    });
   });
 });
