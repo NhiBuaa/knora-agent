@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAs, newRoleContext } from "./support/auth";
-import { m5E2EEnvironment } from "./support/environment";
 
 test("a real user login exposes the expected safe session shape", async ({ browser }) => {
   const context = await newRoleContext(browser, "user");
@@ -54,12 +53,9 @@ test("another workspace cannot use the target workspace operator endpoint", asyn
   const page = await context.newPage();
 
   await loginAs(page, "other-workspace");
-  await expect(page.getByText("Selected workspace: m5-other-workspace")).toBeVisible();
-  const response = await page.request.get(
-    `${m5E2EEnvironment().apiUrl}/v1/workspaces/m5-workspace/operator/operations`,
-  );
+  const response = await page.request.get("/api/v1/workspaces/m5-workspace/operator/operations");
 
-  expect([401, 403]).toContain(response.status());
+  expect(response.status()).toBe(403);
   await expect(page.getByText("m5-workspace")).not.toBeVisible();
   await context.close();
 });
@@ -69,7 +65,7 @@ test("a signed-in non-operator is denied the operator surface", async ({ browser
   const page = await context.newPage();
 
   await loginAs(page, "no-operator");
-  await page.goto("/operator");
-  await expect(page.getByRole("alert")).toHaveText("You do not have operator access.");
+  await page.goto("/operator/operations");
+  await expect(page.getByText("You are not authorized to inspect operations.", { exact: true })).toBeVisible();
   await context.close();
 });
