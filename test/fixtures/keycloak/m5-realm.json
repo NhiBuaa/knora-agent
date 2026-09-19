@@ -64,6 +64,17 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true"
           }
+        },
+        {
+          "name": "knora-web audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "knora-web",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
         }
       ]
     }
@@ -118,8 +129,9 @@
       "attributes": {
         "workspace_id": ["m5-other-workspace"],
         "workspace_ids": ["m5-other-workspace"],
-        "capabilities": ["documents:read", "documents:write", "questions:ask"]
+        "capabilities": ["documents:read", "documents:write", "questions:ask", "operator:read"]
       },
+      "realmRoles": ["operator"],
       "credentials": [{"type": "password", "value": "m5-other-workspace-password", "temporary": false}]
     },
     {

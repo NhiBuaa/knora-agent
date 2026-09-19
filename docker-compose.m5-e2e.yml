@@ -13,6 +13,9 @@ services:
     environment:
       KNORA_OBJECT_STORE_S3_ACCESS_KEY: m5-e2e-minio-access
       KNORA_OBJECT_STORE_S3_SECRET_KEY: m5-e2e-minio-secret
+      KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/m5-e2e
+      KNORA_KEYCLOAK_AUDIENCE: knora-web
+      KNORA_KEYCLOAK_JWKS_URL: http://keycloak-m5-e2e:8080/realms/m5-e2e/protocol/openid-connect/certs
 
   keycloak-m5-e2e:
     image: quay.io/keycloak/keycloak:26.3.3

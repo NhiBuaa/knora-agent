@@ -74,4 +74,29 @@ if ($claims.capabilities -isnot [Array] -or $claims.capabilities -notcontains 'd
     throw 'The test token must include capabilities as an array with document and operator access.'
 }
 
-Write-Output 'M5 E2E Keycloak token claims and API readiness validation passed.'
+$otherWorkspaceToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+    grant_type = 'password'
+    client_id = 'knora-web'
+    username = 'm5-other-workspace'
+    password = 'm5-other-workspace-password'
+}
+$otherPayloadPart = $otherWorkspaceToken.access_token.Split('.')[1].Replace('-', '+').Replace('_', '/')
+switch ($otherPayloadPart.Length % 4) {
+    2 { $otherPayloadPart += '==' }
+    3 { $otherPayloadPart += '=' }
+}
+$otherClaims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($otherPayloadPart)) | ConvertFrom-Json
+if ($otherClaims.workspace_id -ne 'm5-other-workspace' -or $otherClaims.capabilities -isnot [Array] -or $otherClaims.capabilities -notcontains 'operator:read') {
+    throw 'The cross-workspace test identity must be an operator in m5-other-workspace.'
+}
+try {
+    $crossWorkspaceResponse = Invoke-WebRequest -UseBasicParsing -Headers @{ Authorization = "Bearer $($otherWorkspaceToken.access_token)" } 'http://127.0.0.1:8000/v1/workspaces/m5-workspace/operator/operations'
+    $crossWorkspaceStatus = $crossWorkspaceResponse.StatusCode
+} catch {
+    $crossWorkspaceStatus = [int]$_.Exception.Response.StatusCode
+}
+if ($crossWorkspaceStatus -ne 403) {
+    throw "The other-workspace operator bearer request must return HTTP 403, got $crossWorkspaceStatus."
+}
+
+Write-Output 'M5 E2E Keycloak token claims, API readiness, and cross-workspace authorization validation passed.'
