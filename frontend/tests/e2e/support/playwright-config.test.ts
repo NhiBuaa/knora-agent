@@ -3,6 +3,20 @@ import { describe, expect, it } from "vitest";
 process.env.M5_E2E_BASE_URL ??= "http://localhost:3000";
 process.env.M5_E2E_API_URL ??= "http://localhost:8000";
 process.env.M5_E2E_KEYCLOAK_ISSUER ??= "http://localhost:8180/realms/m5-e2e";
+for (const [name, value] of Object.entries({
+  KEYCLOAK_AUTHORIZATION_URL: "sentinel-authorization-url",
+  KEYCLOAK_TOKEN_URL: "sentinel-token-url",
+  KEYCLOAK_JWKS_URL: "sentinel-jwks-url",
+  KEYCLOAK_ISSUER: "sentinel-issuer",
+  KEYCLOAK_AUDIENCE: "sentinel-audience",
+  KEYCLOAK_CLIENT_ID: "sentinel-client-id",
+  KEYCLOAK_REDIRECT_URI: "sentinel-redirect-uri",
+  KNORA_API_URL: "sentinel-api-url",
+  KNORA_BACKEND_URL: "sentinel-backend-url",
+  SESSION_SECRET: "sentinel-session-secret",
+})) {
+  process.env[name] = value;
+}
 
 const { default: config } = await import("../../../playwright.config");
 
@@ -23,19 +37,21 @@ describe("Playwright live runner", () => {
       ? config.webServer.env
       : undefined;
     expect(webServerEnv).toBeDefined();
-    for (const name of [
-      "KEYCLOAK_AUTHORIZATION_URL",
-      "KEYCLOAK_TOKEN_URL",
-      "KEYCLOAK_JWKS_URL",
-      "KEYCLOAK_ISSUER",
-      "KEYCLOAK_AUDIENCE",
-      "KEYCLOAK_CLIENT_ID",
-      "KEYCLOAK_REDIRECT_URI",
-      "KNORA_API_URL",
-      "KNORA_BACKEND_URL",
-      "SESSION_SECRET",
-    ]) {
-      expect(webServerEnv).toHaveProperty(name);
-    }
+    const expectedRuntimeEnvironment = {
+      KEYCLOAK_AUTHORIZATION_URL: "sentinel-authorization-url",
+      KEYCLOAK_TOKEN_URL: "sentinel-token-url",
+      KEYCLOAK_JWKS_URL: "sentinel-jwks-url",
+      KEYCLOAK_ISSUER: "sentinel-issuer",
+      KEYCLOAK_AUDIENCE: "sentinel-audience",
+      KEYCLOAK_CLIENT_ID: "sentinel-client-id",
+      KEYCLOAK_REDIRECT_URI: "sentinel-redirect-uri",
+      KNORA_API_URL: "sentinel-api-url",
+      KNORA_BACKEND_URL: "sentinel-backend-url",
+      SESSION_SECRET: "sentinel-session-secret",
+      M5_E2E_BASE_URL: "http://localhost:3000",
+      M5_E2E_API_URL: "http://localhost:8000",
+      M5_E2E_KEYCLOAK_ISSUER: "http://localhost:8180/realms/m5-e2e",
+    };
+    expect(webServerEnv).toMatchObject(expectedRuntimeEnvironment);
   });
 });
