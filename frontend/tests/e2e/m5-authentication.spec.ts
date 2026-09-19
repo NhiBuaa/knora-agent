@@ -18,13 +18,14 @@ test("a user completes the real authorization-code login and can log out", async
   await context.close();
 });
 
-test("a visitor with a missing or expired session is sent to sign in before workspace content is shown", async ({ browser }) => {
+test("a visitor with a missing or expired session sees the explicit unavailable workspace state", async ({ browser }) => {
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
 
   await page.goto("/app");
-  await expect(page).toHaveURL(/\/api\/auth\/login/);
-  await expect(page.getByRole("heading", { name: "Workspace" })).not.toBeVisible();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  await expect(page.getByText("No workspace is available for this session.", { exact: true })).toBeVisible();
   await context.close();
 });
 
