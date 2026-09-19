@@ -16,6 +16,7 @@ services:
       KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/m5-e2e
       KNORA_KEYCLOAK_AUDIENCE: knora-web
       KNORA_KEYCLOAK_JWKS_URL: http://keycloak-m5-e2e:8080/realms/m5-e2e/protocol/openid-connect/certs
+      KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS: 1
 
   keycloak-m5-e2e:
     image: quay.io/keycloak/keycloak:26.3.3

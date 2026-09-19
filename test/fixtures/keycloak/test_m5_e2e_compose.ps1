@@ -33,6 +33,26 @@ if (-not $hasExpectedPort) {
     throw 'keycloak-m5-e2e must publish 127.0.0.1:8180 to container port 8080.'
 }
 
+$keycloakVolume = 'm5-e2e-verification_keycloak_m5_e2e_data'
+& docker compose @composeFiles stop keycloak-m5-e2e
+if ($LASTEXITCODE -ne 0) {
+    throw 'The M5 E2E Keycloak service could not be stopped for realm reset.'
+}
+& docker compose @composeFiles rm -f keycloak-m5-e2e
+if ($LASTEXITCODE -ne 0) {
+    throw 'The M5 E2E Keycloak service could not be removed for realm reset.'
+}
+$volumeName = (& docker volume inspect $keycloakVolume --format '{{.Name}}' 2>$null)
+if ($LASTEXITCODE -eq 0) {
+    if ($volumeName -ne $keycloakVolume) {
+        throw "Refusing to remove unexpected Keycloak volume: $volumeName"
+    }
+    & docker volume rm $keycloakVolume
+    if ($LASTEXITCODE -ne 0) {
+        throw "The exact M5 E2E Keycloak volume could not be removed: $keycloakVolume"
+    }
+}
+
 & docker compose @composeFiles up -d postgres minio minio-init api keycloak-m5-e2e
 if ($LASTEXITCODE -ne 0) {
     throw 'The M5 E2E Compose services did not start.'
@@ -99,4 +119,20 @@ if ($crossWorkspaceStatus -ne 403) {
     throw "The other-workspace operator bearer request must return HTTP 403, got $crossWorkspaceStatus."
 }
 
-Write-Output 'M5 E2E Keycloak token claims, API readiness, and cross-workspace authorization validation passed.'
+$noOperatorToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+    grant_type = 'password'
+    client_id = 'knora-web'
+    username = 'm5-no-operator'
+    password = 'm5-no-operator-password'
+}
+try {
+    $noOperatorResponse = Invoke-WebRequest -UseBasicParsing -Headers @{ Authorization = "Bearer $($noOperatorToken.access_token)" } 'http://127.0.0.1:8000/v1/workspaces/m5-workspace/operator/operations'
+    $noOperatorStatus = $noOperatorResponse.StatusCode
+} catch {
+    $noOperatorStatus = [int]$_.Exception.Response.StatusCode
+}
+if ($noOperatorStatus -ne 403) {
+    throw "The same-workspace no-operator bearer request must return HTTP 403, got $noOperatorStatus."
+}
+
+Write-Output 'M5 E2E Keycloak token claims, API readiness, and authorization-denial validation passed.'
