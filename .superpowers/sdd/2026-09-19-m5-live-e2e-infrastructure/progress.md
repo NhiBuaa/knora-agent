@@ -85,3 +85,18 @@ The evidence contract is now complete through 12 append-only supersessions: 11 n
 scenario records carry the literal `environment: "live-keycloak-playwright"`, and the existing
 deletion supersession carries the same environment plus its `UNAVAILABLE` outcome. M5.4 remains
 partially verified and the release gate is not complete.
+
+### Task 5 complete live fault gate (2026-09-20)
+
+- Tested product commit: `49a1f8f2c94a5866ad689f5ada3331023dd3267e`.
+- Load-bearing gates passed: bare backend pytest `1054 passed, 3 skipped`; Ruff; Docker Compose
+  config; `git diff --check`; frontend Vitest `49 passed`; typecheck; lint; production build; and
+  npm audit (`0 vulnerabilities`).
+- Live Playwright: `14 passed` through real Keycloak authorization-code plus PKCE, Next.js BFF,
+  backend authorization, and Chromium. The provider-failure and stream-interruption scenarios
+  each passed with their expected public failure state and no final answer, citations, or trace.
+- Appended sanitized JSONL records for `PROVIDER-FAILURE` and `STREAM-INTERRUPTION` with the
+  exact `environment: "live-keycloak-playwright"` literal and current tested product commit.
+- The provider/interruption blocker is removed. Deletion remains unavailable as
+  `blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`; this is not a successful deletion and the M5.4
+  release gate remains unclaimed.
