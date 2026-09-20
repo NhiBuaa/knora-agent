@@ -60,7 +60,7 @@
   ```powershell
   py -3 -m venv .venv
   .\.venv\Scripts\python -m pip install --upgrade pip
-  .\.venv\Scripts\python -m pip install -e .\backend
+  .\.venv\Scripts\python -m pip install -e ".\backend[dev]"
   ```
 
   Do not copy the shared environment and do not install the primary checkout.
