@@ -73,3 +73,10 @@
 - Deletion remains unavailable evidence: `blocked` /
   `DOCUMENT_DELETION_POLICY_UNAVAILABLE` is not a successful deletion.
 - This evidence does not claim M5.4 or the release gate complete.
+
+### Evidence correction
+
+The `USER-DELETION-POLICY` Playwright test execution passed, but its observed public outcome is
+`UNAVAILABLE`: `blocked` / `DOCUMENT_DELETION_POLICY_UNAVAILABLE`. The append-only correction
+record supersedes the prior `LIVE_E2E_PASS` classification for that scenario. The 12-test command
+result remains a test-execution count; it is not a claim of 12 successful product outcomes.
