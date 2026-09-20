@@ -21,9 +21,9 @@ for (const [name, value] of Object.entries({
 const { default: config, m5E2ERuntimeEnvironment } = await import("../../../playwright.config");
 
 describe("Playwright live runner", () => {
-  it("starts a deterministic production web server before tests", () => {
+  it("starts a deterministic local development web server before tests", () => {
     expect(config.webServer).toMatchObject({
-      command: "npm run build && npm run start -- --port 3000",
+      command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
       url: "http://localhost:3000",
       reuseExistingServer: false,
     });

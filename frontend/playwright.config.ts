@@ -55,7 +55,7 @@ export default defineConfig({
     ...devices["Desktop Chrome"],
   },
   webServer: {
-    command: "npm run build && npm run start -- --port 3000",
+    command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
     url: environment.baseUrl,
     timeout: 120_000,
     reuseExistingServer: false,
