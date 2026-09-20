@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { loginAs, newRoleContext } from "./support/auth";
+import { armM5E2EFault, loginAs, newRoleContext } from "./support/auth";
 
 test.describe.configure({ mode: "serial" });
 
@@ -18,6 +18,36 @@ test("a user sees a refusal as non-answer through the question UI", async ({ bro
   await page.getByRole("textbox", { name: "Question" }).fill(absentFact);
   await page.getByRole("button", { name: "Ask" }).click();
   await expect(page.getByText(/^No answer:/).first()).toBeVisible();
+  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
+  await context.close();
+});
+
+test("a user sees a provider failure without a final answer or citation", async ({ browser }) => {
+  const context = await newRoleContext(browser, "user");
+  const page = await context.newPage();
+
+  await loginAs(page, "user");
+  await armM5E2EFault(page, "provider_failure");
+  await page.getByRole("link", { name: "Questions" }).click();
+  await page.getByRole("textbox", { name: "Question" }).fill("How does Knora answer questions?");
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Request failed: PROVIDER_REQUEST_FAILED" }).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Citations" })).not.toBeVisible();
+  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
+  await context.close();
+});
+
+test("a user sees an interrupted request without a final answer or citation", async ({ browser }) => {
+  const context = await newRoleContext(browser, "user");
+  const page = await context.newPage();
+
+  await loginAs(page, "user");
+  await armM5E2EFault(page, "stream_interruption");
+  await page.getByRole("link", { name: "Questions" }).click();
+  await page.getByRole("textbox", { name: "Question" }).fill("What can Knora tell me about this workspace?");
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "The request was interrupted. It was not completed." }).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Citations" })).not.toBeVisible();
   await expect(page.getByText(/^Trace:/)).not.toBeVisible();
   await context.close();
 });

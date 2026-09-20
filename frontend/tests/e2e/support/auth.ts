@@ -1,6 +1,7 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 export type M5E2EIdentity = "user" | "delete-user" | "operator" | "other-workspace" | "no-operator";
+export type M5E2EFaultScenario = "provider_failure" | "stream_interruption";
 export type M5E2EResult = {
   scenario: string;
   identity: M5E2EIdentity;
@@ -90,4 +91,19 @@ export async function loginAs(page: Page, identity: M5E2EIdentity): Promise<void
   expect(body.session?.workspaceIds).toEqual([expected.workspaceId]);
   expect(body.session?.capabilities).toEqual(expect.any(Array));
   expect([...(body.session?.capabilities as string[])].sort()).toEqual([...expected.capabilities].sort());
+}
+
+export async function armM5E2EFault(page: Page, scenario: M5E2EFaultScenario): Promise<void> {
+  const sessionResponse = await page.request.get("/api/auth/session");
+  expect(sessionResponse).toBeOK();
+  const body = await sessionResponse.json() as { session?: { workspaceIds?: unknown } | null };
+  const workspaceIds = Array.isArray(body.session?.workspaceIds)
+    ? body.session.workspaceIds.filter((workspaceId): workspaceId is string => typeof workspaceId === "string")
+    : [];
+  if (workspaceIds.length !== 1) throw new Error("M5 live E2E session did not expose exactly one Workspace.");
+
+  const armedResponse = await page.request.post("/api/m5-e2e/faults", {
+    data: { workspace_id: workspaceIds[0], scenario },
+  });
+  if (!armedResponse.ok()) throw new Error("M5 live E2E fault setup failed.");
 }
