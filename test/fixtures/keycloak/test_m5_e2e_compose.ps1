@@ -101,17 +101,32 @@ $tokenResponse = Invoke-RestMethod -Method Post -ContentType 'application/x-www-
     username = 'm5-operator'
     password = 'm5-operator-password'
 }
+$userToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+    grant_type = 'password'
+    client_id = 'knora-web'
+    username = 'm5-user'
+    password = 'm5-user-password'
+}
+$userPayloadPart = $userToken.access_token.Split('.')[1].Replace('-', '+').Replace('_', '/')
+switch ($userPayloadPart.Length % 4) {
+    2 { $userPayloadPart += '==' }
+    3 { $userPayloadPart += '=' }
+}
+$userClaims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($userPayloadPart)) | ConvertFrom-Json
+if ($userClaims.workspace_id -ne 'm5-workspace' -or $userClaims.workspace_ids -isnot [Array] -or (@($userClaims.workspace_ids) -join '|') -ne 'm5-workspace' -or $userClaims.capabilities -isnot [Array] -or ((@($userClaims.capabilities) | Sort-Object) -join '|') -ne 'documents:read|documents:write|questions:ask') {
+    throw 'The user fixture token must contain exactly its approved identity and capabilities.'
+}
 $payloadPart = $tokenResponse.access_token.Split('.')[1].Replace('-', '+').Replace('_', '/')
 switch ($payloadPart.Length % 4) {
     2 { $payloadPart += '==' }
     3 { $payloadPart += '=' }
 }
 $claims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payloadPart)) | ConvertFrom-Json
-if ($claims.workspace_ids -isnot [Array] -or $claims.workspace_ids -notcontains 'm5-workspace') {
-    throw 'The test token must include workspace_ids as an array containing m5-workspace.'
+if ($claims.workspace_id -ne 'm5-workspace' -or $claims.workspace_ids -isnot [Array] -or (@($claims.workspace_ids) -join '|') -ne 'm5-workspace') {
+    throw 'The test token must contain exactly the m5-workspace identity.'
 }
-if ($claims.capabilities -isnot [Array] -or $claims.capabilities -notcontains 'documents:read' -or $claims.capabilities -notcontains 'operator:read') {
-    throw 'The test token must include capabilities as an array with document and operator access.'
+if ($claims.capabilities -isnot [Array] -or ((@($claims.capabilities) | Sort-Object) -join '|') -ne 'documents:read|documents:write|operator:read|questions:ask') {
+    throw 'The operator fixture token must contain exactly its approved capabilities.'
 }
 
 $deleteUserToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
@@ -126,8 +141,8 @@ switch ($deleteUserPayloadPart.Length % 4) {
     3 { $deleteUserPayloadPart += '=' }
 }
 $deleteUserClaims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($deleteUserPayloadPart)) | ConvertFrom-Json
-if ($deleteUserClaims.workspace_id -ne 'm5-workspace' -or $deleteUserClaims.workspace_ids -isnot [Array] -or $deleteUserClaims.workspace_ids -notcontains 'm5-workspace' -or $deleteUserClaims.capabilities -isnot [Array] -or $deleteUserClaims.capabilities -notcontains 'documents:read' -or $deleteUserClaims.capabilities -notcontains 'documents:write' -or $deleteUserClaims.capabilities -notcontains 'documents:delete' -or $deleteUserClaims.capabilities -notcontains 'questions:ask') {
-    throw 'The delete-user fixture token must include the m5-workspace document deletion capabilities.'
+if ($deleteUserClaims.workspace_id -ne 'm5-workspace' -or $deleteUserClaims.workspace_ids -isnot [Array] -or (@($deleteUserClaims.workspace_ids) -join '|') -ne 'm5-workspace' -or $deleteUserClaims.capabilities -isnot [Array] -or ((@($deleteUserClaims.capabilities) | Sort-Object) -join '|') -ne 'documents:delete|documents:read|documents:write|questions:ask') {
+    throw 'The delete-user fixture token must contain exactly its approved capabilities.'
 }
 
 $otherWorkspaceToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
@@ -142,8 +157,8 @@ switch ($otherPayloadPart.Length % 4) {
     3 { $otherPayloadPart += '=' }
 }
 $otherClaims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($otherPayloadPart)) | ConvertFrom-Json
-if ($otherClaims.workspace_id -ne 'm5-other-workspace' -or $otherClaims.capabilities -isnot [Array] -or $otherClaims.capabilities -notcontains 'operator:read') {
-    throw 'The cross-workspace test identity must be an operator in m5-other-workspace.'
+if ($otherClaims.workspace_id -ne 'm5-other-workspace' -or $otherClaims.workspace_ids -isnot [Array] -or (@($otherClaims.workspace_ids) -join '|') -ne 'm5-other-workspace' -or $otherClaims.capabilities -isnot [Array] -or ((@($otherClaims.capabilities) | Sort-Object) -join '|') -ne 'documents:read|documents:write|operator:read|questions:ask') {
+    throw 'The cross-workspace fixture token must contain exactly its approved identity and capabilities.'
 }
 try {
     $crossWorkspaceResponse = Invoke-WebRequest -UseBasicParsing -Headers @{ Authorization = "Bearer $($otherWorkspaceToken.access_token)" } 'http://127.0.0.1:8000/v1/workspaces/m5-workspace/operator/operations'
@@ -160,6 +175,15 @@ $noOperatorToken = Invoke-RestMethod -Method Post -ContentType 'application/x-ww
     client_id = 'knora-web'
     username = 'm5-no-operator'
     password = 'm5-no-operator-password'
+}
+$noOperatorPayloadPart = $noOperatorToken.access_token.Split('.')[1].Replace('-', '+').Replace('_', '/')
+switch ($noOperatorPayloadPart.Length % 4) {
+    2 { $noOperatorPayloadPart += '==' }
+    3 { $noOperatorPayloadPart += '=' }
+}
+$noOperatorClaims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($noOperatorPayloadPart)) | ConvertFrom-Json
+if ($noOperatorClaims.workspace_id -ne 'm5-workspace' -or $noOperatorClaims.workspace_ids -isnot [Array] -or (@($noOperatorClaims.workspace_ids) -join '|') -ne 'm5-workspace' -or $noOperatorClaims.capabilities -isnot [Array] -or ((@($noOperatorClaims.capabilities) | Sort-Object) -join '|') -ne 'documents:read|documents:write|questions:ask') {
+    throw 'The no-operator fixture token must contain exactly its approved identity and capabilities.'
 }
 try {
     $noOperatorResponse = Invoke-WebRequest -UseBasicParsing -Headers @{ Authorization = "Bearer $($noOperatorToken.access_token)" } 'http://127.0.0.1:8000/v1/workspaces/m5-workspace/operator/operations'

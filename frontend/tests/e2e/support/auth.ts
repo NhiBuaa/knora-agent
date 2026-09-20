@@ -87,6 +87,7 @@ export async function loginAs(page: Page, identity: M5E2EIdentity): Promise<void
     session?: { workspaceIds?: unknown; capabilities?: unknown } | null;
   };
   const expected = expectedSessionShapes[identity];
-  expect(body.session?.workspaceIds).toEqual(expect.arrayContaining([expected.workspaceId]));
-  expect(body.session?.capabilities).toEqual(expect.arrayContaining([...expected.capabilities]));
+  expect(body.session?.workspaceIds).toEqual([expected.workspaceId]);
+  expect(body.session?.capabilities).toEqual(expect.any(Array));
+  expect([...(body.session?.capabilities as string[])].sort()).toEqual([...expected.capabilities].sort());
 }

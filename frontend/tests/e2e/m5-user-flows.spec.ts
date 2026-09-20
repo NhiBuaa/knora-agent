@@ -10,10 +10,19 @@ function uniqueDocumentName(): string {
   return `m5-live-user-${Date.now()}-${Math.random().toString(36).slice(2)}.md`;
 }
 
-test.afterAll(() => {
-  // The Task 5 evidence step consumes records in memory. Do not serialize browser
-  // sessions, network traces, or any other credential-bearing state here.
-  expect(results).toEqual(expect.arrayContaining([]));
+test("a user sees a refusal as non-answer through the question UI", async ({ browser }) => {
+  const context = await newRoleContext(browser, "user");
+  const page = await context.newPage();
+
+  await loginAs(page, "user");
+  await page.getByRole("link", { name: "Questions" }).click();
+  const absentFact = `M5 absent fixture fact ${Date.now()} ${Math.random().toString(36).slice(2)}`;
+  await page.getByRole("textbox", { name: "Question" }).fill(absentFact);
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByText(/^No answer:/).first()).toBeVisible();
+  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
+  results.push(observedResult("question-refusal", "user", "passed", "refusal rendered without a completed answer"));
+  await context.close();
 });
 
 test("a user uploads a document and observes its authoritative lifecycle through /app", async ({ browser }) => {
@@ -34,8 +43,8 @@ test("a user uploads a document and observes its authoritative lifecycle through
   await expect(documentLink).toBeVisible();
   await documentLink.click();
   await expect(page.getByRole("heading", { name: sourceName })).toBeVisible();
-  await expect(page.getByText("Serving", { exact: true })).toBeVisible();
-  await expect(page.getByText("Ingestion", { exact: true })).toBeVisible();
+  await expect(page.getByText("current", { exact: true })).toBeVisible();
+  await expect(page.getByText("unavailable", { exact: true })).toBeVisible();
   results.push(observedResult("document-upload-serving", "user", "passed", "document detail rendered"));
   await context.close();
 });
@@ -78,23 +87,12 @@ test("a delete-capable user requests deletion through document UI", async ({ bro
   await expect(documentLink).toBeVisible();
   await documentLink.click();
   await page.getByRole("button", { name: "Request deletion" }).click();
-  await expect(page.getByRole("status")).toHaveText(/Deletion request: (requested|blocked|processing|succeeded|failed)( \(.+\))?/);
+  const deletionStatus = page.getByRole("status");
+  await expect(deletionStatus).toHaveText(/Deletion request: (requested|queued|blocked|processing|succeeded|failed)( \(.+\))?/);
   await expect(page.getByRole("heading", { name: sourceName })).toBeVisible();
-  results.push(observedResult("deletion-request", "delete-user", "passed", "deletion request rendered"));
-  await context.close();
-});
-
-test("a user sees a refusal as non-answer through the question UI", async ({ browser }) => {
-  const context = await newRoleContext(browser, "user");
-  const page = await context.newPage();
-
-  await loginAs(page, "user");
-  await page.getByRole("link", { name: "Questions" }).click();
-  await page.getByRole("textbox", { name: "Question" }).fill(`What is the unavailable M5 fact ${Date.now()}?`);
-  await page.getByRole("button", { name: "Ask" }).click();
-  await expect(page.getByText(/^No answer:/).first()).toBeVisible();
-  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
-  results.push(observedResult("question-refusal", "user", "passed", "refusal rendered without a completed answer"));
+  const deletionState = await deletionStatus.textContent();
+  const accepted = deletionState === "Deletion request: requested" || deletionState === "Deletion request: queued";
+  results.push(observedResult("deletion-request", "delete-user", accepted ? "passed" : "unavailable", accepted ? "deletion request rendered" : "deletion policy unavailable"));
   await context.close();
 });
 
@@ -104,9 +102,9 @@ test("a question unavailable state is not a completed answer or citation", async
 
   await loginAs(page, "user");
   await page.getByRole("link", { name: "Ask a question" }).click();
-  await page.getByRole("textbox", { name: "Question" }).fill(`What unavailable M5 question state exists ${Date.now()}?`);
+  await page.getByRole("textbox", { name: "Question" }).fill("What does the live provider failure presentation contain?");
   await page.getByRole("button", { name: "Ask" }).click();
-  await expect(page.getByText(/^(Request failed:|No answer:)/).first()).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveText("Request failed: INTERNAL_ERROR");
   await expect(page.getByRole("region", { name: "Citations" })).not.toBeVisible();
   await expect(page.getByText(/^Trace:/)).not.toBeVisible();
   results.push(observedResult("question-unavailable", "user", "unavailable", "unavailable state rendered without a completed answer"));
