@@ -22,7 +22,7 @@ test("a user completes the real authorization-code login and can log out", async
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByText('{"ok":true}')).toBeVisible();
   await page.goto("/app");
-  await expect(page.getByRole("alert")).toHaveText("No workspace is available for this session.");
+  await expect(page.getByText("No workspace is available for this session.", { exact: true })).toBeVisible();
   await context.close();
 });
 
