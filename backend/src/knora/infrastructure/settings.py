@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     keycloak_audience: str | None = None
     keycloak_jwks_url: str | None = None
     keycloak_jwks_cache_ttl_seconds: int = 300
+    m5_e2e_faults_enabled: bool = False
     retrieval_configuration_id: str = "retrieval-m1-v1"
     provider_mode: str = "deterministic-local"
     gemini_api_key: SecretStr | None = None
