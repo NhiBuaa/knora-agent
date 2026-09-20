@@ -114,6 +114,22 @@ if ($claims.capabilities -isnot [Array] -or $claims.capabilities -notcontains 'd
     throw 'The test token must include capabilities as an array with document and operator access.'
 }
 
+$deleteUserToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+    grant_type = 'password'
+    client_id = 'knora-web'
+    username = 'm5-delete-user'
+    password = 'm5-delete-user-password'
+}
+$deleteUserPayloadPart = $deleteUserToken.access_token.Split('.')[1].Replace('-', '+').Replace('_', '/')
+switch ($deleteUserPayloadPart.Length % 4) {
+    2 { $deleteUserPayloadPart += '==' }
+    3 { $deleteUserPayloadPart += '=' }
+}
+$deleteUserClaims = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($deleteUserPayloadPart)) | ConvertFrom-Json
+if ($deleteUserClaims.workspace_id -ne 'm5-workspace' -or $deleteUserClaims.workspace_ids -isnot [Array] -or $deleteUserClaims.workspace_ids -notcontains 'm5-workspace' -or $deleteUserClaims.capabilities -isnot [Array] -or $deleteUserClaims.capabilities -notcontains 'documents:read' -or $deleteUserClaims.capabilities -notcontains 'documents:write' -or $deleteUserClaims.capabilities -notcontains 'documents:delete' -or $deleteUserClaims.capabilities -notcontains 'questions:ask') {
+    throw 'The delete-user fixture token must include the m5-workspace document deletion capabilities.'
+}
+
 $otherWorkspaceToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
     client_id = 'knora-web'

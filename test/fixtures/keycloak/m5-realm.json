@@ -135,6 +135,20 @@
       "credentials": [{"type": "password", "value": "m5-other-workspace-password", "temporary": false}]
     },
     {
+      "username": "m5-delete-user",
+      "firstName": "M5",
+      "lastName": "Delete User",
+      "email": "m5-delete-user@example.test",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "workspace_id": ["m5-workspace"],
+        "workspace_ids": ["m5-workspace"],
+        "capabilities": ["documents:read", "documents:write", "documents:delete", "questions:ask"]
+      },
+      "credentials": [{"type": "password", "value": "m5-delete-user-password", "temporary": false}]
+    },
+    {
       "username": "m5-no-operator",
       "firstName": "M5",
       "lastName": "No Operator",

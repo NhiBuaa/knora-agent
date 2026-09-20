@@ -1,22 +1,30 @@
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
-export type M5E2EIdentity = "user" | "operator" | "other-workspace" | "no-operator";
+export type M5E2EIdentity = "user" | "delete-user" | "operator" | "other-workspace" | "no-operator";
+export type M5E2EResult = {
+  scenario: string;
+  identity: M5E2EIdentity;
+  outcome: "passed" | "unavailable" | "denied";
+  observedState: string;
+};
 
 type Credentials = { username: string; password: string };
-type SessionShape = { workspaceId: string; capability: string };
+type SessionShape = { workspaceId: string; capabilities: readonly string[] };
 
 const credentialsEnvironmentNames: Record<M5E2EIdentity, readonly [string, string]> = {
   user: ["M5_E2E_USER_USERNAME", "M5_E2E_USER_PASSWORD"],
+  "delete-user": ["M5_E2E_DELETE_USERNAME", "M5_E2E_DELETE_PASSWORD"],
   operator: ["M5_E2E_OPERATOR_USERNAME", "M5_E2E_OPERATOR_PASSWORD"],
   "other-workspace": ["M5_E2E_OTHER_WORKSPACE_USERNAME", "M5_E2E_OTHER_WORKSPACE_PASSWORD"],
   "no-operator": ["M5_E2E_NO_OPERATOR_USERNAME", "M5_E2E_NO_OPERATOR_PASSWORD"],
 };
 
 const expectedSessionShapes: Record<M5E2EIdentity, SessionShape> = {
-  user: { workspaceId: "m5-workspace", capability: "documents:read" },
-  operator: { workspaceId: "m5-workspace", capability: "operator:read" },
-  "other-workspace": { workspaceId: "m5-other-workspace", capability: "documents:read" },
-  "no-operator": { workspaceId: "m5-workspace", capability: "documents:read" },
+  user: { workspaceId: "m5-workspace", capabilities: ["documents:read", "documents:write", "questions:ask"] },
+  "delete-user": { workspaceId: "m5-workspace", capabilities: ["documents:read", "documents:write", "documents:delete", "questions:ask"] },
+  operator: { workspaceId: "m5-workspace", capabilities: ["documents:read", "documents:write", "questions:ask", "operator:read"] },
+  "other-workspace": { workspaceId: "m5-other-workspace", capabilities: ["documents:read", "documents:write", "questions:ask", "operator:read"] },
+  "no-operator": { workspaceId: "m5-workspace", capabilities: ["documents:read", "documents:write", "questions:ask"] },
 };
 
 function credentialsFor(identity: M5E2EIdentity): Credentials {
@@ -34,6 +42,20 @@ function credentialsFor(identity: M5E2EIdentity): Credentials {
 
 export async function newRoleContext(browser: Browser, _identity: M5E2EIdentity): Promise<BrowserContext> {
   return browser.newContext();
+}
+
+/**
+ * Keep evidence records deliberately small and browser-safe. Callers retain the
+ * returned value in memory; credentials, cookies, tokens, and raw errors never
+ * cross this boundary.
+ */
+export function observedResult(
+  scenario: string,
+  identity: M5E2EIdentity,
+  outcome: M5E2EResult["outcome"],
+  observedState: string,
+): M5E2EResult {
+  return { scenario, identity, outcome, observedState };
 }
 
 export async function loginAs(page: Page, identity: M5E2EIdentity): Promise<void> {
@@ -66,5 +88,5 @@ export async function loginAs(page: Page, identity: M5E2EIdentity): Promise<void
   };
   const expected = expectedSessionShapes[identity];
   expect(body.session?.workspaceIds).toEqual(expect.arrayContaining([expected.workspaceId]));
-  expect(body.session?.capabilities).toEqual(expect.arrayContaining([expected.capability]));
+  expect(body.session?.capabilities).toEqual(expect.arrayContaining([...expected.capabilities]));
 }
