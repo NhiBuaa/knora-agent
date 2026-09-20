@@ -3,38 +3,63 @@ import { defineConfig, devices } from "@playwright/test";
 import { m5E2EEnvironment } from "./tests/e2e/support/environment";
 import type { M5E2EEnvironment } from "./tests/e2e/support/environment";
 
-const environment = m5E2EEnvironment();
+const requiredM5Environment = [
+  ["M5_E2E_BASE_URL", "baseUrl", "http://127.0.0.1:3000"],
+  ["M5_E2E_API_URL", "apiUrl", "http://127.0.0.1:8000"],
+  ["M5_E2E_KEYCLOAK_ISSUER", "keycloakIssuer", "http://127.0.0.1:8180/realms/m5-e2e"],
+] as const;
 
-export function m5E2ERuntimeEnvironment(values: M5E2EEnvironment) {
-  const issuer = values.keycloakIssuer.replace(/\/+$/, "");
-  const runtimeValue = (name: string, fallback: string) => process.env[name]?.trim() || fallback;
+const runtimeEnvironmentNames = [
+  "KEYCLOAK_AUTHORIZATION_URL",
+  "KEYCLOAK_TOKEN_URL",
+  "KEYCLOAK_JWKS_URL",
+  "KEYCLOAK_ISSUER",
+  "KEYCLOAK_AUDIENCE",
+  "KEYCLOAK_CLIENT_ID",
+  "KEYCLOAK_REDIRECT_URI",
+  "KNORA_API_URL",
+  "KNORA_BACKEND_URL",
+  "SESSION_SECRET",
+] as const;
+
+export function validateM5E2EEnvironment(values: M5E2EEnvironment): M5E2EEnvironment {
+  for (const [name, key, expected] of requiredM5Environment) {
+    const actual = values[key];
+    if (actual !== expected) {
+      throw new Error(`M5 live E2E configuration error: ${name} must use the isolated local endpoint.`);
+    }
+  }
+  return values;
+}
+
+export function m5E2ERuntimeEnvironment(
+  values: M5E2EEnvironment,
+  ambient: Record<string, string | undefined> = process.env,
+) {
+  validateM5E2EEnvironment(values);
+  for (const name of runtimeEnvironmentNames) {
+    if (ambient[name]?.trim()) {
+      throw new Error(`M5 live E2E configuration error: ${name} must not override isolated runtime settings.`);
+    }
+  }
+
+  const issuer = values.keycloakIssuer;
 
   return {
-    KEYCLOAK_AUTHORIZATION_URL: runtimeValue(
-      "KEYCLOAK_AUTHORIZATION_URL",
-      `${issuer}/protocol/openid-connect/auth`,
-    ),
-    KEYCLOAK_TOKEN_URL: runtimeValue(
-      "KEYCLOAK_TOKEN_URL",
-      `${issuer}/protocol/openid-connect/token`,
-    ),
-    KEYCLOAK_JWKS_URL: runtimeValue(
-      "KEYCLOAK_JWKS_URL",
-      `${issuer}/protocol/openid-connect/certs`,
-    ),
-    KEYCLOAK_ISSUER: runtimeValue("KEYCLOAK_ISSUER", values.keycloakIssuer),
-    KEYCLOAK_AUDIENCE: runtimeValue("KEYCLOAK_AUDIENCE", "knora-web"),
-    KEYCLOAK_CLIENT_ID: runtimeValue("KEYCLOAK_CLIENT_ID", "knora-web"),
-    KEYCLOAK_REDIRECT_URI: runtimeValue(
-      "KEYCLOAK_REDIRECT_URI",
-      `${values.baseUrl.replace(/\/+$/, "")}/api/auth/callback`,
-    ),
-    KNORA_API_URL: runtimeValue("KNORA_API_URL", values.apiUrl),
-    KNORA_BACKEND_URL: runtimeValue("KNORA_BACKEND_URL", values.apiUrl),
-    SESSION_SECRET: runtimeValue("SESSION_SECRET", "m5-e2e-test-session-secret"),
+    KEYCLOAK_AUTHORIZATION_URL: `${issuer}/protocol/openid-connect/auth`,
+    KEYCLOAK_TOKEN_URL: `${issuer}/protocol/openid-connect/token`,
+    KEYCLOAK_JWKS_URL: `${issuer}/protocol/openid-connect/certs`,
+    KEYCLOAK_ISSUER: values.keycloakIssuer,
+    KEYCLOAK_AUDIENCE: "knora-web",
+    KEYCLOAK_CLIENT_ID: "knora-web",
+    KEYCLOAK_REDIRECT_URI: `${values.baseUrl}/api/auth/callback`,
+    KNORA_API_URL: values.apiUrl,
+    KNORA_BACKEND_URL: values.apiUrl,
+    SESSION_SECRET: "m5-e2e-test-session-secret",
   };
 }
 
+const environment = validateM5E2EEnvironment(m5E2EEnvironment());
 const runtimeEnvironment = m5E2ERuntimeEnvironment(environment);
 
 export default defineConfig({
