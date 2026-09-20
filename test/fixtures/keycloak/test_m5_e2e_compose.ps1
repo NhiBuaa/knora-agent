@@ -42,8 +42,8 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw 'The M5 E2E Keycloak service could not be removed for realm reset.'
 }
-$volumeName = (& docker volume inspect $keycloakVolume --format '{{.Name}}' 2>$null)
-if ($LASTEXITCODE -eq 0) {
+$volumeName = (& docker volume ls --filter "name=^$keycloakVolume$" --format '{{.Name}}')
+if ($volumeName) {
     if ($volumeName -ne $keycloakVolume) {
         throw "Refusing to remove unexpected Keycloak volume: $volumeName"
     }
@@ -74,6 +74,11 @@ function Wait-ForHttpSuccess([string]$uri, [string]$description) {
 
 $discovery = Wait-ForHttpSuccess 'http://127.0.0.1:8180/realms/m5-e2e/.well-known/openid-configuration' 'Keycloak discovery'
 $apiHealth = Wait-ForHttpSuccess 'http://127.0.0.1:8000/health' 'API health endpoint'
+
+$migrationOutput = @(& docker compose @composeFiles exec -T api alembic upgrade head)
+if ($LASTEXITCODE -ne 0) {
+    throw 'The M5 E2E API migration command failed.'
+}
 
 $bootstrapOutput = (@(& docker compose @composeFiles exec -T api python -m knora.adapters.cli.m5_e2e_bootstrap) -join "`n").Trim()
 if ($LASTEXITCODE -ne 0) {
