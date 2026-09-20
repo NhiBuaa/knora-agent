@@ -53,7 +53,7 @@ if ($LASTEXITCODE -eq 0) {
     }
 }
 
-& docker compose @composeFiles up -d postgres minio minio-init api keycloak-m5-e2e
+& docker compose @composeFiles up -d --build postgres minio minio-init api keycloak-m5-e2e
 if ($LASTEXITCODE -ne 0) {
     throw 'The M5 E2E Compose services did not start.'
 }
@@ -74,6 +74,14 @@ function Wait-ForHttpSuccess([string]$uri, [string]$description) {
 
 $discovery = Wait-ForHttpSuccess 'http://127.0.0.1:8180/realms/m5-e2e/.well-known/openid-configuration' 'Keycloak discovery'
 $apiHealth = Wait-ForHttpSuccess 'http://127.0.0.1:8000/health' 'API health endpoint'
+
+$bootstrapOutput = (@(& docker compose @composeFiles exec -T api python -m knora.adapters.cli.m5_e2e_bootstrap) -join "`n").Trim()
+if ($LASTEXITCODE -ne 0) {
+    throw 'The M5 E2E workspace bootstrap command failed.'
+}
+if ($bootstrapOutput -ne '{"outcome": "provisioned", "workspaces": ["m5-other-workspace", "m5-workspace"]}') {
+    throw 'The M5 E2E workspace bootstrap command returned an unexpected sanitized result.'
+}
 
 $tokenResponse = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
