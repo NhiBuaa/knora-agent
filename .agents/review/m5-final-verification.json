@@ -1,6 +1,9 @@
 {
   "slice": "M5.4",
   "subject_commit": "cbe84afabe56666aac7be389fc1828ac2cce0260",
+  "evaluated_commit_range": "50ea06b..cbe84af",
+  "sanitized_environment_startup_command": "docker compose -f docker-compose.yml -f docker-compose.m5-e2e.yml up -d --build",
+  "review_verdict": "Scoped live E2E review is clean; M5.4 release gate remains incomplete because provider-failure/interruption is BLOCKED_LIVE_E2E.",
   "status": "partially_verified_with_blocked_live_e2e_coverage",
   "verification": {
     "live_playwright": "12 passed through real Keycloak authorization-code plus PKCE, Next.js BFF, and backend authorization",
@@ -13,7 +16,7 @@
     "frontend_audit": "0 vulnerabilities",
     "ruff": "passed",
     "docker_compose_config": "passed",
-    "openapi_drift": "passed",
+    "openapi_drift": "inherited from prior evidence; not rerun in the current Task 5 evidence-only pass",
     "git_diff_check": "passed"
   },
   "e2e_blocker": "Provider-failure/interruption remains BLOCKED_LIVE_E2E because no deterministic public seam is approved. No mock or fabricated outcome was used.",
