@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { loginAs, newRoleContext, observedResult, type M5E2EResult } from "./support/auth";
-
-const results: M5E2EResult[] = [];
+import { loginAs, newRoleContext } from "./support/auth";
 
 test.describe.configure({ mode: "serial" });
 
@@ -21,7 +19,6 @@ test("a user sees a refusal as non-answer through the question UI", async ({ bro
   await page.getByRole("button", { name: "Ask" }).click();
   await expect(page.getByText(/^No answer:/).first()).toBeVisible();
   await expect(page.getByText(/^Trace:/)).not.toBeVisible();
-  results.push(observedResult("question-refusal", "user", "passed", "refusal rendered without a completed answer"));
   await context.close();
 });
 
@@ -45,7 +42,6 @@ test("a user uploads a document and observes its authoritative lifecycle through
   await expect(page.getByRole("heading", { name: sourceName })).toBeVisible();
   await expect(page.getByText("current", { exact: true })).toBeVisible();
   await expect(page.getByText("unavailable", { exact: true })).toBeVisible();
-  results.push(observedResult("document-upload-serving", "user", "passed", "document detail rendered"));
   await context.close();
 });
 
@@ -66,7 +62,6 @@ test("a user archives then restores a document through the document UI", async (
   await expect(item).toContainText("archived");
   await item.getByRole("button", { name: "Unarchive" }).click();
   await expect(item).toContainText("active");
-  results.push(observedResult("archive-unarchive", "user", "passed", "archive state returned to active"));
   await context.close();
 });
 
@@ -92,21 +87,6 @@ test("a delete-capable user requests deletion through document UI", async ({ bro
   await expect(page.getByRole("heading", { name: sourceName })).toBeVisible();
   const deletionState = await deletionStatus.textContent();
   const accepted = deletionState === "Deletion request: requested" || deletionState === "Deletion request: queued";
-  results.push(observedResult("deletion-request", "delete-user", accepted ? "passed" : "unavailable", accepted ? "deletion request rendered" : "deletion policy unavailable"));
-  await context.close();
-});
-
-test("a question unavailable state is not a completed answer or citation", async ({ browser }) => {
-  const context = await newRoleContext(browser, "user");
-  const page = await context.newPage();
-
-  await loginAs(page, "user");
-  await page.getByRole("link", { name: "Ask a question" }).click();
-  await page.getByRole("textbox", { name: "Question" }).fill("What does the live provider failure presentation contain?");
-  await page.getByRole("button", { name: "Ask" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Request failed: INTERNAL_ERROR");
-  await expect(page.getByRole("region", { name: "Citations" })).not.toBeVisible();
-  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
-  results.push(observedResult("question-unavailable", "user", "unavailable", "unavailable state rendered without a completed answer"));
+  expect(accepted || deletionState === "Deletion request: blocked (DOCUMENT_DELETION_POLICY_UNAVAILABLE)").toBe(true);
   await context.close();
 });

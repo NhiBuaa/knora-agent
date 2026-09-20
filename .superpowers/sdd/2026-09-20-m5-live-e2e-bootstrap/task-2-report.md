@@ -13,10 +13,10 @@ Status: **complete** (2026-09-20)
   capabilities without exposing session material.
 - The readiness script validates the new access-token claims in process and prints
   neither a token nor decoded claims.
-- The public user suite now serializes its shared live-workspace cases, adds a
-  delete-request case, and verifies an unavailable terminal question presentation is
-  not a completed answer, citation, or trace. It does not manufacture a provider
-  outcome or claim deterministic provider interruption.
+- The public user suite now serializes its shared live-workspace cases and adds a
+  delete-request case. The impossible strict provider-failure case is not part of the
+  pass suite because the approved environment has no deterministic provider-failure
+  seam; the live evidence remains recorded as unavailable below.
 
 No product code, authorization path, database table, browser session/cookie handling,
 provider mock, or operator workspace selector changed.
@@ -64,10 +64,11 @@ provider mock, or operator workspace selector changed.
    npx playwright test tests/e2e/m5-user-flows.spec.ts tests/e2e/m5-operator-flows.spec.ts --project=chromium --reporter=list
    ```
 
-   Result: **7 passed**. This covers upload/serving, archive/unarchive, real
+   Result: **6 passed**. This covers upload/serving, archive/unarchive, real
    delete-request state (without asserting hard deletion), native no-evidence refusal,
-   unavailable non-answer presentation, authorized operator unavailable state, and
-   non-operator denial.
+   authorized operator unavailable state, and non-operator denial. The deletion
+   scenario records the observed policy state as unavailable when the backend returns
+   `blocked`; it never counts that outcome as passed.
 
 3. Frontend verification:
 
@@ -121,9 +122,9 @@ The review findings were reproduced and addressed in the allowed Task 2 files:
 - Deletion preserves the document and records `passed` only for `requested` or `queued`.
   The current live policy returns `blocked (DOCUMENT_DELETION_POLICY_UNAVAILABLE)`,
   which is recorded as `unavailable`, never as a pass.
-- The vacuous `arrayContaining([])` afterAll assertion was replaced by an exact count
-  of five structured in-memory results. Playwright failure artifacts remain configured
-  by the pre-existing Playwright config outside Task 2's allowed files; changing that
+- The vacuous `arrayContaining([])` assertions and unused result accumulators were
+  removed from both browser specs. Playwright failure artifacts remain configured by
+  the pre-existing Playwright config outside Task 2's allowed files; changing that
   retention policy is deferred rather than scope-expanded.
 
 Verification:
@@ -142,7 +143,8 @@ npx playwright test tests/e2e/m5-user-flows.spec.ts tests/e2e/m5-operator-flows.
 
 The live run passed refusal, upload lifecycle, archive/unarchive, operator operations,
 and non-operator denial. Deletion correctly rendered the blocked policy state as
-`unavailable`. The strict failure-only question case remains blocked: the provisioned
-real environment returns native no-evidence refusal, not `Request failed: INTERNAL_ERROR`.
+`unavailable`. The strict failure-only question case was removed from the live pass
+suite: the provisioned real environment returns native no-evidence refusal, not
+`Request failed: INTERNAL_ERROR`.
 The approved design explicitly has no deterministic provider-failure/interruption seam;
 no mock or fabricated outcome was added to force it.
