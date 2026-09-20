@@ -57,6 +57,7 @@ export async function loginAs(page: Page, identity: M5E2EIdentity): Promise<void
     await Promise.all([callback, page.getByRole("button", { name: "Submit" }).click()]);
   }
   await page.waitForURL("**/app");
+  await page.goto("/app", { waitUntil: "load" });
   await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
   const response = await page.request.get("/api/auth/session");
   expect(response).toBeOK();
