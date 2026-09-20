@@ -1,10 +1,12 @@
 {
   "slice": "M5.4",
-  "subject_commit": "b7efdcd",
-  "status": "verified_with_blocked_live_browser_acceptance",
+  "subject_commit": "cbe84afabe56666aac7be389fc1828ac2cce0260",
+  "status": "partially_verified_with_blocked_live_e2e_coverage",
   "verification": {
-    "backend_pytest": "1041 passed, 3 skipped",
-    "frontend_vitest": "38 passed",
+    "live_playwright": "12 passed through real Keycloak authorization-code plus PKCE, Next.js BFF, and backend authorization",
+    "backend_pytest_with_worktree_pythonpath": "1042 passed, 3 skipped; PYTHONPATH explicitly set to C:/Developer/Projects/knora-agent-worktree/m5-e2e-verification/backend/src",
+    "backend_pytest_bare": "collection failed because the shared editable install resolves knora imports to the primary checkout; environment binding issue, not a pass",
+    "frontend_vitest": "49 passed",
     "frontend_typecheck": "passed",
     "frontend_lint": "passed",
     "frontend_build": "passed",
@@ -14,7 +16,9 @@
     "openapi_drift": "passed",
     "git_diff_check": "passed"
   },
-  "e2e_blocker": "Live browser/Keycloak acceptance remains blocked because no Playwright/browser runner or isolated Keycloak configuration is present; deterministic public-seam evidence passed and no production secrets were used.",
-  "deferred": ["Resume M5-E2E live browser cases when isolated Keycloak and browser runner are provided."],
+  "e2e_blocker": "Provider-failure/interruption remains BLOCKED_LIVE_E2E because no deterministic public seam is approved. No mock or fabricated outcome was used.",
+  "deletion_observation": "blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE is unavailable evidence, not a successful deletion.",
+  "release_gate": "M5.4 release gate is not claimed complete.",
+  "deferred": ["Provide an approved deterministic public provider-failure/interruption seam before claiming that live coverage."],
   "secrets": "none"
 }
