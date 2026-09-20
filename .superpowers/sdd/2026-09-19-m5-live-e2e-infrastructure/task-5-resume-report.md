@@ -10,6 +10,9 @@ scenario observations. The 12 Playwright test executions passed, but the product
 is 11 `LIVE_E2E_PASS` scenarios and one `UNAVAILABLE` deletion-policy observation. The appended
 supersession record classifies `USER-DELETION-POLICY` as `UNAVAILABLE` with public state `blocked`
 / `DOCUMENT_DELETION_POLICY_UNAVAILABLE`; it does not rewrite the earlier append-only record.
+Eleven additional append-only supersessions provide the literal
+`environment: "live-keycloak-playwright"` required by the evidence contract for every remaining
+scenario; the deletion supersession already carries that literal.
 Each detailed record contains the scenario ID, full sanitized test command, identity class,
 outcome, observed public state, and a sanitized artifact reference. It does not contain
 credentials, tokens, cookies, database URLs, raw exceptions, or browser output artifacts.

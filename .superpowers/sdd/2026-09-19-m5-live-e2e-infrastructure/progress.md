@@ -80,3 +80,8 @@ The `USER-DELETION-POLICY` Playwright test execution passed, but its observed pu
 `UNAVAILABLE`: `blocked` / `DOCUMENT_DELETION_POLICY_UNAVAILABLE`. The append-only correction
 record supersedes the prior `LIVE_E2E_PASS` classification for that scenario. The 12-test command
 result remains a test-execution count; it is not a claim of 12 successful product outcomes.
+
+The evidence contract is now complete through 12 append-only supersessions: 11 non-deletion
+scenario records carry the literal `environment: "live-keycloak-playwright"`, and the existing
+deletion supersession carries the same environment plus its `UNAVAILABLE` outcome. M5.4 remains
+partially verified and the release gate is not complete.

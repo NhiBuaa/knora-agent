@@ -4,6 +4,7 @@
   "evaluated_commit_range": "50ea06b..cbe84af",
   "sanitized_environment_startup_command": "docker compose -f docker-compose.yml -f docker-compose.m5-e2e.yml up -d --build",
   "review_verdict": "Scoped live E2E review is clean; M5.4 release gate remains incomplete because provider-failure/interruption is BLOCKED_LIVE_E2E.",
+  "evidence_schema_corrections": "12 append-only supersessions: 11 schema-complete environment corrections and 1 USER-DELETION-POLICY outcome correction.",
   "status": "partially_verified_with_blocked_live_e2e_coverage",
   "verification": {
     "live_playwright": "12 Playwright test executions passed through real Keycloak authorization-code plus PKCE, Next.js BFF, and backend authorization; scenario outcomes are 11 LIVE_E2E_PASS and 1 UNAVAILABLE deletion-policy observation",
