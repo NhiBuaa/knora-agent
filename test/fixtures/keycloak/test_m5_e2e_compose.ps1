@@ -75,8 +75,15 @@ function Wait-ForHttpSuccess([string]$uri, [string]$description) {
 $discovery = Wait-ForHttpSuccess 'http://127.0.0.1:8180/realms/m5-e2e/.well-known/openid-configuration' 'Keycloak discovery'
 $apiHealth = Wait-ForHttpSuccess 'http://127.0.0.1:8000/health' 'API health endpoint'
 
-$migrationOutput = @(& docker compose @composeFiles exec -T api alembic upgrade head)
-if ($LASTEXITCODE -ne 0) {
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $migrationOutput = @(& docker compose @composeFiles exec -T api alembic upgrade head 2>&1)
+    $migrationExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
+if ($migrationExitCode -ne 0) {
     throw 'The M5 E2E API migration command failed.'
 }
 
