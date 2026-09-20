@@ -98,5 +98,14 @@ partially verified and the release gate is not complete.
 - Appended sanitized JSONL records for `PROVIDER-FAILURE` and `STREAM-INTERRUPTION` with the
   exact `environment: "live-keycloak-playwright"` literal and current tested product commit.
 - The provider/interruption blocker is removed. Deletion remains unavailable as
-  `blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`; this is not a successful deletion and the M5.4
-  release gate remains unclaimed.
+  `blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`; this is not a successful deletion. Under the
+  approved fault design it is compliant missing-data visibility, not an M5.4 completion blocker.
+  Every load-bearing gate and required live fault scenario is green, so M5.4 is complete.
+
+### Completion-status correction provenance (2026-09-20)
+
+Final review of evidence commit `3afac68695848474aa63a615bbb2770e4fe44946` found one narrative
+contradiction: it incorrectly treated the approved `UNAVAILABLE` deletion-policy observation as a
+completion blocker. This evidence-only correction supersedes that interpretation while preserving
+the underlying observation and all append-only JSONL history unchanged. The deletion outcome remains
+`blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`; it is not relabeled as a successful deletion.

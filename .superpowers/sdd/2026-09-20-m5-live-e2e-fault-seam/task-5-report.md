@@ -2,17 +2,20 @@
 
 ## Result
 
-`PARTIALLY_VERIFIED`
+`COMPLETED`
 
 The complete load-bearing gate passed on the tested product commit, and both live fault scenarios
-passed through the real Keycloak, Next.js BFF, backend, and Chromium path. The release gate remains
-unclaimed because the product deletion policy is still unavailable; that observation is preserved as
-`blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`, not relabeled as a deletion pass.
+passed through the real Keycloak, Next.js BFF, backend, and Chromium path. M5.4 is complete. The
+deletion observation remains `blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`; under the approved
+fault design, that is compliant missing-data visibility rather than a successful deletion or a
+completion blocker.
 
 Tested product commit: `49a1f8f2c94a5866ad689f5ada3331023dd3267e` (`test(m5): cover live fault and interruption states`).
 
-Evidence/documentation commit: the Task 5 evidence-only commit created after verification (its SHA
-is distinct from the tested product commit and is returned with this report).
+Initial evidence/documentation commit: `3afac68695848474aa63a615bbb2770e4fe44946`, distinct from
+the tested product commit. Final review found that its narrative incorrectly treated the approved
+UNAVAILABLE deletion-policy observation as a completion blocker. The follow-up evidence-only commit
+corrects that interpretation without changing or relabeling append-only JSONL history.
 
 ## Required gate
 
@@ -51,8 +54,8 @@ outcome was used.
 
 - Provider-failure/interruption live blocker: removed; both scenarios passed.
 - Deletion policy: still unavailable (`blocked/DOCUMENT_DELETION_POLICY_UNAVAILABLE`); retained as
-  unavailable evidence and not a successful deletion.
-- M5.4 release gate: not claimed complete until the deletion policy is changed or an approved live
-  deletion path exists.
+  unavailable evidence and not a successful deletion. This is compliant missing-data visibility
+  under the approved fault design and does not block completion.
+- M5.4 release gate: complete; every load-bearing gate and both required live fault scenarios passed.
 - Evidence JSONL parsed successfully after the append, and the final secret-value scan found no
   fixture password values in tracked evidence/report files.
