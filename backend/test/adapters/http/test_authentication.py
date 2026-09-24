@@ -3,12 +3,23 @@ import time
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiKeyAuthenticator
+from knora.access.identity import Identity
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.answering.interface import QuestionEvent, QuestionResult
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.interface import IngestionResult
 from knora.main import create_app
+
+
+class OwnedWorkspaceStore:
+    def owner_for(self, _workspace_id: str) -> Identity:
+        return Identity("https://issuer", "operator-1")
+
+
+def owned_workspace_authorizer() -> WorkspaceAuthorizer:
+    return WorkspaceAuthorizer(OwnedWorkspaceStore())
 
 
 def test_capability_is_checked_before_ingest_service_resolution() -> None:
@@ -27,6 +38,7 @@ def test_capability_is_checked_before_ingest_service_resolution() -> None:
     app = create_app(
         keycloak_authenticator=authenticator,
         api_key_authenticator=ApiKeyAuthenticator(()),
+        workspace_authorizer=owned_workspace_authorizer(),
     )
 
     class ServiceMustNotExecute:
@@ -62,6 +74,7 @@ def test_documents_write_capability_is_checked_before_reprocess_lookup() -> None
     app = create_app(
         keycloak_authenticator=authenticator,
         api_key_authenticator=ApiKeyAuthenticator(()),
+        workspace_authorizer=owned_workspace_authorizer(),
     )
 
     class JobsMustNotExecute:
@@ -99,6 +112,7 @@ def test_questions_capability_is_checked_before_sync_and_stream_execution() -> N
     app = create_app(
         keycloak_authenticator=authenticator,
         api_key_authenticator=ApiKeyAuthenticator(()),
+        workspace_authorizer=owned_workspace_authorizer(),
     )
 
     class AnswerMustNotExecute:
@@ -135,6 +149,7 @@ def test_documents_read_capability_is_checked_before_ingestion_job_lookup() -> N
     app = create_app(
         keycloak_authenticator=authenticator,
         api_key_authenticator=ApiKeyAuthenticator(()),
+        workspace_authorizer=owned_workspace_authorizer(),
     )
 
     class JobsMustNotExecute:
@@ -151,7 +166,7 @@ def test_documents_read_capability_is_checked_before_ingestion_job_lookup() -> N
     assert response.json() == {"error": {"code": "CAPABILITY_ACCESS_DENIED"}}
 
 
-def test_bearer_workspace_claims_are_untrusted_before_document_service_resolution() -> None:
+def test_foreign_bearer_is_denied_before_capability_validation_or_document_resolution() -> None:
     class AuthorizerMustDeny:
         def __init__(self):
             self.calls = []
@@ -187,7 +202,7 @@ def test_bearer_workspace_claims_are_untrusted_before_document_service_resolutio
                 "exp": time.time() + 60,
                 "sub": "alice",
                 "workspace_id": workspace_claim,
-                "capabilities": ["documents:write"],
+                "capabilities": [],
             },
         )
         authorizer = AuthorizerMustDeny()

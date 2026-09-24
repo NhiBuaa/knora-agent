@@ -105,8 +105,6 @@ def authorize_workspace_principal(
     authorization = request.headers.get("Authorization")
     if authorization and isinstance(authenticator, KeycloakAuthenticator):
         identity = authenticator.authenticate_identity(authorization)
-        if capability is not None and capability not in identity.capabilities:
-            raise KnoraError("CAPABILITY_ACCESS_DENIED")
         authorizer = request.app.state.workspace_authorizer
         return authorizer.authorize(identity, workspace_id, capability)
     x_api_key = request.headers.get("X-API-Key")
