@@ -2,8 +2,8 @@
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "20260924_0043"
 down_revision: tuple[str, str] = ("20260914_0042", "20260909_0041")
@@ -17,12 +17,21 @@ def upgrade() -> None:
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("issuer", sa.String(length=500), nullable=False),
         sa.Column("subject", sa.String(length=255), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.UniqueConstraint("issuer", "subject", name="uq_workspace_identities_issuer_subject"),
     )
     op.add_column("workspaces", sa.Column("owner_identity_id", sa.String(length=36), nullable=True))
-    op.add_column("workspaces", sa.Column("archived", sa.Boolean(), server_default=sa.false(), nullable=False))
-    op.add_column("workspaces", sa.Column("revision", sa.Integer(), server_default="0", nullable=False))
+    op.add_column(
+        "workspaces", sa.Column("archived", sa.Boolean(), server_default=sa.false(), nullable=False)
+    )
+    op.add_column(
+        "workspaces", sa.Column("revision", sa.Integer(), server_default="0", nullable=False)
+    )
     op.create_index("ix_workspaces_owner_identity_id", "workspaces", ["owner_identity_id"])
     op.create_foreign_key(
         "fk_workspaces_owner_identity_id",

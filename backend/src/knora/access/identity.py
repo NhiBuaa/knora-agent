@@ -12,4 +12,3 @@ class Identity:
     def __post_init__(self) -> None:
         if not self.issuer or not self.subject:
             raise ValueError("identity issuer and subject must not be blank")
-
