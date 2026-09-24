@@ -7,6 +7,7 @@ from pathlib import Path
 
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
+from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
 from knora.bootstrap import build_provider_selection
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
@@ -45,6 +46,7 @@ def run_ingestion(args: argparse.Namespace) -> dict:
         processor=DocumentProcessor(),
         embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
+        admission_store=PostgresWorkspaceAdmissionStore(SessionFactory),
     )
     try:
         result = use_case.execute(
