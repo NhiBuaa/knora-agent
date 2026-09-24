@@ -11,7 +11,9 @@ from sqlalchemy.orm import sessionmaker
 
 from knora.access.identity import Identity
 from knora.adapters.postgres.tables import WorkspaceIdentityTable, WorkspaceTable
+from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
 from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
+from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.workspaces.types import ResolutionState
 
@@ -183,3 +185,45 @@ def test_invalid_cursor_is_rejected_as_validation_error(workspace_store, cursor)
     workspace_store.create(owner, "First", "first")
     with pytest.raises(KnoraError, match="INVALID_WORKSPACE_CURSOR"):
         workspace_store.list(owner, cursor=cursor)
+
+
+def test_archive_and_admit_ordering_is_serialized_for_two_workspaces(workspace_store):
+    """A real PostgreSQL barrier race must never admit after an archive commits."""
+    owner = identity()
+    archived_candidate = workspace_store.create(owner, "Archive race", "archive-race")
+    independent = workspace_store.create(owner, "Independent", "independent")
+    admission_store = PostgresWorkspaceAdmissionStore(workspace_store._session_factory)
+    principal = WorkspacePrincipal(archived_candidate.id, owner.subject)
+    start = Barrier(2)
+
+    def archive():
+        start.wait()
+        return workspace_store.mutate(owner, archived_candidate.id, 0, archived=True)
+
+    def admit():
+        start.wait()
+        return admission_store.admit(
+            principal=principal, operation="ask_question", operation_id="race-1"
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        archive_future = executor.submit(archive)
+        admit_future = executor.submit(admit)
+        archived = archive_future.result()
+        try:
+            admitted = admit_future.result()
+        except KnoraError as error:
+            admitted = error.code
+
+    if admitted == "WORKSPACE_ARCHIVED":
+        assert archived.archived is True
+    else:
+        assert admitted.workspace_id == archived_candidate.id
+        assert archived.archived is True
+
+    independent_admission = admission_store.admit(
+        principal=WorkspacePrincipal(independent.id, owner.subject),
+        operation="ask_question",
+        operation_id="independent-1",
+    )
+    assert independent_admission.workspace_id == independent.id
