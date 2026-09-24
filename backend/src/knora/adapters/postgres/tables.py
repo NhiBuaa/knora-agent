@@ -46,6 +46,23 @@ class WorkspaceIdentityTable(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class WorkspaceCreateRequestTable(Base):
+    __tablename__ = "workspace_create_requests"
+    __table_args__ = (UniqueConstraint("identity_id", "operation", "key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_identities.id", ondelete="RESTRICT"), index=True
+    )
+    operation: Mapped[str] = mapped_column(String(30), nullable=False)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class DocumentTable(Base):
     __tablename__ = "documents"
     __table_args__ = (UniqueConstraint("workspace_id", "source_key"),)

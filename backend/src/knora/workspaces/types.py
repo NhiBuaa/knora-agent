@@ -21,3 +21,9 @@ class WorkspaceView:
 class WorkspaceResolution:
     state: ResolutionState
     workspace: WorkspaceView | None
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspacePage:
+    items: tuple[WorkspaceView, ...]
+    next_cursor: str | None = None

@@ -5,6 +5,10 @@ export type KnoraApiPath =
   | "/health"
   | "/v1/questions"
   | "/v1/questions/stream"
+  | "/v1/workspaces"
+  | "/v1/workspaces/resolve"
+  | "/v1/workspaces/{workspace_id}"
+  | "/v1/workspaces/{workspace_id}/archive"
   | "/v1/workspaces/{workspace_id}/document-versions/{document_version_id}/reprocess"
   | "/v1/workspaces/{workspace_id}/documents"
   | "/v1/workspaces/{workspace_id}/documents/{document_id}"
@@ -15,11 +19,15 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}"
   | "/v1/workspaces/{workspace_id}/operator/operations"
   | "/v1/workspaces/{workspace_id}/operator/tool-lifecycle"
-  | "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}";
+  | "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}"
+  | "/v1/workspaces/{workspace_id}/restore";
 
 export type Body_ingest_document_v1_workspaces__workspace_id__documents_post = {
   file: string;
   source_key: string;
+};
+export type Body_resolve_workspace_v1_workspaces_resolve_post = {
+  hint_id?: string | null;
 };
 export type CitationResponse = {
   content_checksum: string;
@@ -183,6 +191,10 @@ export type ReprocessResponse = {
   outcome: "created" | "reused" | "idempotency_replay";
   status: "queued" | "processing" | "retry_scheduled" | "succeeded" | "superseded" | "failed";
 };
+export type ResolutionResponse = {
+  state: "ACTIVE" | "NO_ACTIVE_WORKSPACE";
+  workspace: WorkspaceResponse | null;
+};
 export type SuccessfulJobResultResponse = {
   document_version_id: string;
 };
@@ -234,6 +246,20 @@ export type ValidationError = {
   msg: string;
   type: string;
 };
+export type WorkspaceListResponse = {
+  items: Array<WorkspaceResponse>;
+  next_cursor: string | null;
+};
+export type WorkspaceNameRequest = {
+  name: string;
+};
+export type WorkspaceResponse = {
+  archived: boolean;
+  created_at: string;
+  id: string;
+  name: string;
+  revision: number;
+};
 
 export type KnoraApiResponse =
   | Record<string, unknown>
@@ -247,6 +273,10 @@ export interface KnoraApiResponseByPath {
   "/health": HealthResponse;
   "/v1/questions": QuestionResponse;
   "/v1/questions/stream": KnoraApiResponse;
+  "/v1/workspaces": WorkspaceListResponse;
+  "/v1/workspaces/resolve": ResolutionResponse;
+  "/v1/workspaces/{workspace_id}": WorkspaceResponse;
+  "/v1/workspaces/{workspace_id}/archive": WorkspaceResponse;
   "/v1/workspaces/{workspace_id}/document-versions/{document_version_id}/reprocess": ReprocessResponse;
   "/v1/workspaces/{workspace_id}/documents": DocumentListResponse;
   "/v1/workspaces/{workspace_id}/documents/{document_id}": DocumentResponse;
@@ -258,6 +288,7 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/operator/operations": OperatorOperationsResponse;
   "/v1/workspaces/{workspace_id}/operator/tool-lifecycle": ToolLifecycleResponse;
   "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}": OperatorTraceResponse;
+  "/v1/workspaces/{workspace_id}/restore": WorkspaceResponse;
 }
 
 export type KnoraApiResponseFor<P extends KnoraApiPath> = KnoraApiResponseByPath[P];

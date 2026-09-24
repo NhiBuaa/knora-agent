@@ -11,6 +11,7 @@ from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
+from knora.adapters.http.workspaces import router as workspaces_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
@@ -88,6 +89,7 @@ from knora.tools.lifecycle_projection import ToolLifecycleProjectionReader
 from knora.tools.proposal_http import ActorContextProvider
 from knora.tools.proposal_http import router as proposal_router
 from knora.tools.proposals import ExecutionAuthorizer, WriteProposalWorkflow
+from knora.workspaces.service import WorkspaceService
 
 
 def create_app(
@@ -124,6 +126,7 @@ def create_app(
     support_tool_gateway: SupportToolGateway | None = None,
     tool_dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
     workspace_authorizer: WorkspaceAuthorizer | None = None,
+    workspace_service: WorkspaceService | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -279,6 +282,9 @@ def create_app(
     application.state.workspace_authorizer = workspace_authorizer or WorkspaceAuthorizer(
         PostgresWorkspaceStore(SessionFactory)
     )
+    application.state.workspace_service = workspace_service or WorkspaceService(
+        PostgresWorkspaceStore(SessionFactory)
+    )
     selected_tool_action_store = tool_action_store or PostgresToolActionStore(SessionFactory)
     selected_write_proposal_workflow = write_proposal_workflow
     if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
@@ -337,6 +343,14 @@ def create_app(
         status = {
             "UNAUTHENTICATED": 401,
             "WORKSPACE_ACCESS_DENIED": 403,
+            "WORKSPACE_ARCHIVED": 409,
+            "REVISION_CONFLICT": 409,
+            "IDEMPOTENCY_CONFLICT": 409,
+            "MISSING_WORKSPACE_REVISION": 428,
+            "INVALID_WORKSPACE_REVISION": 422,
+            "INVALID_WORKSPACE_NAME": 422,
+            "INVALID_WORKSPACE_CURSOR": 422,
+            "INVALID_WORKSPACE_LIMIT": 422,
             "CAPABILITY_ACCESS_DENIED": 403,
             "INVALID_SOURCE_KEY": 400,
             "INVALID_SOURCE_NAME": 400,
@@ -387,9 +401,14 @@ def create_app(
             "TOOL_PROVIDER_UNAVAILABLE": 502,
             "TOOL_PROVIDER_CONTRACT_INVALID": 502,
         }.get(error.code, 400)
-        return JSONResponse(status_code=status, content={"error": {"code": error.code}})
+        return JSONResponse(
+            status_code=status,
+            content={"error": {"code": error.code}},
+            headers={"Cache-Control": "no-store"},
+        )
 
     application.include_router(http_router)
+    application.include_router(workspaces_router)
     application.include_router(router)
     if selected_write_proposal_workflow is not None and tool_actor_context_provider is not None:
         application.include_router(proposal_router)
