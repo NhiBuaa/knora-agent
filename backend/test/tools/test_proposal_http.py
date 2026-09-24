@@ -147,7 +147,10 @@ class FailingProviderWriteSentinel:
 
 
 def client_with(
-    *, actor_kind: str = "human", can_approve: bool | None = None
+    *,
+    actor_kind: str = "human",
+    can_approve: bool | None = None,
+    workspace_admission_store=None,
 ) -> TestClient:
     workflow = WriteProposalWorkflow(
         capability_resolver=HttpCapabilityResolver(),
@@ -171,6 +174,7 @@ def client_with(
             tool_actor_context_provider=HttpActorContextProvider(
                 actor_kind, can_approve=can_approve
             ),
+            workspace_admission_store=workspace_admission_store,
         )
     )
 
@@ -198,6 +202,7 @@ def ordered_lookup_client():
         write_proposal_workflow=workflow,
         api_key_authenticator=authenticator,
         tool_actor_context_provider=HttpActorContextProvider("human"),
+        workspace_admission_store=None,
     )
     write_sentinel = FailingProviderWriteSentinel()
     application.state.support_tool_gateway = write_sentinel
@@ -211,6 +216,21 @@ def proposal_payload() -> dict[str, str]:
         "title": "Cannot sign in",
         "description": "Customer cannot complete SSO sign-in.",
     }
+
+
+def test_archived_workspace_rejects_m4_proposal_before_workflow_mutation() -> None:
+    class ArchivedAdmission:
+        def admit(self, **_kwargs) -> None:
+            raise KnoraError("WORKSPACE_ARCHIVED")
+
+    response = client_with(workspace_admission_store=ArchivedAdmission()).post(
+        "/v1/workspaces/workspace-a/tool-proposals",
+        headers={"X-API-Key": "proposal-key"},
+        json=proposal_payload(),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"error": {"code": "WORKSPACE_ARCHIVED"}}
 
 
 class HttpExecutionResultWorkflow:
@@ -259,6 +279,7 @@ def execution_result_client(result) -> TestClient:
             write_proposal_workflow=HttpExecutionResultWorkflow(result),
             api_key_authenticator=authenticator,
             tool_actor_context_provider=HttpActorContextProvider("human"),
+            workspace_admission_store=None,
         )
     )
 
@@ -478,6 +499,7 @@ def test_application_composes_proposals_with_static_registry_and_real_m4r1_verif
             InMemoryReferenceStore((minted.record,)), ring, clock=lambda: now
         ),
         tool_action_store=InMemoryToolActionStore(),
+        workspace_admission_store=None,
     )
 
     response = TestClient(application).post(

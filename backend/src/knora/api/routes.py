@@ -3,13 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from knora.adapters.http.routes import authenticate_principal
+from knora.adapters.http.routes import authenticate_principal, authorize_workspace_principal
 from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
 from knora.api.question_stream import format_sse_event
 from knora.api.schemas import QuestionRequest, QuestionResponse
 from knora.domain.access import WorkspacePrincipal
-from knora.domain.errors import KnoraError
 
 router = APIRouter()
 
@@ -21,12 +20,11 @@ def get_answer_question(request: Request) -> AnswerQuestion:
 @router.post("/v1/questions", response_model=QuestionResponse)
 async def answer_question(
     payload: QuestionRequest,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    request: Request,
     service: Annotated[AnswerQuestion, Depends(get_answer_question)],
+    _authenticated: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
 ) -> QuestionResponse:
-    if principal.workspace_id != payload.workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("questions:ask")
+    principal = authorize_workspace_principal(request, payload.workspace_id, "questions:ask")
     result = await service.execute(
         QuestionCommand(workspace_id=payload.workspace_id, question=payload.question),
         principal,
@@ -41,12 +39,11 @@ async def answer_question(
 )
 async def stream_question(
     payload: QuestionRequest,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    request: Request,
     service: Annotated[AnswerQuestion, Depends(get_answer_question)],
+    _authenticated: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
 ) -> StreamingResponse:
-    if principal.workspace_id != payload.workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("questions:ask")
+    principal = authorize_workspace_principal(request, payload.workspace_id, "questions:ask")
 
     async def event_body():
         async for event in service.execute_stream(

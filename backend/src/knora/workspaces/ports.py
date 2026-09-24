@@ -1,9 +1,33 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from knora.access.identity import Identity
+from knora.domain.access import WorkspacePrincipal
 from knora.workspaces.types import WorkspacePage, WorkspaceResolution, WorkspaceView
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceAdmission:
+    id: str
+    workspace_id: str
+    operation: str
+    operation_id: str
+    admitted_at: datetime
+
+
+class WorkspaceAdmissionStore(Protocol):
+    """Durably admits a user-originated mutation before its first side effect."""
+
+    def admit(
+        self,
+        *,
+        principal: WorkspacePrincipal,
+        operation: str,
+        operation_id: str,
+    ) -> WorkspaceAdmission: ...
 
 
 class WorkspaceStore(Protocol):

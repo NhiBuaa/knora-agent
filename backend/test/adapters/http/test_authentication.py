@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiKeyAuthenticator
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.domain.errors import KnoraError
+from knora.ingestion.interface import IngestionResult
 from knora.main import create_app
 
 
@@ -145,3 +147,64 @@ def test_documents_read_capability_is_checked_before_ingestion_job_lookup() -> N
 
     assert response.status_code == 403
     assert response.json() == {"error": {"code": "CAPABILITY_ACCESS_DENIED"}}
+
+
+def test_bearer_workspace_claims_are_untrusted_before_document_service_resolution() -> None:
+    class AuthorizerMustDeny:
+        def __init__(self):
+            self.calls = []
+
+        def authorize(self, identity, workspace_id, capability):
+            self.calls.append((identity.subject, workspace_id, capability))
+            raise KnoraError("WORKSPACE_ACCESS_DENIED")
+
+    class RecordingService:
+        calls = 0
+
+        def execute(self, *_args):
+            self.calls += 1
+            return IngestionResult(
+                outcome="created",
+                activation_changed=True,
+                document_id="document-1",
+                document_version_id="version-1",
+                chunk_set_id="chunk-set-1",
+                embedding_set_id="embedding-set-1",
+                chunking_configuration_id="chunking-m1-v1",
+                embedding_configuration_id="embedding-local-m1-v2",
+                chunk_count=1,
+            )
+
+    for workspace_claim in ("workspace-a", None):
+        authenticator = KeycloakAuthenticator(
+            issuer="https://issuer",
+            audience="knora-api",
+            token_validator=lambda _token, workspace_claim=workspace_claim: {
+                "iss": "https://issuer",
+                "aud": "knora-api",
+                "exp": time.time() + 60,
+                "sub": "alice",
+                "workspace_id": workspace_claim,
+                "capabilities": ["documents:write"],
+            },
+        )
+        authorizer = AuthorizerMustDeny()
+        service = RecordingService()
+        response = TestClient(
+            create_app(
+                keycloak_authenticator=authenticator,
+                api_key_authenticator=ApiKeyAuthenticator(()),
+                ingest_document=service,
+                workspace_authorizer=authorizer,
+            )
+        ).post(
+            "/v1/workspaces/workspace-a/documents",
+            headers={"Authorization": "Bearer valid-token"},
+            data={"source_key": "support/refund-policy"},
+            files={"file": ("refund-policy.md", b"# Refunds")},
+        )
+
+        assert response.status_code == 403
+        assert response.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
+        assert authorizer.calls == [("alice", "workspace-a", "documents:write")]
+        assert service.calls == 0

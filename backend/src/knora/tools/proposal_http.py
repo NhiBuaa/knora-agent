@@ -3,12 +3,13 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import fields, is_dataclass
 from typing import Annotated, Protocol
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from knora.adapters.http.routes import authenticate_principal
+from knora.adapters.http.routes import authorize_workspace_principal
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.tools.execution_types import (
@@ -44,17 +45,40 @@ def get_workflow(request: Request) -> WriteProposalWorkflow:
     return request.app.state.write_proposal_workflow
 
 
+def require_tools_write(
+    workspace_id: str,
+    request: Request,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> WorkspacePrincipal:
+    del x_api_key, authorization
+    return authorize_workspace_principal(request, workspace_id, "tools:write")
+
+
 def get_actor_context(
     workspace_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
 ) -> ActorContext:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     provider: ActorContextProvider | None = request.app.state.tool_actor_context_provider
     if provider is None:
         raise KnoraError("TOOL_APPROVAL_FORBIDDEN")
     return provider.resolve(principal)
+
+
+def admit_workspace_mutation(
+    request: Request,
+    principal: WorkspacePrincipal,
+    operation: str,
+    operation_id: str,
+) -> None:
+    """Reject archived Workspaces before an M4 workflow can read or mutate resources."""
+
+    admission_store = getattr(request.app.state, "workspace_admission_store", None)
+    if admission_store is not None:
+        admission_store.admit(
+            principal=principal, operation=operation, operation_id=operation_id
+        )
 
 
 def _projection_response(projection) -> JSONResponse:
@@ -213,16 +237,15 @@ async def _read_payload(request: Request) -> dict[str, object]:
 async def create_proposal(
     workspace_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     payload = await _read_payload(request)
     _validate_payload(payload, {"capability_id", "target_reference", "title", "description"})
     if not all(isinstance(payload.get(field), str) for field in payload):
         raise KnoraError("TOOL_REQUEST_INVALID")
+    admit_workspace_mutation(request, principal, "create_tool_proposal", str(uuid4()))
     result = workflow.handle(
         ProposeWriteAction(
             capability_id=payload["capability_id"],  # type: ignore[arg-type]
@@ -240,11 +263,9 @@ async def create_proposal(
 def read_proposal(
     workspace_id: str,
     proposal_id: str,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     return _projection_response(workflow.read(proposal_id, principal))
 
 
@@ -253,18 +274,19 @@ async def approve_proposal(
     workspace_id: str,
     proposal_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     payload = await _read_payload(request)
     _validate_payload(payload, {"expected_revision"})
     if not isinstance(payload.get("expected_revision"), int) or isinstance(
         payload.get("expected_revision"), bool
     ):
         raise KnoraError("TOOL_REQUEST_INVALID")
+    admit_workspace_mutation(
+        request, principal, "approve_tool_proposal", f"{proposal_id}:{payload['expected_revision']}"
+    )
     result = workflow.handle(
         ApproveProposal(proposal_id, payload["expected_revision"]),  # type: ignore[arg-type]
         principal,
@@ -278,12 +300,10 @@ async def reject_proposal(
     workspace_id: str,
     proposal_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     payload = await _read_payload(request)
     _validate_payload(payload, {"expected_revision", "reason_code"})
     if (
@@ -292,6 +312,9 @@ async def reject_proposal(
         or not isinstance(payload.get("reason_code"), str)
     ):
         raise KnoraError("TOOL_REQUEST_INVALID")
+    admit_workspace_mutation(
+        request, principal, "reject_tool_proposal", f"{proposal_id}:{payload['expected_revision']}"
+    )
     result = workflow.handle(
         RejectProposal(
             proposal_id,
@@ -309,18 +332,19 @@ async def execute_proposal(
     workspace_id: str,
     proposal_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     payload = await _read_payload(request)
     _validate_payload(payload, {"expected_revision"})
     if not isinstance(payload.get("expected_revision"), int) or isinstance(
         payload.get("expected_revision"), bool
     ):
         raise KnoraError("TOOL_REQUEST_INVALID")
+    admit_workspace_mutation(
+        request, principal, "execute_tool_proposal", f"{proposal_id}:{payload['expected_revision']}"
+    )
     result = workflow.handle(
         ExecuteApprovedProposal(
             proposal_id,
@@ -337,18 +361,22 @@ async def reconcile_execution(
     workspace_id: str,
     proposal_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_write)],
     workflow: Annotated[WriteProposalWorkflow, Depends(get_workflow)],
     actor_context: Annotated[ActorContext, Depends(get_actor_context)],
 ) -> JSONResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     payload = await _read_payload(request)
     _validate_payload(payload, {"expected_lease_generation"})
     if not isinstance(payload.get("expected_lease_generation"), int) or isinstance(
         payload.get("expected_lease_generation"), bool
     ):
         raise KnoraError("TOOL_REQUEST_INVALID")
+    admit_workspace_mutation(
+        request,
+        principal,
+        "reconcile_tool_proposal",
+        f"{proposal_id}:{payload['expected_lease_generation']}",
+    )
     result = workflow.handle(
         ReconcileExecution(
             proposal_id,

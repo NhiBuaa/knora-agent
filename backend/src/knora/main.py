@@ -28,6 +28,7 @@ from knora.adapters.postgres.object_reconciliation import (
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.adapters.postgres.operator_reader import PostgresOperatorReader
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
+from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
 from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
@@ -89,7 +90,10 @@ from knora.tools.lifecycle_projection import ToolLifecycleProjectionReader
 from knora.tools.proposal_http import ActorContextProvider
 from knora.tools.proposal_http import router as proposal_router
 from knora.tools.proposals import ExecutionAuthorizer, WriteProposalWorkflow
+from knora.workspaces.ports import WorkspaceAdmissionStore
 from knora.workspaces.service import WorkspaceService
+
+_DEFAULT_WORKSPACE_ADMISSIONS = object()
 
 
 def create_app(
@@ -127,6 +131,9 @@ def create_app(
     tool_dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
     workspace_authorizer: WorkspaceAuthorizer | None = None,
     workspace_service: WorkspaceService | None = None,
+    workspace_admission_store: WorkspaceAdmissionStore | None | object = (
+        _DEFAULT_WORKSPACE_ADMISSIONS
+    ),
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -145,6 +152,12 @@ def create_app(
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
     selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
+    workspace_admissions = (
+        PostgresWorkspaceAdmissionStore(SessionFactory)
+        if workspace_admission_store is _DEFAULT_WORKSPACE_ADMISSIONS
+        else workspace_admission_store
+    )
+    application.state.workspace_admission_store = workspace_admissions
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider,
         generation_provider=providers.generation_provider,
@@ -156,11 +169,13 @@ def create_app(
                 vector_min_similarity=settings.vector_min_similarity,
             )
         ),
+        admission_store=workspace_admissions,
     )
     application.state.ingest_document = ingest_document or IngestDocument(
         processor=DocumentProcessor(),
         embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
+        admission_store=workspace_admissions,
     )
     runtime_object_store_settings = ObjectStoreSettings.from_runtime(settings)
     selected_object_store = object_store
@@ -195,6 +210,7 @@ def create_app(
         store=job_store,
         lifecycle_maintenance=selected_lifecycle_maintenance,
         lifecycle_clock=selected_lifecycle_clock,
+        admission_store=workspace_admissions,
     )
     application.state.ingestion_worker = ingestion_worker or ProcessIngestionJob(
         store=job_store,
@@ -262,7 +278,8 @@ def create_app(
     selected_document_reader = document_reader or PostgresDocumentReader(SessionFactory)
     application.state.document_reader = selected_document_reader
     application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
-        selected_document_reader
+        selected_document_reader,
+        admission_store=workspace_admissions,
     )
     application.state.embedding_configuration = selected_embedding_configuration
     application.state.authenticator = application.state.api_key_authenticator

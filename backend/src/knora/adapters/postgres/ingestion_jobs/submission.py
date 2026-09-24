@@ -22,6 +22,7 @@ from knora.adapters.postgres.tables import (
     IngestionJobTable,
     OriginalSourceObjectTable,
     ReprocessAuditTable,
+    WorkspaceAdmissionTable,
     WorkspaceTable,
 )
 from knora.domain.errors import KnoraError
@@ -286,10 +287,12 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 ),
             )
 
-    def commit_reprocess(self, prepared: PreparedReprocess) -> ReprocessResult:
+    def commit_reprocess(
+        self, prepared: PreparedReprocess, *, admission_id: str | None = None
+    ) -> ReprocessResult:
         for attempt in range(2):
             try:
-                return self._commit_reprocess_once(prepared)
+                return self._commit_reprocess_once(prepared, admission_id=admission_id)
             except KnoraError:
                 raise
             except IntegrityError:
@@ -300,7 +303,9 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 raise KnoraError("PERSISTENCE_OPERATION_FAILED") from None
         raise AssertionError("unreachable")
 
-    def _commit_reprocess_once(self, prepared: PreparedReprocess) -> ReprocessResult:
+    def _commit_reprocess_once(
+        self, prepared: PreparedReprocess, *, admission_id: str | None = None
+    ) -> ReprocessResult:
         with self._session_factory.begin() as session:
             document = session.scalar(
                 select(DocumentTable)
@@ -414,6 +419,21 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 session.add(job)
                 session.flush()
                 outcome = "created"
+
+            if admission_id is not None:
+                admission = session.scalar(
+                    select(WorkspaceAdmissionTable)
+                    .where(
+                        WorkspaceAdmissionTable.id == admission_id,
+                        WorkspaceAdmissionTable.workspace_id == prepared.workspace_id,
+                        WorkspaceAdmissionTable.operation == prepared.idempotency_operation,
+                        WorkspaceAdmissionTable.operation_id == prepared.idempotency_key,
+                    )
+                    .with_for_update()
+                )
+                if admission is None:
+                    raise KnoraError("PERSISTENCE_OPERATION_FAILED")
+                admission.ingestion_job_id = job.id
 
             session.add(
                 IdempotencyRecordTable(
@@ -612,10 +632,12 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
     def commit_pdf_submission(
         self,
         prepared: PreparedPdfSubmission,
+        *,
+        admission_id: str | None = None,
     ) -> PdfSubmissionResult:
         for attempt in range(2):
             try:
-                return self._commit_pdf_submission(prepared)
+                return self._commit_pdf_submission(prepared, admission_id=admission_id)
             except KnoraError:
                 raise
             except IntegrityError:
@@ -626,9 +648,34 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 raise KnoraError("PERSISTENCE_OPERATION_FAILED") from None
         raise AssertionError("unreachable")
 
+    def read_pdf_submission_replay(
+        self, *, workspace_id: str, idempotency_key: str
+    ) -> PdfSubmissionResult | None:
+        with self._session_factory() as session:
+            replay = session.scalar(
+                select(IdempotencyRecordTable).where(
+                    IdempotencyRecordTable.workspace_id == workspace_id,
+                    IdempotencyRecordTable.operation == "submit_pdf",
+                    IdempotencyRecordTable.key == idempotency_key,
+                )
+            )
+            if replay is None or replay.expires_at <= datetime.now(UTC):
+                return None
+            job = session.scalar(
+                select(IngestionJobTable).where(
+                    IngestionJobTable.id == replay.ingestion_job_id,
+                    IngestionJobTable.workspace_id == workspace_id,
+                )
+            )
+            if job is None:
+                raise KnoraError("PERSISTENCE_OPERATION_FAILED")
+            return self._result(session, job, submission_outcome="idempotency_replay")
+
     def _commit_pdf_submission(
         self,
         prepared: PreparedPdfSubmission,
+        *,
+        admission_id: str | None = None,
     ) -> PdfSubmissionResult:
         with self._session_factory.begin() as session:
             if session.get(WorkspaceTable, prepared.workspace_id) is None:
@@ -765,6 +812,21 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 session.add(job)
                 session.flush()
                 submission_outcome = "created"
+
+            if admission_id is not None:
+                admission = session.scalar(
+                    select(WorkspaceAdmissionTable)
+                    .where(
+                        WorkspaceAdmissionTable.id == admission_id,
+                        WorkspaceAdmissionTable.workspace_id == prepared.workspace_id,
+                        WorkspaceAdmissionTable.operation == prepared.idempotency_operation,
+                        WorkspaceAdmissionTable.operation_id == prepared.idempotency_key,
+                    )
+                    .with_for_update()
+                )
+                if admission is None:
+                    raise KnoraError("PERSISTENCE_OPERATION_FAILED")
+                admission.ingestion_job_id = job.id
 
             session.add(
                 IdempotencyRecordTable(
