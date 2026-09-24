@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { ToolLifecycleDisplay } from "@/components/tools/ToolLifecycle";
+
+export const dynamic = "force-dynamic";
+
 export default async function WorkspacePage() {
   const session = await getSession();
   const workspaceId = session?.workspaceIds[0];

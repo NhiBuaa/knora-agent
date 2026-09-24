@@ -3,11 +3,6 @@ import type { KnoraApiPath, KnoraApiResponseFor, OperatorEvaluationResponse, Ope
 export type OperatorSession = { accessToken: string; workspaceId: string };
 export type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-export function sessionFromCookies(values: { accessToken?: string; workspaceId?: string }): OperatorSession | null {
-  if (!values.accessToken || !values.workspaceId) return null;
-  return { accessToken: values.accessToken, workspaceId: values.workspaceId };
-}
-
 export async function forwardOperatorRequest(
   url: string,
   session: Pick<OperatorSession, "accessToken">,
