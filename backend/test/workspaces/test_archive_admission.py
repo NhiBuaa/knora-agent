@@ -82,8 +82,9 @@ class RecordingAdmission:
         self.closed.append((admission_id, "terminal" if terminal_at is not None else "now"))
 
 
-def test_admission_store_rejects_closed_unlinked_retry_after_archive() -> None:
-    """A failed request cannot reuse its stale admission to start a new effect."""
+@pytest.mark.parametrize("ingestion_job_id", [None, "job-1"])
+def test_admission_store_rejects_closed_retry_after_archive(ingestion_job_id) -> None:
+    """A terminal request cannot reuse its stale admission to start a new effect."""
 
     from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
 
@@ -96,7 +97,7 @@ def test_admission_store_rejects_closed_unlinked_retry_after_archive() -> None:
                 operation="ask_question",
                 operation_id="request-1",
                 admitted_at=datetime.now(UTC),
-                ingestion_job_id=None,
+                ingestion_job_id=ingestion_job_id,
                 terminal_at=datetime.now(UTC),
             )
 

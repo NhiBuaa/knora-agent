@@ -55,11 +55,7 @@ class PostgresWorkspaceAdmissionStore:
                     .with_for_update()
                 )
                 if existing is not None:
-                    if (
-                        workspace.archived
-                        and existing.ingestion_job_id is None
-                        and existing.terminal_at is not None
-                    ):
+                    if workspace.archived and existing.terminal_at is not None:
                         raise KnoraError("WORKSPACE_ARCHIVED")
                     return self._admission(existing)
                 if workspace.archived:
