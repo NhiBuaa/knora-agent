@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import BinaryIO, Literal, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
@@ -187,7 +188,7 @@ class PdfSubmissionStore(Protocol):
     def authorize_workspace(self, *, workspace_id: str) -> None: ...
 
     def read_pdf_submission_replay(
-        self, *, workspace_id: str, idempotency_key: str
+        self, *, workspace_id: str, idempotency_key: str, content_fingerprint: str
     ) -> PdfSubmissionResult | None: ...
 
     def is_object_referenced(self, *, source_object: ObjectMetadata) -> bool: ...
@@ -264,11 +265,15 @@ class IngestionJobs:
         except (AttributeError, OSError) as error:
             raise KnoraError("PDF_STREAM_NOT_SEEKABLE") from error
 
+        raw_sha256 = self._raw_sha256(command.stream)
+        content_fingerprint = self._content_fingerprint(command, raw_sha256)
+
         replay_reader = getattr(self._store, "read_pdf_submission_replay", None)
         if replay_reader is not None:
             replay = replay_reader(
                 workspace_id=command.workspace_id,
                 idempotency_key=command.idempotency_key,
+                content_fingerprint=content_fingerprint,
             )
             if replay is not None:
                 return replay
@@ -303,7 +308,7 @@ class IngestionJobs:
                 source_key=command.source_key,
                 source_name=source_name,
                 source_object=source_object,
-                content_fingerprint=self._content_fingerprint(command, source_object.sha256),
+                content_fingerprint=content_fingerprint,
                 idempotency_operation="submit_pdf",
                 idempotency_key=command.idempotency_key,
                 idempotency_expires_at=datetime.now(UTC) + IDEMPOTENCY_RETENTION,
@@ -326,7 +331,9 @@ class IngestionJobs:
                     source_object, expected_workspace_id=command.workspace_id
                 )
             self._close_admission_after_submission_failure(
-                command=command, admission_id=admission_id
+                command=command,
+                content_fingerprint=content_fingerprint,
+                admission_id=admission_id,
             )
             raise
         if result.retained_object_key != source_object.object_key:
@@ -467,7 +474,11 @@ class IngestionJobs:
             close(admission_id=admission_id)
 
     def _close_admission_after_submission_failure(
-        self, *, command: PdfSubmissionCommand, admission_id: str | None
+        self,
+        *,
+        command: PdfSubmissionCommand,
+        content_fingerprint: str,
+        admission_id: str | None,
     ) -> None:
         replay_reader = getattr(self._store, "read_pdf_submission_replay", None)
         if replay_reader is None:
@@ -477,6 +488,7 @@ class IngestionJobs:
             replay = replay_reader(
                 workspace_id=command.workspace_id,
                 idempotency_key=command.idempotency_key,
+                content_fingerprint=content_fingerprint,
             )
         except Exception:
             return
@@ -533,6 +545,17 @@ class IngestionJobs:
                 config.embedding_configuration.id,
             )
         )
+
+    @staticmethod
+    def _raw_sha256(stream: BinaryIO) -> str:
+        digest = sha256()
+        while chunk := stream.read(64 * 1024):
+            digest.update(chunk)
+        try:
+            stream.seek(0)
+        except (AttributeError, OSError) as error:
+            raise KnoraError("PDF_STREAM_NOT_SEEKABLE") from error
+        return digest.hexdigest()
 
     @staticmethod
     def _validate_source_object(

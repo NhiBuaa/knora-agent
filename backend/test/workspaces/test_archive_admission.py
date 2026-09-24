@@ -128,7 +128,10 @@ def test_reprocess_failure_closes_admission_before_archived_retry() -> None:
 
 
 class ReplayStoreMustNotStage(StoreMustNotExecute):
-    def read_pdf_submission_replay(self, *, workspace_id: str, idempotency_key: str):
+    def read_pdf_submission_replay(
+        self, *, workspace_id: str, idempotency_key: str, content_fingerprint: str
+    ):
+        del workspace_id, idempotency_key, content_fingerprint
         return PdfSubmissionResult(
             ingestion_job_id="job-1",
             submission_outcome="idempotency_replay",

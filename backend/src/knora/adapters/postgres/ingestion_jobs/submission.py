@@ -651,7 +651,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         raise AssertionError("unreachable")
 
     def read_pdf_submission_replay(
-        self, *, workspace_id: str, idempotency_key: str
+        self, *, workspace_id: str, idempotency_key: str, content_fingerprint: str
     ) -> PdfSubmissionResult | None:
         with self._session_factory() as session:
             replay = session.scalar(
@@ -663,6 +663,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             )
             if replay is None or replay.expires_at <= datetime.now(UTC):
                 return None
+            if replay.request_fingerprint != content_fingerprint:
+                raise KnoraError("IDEMPOTENCY_KEY_CONFLICT")
             job = session.scalar(
                 select(IngestionJobTable).where(
                     IngestionJobTable.id == replay.ingestion_job_id,
