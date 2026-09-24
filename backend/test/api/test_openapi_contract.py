@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from knora.main import app
+
 ROOT = Path(__file__).parents[3]
 EXPORT_SCRIPT = ROOT / "scripts" / "export_openapi.py"
 OPENAPI_PATH = ROOT / "docs" / "openapi.json"
@@ -51,6 +53,17 @@ def test_checked_openapi_has_required_paths_and_public_only_fields() -> None:
     serialized = json.dumps(contract, sort_keys=True)
     for private_name in ("api_key", "key_hash", "secret_key", "raw_token", "provider_api_key"):
         assert private_name not in serialized
+
+
+def test_question_operations_advertise_both_supported_authentication_headers() -> None:
+    contract = app.openapi()
+
+    for path in ("/v1/questions", "/v1/questions/stream"):
+        parameters = contract["paths"][path]["post"]["parameters"]
+        assert {parameter["name"] for parameter in parameters} >= {
+            "Authorization",
+            "X-API-Key",
+        }
 
 
 def test_openapi_export_is_deterministic_and_matches_checked_artifacts() -> None:
