@@ -17,6 +17,8 @@ from knora.ingestion.jobs import (
     PdfSubmissionCommand,
     PdfSubmissionConfiguration,
     PdfSubmissionResult,
+    ReprocessContext,
+    ReprocessDocumentVersionCommand,
 )
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.object_store import ObjectMetadata
@@ -44,6 +46,58 @@ class RecordingObjectStore:
 class StoreMustNotExecute:
     def authorize_workspace(self, *, workspace_id: str) -> None:
         raise AssertionError("workspace lookup happened after archived admission rejection")
+
+
+class FailingReprocessObjectStore:
+    def head(self, **_kwargs):
+        raise RuntimeError("source head failed")
+
+
+class ReprocessStoreForFailure:
+    def authorize_workspace(self, *, workspace_id: str) -> None:
+        del workspace_id
+
+    def read_reprocess_context(self, **_kwargs):
+        configuration = PdfSubmissionConfiguration.milestone_two(
+            embedding_configuration=EmbeddingConfiguration.milestone_one_local()
+        )
+        return ReprocessContext(
+            workspace_id="workspace-a",
+            document_id="document-1",
+            document_version_id="version-1",
+            source_object=ObjectMetadata(
+                workspace_id="workspace-a",
+                object_key="opaque/source-object",
+                sha256="a" * 64,
+                byte_size=10,
+                media_type="application/pdf",
+            ),
+            configuration=configuration,
+            config_source_job_id=None,
+            prior_job_id=None,
+        )
+
+
+def test_reprocess_failure_closes_admission_before_archived_retry() -> None:
+    admission = ArchiveAfterClosedAdmission()
+    service = IngestionJobs(
+        object_store=FailingReprocessObjectStore(),
+        store=ReprocessStoreForFailure(),
+        admission_store=admission,
+    )
+    command = ReprocessDocumentVersionCommand(
+        workspace_id="workspace-a",
+        document_version_id="version-1",
+        config_mode="current",
+        config_source_job_id=None,
+        idempotency_key="reprocess-failure-1",
+    )
+
+    with pytest.raises(KnoraError, match="SOURCE_OBJECT_NOT_AVAILABLE"):
+        service.reprocess_document_version(command, WorkspacePrincipal("workspace-a", "alice"))
+    with pytest.raises(KnoraError, match="WORKSPACE_ARCHIVED"):
+        service.reprocess_document_version(command, WorkspacePrincipal("workspace-a", "alice"))
+    assert admission.closed == [("admission-1", "now")]
 
 
 class ReplayStoreMustNotStage(StoreMustNotExecute):
@@ -80,6 +134,58 @@ class RecordingAdmission:
 
     def close(self, *, admission_id: str, terminal_at: datetime | None = None) -> None:
         self.closed.append((admission_id, "terminal" if terminal_at is not None else "now"))
+
+
+class ArchiveAfterClosedAdmission(RecordingAdmission):
+    archived = False
+
+    def admit(self, *, principal, operation: str, operation_id: str) -> WorkspaceAdmission:
+        if self.archived:
+            raise KnoraError("WORKSPACE_ARCHIVED")
+        return super().admit(
+            principal=principal, operation=operation, operation_id=operation_id
+        )
+
+    def close(self, *, admission_id: str, terminal_at: datetime | None = None) -> None:
+        super().close(admission_id=admission_id, terminal_at=terminal_at)
+        self.archived = True
+
+
+class FailingPdfObjectStore(RecordingObjectStore):
+    def put_stream(self, *, workspace_id: str, stream, media_type: str) -> ObjectMetadata:
+        del workspace_id, stream, media_type
+        raise RuntimeError("staging failed")
+
+
+class AuthorizingPdfStore:
+    def authorize_workspace(self, *, workspace_id: str) -> None:
+        del workspace_id
+
+
+def test_pdf_failure_closes_admission_before_archived_retry() -> None:
+    admission = ArchiveAfterClosedAdmission()
+    service = IngestionJobs(
+        object_store=FailingPdfObjectStore(),
+        store=AuthorizingPdfStore(),
+        admission_store=admission,
+    )
+    command = PdfSubmissionCommand(
+        workspace_id="workspace-a",
+        source_key="support/refunds",
+        source_name="refunds.pdf",
+        media_type="application/pdf",
+        stream=BytesIO(b"%PDF-1.7\nfixture"),
+        idempotency_key="upload-failure-1",
+        configuration=PdfSubmissionConfiguration.milestone_two(
+            embedding_configuration=EmbeddingConfiguration.milestone_one_local()
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="staging failed"):
+        service.submit_pdf(command, WorkspacePrincipal("workspace-a", "alice"))
+    with pytest.raises(KnoraError, match="WORKSPACE_ARCHIVED"):
+        service.submit_pdf(command, WorkspacePrincipal("workspace-a", "alice"))
+    assert admission.closed == [("admission-1", "now")]
 
 
 @pytest.mark.parametrize("ingestion_job_id", [None, "job-1"])
