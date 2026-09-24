@@ -179,7 +179,7 @@ class PostgresWorkspaceStore:
                     cursor_id = decoded[1]
                     if not isinstance(cursor_id, str) or created_at.tzinfo is None:
                         raise ValueError
-                except (ValueError, TypeError, IndexError) as exc:
+                except (ValueError, TypeError, IndexError, KeyError) as exc:
                     raise KnoraError("INVALID_WORKSPACE_CURSOR") from exc
                 query = query.where(
                     or_(

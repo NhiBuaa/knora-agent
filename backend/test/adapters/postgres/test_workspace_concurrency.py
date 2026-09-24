@@ -177,8 +177,9 @@ def test_pagination_and_archived_filter_are_owner_scoped(workspace_store):
     assert {item.id for item in workspace_store.list(alice, archived=False).items} == {second.id}
 
 
-def test_invalid_cursor_is_rejected_as_validation_error(workspace_store):
+@pytest.mark.parametrize("cursor", ["a", "e30"])
+def test_invalid_cursor_is_rejected_as_validation_error(workspace_store, cursor):
     owner = identity()
     workspace_store.create(owner, "First", "first")
     with pytest.raises(KnoraError, match="INVALID_WORKSPACE_CURSOR"):
-        workspace_store.list(owner, cursor="a")
+        workspace_store.list(owner, cursor=cursor)
