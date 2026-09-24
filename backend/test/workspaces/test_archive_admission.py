@@ -78,6 +78,33 @@ class ReprocessStoreForFailure:
         )
 
 
+class ReprocessStoreContextFailure(ReprocessStoreForFailure):
+    def read_reprocess_context(self, **_kwargs):
+        raise RuntimeError("database read failed")
+
+
+def test_reprocess_database_failure_closes_admission_before_archived_retry() -> None:
+    admission = ArchiveAfterClosedAdmission()
+    service = IngestionJobs(
+        object_store=FailingReprocessObjectStore(),
+        store=ReprocessStoreContextFailure(),
+        admission_store=admission,
+    )
+    command = ReprocessDocumentVersionCommand(
+        workspace_id="workspace-a",
+        document_version_id="version-1",
+        config_mode="current",
+        config_source_job_id=None,
+        idempotency_key="reprocess-db-failure-1",
+    )
+
+    with pytest.raises(RuntimeError, match="database read failed"):
+        service.reprocess_document_version(command, WorkspacePrincipal("workspace-a", "alice"))
+    with pytest.raises(KnoraError, match="WORKSPACE_ARCHIVED"):
+        service.reprocess_document_version(command, WorkspacePrincipal("workspace-a", "alice"))
+    assert admission.closed == [("admission-1", "now")]
+
+
 def test_reprocess_failure_closes_admission_before_archived_retry() -> None:
     admission = ArchiveAfterClosedAdmission()
     service = IngestionJobs(

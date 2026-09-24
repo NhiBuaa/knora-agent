@@ -390,12 +390,16 @@ class IngestionJobs:
             self._close_admission(admission_id)
             raise
 
-        context = self._store.read_reprocess_context(
-            workspace_id=command.workspace_id,
-            document_version_id=command.document_version_id,
-            config_mode=command.config_mode,
-            config_source_job_id=command.config_source_job_id,
-        )
+        try:
+            context = self._store.read_reprocess_context(
+                workspace_id=command.workspace_id,
+                document_version_id=command.document_version_id,
+                config_mode=command.config_mode,
+                config_source_job_id=command.config_source_job_id,
+            )
+        except Exception:
+            self._close_admission(admission_id)
+            raise
         if context is None:
             self._close_admission(admission_id)
             raise KnoraError("DOCUMENT_VERSION_NOT_FOUND")
