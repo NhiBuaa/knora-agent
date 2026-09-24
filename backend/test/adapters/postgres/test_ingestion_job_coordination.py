@@ -19,6 +19,7 @@ from knora.adapters.postgres.tables import (
     IngestionJobTable,
     ObjectLifecycleWorkTable,
     OriginalSourceObjectTable,
+    WorkspaceAdmissionTable,
     WorkspaceTable,
 )
 from knora.ingestion.job_processing import (
@@ -64,10 +65,34 @@ def clear_coordination_jobs() -> None:
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
-                "ingestion_job_attempts, ingestion_jobs"
+                "TRUNCATE TABLE workspace_admissions, reprocess_audit_records, "
+                "idempotency_records, ingestion_job_attempts, ingestion_jobs"
             )
         )
+
+
+def test_clear_coordination_jobs_removes_workspace_admissions_before_jobs() -> None:
+    clear_coordination_jobs()
+    _, job_id = submit_queued_job()
+
+    with SessionFactory.begin() as session:
+        job = session.get(IngestionJobTable, job_id)
+        assert job is not None
+        session.add(
+            WorkspaceAdmissionTable(
+                id=uuid4().hex,
+                workspace_id=job.workspace_id,
+                operation="submit_pdf",
+                operation_id=uuid4().hex,
+                ingestion_job_id=job.id,
+            )
+        )
+
+    clear_coordination_jobs()
+
+    with SessionFactory() as session:
+        assert session.scalar(select(func.count()).select_from(WorkspaceAdmissionTable)) == 0
+        assert session.scalar(select(func.count()).select_from(IngestionJobTable)) == 0
 
 
 def submit_queued_job() -> tuple[PostgresIngestionJobStore, str]:
