@@ -35,7 +35,7 @@ from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
     resolve_retrieval_configuration,
 )
-from knora.api.routes import router
+from knora.api.routes import m5_e2e_router, router
 from knora.application.operator_observability import OperatorObservability
 from knora.bootstrap import build_provider_selection
 from knora.domain.errors import KnoraError
@@ -427,6 +427,11 @@ def create_app(
     application.include_router(http_router)
     application.include_router(workspaces_router)
     application.include_router(router)
+    if settings.m5_e2e_faults_enabled:
+        from knora.api.m5_e2e_faults import M5E2EFaultController
+
+        application.state.m5_e2e_fault_controller = M5E2EFaultController()
+        application.include_router(m5_e2e_router)
     if selected_write_proposal_workflow is not None and tool_actor_context_provider is not None:
         application.include_router(proposal_router)
     if read_tool is not None:

@@ -1,0 +1,18 @@
+{
+  "slice": "M5.4",
+  "task": "contract-and-schema-verification",
+  "subject_commit": "codex/m5-e2e-verification",
+  "status": "verified",
+  "evidence": {
+    "backend": "backend/test/api/test_m5_contracts.py",
+    "frontend": "frontend/tests/contracts/m5-contracts.test.ts",
+    "openapi": "docs/openapi.json",
+    "generated_client": "frontend/generated/knora-openapi.ts"
+  },
+  "observations": [
+    "Required REST paths and the text/event-stream response are asserted.",
+    "Lifecycle availability states and public-only fields are asserted.",
+    "SSE consumers accept one terminal event and ignore later terminal frames."
+  ],
+  "secrets": "none"
+}

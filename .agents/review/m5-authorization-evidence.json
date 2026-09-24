@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "M5.4 Task 2 authorization and ownership matrix",
+  "subject_commit": "87ac228",
+  "observations": [
+    {"case": "invalid_or_expired_bearer", "status": "401", "lookup": "none", "leakage": "none"},
+    {"case": "missing_operator_capability", "status": "403 CAPABILITY_ACCESS_DENIED", "lookup": "none", "leakage": "none"},
+    {"case": "wrong_workspace_opaque_operator_route", "status": "403 WORKSPACE_ACCESS_DENIED", "lookup": "none", "leakage": "none"},
+    {"case": "m4_tool_proposal_workspace_bypass", "status": "403 WORKSPACE_ACCESS_DENIED", "lookup": "none", "leakage": "none"},
+    {"case": "legacy_x_api_key_operator_access", "status": "503 observation failure", "lookup": "scoped workspace-a", "leakage": "none"}
+  ],
+  "verification": {"backend_focused": "5 passed", "frontend_spec": "written; Vitest default include excludes .spec.ts browser artifacts"},
+  "secrets": "none"
+}
