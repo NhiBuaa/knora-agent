@@ -28,6 +28,21 @@ class WorkspaceTable(Base):
 
     id: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    owner_identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspace_identities.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkspaceIdentityTable(Base):
+    __tablename__ = "workspace_identities"
+    __table_args__ = (UniqueConstraint("issuer", "subject"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    issuer: Mapped[str] = mapped_column(String(500), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -5,7 +5,9 @@ These rules are normative for Knora unless superseded by an approved Standard or
 ## Ownership and boundaries
 
 - Knora owns Workspaces, Documents, Chunks, embeddings, Question Traces and evaluations.
-- KittaChat owns users, conversations and messages.
+- KittaChat owns users, conversations and messages. Knora standalone owns its private Workspaces,
+  Conversations and Turns; the two bounded contexts remain separate and integrate only through
+  explicit authenticated API or event contracts.
 - Knora must not access KittaChat's database directly. Integration uses authenticated API or event
   contracts.
 - Agent failure must not break KittaChat's ordinary message delivery.
@@ -15,6 +17,9 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - `/health` is public and returns only minimal service status. It must not expose dependency
   details, secrets, model configuration or stack traces; debug endpoints are disabled by default.
 - Every Workspace endpoint requires either a validated Keycloak bearer token or `X-API-Key`.
+- Keycloak bearer identity is validated by issuer and subject. Knora database ownership is the
+  authority for private Workspace access; a bearer Workspace claim is only an untrusted request
+  hint and never grants ownership.
   Bearer authentication is the browser/BFF path; `X-API-Key` remains supported for CLI, legacy
   clients and non-OIDC integrations.
 - Workspace endpoints must execute authorization in this order:

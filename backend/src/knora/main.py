@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
@@ -26,6 +27,7 @@ from knora.adapters.postgres.object_reconciliation import (
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.adapters.postgres.operator_reader import PostgresOperatorReader
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
+from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
@@ -121,6 +123,7 @@ def create_app(
     tool_execution_authorizer: ExecutionAuthorizer | None = None,
     support_tool_gateway: SupportToolGateway | None = None,
     tool_dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
+    workspace_authorizer: WorkspaceAuthorizer | None = None,
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -272,6 +275,9 @@ def create_app(
         )
     application.state.authenticator = (
         keycloak_authenticator or application.state.api_key_authenticator
+    )
+    application.state.workspace_authorizer = workspace_authorizer or WorkspaceAuthorizer(
+        PostgresWorkspaceStore(SessionFactory)
     )
     selected_tool_action_store = tool_action_store or PostgresToolActionStore(SessionFactory)
     selected_write_proposal_workflow = write_proposal_workflow

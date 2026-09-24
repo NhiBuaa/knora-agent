@@ -4,6 +4,13 @@ Knora is an independent AI support and knowledge service. It turns workspace-sco
 documents into evidence that can support cited answers and, in later milestones, controlled tool
 proposals.
 
+## Standalone identity and ownership
+
+Keycloak authenticates a user's validated issuer and subject. Knora persists private Workspace
+ownership in its own database using that issuer/subject identity; bearer Workspace claims and
+browser hints are not ownership authority. KittaChat retains its separate conversations/messages
+bounded context and database, while Knora owns standalone Workspaces and Conversations.
+
 ## Current Model
 
 ### Knowledge ownership
