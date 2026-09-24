@@ -68,15 +68,32 @@ class AnswerQuestion:
         *,
         stage_callback: Callable[[str], None] | None = None,
     ) -> QuestionResult:
-        started = self._clock()
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        admission_id: str | None = None
         if self._admission_store is not None:
-            self._admission_store.admit(
+            admission = self._admission_store.admit(
                 principal=principal,
                 operation="ask_question",
                 operation_id=str(uuid4()),
             )
+            admission_id = admission.id
+        try:
+            return await self._execute_admitted(command, principal, stage_callback=stage_callback)
+        finally:
+            if admission_id is not None:
+                close = getattr(self._admission_store, "close", None)
+                if close is not None:
+                    close(admission_id=admission_id)
+
+    async def _execute_admitted(
+        self,
+        command: QuestionCommand,
+        principal: WorkspacePrincipal,
+        *,
+        stage_callback: Callable[[str], None] | None = None,
+    ) -> QuestionResult:
+        started = self._clock()
         if stage_callback is not None:
             stage_callback("retrieving")
         retrieval_configuration = self._retrieval_configuration

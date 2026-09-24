@@ -10,13 +10,17 @@ from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
+from knora.ingestion.documents import DocumentLifecycleService, DocumentProjection
+from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.jobs import (
     IngestionJobs,
     PdfSubmissionCommand,
     PdfSubmissionConfiguration,
     PdfSubmissionResult,
 )
+from knora.ingestion.module import IngestDocument
 from knora.ingestion.object_store import ObjectMetadata
+from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.workspaces.ports import WorkspaceAdmission
 
@@ -62,6 +66,7 @@ class ArchivedAdmission:
 @dataclass
 class RecordingAdmission:
     calls: list[tuple[str, str]] = field(default_factory=list)
+    closed: list[tuple[str, str]] = field(default_factory=list)
 
     def admit(self, *, principal, operation: str, operation_id: str) -> WorkspaceAdmission:
         self.calls.append((operation, operation_id))
@@ -71,6 +76,55 @@ class RecordingAdmission:
             operation=operation,
             operation_id=operation_id,
             admitted_at=datetime.now(UTC),
+        )
+
+    def close(self, *, admission_id: str, terminal_at: datetime | None = None) -> None:
+        self.closed.append((admission_id, "terminal" if terminal_at is not None else "now"))
+
+
+def test_admission_store_rejects_closed_unlinked_retry_after_archive() -> None:
+    """A failed request cannot reuse its stale admission to start a new effect."""
+
+    from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
+
+    class Session:
+        def __init__(self) -> None:
+            self.workspace = SimpleNamespace(id="workspace-a", archived=True)
+            self.admission = SimpleNamespace(
+                id="admission-1",
+                workspace_id="workspace-a",
+                operation="ask_question",
+                operation_id="request-1",
+                admitted_at=datetime.now(UTC),
+                ingestion_job_id=None,
+                terminal_at=datetime.now(UTC),
+            )
+
+        def scalar(self, statement):
+            entity = statement.column_descriptions[0].get("entity")
+            return (
+                self.workspace
+                if entity is not None and entity.__name__ == "WorkspaceTable"
+                else self.admission
+            )
+
+    class SessionFactory:
+        def begin(self):
+            class Context:
+                def __enter__(self):
+                    self.session = Session()
+                    return self.session
+
+                def __exit__(self, *_args):
+                    return False
+
+            return Context()
+
+    with pytest.raises(KnoraError, match="WORKSPACE_ARCHIVED"):
+        PostgresWorkspaceAdmissionStore(SessionFactory()).admit(
+            principal=WorkspacePrincipal("workspace-a", "alice"),
+            operation="ask_question",
+            operation_id="request-1",
         )
 
 
@@ -256,3 +310,154 @@ async def test_archived_workspace_rejects_question_before_provider_or_retrieval(
             QuestionCommand(workspace_id="workspace-a", question="What changed?"),
             WorkspacePrincipal(workspace_id="workspace-a", key_id="key-a"),
         )
+
+
+class _DocumentAdmissionProcessor:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+
+    def process(self, **_kwargs):
+        if self.fail:
+            raise RuntimeError("processor failed")
+        return SimpleNamespace(
+            normalized_content="content",
+            normalized_content_checksum="checksum",
+            normalized_token_count=1,
+            chunks=(
+                SimpleNamespace(
+                    ordinal=0,
+                    heading_path=(),
+                    start_line=1,
+                    end_line=1,
+                    content="content",
+                    content_checksum="checksum",
+                    token_count=1,
+                ),
+            ),
+        )
+
+
+class _DocumentAdmissionEmbedding:
+    def embed(self, texts, configuration):
+        from knora.providers.embedding import EmbeddingBatch
+
+        return EmbeddingBatch(
+            vectors=tuple(tuple([0.0] * configuration.dimensions) for _ in texts),
+            provider=configuration.provider,
+            model=configuration.model,
+        )
+
+    embed_documents = embed
+
+
+class _DocumentAdmissionStore:
+    def authorize_workspace(self, *, workspace_id: str) -> None:
+        del workspace_id
+
+    def read_document_head(self, *, workspace_id: str, source_key: str):
+        del workspace_id, source_key
+        return None
+
+    def commit_derivation(self, *, prepared, expected_revision: int):
+        del prepared, expected_revision
+        return "committed"
+
+
+class _QuestionAdmissionEmbedding:
+    def embed(self, texts, configuration):
+        from knora.providers.embedding import EmbeddingBatch
+
+        return EmbeddingBatch(
+            vectors=tuple(tuple([0.0] * configuration.dimensions) for _ in texts),
+            provider=configuration.provider,
+            model=configuration.model,
+        )
+
+    embed_queries = embed
+
+
+class _QuestionAdmissionStore:
+    def retrieve_candidates(self, **_kwargs):
+        return ()
+
+    def persist_trace(self, _trace):
+        return "trace-1"
+
+
+@pytest.mark.asyncio
+async def test_sync_question_closes_admission_on_refusal() -> None:
+    admission = RecordingAdmission()
+    service = AnswerQuestion(
+        embedding_provider=_QuestionAdmissionEmbedding(),
+        generation_provider=ProviderMustNotRun(),
+        store=_QuestionAdmissionStore(),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        admission_store=admission,
+    )
+
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question="What changed?"),
+        WorkspacePrincipal("workspace-a", "alice"),
+    )
+
+    assert result.decision == "REFUSAL"
+    assert admission.closed == [("admission-1", "now")]
+
+
+class _LifecycleAdmissionDelegate:
+    def archive(self, **kwargs):
+        return DocumentProjection(
+            "document-1", kwargs["workspace_id"], "source", "source.md", False, 0
+        )
+
+    def unarchive(self, **kwargs):
+        return DocumentProjection(
+            "document-1", kwargs["workspace_id"], "source", "source.md", False, 0
+        )
+
+    def request_deletion(self, **kwargs):
+        return SimpleNamespace(
+            request_id="request-1", document_id=kwargs["document_id"], state="requested"
+        )
+
+
+def test_document_lifecycle_closes_admission_after_success() -> None:
+    admission = RecordingAdmission()
+    service = DocumentLifecycleService(_LifecycleAdmissionDelegate(), admission_store=admission)
+
+    service.archive(
+        "workspace-a",
+        "document-1",
+        WorkspacePrincipal("workspace-a", "alice", ("documents:write",)),
+    )
+
+    assert admission.closed == [("admission-1", "now")]
+
+
+@pytest.mark.parametrize(
+    "processor", [_DocumentAdmissionProcessor(), _DocumentAdmissionProcessor(fail=True)]
+)
+def test_sync_document_closes_admission_on_success_or_exception(processor) -> None:
+    admission = RecordingAdmission()
+    service = IngestDocument(
+        processor=processor,
+        embedding_provider=_DocumentAdmissionEmbedding(),
+        store=_DocumentAdmissionStore(),
+        admission_store=admission,
+    )
+    command = IngestDocumentCommand(
+        workspace_id="workspace-a",
+        source_key="support/refunds",
+        source_name="refunds.md",
+        media_type="text/markdown",
+        raw_content=b"content",
+        chunking_configuration=ChunkingConfiguration.milestone_one(),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    if processor.fail:
+        with pytest.raises(RuntimeError, match="processor failed"):
+            service.execute(command, WorkspacePrincipal("workspace-a", "alice"))
+    else:
+        assert service.execute(command, WorkspacePrincipal("workspace-a", "alice")) == "committed"
+    assert admission.closed == [("admission-1", "now")]

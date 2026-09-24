@@ -21,12 +21,12 @@ class WorkspaceAuthorizer:
         self,
         identity: Identity,
         workspace_id: str,
-        capability: str,
+        capability: str | None,
     ) -> WorkspacePrincipal:
         owner = self._store.owner_for(workspace_id)
         if owner is None or owner != Identity(identity.issuer, identity.subject):
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
-        if capability not in identity.capabilities:
+        if capability is not None and capability not in identity.capabilities:
             raise KnoraError("CAPABILITY_ACCESS_DENIED")
         return WorkspacePrincipal(
             workspace_id=workspace_id,

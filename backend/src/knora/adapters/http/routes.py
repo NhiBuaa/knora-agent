@@ -97,7 +97,7 @@ def authenticate_principal(
 def authorize_workspace_principal(
     request: Request,
     workspace_id: str,
-    capability: str,
+    capability: str | None,
 ) -> WorkspacePrincipal:
     """Resolve bearer requests through persisted ownership, never JWT Workspace claims."""
 
@@ -105,7 +105,7 @@ def authorize_workspace_principal(
     authorization = request.headers.get("Authorization")
     if authorization and isinstance(authenticator, KeycloakAuthenticator):
         identity = authenticator.authenticate_identity(authorization)
-        if capability not in identity.capabilities:
+        if capability is not None and capability not in identity.capabilities:
             raise KnoraError("CAPABILITY_ACCESS_DENIED")
         authorizer = request.app.state.workspace_authorizer
         return authorizer.authorize(identity, workspace_id, capability)
@@ -118,7 +118,8 @@ def authorize_workspace_principal(
         principal = authenticator.authenticate(x_api_key)
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability(capability)
+    if capability is not None:
+        principal.require_capability(capability)
     return principal
 
 

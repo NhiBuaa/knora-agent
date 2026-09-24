@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from knora.adapters.postgres.tables import WorkspaceAdmissionTable, WorkspaceTable
@@ -55,6 +55,12 @@ class PostgresWorkspaceAdmissionStore:
                     .with_for_update()
                 )
                 if existing is not None:
+                    if (
+                        workspace.archived
+                        and existing.ingestion_job_id is None
+                        and existing.terminal_at is not None
+                    ):
+                        raise KnoraError("WORKSPACE_ARCHIVED")
                     return self._admission(existing)
                 if workspace.archived:
                     raise KnoraError("WORKSPACE_ARCHIVED")
@@ -69,5 +75,19 @@ class PostgresWorkspaceAdmissionStore:
                 return self._admission(row)
         except KnoraError:
             raise
+        except (IntegrityError, SQLAlchemyError) as error:
+            raise KnoraError("PERSISTENCE_OPERATION_FAILED") from error
+
+    def close(self, *, admission_id: str) -> None:
+        try:
+            with self._session_factory.begin() as session:
+                session.execute(
+                    update(WorkspaceAdmissionTable)
+                    .where(
+                        WorkspaceAdmissionTable.id == admission_id,
+                        WorkspaceAdmissionTable.terminal_at.is_(None),
+                    )
+                    .values(terminal_at=func.now())
+                )
         except (IntegrityError, SQLAlchemyError) as error:
             raise KnoraError("PERSISTENCE_OPERATION_FAILED") from error

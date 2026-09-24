@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiKeyAuthenticator
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.answering.interface import QuestionEvent, QuestionResult
+from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.interface import IngestionResult
 from knora.main import create_app
@@ -208,3 +210,77 @@ def test_bearer_workspace_claims_are_untrusted_before_document_service_resolutio
         assert response.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
         assert authorizer.calls == [("alice", "workspace-a", "documents:write")]
         assert service.calls == 0
+
+
+def test_claimless_bearer_question_uses_database_workspace_authorization() -> None:
+    class Authorizer:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def authorize(self, identity, workspace_id, capability):
+            self.calls.append((identity.subject, workspace_id, capability))
+            return WorkspacePrincipal(workspace_id, identity.subject, identity.capabilities)
+
+    class Answer:
+        calls = 0
+
+        async def execute(self, command, principal):
+            self.calls += 1
+            return QuestionResult(
+                workspace_id=command.workspace_id,
+                decision="REFUSAL",
+                answer=None,
+                citations=(),
+                refusal_reason="INSUFFICIENT_EVIDENCE",
+                trace_id="trace-1",
+            )
+
+        async def execute_stream(self, command, principal):
+            self.calls += 1
+            yield QuestionEvent(stage="refusal", payload={}, terminal=True)
+
+    authenticator = KeycloakAuthenticator(
+        issuer="https://issuer",
+        audience="knora-api",
+        token_validator=lambda _token: {
+            "iss": "https://issuer",
+            "aud": "knora-api",
+            "exp": time.time() + 60,
+            "sub": "alice",
+            "capabilities": ["questions:ask"],
+        },
+    )
+    authorizer = Authorizer()
+    answer = Answer()
+    response = TestClient(
+        create_app(
+            keycloak_authenticator=authenticator,
+            api_key_authenticator=ApiKeyAuthenticator(()),
+            workspace_authorizer=authorizer,
+            answer_question=answer,
+        )
+    ).post(
+        "/v1/questions",
+        headers={"Authorization": "Bearer valid-token"},
+        json={"workspace_id": "workspace-a", "question": "Where?"},
+    )
+
+    assert response.status_code == 200
+    assert authorizer.calls == [("alice", "workspace-a", "questions:ask")]
+    assert answer.calls == 1
+
+    stream = TestClient(
+        create_app(
+            keycloak_authenticator=authenticator,
+            api_key_authenticator=ApiKeyAuthenticator(()),
+            workspace_authorizer=authorizer,
+            answer_question=answer,
+        )
+    ).post(
+        "/v1/questions/stream",
+        headers={"Authorization": "Bearer valid-token"},
+        json={"workspace_id": "workspace-a", "question": "Where?"},
+    )
+    assert stream.status_code == 200
+    assert authorizer.calls[-1] == ("alice", "workspace-a", "questions:ask")
+    assert answer.calls == 2

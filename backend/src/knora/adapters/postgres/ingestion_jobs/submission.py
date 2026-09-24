@@ -434,6 +434,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 if admission is None:
                     raise KnoraError("PERSISTENCE_OPERATION_FAILED")
                 admission.ingestion_job_id = job.id
+                if job.status in {"succeeded", "superseded", "failed"}:
+                    admission.terminal_at = func.now()
 
             session.add(
                 IdempotencyRecordTable(
@@ -827,6 +829,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 if admission is None:
                     raise KnoraError("PERSISTENCE_OPERATION_FAILED")
                 admission.ingestion_job_id = job.id
+                if job.status in {"succeeded", "superseded", "failed"}:
+                    admission.terminal_at = func.now()
 
             session.add(
                 IdempotencyRecordTable(

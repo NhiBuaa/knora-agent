@@ -3,12 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from knora.adapters.http.routes import authenticate_principal, authorize_workspace_principal
+from knora.adapters.http.routes import authorize_workspace_principal
 from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
 from knora.api.question_stream import format_sse_event
 from knora.api.schemas import QuestionRequest, QuestionResponse
-from knora.domain.access import WorkspacePrincipal
 
 router = APIRouter()
 
@@ -22,7 +21,6 @@ async def answer_question(
     payload: QuestionRequest,
     request: Request,
     service: Annotated[AnswerQuestion, Depends(get_answer_question)],
-    _authenticated: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
 ) -> QuestionResponse:
     principal = authorize_workspace_principal(request, payload.workspace_id, "questions:ask")
     result = await service.execute(
@@ -41,7 +39,6 @@ async def stream_question(
     payload: QuestionRequest,
     request: Request,
     service: Annotated[AnswerQuestion, Depends(get_answer_question)],
-    _authenticated: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
 ) -> StreamingResponse:
     principal = authorize_workspace_principal(request, payload.workspace_id, "questions:ask")
 

@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
+from knora.access.keycloak import KeycloakAuthenticator
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.main import create_app
@@ -32,6 +33,7 @@ from knora.tools.execution_types import (
     ReconciledFailed,
 )
 from knora.tools.proposal_types import ToolProposalProjection
+from knora.workspaces.ports import WorkspaceAdmission
 
 
 class HttpCapabilityResolver:
@@ -231,6 +233,30 @@ def test_archived_workspace_rejects_m4_proposal_before_workflow_mutation() -> No
 
     assert response.status_code == 409
     assert response.json() == {"error": {"code": "WORKSPACE_ARCHIVED"}}
+
+
+def test_m4_proposal_closes_admission_after_workflow_returns() -> None:
+    class Admission:
+        def __init__(self) -> None:
+            self.closed = []
+
+        def admit(self, *, principal, operation, operation_id):
+            return WorkspaceAdmission(
+                "admission-1", principal.workspace_id, operation, operation_id, datetime.now(UTC)
+            )
+
+        def close(self, *, admission_id):
+            self.closed.append(admission_id)
+
+    admission = Admission()
+    response = client_with(workspace_admission_store=admission).post(
+        "/v1/workspaces/workspace-a/tool-proposals",
+        headers={"X-API-Key": "proposal-key"},
+        json=proposal_payload(),
+    )
+
+    assert response.status_code == 200
+    assert admission.closed == ["admission-1"]
 
 
 class HttpExecutionResultWorkflow:
@@ -840,6 +866,51 @@ def test_proposal_read_auth_and_absence_matrix() -> None:
         404,
         {"error": {"code": "TOOL_PROPOSAL_NOT_FOUND"}},
     )
+
+
+def test_proposal_read_uses_owner_authorization_without_tools_write_capability() -> None:
+    class OwnerAuthorizer:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def authorize(self, identity, workspace_id, capability):
+            self.calls.append((identity.subject, workspace_id, capability))
+            return WorkspacePrincipal(workspace_id, identity.subject, identity.capabilities)
+
+    class ReadWorkflow:
+        def read(self, proposal_id, principal):
+            assert proposal_id == "proposal-a"
+            assert principal.workspace_id == "workspace-a"
+            return execution_projection()
+
+    authenticator = KeycloakAuthenticator(
+        issuer="https://issuer",
+        audience="knora-api",
+        token_validator=lambda _token: {
+            "iss": "https://issuer",
+            "aud": "knora-api",
+            "exp": datetime.now(UTC).timestamp() + 60,
+            "sub": "alice",
+            "capabilities": [],
+        },
+    )
+    authorizer = OwnerAuthorizer()
+    response = TestClient(
+        create_app(
+            keycloak_authenticator=authenticator,
+            api_key_authenticator=ApiKeyAuthenticator(()),
+            workspace_authorizer=authorizer,
+            write_proposal_workflow=ReadWorkflow(),
+            tool_actor_context_provider=HttpActorContextProvider("human"),
+        )
+    ).get(
+        "/v1/workspaces/workspace-a/tool-proposals/proposal-a",
+        headers={"Authorization": "Bearer valid-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["proposal_id"]
+    assert authorizer.calls == [("alice", "workspace-a", None)]
 
 
 def test_proposal_http_rejects_unknown_capability_and_reject_reason() -> None:
