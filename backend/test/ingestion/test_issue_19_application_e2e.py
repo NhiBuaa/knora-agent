@@ -60,7 +60,8 @@ def test_public_upload_worker_poll_and_citation_use_one_job_flow(tmp_path: Path)
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )
@@ -158,7 +159,8 @@ def test_public_upload_status_and_idempotency_branches_match_durable_job(tmp_pat
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )

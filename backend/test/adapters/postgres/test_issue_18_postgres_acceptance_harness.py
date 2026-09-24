@@ -68,7 +68,8 @@ def clean_coordination_state() -> None:
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )

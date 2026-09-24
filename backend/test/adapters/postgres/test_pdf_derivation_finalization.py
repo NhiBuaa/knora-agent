@@ -48,7 +48,8 @@ def _submit_job() -> tuple[PostgresIngestionJobStore, str, PdfSubmissionConfigur
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )
