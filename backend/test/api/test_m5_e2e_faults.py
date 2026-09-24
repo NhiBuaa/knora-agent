@@ -5,7 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
+from knora.access.identity import Identity
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.api.m5_e2e_faults import M5E2EFaultController, M5E2EFaultControllerError
 from knora.domain.access import WorkspacePrincipal
 from knora.infrastructure.settings import Settings, settings
@@ -50,6 +52,13 @@ def _api_key_authenticator() -> ApiKeyAuthenticator:
     )
 
 
+class _M5E2EWorkspaceOwnershipStore:
+    def owner_for(self, workspace_id: str) -> Identity | None:
+        if workspace_id == "workspace-a":
+            return Identity("https://issuer", "m5-e2e-user")
+        return None
+
+
 def _enabled_client(monkeypatch, service=None) -> TestClient:
     monkeypatch.setattr(settings, "m5_e2e_faults_enabled", True)
     return TestClient(
@@ -82,6 +91,7 @@ def _bearer_client(monkeypatch, *, capabilities=()) -> TestClient:
                 audience="knora-api",
                 token_validator=validate,
             ),
+            workspace_authorizer=WorkspaceAuthorizer(_M5E2EWorkspaceOwnershipStore()),
         )
     )
 

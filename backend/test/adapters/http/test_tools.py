@@ -149,6 +149,7 @@ def execution_client(outcome):
             write_proposal_workflow=workflow,
             tool_actor_context_provider=HttpActorProvider(),
             api_key_authenticator=authenticator,
+            workspace_admission_store=None,
         )
     )
     created = client.post(

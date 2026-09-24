@@ -1,12 +1,16 @@
 """HTTP adapter contract tests for the M4.1 ticket-lookup route."""
 
 import base64
+import time
 from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
+from knora.access.keycloak import KeycloakAuthenticator
+from knora.domain.access import WorkspacePrincipal
+from knora.domain.errors import KnoraError
 from knora.main import create_app
 from knora.tools import (
     AuthorizedReferenceMintingResource,
@@ -179,6 +183,108 @@ def test_authentication_and_workspace_authorization_precede_malformed_json() -> 
     assert cross_workspace.status_code == 403
     assert cross_workspace.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
     assert gateway.call_count == 0
+
+
+@pytest.mark.parametrize("workspace_claim", ["workspace-a", None])
+def test_bearer_ticket_lookup_uses_persisted_owner_authorization_before_read_tool(
+    workspace_claim: str | None,
+) -> None:
+    class AuthorizerMustDeny:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str, str | None]] = []
+
+        def authorize(self, identity, workspace_id, capability):
+            self.calls.append((identity.subject, workspace_id, capability))
+            raise KnoraError("WORKSPACE_ACCESS_DENIED")
+
+    class ReadToolMustNotExecute:
+        calls = 0
+
+        def execute(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("read tool executed before workspace authorization")
+
+    authenticator = KeycloakAuthenticator(
+        issuer="https://issuer",
+        audience="knora-api",
+        token_validator=lambda _token: {
+            "iss": "https://issuer",
+            "aud": "knora-api",
+            "exp": time.time() + 60,
+            "sub": "alice",
+            "workspace_id": workspace_claim,
+        },
+    )
+    authorizer = AuthorizerMustDeny()
+    read_tool = ReadToolMustNotExecute()
+    response = TestClient(
+        create_app(
+            keycloak_authenticator=authenticator,
+            api_key_authenticator=ApiKeyAuthenticator(()),
+            workspace_authorizer=authorizer,
+            read_tool=read_tool,
+        )
+    ).post(
+        "/v1/workspaces/workspace-a/tools/ticket-lookup",
+        headers={"Authorization": "Bearer valid-token"},
+        json={"ticket_reference": "m4r1.signed-reference"},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
+    assert authorizer.calls == [("alice", "workspace-a", None)]
+    assert read_tool.calls == 0
+
+
+def test_claimless_bearer_owner_retains_ticket_lookup_read_access() -> None:
+    class OwnerAuthorizer:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str, str | None]] = []
+
+        def authorize(self, identity, workspace_id, capability):
+            self.calls.append((identity.subject, workspace_id, capability))
+            return WorkspacePrincipal(workspace_id, identity.subject, identity.capabilities)
+
+    class RecordingReadTool:
+        calls = 0
+
+        def execute(self, _command, _principal):
+            self.calls += 1
+            return TicketLookupResult(
+                ticket_reference="m4r1.signed-reference",
+                title="Cannot sign in",
+                status="open",
+                summary="Customer cannot complete SSO sign-in.",
+            )
+
+    authenticator = KeycloakAuthenticator(
+        issuer="https://issuer",
+        audience="knora-api",
+        token_validator=lambda _token: {
+            "iss": "https://issuer",
+            "aud": "knora-api",
+            "exp": time.time() + 60,
+            "sub": "alice",
+        },
+    )
+    authorizer = OwnerAuthorizer()
+    read_tool = RecordingReadTool()
+    response = TestClient(
+        create_app(
+            keycloak_authenticator=authenticator,
+            api_key_authenticator=ApiKeyAuthenticator(()),
+            workspace_authorizer=authorizer,
+            read_tool=read_tool,
+        )
+    ).post(
+        "/v1/workspaces/workspace-a/tools/ticket-lookup",
+        headers={"Authorization": "Bearer valid-token"},
+        json={"ticket_reference": "m4r1.signed-reference"},
+    )
+
+    assert response.status_code == 200
+    assert authorizer.calls == [("alice", "workspace-a", None)]
+    assert read_tool.calls == 1
 
 
 def test_http_distinguishes_malformed_reference_from_authorized_not_found() -> None:

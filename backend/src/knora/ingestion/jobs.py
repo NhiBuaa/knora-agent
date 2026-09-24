@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import BinaryIO, Literal, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
@@ -20,6 +21,7 @@ from knora.ingestion.object_store import ObjectMetadata, ObjectStore
 from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.workspaces.ports import WorkspaceAdmissionStore
 
 IDEMPOTENCY_RETENTION = timedelta(hours=24)
 PUBLIC_JOB_STATUSES = Literal[
@@ -185,11 +187,17 @@ class ReprocessAuditProjection:
 class PdfSubmissionStore(Protocol):
     def authorize_workspace(self, *, workspace_id: str) -> None: ...
 
+    def read_pdf_submission_replay(
+        self, *, workspace_id: str, idempotency_key: str, content_fingerprint: str
+    ) -> PdfSubmissionResult | None: ...
+
     def is_object_referenced(self, *, source_object: ObjectMetadata) -> bool: ...
 
     def commit_pdf_submission(
         self,
         prepared: PreparedPdfSubmission,
+        *,
+        admission_id: str | None = None,
     ) -> PdfSubmissionResult: ...
 
     def get_job_status(
@@ -205,7 +213,9 @@ class PdfSubmissionStore(Protocol):
         config_source_job_id: str | None,
     ) -> ReprocessContext | None: ...
 
-    def commit_reprocess(self, prepared: PreparedReprocess) -> ReprocessResult: ...
+    def commit_reprocess(
+        self, prepared: PreparedReprocess, *, admission_id: str | None = None
+    ) -> ReprocessResult: ...
 
     def read_reprocess_replay(
         self, *, workspace_id: str, idempotency_key: str, request_fingerprint: str
@@ -224,11 +234,13 @@ class IngestionJobs:
         store: PdfSubmissionStore,
         lifecycle_maintenance: ObjectLifecycleMaintenance | None = None,
         lifecycle_clock: LifecycleClock | None = None,
+        admission_store: WorkspaceAdmissionStore | None = None,
     ) -> None:
         self._object_store = object_store
         self._store = store
         self._lifecycle_maintenance = lifecycle_maintenance
         self._lifecycle_clock = lifecycle_clock
+        self._admission_store = admission_store
 
     def submit_pdf(
         self,
@@ -237,7 +249,6 @@ class IngestionJobs:
     ) -> PdfSubmissionResult:
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
-        self._store.authorize_workspace(workspace_id=command.workspace_id)
         _validate_source_key(command.source_key)
         if not command.idempotency_key or len(command.idempotency_key) > 255:
             raise KnoraError("INVALID_IDEMPOTENCY_KEY")
@@ -254,11 +265,42 @@ class IngestionJobs:
         except (AttributeError, OSError) as error:
             raise KnoraError("PDF_STREAM_NOT_SEEKABLE") from error
 
-        source_object = self._object_store.put_stream(
-            workspace_id=command.workspace_id,
-            stream=command.stream,
-            media_type=command.media_type,
-        )
+        raw_sha256 = self._raw_sha256(command.stream)
+        content_fingerprint = self._content_fingerprint(command, raw_sha256)
+
+        replay_reader = getattr(self._store, "read_pdf_submission_replay", None)
+        if replay_reader is not None:
+            replay = replay_reader(
+                workspace_id=command.workspace_id,
+                idempotency_key=command.idempotency_key,
+                content_fingerprint=content_fingerprint,
+            )
+            if replay is not None:
+                return replay
+
+        admission_id: str | None = None
+        if self._admission_store is not None:
+            admission = self._admission_store.admit(
+                principal=principal,
+                operation="submit_pdf",
+                operation_id=command.idempotency_key,
+            )
+            admission_id = admission.id
+        try:
+            self._store.authorize_workspace(workspace_id=command.workspace_id)
+        except Exception:
+            self._close_admission(admission_id)
+            raise
+
+        try:
+            source_object = self._object_store.put_stream(
+                workspace_id=command.workspace_id,
+                stream=command.stream,
+                media_type=command.media_type,
+            )
+        except Exception:
+            self._close_admission(admission_id)
+            raise
         try:
             self._validate_source_object(command, source_object)
             prepared = PreparedPdfSubmission(
@@ -266,7 +308,7 @@ class IngestionJobs:
                 source_key=command.source_key,
                 source_name=source_name,
                 source_object=source_object,
-                content_fingerprint=self._content_fingerprint(command, source_object.sha256),
+                content_fingerprint=content_fingerprint,
                 idempotency_operation="submit_pdf",
                 idempotency_key=command.idempotency_key,
                 idempotency_expires_at=datetime.now(UTC) + IDEMPOTENCY_RETENTION,
@@ -276,17 +318,28 @@ class IngestionJobs:
             self._handle_failed_upload(
                 source_object, expected_workspace_id=command.workspace_id
             )
+            self._close_admission(admission_id)
             raise
         try:
-            result = self._store.commit_pdf_submission(prepared)
+            if admission_id is None:
+                result = self._store.commit_pdf_submission(prepared)
+            else:
+                result = self._store.commit_pdf_submission(prepared, admission_id=admission_id)
         except Exception:
             if not self._is_object_referenced(source_object):
                 self._handle_failed_upload(
                     source_object, expected_workspace_id=command.workspace_id
                 )
+            self._close_admission_after_submission_failure(
+                command=command,
+                content_fingerprint=content_fingerprint,
+                admission_id=admission_id,
+            )
             raise
         if result.retained_object_key != source_object.object_key:
             self._schedule_unreferenced_cleanup(source_object)
+        if result.status in {"succeeded", "superseded", "failed"}:
+            self._close_admission(admission_id)
         return result
 
     def get_job_status(
@@ -310,7 +363,6 @@ class IngestionJobs:
     ) -> ReprocessResult:
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
-        self._store.authorize_workspace(workspace_id=command.workspace_id)
         if not command.idempotency_key:
             raise KnoraError("MISSING_IDEMPOTENCY_KEY")
         if len(command.idempotency_key) > 255:
@@ -321,7 +373,6 @@ class IngestionJobs:
             raise KnoraError("CONFIG_SOURCE_JOB_REQUIRED")
         if command.config_mode == "current" and command.config_source_job_id is not None:
             raise KnoraError("CONFIG_SOURCE_JOB_NOT_ALLOWED")
-
         request_fingerprint = self._reprocess_fingerprint(command=command)
         replay_reader = getattr(self._store, "read_reprocess_replay", None)
         if replay_reader is not None:
@@ -332,14 +383,32 @@ class IngestionJobs:
             )
             if replay is not None:
                 return replay
+        admission_id: str | None = None
+        if self._admission_store is not None:
+            admission = self._admission_store.admit(
+                principal=principal,
+                operation="reprocess_document_version",
+                operation_id=command.idempotency_key,
+            )
+            admission_id = admission.id
+        try:
+            self._store.authorize_workspace(workspace_id=command.workspace_id)
+        except Exception:
+            self._close_admission(admission_id)
+            raise
 
-        context = self._store.read_reprocess_context(
-            workspace_id=command.workspace_id,
-            document_version_id=command.document_version_id,
-            config_mode=command.config_mode,
-            config_source_job_id=command.config_source_job_id,
-        )
+        try:
+            context = self._store.read_reprocess_context(
+                workspace_id=command.workspace_id,
+                document_version_id=command.document_version_id,
+                config_mode=command.config_mode,
+                config_source_job_id=command.config_source_job_id,
+            )
+        except Exception:
+            self._close_admission(admission_id)
+            raise
         if context is None:
+            self._close_admission(admission_id)
             raise KnoraError("DOCUMENT_VERSION_NOT_FOUND")
         try:
             observed = self._object_store.head(
@@ -348,9 +417,12 @@ class IngestionJobs:
             )
         except KnoraError as error:
             if error.code == "OBJECT_NOT_FOUND":
+                self._close_admission(admission_id)
                 raise KnoraError("SOURCE_OBJECT_NOT_AVAILABLE") from error
+            self._close_admission(admission_id)
             raise
         except Exception as error:
+            self._close_admission(admission_id)
             raise KnoraError("SOURCE_OBJECT_NOT_AVAILABLE") from error
         if (
             observed.workspace_id != context.source_object.workspace_id
@@ -359,6 +431,7 @@ class IngestionJobs:
             or observed.byte_size != context.source_object.byte_size
             or observed.media_type != context.source_object.media_type
         ):
+            self._close_admission(admission_id)
             raise KnoraError("SOURCE_OBJECT_NOT_AVAILABLE")
 
         prepared = PreparedReprocess(
@@ -377,7 +450,72 @@ class IngestionJobs:
             configuration=context.configuration,
             actor_key_id=principal.key_id,
         )
-        return self._store.commit_reprocess(prepared)
+        try:
+            if admission_id is None:
+                result = self._store.commit_reprocess(prepared)
+            else:
+                result = self._store.commit_reprocess(prepared, admission_id=admission_id)
+        except Exception:
+            self._close_admission_after_reprocess_failure(
+                command=command,
+                request_fingerprint=request_fingerprint,
+                admission_id=admission_id,
+            )
+            raise
+        if result.status in {"succeeded", "superseded", "failed"}:
+            self._close_admission(admission_id)
+        return result
+
+    def _close_admission(self, admission_id: str | None) -> None:
+        if admission_id is None:
+            return
+        close = getattr(self._admission_store, "close", None)
+        if close is not None:
+            close(admission_id=admission_id)
+
+    def _close_admission_after_submission_failure(
+        self,
+        *,
+        command: PdfSubmissionCommand,
+        content_fingerprint: str,
+        admission_id: str | None,
+    ) -> None:
+        replay_reader = getattr(self._store, "read_pdf_submission_replay", None)
+        if replay_reader is None:
+            self._close_admission(admission_id)
+            return
+        try:
+            replay = replay_reader(
+                workspace_id=command.workspace_id,
+                idempotency_key=command.idempotency_key,
+                content_fingerprint=content_fingerprint,
+            )
+        except Exception:
+            return
+        if replay is None or replay.status in {"succeeded", "superseded", "failed"}:
+            self._close_admission(admission_id)
+
+    def _close_admission_after_reprocess_failure(
+        self,
+        *,
+        command: ReprocessDocumentVersionCommand,
+        request_fingerprint: str,
+        admission_id: str | None,
+    ) -> None:
+        replay_reader = getattr(self._store, "read_reprocess_replay", None)
+        if replay_reader is None:
+            self._close_admission(admission_id)
+            return
+        try:
+            replay = replay_reader(
+                workspace_id=command.workspace_id,
+                idempotency_key=command.idempotency_key,
+                request_fingerprint=request_fingerprint,
+            )
+        except Exception:
+            return
+        if replay is None or replay.status in {"succeeded", "superseded", "failed"}:
+            self._close_admission(admission_id)
 
     @staticmethod
     def _reprocess_fingerprint(
@@ -407,6 +545,17 @@ class IngestionJobs:
                 config.embedding_configuration.id,
             )
         )
+
+    @staticmethod
+    def _raw_sha256(stream: BinaryIO) -> str:
+        digest = sha256()
+        while chunk := stream.read(64 * 1024):
+            digest.update(chunk)
+        try:
+            stream.seek(0)
+        except (AttributeError, OSError) as error:
+            raise KnoraError("PDF_STREAM_NOT_SEEKABLE") from error
+        return digest.hexdigest()
 
     @staticmethod
     def _validate_source_object(

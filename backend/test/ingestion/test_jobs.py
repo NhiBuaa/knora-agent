@@ -72,6 +72,27 @@ class RecordingSubmissionStore:
 
 
 @dataclass
+class ReplayCheckingSubmissionStore(RecordingSubmissionStore):
+    expected_fingerprint: str = ""
+    replay: PdfSubmissionResult | None = None
+    replay_fingerprints: list[str | None] = field(default_factory=list)
+
+    def read_pdf_submission_replay(
+        self,
+        *,
+        workspace_id: str,
+        idempotency_key: str,
+        content_fingerprint: str | None = None,
+    ) -> PdfSubmissionResult | None:
+        assert workspace_id == "workspace-a"
+        assert idempotency_key == "request-1"
+        self.replay_fingerprints.append(content_fingerprint)
+        if content_fingerprint is not None and content_fingerprint != self.expected_fingerprint:
+            raise KnoraError("IDEMPOTENCY_KEY_CONFLICT")
+        return self.replay
+
+
+@dataclass
 class RecordingLifecycleMaintenance:
     items: list[ObjectLifecycleWorkItem] = field(default_factory=list)
 
@@ -229,6 +250,62 @@ def test_pdf_submission_removes_duplicate_object_after_idempotency_replay() -> N
 
     assert result == replay
     assert object_store.deletes == [("workspace-a", "opaque/source-object-1")]
+
+
+@pytest.mark.parametrize(
+    ("source_key", "content"),
+    [
+        ("support/returns", b"%PDF-1.7\ndifferent source key"),
+        ("support/refund-policy", b"%PDF-1.7\ndifferent PDF bytes"),
+    ],
+)
+def test_pdf_submission_rejects_replay_key_for_distinct_request_before_staging(
+    source_key: str, content: bytes
+) -> None:
+    original = b"%PDF-1.7\noriginal PDF bytes"
+    replay = PdfSubmissionResult(
+        ingestion_job_id="job-existing",
+        submission_outcome="idempotency_replay",
+        status="succeeded",
+        document_id="document-1",
+        document_version_id="version-1",
+        retained_object_key="opaque/source-object-existing",
+    )
+    object_store = RecordingObjectStore()
+    submission_store = ReplayCheckingSubmissionStore(
+        result=created_result(),
+        expected_fingerprint="\n".join(
+            (
+                "workspace-a",
+                "support/refund-policy",
+                sha256(original).hexdigest(),
+                "pdf-parser-pypdf-m2-v1",
+                "pdf-normalizer-m2-v1",
+                "chunking-m2-pdf-v1",
+                "embedding-local-m1-v2",
+            )
+        ),
+        replay=replay,
+    )
+    service = IngestionJobs(object_store=object_store, store=submission_store)
+
+    with pytest.raises(KnoraError, match="IDEMPOTENCY_KEY_CONFLICT"):
+        service.submit_pdf(
+            PdfSubmissionCommand(
+                workspace_id="workspace-a",
+                source_key=source_key,
+                source_name="refund-policy.pdf",
+                media_type="application/pdf",
+                stream=BytesIO(content),
+                idempotency_key="request-1",
+                configuration=configuration(),
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert submission_store.replay_fingerprints
+    assert object_store.puts == []
+    assert submission_store.prepared == []
 
 
 def test_pdf_submission_enqueues_duplicate_staging_cleanup_with_lifecycle() -> None:

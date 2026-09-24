@@ -6,8 +6,17 @@ from dataclasses import dataclass
 from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
+from knora.access.identity import Identity
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.main import create_app
+
+
+class _M5WorkspaceOwnershipStore:
+    def owner_for(self, workspace_id: str) -> Identity | None:
+        if workspace_id == "workspace-a":
+            return Identity("https://issuer", "subject-a")
+        return None
 
 
 def _bearer_client(*, workspace: str = "workspace-a", capabilities=(), expired=False):
@@ -36,6 +45,7 @@ def _bearer_client(*, workspace: str = "workspace-a", capabilities=(), expired=F
         ),
         api_key_authenticator=ApiKeyAuthenticator(()),
         tool_lifecycle_reader=LifecycleReader(),
+        workspace_authorizer=WorkspaceAuthorizer(_M5WorkspaceOwnershipStore()),
     )
     return TestClient(app), calls
 

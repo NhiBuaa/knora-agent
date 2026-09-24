@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, ValidationError
 
-from knora.adapters.http.routes import authenticate_principal
+from knora.adapters.http.routes import authorize_workspace_principal
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.tools.read import ReadTool, ReadToolCommand
@@ -25,6 +25,16 @@ def get_read_tool(request: Request) -> ReadTool:
     return request.app.state.read_tool
 
 
+def require_tools_owner_read(
+    workspace_id: str,
+    request: Request,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> WorkspacePrincipal:
+    del x_api_key, authorization
+    return authorize_workspace_principal(request, workspace_id, None)
+
+
 @router.post(
     "/v1/workspaces/{workspace_id}/tools/ticket-lookup",
     response_model=TicketLookupResponse,
@@ -32,11 +42,9 @@ def get_read_tool(request: Request) -> ReadTool:
 async def ticket_lookup(
     workspace_id: str,
     request: Request,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_tools_owner_read)],
     read_tool: Annotated[ReadTool, Depends(get_read_tool)],
 ) -> TicketLookupResponse:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
     try:
         payload = await request.json()
     except (UnicodeDecodeError, ValueError) as exc:

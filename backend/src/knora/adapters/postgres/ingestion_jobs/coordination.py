@@ -26,6 +26,7 @@ from knora.adapters.postgres.tables import (
     IngestionJobAttemptTable,
     IngestionJobTable,
     OriginalSourceObjectTable,
+    WorkspaceAdmissionTable,
 )
 from knora.ingestion.job_processing import (
     AttemptRef,
@@ -65,6 +66,29 @@ from knora.ingestion.job_processing import (
 )
 
 MutationResultT = TypeVar("MutationResultT")
+
+_TERMINAL_INGESTION_JOB_STATUSES = frozenset({"succeeded", "superseded", "failed"})
+
+
+def close_workspace_admissions_for_terminal_job(
+    *,
+    session: Session,
+    job: IngestionJobTable,
+    terminal_at: datetime,
+    terminal_status: str | None = None,
+) -> None:
+    """Close user admissions only after their linked job has reached a terminal state."""
+
+    if (terminal_status or job.status) not in _TERMINAL_INGESTION_JOB_STATUSES:
+        return
+    session.execute(
+        update(WorkspaceAdmissionTable)
+        .where(
+            WorkspaceAdmissionTable.ingestion_job_id == job.id,
+            WorkspaceAdmissionTable.terminal_at.is_(None),
+        )
+        .values(terminal_at=terminal_at)
+    )
 
 
 def _duration_microseconds(value: timedelta) -> int:
@@ -303,6 +327,9 @@ class PostgresIngestionJobCoordinationStore:
             job.updated_at = database_now
             job.failure_reason = "retry_exhausted"
             job.safe_failure_code = failure.safe_code
+            close_workspace_admissions_for_terminal_job(
+                session=session, job=job, terminal_at=database_now
+            )
             self._enqueue_terminal_cleanup(
                 session=session, job=job, database_now=database_now
             )
@@ -970,6 +997,12 @@ class PostgresIngestionJobCoordinationStore:
                         replacement_ingestion_job_id=replacement_ingestion_job_id,
                     ):
                         raise _FinalizationFenceLost()
+                    close_workspace_admissions_for_terminal_job(
+                        session=session,
+                        job=job,
+                        terminal_at=final_database_now,
+                        terminal_status="superseded",
+                    )
                     self._enqueue_terminal_cleanup(
                         session=session, job=job, database_now=final_database_now
                     )
@@ -1016,6 +1049,12 @@ class PostgresIngestionJobCoordinationStore:
                     terminal_outcome_code="succeeded",
                 ):
                     raise _FinalizationFenceLost()
+                close_workspace_admissions_for_terminal_job(
+                    session=session,
+                    job=job,
+                    terminal_at=final_database_now,
+                    terminal_status="succeeded",
+                )
                 self._enqueue_terminal_cleanup(
                     session=session, job=job, database_now=final_database_now
                 )
@@ -1411,6 +1450,9 @@ class PostgresIngestionJobCoordinationStore:
             job.updated_at = database_now
             job.failure_reason = failure.failure_reason
             job.safe_failure_code = failure.safe_code
+            close_workspace_admissions_for_terminal_job(
+                session=session, job=job, terminal_at=database_now
+            )
             self._enqueue_terminal_cleanup(
                 session=session, job=job, database_now=database_now
             )
@@ -1543,6 +1585,9 @@ class PostgresIngestionJobCoordinationStore:
             job.terminal_outcome_code = "stale_document_version"
             job.replacement_document_version_id = outcome.replacement_document_version_id
             job.replacement_ingestion_job_id = outcome.replacement_ingestion_job_id
+            close_workspace_admissions_for_terminal_job(
+                session=session, job=job, terminal_at=database_now
+            )
             self._enqueue_terminal_cleanup(
                 session=session, job=job, database_now=database_now
             )

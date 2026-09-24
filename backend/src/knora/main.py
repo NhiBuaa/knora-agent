@@ -7,9 +7,11 @@ from fastapi.responses import JSONResponse
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
+from knora.adapters.http.workspaces import router as workspaces_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
@@ -26,6 +28,8 @@ from knora.adapters.postgres.object_reconciliation import (
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.adapters.postgres.operator_reader import PostgresOperatorReader
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
+from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
+from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
@@ -86,6 +90,10 @@ from knora.tools.lifecycle_projection import ToolLifecycleProjectionReader
 from knora.tools.proposal_http import ActorContextProvider
 from knora.tools.proposal_http import router as proposal_router
 from knora.tools.proposals import ExecutionAuthorizer, WriteProposalWorkflow
+from knora.workspaces.ports import WorkspaceAdmissionStore
+from knora.workspaces.service import WorkspaceService
+
+_DEFAULT_WORKSPACE_ADMISSIONS = object()
 
 
 def create_app(
@@ -121,6 +129,11 @@ def create_app(
     tool_execution_authorizer: ExecutionAuthorizer | None = None,
     support_tool_gateway: SupportToolGateway | None = None,
     tool_dispatch_signer: HmacDispatchEnvelopeSigner | None = None,
+    workspace_authorizer: WorkspaceAuthorizer | None = None,
+    workspace_service: WorkspaceService | None = None,
+    workspace_admission_store: WorkspaceAdmissionStore | None | object = (
+        _DEFAULT_WORKSPACE_ADMISSIONS
+    ),
 ) -> FastAPI:
     providers = build_provider_selection(settings)
 
@@ -139,6 +152,12 @@ def create_app(
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
     selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
+    workspace_admissions = (
+        PostgresWorkspaceAdmissionStore(SessionFactory)
+        if workspace_admission_store is _DEFAULT_WORKSPACE_ADMISSIONS
+        else workspace_admission_store
+    )
+    application.state.workspace_admission_store = workspace_admissions
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider,
         generation_provider=providers.generation_provider,
@@ -150,11 +169,13 @@ def create_app(
                 vector_min_similarity=settings.vector_min_similarity,
             )
         ),
+        admission_store=workspace_admissions,
     )
     application.state.ingest_document = ingest_document or IngestDocument(
         processor=DocumentProcessor(),
         embedding_provider=providers.embedding_provider,
         store=PostgresIngestionStore(SessionFactory),
+        admission_store=workspace_admissions,
     )
     runtime_object_store_settings = ObjectStoreSettings.from_runtime(settings)
     selected_object_store = object_store
@@ -189,6 +210,7 @@ def create_app(
         store=job_store,
         lifecycle_maintenance=selected_lifecycle_maintenance,
         lifecycle_clock=selected_lifecycle_clock,
+        admission_store=workspace_admissions,
     )
     application.state.ingestion_worker = ingestion_worker or ProcessIngestionJob(
         store=job_store,
@@ -256,7 +278,8 @@ def create_app(
     selected_document_reader = document_reader or PostgresDocumentReader(SessionFactory)
     application.state.document_reader = selected_document_reader
     application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
-        selected_document_reader
+        selected_document_reader,
+        admission_store=workspace_admissions,
     )
     application.state.embedding_configuration = selected_embedding_configuration
     application.state.authenticator = application.state.api_key_authenticator
@@ -272,6 +295,12 @@ def create_app(
         )
     application.state.authenticator = (
         keycloak_authenticator or application.state.api_key_authenticator
+    )
+    application.state.workspace_authorizer = workspace_authorizer or WorkspaceAuthorizer(
+        PostgresWorkspaceStore(SessionFactory)
+    )
+    application.state.workspace_service = workspace_service or WorkspaceService(
+        PostgresWorkspaceStore(SessionFactory)
     )
     selected_tool_action_store = tool_action_store or PostgresToolActionStore(SessionFactory)
     selected_write_proposal_workflow = write_proposal_workflow
@@ -331,6 +360,14 @@ def create_app(
         status = {
             "UNAUTHENTICATED": 401,
             "WORKSPACE_ACCESS_DENIED": 403,
+            "WORKSPACE_ARCHIVED": 409,
+            "REVISION_CONFLICT": 409,
+            "IDEMPOTENCY_CONFLICT": 409,
+            "MISSING_WORKSPACE_REVISION": 428,
+            "INVALID_WORKSPACE_REVISION": 422,
+            "INVALID_WORKSPACE_NAME": 422,
+            "INVALID_WORKSPACE_CURSOR": 422,
+            "INVALID_WORKSPACE_LIMIT": 422,
             "CAPABILITY_ACCESS_DENIED": 403,
             "INVALID_SOURCE_KEY": 400,
             "INVALID_SOURCE_NAME": 400,
@@ -381,9 +418,14 @@ def create_app(
             "TOOL_PROVIDER_UNAVAILABLE": 502,
             "TOOL_PROVIDER_CONTRACT_INVALID": 502,
         }.get(error.code, 400)
-        return JSONResponse(status_code=status, content={"error": {"code": error.code}})
+        return JSONResponse(
+            status_code=status,
+            content={"error": {"code": error.code}},
+            headers={"Cache-Control": "no-store"},
+        )
 
     application.include_router(http_router)
+    application.include_router(workspaces_router)
     application.include_router(router)
     if settings.m5_e2e_faults_enabled:
         from knora.api.m5_e2e_faults import M5E2EFaultController

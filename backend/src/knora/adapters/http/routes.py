@@ -94,44 +94,71 @@ def authenticate_principal(
     return authenticator.authenticate(x_api_key)
 
 
-def require_operator_read(
+def authorize_workspace_principal(
+    request: Request,
     workspace_id: str,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    capability: str | None,
 ) -> WorkspacePrincipal:
+    """Resolve bearer requests through persisted ownership, never JWT Workspace claims."""
+
+    authenticator = request.app.state.authenticator
+    authorization = request.headers.get("Authorization")
+    if authorization and isinstance(authenticator, KeycloakAuthenticator):
+        identity = authenticator.authenticate_identity(authorization)
+        authorizer = request.app.state.workspace_authorizer
+        return authorizer.authorize(identity, workspace_id, capability)
+    x_api_key = request.headers.get("X-API-Key")
+    if isinstance(authenticator, KeycloakAuthenticator):
+        if authenticator.api_key_authenticator is None:
+            raise KnoraError("UNAUTHENTICATED")
+        principal = authenticator.api_key_authenticator.authenticate(x_api_key)
+    else:
+        principal = authenticator.authenticate(x_api_key)
     if principal.workspace_id != workspace_id:
         raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("operator:read")
+    if capability is not None:
+        principal.require_capability(capability)
     return principal
+
+
+def require_operator_read(
+    workspace_id: str,
+    request: Request,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> WorkspacePrincipal:
+    del x_api_key, authorization
+    return authorize_workspace_principal(request, workspace_id, "operator:read")
 
 
 def require_documents_read(
     workspace_id: str,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    request: Request,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> WorkspacePrincipal:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("documents:read")
-    return principal
+    del x_api_key, authorization
+    return authorize_workspace_principal(request, workspace_id, "documents:read")
 
 
 def require_documents_delete(
     workspace_id: str,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    request: Request,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> WorkspacePrincipal:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("documents:delete")
-    return principal
+    del x_api_key, authorization
+    return authorize_workspace_principal(request, workspace_id, "documents:delete")
 
 
 def require_documents_write(
     workspace_id: str,
-    principal: Annotated[WorkspacePrincipal, Depends(authenticate_principal)],
+    request: Request,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> WorkspacePrincipal:
-    if principal.workspace_id != workspace_id:
-        raise KnoraError("WORKSPACE_ACCESS_DENIED")
-    principal.require_capability("documents:write")
-    return principal
+    del x_api_key, authorization
+    return authorize_workspace_principal(request, workspace_id, "documents:write")
 
 
 def get_ingest_document(

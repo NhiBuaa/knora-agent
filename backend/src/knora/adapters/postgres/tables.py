@@ -28,7 +28,58 @@ class WorkspaceTable(Base):
 
     id: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    owner_identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspace_identities.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkspaceIdentityTable(Base):
+    __tablename__ = "workspace_identities"
+    __table_args__ = (UniqueConstraint("issuer", "subject"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    issuer: Mapped[str] = mapped_column(String(500), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkspaceCreateRequestTable(Base):
+    __tablename__ = "workspace_create_requests"
+    __table_args__ = (UniqueConstraint("identity_id", "operation", "key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    identity_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_identities.id", ondelete="RESTRICT"), index=True
+    )
+    operation: Mapped[str] = mapped_column(String(30), nullable=False)
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WorkspaceAdmissionTable(Base):
+    __tablename__ = "workspace_admissions"
+    __table_args__ = (UniqueConstraint("workspace_id", "operation", "operation_id"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    operation: Mapped[str] = mapped_column(String(80), nullable=False)
+    operation_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    ingestion_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    admitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DocumentTable(Base):

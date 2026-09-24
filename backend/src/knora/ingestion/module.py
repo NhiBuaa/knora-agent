@@ -1,9 +1,12 @@
+from uuid import uuid4
+
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.interface import IngestDocumentCommand, IngestionResult
 from knora.ingestion.processing import DocumentProcessor
 from knora.ingestion.store import IngestionStore, PreparedDerivation
 from knora.providers.embedding import EmbeddingProvider
+from knora.workspaces.ports import WorkspaceAdmissionStore
 
 MAX_RAW_BYTES = 1024 * 1024
 MAX_NORMALIZED_TOKENS = 50_000
@@ -28,10 +31,12 @@ class IngestDocument:
         processor: DocumentProcessor,
         embedding_provider: EmbeddingProvider,
         store: IngestionStore,
+        admission_store: WorkspaceAdmissionStore | None = None,
     ) -> None:
         self._processor = processor
         self._embedding_provider = embedding_provider
         self._store = store
+        self._admission_store = admission_store
 
     def execute(
         self,
@@ -40,56 +45,70 @@ class IngestDocument:
     ) -> IngestionResult:
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
-        self._store.authorize_workspace(workspace_id=command.workspace_id)
         _validate_source_key(command.source_key)
         if len(command.raw_content) > MAX_RAW_BYTES:
             raise KnoraError("DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION")
-
-        head = self._store.read_document_head(
-            workspace_id=command.workspace_id,
-            source_key=command.source_key,
-        )
-        try:
-            processed = self._processor.process(
-                raw_content=command.raw_content,
-                media_type=command.media_type,
-                configuration=command.chunking_configuration,
+        admission_id: str | None = None
+        if self._admission_store is not None:
+            admission = self._admission_store.admit(
+                principal=principal,
+                operation="ingest_document",
+                operation_id=str(uuid4()),
             )
-        except UnicodeDecodeError as error:
-            raise KnoraError("INVALID_DOCUMENT_ENCODING") from error
-        if (
-            processed.normalized_token_count > MAX_NORMALIZED_TOKENS
-            or len(processed.chunks) > MAX_CHUNKS
-        ):
-            raise KnoraError("DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION")
+            admission_id = admission.id
+        try:
+            self._store.authorize_workspace(workspace_id=command.workspace_id)
 
-        embed_documents = getattr(
-            self._embedding_provider, "embed_documents", self._embedding_provider.embed
-        )
-        embedding_batch = embed_documents(
-            [chunk.content for chunk in processed.chunks],
-            command.embedding_configuration,
-        )
-        expected_dimensions = command.embedding_configuration.dimensions
-        if len(embedding_batch.vectors) != len(processed.chunks) or any(
-            len(vector) != expected_dimensions for vector in embedding_batch.vectors
-        ):
-            raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
-        if (
-            embedding_batch.provider != command.embedding_configuration.provider
-            or embedding_batch.model != command.embedding_configuration.model
-        ):
-            raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
-
-        return self._store.commit_derivation(
-            prepared=PreparedDerivation(
+            head = self._store.read_document_head(
                 workspace_id=command.workspace_id,
                 source_key=command.source_key,
-                source_name=command.source_name,
-                processed=processed,
-                chunking_configuration=command.chunking_configuration,
-                embedding_configuration=command.embedding_configuration,
-                embedding_batch=embedding_batch,
-            ),
-            expected_revision=head.revision if head is not None else 0,
-        )
+            )
+            try:
+                processed = self._processor.process(
+                    raw_content=command.raw_content,
+                    media_type=command.media_type,
+                    configuration=command.chunking_configuration,
+                )
+            except UnicodeDecodeError as error:
+                raise KnoraError("INVALID_DOCUMENT_ENCODING") from error
+            if (
+                processed.normalized_token_count > MAX_NORMALIZED_TOKENS
+                or len(processed.chunks) > MAX_CHUNKS
+            ):
+                raise KnoraError("DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION")
+
+            embed_documents = getattr(
+                self._embedding_provider, "embed_documents", self._embedding_provider.embed
+            )
+            embedding_batch = embed_documents(
+                [chunk.content for chunk in processed.chunks],
+                command.embedding_configuration,
+            )
+            expected_dimensions = command.embedding_configuration.dimensions
+            if len(embedding_batch.vectors) != len(processed.chunks) or any(
+                len(vector) != expected_dimensions for vector in embedding_batch.vectors
+            ):
+                raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            if (
+                embedding_batch.provider != command.embedding_configuration.provider
+                or embedding_batch.model != command.embedding_configuration.model
+            ):
+                raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
+
+            return self._store.commit_derivation(
+                prepared=PreparedDerivation(
+                    workspace_id=command.workspace_id,
+                    source_key=command.source_key,
+                    source_name=command.source_name,
+                    processed=processed,
+                    chunking_configuration=command.chunking_configuration,
+                    embedding_configuration=command.embedding_configuration,
+                    embedding_batch=embedding_batch,
+                ),
+                expected_revision=head.revision if head is not None else 0,
+            )
+        finally:
+            if admission_id is not None:
+                close = getattr(self._admission_store, "close", None)
+                if close is not None:
+                    close(admission_id=admission_id)

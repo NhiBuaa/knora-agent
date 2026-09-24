@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import asdict
 from math import isfinite
 from time import get_clock_info, perf_counter
+from uuid import uuid4
 
 from knora.answering.evidence import EvidenceSelection, select_evidence
 from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
@@ -23,6 +24,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration, EmbeddingProvider
 from knora.providers.generation import GenerationEvidence, GenerationProvider, GenerationResult
+from knora.workspaces.ports import WorkspaceAdmissionStore
 
 
 class AnswerQuestion:
@@ -37,6 +39,7 @@ class AnswerQuestion:
         retrieval_configuration_resolver: RetrievalConfigurationResolver | None = None,
         clock: Callable[[], float] | None = None,
         clock_resolution_ms: float | None = None,
+        admission_store: WorkspaceAdmissionStore | None = None,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._generation_provider = generation_provider
@@ -52,6 +55,7 @@ class AnswerQuestion:
             if clock_resolution_ms is None
             else clock_resolution_ms
         )
+        self._admission_store = admission_store
         if not isinstance(self._clock_resolution_ms, (int, float)) or not isfinite(
             float(self._clock_resolution_ms)
         ) or self._clock_resolution_ms <= 0:
@@ -64,9 +68,32 @@ class AnswerQuestion:
         *,
         stage_callback: Callable[[str], None] | None = None,
     ) -> QuestionResult:
-        started = self._clock()
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        admission_id: str | None = None
+        if self._admission_store is not None:
+            admission = self._admission_store.admit(
+                principal=principal,
+                operation="ask_question",
+                operation_id=str(uuid4()),
+            )
+            admission_id = admission.id
+        try:
+            return await self._execute_admitted(command, principal, stage_callback=stage_callback)
+        finally:
+            if admission_id is not None:
+                close = getattr(self._admission_store, "close", None)
+                if close is not None:
+                    close(admission_id=admission_id)
+
+    async def _execute_admitted(
+        self,
+        command: QuestionCommand,
+        principal: WorkspacePrincipal,
+        *,
+        stage_callback: Callable[[str], None] | None = None,
+    ) -> QuestionResult:
+        started = self._clock()
         if stage_callback is not None:
             stage_callback("retrieving")
         retrieval_configuration = self._retrieval_configuration

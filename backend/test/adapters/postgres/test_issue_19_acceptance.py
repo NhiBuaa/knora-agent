@@ -385,7 +385,8 @@ def test_public_poll_projects_all_six_states_exact_retry_and_terminal_metadata(t
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )
@@ -634,7 +635,8 @@ def test_processing_and_failed_poll_keep_previous_serving_tuple(tmp_path) -> Non
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )
@@ -705,7 +707,8 @@ def test_public_timestamp_sequence_keeps_first_started_at_across_retry(tmp_path)
     with SessionFactory.begin() as session:
         session.execute(
             text(
-                "TRUNCATE TABLE reprocess_audit_records, idempotency_records, "
+                "TRUNCATE TABLE workspace_admissions, "
+                "reprocess_audit_records, idempotency_records, "
                 "ingestion_job_attempts, ingestion_jobs"
             )
         )
