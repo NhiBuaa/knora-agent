@@ -13,6 +13,7 @@ from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from knora.adapters.postgres.embedding_configuration import configuration_from_row
 from knora.adapters.postgres.ingestion_jobs.lifecycle import PostgresObjectLifecycleStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
@@ -120,7 +121,6 @@ class PostgresIngestionJobCoordinationStore:
 
         from knora.ingestion.job_processing import PdfDerivationProfile
         from knora.ingestion.pdf import PdfExtractionConfiguration
-        from knora.providers.embedding import EmbeddingConfiguration
 
         with self._session_factory() as session:
             chunking = session.get(ChunkingConfigurationTable, work.chunking_configuration_id)
@@ -134,13 +134,7 @@ class PostgresIngestionJobCoordinationStore:
                 normalizer_configuration_id=work.normalizer_configuration_id,
                 chunking_configuration_id=work.chunking_configuration_id,
                 extraction_configuration=PdfExtractionConfiguration.milestone_two(),
-                embedding_configuration=EmbeddingConfiguration(
-                    id=embedding.id,
-                    provider=embedding.provider,
-                    model=embedding.model,
-                    dimensions=embedding.dimensions,
-                    distance_metric=embedding.distance_metric,
-                ),
+                embedding_configuration=configuration_from_row(embedding),
             )
 
     def observe_expired_attempt(self) -> ExpiredAttemptObservation | None:

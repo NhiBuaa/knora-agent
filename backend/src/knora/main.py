@@ -219,6 +219,7 @@ def create_app(
             extractor=PypdfTextExtractor(),
             embedding_provider=providers.embedding_provider,
             profile_resolver=job_store.pdf_profile_for_work,
+            runtime_embedding_configuration=selected_embedding_configuration,
         ),
         operation_ids=UuidOperationIds(),
         timing=AttemptTimingV1.standard(),

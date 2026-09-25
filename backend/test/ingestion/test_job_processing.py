@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from unittest.mock import Mock
 
 import pytest
 
@@ -31,6 +32,8 @@ from knora.ingestion.job_processing import (
     LeaseLost,
     NoEligibleClaim,
     NoEligibleJob,
+    PdfDerivationHandler,
+    PdfDerivationProfile,
     ProcessIngestionJob,
     RecoveryFailedExhausted,
     RecoveryResult,
@@ -51,6 +54,7 @@ from knora.ingestion.job_processing import (
     WorkSucceeded,
     WorkSuperseded,
 )
+from knora.providers.embedding import EmbeddingConfiguration
 
 
 @dataclass
@@ -606,6 +610,48 @@ def claimed_attempt() -> ClaimedAttempt:
         initial_lease_expires_at=started + timedelta(minutes=2),
         deadline_at=started + timedelta(minutes=15),
     )
+
+
+def test_pdf_handler_rejects_persisted_profile_with_changed_runtime_identity_before_io() -> None:
+    persisted = EmbeddingConfiguration(
+        id="embedding-v1",
+        provider="ollama",
+        model="qwen3-embedding:0.6b",
+        dimensions=1024,
+        distance_metric="cosine",
+        deployment_identity="ollama-digest-a",
+        api_contract_version="ollama-api-embed-v1",
+        input_normalization="utf8-nfkc-v1",
+        input_policy_id="qwen3-qa-v1",
+        output_dimensionality=1024,
+        vector_normalization="provider-output-v1",
+    )
+    object_store = Mock()
+    embedding_provider = Mock()
+    handler = PdfDerivationHandler(
+        object_store=object_store,
+        extractor=Mock(),
+        embedding_provider=embedding_provider,
+        profile_resolver=lambda work: PdfDerivationProfile(
+            parser_configuration_id=work.parser_configuration_id,
+            normalizer_configuration_id=work.normalizer_configuration_id,
+            chunking_configuration_id=work.chunking_configuration_id,
+            extraction_configuration=Mock(normalizer_version=work.normalizer_configuration_id),
+            embedding_configuration=persisted,
+        ),
+        runtime_embedding_configuration=replace(
+            persisted, deployment_identity="ollama-digest-b"
+        ),
+    )
+
+    outcome = handler.execute(claimed_attempt().work, Cancellation())
+
+    assert outcome == WorkFailed(
+        HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid"
+    )
+    object_store.head.assert_not_called()
+    object_store.open_read.assert_not_called()
+    embedding_provider.embed_documents.assert_not_called()
 
 
 def test_run_once_claims_then_fenced_finalizes_non_retryable_failure() -> None:
