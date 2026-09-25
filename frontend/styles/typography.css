@@ -1,0 +1,30 @@
+:root {
+  --font-heading: "Roboto Slab", Georgia, serif;
+  --font-control: "Inter", Arial, sans-serif;
+  --size-display: 3rem;
+  --size-heading: 2rem;
+  --size-lead: 1.125rem;
+  --size-body: 1rem;
+  --size-control: .875rem;
+  --size-small: .8125rem;
+  --size-caption: .75rem;
+}
+
+body {
+  font-family: var(--font-inter), var(--font-control);
+  font-size: var(--size-body);
+  line-height: 1.55;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-roboto-slab), var(--font-heading);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+h1 { font-size: var(--size-heading); }
+h2 { font-size: var(--size-lead); }
+button, input, textarea, select {
+  font-family: var(--font-inter), var(--font-control);
+  font-size: var(--size-control);
+}
