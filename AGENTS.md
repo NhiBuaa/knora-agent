@@ -50,6 +50,17 @@ The sole container for every future non-primary Git worktree is
 - Before removing a worktree, verify it is clean and obtain an explicit disposition for its branch;
   never delete or prune a branch merely because its worktree is being removed.
 
+## Frontend formatting
+
+- For every change to maintained files under `frontend/`, run `npm --prefix frontend run format`
+  before completing the change, then run `npm --prefix frontend run format:check`.
+- Do not hand-compress JSX, TypeScript, or object literals to save lines. Keep markup, props,
+  chained expressions, and nested braces readable under the checked-in Prettier configuration.
+- Do not edit `frontend/generated/knora-openapi.ts` manually. Regenerate it with the repository
+  exporter and verify it with `python scripts/export_openapi.py --check`.
+- The GitHub Actions `Frontend formatting / Prettier format check` status is required for every
+  update to `main`; do not bypass a failing or missing result.
+
 ## Verification
 
 Run from the repository root:
