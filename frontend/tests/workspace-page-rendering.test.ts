@@ -13,19 +13,33 @@ let previousSessionSecret: string | undefined;
 
 function runNext(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const nextCli = path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
+    const nextCli = path.join(
+      process.cwd(),
+      "node_modules",
+      "next",
+      "dist",
+      "bin",
+      "next",
+    );
     const nextProcess = spawn(process.execPath, [nextCli, ...args], {
       cwd: process.cwd(),
       env: { ...globalThis.process.env, SESSION_SECRET: sessionSecret },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
-    nextProcess.stdout?.on("data", (chunk) => { output += chunk; });
-    nextProcess.stderr?.on("data", (chunk) => { output += chunk; });
+    nextProcess.stdout?.on("data", (chunk) => {
+      output += chunk;
+    });
+    nextProcess.stderr?.on("data", (chunk) => {
+      output += chunk;
+    });
     nextProcess.on("error", reject);
     nextProcess.on("close", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`next ${args.join(" ")} exited with ${code}: ${output}`));
+      else
+        reject(
+          new Error(`next ${args.join(" ")} exited with ${code}: ${output}`),
+        );
     });
   });
 }
@@ -34,7 +48,9 @@ async function waitForServer(): Promise<void> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
-      const response = await fetch(origin, { signal: AbortSignal.timeout(250) });
+      const response = await fetch(origin, {
+        signal: AbortSignal.timeout(250),
+      });
       if (response.ok) return;
     } catch (error) {
       lastError = error;
@@ -48,7 +64,14 @@ beforeAll(async () => {
   previousSessionSecret = process.env.SESSION_SECRET;
   process.env.SESSION_SECRET = sessionSecret;
   await runNext(["build"]);
-  const nextCli = path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
+  const nextCli = path.join(
+    process.cwd(),
+    "node_modules",
+    "next",
+    "dist",
+    "bin",
+    "next",
+  );
   server = spawn(process.execPath, [nextCli, "start", "--port", String(port)], {
     cwd: process.cwd(),
     env: { ...process.env, SESSION_SECRET: sessionSecret },
@@ -68,7 +91,9 @@ describe("workspace page rendering", () => {
     const unavailable = await fetch(`${origin}/app`);
 
     expect(unavailable.status).toBe(200);
-    await expect(unavailable.text()).resolves.toContain("No workspace is available for this session.");
+    await expect(unavailable.text()).resolves.toContain(
+      "No workspace is available for this session.",
+    );
 
     const session = await encodeSession({
       subject: "user-1",

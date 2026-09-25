@@ -1,3 +1,4 @@
+/* prettier-ignore */
 :root {
   color-scheme: light;
   --page: #EFFCFA;
@@ -21,6 +22,7 @@
   --status-info: #245F88;
 }
 
+/* prettier-ignore */
 [data-theme="dark"] {
   color-scheme: dark;
   --page: #0B1412;
@@ -44,6 +46,7 @@
   --status-info: #8EC8F0;
 }
 
+/* prettier-ignore */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
     color-scheme: dark;

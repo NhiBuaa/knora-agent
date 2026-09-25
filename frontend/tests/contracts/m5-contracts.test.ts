@@ -37,22 +37,39 @@ describe("M5 generated public contract", () => {
   it("models sanitized lifecycle states without mutation authority", () => {
     const projection = {
       availability: "available",
-      items: [{ proposal: { proposal_id: "proposal-1", revision: 1, state: "approved" }, approval: {} }],
+      items: [
+        {
+          proposal: {
+            proposal_id: "proposal-1",
+            revision: 1,
+            state: "approved",
+          },
+          approval: {},
+        },
+      ],
     } satisfies ToolLifecycleResponse;
     expect(projection).not.toHaveProperty("approve");
     expect(projection).not.toHaveProperty("execute");
-    expect(JSON.stringify(projection)).not.toMatch(/api[_-]?key|secret|raw[_-]?token/i);
+    expect(JSON.stringify(projection)).not.toMatch(
+      /api[_-]?key|secret|raw[_-]?token/i,
+    );
   });
 
   it("accepts an ordered stream with exactly one terminal frame", async () => {
     const seen: string[] = [];
     const body = new ReadableStream({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode('event: started\ndata: {}\n\nevent: final_validated\ndata: {"answer":"ok"}\n\n'));
+        controller.enqueue(
+          new TextEncoder().encode(
+            'event: started\ndata: {}\n\nevent: final_validated\ndata: {"answer":"ok"}\n\n',
+          ),
+        );
         controller.close();
       },
     });
-    await consumeQuestionStream(new Response(body), (event) => seen.push(event.stage));
+    await consumeQuestionStream(new Response(body), (event) =>
+      seen.push(event.stage),
+    );
     expect(seen).toEqual(["started", "final_validated"]);
   });
 });

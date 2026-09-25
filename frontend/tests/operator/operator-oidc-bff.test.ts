@@ -21,7 +21,9 @@ describe("operator OIDC BFF authentication", () => {
       capabilities: ["operator.read"],
       expiresAt: 1_800_000_000,
     });
-    vi.mocked(forwardOperatorRequest).mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.mocked(forwardOperatorRequest).mockResolvedValue(
+      new Response("{}", { status: 200 }),
+    );
 
     const response = await proxyOperatorPath(
       (workspaceId) => `/v1/workspaces/${workspaceId}/operator/operations`,
@@ -42,7 +44,9 @@ describe("operator OIDC BFF authentication", () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ detail: "UNAUTHENTICATED" });
+    await expect(response.json()).resolves.toEqual({
+      detail: "UNAUTHENTICATED",
+    });
     expect(forwardOperatorRequest).not.toHaveBeenCalled();
   });
 
@@ -60,7 +64,9 @@ describe("operator OIDC BFF authentication", () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ detail: "WORKSPACE_ACCESS_DENIED" });
+    await expect(response.json()).resolves.toEqual({
+      detail: "WORKSPACE_ACCESS_DENIED",
+    });
     expect(forwardOperatorRequest).not.toHaveBeenCalled();
   });
 });
