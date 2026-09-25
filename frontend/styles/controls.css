@@ -15,19 +15,23 @@
   cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease;
 }
-.kn-button:hover:not(:disabled) { background: var(--action-hover); }
+.kn-button[data-variant="primary"]:hover:not(:disabled) { background: var(--action-hover); }
 .kn-button[data-variant="primary"]:active:not(:disabled) { background: var(--action-active); }
 .kn-button[data-variant="secondary"] {
   border-color: var(--control-border);
   background: var(--surface);
   color: var(--text-primary);
 }
-.kn-button[data-variant="quiet"] {
+.kn-button[data-variant="signature"] {
+  background: var(--signature);
+  color: var(--signature-foreground);
+}
+.kn-button[data-variant="ghost"] {
   background: transparent;
   color: var(--text-primary);
 }
 .kn-button[data-variant="secondary"]:hover:not(:disabled),
-.kn-button[data-variant="quiet"]:hover:not(:disabled) { background: var(--surface-subtle); }
+.kn-button[data-variant="ghost"]:hover:not(:disabled) { background: var(--surface-subtle); }
 .kn-button:disabled { cursor: not-allowed; opacity: .55; }
 .kn-button:focus-visible,
 .kn-field__control:focus-visible,
@@ -54,8 +58,8 @@
 textarea.kn-field__control { min-height: 6rem; resize: vertical; }
 .kn-field__control:disabled { opacity: .6; cursor: not-allowed; }
 .kn-field__control[aria-invalid="true"] { border-color: var(--status-error); }
-.kn-field__help, .kn-field__error { margin: 0; font-size: .875rem; }
-.kn-field__help { color: var(--text-muted); }
+.kn-field__hint, .kn-field__error { margin: 0; font-size: .875rem; }
+.kn-field__hint { color: var(--text-muted); }
 .kn-field__error { color: var(--status-error); }
 
 .kn-notice {
@@ -68,7 +72,7 @@ textarea.kn-field__control { min-height: 6rem; resize: vertical; }
 }
 .kn-notice[data-kind="error"] { border-left-color: var(--status-error); }
 .kn-notice[data-kind="warning"] { border-left-color: var(--status-warning); }
-.kn-notice[data-kind="success"] { border-left-color: var(--status-success); }
+.kn-notice[data-kind="system"] { border-left-color: var(--status-info); }
 .kn-notice__kind { display: block; margin-bottom: .125rem; font-size: .75rem; font-weight: 700; }
 .kn-notice__title { display: block; margin-bottom: .25rem; }
 

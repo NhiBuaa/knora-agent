@@ -2,7 +2,7 @@ import React, { type ButtonHTMLAttributes } from "react";
 import "../../styles/controls.css";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "quiet";
+  variant?: "primary" | "secondary" | "signature" | "ghost";
 };
 
 export function Button({ variant = "primary", type = "button", className = "", ...props }: ButtonProps) {
