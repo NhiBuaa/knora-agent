@@ -18,11 +18,110 @@ class ProviderSelection:
 
 
 def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
-    if runtime_settings.embedding_dimension != 1536:
+    embedding_choice = runtime_settings.embedding_provider
+    generation_choice = runtime_settings.generation_provider
+    if (embedding_choice is None) != (generation_choice is None):
+        raise ValueError("invalid provider configuration: both selectors are required")
+    if embedding_choice is not None and generation_choice is not None:
+        embedding, configuration = _build_selected_embedding(runtime_settings, embedding_choice)
+        generation = _build_selected_generation(runtime_settings, generation_choice)
+        _validate_embedding_dimension(runtime_settings, configuration)
+        return ProviderSelection(embedding, generation, configuration)
+
+    return _build_legacy_provider_selection(runtime_settings)
+
+
+def _validate_embedding_dimension(
+    runtime_settings: Settings, configuration: EmbeddingConfiguration
+) -> None:
+    if runtime_settings.embedding_dimension != configuration.dimensions:
         raise ValueError(
             "invalid provider configuration: Milestone 1 embedding configuration expected "
-            "1536 dimensions"
+            f"{configuration.dimensions} dimensions"
         )
+
+
+def _build_selected_embedding(
+    runtime_settings: Settings, choice: str
+) -> tuple[EmbeddingProvider, EmbeddingConfiguration]:
+    if choice == "deterministic-local":
+        if runtime_settings.openai_embedding_model != "text-embedding-3-small":
+            raise ValueError(
+                "invalid provider configuration: Milestone 1 embedding configuration for "
+                "deterministic-local expected text-embedding-3-small"
+            )
+        return DeterministicEmbeddingProvider(), EmbeddingConfiguration.milestone_one_local()
+    if choice == "google-gemini-api":
+        api_key = runtime_settings.gemini_api_key
+        if api_key is None or not api_key.get_secret_value():
+            raise ValueError("invalid provider configuration: missing gemini_api_key")
+        if runtime_settings.gemini_timeout_seconds <= 0:
+            raise ValueError("invalid provider configuration: timeout must be positive")
+        return (
+            GeminiEmbeddingProvider(
+                api_key=api_key.get_secret_value(),
+                timeout_seconds=runtime_settings.gemini_timeout_seconds,
+            ),
+            EmbeddingConfiguration.gemini_m3(),
+        )
+    if choice == "openai-compatible":
+        required = {
+            "openai_base_url": runtime_settings.openai_base_url,
+            "openai_embedding_model": runtime_settings.openai_embedding_model,
+            "openai_embedding_configuration_id": runtime_settings.openai_embedding_configuration_id,
+            "openai_pricing_version": runtime_settings.openai_pricing_version,
+            "openai_embedding_input_cost_per_million_tokens": (
+                runtime_settings.openai_embedding_input_cost_per_million_tokens
+            ),
+        }
+        api_key = runtime_settings.openai_api_key
+        missing = [name for name, value in required.items() if value is None or value == ""]
+        if api_key is None or not api_key.get_secret_value():
+            missing.append("openai_api_key")
+        if missing:
+            raise ValueError(
+                "invalid provider configuration: missing " + ", ".join(sorted(missing))
+            )
+        cost = runtime_settings.openai_embedding_input_cost_per_million_tokens
+        assert cost is not None
+        assert api_key is not None
+        if cost < 0:
+            raise ValueError("invalid provider configuration: costs must be non-negative")
+        if runtime_settings.openai_timeout_seconds <= 0:
+            raise ValueError("invalid provider configuration: timeout must be positive")
+        return (
+            OpenAICompatibleEmbeddingProvider(
+                base_url=str(runtime_settings.openai_base_url),
+                api_key=api_key.get_secret_value(),
+                input_cost_per_million_tokens=cost,
+                pricing_version=str(runtime_settings.openai_pricing_version),
+                timeout_seconds=runtime_settings.openai_timeout_seconds,
+            ),
+            EmbeddingConfiguration.openai_compatible(
+                configuration_id=runtime_settings.openai_embedding_configuration_id,
+                model=runtime_settings.openai_embedding_model,
+            ),
+        )
+    raise ValueError("invalid provider configuration: unsupported embedding_provider")
+
+
+def _build_selected_generation(runtime_settings: Settings, choice: str) -> GenerationProvider:
+    if choice == "deterministic-local":
+        return DeterministicGenerationProvider()
+    if choice == "openai-compatible":
+        if any(
+            cost is not None and cost < 0
+            for cost in (
+                runtime_settings.openai_generation_input_cost_per_million_tokens,
+                runtime_settings.openai_generation_output_cost_per_million_tokens,
+            )
+        ):
+            raise ValueError("invalid provider configuration: costs must be non-negative")
+        return _build_openai_generation(runtime_settings)
+    raise ValueError("invalid provider configuration: unsupported generation_provider")
+
+
+def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSelection:
     if (
         runtime_settings.provider_mode == "deterministic-local"
         and runtime_settings.openai_embedding_model != "text-embedding-3-small"
@@ -32,10 +131,12 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
             "deterministic-local expected text-embedding-3-small"
         )
     if runtime_settings.provider_mode == "deterministic-local":
+        configuration = EmbeddingConfiguration.milestone_one_local()
+        _validate_embedding_dimension(runtime_settings, configuration)
         return ProviderSelection(
             embedding_provider=DeterministicEmbeddingProvider(),
             generation_provider=DeterministicGenerationProvider(),
-            embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+            embedding_configuration=configuration,
         )
     if runtime_settings.provider_mode == "google-gemini-api":
         api_key = runtime_settings.gemini_api_key
@@ -44,13 +145,15 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
         if runtime_settings.gemini_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
         generation = _build_openai_generation(runtime_settings)
+        configuration = EmbeddingConfiguration.gemini_m3()
+        _validate_embedding_dimension(runtime_settings, configuration)
         return ProviderSelection(
             embedding_provider=GeminiEmbeddingProvider(
                 api_key=api_key.get_secret_value(),
                 timeout_seconds=runtime_settings.gemini_timeout_seconds,
             ),
             generation_provider=generation,
-            embedding_configuration=EmbeddingConfiguration.gemini_m3(),
+            embedding_configuration=configuration,
         )
     if runtime_settings.provider_mode != "openai-compatible":
         raise ValueError("invalid provider configuration: unsupported provider_mode")
@@ -107,6 +210,7 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
         configuration_id=runtime_settings.openai_embedding_configuration_id,
         model=runtime_settings.openai_embedding_model,
     )
+    _validate_embedding_dimension(runtime_settings, configuration)
     return ProviderSelection(
         embedding_provider=OpenAICompatibleEmbeddingProvider(
             base_url=base_url,

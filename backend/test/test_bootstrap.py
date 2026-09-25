@@ -43,6 +43,74 @@ def test_bootstrap_selects_one_complete_provider_mode() -> None:
     assert compatible.embedding_configuration.dimensions == 1536
 
 
+def test_bootstrap_selects_embedding_and_generation_independently() -> None:
+    selected = build_provider_selection(
+        compatible_settings(
+            embedding_provider="openai-compatible",
+            generation_provider="deterministic-local",
+            openai_generation_model=None,
+            openai_generation_input_cost_per_million_tokens=None,
+            openai_generation_output_cost_per_million_tokens=None,
+        )
+    )
+
+    assert isinstance(selected.embedding_provider, OpenAICompatibleEmbeddingProvider)
+    assert isinstance(selected.generation_provider, DeterministicGenerationProvider)
+    assert selected.embedding_configuration.provider == "openai-compatible"
+
+
+def test_bootstrap_selects_local_embedding_with_openai_generation() -> None:
+    selected = build_provider_selection(
+        compatible_settings(
+            provider_mode="unused-legacy-mode",
+            embedding_provider="deterministic-local",
+            generation_provider="openai-compatible",
+            openai_embedding_input_cost_per_million_tokens=None,
+        )
+    )
+
+    assert isinstance(selected.embedding_provider, DeterministicEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+    assert selected.embedding_configuration == EmbeddingConfiguration.milestone_one_local()
+
+
+def test_bootstrap_requires_pricing_version_for_selected_openai_embedding() -> None:
+    with pytest.raises(ValueError, match="openai_pricing_version"):
+        build_provider_selection(
+            compatible_settings(
+                embedding_provider="openai-compatible",
+                generation_provider="deterministic-local",
+                openai_pricing_version=None,
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"embedding_provider": "deterministic-local"},
+        {"generation_provider": "deterministic-local"},
+        {"embedding_provider": "ollama", "generation_provider": "deterministic-local"},
+        {"embedding_provider": "deterministic-local", "generation_provider": "google-gemini-api"},
+    ],
+)
+def test_bootstrap_rejects_partial_or_unknown_provider_selectors(overrides: dict) -> None:
+    with pytest.raises(ValueError, match="provider configuration"):
+        build_provider_selection(Settings(_env_file=None, **overrides))
+
+
+def test_bootstrap_rejects_dimension_that_does_not_match_selected_profile() -> None:
+    with pytest.raises(ValueError, match="embedding configuration.*1536 dimensions"):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                embedding_provider="deterministic-local",
+                generation_provider="deterministic-local",
+                embedding_dimension=1024,
+            )
+        )
+
+
 @pytest.mark.parametrize(
     "runtime_settings",
     [
