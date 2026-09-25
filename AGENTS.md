@@ -58,8 +58,8 @@ The sole container for every future non-primary Git worktree is
   chained expressions, and nested braces readable under the checked-in Prettier configuration.
 - Do not edit `frontend/generated/knora-openapi.ts` manually. Regenerate it with the repository
   exporter and verify it with `python scripts/export_openapi.py --check`.
-- The GitHub Actions `Frontend formatting / Prettier format check` status is required for every
-  update to `main`; do not bypass a failing or missing result.
+- The GitHub Actions `Prettier format check` status from the `Frontend formatting` workflow is
+  required for every update to `main`; do not bypass a failing or missing result.
 
 ## Verification
 
