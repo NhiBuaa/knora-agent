@@ -581,7 +581,7 @@ class ChunkEmbeddingTable(Base):
         ForeignKey("embedding_sets.id", ondelete="RESTRICT"), index=True
     )
     chunk_id: Mapped[str] = mapped_column(ForeignKey("chunks.id", ondelete="RESTRICT"), index=True)
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(), nullable=False)
 
 
 class QuestionTraceTable(Base):
