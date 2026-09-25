@@ -94,6 +94,9 @@ class AnswerQuestion:
         stage_callback: Callable[[str], None] | None = None,
     ) -> QuestionResult:
         started = self._clock()
+        self._store.require_compatible_corpus(
+            command.workspace_id, self._embedding_configuration.id
+        )
         if stage_callback is not None:
             stage_callback("retrieving")
         retrieval_configuration = self._retrieval_configuration

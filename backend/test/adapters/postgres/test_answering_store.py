@@ -22,6 +22,7 @@ from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
 from knora.answering.stores import BranchObservation, RetrievalConfiguration
 from knora.domain.access import WorkspacePrincipal
+from knora.domain.errors import KnoraError
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import ChunkingConfiguration, DocumentProcessor
@@ -55,6 +56,83 @@ def ingest(
         ),
         WorkspacePrincipal(workspace_id=workspace_id, key_id="test"),
     )
+
+
+def test_readiness_rejects_only_incompatible_active_unarchived_workspace_sets() -> None:
+    workspace = f"readiness-{uuid4()}"
+    other_workspace = f"readiness-other-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add_all(
+            [
+                WorkspaceTable(id=workspace, name="Readiness"),
+                WorkspaceTable(id=other_workspace, name="Other readiness"),
+            ]
+        )
+    selected = EmbeddingConfiguration(
+        id=f"embedding-1024-{uuid4()}",
+        provider="deterministic-local",
+        model="test-1024",
+        dimensions=1024,
+        distance_metric="cosine",
+    )
+    old = EmbeddingConfiguration.milestone_one_local()
+    store = PostgresAnsweringStore(SessionFactory)
+    store.require_compatible_corpus(workspace, selected.id)
+    compatible = ingest(workspace, "support/compatible", configuration=selected)
+    store.require_compatible_corpus(workspace, selected.id)
+    incompatible = ingest(workspace, "support/old", configuration=old)
+    other_old = ingest(other_workspace, "support/other-old", configuration=old)
+
+    with pytest.raises(KnoraError, match="REINDEX_REQUIRED"):
+        store.require_compatible_corpus(workspace, selected.id)
+    with pytest.raises(KnoraError, match="REINDEX_REQUIRED"):
+        store.require_compatible_corpus(workspace, old.id)
+
+    with SessionFactory() as session:
+        selected_vector = tuple(
+            session.scalar(
+                select(ChunkEmbeddingTable.embedding).where(
+                    ChunkEmbeddingTable.embedding_set_id == compatible.embedding_set_id
+                )
+            )
+        )
+    candidates = store.retrieve_candidates(
+        workspace_id=workspace,
+        query_text="refunds",
+        query_vector=selected_vector,
+        embedding_configuration=selected,
+        retrieval_configuration=RetrievalConfiguration.milestone_one(),
+    )
+    assert candidates
+    assert all(candidate.embedding_configuration_id == selected.id for candidate in candidates)
+
+    reader = PostgresDocumentReader(SessionFactory)
+    reader.archive(
+        workspace_id=workspace,
+        document_id=incompatible.document_id,
+        principal=WorkspacePrincipal(workspace_id=workspace, key_id="test"),
+    )
+    store.require_compatible_corpus(workspace, selected.id)
+    store.require_compatible_corpus(other_workspace, old.id)
+    reader.archive(
+        workspace_id=other_workspace,
+        document_id=other_old.document_id,
+        principal=WorkspacePrincipal(workspace_id=other_workspace, key_id="test"),
+    )
+    store.require_compatible_corpus(other_workspace, selected.id)
+    assert compatible.document_id != incompatible.document_id
+
+
+def test_direct_retrieval_rejects_bad_query_vector_dimension_before_cosine() -> None:
+    configuration = EmbeddingConfiguration.milestone_one_local()
+    with pytest.raises(KnoraError, match="EMBEDDING_DIMENSION_MISMATCH"):
+        PostgresAnsweringStore(SessionFactory).retrieve_candidates(
+            workspace_id=f"dimension-{uuid4()}",
+            query_text="refund",
+            query_vector=tuple([0.0] * 1024),
+            embedding_configuration=configuration,
+            retrieval_configuration=RetrievalConfiguration.milestone_one(),
+        )
 
 
 @pytest.mark.parametrize("hybrid", [False, True])

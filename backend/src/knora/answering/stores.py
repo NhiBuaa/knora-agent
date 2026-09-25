@@ -200,6 +200,10 @@ class QuestionTraceRecord:
 
 
 class AnsweringStore(Protocol):
+    def require_compatible_corpus(
+        self, workspace_id: str, embedding_configuration_id: str
+    ) -> None: ...
+
     def retrieve_candidates(
         self,
         *,

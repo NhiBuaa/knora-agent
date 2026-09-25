@@ -90,6 +90,12 @@ class LegacyCitationService:
 @dataclass
 class EmptyAnsweringStore:
     traces: list[QuestionTraceRecord] = field(default_factory=list)
+    incompatible: bool = False
+
+    def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str):
+        del workspace_id, embedding_configuration_id
+        if self.incompatible:
+            raise KnoraError("REINDEX_REQUIRED")
 
     def retrieve_candidates(self, **kwargs):
         return ()
@@ -243,6 +249,28 @@ def test_invalid_generation_maps_to_explicit_http_502() -> None:
 
     assert response.status_code == 502
     assert response.json() == {"error": {"code": "GENERATION_OUTPUT_INVALID"}}
+
+
+def test_incompatible_corpus_maps_to_http_409_before_embedding() -> None:
+    class EmbeddingProviderMustNotRun:
+        def embed(self, texts, configuration):
+            raise AssertionError("query embedding called on incompatible corpus")
+
+    service = AnswerQuestion(
+        embedding_provider=EmbeddingProviderMustNotRun(),
+        generation_provider=CountingGenerationProvider(),
+        store=EmptyAnsweringStore(incompatible=True),
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    response = client_with(service).post(
+        "/v1/questions",
+        headers={"X-API-Key": RAW_KEY},
+        json={"workspace_id": "workspace-a", "question": "What is the policy?"},
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"error": {"code": "REINDEX_REQUIRED"}}
 
 
 def test_no_qualified_evidence_returns_nullable_http_refusal() -> None:

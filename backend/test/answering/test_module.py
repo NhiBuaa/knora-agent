@@ -7,6 +7,7 @@ from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
 from knora.answering.stores import QuestionTraceRecord, RetrievalCandidate
 from knora.domain.access import WorkspacePrincipal
+from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 from knora.providers.generation import GenerationResult
 
@@ -14,6 +15,15 @@ from knora.providers.generation import GenerationResult
 @dataclass
 class EmptyStore:
     traces: list[QuestionTraceRecord] = field(default_factory=list)
+    incompatible: bool = False
+    readiness_calls: list[tuple[str, str]] = field(default_factory=list)
+
+    def require_compatible_corpus(
+        self, workspace_id: str, embedding_configuration_id: str
+    ) -> None:
+        self.readiness_calls.append((workspace_id, embedding_configuration_id))
+        if self.incompatible:
+            raise KnoraError("REINDEX_REQUIRED")
 
     def retrieve_candidates(self, **kwargs) -> tuple[RetrievalCandidate, ...]:
         return ()
@@ -37,6 +47,63 @@ class QueryEmbeddingProvider:
                 "pricing_version": "test-pricing-v1",
             },
         )
+
+
+class CountingQueryEmbeddingProvider(QueryEmbeddingProvider):
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def embed(self, texts, configuration):
+        self.calls.append(texts)
+        return super().embed(texts, configuration)
+
+
+@pytest.mark.asyncio
+async def test_incompatible_corpus_rejects_before_provider_and_retrieval_lookup() -> None:
+    class RetrievalConfigurationMustNotResolve:
+        def resolve(self, *, workspace_id: str):
+            raise AssertionError(f"retrieval configuration lookup for {workspace_id}")
+
+    store = EmptyStore(incompatible=True)
+    provider = CountingQueryEmbeddingProvider()
+    service = AnswerQuestion(
+        embedding_provider=provider,
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration_resolver=RetrievalConfigurationMustNotResolve(),
+    )
+
+    with pytest.raises(KnoraError, match="REINDEX_REQUIRED"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="What is the policy?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert store.readiness_calls == [("workspace-a", "embedding-local-m1-v2")]
+    assert provider.calls == []
+    assert store.traces == []
+
+
+@pytest.mark.asyncio
+async def test_cross_workspace_question_rejects_before_readiness_lookup() -> None:
+    store = EmptyStore(incompatible=True)
+    provider = CountingQueryEmbeddingProvider()
+    service = AnswerQuestion(
+        embedding_provider=provider,
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    with pytest.raises(KnoraError, match="WORKSPACE_ACCESS_DENIED"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-b", question="What is the policy?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+        )
+
+    assert store.readiness_calls == []
+    assert provider.calls == []
 
 
 class MismatchedQueryEmbeddingProvider:

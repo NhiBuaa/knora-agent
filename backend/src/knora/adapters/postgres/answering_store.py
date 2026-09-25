@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
@@ -24,12 +24,30 @@ from knora.answering.stores import (
     RetrievalConfiguration,
     RetrievalResult,
 )
+from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingConfiguration
 
 
 class PostgresAnsweringStore(AnsweringStore):
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
+
+    def require_compatible_corpus(
+        self, workspace_id: str, embedding_configuration_id: str
+    ) -> None:
+        incompatible = exists(
+            select(EmbeddingSetTable.id)
+            .join(DocumentTable, DocumentTable.active_embedding_set_id == EmbeddingSetTable.id)
+            .where(
+                DocumentTable.workspace_id == workspace_id,
+                DocumentTable.archived.is_(False),
+                EmbeddingSetTable.status == "completed",
+                EmbeddingSetTable.embedding_configuration_id != embedding_configuration_id,
+            )
+        )
+        with self._session_factory() as session:
+            if session.scalar(select(incompatible)):
+                raise KnoraError("REINDEX_REQUIRED")
 
     def retrieve_candidates(
         self,
@@ -40,6 +58,8 @@ class PostgresAnsweringStore(AnsweringStore):
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult:
+        if len(query_vector) != embedding_configuration.dimensions:
+            raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
         if retrieval_configuration.id in {
             "retrieval-m3-vector-v2",
             "retrieval-m3-rrf-v2",
@@ -230,6 +250,8 @@ class PostgresAnsweringStore(AnsweringStore):
                 EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
                 EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
                 EmbeddingSetTable.status == "completed",
+                func.vector_dims(ChunkEmbeddingTable.embedding)
+                == embedding_configuration.dimensions,
                 eligibility,
             )
             .order_by(

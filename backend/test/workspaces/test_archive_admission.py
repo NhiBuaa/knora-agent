@@ -428,6 +428,9 @@ class ProviderMustNotRun:
 
 
 class AnswerStoreMustNotRun:
+    def require_compatible_corpus(self, *_args):
+        raise AssertionError("readiness lookup happened for archived Workspace")
+
     def retrieve_candidates(self, **_kwargs):
         raise AssertionError("retrieval lookup happened for archived Workspace")
 
@@ -514,6 +517,9 @@ class _QuestionAdmissionEmbedding:
 
 
 class _QuestionAdmissionStore:
+    def require_compatible_corpus(self, workspace_id, embedding_configuration_id):
+        del workspace_id, embedding_configuration_id
+
     def retrieve_candidates(self, **_kwargs):
         return ()
 
