@@ -16,6 +16,12 @@ function declarations(css: string, selector: string): Record<string, string> {
   );
 }
 
+function systemDarkDeclarations(css: string): Record<string, string> {
+  const media = css.match(/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{([\s\S]*)\}\s*$/);
+  expect(media, "missing system-dark media rule").not.toBeNull();
+  return declarations(media![1], ':root:not([data-theme="light"]):not([data-theme="dark"])');
+}
+
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
   const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
@@ -38,7 +44,7 @@ describe("semantic visual tokens", () => {
     expect(tokens.light["--page"]).toBe("#EFFCFA");
     expect(tokens.dark["--action"]).toBe("#4DBB73");
     for (const theme of Object.values(tokens)) {
-      for (const role of ["page", "surface", "surface-subtle", "text-primary", "text-secondary", "text-muted", "action", "action-hover", "action-active", "action-foreground", "signature", "signature-foreground", "border", "focus", "status-success", "status-warning", "status-error", "status-info"]) {
+      for (const role of ["page", "surface", "surface-subtle", "text-primary", "text-secondary", "text-muted", "action", "action-hover", "action-active", "action-foreground", "signature", "signature-foreground", "border", "control-border", "focus", "status-success", "status-warning", "status-error", "status-info"]) {
         expect(theme[`--${role}`], `missing ${role}`).toMatch(/^#[0-9A-F]{6}$/);
       }
       expect(contrast(theme["--action"], theme["--action-foreground"])).toBeGreaterThanOrEqual(4.5);
@@ -48,11 +54,18 @@ describe("semantic visual tokens", () => {
       expect(contrast(theme["--page"], theme["--text-primary"])).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["--surface"], theme["--text-secondary"])).toBeGreaterThanOrEqual(4.5);
       expect(contrast(theme["--surface"], theme["--text-muted"])).toBeGreaterThanOrEqual(4.5);
+      for (const surface of ["surface", "surface-subtle"]) {
+        expect(contrast(theme[`--${surface}`], theme["--control-border"])).toBeGreaterThanOrEqual(3);
+      }
       for (const role of ["status-success", "status-warning", "status-error", "status-info"]) {
         expect(contrast(theme["--surface"], theme[`--${role}`])).toBeGreaterThanOrEqual(4.5);
       }
       expect(contrast(theme["--page"], theme["--focus"])).toBeGreaterThanOrEqual(3);
     }
+  });
+
+  it("keeps system dark semantic values identical to explicit dark", () => {
+    expect(systemDarkDeclarations(css)).toEqual(tokens.dark);
   });
 
   it("documents the CSS mapping instead of a second token object", () => {
@@ -64,6 +77,7 @@ describe("semantic visual tokens", () => {
       ["signature", "#784131", "#C68F79"],
       ["text-primary", "#1F3B36", "#D7EFE6"],
       ["border", "#D9E2DE", "#2A3D36"],
+      ["control-border", "#788A82", "#60776C"],
     ]) {
       expect(tokens.light[`--${role}`]).toBe(light);
       expect(tokens.dark[`--${role}`]).toBe(dark);

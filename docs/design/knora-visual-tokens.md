@@ -18,7 +18,8 @@ dark preference uses the same dark values when no explicit `data-theme` is set.
 | `--action-foreground` | #0B1412 | #0B1412 | Text on action |
 | `--signature` | #784131 | #C68F79 | Restrained brand accent |
 | `--signature-foreground` | #FFFFFF | #0B1412 | Text on signature |
-| `--border` | #D9E2DE | #2A3D36 | Dividers and controls |
+| `--border` | #D9E2DE | #2A3D36 | Subtle dividers and surfaces |
+| `--control-border` | #788A82 | #60776C | Input and control boundaries |
 | `--focus` | #176B43 | #9CE3B5 | Visible focus indicator |
 | `--status-success` | #1E6A41 | #83DCA4 | Success foreground |
 | `--status-warning` | #805500 | #E5BE73 | Warning foreground |
@@ -28,6 +29,8 @@ dark preference uses the same dark values when no explicit `data-theme` is set.
 Action and signature foreground pairs exceed 4.5:1 in both themes. The dark text on green is
 intentional. Status colors are foreground values on page or surface; state text and icons must
 also identify the state. Do not use status color alone to communicate meaning.
+The control border contrasts at least 3:1 against both surface backgrounds in each theme.
+The subtler border is for decoration and must not be the only visible boundary of a control.
 
 `frontend/styles/typography.css` assigns local Roboto Slab to headings and local Inter to body
 and controls. The scale is 32 px heading, 18 px lead, 16 px body, 14 px controls, 13 px small,

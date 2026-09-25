@@ -13,6 +13,7 @@
   --signature: #784131;
   --signature-foreground: #FFFFFF;
   --border: #D9E2DE;
+  --control-border: #788A82;
   --focus: #176B43;
   --status-success: #1E6A41;
   --status-warning: #805500;
@@ -35,6 +36,7 @@
   --signature: #C68F79;
   --signature-foreground: #0B1412;
   --border: #2A3D36;
+  --control-border: #60776C;
   --focus: #9CE3B5;
   --status-success: #83DCA4;
   --status-warning: #E5BE73;
@@ -58,6 +60,7 @@
     --signature: #C68F79;
     --signature-foreground: #0B1412;
     --border: #2A3D36;
+    --control-border: #60776C;
     --focus: #9CE3B5;
     --status-success: #83DCA4;
     --status-warning: #E5BE73;
