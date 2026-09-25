@@ -65,7 +65,13 @@ def _insert_embedding(
 
 @pytest.mark.parametrize(
     "parent_mutation",
-    ["configuration_dimensions", "set_cross_dimension", "set_same_dimension"],
+    [
+        "configuration_dimensions",
+        "set_cross_dimension",
+        "set_same_dimension",
+        "unreferenced_configuration_dimensions",
+        "empty_set_same_dimension",
+    ],
 )
 def test_migration_preserves_1536_and_enforces_profile_dimensions(
     monkeypatch: pytest.MonkeyPatch,
@@ -86,6 +92,7 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                 "chunk",
                 "old_set",
                 "new_set",
+                "empty_set",
                 "old_embedding",
                 "new_embedding",
             )
@@ -148,6 +155,10 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                            ('vector-test-1024-alt', 'deterministic', 'other-alt',
                             1024, 'cosine'),
                            ('vector-test-1536-alt', 'deterministic', 'local-alt',
+                            1536, 'cosine'),
+                           ('vector-test-empty-profile', 'deterministic', 'empty',
+                            1536, 'cosine'),
+                           ('vector-test-unused', 'deterministic', 'unused',
                             1536, 'cosine')"""
                 )
             )
@@ -156,11 +167,14 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                     """INSERT INTO embedding_sets
                     (id, chunk_set_id, embedding_configuration_id, status)
                     VALUES (:old_set, :chunk_set, 'embedding-local-m1-v2', 'completed'),
-                           (:new_set, :chunk_set, 'vector-test-1024', 'completed')"""
+                           (:new_set, :chunk_set, 'vector-test-1024', 'completed'),
+                           (:empty_set, :chunk_set,
+                            'vector-test-empty-profile', 'pending')"""
                 ),
                 {
                     "old_set": ids["old_set"],
                     "new_set": ids["new_set"],
+                    "empty_set": ids["empty_set"],
                     "chunk_set": ids["chunk_set"],
                 },
             )
@@ -253,6 +267,18 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                     "WHERE id = 'embedding-local-m1-v2'"
                 )
                 error = "cannot change dimensions of a referenced embedding configuration"
+            elif parent_mutation == "unreferenced_configuration_dimensions":
+                mutation = text(
+                    "UPDATE embedding_configurations SET dimensions = 1024 "
+                    "WHERE id = 'vector-test-unused'"
+                )
+                error = "embedding configuration dimensions are immutable"
+            elif parent_mutation == "empty_set_same_dimension":
+                mutation = text(
+                    "UPDATE embedding_sets SET embedding_configuration_id = "
+                    "'vector-test-unused' WHERE id = :set_id"
+                ).bindparams(set_id=ids["empty_set"])
+                error = "embedding set configuration identity is immutable"
             else:
                 target = (
                     "vector-test-1024-alt"
@@ -267,12 +293,53 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
             with pytest.raises(IntegrityError, match=error), connection.begin_nested():
                 connection.execute(mutation)
 
+        if parent_mutation == "empty_set_same_dimension":
+            command.downgrade(config, "20260925_0047")
+            with engine.connect() as connection:
+                connection.execute(
+                    text(
+                        "UPDATE embedding_configurations SET dimensions = 1024 "
+                        "WHERE id = 'vector-test-unused'"
+                    )
+                )
+                connection.execute(
+                    text(
+                        "UPDATE embedding_sets SET embedding_configuration_id = "
+                        "'vector-test-unused' WHERE id = :id"
+                    ),
+                    {"id": ids["empty_set"]},
+                )
+                connection.rollback()
+            with engine.begin() as connection:
+                with (
+                    pytest.raises(IntegrityError),
+                    connection.begin_nested(),
+                ):
+                    connection.execute(
+                        text(
+                            "UPDATE embedding_configurations SET dimensions = 1024 "
+                            "WHERE id = 'embedding-local-m1-v2'"
+                        )
+                    )
+                with (
+                    pytest.raises(IntegrityError),
+                    connection.begin_nested(),
+                ):
+                    connection.execute(
+                        text(
+                            "UPDATE embedding_sets SET embedding_configuration_id = "
+                            "'vector-test-1536-alt' WHERE id = :id"
+                        ),
+                        {"id": ids["old_set"]},
+                    )
+            command.upgrade(config, "head")
+
         with pytest.raises(RuntimeError, match="refusing downgrade"):
             command.downgrade(config, "20260924_0045")
         with engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20260925_0047"
+                == "20260925_0048"
             )
             assert (
                 connection.scalar(
