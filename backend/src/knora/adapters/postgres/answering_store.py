@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, exists, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
@@ -24,12 +24,38 @@ from knora.answering.stores import (
     RetrievalConfiguration,
     RetrievalResult,
 )
+from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingConfiguration
 
 
 class PostgresAnsweringStore(AnsweringStore):
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
+
+    def require_compatible_corpus(
+        self, workspace_id: str, embedding_configuration_id: str
+    ) -> None:
+        with self._session_factory() as session:
+            self._require_compatible_corpus(
+                workspace_id, embedding_configuration_id, session=session
+            )
+
+    @staticmethod
+    def _require_compatible_corpus(
+        workspace_id: str, embedding_configuration_id: str, *, session: Session
+    ) -> None:
+        incompatible = exists(
+            select(EmbeddingSetTable.id)
+            .join(DocumentTable, DocumentTable.active_embedding_set_id == EmbeddingSetTable.id)
+            .where(
+                DocumentTable.workspace_id == workspace_id,
+                DocumentTable.archived.is_(False),
+                EmbeddingSetTable.status == "completed",
+                EmbeddingSetTable.embedding_configuration_id != embedding_configuration_id,
+            )
+        )
+        if session.scalar(select(incompatible)):
+            raise KnoraError("REINDEX_REQUIRED")
 
     def retrieve_candidates(
         self,
@@ -40,6 +66,8 @@ class PostgresAnsweringStore(AnsweringStore):
         embedding_configuration: EmbeddingConfiguration,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult:
+        if len(query_vector) != embedding_configuration.dimensions:
+            raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
         if retrieval_configuration.id in {
             "retrieval-m3-vector-v2",
             "retrieval-m3-rrf-v2",
@@ -50,6 +78,9 @@ class PostgresAnsweringStore(AnsweringStore):
             )
         with self._session_factory() as session:
             session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+            self._require_compatible_corpus(
+                workspace_id, embedding_configuration.id, session=session
+            )
             if retrieval_configuration.strategy == "vector-only":
                 embedding_set_ids, chunk_set_ids = self._active_provenance(
                     workspace_id=workspace_id,
@@ -195,9 +226,17 @@ class PostgresAnsweringStore(AnsweringStore):
         eligible: bool,
         session: Session | None = None,
     ) -> list[tuple]:
-        distance = ChunkEmbeddingTable.embedding.cosine_distance(list(query_vector)).label(
-            "cosine_distance"
-        )
+        distance = case(
+            (
+                and_(
+                    EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
+                    func.vector_dims(ChunkEmbeddingTable.embedding)
+                    == embedding_configuration.dimensions,
+                ),
+                ChunkEmbeddingTable.embedding.cosine_distance(list(query_vector)),
+            ),
+            else_=None,
+        ).label("cosine_distance")
         eligibility = (
             distance <= 1.0 - retrieval_configuration.min_similarity
             if eligible
@@ -230,6 +269,8 @@ class PostgresAnsweringStore(AnsweringStore):
                 EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
                 EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
                 EmbeddingSetTable.status == "completed",
+                func.vector_dims(ChunkEmbeddingTable.embedding)
+                == embedding_configuration.dimensions,
                 eligibility,
             )
             .order_by(

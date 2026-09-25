@@ -347,6 +347,7 @@ class PdfDerivationHandler:
         embedding_provider: EmbeddingProvider,
         profile: PdfDerivationProfile | None = None,
         profile_resolver: Callable[[IngestionWork], PdfDerivationProfile] | None = None,
+        runtime_embedding_configuration: EmbeddingConfiguration | None = None,
     ) -> None:
         if profile is None and profile_resolver is None:
             raise ValueError("PdfDerivationHandler needs a profile or profile resolver")
@@ -355,6 +356,7 @@ class PdfDerivationHandler:
         self._embedding_provider = embedding_provider
         self._profile = profile
         self._profile_resolver = profile_resolver
+        self._runtime_embedding_configuration = runtime_embedding_configuration
 
     def execute(
         self, work: IngestionWork, cancellation: CancellationToken
@@ -365,7 +367,14 @@ class PdfDerivationHandler:
             if self._profile_resolver is not None
             else self._profile
         )
-        if profile is None or not self._profile_matches_work(work, profile):
+        if (
+            profile is None
+            or not self._profile_matches_work(work, profile)
+            or (
+                self._runtime_embedding_configuration is not None
+                and profile.embedding_configuration != self._runtime_embedding_configuration
+            )
+        ):
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
 
         try:

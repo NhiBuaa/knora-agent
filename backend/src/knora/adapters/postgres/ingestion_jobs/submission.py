@@ -11,6 +11,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from knora.adapters.postgres.embedding_configuration import configuration_from_row
 from knora.adapters.postgres.tables import (
     ChunkingConfigurationTable,
     ChunkSetTable,
@@ -535,7 +536,6 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         if chunking is None or embedding is None:
             raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
         from knora.ingestion.processing import ChunkingConfiguration
-        from knora.providers.embedding import EmbeddingConfiguration
 
         return PdfSubmissionConfiguration(
             parser_configuration_id=job.parser_configuration_id,
@@ -550,13 +550,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 overlap_tokens=chunking.overlap_tokens,
                 max_tokens=chunking.max_tokens,
             ),
-            embedding_configuration=EmbeddingConfiguration(
-                id=embedding.id,
-                provider=embedding.provider,
-                model=embedding.model,
-                dimensions=embedding.dimensions,
-                distance_metric=embedding.distance_metric,
-            ),
+            embedding_configuration=configuration_from_row(embedding),
         )
 
     @classmethod
@@ -607,7 +601,6 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         if chunking is None or chunk_set.parser_configuration_id is None:
             raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
         from knora.ingestion.processing import ChunkingConfiguration
-        from knora.providers.embedding import EmbeddingConfiguration
 
         return PdfSubmissionConfiguration(
             parser_configuration_id=chunk_set.parser_configuration_id,
@@ -622,13 +615,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 overlap_tokens=chunking.overlap_tokens,
                 max_tokens=chunking.max_tokens,
             ),
-            embedding_configuration=EmbeddingConfiguration(
-                id=embedding.id,
-                provider=embedding.provider,
-                model=embedding.model,
-                dimensions=embedding.dimensions,
-                distance_metric=embedding.distance_metric,
-            ),
+            embedding_configuration=configuration_from_row(embedding),
         )
 
     def commit_pdf_submission(

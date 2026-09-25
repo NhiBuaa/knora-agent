@@ -80,6 +80,11 @@ class ResultStore:
     retrieval: RetrievalResult
     traces: list[QuestionTraceRecord]
 
+    def require_compatible_corpus(
+        self, workspace_id: str, embedding_configuration_id: str
+    ) -> None:
+        del workspace_id, embedding_configuration_id
+
     def retrieve_candidates(self, **kwargs):
         return self.retrieval
 
