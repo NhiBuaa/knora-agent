@@ -14,6 +14,7 @@ afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-theme");
   document.cookie = `${THEME_COOKIE_NAME}=; Path=/; Max-Age=0`;
+  document.cookie = "theme_canary=; Path=/; Max-Age=0";
   cookieValue.value = undefined;
   vi.restoreAllMocks();
 });
@@ -45,13 +46,15 @@ describe("theme preference", () => {
   });
 
   it("persists a choice for reload and returns to CSS system mode", () => {
+    document.cookie = "theme_canary=not-a-theme; Path=/";
     const { unmount } = render(<ThemeControl initialPreference="system" />);
     const control = screen.getByRole("combobox", { name: "Appearance" });
     fireEvent.change(control, { target: { value: "dark" } });
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=dark`);
     unmount();
-    render(<ThemeControl initialPreference={readThemePreference(document.cookie.split("=")[1])} />);
+    const savedTheme = document.cookie.split("; ").find((cookie) => cookie.startsWith(`${THEME_COOKIE_NAME}=`));
+    render(<ThemeControl initialPreference={readThemePreference(savedTheme?.slice(`${THEME_COOKIE_NAME}=`.length))} />);
     expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("dark");
     fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), { target: { value: "system" } });
     expect(document.documentElement).not.toHaveAttribute("data-theme");
@@ -65,14 +68,13 @@ describe("theme preference", () => {
     expect(document.documentElement).not.toHaveAttribute("data-theme");
   });
 
-  it("keeps explicit selection fixed across device changes and leaves system to CSS", () => {
-    const { rerender } = render(<ThemeControl initialPreference="light" />);
+  it("keeps an explicit root theme until system choice returns authority to CSS media", () => {
+    render(<ThemeControl initialPreference="light" />);
     document.documentElement.dataset.theme = "light";
-    window.dispatchEvent(new Event("change"));
-    expect(document.documentElement.dataset.theme).toBe("light");
-    rerender(<ThemeControl initialPreference="system" />);
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("light");
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
     fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), { target: { value: "system" } });
-    window.dispatchEvent(new Event("change"));
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("system");
     expect(document.documentElement).not.toHaveAttribute("data-theme");
   });
 
