@@ -35,6 +35,15 @@ class PostgresAnsweringStore(AnsweringStore):
     def require_compatible_corpus(
         self, workspace_id: str, embedding_configuration_id: str
     ) -> None:
+        with self._session_factory() as session:
+            self._require_compatible_corpus(
+                workspace_id, embedding_configuration_id, session=session
+            )
+
+    @staticmethod
+    def _require_compatible_corpus(
+        workspace_id: str, embedding_configuration_id: str, *, session: Session
+    ) -> None:
         incompatible = exists(
             select(EmbeddingSetTable.id)
             .join(DocumentTable, DocumentTable.active_embedding_set_id == EmbeddingSetTable.id)
@@ -45,9 +54,8 @@ class PostgresAnsweringStore(AnsweringStore):
                 EmbeddingSetTable.embedding_configuration_id != embedding_configuration_id,
             )
         )
-        with self._session_factory() as session:
-            if session.scalar(select(incompatible)):
-                raise KnoraError("REINDEX_REQUIRED")
+        if session.scalar(select(incompatible)):
+            raise KnoraError("REINDEX_REQUIRED")
 
     def retrieve_candidates(
         self,
@@ -70,6 +78,9 @@ class PostgresAnsweringStore(AnsweringStore):
             )
         with self._session_factory() as session:
             session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+            self._require_compatible_corpus(
+                workspace_id, embedding_configuration.id, session=session
+            )
             if retrieval_configuration.strategy == "vector-only":
                 embedding_set_ids, chunk_set_ids = self._active_provenance(
                     workspace_id=workspace_id,

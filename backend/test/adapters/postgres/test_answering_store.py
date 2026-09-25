@@ -28,7 +28,7 @@ from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import ChunkingConfiguration, DocumentProcessor
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
-from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 
 
 def ingest(
@@ -88,6 +88,13 @@ def test_readiness_rejects_only_incompatible_active_unarchived_workspace_sets() 
     with pytest.raises(KnoraError, match="REINDEX_REQUIRED"):
         store.require_compatible_corpus(workspace, old.id)
 
+    reader = PostgresDocumentReader(SessionFactory)
+    reader.archive(
+        workspace_id=workspace,
+        document_id=incompatible.document_id,
+        principal=WorkspacePrincipal(workspace_id=workspace, key_id="test"),
+    )
+
     with SessionFactory() as session:
         selected_vector = tuple(
             session.scalar(
@@ -106,12 +113,6 @@ def test_readiness_rejects_only_incompatible_active_unarchived_workspace_sets() 
     assert candidates
     assert all(candidate.embedding_configuration_id == selected.id for candidate in candidates)
 
-    reader = PostgresDocumentReader(SessionFactory)
-    reader.archive(
-        workspace_id=workspace,
-        document_id=incompatible.document_id,
-        principal=WorkspacePrincipal(workspace_id=workspace, key_id="test"),
-    )
     store.require_compatible_corpus(workspace, selected.id)
     store.require_compatible_corpus(other_workspace, old.id)
     reader.archive(
@@ -135,6 +136,82 @@ def test_direct_retrieval_rejects_bad_query_vector_dimension_before_cosine() -> 
         )
 
 
+@pytest.mark.asyncio
+async def test_unarchive_during_query_embedding_requires_reindex_before_generation() -> None:
+    workspace = f"readiness-race-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace, name="Readiness race"))
+    selected = EmbeddingConfiguration(
+        id=f"embedding-1024-{uuid4()}",
+        provider="deterministic-local",
+        model="test-1024",
+        dimensions=1024,
+        distance_metric="cosine",
+    )
+    compatible = ingest(workspace, "support/current", configuration=selected)
+    old = ingest(
+        workspace,
+        "support/old",
+        configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+    reader = PostgresDocumentReader(SessionFactory)
+    principal = WorkspacePrincipal(workspace_id=workspace, key_id="test")
+    reader.archive(
+        workspace_id=workspace,
+        document_id=old.document_id,
+        principal=principal,
+    )
+    with SessionFactory() as session:
+        selected_vector = tuple(
+            session.scalar(
+                select(ChunkEmbeddingTable.embedding).where(
+                    ChunkEmbeddingTable.embedding_set_id == compatible.embedding_set_id
+                )
+            )
+        )
+
+    class UnarchivingEmbeddingProvider:
+        calls = 0
+
+        def embed(self, texts, configuration):
+            self.calls += 1
+            reader.unarchive(
+                workspace_id=workspace,
+                document_id=old.document_id,
+                principal=principal,
+            )
+            return EmbeddingBatch(
+                vectors=(selected_vector,),
+                provider=configuration.provider,
+                model=configuration.model,
+            )
+
+    class RecordingGenerationProvider:
+        calls = 0
+
+        async def generate(self, **kwargs):
+            self.calls += 1
+            return await DeterministicGenerationProvider().generate(**kwargs)
+
+    embedding = UnarchivingEmbeddingProvider()
+    generation = RecordingGenerationProvider()
+    service = AnswerQuestion(
+        embedding_provider=embedding,
+        generation_provider=generation,
+        store=PostgresAnsweringStore(SessionFactory),
+        embedding_configuration=selected,
+    )
+
+    with pytest.raises(KnoraError, match="REINDEX_REQUIRED"):
+        await service.execute(
+            QuestionCommand(workspace_id=workspace, question="What is the refund policy?"),
+            principal,
+        )
+
+    assert embedding.calls == 1
+    assert generation.calls == 0
+
+
 def test_mixed_dimension_vector_queries_guard_distance_in_both_sql_paths() -> None:
     workspace = f"guard-distance-{uuid4()}"
     with SessionFactory.begin() as session:
@@ -153,7 +230,14 @@ def test_mixed_dimension_vector_queries_guard_distance_in_both_sql_paths() -> No
         content=b"Galaxies contain stars and interstellar gas.",
         configuration=selected,
     )
-    ingest(workspace, "support/old", configuration=EmbeddingConfiguration.milestone_one_local())
+    old = ingest(
+        workspace, "support/old", configuration=EmbeddingConfiguration.milestone_one_local()
+    )
+    PostgresDocumentReader(SessionFactory).archive(
+        workspace_id=workspace,
+        document_id=old.document_id,
+        principal=WorkspacePrincipal(workspace_id=workspace, key_id="test"),
+    )
     with SessionFactory() as session:
         query_vector = tuple(
             session.scalar(
@@ -245,7 +329,7 @@ def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
     changed_content = b"# Refunds\n\nRefund requests are accepted within forty five days.\n"
     active = ingest(workspace_a, "support/refunds-a", content=changed_content)
     ingest(workspace_a, "support/refunds-a-2", content=changed_content)
-    ingest(
+    other_profile = ingest(
         workspace_a,
         "support/other-configuration",
         content=changed_content,
@@ -258,6 +342,11 @@ def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
         ),
     )
     forbidden = ingest(workspace_b, "support/refunds-b")
+    PostgresDocumentReader(SessionFactory).archive(
+        workspace_id=workspace_a,
+        document_id=other_profile.document_id,
+        principal=WorkspacePrincipal(workspace_id=workspace_a, key_id="test"),
+    )
 
     with SessionFactory() as session:
         query_vector = tuple(
