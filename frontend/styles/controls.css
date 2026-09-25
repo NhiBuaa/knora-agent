@@ -69,6 +69,7 @@ textarea.kn-field__control { min-height: 6rem; resize: vertical; }
 .kn-notice[data-kind="error"] { border-left-color: var(--status-error); }
 .kn-notice[data-kind="warning"] { border-left-color: var(--status-warning); }
 .kn-notice[data-kind="success"] { border-left-color: var(--status-success); }
+.kn-notice__kind { display: block; margin-bottom: .125rem; font-size: .75rem; font-weight: 700; }
 .kn-notice__title { display: block; margin-bottom: .25rem; }
 
 .kn-status-badge {

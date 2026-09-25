@@ -54,6 +54,18 @@ describe("compact UI primitives", () => {
     expect(screen.getByText("Queued").closest("[role=alert]")).toBeNull();
   });
 
+  it("names non-error notice kinds in visible text", () => {
+    render(<>
+      <Notice kind="warning" title="Update">Check the source</Notice>
+      <Notice kind="success" title="Update">Source is ready</Notice>
+      <Notice kind="info" title="Update">Processing starts shortly</Notice>
+    </>);
+    expect(screen.getByText("Check the source").parentElement).toHaveTextContent("Warning");
+    expect(screen.getByText("Source is ready").parentElement).toHaveTextContent("Success");
+    expect(screen.getByText("Processing starts shortly").parentElement).toHaveTextContent("Information");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows status text alongside an icon", () => {
     render(<StatusBadge kind="success">Ready</StatusBadge>);
     expect(screen.getByText("Ready")).toBeInTheDocument();
@@ -62,11 +74,14 @@ describe("compact UI primitives", () => {
 
   it("renders a page heading and keyboard-focusable empty-state link", async () => {
     const user = userEvent.setup();
-    render(<><PageHeader title="Documents" description="Workspace sources" /><EmptyState title="No documents" description="Add the first source" action={<a href="/app/documents/new">Add document</a>} /></>);
+    const activated = vi.fn((event: React.MouseEvent) => event.preventDefault());
+    render(<><PageHeader title="Documents" description="Workspace sources" /><EmptyState title="No documents" description="Add the first source" action={<a href="/app/documents/new" onClick={activated}>Add document</a>} /></>);
     expect(screen.getByRole("heading", { level: 1, name: "Documents" })).toBeInTheDocument();
     expect(screen.getByText("Workspace sources")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "No documents" })).toBeInTheDocument();
     await user.tab();
     expect(screen.getByRole("link", { name: "Add document" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(activated).toHaveBeenCalledTimes(1);
   });
 });
