@@ -135,6 +135,67 @@ def test_direct_retrieval_rejects_bad_query_vector_dimension_before_cosine() -> 
         )
 
 
+def test_mixed_dimension_vector_queries_guard_distance_in_both_sql_paths() -> None:
+    workspace = f"guard-distance-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace, name="Guarded distance"))
+    selected = EmbeddingConfiguration(
+        id=f"embedding-1024-{uuid4()}",
+        provider="deterministic-local",
+        model="test-1024",
+        dimensions=1024,
+        distance_metric="cosine",
+    )
+    matching = ingest(workspace, "support/matching", configuration=selected)
+    ingest(
+        workspace,
+        "support/below",
+        content=b"Galaxies contain stars and interstellar gas.",
+        configuration=selected,
+    )
+    ingest(workspace, "support/old", configuration=EmbeddingConfiguration.milestone_one_local())
+    with SessionFactory() as session:
+        query_vector = tuple(
+            session.scalar(
+                select(ChunkEmbeddingTable.embedding).where(
+                    ChunkEmbeddingTable.embedding_set_id == matching.embedding_set_id
+                )
+            )
+        )
+
+    vector_sql: list[str] = []
+
+    def capture(_connection, _cursor, statement, _parameters, _context, _many):
+        if "<=>" in statement:
+            vector_sql.append(statement)
+
+    engine = SessionFactory.kw["bind"]
+    event.listen(engine, "before_cursor_execute", capture)
+    try:
+        result = PostgresAnsweringStore(SessionFactory).retrieve_candidates(
+            workspace_id=workspace,
+            query_text="refunds",
+            query_vector=query_vector,
+            embedding_configuration=selected,
+            retrieval_configuration=RetrievalConfiguration.milestone_one(),
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+
+    assert any(candidate.embedding_set_id == matching.embedding_set_id for candidate in result)
+    assert any(
+        observation.status == "BELOW_THRESHOLD"
+        for observation in result.branch_observations
+    )
+    assert len(vector_sql) == 2
+    for statement in vector_sql:
+        assert "CASE WHEN" in statement
+        guarded_expression = statement.split("CASE WHEN", maxsplit=1)[1].split("THEN", maxsplit=1)
+        assert "embedding_configuration_id" in guarded_expression[0]
+        assert "vector_dims" in guarded_expression[0]
+        assert "<=>" in guarded_expression[1]
+
+
 @pytest.mark.parametrize("hybrid", [False, True])
 def test_archive_excludes_new_retrieval_and_unarchive_restores_it(hybrid) -> None:
     workspace = f"archive-{uuid4()}"

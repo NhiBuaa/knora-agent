@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import and_, case, exists, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
@@ -215,9 +215,17 @@ class PostgresAnsweringStore(AnsweringStore):
         eligible: bool,
         session: Session | None = None,
     ) -> list[tuple]:
-        distance = ChunkEmbeddingTable.embedding.cosine_distance(list(query_vector)).label(
-            "cosine_distance"
-        )
+        distance = case(
+            (
+                and_(
+                    EmbeddingSetTable.embedding_configuration_id == embedding_configuration.id,
+                    func.vector_dims(ChunkEmbeddingTable.embedding)
+                    == embedding_configuration.dimensions,
+                ),
+                ChunkEmbeddingTable.embedding.cosine_distance(list(query_vector)),
+            ),
+            else_=None,
+        ).label("cosine_distance")
         eligibility = (
             distance <= 1.0 - retrieval_configuration.min_similarity
             if eligible
