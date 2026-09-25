@@ -12,19 +12,30 @@ function declarations(css: string, selector: string): Record<string, string> {
   const block = css.match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`));
   expect(block, `missing ${selector} rule`).not.toBeNull();
   return Object.fromEntries(
-    [...block![1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name, value]) => [name, value.trim()]),
+    [...block![1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(
+      ([, name, value]) => [name, value.trim()],
+    ),
   );
 }
 
 function systemDarkDeclarations(css: string): Record<string, string> {
-  const media = css.match(/@media\s*\(prefers-color-scheme:\s*dark\)\s*\{([\s\S]*)\}\s*$/);
+  const media = css.match(
+    /@media\s*\(prefers-color-scheme:\s*dark\)\s*\{([\s\S]*)\}\s*$/,
+  );
   expect(media, "missing system-dark media rule").not.toBeNull();
-  return declarations(media![1], ':root:not([data-theme="light"]):not([data-theme="dark"])');
+  return declarations(
+    media![1],
+    ':root:not([data-theme="light"]):not([data-theme="dark"])',
+  );
 }
 
 function luminance(hex: string): number {
-  const channels = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
-  const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+  const channels = [1, 3, 5].map(
+    (at) => parseInt(hex.slice(at, at + 2), 16) / 255,
+  );
+  const linear = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
   return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
 }
 
@@ -44,23 +55,68 @@ describe("semantic visual tokens", () => {
     expect(tokens.light["--page"]).toBe("#EFFCFA");
     expect(tokens.dark["--action"]).toBe("#4DBB73");
     for (const theme of Object.values(tokens)) {
-      for (const role of ["page", "surface", "surface-subtle", "text-primary", "text-secondary", "text-muted", "action", "action-hover", "action-active", "action-foreground", "signature", "signature-foreground", "border", "control-border", "focus", "status-success", "status-warning", "status-error", "status-info"]) {
+      for (const role of [
+        "page",
+        "surface",
+        "surface-subtle",
+        "text-primary",
+        "text-secondary",
+        "text-muted",
+        "action",
+        "action-hover",
+        "action-active",
+        "action-foreground",
+        "signature",
+        "signature-foreground",
+        "border",
+        "control-border",
+        "focus",
+        "status-success",
+        "status-warning",
+        "status-error",
+        "status-info",
+      ]) {
         expect(theme[`--${role}`], `missing ${role}`).toMatch(/^#[0-9A-F]{6}$/);
       }
-      expect(contrast(theme["--action"], theme["--action-foreground"])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme["--action-hover"], theme["--action-foreground"])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme["--action-active"], theme["--action-foreground"])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme["--signature"], theme["--signature-foreground"])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme["--page"], theme["--text-primary"])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme["--surface"], theme["--text-secondary"])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(theme["--surface"], theme["--text-muted"])).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--action"], theme["--action-foreground"]),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--action-hover"], theme["--action-foreground"]),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--action-active"], theme["--action-foreground"]),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--signature"], theme["--signature-foreground"]),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--page"], theme["--text-primary"]),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--surface"], theme["--text-secondary"]),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(theme["--surface"], theme["--text-muted"]),
+      ).toBeGreaterThanOrEqual(4.5);
       for (const surface of ["surface", "surface-subtle"]) {
-        expect(contrast(theme[`--${surface}`], theme["--control-border"])).toBeGreaterThanOrEqual(3);
+        expect(
+          contrast(theme[`--${surface}`], theme["--control-border"]),
+        ).toBeGreaterThanOrEqual(3);
       }
-      for (const role of ["status-success", "status-warning", "status-error", "status-info"]) {
-        expect(contrast(theme["--surface"], theme[`--${role}`])).toBeGreaterThanOrEqual(4.5);
+      for (const role of [
+        "status-success",
+        "status-warning",
+        "status-error",
+        "status-info",
+      ]) {
+        expect(
+          contrast(theme["--surface"], theme[`--${role}`]),
+        ).toBeGreaterThanOrEqual(4.5);
       }
-      expect(contrast(theme["--page"], theme["--focus"])).toBeGreaterThanOrEqual(3);
+      expect(
+        contrast(theme["--page"], theme["--focus"]),
+      ).toBeGreaterThanOrEqual(3);
     }
   });
 
@@ -87,10 +143,16 @@ describe("semantic visual tokens", () => {
 
   it("assigns Roboto Slab to headings and Inter to controls", () => {
     const typography = read("styles/typography.css");
-    const headingFontRole = typography.match(/--font-heading:\s*"([^"]+)"/)?.[1];
-    const controlFontRole = typography.match(/--font-control:\s*"([^"]+)"/)?.[1];
+    const headingFontRole = typography.match(
+      /--font-heading:\s*"([^"]+)"/,
+    )?.[1];
+    const controlFontRole = typography.match(
+      /--font-control:\s*"([^"]+)"/,
+    )?.[1];
     expect(headingFontRole).toBe("Roboto Slab");
     expect(controlFontRole).toBe("Inter");
-    expect(typography).toMatch(/button,\s*input,\s*textarea,\s*select\s*\{[^}]*font-family:\s*var\(--font-inter\)/s);
+    expect(typography).toMatch(
+      /button,\s*input,\s*textarea,\s*select\s*\{[^}]*font-family:\s*var\(--font-inter\)/s,
+    );
   });
 });

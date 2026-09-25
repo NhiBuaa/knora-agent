@@ -19,11 +19,28 @@ const robotoSlab = localFont({
   weight: "100 900",
 });
 
-export const metadata: Metadata = { title: "Knora", description: "Workspace knowledge assistant" };
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const preference = readThemePreference((await cookies()).get(THEME_COOKIE_NAME)?.value);
-  return <html lang="en" className={`${inter.variable} ${robotoSlab.variable}`}
-    data-theme={preference === "system" ? undefined : preference}>
-    <body><ThemeControl initialPreference={preference} />{children}</body>
-  </html>;
+export const metadata: Metadata = {
+  title: "Knora",
+  description: "Workspace knowledge assistant",
+};
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const preference = readThemePreference(
+    (await cookies()).get(THEME_COOKIE_NAME)?.value,
+  );
+  return (
+    <html
+      lang="en"
+      className={`${inter.variable} ${robotoSlab.variable}`}
+      data-theme={preference === "system" ? undefined : preference}
+    >
+      <body>
+        <ThemeControl initialPreference={preference} />
+        {children}
+      </body>
+    </html>
+  );
 }

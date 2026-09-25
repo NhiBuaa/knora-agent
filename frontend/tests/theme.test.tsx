@@ -1,14 +1,33 @@
 import React from "react";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString, renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readThemePreference, resolveTheme, THEME_COOKIE_NAME } from "@/lib/theme";
+import {
+  readThemePreference,
+  resolveTheme,
+  THEME_COOKIE_NAME,
+} from "@/lib/theme";
 import { ThemeControl } from "@/components/ui/ThemeControl";
 
-const cookieValue = vi.hoisted(() => ({ value: undefined as string | undefined }));
-vi.mock("next/headers", () => ({ cookies: async () => ({ get: (name: string) => name === "knora_theme" ? { value: cookieValue.value } : undefined }) }));
-vi.mock("next/font/local", () => ({ default: () => ({ variable: "font-test" }) }));
+const cookieValue = vi.hoisted(() => ({
+  value: undefined as string | undefined,
+}));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === "knora_theme" ? { value: cookieValue.value } : undefined,
+  }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ variable: "font-test" }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -35,15 +54,25 @@ describe("theme preference", () => {
     expect(readThemePreference(undefined)).toBe("system");
   });
 
-  it.each(["light", "dark", "system", "invalid"])("server renders %s cookie without account state", async (value) => {
-    cookieValue.value = value;
-    const { default: RootLayout } = await import("@/app/layout");
-    const markup = renderToStaticMarkup(await RootLayout({ children: <main>Knora</main> }));
-    expect(markup).toContain("<main>Knora</main>");
-    expect(markup).toContain(`value="${value === "invalid" ? "system" : value}" selected=""`);
-    if (value === "light" || value === "dark") expect(markup).toContain(`data-theme="${value}"`);
-    else expect(markup).not.toContain("data-theme=");
-  });
+  it.each(["light", "dark", "system", "invalid"])(
+    "server renders %s cookie without account state",
+    async (value) => {
+      cookieValue.value = value;
+      const { default: RootLayout } = await import("@/app/layout");
+      const markup = renderToStaticMarkup(
+        await RootLayout({ children: <main>Knora</main> }),
+      );
+      expect(markup).toContain("<main>Knora</main>");
+      expect(markup).toContain(
+        `value="${value === "invalid" ? "system" : value}" selected=""`,
+      );
+      if (value === "light" || value === "dark") {
+        expect(markup).toContain(`data-theme="${value}"`);
+      } else {
+        expect(markup).not.toContain("data-theme=");
+      }
+    },
+  );
 
   it("persists a choice for reload and returns to CSS system mode", () => {
     document.cookie = "theme_canary=not-a-theme; Path=/";
@@ -53,17 +82,31 @@ describe("theme preference", () => {
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=dark`);
     unmount();
-    const savedTheme = document.cookie.split("; ").find((cookie) => cookie.startsWith(`${THEME_COOKIE_NAME}=`));
-    render(<ThemeControl initialPreference={readThemePreference(savedTheme?.slice(`${THEME_COOKIE_NAME}=`.length))} />);
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("dark");
-    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), { target: { value: "system" } });
+    const savedTheme = document.cookie
+      .split("; ")
+      .find((cookie) => cookie.startsWith(`${THEME_COOKIE_NAME}=`));
+    render(
+      <ThemeControl
+        initialPreference={readThemePreference(
+          savedTheme?.slice(`${THEME_COOKIE_NAME}=`.length),
+        )}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
+      "dark",
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
+      target: { value: "system" },
+    });
     expect(document.documentElement).not.toHaveAttribute("data-theme");
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=system`);
   });
 
   it("never persists a value outside the visual preference allowlist", () => {
     render(<ThemeControl initialPreference="dark" />);
-    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), { target: { value: "unknown" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
+      target: { value: "unknown" },
+    });
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=system`);
     expect(document.documentElement).not.toHaveAttribute("data-theme");
   });
@@ -71,10 +114,16 @@ describe("theme preference", () => {
   it("keeps an explicit root theme until system choice returns authority to CSS media", () => {
     render(<ThemeControl initialPreference="light" />);
     document.documentElement.dataset.theme = "light";
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("light");
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
+      "light",
+    );
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
-    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), { target: { value: "system" } });
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue("system");
+    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
+      target: { value: "system" },
+    });
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
+      "system",
+    );
     expect(document.documentElement).not.toHaveAttribute("data-theme");
   });
 
@@ -82,9 +131,13 @@ describe("theme preference", () => {
     const host = document.createElement("div");
     host.innerHTML = renderToString(<ThemeControl initialPreference="dark" />);
     document.body.append(host);
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     let root: ReturnType<typeof hydrateRoot> | undefined;
-    await act(async () => { root = hydrateRoot(host, <ThemeControl initialPreference="dark" />); });
+    await act(async () => {
+      root = hydrateRoot(host, <ThemeControl initialPreference="dark" />);
+    });
     expect(host.querySelector("select")).toHaveValue("dark");
     expect(error).not.toHaveBeenCalled();
     await act(async () => root?.unmount());
