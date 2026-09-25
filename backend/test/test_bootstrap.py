@@ -112,6 +112,23 @@ def test_bootstrap_rejects_dimension_that_does_not_match_selected_profile() -> N
 
 
 @pytest.mark.parametrize(
+    "provider_mode",
+    ["google-gemini-api", "openai-compatible", "unknown"],
+)
+def test_legacy_dimension_error_precedes_provider_configuration_errors(
+    provider_mode: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="^invalid provider configuration: Milestone 1 embedding configuration expected "
+        "1536 dimensions$",
+    ):
+        build_provider_selection(
+            Settings(_env_file=None, provider_mode=provider_mode, embedding_dimension=1024)
+        )
+
+
+@pytest.mark.parametrize(
     "runtime_settings",
     [
         Settings(_env_file=None, embedding_dimension=1535),

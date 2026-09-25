@@ -122,6 +122,17 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
 
 
 def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSelection:
+    if runtime_settings.provider_mode == "google-gemini-api":
+        legacy_configuration = EmbeddingConfiguration.gemini_m3()
+    elif runtime_settings.provider_mode == "openai-compatible":
+        legacy_configuration = EmbeddingConfiguration.openai_compatible(
+            configuration_id=runtime_settings.openai_embedding_configuration_id,
+            model=runtime_settings.openai_embedding_model,
+        )
+    else:
+        legacy_configuration = EmbeddingConfiguration.milestone_one_local()
+    _validate_embedding_dimension(runtime_settings, legacy_configuration)
+
     if (
         runtime_settings.provider_mode == "deterministic-local"
         and runtime_settings.openai_embedding_model != "text-embedding-3-small"
@@ -132,7 +143,6 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
         )
     if runtime_settings.provider_mode == "deterministic-local":
         configuration = EmbeddingConfiguration.milestone_one_local()
-        _validate_embedding_dimension(runtime_settings, configuration)
         return ProviderSelection(
             embedding_provider=DeterministicEmbeddingProvider(),
             generation_provider=DeterministicGenerationProvider(),
@@ -146,7 +156,6 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
             raise ValueError("invalid provider configuration: timeout must be positive")
         generation = _build_openai_generation(runtime_settings)
         configuration = EmbeddingConfiguration.gemini_m3()
-        _validate_embedding_dimension(runtime_settings, configuration)
         return ProviderSelection(
             embedding_provider=GeminiEmbeddingProvider(
                 api_key=api_key.get_secret_value(),
@@ -210,7 +219,6 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
         configuration_id=runtime_settings.openai_embedding_configuration_id,
         model=runtime_settings.openai_embedding_model,
     )
-    _validate_embedding_dimension(runtime_settings, configuration)
     return ProviderSelection(
         embedding_provider=OpenAICompatibleEmbeddingProvider(
             base_url=base_url,
