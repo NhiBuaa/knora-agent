@@ -1,8 +1,8 @@
 # Knora visual tokens
 
 `frontend/styles/tokens.css` is the source of truth for both themes. The root values are light;
-`[data-theme="dark"]` applies explicit dark preference. Until the theme control lands, a system
-dark preference uses the same dark values when no explicit `data-theme` is set.
+`[data-theme="dark"]` applies explicit dark preference. When no explicit preference is stored,
+system mode follows `prefers-color-scheme` before hydration.
 
 | CSS token | Light | Dark | Use |
 | --- | --- | --- | --- |
