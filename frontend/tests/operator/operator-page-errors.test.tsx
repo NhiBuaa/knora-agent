@@ -6,7 +6,9 @@ vi.mock("../../lib/operator/bff", () => ({ readOperatorBff: vi.fn() }));
 
 describe("operator page transport failures", () => {
   it("renders unavailable when the operations BFF request rejects", async () => {
-    vi.mocked(readOperatorBff).mockRejectedValueOnce(new Error("BFF unavailable"));
+    vi.mocked(readOperatorBff).mockRejectedValueOnce(
+      new Error("BFF unavailable"),
+    );
 
     const page = await OperationsContent();
 

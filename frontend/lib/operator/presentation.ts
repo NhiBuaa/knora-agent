@@ -1,20 +1,33 @@
-export type MetricPresentation = { value: string; state: "available" | "unavailable" };
+export type MetricPresentation = {
+  value: string;
+  state: "available" | "unavailable";
+};
 
-export function presentMetric(value: number | null | undefined): MetricPresentation {
+export function presentMetric(
+  value: number | null | undefined,
+): MetricPresentation {
   return typeof value === "number" && Number.isFinite(value)
     ? { value: String(value), state: "available" }
     : { value: "Unavailable", state: "unavailable" };
 }
 
-export function observationState(value: { availability?: string; observation_failure?: string }): {
+export function observationState(value: {
+  availability?: string;
+  observation_failure?: string;
+}): {
   label: string;
   detail?: string;
   tone: "warning" | "error" | "normal";
 } {
   if (value.observation_failure) {
-    return { label: "Observation unavailable", detail: value.observation_failure, tone: "warning" };
+    return {
+      label: "Observation unavailable",
+      detail: value.observation_failure,
+      tone: "warning",
+    };
   }
-  if (value.availability !== "available") return { label: "Observation unavailable", tone: "warning" };
+  if (value.availability !== "available")
+    return { label: "Observation unavailable", tone: "warning" };
   return { label: "Observation available", tone: "normal" };
 }
 

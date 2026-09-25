@@ -43,6 +43,8 @@ describe("m5E2EEnvironment", () => {
     const packageJson = await import("../../../package.json");
 
     expect(packageJson.default.scripts["test:e2e"]).toBeDefined();
-    expect(packageJson.default.devDependencies["@playwright/test"]).toBeDefined();
+    expect(
+      packageJson.default.devDependencies["@playwright/test"],
+    ).toBeDefined();
   });
 });

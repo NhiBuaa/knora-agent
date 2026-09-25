@@ -6,7 +6,11 @@ import type { M5E2EEnvironment } from "./tests/e2e/support/environment";
 const requiredM5Environment = [
   ["M5_E2E_BASE_URL", "baseUrl", "http://127.0.0.1:3000"],
   ["M5_E2E_API_URL", "apiUrl", "http://127.0.0.1:8000"],
-  ["M5_E2E_KEYCLOAK_ISSUER", "keycloakIssuer", "http://127.0.0.1:8180/realms/m5-e2e"],
+  [
+    "M5_E2E_KEYCLOAK_ISSUER",
+    "keycloakIssuer",
+    "http://127.0.0.1:8180/realms/m5-e2e",
+  ],
 ] as const;
 
 const runtimeEnvironmentNames = [
@@ -22,11 +26,15 @@ const runtimeEnvironmentNames = [
   "SESSION_SECRET",
 ] as const;
 
-export function validateM5E2EEnvironment(values: M5E2EEnvironment): M5E2EEnvironment {
+export function validateM5E2EEnvironment(
+  values: M5E2EEnvironment,
+): M5E2EEnvironment {
   for (const [name, key, expected] of requiredM5Environment) {
     const actual = values[key];
     if (actual !== expected) {
-      throw new Error(`M5 live E2E configuration error: ${name} must use the isolated local endpoint.`);
+      throw new Error(
+        `M5 live E2E configuration error: ${name} must use the isolated local endpoint.`,
+      );
     }
   }
   return values;
@@ -39,7 +47,9 @@ export function m5E2ERuntimeEnvironment(
   validateM5E2EEnvironment(values);
   for (const name of runtimeEnvironmentNames) {
     if (ambient[name]?.trim()) {
-      throw new Error(`M5 live E2E configuration error: ${name} must not override isolated runtime settings.`);
+      throw new Error(
+        `M5 live E2E configuration error: ${name} must not override isolated runtime settings.`,
+      );
     }
   }
 
