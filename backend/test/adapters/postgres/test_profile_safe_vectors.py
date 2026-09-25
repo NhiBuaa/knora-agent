@@ -63,8 +63,13 @@ def _insert_embedding(
     )
 
 
+@pytest.mark.parametrize(
+    "parent_mutation",
+    ["configuration_dimensions", "set_cross_dimension", "set_same_dimension"],
+)
 def test_migration_preserves_1536_and_enforces_profile_dimensions(
     monkeypatch: pytest.MonkeyPatch,
+    parent_mutation: str,
 ) -> None:
     with _disposable_database() as database_url:
         monkeypatch.setenv("KNORA_DATABASE_URL", database_url)
@@ -139,7 +144,11 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                     (id, provider, model, dimensions, distance_metric)
                     VALUES ('embedding-local-m1-v2', 'deterministic-local',
                             'text-embedding-3-small', 1536, 'cosine'),
-                           ('vector-test-1024', 'deterministic', 'other', 1024, 'cosine')"""
+                           ('vector-test-1024', 'deterministic', 'other', 1024, 'cosine'),
+                           ('vector-test-1024-alt', 'deterministic', 'other-alt',
+                            1024, 'cosine'),
+                           ('vector-test-1536-alt', 'deterministic', 'local-alt',
+                            1536, 'cosine')"""
                 )
             )
             connection.execute(
@@ -222,13 +231,48 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                     text("UPDATE chunk_embeddings SET embedding_set_id = :set_id WHERE id = :id"),
                     {"set_id": ids["new_set"], "id": ids["old_embedding"]},
                 )
+            with (
+                pytest.raises(
+                    IntegrityError, match="embedding dimension does not match configuration"
+                ),
+                connection.begin_nested(),
+            ):
+                connection.execute(
+                    text(
+                        "UPDATE chunk_embeddings SET embedding = CAST(:embedding AS vector) "
+                        "WHERE id = :id"
+                    ),
+                    {
+                        "embedding": "[" + ",".join(["0"] * 1023) + "]",
+                        "id": ids["new_embedding"],
+                    },
+                )
+            if parent_mutation == "configuration_dimensions":
+                mutation = text(
+                    "UPDATE embedding_configurations SET dimensions = 1024 "
+                    "WHERE id = 'embedding-local-m1-v2'"
+                )
+                error = "cannot change dimensions of a referenced embedding configuration"
+            else:
+                target = (
+                    "vector-test-1024-alt"
+                    if parent_mutation == "set_cross_dimension"
+                    else "vector-test-1536-alt"
+                )
+                mutation = text(
+                    "UPDATE embedding_sets SET embedding_configuration_id = :target "
+                    "WHERE id = :set_id"
+                ).bindparams(target=target, set_id=ids["old_set"])
+                error = "cannot change embedding configuration of a populated Embedding Set"
+            with pytest.raises(IntegrityError, match=error), connection.begin_nested():
+                connection.execute(mutation)
 
         with pytest.raises(RuntimeError, match="refusing downgrade"):
             command.downgrade(config, "20260924_0045")
         with engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20260925_0046"
+                == "20260925_0047"
             )
             assert (
                 connection.scalar(
