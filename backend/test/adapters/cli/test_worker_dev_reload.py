@@ -31,14 +31,6 @@ def _fake_app(runner: _FakeRunner):
     )
 
 
-async def _wait_until(predicate, *, timeout: float = 1.0) -> None:
-    deadline = asyncio.get_running_loop().time() + timeout
-    while not predicate():
-        if asyncio.get_running_loop().time() >= deadline:
-            raise AssertionError("condition was not reached before timeout")
-        await asyncio.sleep(0.01)
-
-
 def test_python_source_snapshot_changes_for_add_modify_and_delete(tmp_path: Path) -> None:
     source = tmp_path / "worker_source.py"
     baseline = _python_source_snapshot(tmp_path)
