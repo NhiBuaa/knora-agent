@@ -7,7 +7,7 @@ param(
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_issue103_demo',
     [string]$ObjectStoreEndpoint,
-    [string]$ObjectStoreBucket = 'knora',
+    [string]$ObjectStoreBucket,
     [int]$PostgresPort = 5432,
     [int]$ApiPort = 8000,
     [int]$FrontendPort = 3000
@@ -62,6 +62,16 @@ if (-not $OllamaBaseUrl) {
         $env:KNORA_OLLAMA_BASE_URL
     } else {
         'http://127.0.0.1:11434'
+    }
+}
+if (-not $ObjectStoreEndpoint -and $env:KNORA_OBJECT_STORE_S3_ENDPOINT) {
+    $ObjectStoreEndpoint = $env:KNORA_OBJECT_STORE_S3_ENDPOINT
+}
+if (-not $ObjectStoreBucket) {
+    $ObjectStoreBucket = if ($env:KNORA_OBJECT_STORE_S3_BUCKET) {
+        $env:KNORA_OBJECT_STORE_S3_BUCKET
+    } else {
+        'knora'
     }
 }
 
