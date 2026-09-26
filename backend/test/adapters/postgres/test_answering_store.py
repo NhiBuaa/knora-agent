@@ -64,6 +64,28 @@ def ingest(
     )
 
 
+def test_document_reader_reports_deployed_embedding_readiness() -> None:
+    workspace = f"document-readiness-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace, name="Document readiness"))
+    document = ingest(workspace, "support/readiness")
+    principal = WorkspacePrincipal(workspace_id=workspace, key_id="test")
+    old = EmbeddingConfiguration.milestone_one_local()
+    deployed = replace(old, id=f"embedding-ollama-{uuid4()}", provider="ollama")
+
+    incompatible = PostgresDocumentReader(
+        SessionFactory, deployed_embedding_configuration=deployed
+    ).read_document(workspace_id=workspace, document_id=document.document_id, principal=principal)
+    compatible = PostgresDocumentReader(
+        SessionFactory, deployed_embedding_configuration=old
+    ).read_document(workspace_id=workspace, document_id=document.document_id, principal=principal)
+
+    assert incompatible.active_embedding_configuration_id == old.id
+    assert incompatible.embedding_readiness == "reindex_required"
+    assert incompatible.reprocess_supported is False
+    assert compatible.embedding_readiness == "ready"
+
+
 def test_readiness_rejects_only_incompatible_active_unarchived_workspace_sets() -> None:
     workspace = f"readiness-{uuid4()}"
     other_workspace = f"readiness-other-{uuid4()}"

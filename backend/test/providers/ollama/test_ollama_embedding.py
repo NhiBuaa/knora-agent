@@ -99,6 +99,16 @@ def test_model_drift_after_startup_fails_before_embedding() -> None:
         OllamaEmbeddingProvider(client=client).embed_documents(["document"], profile)
 
 
+def test_ollama_bare_sha256_digest_is_pinned_and_checked() -> None:
+    client, _ = _client(digest="a" * 64)
+    profile = resolve_ollama_embedding_configuration(client, MODEL)
+
+    assert profile.deployment_identity is not None
+    assert profile.deployment_identity.endswith("sha256:" + "a" * 64)
+    batch = OllamaEmbeddingProvider(client=client).embed_documents(["document"], profile)
+    assert len(batch.vectors[0]) == 1024
+
+
 @pytest.mark.parametrize(
     ("bad", "dimensions", "error"),
     [

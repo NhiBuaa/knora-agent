@@ -104,6 +104,16 @@ def test_bootstrap_selects_ollama_embedding_with_independent_generation(monkeypa
     assert isinstance(selected.generation_provider, DeterministicGenerationProvider)
 
 
+def test_bootstrap_rejects_a_profile_that_differs_from_launcher_pin() -> None:
+    with pytest.raises(ValueError, match="embedding profile mismatch"):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                expected_embedding_configuration_id="another-profile",
+            )
+        )
+
+
 def test_bootstrap_requires_pricing_version_for_selected_openai_embedding() -> None:
     with pytest.raises(ValueError, match="openai_pricing_version"):
         build_provider_selection(

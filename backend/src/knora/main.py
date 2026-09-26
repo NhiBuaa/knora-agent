@@ -282,7 +282,9 @@ def create_app(
     application.state.api_key_authenticator = api_key_authenticator or ApiKeyAuthenticator(
         credentials_from_json(settings.api_credentials_json)
     )
-    selected_document_reader = document_reader or PostgresDocumentReader(SessionFactory)
+    selected_document_reader = document_reader or PostgresDocumentReader(
+        SessionFactory, deployed_embedding_configuration=selected_embedding_configuration
+    )
     application.state.document_reader = selected_document_reader
     application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
         selected_document_reader,

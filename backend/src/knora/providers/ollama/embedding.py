@@ -3,6 +3,7 @@
 import hashlib
 import json
 import math
+import re
 import unicodedata
 
 import httpx
@@ -13,6 +14,15 @@ from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 INPUT_POLICY = "qwen3-qa-asymmetric-v1"
 API_CONTRACT = "ollama-api-embed-v1"
 QUERY_PREFIX = "Instruct: Retrieve passages that answer this Vietnamese question.\nQuery: "
+
+
+def _canonical_digest(raw_digest: object) -> str:
+    if not isinstance(raw_digest, str):
+        raise ValueError("invalid model digest")
+    hexadecimal = raw_digest.removeprefix("sha256:")
+    if re.fullmatch(r"[0-9a-fA-F]{64}", hexadecimal) is None:
+        raise ValueError("invalid model digest")
+    return f"sha256:{hexadecimal.lower()}"
 
 
 def resolve_ollama_embedding_configuration(
@@ -26,9 +36,7 @@ def resolve_ollama_embedding_configuration(
         matches = [item for item in models if item.get("name") == model]
         if len(matches) != 1:
             raise ValueError("model tag missing or ambiguous")
-        digest = matches[0]["digest"]
-        if not isinstance(digest, str) or not digest.startswith("sha256:") or len(digest) != 71:
-            raise ValueError("invalid model digest")
+        digest = _canonical_digest(matches[0]["digest"])
         show_response = client.post("/api/show", json={"model": model})
         show_response.raise_for_status()
         details = show_response.json()["details"]
@@ -148,8 +156,8 @@ class OllamaEmbeddingProvider:
             response.raise_for_status()
             models = response.json()["models"]
             matches = [item for item in models if item.get("name") == configuration.model]
-            digest = matches[0]["digest"] if len(matches) == 1 else None
-            if not isinstance(digest, str) or not configuration.deployment_identity:
+            digest = _canonical_digest(matches[0]["digest"]) if len(matches) == 1 else None
+            if digest is None or not configuration.deployment_identity:
                 raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
             if not configuration.deployment_identity.endswith(digest):
                 raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")

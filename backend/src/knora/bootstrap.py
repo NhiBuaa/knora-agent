@@ -30,8 +30,15 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
         raise ValueError("invalid provider configuration: both selectors are required")
     if embedding_choice is not None and generation_choice is not None:
         embedding, configuration = _build_selected_embedding(runtime_settings, embedding_choice)
-        generation = _build_selected_generation(runtime_settings, generation_choice)
-        _validate_embedding_dimension(runtime_settings, configuration)
+        try:
+            _validate_embedding_dimension(runtime_settings, configuration)
+            _require_expected_profile(runtime_settings, configuration)
+            generation = _build_selected_generation(runtime_settings, generation_choice)
+        except Exception:
+            close_embedding = getattr(embedding, "close", None)
+            if close_embedding is not None:
+                close_embedding()
+            raise
         return ProviderSelection(embedding, generation, configuration)
 
     return _build_legacy_provider_selection(runtime_settings)
@@ -45,6 +52,14 @@ def _validate_embedding_dimension(
             "invalid provider configuration: Milestone 1 embedding configuration expected "
             f"{configuration.dimensions} dimensions"
         )
+
+
+def _require_expected_profile(
+    runtime_settings: Settings, configuration: EmbeddingConfiguration
+) -> None:
+    expected = runtime_settings.expected_embedding_configuration_id
+    if expected is not None and configuration.id != expected:
+        raise ValueError("invalid provider configuration: embedding profile mismatch")
 
 
 def _build_selected_embedding(
@@ -159,6 +174,7 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
     else:
         legacy_configuration = EmbeddingConfiguration.milestone_one_local()
     _validate_embedding_dimension(runtime_settings, legacy_configuration)
+    _require_expected_profile(runtime_settings, legacy_configuration)
 
     if (
         runtime_settings.provider_mode == "deterministic-local"

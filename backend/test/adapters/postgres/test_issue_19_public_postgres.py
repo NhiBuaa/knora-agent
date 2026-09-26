@@ -12,6 +12,7 @@ from knora.adapters.postgres.tables import (
     DocumentTable,
     IngestionJobTable,
     ReprocessAuditTable,
+    WorkspaceAdmissionTable,
     WorkspaceTable,
 )
 from knora.domain.access import WorkspacePrincipal
@@ -217,6 +218,49 @@ def test_deployed_reprocess_persists_new_profile_and_rejects_changed_profile_rep
             store=PostgresIngestionJobStore(SessionFactory),
             deployed_embedding_configuration=changed,
         ).reprocess_document_version(command, principal)
+
+
+def test_facade_commits_reprocess_with_workspace_admission(tmp_path) -> None:
+    workspace_id = _workspace("admitted re-index")
+    object_store = FileSystemObjectStore(tmp_path)
+    upload = _submit(workspace_id, object_store)
+    now = datetime.now(UTC)
+    with SessionFactory.begin() as session:
+        job = session.get(IngestionJobTable, upload.ingestion_job_id)
+        assert job is not None
+        job.status = "succeeded"
+        job.attempt_count = 1
+        job.started_at = now
+        job.terminal_at = now
+        job.updated_at = now
+        job.terminal_outcome_code = "succeeded"
+        session.add(
+            WorkspaceAdmissionTable(
+                id=str(uuid4()),
+                workspace_id=workspace_id,
+                operation="reprocess_document_version",
+                operation_id="admitted-reindex",
+            )
+        )
+    from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
+
+    profile = EmbeddingConfiguration(
+        "ollama-admitted", "ollama", "qwen3-embedding:0.6b", 1024, "cosine"
+    )
+    service = IngestionJobs(
+        object_store=object_store,
+        store=PostgresIngestionJobStore(SessionFactory),
+        admission_store=PostgresWorkspaceAdmissionStore(SessionFactory),
+        deployed_embedding_configuration=profile,
+    )
+    result = service.reprocess_document_version(
+        ReprocessDocumentVersionCommand(
+            workspace_id, upload.document_version_id, "deployed", None, "admitted-reindex"
+        ),
+        WorkspacePrincipal(workspace_id, "key-a"),
+    )
+
+    assert result.status == "queued"
 
 
 def test_reprocess_conflict_is_detected_before_selector_lookup(tmp_path) -> None:

@@ -81,6 +81,9 @@ class DocumentResponse(BaseModel):
     serving_state: Literal["unavailable", "current", "previous"]
     ingestion_job_id: str | None = None
     ingestion_status: str | None = None
+    active_embedding_configuration_id: str | None = None
+    embedding_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
+    reprocess_supported: bool = False
 
 
 class DocumentListResponse(BaseModel):

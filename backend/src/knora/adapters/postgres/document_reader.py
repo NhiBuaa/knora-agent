@@ -8,8 +8,11 @@ from knora.adapters.postgres.tables import (
     ChunkSetTable,
     DocumentDeletionRequestTable,
     DocumentTable,
+    DocumentVersionTable,
     EmbeddingSetTable,
     IngestionJobTable,
+    OriginalSourceObjectTable,
+    WorkspaceTable,
 )
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
@@ -18,19 +21,31 @@ from knora.ingestion.documents import (
     DocumentListProjection,
     DocumentProjection,
 )
+from knora.providers.embedding import EmbeddingConfiguration
 
 
 class PostgresDocumentReader:
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker,
+        deployed_embedding_configuration: EmbeddingConfiguration | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        self._deployed_embedding_configuration = (
+            deployed_embedding_configuration or EmbeddingConfiguration.milestone_one_local()
+        )
 
-    @staticmethod
-    def _projection(session, row: DocumentTable) -> DocumentProjection:
-        served_document_version_id = session.scalar(
-            select(ChunkSetTable.document_version_id)
+    def _projection(self, session, row: DocumentTable) -> DocumentProjection:
+        active = session.execute(
+            select(
+                ChunkSetTable.document_version_id,
+                EmbeddingSetTable.embedding_configuration_id,
+            )
             .join(EmbeddingSetTable, EmbeddingSetTable.chunk_set_id == ChunkSetTable.id)
             .where(EmbeddingSetTable.id == row.active_embedding_set_id)
-        )
+        ).first()
+        served_document_version_id = active[0] if active is not None else None
+        active_embedding_configuration_id = active[1] if active is not None else None
         latest_job = session.scalar(
             select(IngestionJobTable)
             .where(
@@ -46,6 +61,35 @@ class PostgresDocumentReader:
             serving_state = "current"
         else:
             serving_state = "previous"
+        if active_embedding_configuration_id is None:
+            embedding_readiness = "not_indexed"
+        elif (
+            serving_state == "current"
+            and active_embedding_configuration_id == self._deployed_embedding_configuration.id
+        ):
+            embedding_readiness = "ready"
+        else:
+            embedding_readiness = "reindex_required"
+        source_object_id = session.scalar(
+            select(OriginalSourceObjectTable.id)
+            .join(
+                DocumentVersionTable,
+                DocumentVersionTable.id == OriginalSourceObjectTable.document_version_id,
+            )
+            .where(
+                DocumentVersionTable.id == row.current_document_version_id,
+                DocumentVersionTable.document_id == row.id,
+                DocumentVersionTable.media_type == "application/pdf",
+                OriginalSourceObjectTable.workspace_id == row.workspace_id,
+                OriginalSourceObjectTable.deleted_at.is_(None),
+            )
+        )
+        workspace_archived = session.scalar(
+            select(WorkspaceTable.archived).where(WorkspaceTable.id == row.workspace_id)
+        )
+        reprocess_supported = bool(
+            source_object_id and not row.archived and workspace_archived is False
+        )
         return DocumentProjection(
             document_id=row.id,
             workspace_id=row.workspace_id,
@@ -57,6 +101,9 @@ class PostgresDocumentReader:
             serving_state=serving_state,
             ingestion_job_id=latest_job.id if latest_job is not None else None,
             ingestion_status=latest_job.status if latest_job is not None else None,
+            active_embedding_configuration_id=active_embedding_configuration_id,
+            embedding_readiness=embedding_readiness,
+            reprocess_supported=reprocess_supported,
         )
 
     def list_documents(
