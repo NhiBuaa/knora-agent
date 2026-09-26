@@ -60,7 +60,7 @@ The development launcher:
 
 1. loads root `.env` without overwriting explicit process environment values;
 2. verifies `qwen3-embedding:0.6b`, exact 1024-dimensional embeddings, immutable profile resolution and the Windows PDF Job Object safety path;
-3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` Compose project;
+3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` Compose project and waits for storage readiness;
 4. creates/migrates the `knora_dev` database;
 5. starts FastAPI with Uvicorn auto-reload for `backend/src/knora`;
 6. starts the ingestion worker in `--dev-watch` mode;
@@ -68,6 +68,14 @@ The development launcher:
 8. stays in the foreground as the supervisor for those three host processes.
 
 Press `Ctrl+C` to stop API, worker and frontend. PostgreSQL and MinIO intentionally remain running so the next development start is faster.
+
+If you need to free ports 5432/9000 before switching to another local topology, stop the development storage services explicitly:
+
+```powershell
+docker compose -p knora-dev stop postgres minio
+```
+
+Routine shutdown does not remove the development volumes.
 
 ## Reload behavior
 
