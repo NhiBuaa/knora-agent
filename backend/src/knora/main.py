@@ -17,6 +17,7 @@ from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
+from knora.adapters.postgres.conversation_store import PostgresConversationStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
@@ -38,6 +39,8 @@ from knora.answering.retrieval_configuration import (
 from knora.api.routes import m5_e2e_router, router
 from knora.application.operator_observability import OperatorObservability
 from knora.bootstrap import build_provider_selection
+from knora.conversations.runner import ConversationRunner
+from knora.conversations.service import ConversationService
 from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
@@ -303,6 +306,16 @@ def create_app(
     application.state.workspace_service = workspace_service or WorkspaceService(
         PostgresWorkspaceStore(SessionFactory)
     )
+    conversation_store = PostgresConversationStore(SessionFactory)
+    application.state.conversation_store = conversation_store
+    application.state.conversation_service = ConversationService(
+        store=conversation_store,
+        workspace_authorizer=application.state.workspace_authorizer,
+    )
+    application.state.conversation_runner = ConversationRunner(
+        store=conversation_store,
+        answer_question=application.state.answer_question,
+    )
     selected_tool_action_store = tool_action_store or PostgresToolActionStore(SessionFactory)
     selected_write_proposal_workflow = write_proposal_workflow
     if selected_write_proposal_workflow is None and tool_actor_context_provider is not None:
@@ -369,6 +382,12 @@ def create_app(
             "INVALID_WORKSPACE_NAME": 422,
             "INVALID_WORKSPACE_CURSOR": 422,
             "INVALID_WORKSPACE_LIMIT": 422,
+            "INVALID_CONVERSATION_TITLE": 422,
+            "INVALID_CONVERSATION_CURSOR": 422,
+            "INVALID_CONVERSATION_LIMIT": 422,
+            "INVALID_TURN_CURSOR": 422,
+            "INVALID_TURN_LIMIT": 422,
+            "INVALID_TURN_STAGE": 422,
             "CAPABILITY_ACCESS_DENIED": 403,
             "INVALID_SOURCE_KEY": 400,
             "INVALID_SOURCE_NAME": 400,
@@ -404,6 +423,16 @@ def create_app(
             "CONFIG_SOURCE_JOB_INVALID": 400,
             "CONFIGURATION_NOT_AVAILABLE": 409,
             "IDEMPOTENCY_KEY_CONFLICT": 409,
+            "CONVERSATION_BUSY": 409,
+            "CONVERSATION_ARCHIVED": 409,
+            "CONVERSATION_NOT_FOUND": 404,
+            "INVALID_QUESTION": 400,
+            "INVALID_REQUEST_FINGERPRINT": 400,
+            "CONVERSATION_ADMISSION_REQUIRED": 403,
+            "CONVERSATION_ADMISSION_MISSING": 500,
+            "CONVERSATION_EXECUTION_FAILED": 500,
+            "INVALID_CONVERSATION_WORKER_ID": 500,
+            "INVALID_TURN_RESULT": 500,
             "TOOL_CAPABILITY_NOT_FOUND": 403,
             "TOOL_APPROVAL_FORBIDDEN": 403,
             "TOOL_RESOURCE_ACCESS_DENIED": 403,
@@ -420,10 +449,13 @@ def create_app(
             "TOOL_PROVIDER_UNAVAILABLE": 502,
             "TOOL_PROVIDER_CONTRACT_INVALID": 502,
         }.get(error.code, 400)
+        headers = {"Cache-Control": "no-store"}
+        if error.code == "CONVERSATION_BUSY":
+            headers["Retry-After"] = "2"
         return JSONResponse(
             status_code=status,
             content={"error": {"code": error.code}},
-            headers={"Cache-Control": "no-store"},
+            headers=headers,
         )
 
     application.include_router(http_router)

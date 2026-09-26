@@ -24,7 +24,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration, EmbeddingProvider
 from knora.providers.generation import GenerationEvidence, GenerationProvider, GenerationResult
-from knora.workspaces.ports import WorkspaceAdmissionStore
+from knora.workspaces.ports import WorkspaceAdmission, WorkspaceAdmissionStore
 
 
 class AnswerQuestion:
@@ -66,12 +66,22 @@ class AnswerQuestion:
         command: QuestionCommand,
         principal: WorkspacePrincipal,
         *,
+        workspace_admission: WorkspaceAdmission | None = None,
         stage_callback: Callable[[str], None] | None = None,
     ) -> QuestionResult:
         if principal.workspace_id != command.workspace_id:
             raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        if workspace_admission is not None and (
+            command.turn_id is None
+            or workspace_admission.workspace_id != command.workspace_id
+            or workspace_admission.operation != "conversation_turn"
+            or workspace_admission.operation_id != command.turn_id
+        ):
+            raise KnoraError("WORKSPACE_ACCESS_DENIED")
+        if command.turn_id is not None and workspace_admission is None:
+            raise KnoraError("CONVERSATION_ADMISSION_REQUIRED")
         admission_id: str | None = None
-        if self._admission_store is not None:
+        if self._admission_store is not None and workspace_admission is None:
             admission = self._admission_store.admit(
                 principal=principal,
                 operation="ask_question",

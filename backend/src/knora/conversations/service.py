@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from hashlib import sha256
+
 from knora.access.identity import Identity
 from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.conversations.ports import ConversationStore
-from knora.conversations.types import ConversationPage, ConversationView
+from knora.conversations.types import ConversationPage, ConversationView, TurnAdmission
 from knora.domain.errors import KnoraError
 
 
@@ -83,6 +85,31 @@ class ConversationService:
         self._authorize(identity, workspace_id)
         return self._store.mutate(
             workspace_id, conversation_id, expected_revision, archived=False
+        )
+
+    def submit_turn(
+        self,
+        identity: Identity,
+        workspace_id: str,
+        conversation_id: str,
+        idempotency_key: str,
+        question: str,
+    ) -> TurnAdmission:
+        if not idempotency_key or len(idempotency_key) > 255:
+            raise KnoraError("INVALID_IDEMPOTENCY_KEY")
+        normalized_question = " ".join(question.split())
+        if not normalized_question:
+            raise KnoraError("INVALID_QUESTION")
+        self._authorize(identity, workspace_id)
+        auto_title = title_from_question(question)
+        request_fingerprint = sha256(normalized_question.encode("utf-8")).hexdigest()
+        return self._store.submit_turn(
+            workspace_id=workspace_id,
+            conversation_id=conversation_id,
+            idempotency_key=idempotency_key,
+            question=question,
+            auto_title=auto_title,
+            request_fingerprint=request_fingerprint,
         )
 
     def _authorize(self, identity: Identity, workspace_id: str) -> None:

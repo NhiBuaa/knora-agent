@@ -136,16 +136,40 @@ class ConversationTurnTable(Base):
         UniqueConstraint(
             "conversation_id", "sequence", name="uq_conversation_turns_conversation_sequence"
         ),
+        UniqueConstraint(
+            "workspace_id",
+            "conversation_id",
+            "idempotency_key",
+            name="uq_conversation_turns_idempotency_scope",
+        ),
+        UniqueConstraint("claim_token", name="uq_conversation_turns_claim_token"),
         CheckConstraint("sequence > 0", name="ck_conversation_turns_sequence_positive"),
+        CheckConstraint(
+            "length(request_fingerprint) = 64",
+            name="ck_conversation_turns_request_fingerprint",
+        ),
         CheckConstraint(
             "status IN ('queued', 'processing', 'answered', 'refused', 'failed', 'interrupted')",
             name="ck_conversation_turns_status",
+        ),
+        CheckConstraint(
+            "(status = 'processing' AND worker_id IS NOT NULL AND claim_token IS NOT NULL "
+            "AND lease_expires_at IS NOT NULL AND execution_deadline_at IS NOT NULL) OR "
+            "(status <> 'processing' AND worker_id IS NULL AND claim_token IS NULL "
+            "AND lease_expires_at IS NULL AND execution_deadline_at IS NULL)",
+            name="ck_conversation_turns_processing_lease",
         ),
         ForeignKeyConstraint(
             ["workspace_id", "conversation_id"],
             ["conversations.workspace_id", "conversations.id"],
             ondelete="RESTRICT",
             name="fk_conversation_turns_workspace_conversation",
+        ),
+        Index(
+            "uq_conversation_turns_one_active_per_conversation",
+            "conversation_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'processing')"),
         ),
     )
 
@@ -154,10 +178,20 @@ class ConversationTurnTable(Base):
     conversation_id: Mapped[str] = mapped_column(String(36), nullable=False)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     question: Mapped[str] = mapped_column(Text, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="queued")
     stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    claim_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    execution_deadline_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import pytest
 
@@ -10,6 +11,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 from knora.providers.generation import GenerationResult
+from knora.workspaces.ports import WorkspaceAdmission
 
 
 @dataclass
@@ -81,6 +83,104 @@ async def test_incompatible_corpus_rejects_before_provider_and_retrieval_lookup(
         )
 
     assert store.readiness_calls == [("workspace-a", "embedding-local-m1-v2")]
+    assert provider.calls == []
+    assert store.traces == []
+
+
+@pytest.mark.asyncio
+async def test_conversation_turn_reuses_its_admission_without_reopening_workspace() -> None:
+    class AdmissionMustNotBeOpened:
+        def admit(self, **kwargs):
+            raise AssertionError(f"conversation worker attempted another admission: {kwargs}")
+
+        def close(self, **kwargs):
+            raise AssertionError(f"answering closed the Conversation admission: {kwargs}")
+
+    question = "  Why  is this archived?  "
+    admission = WorkspaceAdmission(
+        id="admission-1",
+        workspace_id="workspace-a",
+        operation="conversation_turn",
+        operation_id="turn-1",
+        admitted_at=datetime(2026, 9, 26, tzinfo=UTC),
+    )
+    store = EmptyStore()
+    provider = CountingQueryEmbeddingProvider()
+    service = AnswerQuestion(
+        embedding_provider=provider,
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        admission_store=AdmissionMustNotBeOpened(),
+    )
+
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question=question, turn_id="turn-1"),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="conversation-worker"),
+        workspace_admission=admission,
+    )
+
+    assert result.decision == "REFUSAL"
+    assert provider.calls == [[question]]
+    assert store.traces[0].question == question
+
+
+@pytest.mark.asyncio
+async def test_conversation_admission_cannot_be_reused_for_another_turn() -> None:
+    admission = WorkspaceAdmission(
+        id="admission-1",
+        workspace_id="workspace-a",
+        operation="conversation_turn",
+        operation_id="turn-1",
+        admitted_at=datetime(2026, 9, 26, tzinfo=UTC),
+    )
+    store = EmptyStore()
+    provider = CountingQueryEmbeddingProvider()
+    service = AnswerQuestion(
+        embedding_provider=provider,
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    with pytest.raises(KnoraError, match="WORKSPACE_ACCESS_DENIED"):
+        await service.execute(
+            QuestionCommand(
+                workspace_id="workspace-a",
+                question="What is in this conversation?",
+                turn_id="turn-2",
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="conversation-worker"),
+            workspace_admission=admission,
+        )
+
+    assert store.readiness_calls == []
+    assert provider.calls == []
+    assert store.traces == []
+
+
+@pytest.mark.asyncio
+async def test_conversation_turn_id_requires_a_persisted_admission() -> None:
+    store = EmptyStore()
+    provider = CountingQueryEmbeddingProvider()
+    service = AnswerQuestion(
+        embedding_provider=provider,
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+
+    with pytest.raises(KnoraError, match="CONVERSATION_ADMISSION_REQUIRED"):
+        await service.execute(
+            QuestionCommand(
+                workspace_id="workspace-a",
+                question="What is in this conversation?",
+                turn_id="turn-1",
+            ),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="conversation-worker"),
+        )
+
+    assert store.readiness_calls == []
     assert provider.calls == []
     assert store.traces == []
 

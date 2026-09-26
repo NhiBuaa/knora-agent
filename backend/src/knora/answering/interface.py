@@ -6,6 +6,7 @@ from typing import Literal
 class QuestionCommand:
     workspace_id: str
     question: str
+    turn_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
