@@ -36,3 +36,20 @@ def test_process_environment_overrides_dotenv(monkeypatch, tmp_path: Path) -> No
     settings = Settings(_env_file=env_file)
 
     assert settings.database_url.endswith("/from-process")
+
+
+def test_env_example_is_safe_to_copy_for_default_provider_mode(monkeypatch) -> None:
+    for name in (
+        "KNORA_EMBEDDING_PROVIDER",
+        "KNORA_GENERATION_PROVIDER",
+        "KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    env_example = Path(__file__).resolve().parents[2] / ".env.example"
+
+    settings = Settings(_env_file=env_example)
+
+    assert settings.provider_mode == "deterministic-local"
+    assert settings.embedding_provider is None
+    assert settings.generation_provider is None
+    assert settings.expected_embedding_configuration_id is None
