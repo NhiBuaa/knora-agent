@@ -7,6 +7,7 @@ describe("CitationViewer", () => {
   it("renders the exact citation projection fields", () => {
     render(
       <CitationViewer
+        workspaceId="workspace-a"
         citations={[
           {
             evidence_id: "E1",
@@ -28,6 +29,10 @@ describe("CitationViewer", () => {
       />,
     );
     expect(screen.getByText("Guide")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Guide" })).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-a/documents/doc-1",
+    );
     expect(screen.getByText("Evidence", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByText(/lines 2–4/)).toBeInTheDocument();
     expect(screen.getByText(/page 1/)).toBeInTheDocument();

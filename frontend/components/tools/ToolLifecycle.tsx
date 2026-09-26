@@ -55,7 +55,7 @@ export function ToolLifecycleDisplay({ workspaceId }: { workspaceId: string }) {
   }, [workspaceId]);
 
   return (
-    <section aria-label="Tool lifecycle">
+    <section aria-label="Tool lifecycle" className="tool-lifecycle-secondary">
       <h2>Tool lifecycle</h2>
       {state.kind === "loading" && <p role="status">Loading tool lifecycle…</p>}
       {state.kind === "unavailable" && (

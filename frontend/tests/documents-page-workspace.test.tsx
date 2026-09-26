@@ -22,11 +22,13 @@ vi.mock("@/components/documents/DocumentList", () => ({
   ),
 }));
 
-import DocumentsPage from "@/app/app/documents/page";
+import DocumentsPage from "@/app/workspaces/[workspaceId]/documents/page";
 
 describe("document route Workspace state", () => {
   it("uses the backend archived projection before rendering write controls", async () => {
-    const html = renderToStaticMarkup(await DocumentsPage());
+    const html = renderToStaticMarkup(
+      await DocumentsPage({ params: Promise.resolve({ workspaceId: "ws-1" }) }),
+    );
     expect(html).toContain("Read-only Workspace");
   });
 });

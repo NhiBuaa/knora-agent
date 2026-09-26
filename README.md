@@ -20,6 +20,14 @@ documents and returns citations that reviewers can trace back to the source mate
   bounded by their documented evidence and contracts.
 - **Hosted demo:** none is advertised; the README documents the reproducible local workflow.
 
+The private browser application uses `/workspaces` as its entry and collection view. An owned
+Workspace opens at `/workspaces/{workspace_id}`; its Documents and Conversations are under that
+path. A Conversation is created only by an explicit action, and its Turns and cited results are
+read from Knora's durable backend. The former `/app/*` product URLs are no longer served. The
+Keycloak callback keeps OIDC state, nonce and PKCE validation; Workspace selection is resolved
+against backend ownership, with the signed browser preference used only as a hint. Archived
+Workspaces remain readable until restored.
+
 Đọc [bức tranh tổng quan](docs/PROJECT_OVERVIEW.md) trước để hiểu product boundary và roadmap.
 
 ## Mục lục

@@ -1,7 +1,10 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
-import type { ResolutionResponse } from "@/generated/knora-openapi";
-import { knoraRequest } from "@/lib/api/client";
+import type {
+  KnoraApiPath,
+  ResolutionResponse,
+  WorkspaceListResponse,
+  WorkspaceResponse,
+} from "@/generated/knora-openapi";
+import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 
 export async function resolveCurrentWorkspace(
   identity: { issuer: string; subject: string; accessToken: string },
@@ -16,20 +19,31 @@ export async function resolveCurrentWorkspace(
   });
 }
 
-export function selectWorkspace(
-  workspaceIds: string[],
-  requested?: string | null,
-): string | null {
-  if (requested && workspaceIds.includes(requested)) return requested;
-  return workspaceIds[0] ?? null;
-}
-
-export async function requireWorkspace(
-  requested?: string | null,
-): Promise<{ workspaceId: string; capabilities: string[] }> {
-  const session = await getSession();
-  if (!session) redirect("/");
-  const workspaceId = selectWorkspace(session.workspaceIds, requested);
-  if (!workspaceId) redirect("/");
-  return { workspaceId, capabilities: session.capabilities };
+export async function readEntryWorkspace(
+  identity: { issuer: string; subject: string; accessToken: string },
+  hintId: string | null,
+): Promise<string | null> {
+  if (!identity.issuer || !identity.subject || !identity.accessToken)
+    throw new Error("Authenticated identity is incomplete");
+  if (hintId) {
+    try {
+      const hinted = (await knoraRequest(
+        `/v1/workspaces/${encodeURIComponent(hintId)}` as KnoraApiPath,
+        { accessToken: identity.accessToken },
+      )) as WorkspaceResponse;
+      if (hinted.id === hintId && !hinted.archived) return hinted.id;
+    } catch (error) {
+      if (
+        !(error instanceof KnoraApiError) ||
+        ![403, 404].includes(error.status)
+      )
+        throw error;
+      // A stale or foreign hint has no authority; use the owner list.
+    }
+  }
+  const page = (await knoraRequest(
+    "/v1/workspaces?archived=false&limit=1" as KnoraApiPath,
+    { accessToken: identity.accessToken },
+  )) as WorkspaceListResponse;
+  return page.items[0]?.id ?? null;
 }

@@ -12,7 +12,10 @@ export async function POST(request: Request) {
       { error: "CROSS_ORIGIN_REQUEST" },
       { status: 403 },
     );
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.redirect(
+    new URL("/?signed-out=1", request.url),
+    303,
+  );
   const cookie = clearSessionCookie();
   response.cookies.set(cookie.name, cookie.value, cookie.options as never);
   const preference = clearPreferenceCookie();

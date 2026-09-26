@@ -1,11 +1,15 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 import type { CitationResponse } from "@/generated/knora-openapi";
+import { routes } from "@/lib/navigation/routes";
 
 export function CitationViewer({
   citations,
+  workspaceId,
 }: {
   citations: CitationResponse[];
+  workspaceId?: string;
 }) {
   if (!citations.length) return null;
   return (
@@ -17,7 +21,15 @@ export function CitationViewer({
             key={citation.evidence_id}
             data-testid={`citation-${citation.evidence_id}`}
           >
-            <strong>{citation.source_name}</strong>
+            <strong>
+              {workspaceId ? (
+                <Link href={routes.document(workspaceId, citation.document_id)}>
+                  {citation.source_name}
+                </Link>
+              ) : (
+                citation.source_name
+              )}
+            </strong>
             <span> ({citation.source_key})</span>
             <p>{citation.excerpt}</p>
             <small>

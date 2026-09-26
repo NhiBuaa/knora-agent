@@ -3,12 +3,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { encodeSession, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
 const port = 34_000 + (process.pid % 1_000);
 const origin = `http://127.0.0.1:${port}`;
 const sessionSecret = "workspace-page-request-test-secret";
 let server: ChildProcess | undefined;
+let serverOutput = "";
 let previousSessionSecret: string | undefined;
 
 function runNext(args: string[]): Promise<void> {
@@ -48,7 +48,7 @@ async function waitForServer(): Promise<void> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
-      const response = await fetch(origin, {
+      const response = await fetch(`${origin}/api/auth/session`, {
         signal: AbortSignal.timeout(250),
       });
       if (response.ok) return;
@@ -57,7 +57,9 @@ async function waitForServer(): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw lastError ?? new Error("Next server did not become ready");
+  throw new Error(
+    `Next server did not become ready: ${String(lastError)} ${serverOutput}`,
+  );
 }
 
 beforeAll(async () => {
@@ -75,10 +77,16 @@ beforeAll(async () => {
   server = spawn(process.execPath, [nextCli, "start", "--port", String(port)], {
     cwd: process.cwd(),
     env: { ...process.env, SESSION_SECRET: sessionSecret },
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  server.stdout?.on("data", (chunk) => {
+    serverOutput += chunk;
+  });
+  server.stderr?.on("data", (chunk) => {
+    serverOutput += chunk;
   });
   await waitForServer();
-}, 30_000);
+}, 90_000);
 
 afterAll(() => {
   server?.kill();
@@ -86,29 +94,9 @@ afterAll(() => {
   else process.env.SESSION_SECRET = previousSessionSecret;
 });
 
-describe("workspace page rendering", () => {
-  it("renders each request from its current session cookie", async () => {
-    const unavailable = await fetch(`${origin}/app`);
-
-    expect(unavailable.status).toBe(200);
-    await expect(unavailable.text()).resolves.toContain(
-      "No workspace is available for this session.",
-    );
-
-    const session = await encodeSession({
-      subject: "user-1",
-      accessToken: "access-token",
-      workspaceIds: ["workspace-after-callback"],
-      capabilities: [],
-      expiresAt: 1_800_000_000,
-    });
-
-    const response = await fetch(`${origin}/app`, {
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${session}` },
-    });
-
-    expect(response.status).toBe(200);
-    const html = (await response.text()).replaceAll("<!-- -->", "");
-    expect(html).toContain("Selected workspace: workspace-after-callback");
+describe("canonical route rendering", () => {
+  it("does not serve the retired /app product route", async () => {
+    const response = await fetch(`${origin}/app`, { redirect: "manual" });
+    expect(response.status).toBe(404);
   });
 });

@@ -35,6 +35,69 @@ afterEach(() => {
 });
 
 describe("document management", () => {
+  it("does not show an empty state while documents are still loading", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
+    expect(screen.getByText("Loading documents…")).toBeInTheDocument();
+    expect(screen.queryByText("No documents yet.")).not.toBeInTheDocument();
+  });
+
+  it("reports a failed document load without pretending the Workspace is empty", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network unavailable")),
+    );
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={[]} workspaceArchived />,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to load documents",
+    );
+    expect(screen.queryByText("No documents yet.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("This Workspace is read-only."),
+    ).toBeInTheDocument();
+  });
+  it("uses canonical document links and hides writes in archived Workspaces", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ documents: [document] })),
+    );
+    render(
+      <DocumentList
+        workspaceId="ws-1"
+        capabilities={["documents:write"]}
+        workspaceArchived
+      />,
+    );
+    const link = await screen.findByRole("link", { name: "guide.pdf" });
+    expect(link).toHaveAttribute("href", "/workspaces/ws-1/documents/doc-1");
+    expect(
+      screen.queryByRole("button", { name: "Upload document" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps archived Workspace document detail read-only", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(document)));
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-1"
+        capabilities={["documents:write", "documents:delete"]}
+        workspaceArchived
+      />,
+    );
+    await screen.findByText("guide.pdf");
+    expect(
+      screen.queryByRole("button", { name: "Reprocess document" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Request deletion" }),
+    ).not.toBeInTheDocument();
+  });
   it("resumes status polling for a job already processing after page load", async () => {
     const outdated = {
       ...document,

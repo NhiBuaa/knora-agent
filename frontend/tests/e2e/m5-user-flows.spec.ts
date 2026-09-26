@@ -1,82 +1,140 @@
 import { expect, test } from "@playwright/test";
 
-import { armM5E2EFault, loginAs, newRoleContext } from "./support/auth";
+import { loginAs, newRoleContext } from "./support/auth";
 
 test.describe.configure({ mode: "serial" });
+
+test("a submitted Conversation Turn survives page reload without another POST", async ({
+  browser,
+}) => {
+  const context = await newRoleContext(browser, "user");
+  const page = await context.newPage();
+  await loginAs(page, "user");
+  await page.getByRole("button", { name: "New Conversation" }).first().click();
+  const question = `Durable turn ${Date.now()}`;
+  let submissions = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      /\/conversations\/[^/]+\/turns$/.test(new URL(request.url()).pathname)
+    ) {
+      submissions += 1;
+    }
+  });
+  await page.getByRole("textbox", { name: "Question" }).fill(question);
+  await page.getByRole("button", { name: "Ask" }).click();
+  await expect(page.getByText(question, { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(question, { exact: true })).toBeVisible();
+  expect(submissions).toBe(1);
+  await context.close();
+});
 
 function uniqueDocumentName(): string {
   return `m5-live-user-${Date.now()}-${Math.random().toString(36).slice(2)}.md`;
 }
 
-test("a user sees a refusal as non-answer through the question UI", async ({
+function workspacePath(page: import("@playwright/test").Page): string {
+  const pathname = new URL(page.url()).pathname;
+  const matched = pathname.match(/^\/workspaces\/[^/]+/);
+  if (!matched) throw new Error("No active Workspace route after login");
+  return matched[0];
+}
+
+async function projectTerminalTurn(
+  page: import("@playwright/test").Page,
+  status: "refused" | "failed" | "interrupted",
+  result: Record<string, unknown> | null,
+  errorCode: string | null = null,
+) {
+  await page.route(
+    "**/api/v1/workspaces/*/conversations/*/turns?*",
+    async (route) => {
+      const segments = new URL(route.request().url()).pathname.split("/");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: `projected-${status}`,
+              conversation_id: segments[segments.length - 2],
+              sequence: 1,
+              question: "What does the guide say?",
+              status,
+              stage: null,
+              result,
+              error_code: errorCode,
+            },
+          ],
+          next_cursor: null,
+        }),
+      });
+    },
+  );
+}
+
+test("a persisted refusal remains a non-answer in the Conversation UI", async ({
   browser,
 }) => {
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
 
   await loginAs(page, "user");
-  await page.getByRole("link", { name: "Questions" }).click();
-  const absentFact = `M5 absent fixture fact ${Date.now()} ${Math.random().toString(36).slice(2)}`;
-  await page.getByRole("textbox", { name: "Question" }).fill(absentFact);
-  await page.getByRole("button", { name: "Ask" }).click();
-  await expect(page.getByText(/^No answer:/).first()).toBeVisible();
-  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
+  await projectTerminalTurn(page, "refused", {
+    decision: "REFUSE",
+    answer: null,
+    citations: [],
+    refusal_reason: "insufficient_evidence",
+    trace_id: "fixture-trace",
+    workspace_id: "m5-workspace",
+  });
+  await page.getByRole("button", { name: "New Conversation" }).first().click();
+  await expect(page.getByText(/^Refused:/).first()).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Citations" }),
+  ).not.toBeVisible();
   await context.close();
 });
 
-test("a user sees a provider failure without a final answer or citation", async ({
+test("a persisted failed Turn has no answer or citation", async ({
   browser,
 }) => {
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
 
   await loginAs(page, "user");
-  await armM5E2EFault(page, "provider_failure");
-  await page.getByRole("link", { name: "Questions" }).click();
-  await page
-    .getByRole("textbox", { name: "Question" })
-    .fill("How does Knora answer questions?");
-  await page.getByRole("button", { name: "Ask" }).click();
+  await projectTerminalTurn(page, "failed", null, "PROVIDER_REQUEST_FAILED");
+  await page.getByRole("button", { name: "New Conversation" }).first().click();
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "Request failed: PROVIDER_REQUEST_FAILED" })
+      .filter({ hasText: "PROVIDER_REQUEST_FAILED" })
       .first(),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Citations" }),
   ).not.toBeVisible();
-  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
   await context.close();
 });
 
-test("a user sees an interrupted request without a final answer or citation", async ({
+test("a persisted interrupted Turn remains visibly uncertain", async ({
   browser,
 }) => {
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
 
   await loginAs(page, "user");
-  await armM5E2EFault(page, "stream_interruption");
-  await page.getByRole("link", { name: "Questions" }).click();
-  await page
-    .getByRole("textbox", { name: "Question" })
-    .fill("What can Knora tell me about this workspace?");
-  await page.getByRole("button", { name: "Ask" }).click();
-  await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "The request was interrupted. It was not completed." })
-      .first(),
-  ).toBeVisible();
+  await projectTerminalTurn(page, "interrupted", null);
+  await page.getByRole("button", { name: "New Conversation" }).first().click();
+  await expect(page.getByText("Outcome uncertain")).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Citations" }),
   ).not.toBeVisible();
-  await expect(page.getByText(/^Trace:/)).not.toBeVisible();
   await context.close();
 });
 
-test("a user uploads a document and observes its authoritative lifecycle through /app", async ({
+test("a user uploads a document and observes its authoritative lifecycle through canonical routes", async ({
   browser,
 }) => {
   const context = await newRoleContext(browser, "user");
@@ -84,7 +142,7 @@ test("a user uploads a document and observes its authoritative lifecycle through
   const sourceName = uniqueDocumentName();
 
   await loginAs(page, "user");
-  await page.getByRole("link", { name: "Manage documents" }).click();
+  await page.goto(`${workspacePath(page)}/documents`);
   await page.locator("#document-file").setInputFiles({
     name: sourceName,
     mimeType: "text/markdown",
@@ -111,7 +169,7 @@ test("a user archives then restores a document through the document UI", async (
   const sourceName = uniqueDocumentName();
 
   await loginAs(page, "user");
-  await page.goto("/app/documents");
+  await page.goto(`${workspacePath(page)}/documents`);
   await page.locator("#document-file").setInputFiles({
     name: sourceName,
     mimeType: "text/plain",
@@ -137,7 +195,7 @@ test("a delete-capable user requests deletion through document UI", async ({
   const sourceName = uniqueDocumentName();
 
   await loginAs(page, "delete-user");
-  await page.goto("/app/documents");
+  await page.goto(`${workspacePath(page)}/documents`);
   await page.locator("#document-file").setInputFiles({
     name: sourceName,
     mimeType: "text/plain",

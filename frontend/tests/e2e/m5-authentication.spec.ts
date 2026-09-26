@@ -20,36 +20,22 @@ test("a user completes the real authorization-code login and can log out", async
   const page = await context.newPage();
 
   await loginAs(page, "user");
-  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
-  await expect(
-    page.getByText("Selected workspace: m5-workspace"),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/workspaces\/[^/]+$/);
 
   await page.getByRole("button", { name: "Log out" }).click();
-  await expect(page.getByText('{"ok":true}')).toBeVisible();
-  await page.goto("/app");
-  await expect(
-    page.getByText("No workspace is available for this session.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Signed out" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
   await context.close();
 });
 
-test("a visitor with a missing or expired session sees the explicit unavailable workspace state", async ({
+test("a visitor with a missing session cannot open the retired product route", async ({
   browser,
 }) => {
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
 
-  await page.goto("/app");
-  await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
-  await expect(
-    page.getByText("No workspace is available for this session.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  const response = await page.goto("/app");
+  expect(response?.status()).toBe(404);
   await context.close();
 });
 
