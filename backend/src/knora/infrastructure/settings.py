@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     provider_mode: str = "deterministic-local"
     embedding_provider: str | None = None
     generation_provider: str | None = None
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_embedding_model: str = "qwen3-embedding:0.6b"
+    ollama_timeout_seconds: float = 60.0
     gemini_api_key: SecretStr | None = None
     gemini_timeout_seconds: float = 60.0
     openai_base_url: str | None = None

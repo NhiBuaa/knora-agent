@@ -74,6 +74,36 @@ def test_bootstrap_selects_local_embedding_with_openai_generation() -> None:
     assert selected.embedding_configuration == EmbeddingConfiguration.milestone_one_local()
 
 
+def test_bootstrap_selects_ollama_embedding_with_independent_generation(monkeypatch) -> None:
+    import knora.bootstrap as bootstrap
+
+    profile = EmbeddingConfiguration(
+        id="embedding-ollama-test",
+        provider="ollama",
+        model="qwen3-embedding:0.6b",
+        dimensions=1024,
+        distance_metric="cosine",
+    )
+    monkeypatch.setattr(
+        bootstrap,
+        "resolve_ollama_embedding_configuration",
+        lambda client, model: profile,
+        raising=False,
+    )
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            embedding_provider="ollama",
+            generation_provider="deterministic-local",
+            embedding_dimension=1024,
+            ollama_base_url="http://ollama.test:11434",
+        )
+    )
+
+    assert selected.embedding_configuration == profile
+    assert isinstance(selected.generation_provider, DeterministicGenerationProvider)
+
+
 def test_bootstrap_requires_pricing_version_for_selected_openai_embedding() -> None:
     with pytest.raises(ValueError, match="openai_pricing_version"):
         build_provider_selection(
@@ -90,7 +120,7 @@ def test_bootstrap_requires_pricing_version_for_selected_openai_embedding() -> N
     [
         {"embedding_provider": "deterministic-local"},
         {"generation_provider": "deterministic-local"},
-        {"embedding_provider": "ollama", "generation_provider": "deterministic-local"},
+        {"embedding_provider": "unsupported", "generation_provider": "deterministic-local"},
         {"embedding_provider": "deterministic-local", "generation_provider": "google-gemini-api"},
     ],
 )

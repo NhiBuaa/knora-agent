@@ -1,11 +1,17 @@
 from dataclasses import dataclass
 
+import httpx
+
 from knora.infrastructure.settings import Settings
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
 from knora.providers.gemini.embedding import GeminiEmbeddingProvider
 from knora.providers.generation import GenerationProvider
+from knora.providers.ollama.embedding import (
+    OllamaEmbeddingProvider,
+    resolve_ollama_embedding_configuration,
+)
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
@@ -44,6 +50,27 @@ def _validate_embedding_dimension(
 def _build_selected_embedding(
     runtime_settings: Settings, choice: str
 ) -> tuple[EmbeddingProvider, EmbeddingConfiguration]:
+    if choice == "ollama":
+        if runtime_settings.ollama_timeout_seconds <= 0:
+            raise ValueError("invalid provider configuration: timeout must be positive")
+        if runtime_settings.ollama_embedding_model != "qwen3-embedding:0.6b":
+            raise ValueError("invalid provider configuration: unsupported Ollama embedding model")
+        provider = OllamaEmbeddingProvider(
+            base_url=runtime_settings.ollama_base_url,
+            timeout_seconds=runtime_settings.ollama_timeout_seconds,
+        )
+        try:
+            with httpx.Client(
+                base_url=runtime_settings.ollama_base_url,
+                timeout=runtime_settings.ollama_timeout_seconds,
+            ) as client:
+                configuration = resolve_ollama_embedding_configuration(
+                    client, runtime_settings.ollama_embedding_model
+                )
+        except Exception:
+            provider.close()
+            raise
+        return provider, configuration
     if choice == "deterministic-local":
         if runtime_settings.openai_embedding_model != "text-embedding-3-small":
             raise ValueError(
@@ -170,9 +197,7 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
     required_text = {
         "openai_base_url": runtime_settings.openai_base_url,
         "openai_embedding_model": runtime_settings.openai_embedding_model,
-        "openai_embedding_configuration_id": (
-            runtime_settings.openai_embedding_configuration_id
-        ),
+        "openai_embedding_configuration_id": (runtime_settings.openai_embedding_configuration_id),
         "openai_generation_model": runtime_settings.openai_generation_model,
         "openai_pricing_version": runtime_settings.openai_pricing_version,
     }
@@ -193,9 +218,7 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
         missing.append("openai_api_key")
     missing.extend(name for name, value in costs.items() if value is None)
     if missing:
-        raise ValueError(
-            "invalid provider configuration: missing " + ", ".join(sorted(missing))
-        )
+        raise ValueError("invalid provider configuration: missing " + ", ".join(sorted(missing)))
     if any(value is not None and value < 0 for value in costs.values()):
         raise ValueError("invalid provider configuration: costs must be non-negative")
     if runtime_settings.openai_timeout_seconds <= 0:
