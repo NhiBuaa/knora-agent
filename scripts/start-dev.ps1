@@ -182,7 +182,7 @@ try {
         $script:workerGeneration++
         $stdout = Join-Path $logs "worker-$script:workerGeneration.out.log"
         $stderr = Join-Path $logs "worker-$script:workerGeneration.err.log"
-        Write-Output "[worker] starting generation $script:workerGeneration"
+        Write-Host "[worker] starting generation $script:workerGeneration"
         return Start-Process -FilePath $PythonExe -ArgumentList @(
             '-m','knora.adapters.cli.worker',
             '--dev-watch',
