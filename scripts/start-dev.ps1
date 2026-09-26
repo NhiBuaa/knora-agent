@@ -13,7 +13,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$backendWatchRoot = Join-Path $repoRoot 'backend\src\knora'
+$backendWatchRoot = 'backend\src\knora'
 $workerRestartExitCode = 75
 $composeProject = 'knora-dev'
 
@@ -102,6 +102,7 @@ $env:KNORA_GENERATION_PROVIDER = 'deterministic-local'
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
+$env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
 try {
@@ -150,7 +151,6 @@ if (-not $minioAccessKey -or -not $minioSecretKey) { Fail 'MINIO_CREDENTIALS_REQ
 $env:KNORA_CANONICAL_MINIO_ACCESS_KEY = $minioAccessKey
 $env:KNORA_CANONICAL_MINIO_SECRET_KEY = $minioSecretKey
 $env:KNORA_EVAL_POSTGRES_HOST_PORT = [string]$PostgresPort
-$env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
 $env:KNORA_OBJECT_STORE_BACKEND = 's3_compatible'
 $env:KNORA_OBJECT_STORE_S3_ENDPOINT = 'http://127.0.0.1:9000'
 $env:KNORA_OBJECT_STORE_S3_BUCKET = $ObjectStoreBucket
@@ -160,8 +160,10 @@ if (-not $env:KNORA_OBJECT_STORE_S3_REGION) { $env:KNORA_OBJECT_STORE_S3_REGION 
 
 Push-Location $repoRoot
 try {
-    docker compose -p $composeProject up -d postgres minio minio-init | Out-Null
+    docker compose -p $composeProject up -d --wait postgres minio | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'STORAGE_START_FAILED' }
+    docker compose -p $composeProject run --rm --no-deps minio-init | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail 'OBJECT_STORE_INIT_FAILED' }
 
     $existing = docker compose -p $composeProject exec -T postgres psql -U knora -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DatabaseName'"
     if ($LASTEXITCODE -ne 0) { Fail 'DATABASE_CHECK_FAILED' }
