@@ -8,11 +8,14 @@ import multiprocessing
 import os
 import socket
 import sys
+from pathlib import Path
 from uuid import uuid4
 
 import psutil
 
 from knora.ingestion.job_processing import NoEligibleJob
+
+DEV_RESTART_EXIT_CODE = 75
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,6 +25,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--profile-id", action="store_true", help="Print the resolved embedding profile ID and exit"
     )
     parser.add_argument("--poll-seconds", type=float, default=2.0)
+    parser.add_argument(
+        "--dev-watch",
+        action="store_true",
+        help="Restart cleanly after Python source changes, but only between ingestion jobs",
+    )
+    parser.add_argument(
+        "--watch-seconds",
+        type=float,
+        default=0.25,
+        help="Polling interval for --dev-watch source detection",
+    )
+    parser.add_argument(
+        "--watch-root",
+        type=Path,
+        help="Override the Python source root watched by --dev-watch",
+    )
     parser.add_argument(
         "--check-pdf-isolation",
         action="store_true",
@@ -115,19 +134,104 @@ def check_pdf_isolation() -> bool:
     return True
 
 
-async def run_worker(*, once: bool, poll_seconds: float) -> None:
+def _default_watch_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _python_source_snapshot(root: Path) -> tuple[tuple[str, int, int], ...]:
+    """Return a stable source fingerprint without reading source contents."""
+    entries: list[tuple[str, int, int]] = []
+    for path in root.rglob("*.py"):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        entries.append((path.relative_to(root).as_posix(), stat.st_mtime_ns, stat.st_size))
+    return tuple(sorted(entries))
+
+
+async def _watch_python_sources(
+    *,
+    root: Path,
+    baseline: tuple[tuple[str, int, int], ...],
+    restart_requested: asyncio.Event,
+    watch_seconds: float,
+) -> None:
+    while not restart_requested.is_set():
+        await asyncio.sleep(watch_seconds)
+        if _python_source_snapshot(root) != baseline:
+            print("WORKER_RESTART_REQUESTED", flush=True)
+            restart_requested.set()
+            return
+
+
+async def run_worker(
+    *,
+    once: bool,
+    poll_seconds: float,
+    dev_watch: bool = False,
+    watch_seconds: float = 0.25,
+    watch_root: Path | None = None,
+    application=None,
+) -> bool:
+    """Run jobs and return True only when a dev source change requests restart."""
     if poll_seconds <= 0:
         raise ValueError("poll interval must be positive")
-    from knora.main import app
+    if dev_watch and watch_seconds <= 0:
+        raise ValueError("watch interval must be positive")
+
+    if application is None:
+        from knora.main import app as application
+
+    root = (watch_root or _default_watch_root()).resolve()
+    baseline = _python_source_snapshot(root) if dev_watch else ()
+    restart_requested = asyncio.Event()
+    watch_task: asyncio.Task[None] | None = None
+    if dev_watch:
+        watch_task = asyncio.create_task(
+            _watch_python_sources(
+                root=root,
+                baseline=baseline,
+                restart_requested=restart_requested,
+                watch_seconds=watch_seconds,
+            )
+        )
 
     worker_id = f"{socket.gethostname()}:{uuid4().hex[:8]}"
-    async with app.router.lifespan_context(app):
-        while True:
-            result = await asyncio.to_thread(app.state.ingestion_worker.run_once, worker_id)
-            if once:
-                return
-            if isinstance(result, NoEligibleJob):
-                await asyncio.sleep(poll_seconds)
+    try:
+        async with application.router.lifespan_context(application):
+            while True:
+                result = await asyncio.to_thread(application.state.ingestion_worker.run_once, worker_id)
+                if once:
+                    return False
+
+                if dev_watch:
+                    # Recheck synchronously at the safe job boundary so a busy worker never
+                    # claims another job after code has changed but before the watcher wakes.
+                    if _python_source_snapshot(root) != baseline:
+                        if not restart_requested.is_set():
+                            print("WORKER_RESTART_REQUESTED", flush=True)
+                        restart_requested.set()
+                    if restart_requested.is_set():
+                        print("WORKER_DRAINED_FOR_RESTART", flush=True)
+                        return True
+
+                if isinstance(result, NoEligibleJob):
+                    if dev_watch:
+                        try:
+                            await asyncio.wait_for(restart_requested.wait(), timeout=poll_seconds)
+                        except TimeoutError:
+                            continue
+                        print("WORKER_DRAINED_FOR_RESTART", flush=True)
+                        return True
+                    await asyncio.sleep(poll_seconds)
+    finally:
+        if watch_task is not None:
+            watch_task.cancel()
+            try:
+                await watch_task
+            except asyncio.CancelledError:
+                pass
 
 
 def main() -> int:
@@ -143,8 +247,16 @@ def main() -> int:
 
         print(app.state.embedding_configuration.id)
         return 0
-    asyncio.run(run_worker(once=args.once, poll_seconds=args.poll_seconds))
-    return 0
+    restart_requested = asyncio.run(
+        run_worker(
+            once=args.once,
+            poll_seconds=args.poll_seconds,
+            dev_watch=args.dev_watch,
+            watch_seconds=args.watch_seconds,
+            watch_root=args.watch_root,
+        )
+    )
+    return DEV_RESTART_EXIT_CODE if restart_requested else 0
 
 
 if __name__ == "__main__":
