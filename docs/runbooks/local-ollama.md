@@ -2,6 +2,8 @@
 
 This runbook runs the Knora API, PDF worker, frontend and Ollama on Windows. PostgreSQL and MinIO run in Docker. The PDF extractor uses the existing Windows Job Object limit for its child process. The launcher checks that limit before starting the API or worker.
 
+This is the stable demo/acceptance path. For day-to-day editing with FastAPI auto-reload, Next.js Fast Refresh and graceful worker restart-on-change, use [`scripts/start-dev.ps1`](../../scripts/start-dev.ps1) and the [local development runbook](local-development.md) instead.
+
 ## Prerequisites
 
 - Windows with the repository's Python virtual environment and frontend dependencies installed.
