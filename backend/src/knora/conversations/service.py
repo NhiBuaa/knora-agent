@@ -5,7 +5,13 @@ from hashlib import sha256
 from knora.access.identity import Identity
 from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.conversations.ports import ConversationStore
-from knora.conversations.types import ConversationPage, ConversationView, TurnAdmission
+from knora.conversations.types import (
+    ConversationPage,
+    ConversationView,
+    TurnAdmission,
+    TurnPage,
+    TurnView,
+)
 from knora.domain.errors import KnoraError
 
 
@@ -36,7 +42,7 @@ class ConversationService:
     def read(
         self, identity: Identity, workspace_id: str, conversation_id: str
     ) -> ConversationView:
-        self._authorize(identity, workspace_id)
+        self._authorize_owner(identity, workspace_id)
         conversation = self._store.get(workspace_id, conversation_id)
         if conversation is None:
             raise KnoraError("CONVERSATION_NOT_FOUND")
@@ -52,8 +58,37 @@ class ConversationService:
     ) -> ConversationPage:
         if limit < 1 or limit > 100:
             raise KnoraError("INVALID_CONVERSATION_LIMIT")
-        self._authorize(identity, workspace_id)
+        self._authorize_owner(identity, workspace_id)
         return self._store.list(workspace_id, archived, cursor, limit)
+
+    def get_turn(
+        self,
+        identity: Identity,
+        workspace_id: str,
+        conversation_id: str,
+        turn_id: str,
+    ) -> TurnView:
+        self._authorize_owner(identity, workspace_id)
+        turn = self._store.get_turn(workspace_id, conversation_id, turn_id)
+        if turn is None:
+            raise KnoraError("CONVERSATION_TURN_NOT_FOUND")
+        return turn
+
+    def list_turns(
+        self,
+        identity: Identity,
+        workspace_id: str,
+        conversation_id: str,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> TurnPage:
+        if limit < 1 or limit > 100:
+            raise KnoraError("INVALID_TURN_LIMIT")
+        self._authorize_owner(identity, workspace_id)
+        conversation = self._store.get(workspace_id, conversation_id)
+        if conversation is None:
+            raise KnoraError("CONVERSATION_NOT_FOUND")
+        return self._store.list_turns(workspace_id, conversation_id, cursor, limit)
 
     def rename(
         self,
@@ -114,3 +149,6 @@ class ConversationService:
 
     def _authorize(self, identity: Identity, workspace_id: str) -> None:
         self._workspace_authorizer.authorize(identity, workspace_id, "questions:ask")
+
+    def _authorize_owner(self, identity: Identity, workspace_id: str) -> None:
+        self._workspace_authorizer.authorize(identity, workspace_id, None)

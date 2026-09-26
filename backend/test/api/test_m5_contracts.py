@@ -52,6 +52,28 @@ def test_m5_openapi_exposes_required_paths_and_stable_public_schemas() -> None:
     assert set(_schema("ToolLifecycleItemResponse")["required"]) == {"proposal", "approval"}
 
 
+def test_conversation_turn_request_uses_a_distinct_question_only_schema() -> None:
+    request_schema = OPENAPI["paths"][
+        "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns"
+    ]["post"]["requestBody"]["content"]["application/json"]["schema"]
+    schema_name = request_schema["$ref"].rsplit("/", 1)[1]
+
+    assert schema_name == "ConversationTurnRequest"
+    assert set(_schema(schema_name)["required"]) == {"question"}
+    assert set(_schema(schema_name)["properties"]) == {"question"}
+
+
+def test_conversation_turn_submission_documents_pending_and_terminal_replay_statuses() -> None:
+    responses = OPENAPI["paths"][
+        "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns"
+    ]["post"]["responses"]
+
+    assert "202" in responses
+    assert "200" in responses
+    assert "409" in responses
+    assert "Retry-After" in responses["409"]["headers"]
+
+
 def test_m5_checked_contract_contains_no_secret_or_raw_provider_fields() -> None:
     serialized = json.dumps(OPENAPI, sort_keys=True).lower()
     private_names = (

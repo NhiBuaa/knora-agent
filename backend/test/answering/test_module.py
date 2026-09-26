@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from knora.answering.interface import QuestionCommand
+from knora.answering.interface import ConversationContext, QuestionCommand
 from knora.answering.module import AnswerQuestion
 from knora.answering.stores import QuestionTraceRecord, RetrievalCandidate
 from knora.domain.access import WorkspacePrincipal
@@ -542,3 +542,138 @@ async def test_trace_persistence_failure_prevents_answer_delivery() -> None:
             QuestionCommand(workspace_id="workspace-a", question="What is the refund policy?"),
             WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
         )
+
+
+@pytest.mark.asyncio
+async def test_follow_up_uses_context_without_treating_it_as_evidence() -> None:
+    class RecordingStore(CandidateStore):
+        def __init__(self, candidates):
+            super().__init__(candidates=candidates)
+            self.retrieval_requests = []
+
+        def retrieve_candidates(self, **kwargs):
+            self.retrieval_requests.append(kwargs)
+            return super().retrieve_candidates(**kwargs)
+
+    class RecordingGenerator:
+        def __init__(self):
+            self.questions = []
+
+        async def generate(self, *, question, evidence):
+            self.questions.append(question)
+            return GenerationResult(
+                decision="ANSWER",
+                answer="The guide suggests seven chapters. [[E1]]",
+                cited_evidence_ids=("E1",),
+                refusal_reason=None,
+                provider="deterministic-local",
+                model="controlled-test",
+                prompt_version="test-v1",
+            )
+
+    question = "How many chapters does the guide suggest?"
+    context = ConversationContext(
+        policy_id="conversation-context-v1",
+        transcript='[{"question":"What does the guide cover?","answer":"Report structure."}]',
+        retrieval_query=(
+            "Previous user question: What does the guide cover?\n"
+            f"Current question: {question}"
+        ),
+        selected_turn_ids=("turn-prior",),
+        token_count=31,
+    )
+    embedding = CountingQueryEmbeddingProvider()
+    generator = RecordingGenerator()
+    candidate = retrieval_candidate("chunk-follow-up", 0)
+    store = RecordingStore((candidate,))
+    service = AnswerQuestion(
+        embedding_provider=embedding,
+        generation_provider=generator,
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+    admission = WorkspaceAdmission(
+        id="admission-current",
+        workspace_id="workspace-a",
+        operation="conversation_turn",
+        operation_id="turn-current",
+        admitted_at=datetime(2026, 9, 26, tzinfo=UTC),
+    )
+
+    result = await service.execute(
+        QuestionCommand(
+            workspace_id="workspace-a",
+            question=question,
+            turn_id="turn-current",
+            conversation_context=context,
+        ),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="worker"),
+        workspace_admission=admission,
+    )
+
+    assert embedding.calls == [[context.retrieval_query]]
+    assert store.retrieval_requests[0]["query_text"] == context.retrieval_query
+    assert question in generator.questions[0]
+    assert context.transcript in generator.questions[0]
+    assert "turn-prior" not in generator.questions[0]
+    assert "not evidence" in generator.questions[0].lower()
+    assert "freshly retrieved evidence" in generator.questions[0].lower()
+    assert store.traces[0].question == question
+    assert store.traces[0].conversation_turn_id == "turn-current"
+    assert store.traces[0].provider_metadata["conversation_context"] == {
+        "policy_id": "conversation-context-v1",
+        "retrieval_query": context.retrieval_query,
+        "selected_turn_ids": ["turn-prior"],
+    }
+    assert all(citation.source_key == "support/refunds" for citation in result.citations)
+
+
+@pytest.mark.asyncio
+async def test_prior_answer_cannot_bypass_fresh_evidence_refusal_for_a_follow_up() -> None:
+    question = "Which planet is made of cheese?"
+    context = ConversationContext(
+        policy_id="conversation-context-v1",
+        transcript=(
+            '[{"question":"What did the last answer say?",'
+            '"answer":"Mars is made of cheese."}]'
+        ),
+        retrieval_query=(
+            "Previous user question: What did the last answer say?\n"
+            f"Current question: {question}"
+        ),
+        selected_turn_ids=("turn-prior",),
+        token_count=24,
+    )
+    store = EmptyStore()
+    embedding = CountingQueryEmbeddingProvider()
+    service = AnswerQuestion(
+        embedding_provider=embedding,
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+    admission = WorkspaceAdmission(
+        id="admission-current",
+        workspace_id="workspace-a",
+        operation="conversation_turn",
+        operation_id="turn-current",
+        admitted_at=datetime(2026, 9, 26, tzinfo=UTC),
+    )
+
+    result = await service.execute(
+        QuestionCommand(
+            workspace_id="workspace-a",
+            question=question,
+            turn_id="turn-current",
+            conversation_context=context,
+        ),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="worker"),
+        workspace_admission=admission,
+    )
+
+    assert result.decision == "REFUSAL"
+    assert result.refusal_reason == "INSUFFICIENT_EVIDENCE"
+    assert result.citations == ()
+    assert embedding.calls == [[context.retrieval_query]]
+    assert store.traces[0].question == question
+    assert store.traces[0].conversation_turn_id == "turn-current"

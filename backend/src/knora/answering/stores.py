@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Protocol, overload
 
+from knora.answering.interface import QuestionResult
 from knora.providers.embedding import EmbeddingConfiguration
 
 BRANCH_OBSERVATION_SCHEMA_VERSION = 1
@@ -197,6 +198,7 @@ class QuestionTraceRecord:
     trace_schema_version: int = 2
     branch_observation_schema_version: int = BRANCH_OBSERVATION_SCHEMA_VERSION
     branch_observations: tuple[dict[str, object], ...] = ()
+    conversation_turn_id: str | None = None
 
 
 class AnsweringStore(Protocol):
@@ -215,3 +217,7 @@ class AnsweringStore(Protocol):
     ) -> RetrievalResult: ...
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
+
+    def read_conversation_result(
+        self, workspace_id: str, turn_id: str
+    ) -> QuestionResult | None: ...

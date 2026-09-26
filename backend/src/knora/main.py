@@ -9,6 +9,7 @@ from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.access.keycloak import KeycloakAuthenticator
 from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
+from knora.adapters.http.conversations import router as conversations_router
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
 from knora.adapters.http.workspaces import router as workspaces_router
@@ -155,6 +156,7 @@ def create_app(
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
     selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
+    answering_store = PostgresAnsweringStore(SessionFactory)
     workspace_admissions = (
         PostgresWorkspaceAdmissionStore(SessionFactory)
         if workspace_admission_store is _DEFAULT_WORKSPACE_ADMISSIONS
@@ -164,7 +166,7 @@ def create_app(
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider,
         generation_provider=providers.generation_provider,
-        store=PostgresAnsweringStore(SessionFactory),
+        store=answering_store,
         embedding_configuration=selected_embedding_configuration,
         retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
             resolve_retrieval_configuration(
@@ -315,6 +317,7 @@ def create_app(
     application.state.conversation_runner = ConversationRunner(
         store=conversation_store,
         answer_question=application.state.answer_question,
+        result_reader=answering_store,
     )
     selected_tool_action_store = tool_action_store or PostgresToolActionStore(SessionFactory)
     selected_write_proposal_workflow = write_proposal_workflow
@@ -426,6 +429,10 @@ def create_app(
             "CONVERSATION_BUSY": 409,
             "CONVERSATION_ARCHIVED": 409,
             "CONVERSATION_NOT_FOUND": 404,
+            "CONVERSATION_TURN_NOT_FOUND": 404,
+            "CONVERSATION_TRACE_CONFLICT": 500,
+            "MISSING_CONVERSATION_REVISION": 428,
+            "INVALID_CONVERSATION_REVISION": 422,
             "INVALID_QUESTION": 400,
             "INVALID_REQUEST_FINGERPRINT": 400,
             "CONVERSATION_ADMISSION_REQUIRED": 403,
@@ -460,6 +467,7 @@ def create_app(
 
     application.include_router(http_router)
     application.include_router(workspaces_router)
+    application.include_router(conversations_router)
     application.include_router(router)
     if settings.m5_e2e_faults_enabled:
         from knora.api.m5_e2e_faults import M5E2EFaultController

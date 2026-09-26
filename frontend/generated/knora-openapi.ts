@@ -9,6 +9,12 @@ export type KnoraApiPath =
   | "/v1/workspaces/resolve"
   | "/v1/workspaces/{workspace_id}"
   | "/v1/workspaces/{workspace_id}/archive"
+  | "/v1/workspaces/{workspace_id}/conversations"
+  | "/v1/workspaces/{workspace_id}/conversations/{conversation_id}"
+  | "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/archive"
+  | "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/restore"
+  | "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns"
+  | "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns/{turn_id}"
   | "/v1/workspaces/{workspace_id}/document-versions/{document_version_id}/reprocess"
   | "/v1/workspaces/{workspace_id}/documents"
   | "/v1/workspaces/{workspace_id}/documents/{document_id}"
@@ -44,6 +50,25 @@ export type CitationResponse = {
   source_name: string;
   start_line: number;
   start_offset?: number | null;
+};
+export type ConversationListResponse = {
+  items: Array<ConversationResponse>;
+  next_cursor: string | null;
+};
+export type ConversationNameRequest = {
+  title: string;
+};
+export type ConversationResponse = {
+  archived: boolean;
+  id: string;
+  revision: number;
+  title: string;
+  title_source: string;
+  updated_at: string;
+  workspace_id: string;
+};
+export type ConversationTurnRequest = {
+  question: string;
 };
 export type DocumentDeletionRequestResponse = {
   document_id: string;
@@ -181,6 +206,14 @@ export type QuestionResponse = {
   trace_id: string;
   workspace_id: string;
 };
+export type QuestionResultResponse = {
+  answer: string | null;
+  citations: Array<CitationResponse>;
+  decision: string;
+  refusal_reason: string | null;
+  trace_id: string;
+  workspace_id: string;
+};
 export type ReprocessRequest = {
   config_mode: "same_as_job" | "current";
   config_source_job_id?: string | null;
@@ -239,6 +272,20 @@ export type ToolLifecycleResponse = {
   code?: string | null;
   items?: Array<ToolLifecycleItemResponse>;
 };
+export type TurnListResponse = {
+  items: Array<TurnResponse>;
+  next_cursor: string | null;
+};
+export type TurnResponse = {
+  conversation_id: string;
+  error_code: string | null;
+  id: string;
+  question: string;
+  result: QuestionResultResponse | null;
+  sequence: number;
+  stage: string | null;
+  status: string;
+};
 export type ValidationError = {
   ctx?: Record<string, unknown>;
   input?: unknown;
@@ -277,6 +324,12 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/resolve": ResolutionResponse;
   "/v1/workspaces/{workspace_id}": WorkspaceResponse;
   "/v1/workspaces/{workspace_id}/archive": WorkspaceResponse;
+  "/v1/workspaces/{workspace_id}/conversations": ConversationListResponse;
+  "/v1/workspaces/{workspace_id}/conversations/{conversation_id}": ConversationResponse;
+  "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/archive": ConversationResponse;
+  "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/restore": ConversationResponse;
+  "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns": TurnListResponse;
+  "/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns/{turn_id}": TurnResponse;
   "/v1/workspaces/{workspace_id}/document-versions/{document_version_id}/reprocess": ReprocessResponse;
   "/v1/workspaces/{workspace_id}/documents": DocumentListResponse;
   "/v1/workspaces/{workspace_id}/documents/{document_id}": DocumentResponse;

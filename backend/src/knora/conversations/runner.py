@@ -5,6 +5,7 @@ from contextlib import suppress
 
 from knora.answering.interface import QuestionCommand, QuestionResult
 from knora.answering.module import AnswerQuestion
+from knora.conversations.context import build_context
 from knora.conversations.ports import ConversationResultReader, ConversationStore
 from knora.conversations.types import ClaimedTurn
 from knora.domain.access import WorkspacePrincipal
@@ -47,10 +48,34 @@ class ConversationRunner:
                 await asyncio.sleep(_IDLE_SLEEP_SECONDS)
 
     async def _execute_claim(self, claim: ClaimedTurn) -> bool:
+        try:
+            history = await asyncio.to_thread(
+                self._store.list_turns,
+                claim.workspace_id,
+                claim.turn.conversation_id,
+                None,
+                100,
+            )
+            conversation_context = build_context(
+                history.items,
+                workspace_id=claim.workspace_id,
+                conversation_id=claim.turn.conversation_id,
+                current_turn_id=claim.turn.id,
+                question=claim.turn.question,
+            )
+        except Exception:
+            return await asyncio.to_thread(
+                self._store.finish_turn,
+                claim.turn.id,
+                claim.claim_token,
+                None,
+                "CONVERSATION_CONTEXT_FAILED",
+            )
         command = QuestionCommand(
             workspace_id=claim.workspace_id,
             question=claim.turn.question,
             turn_id=claim.turn.id,
+            conversation_context=conversation_context,
         )
         principal = WorkspacePrincipal(
             workspace_id=claim.workspace_id,

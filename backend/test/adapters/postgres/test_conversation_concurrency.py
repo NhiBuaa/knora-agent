@@ -356,7 +356,12 @@ def test_expired_worker_lease_is_interrupted_and_busy_slot_is_released() -> None
             .values(lease_expires_at=func.clock_timestamp() - timedelta(seconds=1))
         )
 
-    observations = store.expired_turns()
+    # The persistence seam scans all Workspaces; this assertion covers only this test's Turn.
+    observations = tuple(
+        observation
+        for observation in store.expired_turns()
+        if observation.workspace_id == workspace_id
+    )
     recovered = sum(
         store.apply_expired_turn_recovery(observation, None) for observation in observations
     )

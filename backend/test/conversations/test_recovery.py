@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from knora.answering.interface import QuestionResult
-from knora.conversations.types import ClaimedTurn, TurnView
+from knora.conversations.types import ClaimedTurn, TurnPage, TurnView
 from knora.workspaces.ports import WorkspaceAdmission
 
 
@@ -89,6 +89,10 @@ class ClaimedTurnStore:
         self.calls.append(("claim_next_turn", worker_id, workspace_id))
         return self.claim
 
+    def list_turns(self, workspace_id, conversation_id, cursor=None, limit=50):
+        self.calls.append(("list_turns", workspace_id, conversation_id, cursor, limit))
+        return TurnPage((self.claim.turn,), None)
+
     def set_turn_stage(self, turn_id: str, claim_token: str, stage: str) -> bool:
         self.calls.append(("set_turn_stage", turn_id, claim_token, stage))
         return True
@@ -165,6 +169,139 @@ async def test_claimed_turn_passes_existing_admission_and_persists_validated_res
     assert principal.workspace_id == "workspace-1"
     assert forwarded_admission is admission
     assert store.calls[-1] == ("finish_turn", "turn-1", "claim-1", result, None)
+
+
+@pytest.mark.asyncio
+async def test_claimed_turn_receives_bounded_context_from_its_own_history() -> None:
+    now = datetime(2026, 9, 26, tzinfo=UTC)
+    admission = WorkspaceAdmission(
+        id="admission-2",
+        workspace_id="workspace-1",
+        operation="conversation_turn",
+        operation_id="turn-current",
+        admitted_at=now,
+    )
+    current = TurnView(
+        id="turn-current",
+        conversation_id="conversation-1",
+        sequence=2,
+        question="How many chapters does that guide suggest?",
+        status="processing",
+        stage=None,
+        result=None,
+        error_code=None,
+    )
+    prior = TurnView(
+        id="turn-prior",
+        conversation_id="conversation-1",
+        sequence=1,
+        question="What does the report guide recommend?",
+        status="answered",
+        stage=None,
+        result=QuestionResult(
+            decision="ANSWER",
+            answer="It recommends a structured report.",
+            citations=(),
+            refusal_reason=None,
+            trace_id="trace-prior",
+            workspace_id="workspace-1",
+        ),
+        error_code=None,
+    )
+    claim = ClaimedTurn(
+        turn=current,
+        workspace_id="workspace-1",
+        worker_id="worker-1",
+        claim_token="claim-2",
+        lease_expires_at=now + timedelta(seconds=60),
+        execution_deadline_at=now + timedelta(seconds=120),
+        workspace_admission=admission,
+    )
+
+    class HistoryStore(ClaimedTurnStore):
+        def list_turns(self, workspace_id, conversation_id, cursor=None, limit=50):
+            self.calls.append(("list_turns", workspace_id, conversation_id, limit))
+            return TurnPage((prior, current), None)
+
+    result = QuestionResult(
+        decision="REFUSAL",
+        answer=None,
+        citations=(),
+        refusal_reason="INSUFFICIENT_EVIDENCE",
+        trace_id="trace-current",
+        workspace_id="workspace-1",
+    )
+    store = HistoryStore(claim)
+    answer_question = RecordingAnswerQuestion(result)
+    runner = conversation_runner_class()(store=store, answer_question=answer_question)
+
+    await runner.run_once(worker_id="worker-1")
+
+    command = answer_question.calls[0][0]
+    context = getattr(command, "conversation_context", None)
+    assert context is not None
+    assert context.selected_turn_ids == ("turn-prior",)
+    assert "It recommends a structured report." in context.transcript
+    assert "How many chapters does that guide suggest?" in context.retrieval_query
+    prior_question_index = context.retrieval_query.index(
+        "What does the report guide recommend?"
+    )
+    current_question_index = context.retrieval_query.index(
+        "How many chapters does that guide suggest?"
+    )
+    assert prior_question_index < current_question_index
+    assert ("list_turns", "workspace-1", "conversation-1", 100) in store.calls
+
+
+@pytest.mark.asyncio
+async def test_context_read_failure_fails_turn_before_calling_answer_provider() -> None:
+    now = datetime(2026, 9, 26, tzinfo=UTC)
+    admission = WorkspaceAdmission(
+        id="admission-context-failure",
+        workspace_id="workspace-1",
+        operation="conversation_turn",
+        operation_id="turn-context-failure",
+        admitted_at=now,
+    )
+    turn = TurnView(
+        id="turn-context-failure",
+        conversation_id="conversation-1",
+        sequence=1,
+        question="What should the report include?",
+        status="processing",
+        stage=None,
+        result=None,
+        error_code=None,
+    )
+    claim = ClaimedTurn(
+        turn=turn,
+        workspace_id="workspace-1",
+        worker_id="worker-1",
+        claim_token="claim-context-failure",
+        lease_expires_at=now + timedelta(seconds=60),
+        execution_deadline_at=now + timedelta(seconds=120),
+        workspace_admission=admission,
+    )
+
+    class UnavailableHistoryStore(ClaimedTurnStore):
+        def list_turns(self, workspace_id, conversation_id, cursor=None, limit=50):
+            raise RuntimeError("history store unavailable")
+
+    store = UnavailableHistoryStore(claim)
+    answer_question = AnswerQuestionMustNotRun()
+    runner = conversation_runner_class()(store=store, answer_question=answer_question)
+
+    completed = await runner.run_once(worker_id="worker-1")
+
+    assert completed is True
+    assert store.calls[-1] == (
+        "finish_turn",
+        turn.id,
+        claim.claim_token,
+        None,
+        "CONVERSATION_CONTEXT_FAILED",
+    )
+    assert answer_question.calls == []
 
 
 @pytest.mark.asyncio
@@ -257,6 +394,10 @@ async def test_heartbeat_loss_uses_two_phase_recovery_and_discards_late_result(
         def claim_next_turn(self, worker_id: str, workspace_id: str | None = None):
             self.calls.append(("claim_next_turn", worker_id, workspace_id))
             return claim
+
+        def list_turns(self, workspace_id, conversation_id, cursor=None, limit=50):
+            self.calls.append(("list_turns", workspace_id, conversation_id, cursor, limit))
+            return TurnPage((turn,), None)
 
         def heartbeat_turn(self, turn_id: str, claim_token: str) -> bool:
             self.calls.append(("heartbeat_turn", turn_id, claim_token))

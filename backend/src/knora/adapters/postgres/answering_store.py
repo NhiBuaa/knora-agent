@@ -3,6 +3,7 @@ from dataclasses import replace
 from uuid import uuid4
 
 from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
@@ -15,6 +16,8 @@ from knora.adapters.postgres.tables import (
     QuestionTraceTable,
     RetrievalV2CutoverTable,
 )
+from knora.answering.generation_validation import validate_generation
+from knora.answering.interface import CitationProjection, QuestionResult
 from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2_details
 from knora.answering.stores import (
     AnsweringStore,
@@ -26,6 +29,7 @@ from knora.answering.stores import (
 )
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.generation import GenerationResult
 
 
 class PostgresAnsweringStore(AnsweringStore):
@@ -670,32 +674,194 @@ class PostgresAnsweringStore(AnsweringStore):
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str:
         trace_id = str(uuid4())
+        values = {
+            "id": trace_id,
+            "workspace_id": trace.workspace_id,
+            "conversation_turn_id": trace.conversation_turn_id,
+            "question": trace.question,
+            "trace_schema_version": trace.trace_schema_version,
+            "branch_observation_schema_version": trace.branch_observation_schema_version,
+            "retrieval_configuration_id": trace.retrieval_configuration_id,
+            "fusion_policy_version": trace.fusion_policy_version,
+            "embedding_configuration_id": trace.embedding_configuration_id,
+            "embedding_set_ids": list(trace.embedding_set_ids),
+            "chunk_set_ids": list(trace.chunk_set_ids),
+            "retrieved_chunk_ids": list(trace.retrieved_chunk_ids),
+            "candidate_decisions": list(trace.candidate_decisions),
+            "branch_observations": list(trace.branch_observations),
+            "decision": trace.decision,
+            "answer": trace.answer,
+            "refused": trace.decision == "REFUSAL",
+            "refusal_reason": trace.refusal_reason,
+            "generation_status": trace.generation_status,
+            "alias_mapping": trace.alias_mapping,
+            "parsed_markers": list(trace.parsed_markers),
+            "validation_outcome": trace.validation_outcome,
+            "provider_metadata": trace.provider_metadata,
+            "latency_ms": trace.latency_ms,
+        }
         with self._session_factory.begin() as session:
-            session.add(
-                QuestionTraceTable(
-                    id=trace_id,
-                    workspace_id=trace.workspace_id,
-                    question=trace.question,
-                    trace_schema_version=trace.trace_schema_version,
-                    branch_observation_schema_version=trace.branch_observation_schema_version,
-                    retrieval_configuration_id=trace.retrieval_configuration_id,
-                    fusion_policy_version=trace.fusion_policy_version,
-                    embedding_configuration_id=trace.embedding_configuration_id,
-                    embedding_set_ids=list(trace.embedding_set_ids),
-                    chunk_set_ids=list(trace.chunk_set_ids),
-                    retrieved_chunk_ids=list(trace.retrieved_chunk_ids),
-                    candidate_decisions=list(trace.candidate_decisions),
-                    branch_observations=list(trace.branch_observations),
-                    decision=trace.decision,
-                    answer=trace.answer,
-                    refused=trace.decision == "REFUSAL",
-                    refusal_reason=trace.refusal_reason,
-                    generation_status=trace.generation_status,
-                    alias_mapping=trace.alias_mapping,
-                    parsed_markers=list(trace.parsed_markers),
-                    validation_outcome=trace.validation_outcome,
-                    provider_metadata=trace.provider_metadata,
-                    latency_ms=trace.latency_ms,
+            if trace.conversation_turn_id is None:
+                session.add(QuestionTraceTable(**values))
+                return trace_id
+
+            insert = (
+                postgresql_insert(QuestionTraceTable)
+                .values(**values)
+                .on_conflict_do_nothing(
+                    index_elements=[QuestionTraceTable.conversation_turn_id]
+                )
+                .returning(QuestionTraceTable.id)
+            )
+            inserted_id = session.execute(insert).scalar_one_or_none()
+            if inserted_id is not None:
+                return inserted_id
+            existing_id = session.scalar(
+                select(QuestionTraceTable.id).where(
+                    QuestionTraceTable.workspace_id == trace.workspace_id,
+                    QuestionTraceTable.conversation_turn_id == trace.conversation_turn_id,
                 )
             )
-        return trace_id
+            if existing_id is None:
+                raise KnoraError("CONVERSATION_TRACE_CONFLICT")
+            return existing_id
+
+    def read_conversation_result(
+        self, workspace_id: str, turn_id: str
+    ) -> QuestionResult | None:
+        with self._session_factory() as session:
+            trace = session.scalar(
+                select(QuestionTraceTable).where(
+                    QuestionTraceTable.workspace_id == workspace_id,
+                    QuestionTraceTable.conversation_turn_id == turn_id,
+                )
+            )
+            if trace is None:
+                return None
+            if not self._trace_is_recoverable(trace):
+                return None
+            if trace.decision == "REFUSAL":
+                return QuestionResult(
+                    decision="REFUSAL",
+                    answer=None,
+                    citations=(),
+                    refusal_reason="INSUFFICIENT_EVIDENCE",
+                    trace_id=trace.id,
+                    workspace_id=workspace_id,
+                )
+
+            aliases = trace.alias_mapping
+            markers = tuple(trace.parsed_markers)
+            chunk_ids = tuple(aliases[marker] for marker in markers)
+            if len(chunk_ids) != len(set(chunk_ids)):
+                return None
+            rows = session.execute(
+                select(ChunkTable, DocumentVersionTable, DocumentTable)
+                .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .join(
+                    DocumentTable,
+                    DocumentTable.id == DocumentVersionTable.document_id,
+                )
+                .where(
+                    ChunkTable.id.in_(chunk_ids),
+                    DocumentTable.workspace_id == workspace_id,
+                )
+            ).all()
+            chunks = {
+                chunk.id: (chunk, version, document)
+                for chunk, version, document in rows
+            }
+            if len(chunks) != len(set(chunk_ids)):
+                return None
+
+            citations = []
+            for marker in markers:
+                chunk_id = aliases[marker]
+                chunk, version, document = chunks[chunk_id]
+                citations.append(
+                    CitationProjection(
+                        evidence_id=marker,
+                        document_id=document.id,
+                        document_version_id=version.id,
+                        source_key=document.source_key,
+                        source_name=document.source_name,
+                        heading_path=tuple(chunk.heading_path),
+                        start_line=chunk.start_line,
+                        end_line=chunk.end_line,
+                        excerpt=chunk.content[:500],
+                        content_checksum=chunk.content_checksum,
+                        page_start=chunk.page_start,
+                        page_end=chunk.page_end,
+                        start_offset=chunk.start_offset,
+                        end_offset=chunk.end_offset,
+                    )
+                )
+            return QuestionResult(
+                decision="ANSWER",
+                answer=trace.answer,
+                citations=tuple(citations),
+                refusal_reason=None,
+                trace_id=trace.id,
+                workspace_id=workspace_id,
+            )
+
+    @staticmethod
+    def _trace_is_recoverable(trace: QuestionTraceTable) -> bool:
+        if trace.decision == "REFUSAL":
+            valid_no_evidence_refusal = (
+                trace.generation_status == "not_called"
+                and trace.validation_outcome == "not_applicable"
+            )
+            valid_generated_refusal = (
+                trace.generation_status == "completed"
+                and trace.validation_outcome == "valid"
+            )
+            if not (valid_no_evidence_refusal or valid_generated_refusal):
+                return False
+            if trace.answer is not None:
+                return False
+        elif (
+            trace.decision != "ANSWER"
+            or trace.generation_status != "completed"
+            or trace.validation_outcome != "valid"
+            or not isinstance(trace.answer, str)
+            or not trace.answer.strip()
+        ):
+            return False
+        if trace.refusal_reason != (
+            "INSUFFICIENT_EVIDENCE" if trace.decision == "REFUSAL" else None
+        ):
+            return False
+
+        if not isinstance(trace.alias_mapping, dict) or not isinstance(
+            trace.parsed_markers, list
+        ):
+            return False
+        if any(
+            not isinstance(alias, str) or not isinstance(chunk_id, str)
+            for alias, chunk_id in trace.alias_mapping.items()
+        ):
+            return False
+        if any(not isinstance(marker, str) for marker in trace.parsed_markers):
+            return False
+
+        try:
+            validate_generation(
+                GenerationResult(
+                    decision=trace.decision,
+                    answer=trace.answer,
+                    cited_evidence_ids=tuple(trace.parsed_markers),
+                    refusal_reason=trace.refusal_reason,
+                    provider="trace-recovery",
+                    model="trace-recovery",
+                    prompt_version="conversation-trace-v1",
+                ),
+                available_evidence_ids=tuple(trace.alias_mapping),
+            )
+        except (KnoraError, TypeError, ValueError):
+            return False
+        return True
