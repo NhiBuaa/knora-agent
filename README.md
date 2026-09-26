@@ -254,7 +254,28 @@ Question / Conversation Turn
 | Evaluation | Versioned JSONL datasets/manifests, HTTP runners, deterministic and model-backed scoring |
 | Verified local runtime | Windows host for Ollama/API/PDF worker/frontend; Docker Desktop for PostgreSQL/pgvector and MinIO |
 
-## Local setup — Ollama PDF re-index demo
+## Daily local development
+
+After the one-time `.env` setup, use the dedicated development supervisor for normal coding:
+
+```powershell
+.\scripts\start-dev.ps1
+```
+
+It uses the same Windows-host + Docker storage topology, but creates a separate `knora_dev` database and optimizes the edit-run loop:
+
+- FastAPI runs with Uvicorn auto-reload for `backend/src/knora`;
+- the ingestion worker watches Python source and restarts only at a safe job boundary;
+- if a worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
+- Next.js keeps its normal Fast Refresh / HMR behavior;
+- PostgreSQL, MinIO and Ollama do not restart for ordinary source edits;
+- unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
+
+`Ctrl+C` stops the API, worker and frontend supervisor children; PostgreSQL and MinIO remain running for a faster next start. Root `.env` is loaded at launcher startup, so restart `start-dev.ps1` after changing `.env`.
+
+Use `start-ollama-demo.ps1` instead when you need the stable #103 demo/acceptance runtime without source watchers. See [Local development on Windows](docs/runbooks/local-development.md) for the exact reload and shutdown behavior.
+
+## Stable local demo — Ollama PDF re-index
 
 The verified local real-embedding path is Windows-oriented. It runs Ollama, FastAPI, the PDF ingestion worker and Next.js on the Windows host, while PostgreSQL/pgvector and MinIO stay in Docker Desktop.
 
@@ -431,13 +452,13 @@ KNORA_EMBEDDING_DIMENSION=1024
 
 Embedding spaces are immutable configuration identities. Documents indexed under another profile are not compared against the Ollama vector space; they remain available under their historical configuration until explicitly re-indexed.
 
-See [`.env.example`](.env.example) for persistent local configuration and the [local Ollama runbook](docs/runbooks/local-ollama.md) for the verified Windows topology.
+See [`.env.example`](.env.example) for persistent local configuration, the [daily local development runbook](docs/runbooks/local-development.md), and the [stable local Ollama runbook](docs/runbooks/local-ollama.md).
 
 Cloudflare Workers AI remains planned public-demo work and is not part of the current local setup.
 
 ## Frontend
 
-The Ollama launcher starts the frontend automatically after dependencies are installed. To run it independently:
+Both local launchers start the frontend automatically after dependencies are installed. `start-dev.ps1` keeps the Next.js development server in the supervised daily-development runtime, while `start-ollama-demo.ps1` uses the same dev server inside the stable demo topology. To run it independently:
 
 ```powershell
 npm --prefix frontend ci
@@ -499,7 +520,7 @@ knora-agent/
 ├── frontend/            # Next.js user/operator surface and frontend tests
 ├── docs/                # Architecture, ADRs, designs, completed specs and OpenAPI contract
 ├── evals/               # Versioned datasets, corpora, runners, calibration and reports
-├── scripts/             # Runtime launchers plus repository verification/generated-contract utilities
+├── scripts/             # Stable demo + daily-dev launchers and verification utilities
 ├── docker-compose.yml   # PostgreSQL/pgvector, MinIO and API-oriented local infrastructure
 ├── CONTEXT.md           # Current project world model and domain vocabulary
 └── AGENTS.md            # Repository contribution / governed-delivery guidance
@@ -541,6 +562,7 @@ High-value entry points:
 - [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
 - [Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md)
 - [Production Retrieval V2](docs/design/m3-retrieval-rrf-v2-authority-proposal-r9.md)
+- [Local development on Windows](docs/runbooks/local-development.md)
 - [Local Ollama PDF re-index on Windows](docs/runbooks/local-ollama.md)
 - [Evaluation](docs/evaluation.md)
 - [Milestone 4 — Tools and human approval](docs/design/milestone-4-tools-human-approval.md)
