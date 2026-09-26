@@ -1,5 +1,20 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
+import type { ResolutionResponse } from "@/generated/knora-openapi";
+import { knoraRequest } from "@/lib/api/client";
+
+export async function resolveCurrentWorkspace(
+  identity: { issuer: string; subject: string; accessToken: string },
+  hintId: string | null,
+): Promise<ResolutionResponse> {
+  if (!identity.issuer || !identity.subject || !identity.accessToken)
+    throw new Error("Authenticated identity is incomplete");
+  return knoraRequest("/v1/workspaces/resolve", {
+    method: "POST",
+    accessToken: identity.accessToken,
+    body: JSON.stringify({ hint_id: hintId }),
+  });
+}
 
 export function selectWorkspace(
   workspaceIds: string[],
