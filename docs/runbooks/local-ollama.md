@@ -53,13 +53,13 @@ For a nondefault PostgreSQL/API/frontend port, use `-PostgresPort`, `-ApiPort` a
 
 ### Use an existing retained Workspace
 
-The default launcher database is intentionally new and contains no previously retained Documents. To re-index an existing Workspace, first bring its PostgreSQL and ObjectStore services online, and confirm its database has been reviewed and migrated to the current Alembic head. Supply their host-reachable endpoints and existing ObjectStore credentials in the environment. Then run with `-UseExistingStorage`, `-DatabaseUrl`, `-ObjectStoreEndpoint`, and the correct `-ObjectStoreBucket`. This mode **does not start Compose, create a database, or run migrations**; it checks Alembic heads and fails if the schema is behind. Use the same options for preflight and full launch.
+The default launcher database is intentionally new and contains no previously retained Documents. To re-index an existing Workspace, first bring its PostgreSQL and ObjectStore services online, and confirm its database has been reviewed and migrated to the current Alembic head. Supply the database URL and ObjectStore credentials through the environment or a local secret source. Then run with `-UseExistingStorage`, `-ObjectStoreEndpoint`, and the correct `-ObjectStoreBucket`. This mode **does not start Compose, create a database, or run migrations**; it checks Alembic heads and fails if the schema is behind. Use the same options for preflight and full launch. Avoid putting a credential-bearing URL in a command argument or shell history.
 
 ```powershell
-$env:KNORA_OBJECT_STORE_S3_ACCESS_KEY = '<existing local secret>'
-$env:KNORA_OBJECT_STORE_S3_SECRET_KEY = '<existing local secret>'
-.\scripts\start-ollama-demo.ps1 -PreflightOnly -UseExistingStorage -DatabaseUrl '<existing database URL>' -ObjectStoreEndpoint 'http://127.0.0.1:9000'
-.\scripts\start-ollama-demo.ps1 -UseExistingStorage -DatabaseUrl '<existing database URL>' -ObjectStoreEndpoint 'http://127.0.0.1:9000'
+# Populate KNORA_DATABASE_URL and the S3 credential variables through a local
+# secret manager or process environment before running these commands.
+.\scripts\start-ollama-demo.ps1 -PreflightOnly -UseExistingStorage -ObjectStoreEndpoint 'http://127.0.0.1:9000'
+.\scripts\start-ollama-demo.ps1 -UseExistingStorage -ObjectStoreEndpoint 'http://127.0.0.1:9000'
 ```
 
 Check the selected Workspace and document identities before submitting re-index. Do not point the launcher at the default `knora` database used by another checkout without reviewing its schema, source-object store and backup first. The `Teacher Manh - Guidelines 2024.pdf` gate needs this existing-data mode or a separately prepared retained-source fixture; a fresh launcher database cannot prove preservation of the earlier source/version identity.

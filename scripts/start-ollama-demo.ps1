@@ -5,7 +5,6 @@ param(
     [string]$OllamaBaseUrl = 'http://127.0.0.1:11434',
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_issue103_demo',
-    [string]$DatabaseUrl,
     [string]$ObjectStoreEndpoint,
     [string]$ObjectStoreBucket = 'knora',
     [int]$PostgresPort = 5432,
@@ -80,7 +79,7 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
 }
 Write-Output "PRECHECK_OK $profileId"
 Write-Output "API_URL=$env:KNORA_API_URL"
-if ($UseExistingStorage -and (-not $DatabaseUrl -or -not $ObjectStoreEndpoint)) {
+if ($UseExistingStorage -and (-not $env:KNORA_DATABASE_URL -or -not $ObjectStoreEndpoint)) {
     Fail 'EXISTING_STORAGE_CONFIG_REQUIRED'
 }
 if ($PreflightOnly) { return }
@@ -89,7 +88,6 @@ if ($UseExistingStorage) {
     if (-not $env:KNORA_OBJECT_STORE_S3_ACCESS_KEY -or -not $env:KNORA_OBJECT_STORE_S3_SECRET_KEY) {
         Fail 'EXISTING_STORAGE_CREDENTIALS_REQUIRED'
     }
-    $env:KNORA_DATABASE_URL = $DatabaseUrl
     $env:KNORA_OBJECT_STORE_S3_ENDPOINT = $ObjectStoreEndpoint
 } else {
     if ($DatabaseName -notmatch '^[a-z][a-z0-9_]{0,62}$') { Fail 'INVALID_DATABASE_NAME' }

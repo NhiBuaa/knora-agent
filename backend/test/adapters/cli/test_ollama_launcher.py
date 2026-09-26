@@ -24,10 +24,16 @@ def _powershell() -> str:
 
 
 def _launch(
-    url: str, api_port: int = 8000, existing_storage: bool = False
+    url: str,
+    api_port: int = 8000,
+    existing_storage: bool = False,
+    database_url: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
     environment.pop("KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID", None)
+    environment.pop("KNORA_DATABASE_URL", None)
+    if database_url is not None:
+        environment["KNORA_DATABASE_URL"] = database_url
     arguments = [
             _powershell(),
             "-NoProfile",
