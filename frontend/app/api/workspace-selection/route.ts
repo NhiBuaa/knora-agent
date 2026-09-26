@@ -6,15 +6,20 @@ import type {
 import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 import {
+  clearPreferenceCookie,
   encodePreference,
   preferenceCookie,
 } from "@/lib/auth/workspace-preference";
 
+function sameOrigin(request: Request): boolean {
+  return (
+    request.headers.get("origin") === new URL(request.url).origin &&
+    request.headers.get("sec-fetch-site") !== "cross-site"
+  );
+}
+
 export async function POST(request: Request) {
-  if (
-    request.headers.get("origin") !== new URL(request.url).origin ||
-    request.headers.get("sec-fetch-site") === "cross-site"
-  )
+  if (!sameOrigin(request))
     return NextResponse.json(
       { error: "CROSS_ORIGIN_REQUEST" },
       { status: 403 },
@@ -82,4 +87,22 @@ export async function POST(request: Request) {
       { status: 503, headers: { "cache-control": "no-store" } },
     );
   }
+}
+
+export async function DELETE(request: Request) {
+  if (!sameOrigin(request))
+    return NextResponse.json(
+      { error: "CROSS_ORIGIN_REQUEST" },
+      { status: 403 },
+    );
+  const session = await getSession();
+  if (!session?.issuer)
+    return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const cleared = clearPreferenceCookie();
+  const response = NextResponse.json(
+    { ok: true },
+    { headers: { "cache-control": "no-store" } },
+  );
+  response.cookies.set(cleared.name, cleared.value, cleared.options as never);
+  return response;
 }

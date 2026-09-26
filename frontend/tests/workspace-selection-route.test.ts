@@ -18,7 +18,7 @@ vi.mock("@/lib/api/client", () => ({
   },
 }));
 
-import { POST } from "@/app/api/workspace-selection/route";
+import { DELETE, POST } from "@/app/api/workspace-selection/route";
 import { knoraRequest, KnoraApiError } from "@/lib/api/client";
 
 describe("Workspace preference mutation", () => {
@@ -63,5 +63,19 @@ describe("Workspace preference mutation", () => {
     );
     expect(response.status).toBe(403);
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("clears the identity-bound hint after all Workspaces are archived", async () => {
+    const response = await DELETE(
+      new Request("https://app.example/api/workspace-selection", {
+        method: "DELETE",
+        headers: { origin: "https://app.example" },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("set-cookie")).toContain(
+      "knora_workspace_preference=",
+    );
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 });
