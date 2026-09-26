@@ -19,6 +19,39 @@
   padding: clamp(1rem, 3vw, 2rem);
 }
 
+.workspace-shell-main > section {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+}
+
+.document-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.document-row button {
+  margin: 0;
+}
+
+.workspace-shell-main .tool-lifecycle-secondary,
+.workspace-shell-main section[aria-label="Citations"] {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
 .workspace-sidebar {
   display: flex;
   flex-direction: column;

@@ -63,6 +63,7 @@ export function MobileDrawer({ children }: { children: React.ReactNode }) {
             onClick={(event) => {
               if ((event.target as Element).closest("a[href]")) {
                 setOpen(false);
+                trigger.current?.focus();
               }
             }}
           >

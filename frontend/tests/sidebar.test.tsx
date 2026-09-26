@@ -193,6 +193,7 @@ describe("Workspace sidebar", () => {
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveFocus();
   });
 
   it("removes an archived Workspace when refreshed owner data changes", () => {
@@ -206,5 +207,26 @@ describe("Workspace sidebar", () => {
     expect(
       screen.queryByRole("link", { name: "Workspace A" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("stores an authorized selection before opening the Workspace Home", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init: RequestInit) =>
+        new Response(JSON.stringify({ workspaceId: "ws-a" }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const navigate = vi.fn();
+    render(
+      <WorkspaceSidebar
+        workspaces={[workspace]}
+        capabilities={[]}
+        onNavigate={navigate}
+      />,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Workspace A" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/workspace-selection");
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+    expect(navigate).toHaveBeenCalledWith("/workspaces/ws-a");
   });
 });

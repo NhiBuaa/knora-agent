@@ -21,7 +21,12 @@ export default async function WorkspacePage({
       `/v1/workspaces/${encodeURIComponent(workspaceId)}` as KnoraApiPath,
       { accessToken: session.accessToken },
     )) as WorkspaceResponse;
-    return <WorkspaceHome workspace={workspace} />;
+    return (
+      <WorkspaceHome
+        workspace={workspace}
+        capabilities={session.capabilities}
+      />
+    );
   } catch {
     return <p role="alert">Unable to load this Workspace.</p>;
   }

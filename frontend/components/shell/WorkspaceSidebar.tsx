@@ -80,6 +80,21 @@ export function WorkspaceSidebar({
     }
   }
 
+  async function selectWorkspace(workspace: WorkspaceResponse) {
+    setError(null);
+    try {
+      const response = await fetch("/api/workspace-selection", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId: workspace.id }),
+      });
+      if (!response.ok) throw new Error("Workspace selection failed");
+      onNavigate(routes.workspace(workspace.id));
+    } catch {
+      setError("Unable to select Workspace. Retry.");
+    }
+  }
+
   async function toggle(workspace: WorkspaceResponse) {
     const opening = !expanded[workspace.id];
     setExpanded((current) => ({ ...current, [workspace.id]: opening }));
@@ -125,7 +140,13 @@ export function WorkspaceSidebar({
                 >
                   {expanded[workspace.id] ? "▾" : "▸"}
                 </button>
-                <Link href={routes.workspace(workspace.id)}>
+                <Link
+                  href={routes.workspace(workspace.id)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void selectWorkspace(workspace);
+                  }}
+                >
                   {workspace.name}
                 </Link>
               </div>

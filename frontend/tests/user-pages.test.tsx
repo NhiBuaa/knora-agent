@@ -309,4 +309,25 @@ describe("Workspace Home", () => {
       "/workspaces/ws-archived/conversations/conversation-new",
     );
   });
+
+  it("shows tool lifecycle status only with operator read capability", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ availability: "unavailable" }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const active = { ...archived, archived: false };
+    const view = render(<WorkspaceHome workspace={active} capabilities={[]} />);
+    expect(
+      screen.queryByRole("region", { name: "Tool lifecycle" }),
+    ).not.toBeInTheDocument();
+    view.rerender(
+      <WorkspaceHome workspace={active} capabilities={["operator:read"]} />,
+    );
+    expect(
+      await screen.findByText("Tool lifecycle unavailable."),
+    ).toBeInTheDocument();
+  });
 });

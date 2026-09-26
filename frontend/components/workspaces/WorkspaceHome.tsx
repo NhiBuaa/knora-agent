@@ -4,13 +4,16 @@ import React from "react";
 import Link from "next/link";
 import type { WorkspaceResponse } from "@/generated/knora-openapi";
 import { browserRequest } from "@/lib/api/browser-client";
+import { ToolLifecycleDisplay } from "@/components/tools/ToolLifecycle";
 import { routes } from "@/lib/navigation/routes";
 
 export function WorkspaceHome({
   workspace,
+  capabilities = [],
   onNavigate = (path: string) => window.location.assign(path),
 }: {
   workspace: WorkspaceResponse;
+  capabilities?: string[];
   onNavigate?: (path: string) => void;
 }) {
   const [error, setError] = React.useState<string | null>(null);
@@ -46,6 +49,9 @@ export function WorkspaceHome({
         <button type="button" onClick={() => void createConversation()}>
           New Conversation
         </button>
+      )}
+      {capabilities.includes("operator:read") && (
+        <ToolLifecycleDisplay workspaceId={workspace.id} />
       )}
       {error && <p role="alert">{error}</p>}
     </section>
