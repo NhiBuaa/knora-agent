@@ -3,7 +3,7 @@ import type {
   KnoraApiPath,
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
-import { knoraRequest } from "@/lib/api/client";
+import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 import {
   encodePreference,
@@ -62,7 +62,21 @@ export async function POST(request: Request) {
       selected.options as never,
     );
     return response;
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof KnoraApiError &&
+      [401, 403, 404].includes(error.status)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.status === 401
+              ? "UNAUTHENTICATED"
+              : "WORKSPACE_ACCESS_DENIED",
+        },
+        { status: error.status, headers: { "cache-control": "no-store" } },
+      );
+    }
     return NextResponse.json(
       { error: "WORKSPACE_SELECTION_UNAVAILABLE" },
       { status: 503, headers: { "cache-control": "no-store" } },

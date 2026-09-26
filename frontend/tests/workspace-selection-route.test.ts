@@ -11,10 +11,15 @@ vi.mock("@/lib/auth/session", () => ({
 }));
 vi.mock("@/lib/api/client", () => ({
   knoraRequest: vi.fn(async () => ({ id: "workspace-a", archived: false })),
+  KnoraApiError: class KnoraApiError extends Error {
+    constructor(public status: number) {
+      super(`HTTP ${status}`);
+    }
+  },
 }));
 
 import { POST } from "@/app/api/workspace-selection/route";
-import { knoraRequest } from "@/lib/api/client";
+import { knoraRequest, KnoraApiError } from "@/lib/api/client";
 
 describe("Workspace preference mutation", () => {
   it("denies a cross-origin browser request before backend lookup", async () => {
@@ -45,5 +50,18 @@ describe("Workspace preference mutation", () => {
       "/v1/workspaces/workspace-a",
       expect.objectContaining({ accessToken: "server-token" }),
     );
+  });
+
+  it("preserves backend ownership denial instead of reporting availability failure", async () => {
+    vi.mocked(knoraRequest).mockRejectedValueOnce(new KnoraApiError(403, {}));
+    const response = await POST(
+      new Request("https://app.example/api/workspace-selection", {
+        method: "POST",
+        headers: { origin: "https://app.example" },
+        body: JSON.stringify({ workspaceId: "foreign" }),
+      }),
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });

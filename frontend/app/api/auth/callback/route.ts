@@ -50,24 +50,33 @@ export async function GET(request: Request) {
       issuer: session.issuer,
       subject: session.subject,
     });
-    const resolution = await resolveCurrentWorkspace(
-      {
-        issuer: session.issuer,
-        subject: session.subject,
-        accessToken: session.accessToken,
-      },
-      hint,
-    );
     const origin = process.env.NEXT_PUBLIC_APP_ORIGIN ?? request.url;
-    const response = NextResponse.redirect(
-      new URL(destinationForResolution(resolution), origin),
-    );
     const value = await encodeSession(session);
+    let destination = "/workspaces?retry=1";
+    let selectedWorkspaceId: string | null = null;
+    try {
+      const resolution = await resolveCurrentWorkspace(
+        {
+          issuer: session.issuer,
+          subject: session.subject,
+          accessToken: session.accessToken,
+        },
+        hint,
+      );
+      destination = destinationForResolution(resolution);
+      selectedWorkspaceId =
+        resolution.state === "ACTIVE"
+          ? (resolution.workspace?.id ?? null)
+          : null;
+    } catch {
+      // The OIDC code was already exchanged. Keep the session for a retry.
+    }
+    const response = NextResponse.redirect(new URL(destination, origin));
     const cookie = sessionCookie(value);
     response.cookies.set(cookie.name, cookie.value, cookie.options as never);
-    if (resolution.state === "ACTIVE" && resolution.workspace) {
+    if (selectedWorkspaceId) {
       const selected = preferenceCookie(
-        await encodePreference(resolution.workspace.id, {
+        await encodePreference(selectedWorkspaceId, {
           issuer: session.issuer,
           subject: session.subject,
         }),
