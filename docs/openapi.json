@@ -1212,7 +1212,8 @@
           "config_mode": {
             "enum": [
               "same_as_job",
-              "current"
+              "current",
+              "deployed"
             ],
             "title": "Config Mode",
             "type": "string"

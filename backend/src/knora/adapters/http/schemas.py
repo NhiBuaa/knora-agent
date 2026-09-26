@@ -59,7 +59,7 @@ class IngestionJobStatusResponse(BaseModel):
 
 
 class ReprocessRequest(BaseModel):
-    config_mode: Literal["same_as_job", "current"]
+    config_mode: Literal["same_as_job", "current", "deployed"]
     config_source_job_id: str | None = None
 
 

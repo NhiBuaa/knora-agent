@@ -216,6 +216,7 @@ def create_app(
         lifecycle_maintenance=selected_lifecycle_maintenance,
         lifecycle_clock=selected_lifecycle_clock,
         admission_store=workspace_admissions,
+        deployed_embedding_configuration=selected_embedding_configuration,
     )
     application.state.ingestion_worker = ingestion_worker or ProcessIngestionJob(
         store=job_store,

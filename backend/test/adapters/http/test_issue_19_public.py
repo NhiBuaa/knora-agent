@@ -199,3 +199,20 @@ def test_reprocess_invalid_config_mode_is_rejected_without_service_execution() -
     assert missing.status_code == 422
     assert unsupported.status_code == 422
     assert fake.reprocess_calls == 0
+
+
+def test_reprocess_accepts_explicit_deployed_mode_without_browser_profile() -> None:
+    fake = FakeJobs(_projection())
+    response = _client(fake).post(
+        "/v1/workspaces/workspace-a/document-versions/version-1/reprocess",
+        headers={"X-API-Key": RAW_KEY, "Idempotency-Key": "deployed-1"},
+        json={"config_mode": "deployed"},
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {
+        "ingestion_job_id": "job-reprocess",
+        "document_version_id": "version-1",
+        "outcome": "created",
+        "status": "queued",
+    }

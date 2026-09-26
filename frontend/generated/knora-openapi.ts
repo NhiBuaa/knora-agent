@@ -215,7 +215,7 @@ export type QuestionResultResponse = {
   workspace_id: string;
 };
 export type ReprocessRequest = {
-  config_mode: "same_as_job" | "current";
+  config_mode: "same_as_job" | "current" | "deployed";
   config_source_job_id?: string | null;
 };
 export type ReprocessResponse = {

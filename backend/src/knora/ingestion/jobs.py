@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import BinaryIO, Literal, Protocol
@@ -30,7 +30,7 @@ PUBLIC_JOB_STATUSES = Literal[
 PUBLIC_FAILURE_REASONS = Literal[
     "retry_exhausted", "terminal_input", "terminal_config", "resource_limit"
 ]
-REPROCESS_CONFIG_MODES = Literal["same_as_job", "current"]
+REPROCESS_CONFIG_MODES = Literal["same_as_job", "current", "deployed"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,12 +235,14 @@ class IngestionJobs:
         lifecycle_maintenance: ObjectLifecycleMaintenance | None = None,
         lifecycle_clock: LifecycleClock | None = None,
         admission_store: WorkspaceAdmissionStore | None = None,
+        deployed_embedding_configuration: EmbeddingConfiguration | None = None,
     ) -> None:
         self._object_store = object_store
         self._store = store
         self._lifecycle_maintenance = lifecycle_maintenance
         self._lifecycle_clock = lifecycle_clock
         self._admission_store = admission_store
+        self._deployed_embedding_configuration = deployed_embedding_configuration
 
     def submit_pdf(
         self,
@@ -315,9 +317,7 @@ class IngestionJobs:
                 configuration=command.configuration,
             )
         except Exception:
-            self._handle_failed_upload(
-                source_object, expected_workspace_id=command.workspace_id
-            )
+            self._handle_failed_upload(source_object, expected_workspace_id=command.workspace_id)
             self._close_admission(admission_id)
             raise
         try:
@@ -367,13 +367,21 @@ class IngestionJobs:
             raise KnoraError("MISSING_IDEMPOTENCY_KEY")
         if len(command.idempotency_key) > 255:
             raise KnoraError("INVALID_IDEMPOTENCY_KEY")
-        if command.config_mode not in {"same_as_job", "current"}:
+        if command.config_mode not in {"same_as_job", "current", "deployed"}:
             raise KnoraError("INVALID_CONFIG_MODE")
         if command.config_mode == "same_as_job" and not command.config_source_job_id:
             raise KnoraError("CONFIG_SOURCE_JOB_REQUIRED")
-        if command.config_mode == "current" and command.config_source_job_id is not None:
+        if (
+            command.config_mode in {"current", "deployed"}
+            and command.config_source_job_id is not None
+        ):
             raise KnoraError("CONFIG_SOURCE_JOB_NOT_ALLOWED")
-        request_fingerprint = self._reprocess_fingerprint(command=command)
+        if command.config_mode == "deployed" and self._deployed_embedding_configuration is None:
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        request_fingerprint = self._reprocess_fingerprint(
+            command=command,
+            deployed_embedding_configuration=self._deployed_embedding_configuration,
+        )
         replay_reader = getattr(self._store, "read_reprocess_replay", None)
         if replay_reader is not None:
             replay = replay_reader(
@@ -410,6 +418,12 @@ class IngestionJobs:
         if context is None:
             self._close_admission(admission_id)
             raise KnoraError("DOCUMENT_VERSION_NOT_FOUND")
+        configuration = context.configuration
+        if command.config_mode == "deployed":
+            configuration = replace(
+                configuration,
+                embedding_configuration=self._deployed_embedding_configuration,
+            )
         try:
             observed = self._object_store.head(
                 workspace_id=context.workspace_id,
@@ -447,7 +461,7 @@ class IngestionJobs:
             resolved_config_mode=command.config_mode,
             config_source_job_id=context.config_source_job_id,
             prior_job_id=context.prior_job_id,
-            configuration=context.configuration,
+            configuration=configuration,
             actor_key_id=principal.key_id,
         )
         try:
@@ -521,6 +535,7 @@ class IngestionJobs:
     def _reprocess_fingerprint(
         *,
         command: ReprocessDocumentVersionCommand,
+        deployed_embedding_configuration: EmbeddingConfiguration | None = None,
     ) -> str:
         return "\n".join(
             (
@@ -528,6 +543,10 @@ class IngestionJobs:
                 command.document_version_id,
                 command.config_mode,
                 command.config_source_job_id or "",
+                deployed_embedding_configuration.id
+                if command.config_mode == "deployed"
+                and deployed_embedding_configuration is not None
+                else "",
             )
         )
 
@@ -570,9 +589,7 @@ class IngestionJobs:
             or not source_object.object_key
             or not isinstance(source_object.sha256, str)
             or len(source_object.sha256) != 64
-            or any(
-                character not in "0123456789abcdefABCDEF" for character in source_object.sha256
-            )
+            or any(character not in "0123456789abcdefABCDEF" for character in source_object.sha256)
             or isinstance(source_object.byte_size, bool)
             or not isinstance(source_object.byte_size, int)
             or source_object.byte_size <= 0
