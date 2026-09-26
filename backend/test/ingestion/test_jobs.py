@@ -123,6 +123,22 @@ def test_deployed_reprocess_replaces_only_embedding_profile_and_binds_replay() -
         service.reprocess_document_version(command, WorkspacePrincipal("workspace-b", "key-b"))
 
 
+def test_existing_reprocess_modes_keep_their_persisted_replay_fingerprint() -> None:
+    current = ReprocessDocumentVersionCommand(
+        "workspace-a", "version-a", "current", None, "key-1"
+    )
+    same_as_job = ReprocessDocumentVersionCommand(
+        "workspace-a", "version-a", "same_as_job", "job-a", "key-2"
+    )
+
+    assert IngestionJobs._reprocess_fingerprint(command=current) == (
+        "workspace-a\nversion-a\ncurrent\n"
+    )
+    assert IngestionJobs._reprocess_fingerprint(command=same_as_job) == (
+        "workspace-a\nversion-a\nsame_as_job\njob-a"
+    )
+
+
 @dataclass
 class InvalidMetadataObjectStore(RecordingObjectStore):
     def put_stream(self, *, workspace_id: str, stream, media_type: str) -> ObjectMetadata:

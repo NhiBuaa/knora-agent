@@ -537,18 +537,15 @@ class IngestionJobs:
         command: ReprocessDocumentVersionCommand,
         deployed_embedding_configuration: EmbeddingConfiguration | None = None,
     ) -> str:
-        return "\n".join(
-            (
-                command.workspace_id,
-                command.document_version_id,
-                command.config_mode,
-                command.config_source_job_id or "",
-                deployed_embedding_configuration.id
-                if command.config_mode == "deployed"
-                and deployed_embedding_configuration is not None
-                else "",
-            )
-        )
+        fields = [
+            command.workspace_id,
+            command.document_version_id,
+            command.config_mode,
+            command.config_source_job_id or "",
+        ]
+        if command.config_mode == "deployed" and deployed_embedding_configuration is not None:
+            fields.append(deployed_embedding_configuration.id)
+        return "\n".join(fields)
 
     @staticmethod
     def _content_fingerprint(command: PdfSubmissionCommand, raw_sha256: str) -> str:
