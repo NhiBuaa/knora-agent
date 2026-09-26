@@ -160,16 +160,12 @@ def test_launcher_loads_persistent_dotenv_and_preserves_equals(tmp_path: Path) -
                 [
                     f"KNORA_OLLAMA_BASE_URL={url}",
                     "KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@localhost:5432/demo?application_name=a=b",
+                    "KNORA_OBJECT_STORE_S3_ENDPOINT=http://127.0.0.1:9000",
                 ]
             ),
             encoding="utf-8",
         )
-        result = _launch(
-            None,
-            existing_storage=True,
-            object_store_endpoint="http://127.0.0.1:9000",
-            env_file=env_file,
-        )
+        result = _launch(None, existing_storage=True, env_file=env_file)
 
     assert result.returncode == 0, result.stderr
     assert "PRECHECK_OK" in result.stdout
