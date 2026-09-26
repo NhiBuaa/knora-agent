@@ -7,20 +7,26 @@ import pytest
 from sqlalchemy import event, select, update
 
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
+from knora.adapters.postgres.conversation_store import PostgresConversationStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
+    ChunkTable,
     DocumentTable,
     EmbeddingSetTable,
     QuestionTraceTable,
     RetrievalV2CutoverTable,
     WorkspaceTable,
 )
-from knora.answering.interface import QuestionCommand
+from knora.answering.interface import QuestionCommand, QuestionResult
 from knora.answering.module import AnswerQuestion
-from knora.answering.stores import BranchObservation, RetrievalConfiguration
+from knora.answering.stores import (
+    BranchObservation,
+    QuestionTraceRecord,
+    RetrievalConfiguration,
+)
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.ingestion.interface import IngestDocumentCommand
@@ -719,3 +725,138 @@ async def test_hybrid_persists_pre_selection_trace_provenance_without_sql_detail
     assert "tsquery" not in serialized
     assert "tsvector" not in serialized
     assert "execution plan" not in serialized
+
+
+def test_conversation_trace_is_idempotently_persisted_and_recovers_validated_citations() -> None:
+    workspace_id = f"conversation-trace-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="Conversation trace"))
+    ingested = ingest(
+        workspace_id,
+        "guide/chapters",
+        content=(
+            b"# Chapters\n\n"
+            b"The software project report is suggested to include seven chapters.\n"
+        ),
+    )
+    with SessionFactory() as session:
+        chunk = session.scalar(
+            select(ChunkTable).where(ChunkTable.chunk_set_id == ingested.chunk_set_id)
+        )
+    assert chunk is not None
+
+    conversation_store = PostgresConversationStore(SessionFactory)
+    conversation = conversation_store.create(workspace_id, "create-conversation")
+    admission = conversation_store.submit_turn(
+        workspace_id,
+        conversation.id,
+        "turn-request-1",
+        "How many chapters does the guide suggest?",
+        "How many chapters does the guide suggest?",
+        "a" * 64,
+    )
+    claim = conversation_store.claim_next_turn("worker-conversation-trace", workspace_id)
+    assert claim is not None
+    assert claim.turn.id == admission.turn.id
+
+    trace_record = QuestionTraceRecord(
+        workspace_id=workspace_id,
+        question=admission.turn.question,
+        retrieval_configuration_id="retrieval-m1-v1",
+        embedding_configuration_id="embedding-local-m1-v2",
+        candidate_decisions=(),
+        retrieved_chunk_ids=(chunk.id,),
+        embedding_set_ids=(ingested.embedding_set_id,),
+        chunk_set_ids=(ingested.chunk_set_id,),
+        decision="ANSWER",
+        answer="The report is suggested to include seven chapters. [[E1]]",
+        refusal_reason=None,
+        generation_status="completed",
+        alias_mapping={"E1": chunk.id},
+        parsed_markers=("E1",),
+        validation_outcome="valid",
+        conversation_turn_id=admission.turn.id,
+    )
+    store = PostgresAnsweringStore(SessionFactory)
+
+    trace_id = store.persist_trace(trace_record)
+    replayed_trace_id = store.persist_trace(trace_record)
+
+    assert replayed_trace_id == trace_id
+    read_result = getattr(store, "read_conversation_result", lambda *_: None)
+    recovered = read_result(workspace_id, admission.turn.id)
+    assert recovered is not None
+    assert recovered.trace_id == trace_id
+    assert recovered.workspace_id == workspace_id
+    assert recovered.decision == "ANSWER"
+    assert recovered.answer == trace_record.answer
+    assert len(recovered.citations) == 1
+    citation = recovered.citations[0]
+    assert citation.evidence_id == "E1"
+    assert citation.document_id == ingested.document_id
+    assert citation.document_version_id == ingested.document_version_id
+    assert citation.source_key == "guide/chapters"
+    assert citation.source_name == "refunds.md"
+    assert citation.excerpt == chunk.content[:500]
+    assert citation.content_checksum == chunk.content_checksum
+    assert read_result("another-workspace", admission.turn.id) is None
+
+    with SessionFactory.begin() as session:
+        row = session.get(QuestionTraceTable, trace_id)
+        row.alias_mapping = {"E1": str(uuid4())}
+    assert read_result(workspace_id, admission.turn.id) is None
+
+    with SessionFactory.begin() as session:
+        row = session.get(QuestionTraceTable, trace_id)
+        row.alias_mapping = {"E1": chunk.id}
+        row.validation_outcome = "invalid"
+    assert read_result(workspace_id, admission.turn.id) is None
+
+
+def test_conversation_result_reader_recovers_a_valid_no_evidence_refusal() -> None:
+    workspace_id = f"conversation-refusal-trace-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="Conversation refusal"))
+    conversation_store = PostgresConversationStore(SessionFactory)
+    conversation = conversation_store.create(workspace_id, "create-refusal-conversation")
+    admission = conversation_store.submit_turn(
+        workspace_id,
+        conversation.id,
+        "refusal-turn-request-1",
+        "Which planet is made of cheese?",
+        "Which planet is made of cheese?",
+        "b" * 64,
+    )
+    claim = conversation_store.claim_next_turn("worker-conversation-refusal", workspace_id)
+    assert claim is not None
+    assert claim.turn.id == admission.turn.id
+    store = PostgresAnsweringStore(SessionFactory)
+    trace_id = store.persist_trace(
+        QuestionTraceRecord(
+            workspace_id=workspace_id,
+            question=admission.turn.question,
+            retrieval_configuration_id="retrieval-m1-v1",
+            embedding_configuration_id="embedding-local-m1-v2",
+            candidate_decisions=(),
+            retrieved_chunk_ids=(),
+            embedding_set_ids=(),
+            chunk_set_ids=(),
+            decision="REFUSAL",
+            answer=None,
+            refusal_reason="INSUFFICIENT_EVIDENCE",
+            generation_status="not_called",
+            validation_outcome="not_applicable",
+            conversation_turn_id=admission.turn.id,
+        )
+    )
+
+    recovered = store.read_conversation_result(workspace_id, admission.turn.id)
+
+    assert recovered == QuestionResult(
+        decision="REFUSAL",
+        answer=None,
+        citations=(),
+        refusal_reason="INSUFFICIENT_EVIDENCE",
+        trace_id=trace_id,
+        workspace_id=workspace_id,
+    )

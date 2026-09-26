@@ -41,3 +41,6 @@ def test_create_app_composes_lifecycle_worker_and_optional_reconciler() -> None:
     assert application.state.object_lifecycle_worker is not None
     assert application.state.object_lifecycle_reconciler is not None
     assert application.state.operational_observability is not None
+    assert application.state.conversation_store is not None
+    assert application.state.conversation_service is not None
+    assert callable(application.state.conversation_runner.run_once)

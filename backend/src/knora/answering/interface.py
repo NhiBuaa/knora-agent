@@ -3,9 +3,22 @@ from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
+class ConversationContext:
+    """Server-built dialogue context for one bounded Conversation Turn."""
+
+    policy_id: str
+    transcript: str
+    retrieval_query: str
+    selected_turn_ids: tuple[str, ...]
+    token_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class QuestionCommand:
     workspace_id: str
     question: str
+    turn_id: str | None = None
+    conversation_context: ConversationContext | None = None
 
 
 @dataclass(frozen=True, slots=True)
