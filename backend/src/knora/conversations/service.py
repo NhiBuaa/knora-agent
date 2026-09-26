@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+from knora.access.identity import Identity
+from knora.access.workspace_authorization import WorkspaceAuthorizer
+from knora.conversations.ports import ConversationStore
+from knora.conversations.types import ConversationPage, ConversationView
+from knora.domain.errors import KnoraError
+
+
+def title_from_question(question: str) -> str:
+    return " ".join(question.split())[:80] or "New conversation"
+
+
+class ConversationService:
+    """Own Conversation lifecycle policy; stores own persistence transactions."""
+
+    def __init__(
+        self,
+        *,
+        store: ConversationStore,
+        workspace_authorizer: WorkspaceAuthorizer,
+    ) -> None:
+        self._store = store
+        self._workspace_authorizer = workspace_authorizer
+
+    def create(
+        self, identity: Identity, workspace_id: str, idempotency_key: str
+    ) -> ConversationView:
+        if not idempotency_key or len(idempotency_key) > 255:
+            raise KnoraError("INVALID_IDEMPOTENCY_KEY")
+        self._authorize(identity, workspace_id)
+        return self._store.create(workspace_id, idempotency_key)
+
+    def read(
+        self, identity: Identity, workspace_id: str, conversation_id: str
+    ) -> ConversationView:
+        self._authorize(identity, workspace_id)
+        conversation = self._store.get(workspace_id, conversation_id)
+        if conversation is None:
+            raise KnoraError("CONVERSATION_NOT_FOUND")
+        return conversation
+
+    def list(
+        self,
+        identity: Identity,
+        workspace_id: str,
+        archived: bool = False,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> ConversationPage:
+        if limit < 1 or limit > 100:
+            raise KnoraError("INVALID_CONVERSATION_LIMIT")
+        self._authorize(identity, workspace_id)
+        return self._store.list(workspace_id, archived, cursor, limit)
+
+    def rename(
+        self,
+        identity: Identity,
+        workspace_id: str,
+        conversation_id: str,
+        title: str,
+        expected_revision: int,
+    ) -> ConversationView:
+        normalized = title.strip()
+        if not normalized or len(normalized) > 120:
+            raise KnoraError("INVALID_CONVERSATION_TITLE")
+        self._authorize(identity, workspace_id)
+        return self._store.mutate(
+            workspace_id, conversation_id, expected_revision, title=normalized
+        )
+
+    def archive(
+        self, identity: Identity, workspace_id: str, conversation_id: str, expected_revision: int
+    ) -> ConversationView:
+        self._authorize(identity, workspace_id)
+        return self._store.mutate(
+            workspace_id, conversation_id, expected_revision, archived=True
+        )
+
+    def restore(
+        self, identity: Identity, workspace_id: str, conversation_id: str, expected_revision: int
+    ) -> ConversationView:
+        self._authorize(identity, workspace_id)
+        return self._store.mutate(
+            workspace_id, conversation_id, expected_revision, archived=False
+        )
+
+    def _authorize(self, identity: Identity, workspace_id: str) -> None:
+        self._workspace_authorizer.authorize(identity, workspace_id, "questions:ask")

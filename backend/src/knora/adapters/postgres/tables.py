@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -80,6 +81,87 @@ class WorkspaceAdmissionTable(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     terminal_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ConversationTable(Base):
+    __tablename__ = "conversations"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "id", name="uq_conversations_workspace_id_id"),
+        CheckConstraint("length(title) BETWEEN 1 AND 120", name="ck_conversations_title_length"),
+        CheckConstraint(
+            "title_source IN ('auto', 'manual')", name="ck_conversations_title_source"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False, default="New conversation")
+    title_source: Mapped[str] = mapped_column(String(10), nullable=False, default="auto")
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ConversationCreateRequestTable(Base):
+    __tablename__ = "conversation_create_requests"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "key", name="uq_conversation_create_requests_key"),
+        ForeignKeyConstraint(
+            ["workspace_id", "conversation_id"],
+            ["conversations.workspace_id", "conversations.id"],
+            ondelete="RESTRICT",
+            name="fk_conversation_create_requests_workspace_conversation",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    key: Mapped[str] = mapped_column(String(255), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    conversation_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ConversationTurnTable(Base):
+    __tablename__ = "conversation_turns"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "id", name="uq_conversation_turns_workspace_id_id"),
+        UniqueConstraint(
+            "conversation_id", "sequence", name="uq_conversation_turns_conversation_sequence"
+        ),
+        CheckConstraint("sequence > 0", name="ck_conversation_turns_sequence_positive"),
+        CheckConstraint(
+            "status IN ('queued', 'processing', 'answered', 'refused', 'failed', 'interrupted')",
+            name="ck_conversation_turns_status",
+        ),
+        ForeignKeyConstraint(
+            ["workspace_id", "conversation_id"],
+            ["conversations.workspace_id", "conversations.id"],
+            ondelete="RESTRICT",
+            name="fk_conversation_turns_workspace_conversation",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    conversation_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="queued")
+    stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class DocumentTable(Base):
@@ -586,11 +668,23 @@ class ChunkEmbeddingTable(Base):
 
 class QuestionTraceTable(Base):
     __tablename__ = "question_traces"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_turn_id", name="uq_question_traces_conversation_turn_id"
+        ),
+        ForeignKeyConstraint(
+            ["workspace_id", "conversation_turn_id"],
+            ["conversation_turns.workspace_id", "conversation_turns.id"],
+            ondelete="RESTRICT",
+            name="fk_question_traces_workspace_turn",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     workspace_id: Mapped[str] = mapped_column(
         ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
     )
+    conversation_turn_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     trace_schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
     branch_observation_schema_version: Mapped[int] = mapped_column(

@@ -334,12 +334,16 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                     )
             command.upgrade(config, "head")
 
+        with engine.connect() as connection:
+            revision_before_guarded_downgrade = connection.scalar(
+                text("SELECT version_num FROM alembic_version")
+            )
         with pytest.raises(RuntimeError, match="refusing downgrade"):
             command.downgrade(config, "20260924_0045")
         with engine.connect() as connection:
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "20260925_0048"
+                == revision_before_guarded_downgrade
             )
             assert (
                 connection.scalar(
