@@ -22,7 +22,7 @@ test("a user completes the real authorization-code login and can log out", async
   await loginAs(page, "user");
   await expect(page).toHaveURL(/\/workspaces\/[^/]+$/);
 
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Log out" }).press("Enter");
   await expect(page.getByRole("heading", { name: "Signed out" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
   await context.close();

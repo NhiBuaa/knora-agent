@@ -11,6 +11,7 @@ test("a submitted Conversation Turn survives page reload without another POST", 
   const page = await context.newPage();
   await loginAs(page, "user");
   await page.getByRole("button", { name: "New Conversation" }).first().click();
+  await expect(page.getByText("No questions yet.")).toBeVisible();
   const question = `Durable turn ${Date.now()}`;
   let submissions = 0;
   page.on("request", (request) => {
@@ -22,10 +23,15 @@ test("a submitted Conversation Turn survives page reload without another POST", 
     }
   });
   await page.getByRole("textbox", { name: "Question" }).fill(question);
+  await expect(page.getByRole("button", { name: "Ask" })).toBeEnabled();
   await page.getByRole("button", { name: "Ask" }).click();
-  await expect(page.getByText(question, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("paragraph").filter({ hasText: question }).first(),
+  ).toBeVisible();
   await page.reload();
-  await expect(page.getByText(question, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("paragraph").filter({ hasText: question }).first(),
+  ).toBeVisible();
   expect(submissions).toBe(1);
   await context.close();
 });

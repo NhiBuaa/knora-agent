@@ -44,6 +44,23 @@ vi.mock("@/lib/auth/workspace", () => ({
 import { GET } from "@/app/api/auth/callback/route";
 
 describe("OIDC callback Workspace resolution", () => {
+  it("redirects on the signed callback origin even if an ambient app origin differs", async () => {
+    const previous = process.env.NEXT_PUBLIC_APP_ORIGIN;
+    process.env.NEXT_PUBLIC_APP_ORIGIN = "https://wrong.example";
+    try {
+      const response = await GET(
+        new Request(
+          "https://app.example/api/auth/callback?code=one-time-code&state=valid-state",
+        ),
+      );
+      expect(response.headers.get("location")).toBe(
+        "https://app.example/workspaces?retry=1",
+      );
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_APP_ORIGIN;
+      else process.env.NEXT_PUBLIC_APP_ORIGIN = previous;
+    }
+  });
   it("preserves the validated session for a retry when backend resolution fails", async () => {
     const response = await GET(
       new Request(

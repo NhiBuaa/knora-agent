@@ -4,8 +4,13 @@ import { clearPreferenceCookie } from "@/lib/auth/workspace-preference";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
+  const internal = new URL(request.url);
+  const host = request.headers.get("host") ?? internal.host;
+  const protocol =
+    request.headers.get("x-forwarded-proto") ?? internal.protocol.slice(0, -1);
+  const expectedOrigin = `${protocol}://${host}`;
   if (
-    origin !== new URL(request.url).origin ||
+    origin !== expectedOrigin ||
     request.headers.get("sec-fetch-site") === "cross-site"
   )
     return NextResponse.json(
@@ -13,7 +18,7 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   const response = NextResponse.redirect(
-    new URL("/?signed-out=1", request.url),
+    new URL("/?signed-out=1", expectedOrigin),
     303,
   );
   const cookie = clearSessionCookie();

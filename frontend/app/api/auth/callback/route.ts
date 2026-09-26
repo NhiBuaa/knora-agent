@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       issuer: session.issuer,
       subject: session.subject,
     });
-    const origin = process.env.NEXT_PUBLIC_APP_ORIGIN ?? request.url;
+    const origin = new URL(transaction.redirectUri).origin;
     const value = await encodeSession(session);
     let destination = "/workspaces?retry=1";
     let selectedWorkspaceId: string | null = null;
