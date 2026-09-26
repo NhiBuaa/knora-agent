@@ -301,6 +301,17 @@
       },
       "DocumentResponse": {
         "properties": {
+          "active_embedding_configuration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Embedding Configuration Id"
+          },
           "archived": {
             "title": "Archived",
             "type": "boolean"
@@ -318,6 +329,16 @@
           },
           "document_id": {
             "title": "Document Id",
+            "type": "string"
+          },
+          "embedding_readiness": {
+            "default": "not_indexed",
+            "enum": [
+              "ready",
+              "reindex_required",
+              "not_indexed"
+            ],
+            "title": "Embedding Readiness",
             "type": "string"
           },
           "ingestion_job_id": {
@@ -341,6 +362,11 @@
               }
             ],
             "title": "Ingestion Status"
+          },
+          "reprocess_supported": {
+            "default": false,
+            "title": "Reprocess Supported",
+            "type": "boolean"
           },
           "revision": {
             "title": "Revision",
@@ -1212,7 +1238,8 @@
           "config_mode": {
             "enum": [
               "same_as_job",
-              "current"
+              "current",
+              "deployed"
             ],
             "title": "Config Mode",
             "type": "string"

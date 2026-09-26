@@ -35,6 +35,185 @@ afterEach(() => {
 });
 
 describe("document management", () => {
+  it("resumes status polling for a job already processing after page load", async () => {
+    const outdated = {
+      ...document,
+      ingestion_job_id: "existing-job",
+      ingestion_status: "processing",
+      embedding_readiness: "reindex_required",
+      reprocess_supported: true,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [outdated] }))
+      .mockResolvedValueOnce(
+        jsonResponse({ ingestion_job_id: "existing-job", status: "succeeded" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          documents: [
+            {
+              ...outdated,
+              ingestion_status: "succeeded",
+              embedding_readiness: "ready",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/existing-job",
+    );
+    expect(screen.getByText(/Embedding ready/)).toBeInTheDocument();
+  });
+
+  it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {
+    const outdated = {
+      ...document,
+      embedding_readiness: "reindex_required" as const,
+      reprocess_supported: true,
+      active_embedding_configuration_id: "old-profile",
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [outdated] }))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: { code: "PROVIDER_REQUEST_FAILED" } }, 503),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ingestion_job_id: "reindex-job",
+            document_version_id: "version-1",
+            outcome: "idempotency_replay",
+            status: "queued",
+          },
+          202,
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ ingestion_job_id: "reindex-job", status: "succeeded" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          documents: [{ ...outdated, embedding_readiness: "ready" }],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText(/Re-index required/);
+    fireEvent.click(screen.getByRole("button", { name: "Re-index guide.pdf" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Re-index guide.pdf" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    const submits = fetchMock.mock.calls.filter(
+      (call) => call[1]?.method === "POST",
+    );
+    expect(submits).toHaveLength(2);
+    expect(submits[0][1].body).toBe(
+      JSON.stringify({ config_mode: "deployed" }),
+    );
+    expect(new Headers(submits[0][1].headers).get("Idempotency-Key")).toBe(
+      "stable-request-id",
+    );
+    expect(new Headers(submits[1][1].headers).get("Idempotency-Key")).toBe(
+      "stable-request-id",
+    );
+    expect(screen.getByText(/Embedding ready/)).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      label: "no write capability",
+      capabilities: [],
+      archived: false,
+      supported: true,
+      pending: false,
+      workspaceArchived: false,
+    },
+    {
+      label: "archived Workspace",
+      capabilities: ["documents:write"],
+      archived: false,
+      supported: true,
+      pending: false,
+      workspaceArchived: true,
+    },
+    {
+      label: "archived Document",
+      capabilities: ["documents:write"],
+      archived: true,
+      supported: true,
+      pending: false,
+      workspaceArchived: false,
+    },
+    {
+      label: "unsupported source",
+      capabilities: ["documents:write"],
+      archived: false,
+      supported: false,
+      pending: false,
+      workspaceArchived: false,
+    },
+    {
+      label: "queued re-index",
+      capabilities: ["documents:write"],
+      archived: false,
+      supported: true,
+      pending: true,
+      workspaceArchived: false,
+    },
+  ])(
+    "hides re-index action for $label",
+    async ({
+      capabilities,
+      archived,
+      supported,
+      pending,
+      workspaceArchived,
+    }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          jsonResponse({
+            documents: [
+              {
+                ...document,
+                archived,
+                ingestion_status: pending ? "queued" : null,
+                embedding_readiness: "reindex_required",
+                reprocess_supported: supported,
+              },
+            ],
+          }),
+        ),
+      );
+      render(
+        <DocumentList
+          workspaceId="ws-1"
+          capabilities={capabilities}
+          workspaceArchived={workspaceArchived}
+        />,
+      );
+      if (archived)
+        fireEvent.click(await screen.findByLabelText("Show archived"));
+      await screen.findByText(/Re-index required/);
+      expect(
+        screen.queryByRole("button", { name: "Re-index guide.pdf" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("sends the loaded revision and reloads after an archive conflict", async () => {
     const fetchMock = vi
       .fn()

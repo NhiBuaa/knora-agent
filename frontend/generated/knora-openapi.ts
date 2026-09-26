@@ -80,11 +80,14 @@ export type DocumentListResponse = {
   documents: Array<DocumentResponse>;
 };
 export type DocumentResponse = {
+  active_embedding_configuration_id?: string | null;
   archived: boolean;
   current_document_version_id?: string | null;
   document_id: string;
+  embedding_readiness?: "ready" | "reindex_required" | "not_indexed";
   ingestion_job_id?: string | null;
   ingestion_status?: string | null;
+  reprocess_supported?: boolean;
   revision: number;
   serving_state: "unavailable" | "current" | "previous";
   source_key: string;
@@ -215,7 +218,7 @@ export type QuestionResultResponse = {
   workspace_id: string;
 };
 export type ReprocessRequest = {
-  config_mode: "same_as_job" | "current";
+  config_mode: "same_as_job" | "current" | "deployed";
   config_source_job_id?: string | null;
 };
 export type ReprocessResponse = {

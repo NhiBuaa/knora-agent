@@ -7,6 +7,7 @@ from knora.workspaces.ports import WorkspaceAdmissionStore
 
 DeletionState = Literal["requested", "blocked", "processing", "succeeded", "failed"]
 ServingState = Literal["unavailable", "current", "previous"]
+EmbeddingReadiness = Literal["ready", "reindex_required", "not_indexed"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +22,9 @@ class DocumentProjection:
     serving_state: ServingState = "unavailable"
     ingestion_job_id: str | None = None
     ingestion_status: str | None = None
+    active_embedding_configuration_id: str | None = None
+    embedding_readiness: EmbeddingReadiness = "not_indexed"
+    reprocess_supported: bool = False
 
 
 @dataclass(frozen=True, slots=True)

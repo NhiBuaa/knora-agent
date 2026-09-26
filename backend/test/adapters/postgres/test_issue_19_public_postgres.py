@@ -12,6 +12,7 @@ from knora.adapters.postgres.tables import (
     DocumentTable,
     IngestionJobTable,
     ReprocessAuditTable,
+    WorkspaceAdmissionTable,
     WorkspaceTable,
 )
 from knora.domain.access import WorkspacePrincipal
@@ -156,11 +157,110 @@ def test_reprocess_creates_one_audit_and_replays_same_binding(tmp_path) -> None:
     assert audit.outcome == "reused"
     assert audit.created_at.tzinfo is not None
     with SessionFactory() as session:
-        assert session.scalar(
-            select(text("count(*)"))
-            .select_from(ReprocessAuditTable)
-            .where(ReprocessAuditTable.workspace_id == workspace_id)
-        ) == 1
+        assert (
+            session.scalar(
+                select(text("count(*)"))
+                .select_from(ReprocessAuditTable)
+                .where(ReprocessAuditTable.workspace_id == workspace_id)
+            )
+            == 1
+        )
+
+
+def test_deployed_reprocess_persists_new_profile_and_rejects_changed_profile_replay(
+    tmp_path,
+) -> None:
+    workspace_id = _workspace("deployed re-index")
+    object_store = FileSystemObjectStore(tmp_path)
+    upload = _submit(workspace_id, object_store)
+    now = datetime.now(UTC)
+    with SessionFactory.begin() as session:
+        job = session.get(IngestionJobTable, upload.ingestion_job_id)
+        assert job is not None
+        job.status = "succeeded"
+        job.attempt_count = 1
+        job.started_at = now
+        job.terminal_at = now
+        job.updated_at = now
+        job.terminal_outcome_code = "succeeded"
+
+    profile = EmbeddingConfiguration(
+        "ollama-profile-a", "ollama", "qwen3-embedding:0.6b", 1024, "cosine"
+    )
+    command = ReprocessDocumentVersionCommand(
+        workspace_id, upload.document_version_id, "deployed", None, "deployed-1"
+    )
+    principal = WorkspacePrincipal(workspace_id, "key-a")
+    service = IngestionJobs(
+        object_store=object_store,
+        store=PostgresIngestionJobStore(SessionFactory),
+        deployed_embedding_configuration=profile,
+    )
+    first = service.reprocess_document_version(command, principal)
+    replay = service.reprocess_document_version(command, principal)
+
+    assert first.outcome == "created"
+    assert first.status == "queued"
+    assert replay.outcome == "idempotency_replay"
+    assert replay.ingestion_job_id == first.ingestion_job_id
+    with SessionFactory() as session:
+        job = session.get(IngestionJobTable, first.ingestion_job_id)
+        assert job is not None
+        assert job.embedding_configuration_id == profile.id
+        assert job.reprocess_of_job_id == upload.ingestion_job_id
+
+    changed = EmbeddingConfiguration(
+        "ollama-profile-b", "ollama", "qwen3-embedding:0.6b", 1024, "cosine"
+    )
+    with pytest.raises(KnoraError, match="IDEMPOTENCY_KEY_CONFLICT"):
+        IngestionJobs(
+            object_store=object_store,
+            store=PostgresIngestionJobStore(SessionFactory),
+            deployed_embedding_configuration=changed,
+        ).reprocess_document_version(command, principal)
+
+
+def test_facade_commits_reprocess_with_workspace_admission(tmp_path) -> None:
+    workspace_id = _workspace("admitted re-index")
+    object_store = FileSystemObjectStore(tmp_path)
+    upload = _submit(workspace_id, object_store)
+    now = datetime.now(UTC)
+    with SessionFactory.begin() as session:
+        job = session.get(IngestionJobTable, upload.ingestion_job_id)
+        assert job is not None
+        job.status = "succeeded"
+        job.attempt_count = 1
+        job.started_at = now
+        job.terminal_at = now
+        job.updated_at = now
+        job.terminal_outcome_code = "succeeded"
+        session.add(
+            WorkspaceAdmissionTable(
+                id=str(uuid4()),
+                workspace_id=workspace_id,
+                operation="reprocess_document_version",
+                operation_id="admitted-reindex",
+            )
+        )
+    from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
+
+    profile = EmbeddingConfiguration(
+        "ollama-admitted", "ollama", "qwen3-embedding:0.6b", 1024, "cosine"
+    )
+    service = IngestionJobs(
+        object_store=object_store,
+        store=PostgresIngestionJobStore(SessionFactory),
+        admission_store=PostgresWorkspaceAdmissionStore(SessionFactory),
+        deployed_embedding_configuration=profile,
+    )
+    result = service.reprocess_document_version(
+        ReprocessDocumentVersionCommand(
+            workspace_id, upload.document_version_id, "deployed", None, "admitted-reindex"
+        ),
+        WorkspacePrincipal(workspace_id, "key-a"),
+    )
+
+    assert result.status == "queued"
 
 
 def test_reprocess_conflict_is_detected_before_selector_lookup(tmp_path) -> None:
@@ -262,9 +362,9 @@ def test_reprocess_source_selector_validation_precedes_generation_creation(tmp_p
     principal = WorkspacePrincipal(workspace_id=workspace_id, key_id="key-a")
     with SessionFactory() as session:
         before = session.scalar(
-            select(text("count(*)")).select_from(IngestionJobTable).where(
-                IngestionJobTable.workspace_id == workspace_id
-            )
+            select(text("count(*)"))
+            .select_from(IngestionJobTable)
+            .where(IngestionJobTable.workspace_id == workspace_id)
         )
 
     with pytest.raises(KnoraError, match="CONFIG_SOURCE_JOB_REQUIRED"):
@@ -301,8 +401,11 @@ def test_reprocess_source_selector_validation_precedes_generation_creation(tmp_p
             principal,
         )
     with SessionFactory() as session:
-        assert session.scalar(
-            select(text("count(*)")).select_from(IngestionJobTable).where(
-                IngestionJobTable.workspace_id == workspace_id
+        assert (
+            session.scalar(
+                select(text("count(*)"))
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.workspace_id == workspace_id)
             )
-        ) == before
+            == before
+        )

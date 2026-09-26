@@ -228,8 +228,10 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             request_fingerprint=request_fingerprint,
         )
 
-    def commit_reprocess(self, prepared: PreparedReprocess) -> ReprocessResult:
-        return self._submission_store.commit_reprocess(prepared)
+    def commit_reprocess(
+        self, prepared: PreparedReprocess, *, admission_id: str | None = None
+    ) -> ReprocessResult:
+        return self._submission_store.commit_reprocess(prepared, admission_id=admission_id)
 
     def read_reprocess_audit(
         self, *, workspace_id: str, audit_event_id: str

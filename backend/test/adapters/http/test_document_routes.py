@@ -64,6 +64,8 @@ def test_document_list_and_archive_routes_are_workspace_scoped():
     listed = client.get("/v1/workspaces/workspace-a/documents", headers={"X-API-Key": raw_key})
     assert listed.status_code == 200
     assert listed.json()["documents"][0]["archived"] is False
+    assert listed.json()["documents"][0]["embedding_readiness"] == "not_indexed"
+    assert listed.json()["documents"][0]["reprocess_supported"] is False
 
     archived = client.post(
         "/v1/workspaces/workspace-a/documents/d1/archive",

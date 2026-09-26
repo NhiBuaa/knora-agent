@@ -13,6 +13,9 @@ from knora.ingestion.jobs import (
     PdfSubmissionConfiguration,
     PdfSubmissionResult,
     PreparedPdfSubmission,
+    ReprocessContext,
+    ReprocessDocumentVersionCommand,
+    ReprocessResult,
 )
 from knora.ingestion.object_lifecycle import ObjectLifecycleWorkItem
 from knora.ingestion.object_store import ObjectMetadata
@@ -42,6 +45,98 @@ class RecordingObjectStore:
 
     def delete(self, *, workspace_id: str, object_key: str) -> None:
         self.deletes.append((workspace_id, object_key))
+
+
+def test_deployed_reprocess_replaces_only_embedding_profile_and_binds_replay() -> None:
+    class Source:
+        def head(self, *, workspace_id: str, object_key: str) -> ObjectMetadata:
+            assert workspace_id == "workspace-a"
+            assert object_key == "source-key"
+            return ObjectMetadata("workspace-a", "source-key", "a" * 64, 12, "application/pdf")
+
+    class Store:
+        def __init__(self) -> None:
+            self.prepared = []
+            self.replay_fingerprint = None
+            self.replay_result = None
+
+        def read_reprocess_replay(self, *, workspace_id, idempotency_key, request_fingerprint):
+            if self.replay_fingerprint is not None:
+                if request_fingerprint != self.replay_fingerprint:
+                    raise KnoraError("IDEMPOTENCY_KEY_CONFLICT")
+                return self.replay_result
+            return None
+
+        def authorize_workspace(self, *, workspace_id):
+            assert workspace_id == "workspace-a"
+
+        def read_reprocess_context(self, **kwargs):
+            assert kwargs["config_mode"] == "deployed"
+            return ReprocessContext(
+                workspace_id="workspace-a",
+                document_id="document-a",
+                document_version_id="version-a",
+                source_object=ObjectMetadata(
+                    "workspace-a", "source-key", "a" * 64, 12, "application/pdf"
+                ),
+                configuration=PdfSubmissionConfiguration.milestone_two(
+                    embedding_configuration=EmbeddingConfiguration.milestone_one_local()
+                ),
+                config_source_job_id=None,
+                prior_job_id="old-job",
+            )
+
+        def commit_reprocess(self, prepared):
+            self.prepared.append(prepared)
+            self.replay_fingerprint = prepared.request_fingerprint
+            self.replay_result = ReprocessResult(
+                "new-job", "version-a", "idempotency_replay", "queued"
+            )
+            return ReprocessResult("new-job", "version-a", "created", "queued")
+
+    store = Store()
+    command = ReprocessDocumentVersionCommand(
+        "workspace-a", "version-a", "deployed", None, "reindex-1"
+    )
+    principal = WorkspacePrincipal("workspace-a", "key-a")
+    first_profile = EmbeddingConfiguration(
+        "ollama-profile-a", "ollama", "qwen3-embedding:0.6b", 1024, "cosine"
+    )
+    second_profile = EmbeddingConfiguration(
+        "ollama-profile-b", "ollama", "qwen3-embedding:0.6b", 1024, "cosine"
+    )
+    service = IngestionJobs(
+        object_store=Source(), store=store, deployed_embedding_configuration=first_profile
+    )
+
+    assert service.reprocess_document_version(command, principal).status == "queued"
+    assert service.reprocess_document_version(command, principal).outcome == "idempotency_replay"
+    prepared = store.prepared[0]
+    assert prepared.configuration.embedding_configuration == first_profile
+    assert prepared.configuration.chunking_configuration.id == "chunking-m2-pdf-pypdf-6-14-2-v1"
+    assert prepared.prior_job_id == "old-job"
+    with pytest.raises(KnoraError, match="IDEMPOTENCY_KEY_CONFLICT"):
+        IngestionJobs(
+            object_store=Source(), store=store, deployed_embedding_configuration=second_profile
+        ).reprocess_document_version(command, principal)
+    with pytest.raises(KnoraError, match="WORKSPACE_ACCESS_DENIED"):
+        service.reprocess_document_version(command, WorkspacePrincipal("workspace-b", "key-b"))
+
+
+def test_existing_reprocess_modes_keep_their_persisted_replay_fingerprint() -> None:
+    current = ReprocessDocumentVersionCommand(
+        "workspace-a", "version-a", "current", None, "key-1"
+    )
+    same_as_job = ReprocessDocumentVersionCommand(
+        "workspace-a", "version-a", "same_as_job", "job-a", "key-2"
+    )
+
+    assert IngestionJobs._reprocess_fingerprint(command=current) == (
+        "workspace-a\nversion-a\ncurrent\n"
+    )
+    assert IngestionJobs._reprocess_fingerprint(command=same_as_job) == (
+        "workspace-a\nversion-a\nsame_as_job\njob-a"
+    )
 
 
 @dataclass
@@ -138,9 +233,7 @@ def test_milestone_two_submission_snapshots_the_pinned_pdf_configuration() -> No
     )
     extraction = PdfExtractionConfiguration.milestone_two()
 
-    assert submission.parser_configuration_id == (
-        "pdf-parser-pypdf-6-14-2-plain-layout-v1"
-    )
+    assert submission.parser_configuration_id == ("pdf-parser-pypdf-6-14-2-plain-layout-v1")
     assert submission.chunking_configuration.id == "chunking-m2-pdf-pypdf-6-14-2-v1"
     assert submission.normalizer_configuration_id == extraction.normalizer_version
     assert submission.chunking_configuration.parser_version == extraction.parser_version

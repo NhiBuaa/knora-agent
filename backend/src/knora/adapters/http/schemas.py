@@ -59,7 +59,7 @@ class IngestionJobStatusResponse(BaseModel):
 
 
 class ReprocessRequest(BaseModel):
-    config_mode: Literal["same_as_job", "current"]
+    config_mode: Literal["same_as_job", "current", "deployed"]
     config_source_job_id: str | None = None
 
 
@@ -81,6 +81,9 @@ class DocumentResponse(BaseModel):
     serving_state: Literal["unavailable", "current", "previous"]
     ingestion_job_id: str | None = None
     ingestion_status: str | None = None
+    active_embedding_configuration_id: str | None = None
+    embedding_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
+    reprocess_supported: bool = False
 
 
 class DocumentListResponse(BaseModel):
