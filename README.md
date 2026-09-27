@@ -277,15 +277,35 @@ python -m venv .venv
 npm --prefix frontend ci
 ```
 
-If Ollama is not already running, start it in a separate PowerShell session. Pull the embedding model and confirm the local endpoint responds:
+If Ollama is not already running, start it in a separate PowerShell window and keep that
+window open:
 
 ```powershell
 ollama serve
+```
+
+In the repository terminal, pull the embedding model and confirm the local endpoint responds:
+
+```powershell
 ollama pull qwen3-embedding:0.6b
 Invoke-RestMethod http://127.0.0.1:11434/api/tags
 ```
 
 On a standard Windows Ollama installation the service may already be running, so `ollama serve` is only needed when no local endpoint is active.
+
+When GPU embedding works, keep `KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11434` in
+`.env`. Confirm the model can embed before starting Knora:
+
+```powershell
+$result = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:11434/api/embed `
+    -ContentType 'application/json' `
+    -Body '{"model":"qwen3-embedding:0.6b","input":["Knora dev check"],"truncate":false}'
+@($result.embeddings[0]).Count
+```
+
+The result must be `1024`. If this request instead fails with a CUDA error, use the
+[CPU-only Ollama fallback](docs/runbooks/local-ollama.md#prerequisites) on port 11435 and
+set `KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11435` in `.env` before running the launcher.
 
 ### Configure `.env`
 
