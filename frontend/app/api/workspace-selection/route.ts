@@ -12,8 +12,12 @@ import {
 } from "@/lib/auth/workspace-preference";
 
 function sameOrigin(request: Request): boolean {
+  const internal = new URL(request.url);
+  const host = request.headers.get("host") ?? internal.host;
+  const protocol =
+    request.headers.get("x-forwarded-proto") ?? internal.protocol.slice(0, -1);
   return (
-    request.headers.get("origin") === new URL(request.url).origin &&
+    request.headers.get("origin") === `${protocol}://${host}` &&
     request.headers.get("sec-fetch-site") !== "cross-site"
   );
 }
