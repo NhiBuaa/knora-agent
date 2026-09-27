@@ -11,15 +11,16 @@ This is the stable demo/acceptance path. For day-to-day editing with FastAPI aut
 - Ollama installed on Windows with `qwen3-embedding:0.6b` pulled. The download can be large. Keep Ollama bound to localhost.
 - Existing Keycloak configuration for browser sign-in. The launcher does not create or change a realm.
 
-From PowerShell, start Ollama if it is not already running, then pull and inspect the model:
+From PowerShell, check whether Ollama is already running:
 
 ```powershell
-ollama serve
-ollama pull qwen3-embedding:0.6b
 Invoke-RestMethod http://127.0.0.1:11434/api/tags
 ```
 
-Use a second PowerShell session if `ollama serve` stays in the foreground. The launcher verifies `/api/tags`, `/api/show`, and a 1024-value `/api/embed` response. It resolves the exact model digest into one immutable Knora profile. API and worker startup are pinned to that profile ID, and embedding calls recheck the digest before work.
+If the request succeeds, skip `ollama serve`; a second server cannot bind port 11434.
+If it cannot connect, run `ollama serve` in another PowerShell window and leave it open.
+Then run `ollama pull qwen3-embedding:0.6b` in the repository terminal. The launcher verifies
+`/api/tags`, `/api/show`, and a 1024-value `/api/embed` response. It resolves the exact model digest into one immutable Knora profile. API and worker startup are pinned to that profile ID, and embedding calls recheck the digest before work.
 
 If a GPU runner fails, start a separate CPU-only Ollama endpoint in another PowerShell session instead of changing the default service:
 
