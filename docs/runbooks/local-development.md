@@ -13,7 +13,8 @@ Windows host
 
 Docker Desktop
 ├── PostgreSQL / pgvector
-└── MinIO
+├── MinIO
+└── Keycloak (knora-dev realm)
 ```
 
 The development launcher uses the dedicated `knora_dev` database by default. It does not reuse the `knora_issue103_demo` database from the stable #103 demo launcher.
@@ -40,6 +41,17 @@ KNORA_OBJECT_STORE_S3_ACCESS_KEY=<local secret>
 KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
 ```
 
+Generate a random session secret and put it in `.env` as `SESSION_SECRET=<generated value>`:
+
+```powershell
+[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+The daily launcher starts the bundled `knora-dev` Keycloak realm and sets both frontend and
+backend OIDC endpoints. Its public `knora-web` client allows
+`http://127.0.0.1:3000/api/auth/callback`. The local login is `m5-user` /
+`m5-user-password`. These are development credentials; do not use this realm for production.
+
 Keep Ollama and Docker Desktop running before starting Knora. Root `.env` is loaded once at launcher startup; restart the development launcher after changing `.env`.
 
 ## Start daily development
@@ -60,19 +72,21 @@ The development launcher:
 
 1. loads root `.env` without overwriting explicit process environment values;
 2. verifies `qwen3-embedding:0.6b`, exact 1024-dimensional embeddings, immutable profile resolution and the Windows PDF Job Object safety path;
-3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` Compose project and waits for storage readiness;
+3. starts PostgreSQL, MinIO and Keycloak through Docker Compose under the `knora-dev` Compose project and waits for readiness;
 4. creates/migrates the `knora_dev` database;
 5. starts FastAPI with Uvicorn auto-reload for `backend/src/knora`;
 6. starts the ingestion worker in `--dev-watch` mode;
 7. starts Next.js with its normal development server and Fast Refresh;
 8. stays in the foreground as the supervisor for those three host processes.
 
-Press `Ctrl+C` to stop API, worker and frontend. PostgreSQL and MinIO intentionally remain running so the next development start is faster.
+Press `Ctrl+C` to stop API, worker and frontend. PostgreSQL, MinIO and Keycloak intentionally remain running so the next development start is faster.
 
-If you need to free ports 5432/9000 before switching to another local topology, stop the development storage services explicitly:
+Before running the isolated M5 E2E Compose workflow, stop the daily services. Both
+projects use host ports 5432, 9000 and 8180; the E2E readiness script refuses to reset
+its own fixtures while the daily project is running. The daily volumes remain intact:
 
 ```powershell
-docker compose -p knora-dev stop postgres minio
+docker compose -f docker-compose.yml -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev
 ```
 
 Routine shutdown does not remove the development volumes.

@@ -264,7 +264,7 @@ Question / Conversation Turn
 - Docker Desktop running Linux containers
 - Ollama for Windows
 - `qwen3-embedding:0.6b` pulled locally
-- a Keycloak realm and `knora-web` OIDC client for browser sign-in (the repository includes a local test realm)
+- the bundled `knora-dev` Keycloak realm for local browser sign-in
 
 ### Install backend and frontend dependencies
 
@@ -287,23 +287,6 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 
 On a standard Windows Ollama installation the service may already be running, so `ollama serve` is only needed when no local endpoint is active.
 
-### Start Keycloak for browser sign-in
-
-For a local test account, start the repository's **test-only** Keycloak realm from the repository root:
-
-```powershell
-docker compose -f docker-compose.yml -f docker-compose.m5-e2e.yml -p knora-dev up -d --wait keycloak-m5-e2e
-Invoke-RestMethod http://127.0.0.1:8180/realms/m5-e2e/.well-known/openid-configuration
-```
-
-The second command should return an `issuer` of `http://127.0.0.1:8180/realms/m5-e2e`.
-This realm includes a public `knora-web` client with the callback
-`http://127.0.0.1:3000/api/auth/callback` and the test account `m5-user` /
-`m5-user-password`. It is for local testing only. If you already have a Keycloak realm,
-use that instead and configure its `knora-web` client with the same callback.
-Start Keycloak again after restarting Docker Desktop if it is no longer running;
-`start-dev.ps1` does not start Keycloak.
-
 ### Configure `.env`
 
 Copy the tracked template to the gitignored root `.env`:
@@ -321,6 +304,15 @@ KNORA_OBJECT_STORE_S3_ACCESS_KEY=<local secret>
 KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
 ```
 
+Generate a random `SESSION_SECRET` in PowerShell and add it to `.env`:
+
+```powershell
+[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+Use the output as `SESSION_SECRET=<generated value>`. Keep this value and the MinIO credentials
+in the gitignored `.env`; do not paste them into logs or commit them.
+
 The launcher loads root `.env` automatically before starting FastAPI, the worker and Next.js. A new terminal or machine restart does not require re-entering the same `$env:...` assignments.
 
 Local precedence is:
@@ -335,33 +327,12 @@ application defaults
 
 Do not manually pin `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID` for the normal local flow. The launcher resolves the installed Ollama model digest and pins the derived profile at runtime.
 
-For the repository's local test realm, set these values in `.env`:
-
-```dotenv
-KEYCLOAK_AUTHORIZATION_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/auth
-KEYCLOAK_TOKEN_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token
-KEYCLOAK_JWKS_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/certs
-KEYCLOAK_ISSUER=http://127.0.0.1:8180/realms/m5-e2e
-KEYCLOAK_AUDIENCE=knora-web
-KEYCLOAK_CLIENT_ID=knora-web
-KEYCLOAK_CLIENT_SECRET=
-KEYCLOAK_REDIRECT_URI=http://127.0.0.1:3000/api/auth/callback
-KNORA_KEYCLOAK_ISSUER=http://127.0.0.1:8180/realms/m5-e2e
-KNORA_KEYCLOAK_AUDIENCE=knora-web
-KNORA_KEYCLOAK_JWKS_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/certs
-```
-
-Generate a local `SESSION_SECRET` in PowerShell and add it to `.env` without printing it
-in logs or committing the file:
-
-```powershell
-[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
-```
-
-Use the output as `SESSION_SECRET=<generated value>`. For another realm, replace the realm
-URL and use that client's ID, audience and secret if it is confidential. The backend and
-frontend issuer must match the issuer returned by Keycloak discovery. Without
-`KEYCLOAK_AUTHORIZATION_URL`, browser login returns `OIDC_NOT_CONFIGURED`.
+`start-dev.ps1` starts Keycloak with the bundled `knora-dev` realm and sets the matching
+frontend/backend OIDC values at runtime. The realm includes the public `knora-web` client,
+the callback `http://127.0.0.1:3000/api/auth/callback`, and local test account
+`m5-user` / `m5-user-password`. No manual `KEYCLOAK_*` or `KNORA_KEYCLOAK_*` entries
+are needed for this daily launcher. The same realm definition is used by M5 E2E, whose
+database, Compose project and fault controls remain isolated from daily development.
 
 ## Daily local development
 
@@ -371,16 +342,19 @@ After completing the setup above, use the dedicated development supervisor for n
 .\scripts\start-dev.ps1
 ```
 
-It uses the same Windows-host + Docker storage topology, but creates a separate `knora_dev` database and optimizes the edit-run loop:
+It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, creates the
+`knora_dev` database, and optimizes the edit-run loop:
 
 - FastAPI runs with Uvicorn auto-reload for `backend/src/knora`;
 - the ingestion worker watches Python source and restarts only at a safe job boundary;
 - if a worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
 - Next.js keeps its normal Fast Refresh / HMR behavior;
-- PostgreSQL, MinIO and Ollama do not restart for ordinary source edits;
+- PostgreSQL, MinIO, Keycloak and Ollama do not restart for ordinary source edits;
 - unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
 
-`Ctrl+C` stops the API, worker and frontend supervisor children; PostgreSQL and MinIO remain running for a faster next start. Root `.env` is loaded at launcher startup, so restart `start-dev.ps1` after changing `.env`.
+`Ctrl+C` stops the API, worker and frontend supervisor children; PostgreSQL, MinIO and
+Keycloak remain running for a faster next start. Root `.env` is loaded at launcher startup,
+so restart `start-dev.ps1` after changing `.env`.
 
 Use `start-ollama-demo.ps1` instead when you need the stable #103 demo/acceptance runtime without source watchers. See [Local development on Windows](docs/runbooks/local-development.md) for the exact reload and shutdown behavior.
 

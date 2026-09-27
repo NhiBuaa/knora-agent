@@ -18,6 +18,61 @@ MODEL = "qwen3-embedding:0.6b"
 DIGEST = "sha256:" + "b" * 64
 
 
+def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
+    root = SCRIPT.parents[1]
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(root / "docker-compose.yml"),
+            "-f",
+            str(root / "docker-compose.dev.yml"),
+            "config",
+            "--format",
+            "json",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    services = json.loads(result.stdout)["services"]
+    assert "keycloak-dev" in services
+    assert services["keycloak-dev"]["ports"][0]["published"] == "8180"
+    assert "KNORA_M5_E2E_FAULTS_ENABLED" not in services["api"]["environment"]
+    assert Path(services["keycloak-dev"]["volumes"][0]["source"]) == (
+        root / "test" / "fixtures" / "keycloak" / "dev-realm.json"
+    )
+    realm = json.loads((root / "test" / "fixtures" / "keycloak" / "dev-realm.json").read_text())
+    assert realm["realm"] == "knora-dev"
+    client = next(client for client in realm["clients"] if client["clientId"] == "knora-web")
+    assert client["redirectUris"] == ["http://127.0.0.1:3000/api/auth/callback"]
+
+    e2e = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(root / "docker-compose.yml"),
+            "-f",
+            str(root / "docker-compose.dev.yml"),
+            "-f",
+            str(root / "docker-compose.m5-e2e.yml"),
+            "config",
+            "--format",
+            "json",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    e2e_services = json.loads(e2e.stdout)["services"]
+    assert e2e_services["api"]["environment"]["KNORA_M5_E2E_FAULTS_ENABLED"] == "true"
+    assert e2e_services["api"]["environment"]["KNORA_KEYCLOAK_ISSUER"] == (
+        "http://127.0.0.1:8180/realms/knora-dev"
+    )
+
+
 def _powershell() -> str:
     executable = shutil.which("powershell") or shutil.which("pwsh")
     if executable is None:
@@ -103,3 +158,4 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
     assert "PRECHECK_OK" in result.stdout
     assert "API_URL=http://127.0.0.1:8765" in result.stdout
     assert "OIDC_REDIRECT_URI=http://127.0.0.1:8766/api/auth/callback" in result.stdout
+    assert "OIDC_ISSUER=http://127.0.0.1:8180/realms/knora-dev" in result.stdout

@@ -1,7 +1,7 @@
 {
-  "realm": "m5-e2e",
+  "realm": "knora-dev",
   "enabled": true,
-  "displayName": "Knora M5 E2E (test only)",
+  "displayName": "Knora Local Development",
   "registrationAllowed": false,
   "verifyEmail": false,
   "loginWithEmailAllowed": false,
@@ -9,7 +9,7 @@
   "clients": [
     {
       "clientId": "knora-web",
-      "name": "Knora Web M5 E2E (test only)",
+      "name": "Knora Web Local Development",
       "enabled": true,
       "publicClient": true,
       "protocol": "openid-connect",

@@ -16,6 +16,10 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $backendWatchRoot = 'backend\src\knora'
 $workerRestartExitCode = 75
 $composeProject = 'knora-dev'
+$composeFiles = @(
+    '-f', (Join-Path $repoRoot 'docker-compose.yml'),
+    '-f', (Join-Path $repoRoot 'docker-compose.dev.yml')
+)
 
 function Fail([string]$Code) {
     [Console]::Error.WriteLine($Code)
@@ -100,15 +104,24 @@ $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
 $env:KNORA_EMBEDDING_PROVIDER = 'ollama'
 $env:KNORA_GENERATION_PROVIDER = 'deterministic-local'
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
+$env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
+$devIssuer = 'http://127.0.0.1:8180/realms/knora-dev'
+$devOidc = "$devIssuer/protocol/openid-connect"
+$env:KEYCLOAK_AUTHORIZATION_URL = "$devOidc/auth"
+$env:KEYCLOAK_TOKEN_URL = "$devOidc/token"
+$env:KEYCLOAK_JWKS_URL = "$devOidc/certs"
+$env:KEYCLOAK_ISSUER = $devIssuer
+$env:KEYCLOAK_CLIENT_ID = 'knora-web'
+$env:KEYCLOAK_AUDIENCE = 'knora-web'
+$env:KEYCLOAK_CLIENT_SECRET = ''
+$env:KNORA_KEYCLOAK_ISSUER = $devIssuer
+$env:KNORA_KEYCLOAK_AUDIENCE = 'knora-web'
+$env:KNORA_KEYCLOAK_JWKS_URL = "$devOidc/certs"
 $appOrigin = "http://127.0.0.1:$FrontendPort"
-if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_REDIRECT_URI) {
-    $env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
-}
-if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP_ORIGIN) {
-    $env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
-}
+$env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
+$env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
 $env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
@@ -148,7 +161,10 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
 Write-Output "PRECHECK_OK $profileId"
 Write-Output "API_URL=$env:KNORA_API_URL"
 Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
+Write-Output "OIDC_ISSUER=$devIssuer"
 if ($PreflightOnly) { return }
+
+if (-not $env:SESSION_SECRET) { Fail 'SESSION_SECRET_REQUIRED' }
 
 $minioAccessKey = $env:KNORA_CANONICAL_MINIO_ACCESS_KEY
 $minioSecretKey = $env:KNORA_CANONICAL_MINIO_SECRET_KEY
@@ -168,15 +184,15 @@ if (-not $env:KNORA_OBJECT_STORE_S3_REGION) { $env:KNORA_OBJECT_STORE_S3_REGION 
 
 Push-Location $repoRoot
 try {
-    docker compose -p $composeProject up -d --wait postgres minio | Out-Null
+    docker compose @composeFiles -p $composeProject up -d --wait postgres minio keycloak-dev | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'STORAGE_START_FAILED' }
-    docker compose -p $composeProject run --rm --no-deps minio-init | Out-Null
+    docker compose @composeFiles -p $composeProject run --rm --no-deps minio-init | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'OBJECT_STORE_INIT_FAILED' }
 
-    $existing = docker compose -p $composeProject exec -T postgres psql -U knora -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DatabaseName'"
+    $existing = docker compose @composeFiles -p $composeProject exec -T postgres psql -U knora -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DatabaseName'"
     if ($LASTEXITCODE -ne 0) { Fail 'DATABASE_CHECK_FAILED' }
     if (($existing | Out-String).Trim() -ne '1') {
-        docker compose -p $composeProject exec -T postgres psql -U knora -d postgres -c "CREATE DATABASE $DatabaseName" | Out-Null
+        docker compose @composeFiles -p $composeProject exec -T postgres psql -U knora -d postgres -c "CREATE DATABASE $DatabaseName" | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail 'DATABASE_CREATE_FAILED' }
     }
     & $PythonExe -m alembic -c backend/alembic.ini upgrade head | Out-Null

@@ -2,17 +2,19 @@ $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $composeFiles = @(
+    '-p', 'knora-m5-e2e',
     '-f', (Join-Path $repositoryRoot 'docker-compose.yml'),
+    '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'),
     '-f', (Join-Path $repositoryRoot 'docker-compose.m5-e2e.yml')
 )
 
 & docker compose @composeFiles config --quiet
 if ($LASTEXITCODE -ne 0) {
-    throw 'The production compose file and M5 E2E overlay must form a valid Compose configuration.'
+    throw 'The base, dev and M5 E2E Compose files must form a valid configuration.'
 }
 
 $overlayPath = Join-Path $repositoryRoot 'docker-compose.m5-e2e.yml'
-$realmPath = Join-Path $repositoryRoot 'test\fixtures\keycloak\m5-realm.json'
+$realmPath = Join-Path $repositoryRoot 'test\fixtures\keycloak\dev-realm.json'
 if (-not (Test-Path -LiteralPath $overlayPath -PathType Leaf)) {
     throw "Missing M5 E2E Compose overlay: $overlayPath"
 }
@@ -21,24 +23,32 @@ if (-not (Test-Path -LiteralPath $realmPath -PathType Leaf)) {
 }
 
 $config = (& docker compose @composeFiles config --format json | ConvertFrom-Json)
-if (-not $config.services.'keycloak-m5-e2e') {
-    throw 'The Compose overlay must define the keycloak-m5-e2e service.'
+if (-not $config.services.'keycloak-dev') {
+    throw 'The dev Compose overlay must define the keycloak-dev service.'
 }
 
-$publishedPorts = @($config.services.'keycloak-m5-e2e'.ports)
+$publishedPorts = @($config.services.'keycloak-dev'.ports)
 $hasExpectedPort = $publishedPorts | Where-Object {
     $_.published -eq 8180 -and $_.target -eq 8080 -and $_.host_ip -eq '127.0.0.1'
 }
 if (-not $hasExpectedPort) {
-    throw 'keycloak-m5-e2e must publish 127.0.0.1:8180 to container port 8080.'
+    throw 'keycloak-dev must publish 127.0.0.1:8180 to container port 8080.'
 }
 
-$keycloakVolume = 'm5-e2e-verification_keycloak_m5_e2e_data'
-& docker compose @composeFiles stop keycloak-m5-e2e
+$devServices = @(& docker ps --filter 'label=com.docker.compose.project=knora-dev' --filter 'status=running' --format '{{.ID}}')
+if ($LASTEXITCODE -ne 0) {
+    throw 'Could not inspect the daily development Compose project.'
+}
+if ($devServices.Count -gt 0) {
+    throw 'Stop daily development services before M5 E2E: docker compose -f docker-compose.yml -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev'
+}
+
+$keycloakVolume = 'knora-m5-e2e_keycloak_dev_data'
+& docker compose @composeFiles stop keycloak-dev
 if ($LASTEXITCODE -ne 0) {
     throw 'The M5 E2E Keycloak service could not be stopped for realm reset.'
 }
-& docker compose @composeFiles rm -f keycloak-m5-e2e
+& docker compose @composeFiles rm -f keycloak-dev
 if ($LASTEXITCODE -ne 0) {
     throw 'The M5 E2E Keycloak service could not be removed for realm reset.'
 }
@@ -53,7 +63,7 @@ if ($volumeName) {
     }
 }
 
-& docker compose @composeFiles up -d --build postgres minio minio-init api keycloak-m5-e2e
+& docker compose @composeFiles up -d --build postgres minio minio-init api keycloak-dev
 if ($LASTEXITCODE -ne 0) {
     throw 'The M5 E2E Compose services did not start.'
 }
@@ -72,7 +82,7 @@ function Wait-ForHttpSuccess([string]$uri, [string]$description) {
     throw "$description did not return HTTP 200."
 }
 
-$discovery = Wait-ForHttpSuccess 'http://127.0.0.1:8180/realms/m5-e2e/.well-known/openid-configuration' 'Keycloak discovery'
+$discovery = Wait-ForHttpSuccess 'http://127.0.0.1:8180/realms/knora-dev/.well-known/openid-configuration' 'Keycloak discovery'
 $apiHealth = Wait-ForHttpSuccess 'http://127.0.0.1:8000/health' 'API health endpoint'
 
 $previousErrorActionPreference = $ErrorActionPreference
@@ -95,13 +105,13 @@ if ($bootstrapOutput -ne '{"outcome": "provisioned", "workspaces": ["m5-other-wo
     throw 'The M5 E2E workspace bootstrap command returned an unexpected sanitized result.'
 }
 
-$tokenResponse = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+$tokenResponse = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
     client_id = 'knora-web'
     username = 'm5-operator'
     password = 'm5-operator-password'
 }
-$userToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+$userToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
     client_id = 'knora-web'
     username = 'm5-user'
@@ -129,7 +139,7 @@ if ($claims.capabilities -isnot [Array] -or ((@($claims.capabilities) | Sort-Obj
     throw 'The operator fixture token must contain exactly its approved capabilities.'
 }
 
-$deleteUserToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+$deleteUserToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
     client_id = 'knora-web'
     username = 'm5-delete-user'
@@ -145,7 +155,7 @@ if ($deleteUserClaims.workspace_id -ne 'm5-workspace' -or $deleteUserClaims.work
     throw 'The delete-user fixture token must contain exactly its approved capabilities.'
 }
 
-$otherWorkspaceToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+$otherWorkspaceToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
     client_id = 'knora-web'
     username = 'm5-other-workspace'
@@ -170,7 +180,7 @@ if ($crossWorkspaceStatus -ne 403) {
     throw "The other-workspace operator bearer request must return HTTP 403, got $crossWorkspaceStatus."
 }
 
-$noOperatorToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token' -Body @{
+$noOperatorToken = Invoke-RestMethod -Method Post -ContentType 'application/x-www-form-urlencoded' -Uri 'http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/token' -Body @{
     grant_type = 'password'
     client_id = 'knora-web'
     username = 'm5-no-operator'

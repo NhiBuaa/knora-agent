@@ -1,0 +1,24 @@
+services:
+  keycloak-dev:
+    image: quay.io/keycloak/keycloak:26.3.3
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KNORA_DEV_KEYCLOAK_ADMIN_USERNAME:-knora-dev-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD:-knora-dev-admin-password}
+    ports:
+      - "127.0.0.1:8180:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/knora-dev/.well-known/openid-configuration HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && grep -q '200 OK' <&3
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    volumes:
+      - ./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro
+      - keycloak_dev_data:/opt/keycloak/data
+
+volumes:
+  keycloak_dev_data:
