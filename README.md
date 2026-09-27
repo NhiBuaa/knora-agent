@@ -4,7 +4,7 @@
 
 It is built around backend and applied-AI engineering concerns that are easy to hide in a simple chatbot demo: durable ingestion, versioned retrieval, evidence provenance, workspace isolation, reproducible evaluation, and human-authorized external actions.
 
-> **Current state:** the cited-RAG, production-shaped ingestion, hybrid retrieval/evaluation, human-approved tool slices, durable Conversation backend, and Ollama-backed PDF re-index path are implemented on `main`. The product UI/auth refinement and model-backed answer-quality acceptance are still in progress. No hosted production deployment is claimed.
+> **Current state:** the cited-RAG, production-shaped ingestion, hybrid retrieval/evaluation, human-approved tool slices, durable Conversation backend, and Ollama-backed PDF re-index path are implemented on `main`. The workspace and Conversation UI is implemented; model-backed answer-quality acceptance is still in progress. No hosted production deployment is claimed.
 
 ## Why Knora
 
@@ -81,14 +81,14 @@ The repository also contains a Next.js application with:
 - document list/detail and upload flows;
 - archive/unarchive controls;
 - document embedding-readiness and re-index status;
-- question answering over synchronous REST or staged SSE progress;
-- distinct final-answer, refusal, failure and interruption states;
+- Workspace collection, Documents and durable Conversation/Turn views;
+- final-answer, refusal, failure and interruption states for persisted Turns;
 - citation inspection from server-projected evidence;
 - read-only M4 lifecycle presentation;
 - operator views for traces, evaluation observations and operational state;
 - a Keycloak OIDC BFF/session boundary that keeps bearer credentials out of browser JavaScript.
 
-The workspace-centric Conversation UI/auth refinement tracked under Product #109 is still being integrated; backend Conversation contracts are already durable.
+The private browser app starts at `/workspaces`. An owned Workspace opens at `/workspaces/{workspace_id}`, with Documents and Conversations beneath it. Conversations are created by an explicit action, and Turns and cited results are read from the durable backend. The former `/app/*` product routes are no longer served. The Keycloak callback validates OIDC state, nonce and PKCE; Workspace selection checks backend ownership and uses the signed browser preference only as a hint. Archived Workspaces remain readable until restored.
 
 ## Architecture
 

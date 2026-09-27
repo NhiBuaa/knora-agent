@@ -1,12 +1,29 @@
+// @vitest-environment node
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createAuthorizationTransaction,
   decodeAuthorizationTransaction,
   encodeAuthorizationTransaction,
+  encodeSession,
+  decodeSession,
 } from "@/lib/auth/session";
 
 describe("OIDC authorization transaction", () => {
   afterEach(() => vi.useRealTimers());
+
+  it("keeps the validated issuer with the server-only session", async () => {
+    const encoded = await encodeSession({
+      issuer: "https://id.example/realm",
+      subject: "alice",
+      accessToken: "private-token",
+      workspaceIds: [],
+      capabilities: [],
+    });
+    const decoded = await decodeSession(encoded);
+    expect(decoded?.issuer).toBe("https://id.example/realm");
+    expect(decoded?.accessToken).toBe("private-token");
+  });
 
   it("creates a state, nonce, and PKCE verifier bound to one callback", async () => {
     const transaction = createAuthorizationTransaction(

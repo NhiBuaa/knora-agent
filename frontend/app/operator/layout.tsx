@@ -1,6 +1,10 @@
+import React from "react";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { ThemeControl } from "@/components/ui/ThemeControl";
+import { readThemePreference, THEME_COOKIE_NAME } from "@/lib/theme";
 import { getSession } from "../../lib/auth/session";
-import { selectWorkspace } from "../../lib/auth/workspace";
+import { readEntryWorkspace } from "../../lib/auth/workspace";
 
 export default async function OperatorLayout({
   children,
@@ -16,7 +20,26 @@ export default async function OperatorLayout({
       </main>
     );
   }
-  if (!selectWorkspace(session.workspaceIds)) {
+  let workspaceId: string | null = null;
+  if (session.issuer) {
+    try {
+      workspaceId = await readEntryWorkspace(
+        {
+          issuer: session.issuer,
+          subject: session.subject,
+          accessToken: session.accessToken,
+        },
+        null,
+      );
+    } catch {
+      return (
+        <main role="status">
+          Operator Workspace unavailable. Retry this page.
+        </main>
+      );
+    }
+  }
+  if (!workspaceId) {
     return (
       <main>
         <h1>Operator access</h1>
@@ -34,6 +57,11 @@ export default async function OperatorLayout({
         <Link href="/operator/evaluations">Evaluations</Link>{" "}
         <Link href="/operator/operations">Operations</Link>
       </nav>
+      <ThemeControl
+        initialPreference={readThemePreference(
+          (await cookies()).get(THEME_COOKIE_NAME)?.value,
+        )}
+      />
       {children}
     </main>
   );

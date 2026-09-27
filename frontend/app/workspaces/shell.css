@@ -1,0 +1,143 @@
+.workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.workspace-shell-desktop {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.workspace-shell-main {
+  width: min(100%, 75rem);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.workspace-shell-main > section {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+}
+
+.document-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.document-row button {
+  margin: 0;
+}
+
+.workspace-shell-main .tool-lifecycle-secondary,
+.workspace-shell-main section[aria-label="Citations"] {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.workspace-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workspace-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.workspace-sidebar li {
+  margin: 0;
+}
+
+.workspace-sidebar-brand {
+  font-family: var(--font-roboto-slab), serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.workspace-sidebar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.workspace-sidebar-row button {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.workspace-sidebar-children {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.75rem 1.5rem;
+}
+
+.workspace-sidebar-children li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-navigation-trigger,
+.mobile-navigation-backdrop {
+  display: none;
+}
+
+@media (max-width: 48rem) {
+  .workspace-shell {
+    display: block;
+  }
+
+  .workspace-shell-desktop {
+    display: none;
+  }
+
+  .mobile-navigation-trigger {
+    display: block;
+    margin: 0.75rem 1rem 0;
+  }
+
+  .mobile-navigation-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgb(0 0 0 / 45%);
+  }
+
+  .mobile-navigation-panel {
+    width: min(20rem, 90vw);
+    height: 100%;
+    overflow: auto;
+    padding: 1rem;
+    background: var(--surface);
+  }
+}

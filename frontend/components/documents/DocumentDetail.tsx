@@ -13,6 +13,7 @@ type Props = {
   workspaceId: string;
   documentId: string;
   capabilities?: string[];
+  workspaceArchived?: boolean;
 };
 function requestId() {
   return typeof crypto.randomUUID === "function"
@@ -24,6 +25,7 @@ export function DocumentDetail({
   workspaceId,
   documentId,
   capabilities = [],
+  workspaceArchived = false,
 }: Props) {
   const [document, setDocument] = useState<DocumentResponse | null>(null);
   const [deletion, setDeletion] =
@@ -120,11 +122,14 @@ export function DocumentDetail({
   }
   if (error && !document) return <p role="alert">{error}</p>;
   if (!document) return <p>Loading document…</p>;
-  const canDelete = capabilities.includes("documents:delete");
-  const canWrite = capabilities.includes("documents:write");
+  const canDelete =
+    capabilities.includes("documents:delete") && !workspaceArchived;
+  const canWrite =
+    capabilities.includes("documents:write") && !workspaceArchived;
   return (
     <article>
       <h1>{document.source_name}</h1>
+      {workspaceArchived && <p role="status">This Workspace is read-only.</p>}
       <dl>
         <dt>Source key</dt>
         <dd>{document.source_key}</dd>
