@@ -102,6 +102,13 @@ $env:KNORA_GENERATION_PROVIDER = 'deterministic-local'
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
+$appOrigin = "http://127.0.0.1:$FrontendPort"
+if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_REDIRECT_URI) {
+    $env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
+}
+if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP_ORIGIN) {
+    $env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
+}
 $env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
@@ -140,6 +147,7 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
 }
 Write-Output "PRECHECK_OK $profileId"
 Write-Output "API_URL=$env:KNORA_API_URL"
+Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
 if ($PreflightOnly) { return }
 
 $minioAccessKey = $env:KNORA_CANONICAL_MINIO_ACCESS_KEY

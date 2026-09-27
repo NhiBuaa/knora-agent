@@ -377,6 +377,8 @@ The launcher:
 
 Useful options include `-PostgresPort`, `-ApiPort`, `-FrontendPort`, `-PythonExe`, `-NoBrowser`, `-OllamaBaseUrl`, and `-EnvFile`. Command-line/process values override `.env` for temporary local changes.
 
+When `-FrontendPort` is supplied, the daily dev launcher also uses that port for the local OIDC callback. Add the resulting callback URI to the Keycloak client's allowed redirects before browser login.
+
 Health and API docs remain available at:
 
 ```text

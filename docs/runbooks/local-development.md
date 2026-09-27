@@ -162,3 +162,5 @@ Development logs are written beneath:
 Each worker restart gets generation-specific log files so the previous generation is not silently overwritten.
 
 Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
+
+An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.

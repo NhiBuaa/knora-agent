@@ -5,11 +5,11 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Iterator
 
 import pytest
 
@@ -67,7 +67,10 @@ def _ollama_server() -> Iterator[str]:
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
 def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_text("# isolated dev launcher test\n", encoding="utf-8")
+    env_file.write_text(
+        "KEYCLOAK_REDIRECT_URI=http://127.0.0.1:3000/api/auth/callback\n",
+        encoding="utf-8",
+    )
 
     with _ollama_server() as url:
         result = subprocess.run(
@@ -87,6 +90,8 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
                 sys.executable,
                 "-ApiPort",
                 "8765",
+                "-FrontendPort",
+                "8766",
             ],
             capture_output=True,
             text=True,
@@ -97,3 +102,4 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
     assert result.returncode == 0, result.stderr
     assert "PRECHECK_OK" in result.stdout
     assert "API_URL=http://127.0.0.1:8765" in result.stdout
+    assert "OIDC_REDIRECT_URI=http://127.0.0.1:8766/api/auth/callback" in result.stdout

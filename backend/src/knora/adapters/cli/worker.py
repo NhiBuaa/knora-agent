@@ -8,6 +8,7 @@ import multiprocessing
 import os
 import socket
 import sys
+from contextlib import suppress
 from pathlib import Path
 from uuid import uuid4
 
@@ -201,7 +202,9 @@ async def run_worker(
     try:
         async with application.router.lifespan_context(application):
             while True:
-                result = await asyncio.to_thread(application.state.ingestion_worker.run_once, worker_id)
+                result = await asyncio.to_thread(
+                    application.state.ingestion_worker.run_once, worker_id
+                )
                 if once:
                     return False
 
@@ -228,10 +231,8 @@ async def run_worker(
     finally:
         if watch_task is not None:
             watch_task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await watch_task
-            except asyncio.CancelledError:
-                pass
 
 
 def main() -> int:

@@ -3,7 +3,8 @@ from pathlib import Path
 from knora.infrastructure.settings import Settings
 
 
-def test_shared_dotenv_ignores_non_backend_entries(tmp_path: Path) -> None:
+def test_shared_dotenv_ignores_non_backend_entries(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("KNORA_DATABASE_URL", raising=False)
     env_file = tmp_path / ".env"
     env_file.write_text(
         "\n".join(
