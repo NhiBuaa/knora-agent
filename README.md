@@ -254,32 +254,7 @@ Question / Conversation Turn
 | Evaluation | Versioned JSONL datasets/manifests, HTTP runners, deterministic and model-backed scoring |
 | Verified local runtime | Windows host for Ollama/API/PDF worker/frontend; Docker Desktop for PostgreSQL/pgvector and MinIO |
 
-## Daily local development
-
-After the one-time `.env` setup, use the dedicated development supervisor for normal coding:
-
-```powershell
-.\scripts\start-dev.ps1
-```
-
-It uses the same Windows-host + Docker storage topology, but creates a separate `knora_dev` database and optimizes the edit-run loop:
-
-- FastAPI runs with Uvicorn auto-reload for `backend/src/knora`;
-- the ingestion worker watches Python source and restarts only at a safe job boundary;
-- if a worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
-- Next.js keeps its normal Fast Refresh / HMR behavior;
-- PostgreSQL, MinIO and Ollama do not restart for ordinary source edits;
-- unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
-
-`Ctrl+C` stops the API, worker and frontend supervisor children; PostgreSQL and MinIO remain running for a faster next start. Root `.env` is loaded at launcher startup, so restart `start-dev.ps1` after changing `.env`.
-
-Use `start-ollama-demo.ps1` instead when you need the stable #103 demo/acceptance runtime without source watchers. See [Local development on Windows](docs/runbooks/local-development.md) for the exact reload and shutdown behavior.
-
-## Stable local demo — Ollama PDF re-index
-
-The verified local real-embedding path is Windows-oriented. It runs Ollama, FastAPI, the PDF ingestion worker and Next.js on the Windows host, while PostgreSQL/pgvector and MinIO stay in Docker Desktop.
-
-This path proves real 1024-dimensional Ollama embedding and retained-PDF re-indexing. It does **not** by itself claim model-backed answer quality; that semantic acceptance remains a separate gate.
+## Local setup (once)
 
 ### Prerequisites
 
@@ -291,7 +266,7 @@ This path proves real 1024-dimensional Ollama embedding and retained-PDF re-inde
 - `qwen3-embedding:0.6b` pulled locally
 - an existing Keycloak configuration if authenticated browser sign-in is required
 
-### 1. Install backend and frontend dependencies
+### Install backend and frontend dependencies
 
 ```powershell
 git clone https://github.com/NhiBuaa/knora-agent.git
@@ -312,7 +287,7 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 
 On a standard Windows Ollama installation the service may already be running, so `ollama serve` is only needed when no local endpoint is active.
 
-### 2. Create persistent local configuration once
+### Configure `.env`
 
 Copy the tracked template to the gitignored root `.env`:
 
@@ -343,9 +318,43 @@ application defaults
 
 Do not manually pin `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID` for the normal local flow. The launcher resolves the installed Ollama model digest and pins the derived profile at runtime.
 
-If browser sign-in is needed, fill the backend `KNORA_KEYCLOAK_*` entries and the frontend `KEYCLOAK_*` / `SESSION_SECRET` entries in the same local `.env`. The launcher does not create or modify a Keycloak realm.
+To sign in through the browser, configure an existing Keycloak realm before running either launcher.
+Set `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`,
+`KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, and `SESSION_SECRET`
+for the frontend. Set `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_AUDIENCE`, and
+`KNORA_KEYCLOAK_JWKS_URL` for the backend. Allow the exact
+`KEYCLOAK_REDIRECT_URI` in the Keycloak client (by default,
+`http://127.0.0.1:3000/api/auth/callback`). The launchers do not create a realm;
+without `KEYCLOAK_AUTHORIZATION_URL`, browser login returns `OIDC_NOT_CONFIGURED`.
 
-### 3. Run the safety/profile preflight
+## Daily local development
+
+After completing the setup above, use the dedicated development supervisor for normal coding:
+
+```powershell
+.\scripts\start-dev.ps1
+```
+
+It uses the same Windows-host + Docker storage topology, but creates a separate `knora_dev` database and optimizes the edit-run loop:
+
+- FastAPI runs with Uvicorn auto-reload for `backend/src/knora`;
+- the ingestion worker watches Python source and restarts only at a safe job boundary;
+- if a worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
+- Next.js keeps its normal Fast Refresh / HMR behavior;
+- PostgreSQL, MinIO and Ollama do not restart for ordinary source edits;
+- unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
+
+`Ctrl+C` stops the API, worker and frontend supervisor children; PostgreSQL and MinIO remain running for a faster next start. Root `.env` is loaded at launcher startup, so restart `start-dev.ps1` after changing `.env`.
+
+Use `start-ollama-demo.ps1` instead when you need the stable #103 demo/acceptance runtime without source watchers. See [Local development on Windows](docs/runbooks/local-development.md) for the exact reload and shutdown behavior.
+
+## Stable local demo — Ollama PDF re-index
+
+The verified local real-embedding path is Windows-oriented. It runs Ollama, FastAPI, the PDF ingestion worker and Next.js on the Windows host, while PostgreSQL/pgvector and MinIO stay in Docker Desktop.
+
+This path proves real 1024-dimensional Ollama embedding and retained-PDF re-indexing. It does **not** by itself claim model-backed answer quality; that semantic acceptance remains a separate gate.
+
+### Run the safety/profile preflight
 
 ```powershell
 .\scripts\start-ollama-demo.ps1 -PreflightOnly
@@ -360,7 +369,7 @@ The preflight starts no database or application service. It fails closed unless 
 
 API and worker startup are pinned to the same resolved embedding profile. A model digest change creates a different profile and requires explicit re-indexing rather than silently reusing old vectors.
 
-### 4. Start the local stack
+### Start the local stack
 
 ```powershell
 .\scripts\start-ollama-demo.ps1
@@ -388,7 +397,7 @@ http://127.0.0.1:8000/docs
 
 The frontend defaults to `http://127.0.0.1:3000`.
 
-### 5. Re-index retained PDFs under the deployed Ollama profile
+### Re-index retained PDFs under the deployed Ollama profile
 
 A fresh launcher database intentionally has no historical Documents. To prove retained-source re-indexing, use reviewed existing PostgreSQL/ObjectStore data.
 
