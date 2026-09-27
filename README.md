@@ -376,7 +376,15 @@ The E2E preparation command is `.\scripts\prepare-local-e2e.ps1`; it uses the sa
 
 ## Daily local development
 
-After completing the setup above, use the dedicated development supervisor for normal coding:
+After completing the setup above, run the preflight first:
+
+```powershell
+.\scripts\start-dev.ps1 -PreflightOnly
+```
+
+It checks the Ollama model, embedding response and PDF worker safety without starting
+PostgreSQL, MinIO, Keycloak, the API or the frontend. When it reports `PRECHECK_OK`,
+start the daily development supervisor:
 
 ```powershell
 .\scripts\start-dev.ps1
