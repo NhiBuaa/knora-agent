@@ -264,7 +264,7 @@ Question / Conversation Turn
 - Docker Desktop running Linux containers
 - Ollama for Windows
 - `qwen3-embedding:0.6b` pulled locally
-- an existing Keycloak configuration if authenticated browser sign-in is required
+- a Keycloak realm and `knora-web` OIDC client for browser sign-in (the repository includes a local test realm)
 
 ### Install backend and frontend dependencies
 
@@ -286,6 +286,23 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 ```
 
 On a standard Windows Ollama installation the service may already be running, so `ollama serve` is only needed when no local endpoint is active.
+
+### Start Keycloak for browser sign-in
+
+For a local test account, start the repository's **test-only** Keycloak realm from the repository root:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.m5-e2e.yml -p knora-dev up -d --wait keycloak-m5-e2e
+Invoke-RestMethod http://127.0.0.1:8180/realms/m5-e2e/.well-known/openid-configuration
+```
+
+The second command should return an `issuer` of `http://127.0.0.1:8180/realms/m5-e2e`.
+This realm includes a public `knora-web` client with the callback
+`http://127.0.0.1:3000/api/auth/callback` and the test account `m5-user` /
+`m5-user-password`. It is for local testing only. If you already have a Keycloak realm,
+use that instead and configure its `knora-web` client with the same callback.
+Start Keycloak again after restarting Docker Desktop if it is no longer running;
+`start-dev.ps1` does not start Keycloak.
 
 ### Configure `.env`
 
@@ -318,14 +335,33 @@ application defaults
 
 Do not manually pin `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID` for the normal local flow. The launcher resolves the installed Ollama model digest and pins the derived profile at runtime.
 
-To sign in through the browser, configure an existing Keycloak realm before running either launcher.
-Set `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`,
-`KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, and `SESSION_SECRET`
-for the frontend. Set `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_AUDIENCE`, and
-`KNORA_KEYCLOAK_JWKS_URL` for the backend. Allow the exact
-`KEYCLOAK_REDIRECT_URI` in the Keycloak client (by default,
-`http://127.0.0.1:3000/api/auth/callback`). The launchers do not create a realm;
-without `KEYCLOAK_AUTHORIZATION_URL`, browser login returns `OIDC_NOT_CONFIGURED`.
+For the repository's local test realm, set these values in `.env`:
+
+```dotenv
+KEYCLOAK_AUTHORIZATION_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/auth
+KEYCLOAK_TOKEN_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token
+KEYCLOAK_JWKS_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/certs
+KEYCLOAK_ISSUER=http://127.0.0.1:8180/realms/m5-e2e
+KEYCLOAK_AUDIENCE=knora-web
+KEYCLOAK_CLIENT_ID=knora-web
+KEYCLOAK_CLIENT_SECRET=
+KEYCLOAK_REDIRECT_URI=http://127.0.0.1:3000/api/auth/callback
+KNORA_KEYCLOAK_ISSUER=http://127.0.0.1:8180/realms/m5-e2e
+KNORA_KEYCLOAK_AUDIENCE=knora-web
+KNORA_KEYCLOAK_JWKS_URL=http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/certs
+```
+
+Generate a local `SESSION_SECRET` in PowerShell and add it to `.env` without printing it
+in logs or committing the file:
+
+```powershell
+[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
+
+Use the output as `SESSION_SECRET=<generated value>`. For another realm, replace the realm
+URL and use that client's ID, audience and secret if it is confidential. The backend and
+frontend issuer must match the issuer returned by Keycloak discovery. Without
+`KEYCLOAK_AUTHORIZATION_URL`, browser login returns `OIDC_NOT_CONFIGURED`.
 
 ## Daily local development
 
