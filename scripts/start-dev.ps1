@@ -108,20 +108,35 @@ $env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
 $devIssuer = 'http://127.0.0.1:8180/realms/knora-dev'
-$devOidc = "$devIssuer/protocol/openid-connect"
-$env:KEYCLOAK_AUTHORIZATION_URL = "$devOidc/auth"
-$env:KEYCLOAK_TOKEN_URL = "$devOidc/token"
-$env:KEYCLOAK_JWKS_URL = "$devOidc/certs"
-$env:KEYCLOAK_ISSUER = $devIssuer
-$env:KEYCLOAK_CLIENT_ID = 'knora-web'
-$env:KEYCLOAK_AUDIENCE = 'knora-web'
-$env:KEYCLOAK_CLIENT_SECRET = ''
-$env:KNORA_KEYCLOAK_ISSUER = $devIssuer
-$env:KNORA_KEYCLOAK_AUDIENCE = 'knora-web'
-$env:KNORA_KEYCLOAK_JWKS_URL = "$devOidc/certs"
+if ($env:KEYCLOAK_ISSUER -and $env:KNORA_KEYCLOAK_ISSUER -and
+    $env:KEYCLOAK_ISSUER -ne $env:KNORA_KEYCLOAK_ISSUER) {
+    Fail 'OIDC_ISSUER_MISMATCH'
+}
+$oidcIssuer = if ($env:KEYCLOAK_ISSUER) {
+    $env:KEYCLOAK_ISSUER
+} elseif ($env:KNORA_KEYCLOAK_ISSUER) {
+    $env:KNORA_KEYCLOAK_ISSUER
+} else {
+    $devIssuer
+}
+$oidcBase = "$oidcIssuer/protocol/openid-connect"
+if (-not $env:KEYCLOAK_ISSUER) { $env:KEYCLOAK_ISSUER = $oidcIssuer }
+if (-not $env:KNORA_KEYCLOAK_ISSUER) { $env:KNORA_KEYCLOAK_ISSUER = $oidcIssuer }
+if (-not $env:KEYCLOAK_AUTHORIZATION_URL) { $env:KEYCLOAK_AUTHORIZATION_URL = "$oidcBase/auth" }
+if (-not $env:KEYCLOAK_TOKEN_URL) { $env:KEYCLOAK_TOKEN_URL = "$oidcBase/token" }
+if (-not $env:KEYCLOAK_JWKS_URL) { $env:KEYCLOAK_JWKS_URL = "$oidcBase/certs" }
+if (-not $env:KNORA_KEYCLOAK_JWKS_URL) { $env:KNORA_KEYCLOAK_JWKS_URL = $env:KEYCLOAK_JWKS_URL }
+if (-not $env:KEYCLOAK_CLIENT_ID) { $env:KEYCLOAK_CLIENT_ID = 'knora-web' }
+if (-not $env:KEYCLOAK_AUDIENCE) { $env:KEYCLOAK_AUDIENCE = $env:KEYCLOAK_CLIENT_ID }
+if (-not $env:KNORA_KEYCLOAK_AUDIENCE) { $env:KNORA_KEYCLOAK_AUDIENCE = $env:KEYCLOAK_AUDIENCE }
+$useBundledKeycloak = $oidcIssuer -eq $devIssuer
 $appOrigin = "http://127.0.0.1:$FrontendPort"
-$env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
-$env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
+if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_REDIRECT_URI) {
+    $env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
+}
+if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP_ORIGIN) {
+    $env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
+}
 $env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
@@ -161,7 +176,7 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
 Write-Output "PRECHECK_OK $profileId"
 Write-Output "API_URL=$env:KNORA_API_URL"
 Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
-Write-Output "OIDC_ISSUER=$devIssuer"
+Write-Output "OIDC_ISSUER=$oidcIssuer"
 if ($PreflightOnly) { return }
 
 if (-not $env:SESSION_SECRET) { Fail 'SESSION_SECRET_REQUIRED' }
@@ -184,7 +199,9 @@ if (-not $env:KNORA_OBJECT_STORE_S3_REGION) { $env:KNORA_OBJECT_STORE_S3_REGION 
 
 Push-Location $repoRoot
 try {
-    docker compose @composeFiles -p $composeProject up -d --wait postgres minio keycloak-dev | Out-Null
+    $storageServices = @('postgres', 'minio')
+    if ($useBundledKeycloak) { $storageServices += 'keycloak-dev' }
+    docker compose @composeFiles -p $composeProject up -d --wait @storageServices | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'STORAGE_START_FAILED' }
     docker compose @composeFiles -p $composeProject run --rm --no-deps minio-init | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'OBJECT_STORE_INIT_FAILED' }

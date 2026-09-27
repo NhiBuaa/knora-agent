@@ -342,23 +342,34 @@ in the gitignored `.env`; do not paste them into logs or commit them.
 
 The launcher loads root `.env` automatically before starting FastAPI, the worker and Next.js. A new terminal or machine restart does not require re-entering the same `$env:...` assignments.
 
-Local precedence is:
+For settings exposed by the daily launcher, non-empty values are resolved in this order:
 
 ```text
-explicit command / process environment
+explicit launcher option (when available)
+        >
+PowerShell process environment
         >
 root .env
         >
-application defaults
+local development default
 ```
+
+The launcher still pins the local database, provider mode, embedding dimensions and E2E
+fault switch for its development topology.
 
 Do not manually pin `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID` for the normal local flow. The launcher resolves the installed Ollama model digest and pins the derived profile at runtime.
 
-`start-dev.ps1` starts Keycloak with the bundled `knora-dev` realm and sets the matching
-frontend/backend OIDC values at runtime. The realm includes the public `knora-web` client,
+With OIDC entries left blank, `start-dev.ps1` starts the bundled `knora-dev` Keycloak realm
+and fills the matching frontend/backend values at runtime. The realm includes the public `knora-web` client,
 the callback `http://127.0.0.1:3000/api/auth/callback`, and local test account
-`m5-user` / `m5-user-password`. No manual `KEYCLOAK_*` or `KNORA_KEYCLOAK_*` entries
-are needed for this daily launcher. The same realm definition is used by M5 E2E, whose
+`m5-user` / `m5-user-password`. Values you explicitly set in `.env` or PowerShell are
+preserved. To use another realm, set its issuer and OIDC URLs in `.env`; the launcher
+then expects that Keycloak to be running and does not start the bundled realm. For a custom
+client, set `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE` and
+`KNORA_KEYCLOAK_AUDIENCE` to the values issued by that realm; copied `.env` files may
+still contain `knora-web`. Frontend and backend issuer values must agree. The
+`docker-compose.dev.yml` API service is reserved for the bundled E2E fixture;
+`start-dev.ps1` runs the daily API on the Windows host. The same dev realm definition is used by M5 E2E, whose
 database, Compose project and fault controls remain isolated from daily development.
 The E2E preparation command is `.\scripts\prepare-local-e2e.ps1`; it uses the same
 `docker-compose.dev.yml` with process-local test settings after the daily services are stopped.

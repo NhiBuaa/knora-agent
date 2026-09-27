@@ -22,6 +22,12 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
     root = SCRIPT.parents[1]
     daily_environment = os.environ.copy()
     daily_environment.pop("KNORA_M5_E2E_FAULTS_ENABLED", None)
+    for name in (
+        "KNORA_KEYCLOAK_ISSUER",
+        "KNORA_KEYCLOAK_AUDIENCE",
+        "KNORA_KEYCLOAK_JWKS_URL",
+    ):
+        daily_environment.pop(name, None)
     result = subprocess.run(
         [
             "docker",
@@ -52,7 +58,7 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
     assert client["redirectUris"] == ["http://127.0.0.1:3000/api/auth/callback"]
 
     e2e_environment = {
-        **os.environ,
+        **daily_environment,
         "KNORA_M5_E2E_FAULTS_ENABLED": "true",
         "KNORA_CANONICAL_MINIO_ACCESS_KEY": "m5-e2e-minio-access",
         "KNORA_CANONICAL_MINIO_SECRET_KEY": "m5-e2e-minio-secret",
@@ -93,9 +99,12 @@ def test_e2e_configuration_check_restores_caller_environment() -> None:
     command = (
         "$env:KNORA_CANONICAL_MINIO_ACCESS_KEY = 'caller-access'; "
         "$env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'; "
+        "$env:KNORA_KEYCLOAK_ISSUER = 'http://127.0.0.1:9999/realms/custom'; "
         "& $env:E2E_PREPARE_SCRIPT -CheckConfigurationOnly; "
         "if ($env:KNORA_CANONICAL_MINIO_ACCESS_KEY -ne 'caller-access' -or "
-        "$env:KNORA_M5_E2E_FAULTS_ENABLED -ne 'false') { throw 'Environment leaked' }; "
+        "$env:KNORA_M5_E2E_FAULTS_ENABLED -ne 'false' -or "
+        "$env:KNORA_KEYCLOAK_ISSUER -ne 'http://127.0.0.1:9999/realms/custom') "
+        "{ throw 'Environment leaked' }; "
         "Write-Output 'CALLER_ENV_RESTORED'"
     )
     result = subprocess.run(
@@ -107,6 +116,7 @@ def test_e2e_configuration_check_restores_caller_environment() -> None:
         timeout=20,
     )
     assert result.returncode == 0, result.stderr
+    assert "E2E_ISSUER=http://127.0.0.1:8180/realms/knora-dev" in result.stdout
     assert "E2E_CONFIG_OK" in result.stdout
     assert "CALLER_ENV_RESTORED" in result.stdout
 
@@ -197,3 +207,134 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
     assert "API_URL=http://127.0.0.1:8765" in result.stdout
     assert "OIDC_REDIRECT_URI=http://127.0.0.1:8766/api/auth/callback" in result.stdout
     assert "OIDC_ISSUER=http://127.0.0.1:8180/realms/knora-dev" in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_respects_explicit_oidc_environment(tmp_path: Path) -> None:
+    issuer = "http://127.0.0.1:8181/realms/custom"
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                f"KEYCLOAK_ISSUER={issuer}",
+                f"KNORA_KEYCLOAK_ISSUER={issuer}",
+                f"KEYCLOAK_AUTHORIZATION_URL={issuer}/protocol/openid-connect/custom-auth",
+                f"KNORA_KEYCLOAK_JWKS_URL={issuer}/protocol/openid-connect/custom-certs",
+                "KEYCLOAK_CLIENT_ID=custom-web",
+                "KEYCLOAK_AUDIENCE=custom-web",
+                "KNORA_KEYCLOAK_AUDIENCE=custom-web",
+                "KEYCLOAK_CLIENT_SECRET=local-secret",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    script = (
+        "& $env:KNORA_TEST_SCRIPT -PreflightOnly -EnvFile $env:KNORA_TEST_ENV_FILE "
+        "-OllamaBaseUrl $env:KNORA_TEST_OLLAMA -PythonExe $env:KNORA_TEST_PYTHON; "
+        '"AUTH_URL=$env:KEYCLOAK_AUTHORIZATION_URL"; '
+        '"BACKEND_JWKS=$env:KNORA_KEYCLOAK_JWKS_URL"; '
+        '"CLIENT_ID=$env:KEYCLOAK_CLIENT_ID"; '
+        '"CLIENT_AUDIENCE=$env:KEYCLOAK_AUDIENCE"; '
+        '"CLIENT_SECRET_SET=$([bool]$env:KEYCLOAK_CLIENT_SECRET)"'
+    )
+    clean_env = os.environ.copy()
+    for key in (
+        "KEYCLOAK_ISSUER",
+        "KNORA_KEYCLOAK_ISSUER",
+        "KEYCLOAK_AUTHORIZATION_URL",
+        "KNORA_KEYCLOAK_JWKS_URL",
+        "KEYCLOAK_CLIENT_ID",
+        "KEYCLOAK_AUDIENCE",
+        "KNORA_KEYCLOAK_AUDIENCE",
+        "KEYCLOAK_CLIENT_SECRET",
+    ):
+        clean_env.pop(key, None)
+    with _ollama_server() as url:
+        result = subprocess.run(
+            [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=25,
+            env={
+                **clean_env,
+                "KNORA_TEST_SCRIPT": str(SCRIPT),
+                "KNORA_TEST_ENV_FILE": str(env_file),
+                "KNORA_TEST_OLLAMA": url,
+                "KNORA_TEST_PYTHON": sys.executable,
+            },
+        )
+    assert result.returncode == 0, result.stderr
+    assert f"OIDC_ISSUER={issuer}" in result.stdout
+    assert f"AUTH_URL={issuer}/protocol/openid-connect/custom-auth" in result.stdout
+    assert f"BACKEND_JWKS={issuer}/protocol/openid-connect/custom-certs" in result.stdout
+    assert "CLIENT_ID=custom-web" in result.stdout
+    assert "CLIENT_AUDIENCE=custom-web" in result.stdout
+    assert "CLIENT_SECRET_SET=True" in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_rejects_mismatched_frontend_and_backend_issuers(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "KEYCLOAK_ISSUER=http://127.0.0.1:8181/realms/one\n"
+        "KNORA_KEYCLOAK_ISSUER=http://127.0.0.1:8181/realms/two\n",
+        encoding="utf-8",
+    )
+    clean_env = os.environ.copy()
+    clean_env.pop("KEYCLOAK_ISSUER", None)
+    clean_env.pop("KNORA_KEYCLOAK_ISSUER", None)
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+        env=clean_env,
+    )
+    assert result.returncode == 2
+    assert "OIDC_ISSUER_MISMATCH" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_imports_dotenv_over_empty_process_value(tmp_path: Path) -> None:
+    issuer = "http://127.0.0.1:8181/realms/custom"
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"KEYCLOAK_ISSUER={issuer}\n", encoding="utf-8")
+    command = (
+        "$env:KEYCLOAK_ISSUER = ''; "
+        "& $env:KNORA_TEST_SCRIPT -PreflightOnly -EnvFile $env:KNORA_TEST_ENV_FILE "
+        "-OllamaBaseUrl $env:KNORA_TEST_OLLAMA -PythonExe $env:KNORA_TEST_PYTHON"
+    )
+    clean_env = os.environ.copy()
+    clean_env.pop("KNORA_KEYCLOAK_ISSUER", None)
+    with _ollama_server() as url:
+        result = subprocess.run(
+            [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=25,
+            env={
+                **clean_env,
+                "KNORA_TEST_SCRIPT": str(SCRIPT),
+                "KNORA_TEST_ENV_FILE": str(env_file),
+                "KNORA_TEST_OLLAMA": url,
+                "KNORA_TEST_PYTHON": sys.executable,
+            },
+        )
+    assert result.returncode == 0, result.stderr
+    assert f"OIDC_ISSUER={issuer}" in result.stdout

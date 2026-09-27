@@ -50,8 +50,12 @@ try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
 [Convert]::ToBase64String($bytes)
 ```
 
-The daily launcher starts the bundled `knora-dev` Keycloak realm and sets both frontend and
-backend OIDC endpoints. Its public `knora-web` client allows
+When OIDC settings are blank, the daily launcher starts the bundled `knora-dev` Keycloak
+realm and fills frontend/backend OIDC endpoints. Explicit `.env` or process values are
+preserved; when the issuer points to another realm, that Keycloak must already be running.
+Set the client ID and both audience values for a custom client. The Compose `api` service
+remains tied to the bundled realm for isolated E2E; daily development runs the API on Windows.
+The bundled realm's public `knora-web` client allows
 `http://127.0.0.1:3000/api/auth/callback`. The local login is `m5-user` /
 `m5-user-password`. These are development credentials; do not use this realm for production.
 
@@ -75,7 +79,7 @@ The development launcher:
 
 1. loads root `.env` without overwriting explicit process environment values;
 2. verifies `qwen3-embedding:0.6b`, exact 1024-dimensional embeddings, immutable profile resolution and the Windows PDF Job Object safety path;
-3. starts PostgreSQL, MinIO and Keycloak through Docker Compose under the `knora-dev` Compose project and waits for readiness;
+3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` project, plus bundled Keycloak when its default realm is selected, and waits for readiness;
 4. creates/migrates the `knora_dev` database;
 5. starts FastAPI with Uvicorn auto-reload for `backend/src/knora`;
 6. starts the ingestion worker in `--dev-watch` mode;

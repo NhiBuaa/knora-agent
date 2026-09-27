@@ -15,6 +15,9 @@ $e2eValues = @{
     KNORA_CANONICAL_MINIO_SECRET_KEY = 'm5-e2e-minio-secret'
     KNORA_M5_E2E_FAULTS_ENABLED = 'true'
     KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS = '1'
+    KNORA_KEYCLOAK_ISSUER = 'http://127.0.0.1:8180/realms/knora-dev'
+    KNORA_KEYCLOAK_AUDIENCE = 'knora-web'
+    KNORA_KEYCLOAK_JWKS_URL = 'http://keycloak-dev:8080/realms/knora-dev/protocol/openid-connect/certs'
 }
 $previousValues = @{}
 foreach ($name in $e2eValues.Keys) {
@@ -39,6 +42,9 @@ $config = (& docker compose @composeFiles config --format json | ConvertFrom-Jso
 if (-not $config.services.'keycloak-dev') {
     throw 'The dev Compose overlay must define the keycloak-dev service.'
 }
+if ($config.services.api.environment.KNORA_KEYCLOAK_ISSUER -ne $e2eValues.KNORA_KEYCLOAK_ISSUER) {
+    throw 'The E2E API must use the bundled development realm.'
+}
 
 $publishedPorts = @($config.services.'keycloak-dev'.ports)
 $hasExpectedPort = $publishedPorts | Where-Object {
@@ -48,6 +54,7 @@ if (-not $hasExpectedPort) {
     throw 'keycloak-dev must publish 127.0.0.1:8180 to container port 8080.'
 }
 if ($CheckConfigurationOnly) {
+    Write-Output "E2E_ISSUER=$($config.services.api.environment.KNORA_KEYCLOAK_ISSUER)"
     Write-Output 'E2E_CONFIG_OK'
     return
 }
