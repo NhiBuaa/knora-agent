@@ -1,25 +1,38 @@
+param([switch]$CheckConfigurationOnly)
+
 $ErrorActionPreference = 'Stop'
 
-$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $composeFiles = @(
     '-p', 'knora-m5-e2e',
     '-f', (Join-Path $repositoryRoot 'docker-compose.yml'),
-    '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'),
-    '-f', (Join-Path $repositoryRoot 'docker-compose.m5-e2e.yml')
+    '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml')
 )
+
+# Restore the caller's environment even if E2E preparation fails.
+$e2eValues = @{
+    KNORA_CANONICAL_MINIO_ACCESS_KEY = 'm5-e2e-minio-access'
+    KNORA_CANONICAL_MINIO_SECRET_KEY = 'm5-e2e-minio-secret'
+    KNORA_M5_E2E_FAULTS_ENABLED = 'true'
+    KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS = '1'
+}
+$previousValues = @{}
+foreach ($name in $e2eValues.Keys) {
+    $previousValues[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+}
+try {
+    foreach ($name in $e2eValues.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $e2eValues[$name], 'Process')
+    }
 
 & docker compose @composeFiles config --quiet
 if ($LASTEXITCODE -ne 0) {
-    throw 'The base, dev and M5 E2E Compose files must form a valid configuration.'
+    throw 'The base and dev Compose files must form a valid configuration.'
 }
 
-$overlayPath = Join-Path $repositoryRoot 'docker-compose.m5-e2e.yml'
 $realmPath = Join-Path $repositoryRoot 'test\fixtures\keycloak\dev-realm.json'
-if (-not (Test-Path -LiteralPath $overlayPath -PathType Leaf)) {
-    throw "Missing M5 E2E Compose overlay: $overlayPath"
-}
 if (-not (Test-Path -LiteralPath $realmPath -PathType Leaf)) {
-    throw "Missing M5 E2E realm fixture: $realmPath"
+    throw "Missing local development realm fixture: $realmPath"
 }
 
 $config = (& docker compose @composeFiles config --format json | ConvertFrom-Json)
@@ -33,6 +46,10 @@ $hasExpectedPort = $publishedPorts | Where-Object {
 }
 if (-not $hasExpectedPort) {
     throw 'keycloak-dev must publish 127.0.0.1:8180 to container port 8080.'
+}
+if ($CheckConfigurationOnly) {
+    Write-Output 'E2E_CONFIG_OK'
+    return
 }
 
 $devServices = @(& docker ps --filter 'label=com.docker.compose.project=knora-dev' --filter 'status=running' --format '{{.ID}}')
@@ -206,3 +223,8 @@ if ($noOperatorStatus -ne 403) {
 }
 
 Write-Output 'M5 E2E Keycloak token claims, API readiness, and authorization-denial validation passed.'
+} finally {
+    foreach ($name in $e2eValues.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $previousValues[$name], 'Process')
+    }
+}

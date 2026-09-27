@@ -1,4 +1,12 @@
 services:
+  api:
+    environment:
+      KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/knora-dev
+      KNORA_KEYCLOAK_AUDIENCE: knora-web
+      KNORA_KEYCLOAK_JWKS_URL: http://keycloak-dev:8080/realms/knora-dev/protocol/openid-connect/certs
+      KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS: ${KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS:-300}
+      KNORA_M5_E2E_FAULTS_ENABLED: ${KNORA_M5_E2E_FAULTS_ENABLED:-false}
+
   keycloak-dev:
     image: quay.io/keycloak/keycloak:26.3.3
     command: start-dev --import-realm

@@ -20,6 +20,8 @@ DIGEST = "sha256:" + "b" * 64
 
 def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
     root = SCRIPT.parents[1]
+    daily_environment = os.environ.copy()
+    daily_environment.pop("KNORA_M5_E2E_FAULTS_ENABLED", None)
     result = subprocess.run(
         [
             "docker",
@@ -35,11 +37,12 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
         capture_output=True,
         text=True,
         check=True,
+        env=daily_environment,
     )
     services = json.loads(result.stdout)["services"]
     assert "keycloak-dev" in services
     assert services["keycloak-dev"]["ports"][0]["published"] == "8180"
-    assert "KNORA_M5_E2E_FAULTS_ENABLED" not in services["api"]["environment"]
+    assert services["api"]["environment"]["KNORA_M5_E2E_FAULTS_ENABLED"] == "false"
     assert Path(services["keycloak-dev"]["volumes"][0]["source"]) == (
         root / "test" / "fixtures" / "keycloak" / "dev-realm.json"
     )
@@ -48,6 +51,13 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
     client = next(client for client in realm["clients"] if client["clientId"] == "knora-web")
     assert client["redirectUris"] == ["http://127.0.0.1:3000/api/auth/callback"]
 
+    e2e_environment = {
+        **os.environ,
+        "KNORA_M5_E2E_FAULTS_ENABLED": "true",
+        "KNORA_CANONICAL_MINIO_ACCESS_KEY": "m5-e2e-minio-access",
+        "KNORA_CANONICAL_MINIO_SECRET_KEY": "m5-e2e-minio-secret",
+        "KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS": "1",
+    }
     e2e = subprocess.run(
         [
             "docker",
@@ -56,8 +66,6 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
             str(root / "docker-compose.yml"),
             "-f",
             str(root / "docker-compose.dev.yml"),
-            "-f",
-            str(root / "docker-compose.m5-e2e.yml"),
             "config",
             "--format",
             "json",
@@ -65,12 +73,42 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
         capture_output=True,
         text=True,
         check=True,
+        env=e2e_environment,
     )
     e2e_services = json.loads(e2e.stdout)["services"]
     assert e2e_services["api"]["environment"]["KNORA_M5_E2E_FAULTS_ENABLED"] == "true"
+    assert e2e_services["minio"]["environment"]["MINIO_ROOT_USER"] == "m5-e2e-minio-access"
+    assert e2e_services["api"]["environment"]["KNORA_OBJECT_STORE_S3_SECRET_KEY"] == (
+        "m5-e2e-minio-secret"
+    )
     assert e2e_services["api"]["environment"]["KNORA_KEYCLOAK_ISSUER"] == (
         "http://127.0.0.1:8180/realms/knora-dev"
     )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local E2E preparation")
+def test_e2e_configuration_check_restores_caller_environment() -> None:
+    root = SCRIPT.parents[1]
+    script = root / "scripts" / "prepare-local-e2e.ps1"
+    command = (
+        "$env:KNORA_CANONICAL_MINIO_ACCESS_KEY = 'caller-access'; "
+        "$env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'; "
+        "& $env:E2E_PREPARE_SCRIPT -CheckConfigurationOnly; "
+        "if ($env:KNORA_CANONICAL_MINIO_ACCESS_KEY -ne 'caller-access' -or "
+        "$env:KNORA_M5_E2E_FAULTS_ENABLED -ne 'false') { throw 'Environment leaked' }; "
+        "Write-Output 'CALLER_ENV_RESTORED'"
+    )
+    result = subprocess.run(
+        [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "E2E_PREPARE_SCRIPT": str(script)},
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "E2E_CONFIG_OK" in result.stdout
+    assert "CALLER_ENV_RESTORED" in result.stdout
 
 
 def _powershell() -> str:

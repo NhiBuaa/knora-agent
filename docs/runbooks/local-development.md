@@ -81,12 +81,34 @@ The development launcher:
 
 Press `Ctrl+C` to stop API, worker and frontend. PostgreSQL, MinIO and Keycloak intentionally remain running so the next development start is faster.
 
-Before running the isolated M5 E2E Compose workflow, stop the daily services. Both
-projects use host ports 5432, 9000 and 8180; the E2E readiness script refuses to reset
-its own fixtures while the daily project is running. The daily volumes remain intact:
+Before running the isolated M5 E2E workflow, stop the daily services. Both projects
+use host ports 5432, 9000 and 8180; the E2E preparation script refuses to reset its
+own fixtures while the daily project is running. The daily volumes remain intact:
 
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev
+```
+
+Prepare the E2E project with the same base and dev Compose files:
+
+```powershell
+.\scripts\prepare-local-e2e.ps1 -CheckConfigurationOnly
+.\scripts\prepare-local-e2e.ps1
+```
+
+The first command checks configuration without starting services. The second temporarily
+sets test-only credentials and enables the E2E fault seam, starts the separate
+`knora-m5-e2e` Compose project, then checks real Keycloak tokens and API authorization.
+It restores the caller's environment when it returns and does not edit root `.env` or
+start Playwright. Run the browser suite
+after its readiness check using the M5 E2E environment values required by
+`frontend/playwright.config.ts`.
+
+When finished, stop the E2E services before restarting daily development:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.dev.yml -p knora-m5-e2e stop postgres minio api keycloak-dev
+.\scripts\start-dev.ps1
 ```
 
 Routine shutdown does not remove the development volumes.

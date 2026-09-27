@@ -333,6 +333,8 @@ the callback `http://127.0.0.1:3000/api/auth/callback`, and local test account
 `m5-user` / `m5-user-password`. No manual `KEYCLOAK_*` or `KNORA_KEYCLOAK_*` entries
 are needed for this daily launcher. The same realm definition is used by M5 E2E, whose
 database, Compose project and fault controls remain isolated from daily development.
+The E2E preparation command is `.\scripts\prepare-local-e2e.ps1`; it uses the same
+`docker-compose.dev.yml` with process-local test settings after the daily services are stopped.
 
 ## Daily local development
 
