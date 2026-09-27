@@ -44,7 +44,10 @@ KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
 Generate a random session secret and put it in `.env` as `SESSION_SECRET=<generated value>`:
 
 ```powershell
-[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+$bytes = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+[Convert]::ToBase64String($bytes)
 ```
 
 The daily launcher starts the bundled `knora-dev` Keycloak realm and sets both frontend and

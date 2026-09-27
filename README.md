@@ -307,7 +307,10 @@ KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
 Generate a random `SESSION_SECRET` in PowerShell and add it to `.env`:
 
 ```powershell
-[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+$bytes = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+[Convert]::ToBase64String($bytes)
 ```
 
 Use the output as `SESSION_SECRET=<generated value>`. Keep this value and the MinIO credentials
