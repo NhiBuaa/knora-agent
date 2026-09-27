@@ -199,7 +199,7 @@ describe("compact UI primitives", () => {
           title="No documents"
           description="Add the first source"
           action={
-            <a href="/app/documents/new" onClick={activated}>
+            <a href="/workspaces/example/documents" onClick={activated}>
               Add document
             </a>
           }

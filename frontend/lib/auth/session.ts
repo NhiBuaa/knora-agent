@@ -10,6 +10,7 @@ import {
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 export type KnoraSession = {
+  issuer?: string;
   subject: string;
   accessToken: string;
   workspaceIds: string[];
@@ -108,6 +109,7 @@ export async function encodeSession(
 ): Promise<string> {
   const expiresAt = session.expiresAt ?? Math.floor(Date.now() / 1000) + 3600;
   return new SignJWT({
+    issuer: session.issuer,
     workspaceIds: session.workspaceIds,
     capabilities: session.capabilities,
     accessToken: session.accessToken,
@@ -133,6 +135,7 @@ export async function decodeSession(
     )
       return null;
     return {
+      issuer: typeof p.issuer === "string" ? p.issuer : undefined,
       subject: p.sub,
       accessToken: p.accessToken,
       workspaceIds: p.workspaceIds.filter(
@@ -229,6 +232,7 @@ export async function exchangeCode(
   if (typeof claims.sub !== "string")
     throw new Error("OIDC identity is missing subject");
   return {
+    issuer,
     subject: claims.sub,
     accessToken: token.access_token,
     workspaceIds: claimStrings(claims.workspace_ids),

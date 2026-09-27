@@ -16,6 +16,7 @@ import type {
   ReprocessResponse,
 } from "@/generated/knora-openapi";
 import { browserRequest } from "@/lib/api/browser-client";
+import { routes } from "@/lib/navigation/routes";
 
 function errorMessage(action: string, status: number) {
   return `Unable to ${action} (${status})`;
@@ -39,6 +40,7 @@ export function DocumentList({
   workspaceArchived?: boolean;
 }) {
   const [documents, setDocuments] = useState<DocumentResponse[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -55,15 +57,23 @@ export function DocumentList({
   const canWrite =
     capabilities.includes("documents:write") && !workspaceArchived;
   const load = useCallback(async () => {
-    const response = await browserRequest(
-      `/v1/workspaces/${encodeURIComponent(workspaceId)}/documents`,
-    );
-    if (!response.ok) {
-      setError(errorMessage("load documents", response.status));
-      return;
+    setLoading(true);
+    try {
+      const response = await browserRequest(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/documents`,
+      );
+      if (!response.ok) {
+        setError(errorMessage("load documents", response.status));
+        return;
+      }
+      const body = (await response.json()) as { documents: DocumentResponse[] };
+      setDocuments(body.documents);
+      setError(null);
+    } catch {
+      setError("Unable to load documents. Retry this page.");
+    } finally {
+      setLoading(false);
     }
-    const body = (await response.json()) as { documents: DocumentResponse[] };
-    setDocuments(body.documents);
   }, [workspaceId]);
   useEffect(() => {
     void load();
@@ -267,12 +277,16 @@ export function DocumentList({
             : ""}
         </p>
       )}
+      {workspaceArchived && <p role="status">This Workspace is read-only.</p>}
+      {loading && <p>Loading documents…</p>}
       {error && <p role="alert">{error}</p>}
-      {!visibleDocuments.length && !error && <p>No documents yet.</p>}
-      <ul>
+      {!loading && !visibleDocuments.length && !error && (
+        <p>No documents yet.</p>
+      )}
+      <ul className="document-list">
         {visibleDocuments.map((document) => (
-          <li key={document.document_id}>
-            <Link href={`/app/documents/${document.document_id}`}>
+          <li key={document.document_id} className="document-row">
+            <Link href={routes.document(workspaceId, document.document_id)}>
               {document.source_name}
             </Link>
             <span>

@@ -63,9 +63,7 @@ describe("theme preference", () => {
         await RootLayout({ children: <main>Knora</main> }),
       );
       expect(markup).toContain("<main>Knora</main>");
-      expect(markup).toContain(
-        `value="${value === "invalid" ? "system" : value}" selected=""`,
-      );
+      expect(markup).not.toContain("Appearance");
       if (value === "light" || value === "dark") {
         expect(markup).toContain(`data-theme="${value}"`);
       } else {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "../../../lib/auth/session";
-import { selectWorkspace } from "../../../lib/auth/workspace";
+import { readEntryWorkspace } from "../../../lib/auth/workspace";
 import { forwardOperatorRequest } from "../../../lib/operator/api";
 
 export async function proxyOperatorPath(
@@ -9,7 +9,24 @@ export async function proxyOperatorPath(
   const session = await getSession();
   if (!session)
     return NextResponse.json({ detail: "UNAUTHENTICATED" }, { status: 401 });
-  const workspaceId = selectWorkspace(session.workspaceIds);
+  if (!session.issuer)
+    return NextResponse.json({ detail: "UNAUTHENTICATED" }, { status: 401 });
+  let workspaceId: string | null;
+  try {
+    workspaceId = await readEntryWorkspace(
+      {
+        issuer: session.issuer,
+        subject: session.subject,
+        accessToken: session.accessToken,
+      },
+      null,
+    );
+  } catch {
+    return NextResponse.json(
+      { detail: "WORKSPACE_RESOLUTION_UNAVAILABLE" },
+      { status: 503 },
+    );
+  }
   if (!workspaceId)
     return NextResponse.json(
       { detail: "WORKSPACE_ACCESS_DENIED" },

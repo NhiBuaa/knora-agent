@@ -11,7 +11,6 @@ export type M5E2EIdentity =
   | "operator"
   | "other-workspace"
   | "no-operator";
-export type M5E2EFaultScenario = "provider_failure" | "stream_interruption";
 export type M5E2EResult = {
   scenario: string;
   identity: M5E2EIdentity;
@@ -138,43 +137,18 @@ export async function loginAs(
       page.getByRole("button", { name: "Submit" }).click(),
     ]);
   }
-  await page.waitForURL("**/app");
-  await page.goto("/app", { waitUntil: "load" });
-  await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  await page.waitForURL(/\/workspaces(?:\/[^/?]+)?(?:\?.*)?$/);
+  await expect(
+    page.getByRole("navigation", { name: "Workspace navigation" }).first(),
+  ).toBeVisible();
   const response = await page.request.get("/api/auth/session");
   expect(response).toBeOK();
   const body = (await response.json()) as {
     session?: { workspaceIds?: unknown; capabilities?: unknown } | null;
   };
   const expected = expectedSessionShapes[identity];
-  expect(body.session?.workspaceIds).toEqual([expected.workspaceId]);
   expect(body.session?.capabilities).toEqual(expect.any(Array));
   expect([...(body.session?.capabilities as string[])].sort()).toEqual(
     [...expected.capabilities].sort(),
   );
-}
-
-export async function armM5E2EFault(
-  page: Page,
-  scenario: M5E2EFaultScenario,
-): Promise<void> {
-  const sessionResponse = await page.request.get("/api/auth/session");
-  expect(sessionResponse).toBeOK();
-  const body = (await sessionResponse.json()) as {
-    session?: { workspaceIds?: unknown } | null;
-  };
-  const workspaceIds = Array.isArray(body.session?.workspaceIds)
-    ? body.session.workspaceIds.filter(
-        (workspaceId): workspaceId is string => typeof workspaceId === "string",
-      )
-    : [];
-  if (workspaceIds.length !== 1)
-    throw new Error(
-      "M5 live E2E session did not expose exactly one Workspace.",
-    );
-
-  const armedResponse = await page.request.post("/api/m5-e2e/faults", {
-    data: { workspace_id: workspaceIds[0], scenario },
-  });
-  if (!armedResponse.ok()) throw new Error("M5 live E2E fault setup failed.");
 }
