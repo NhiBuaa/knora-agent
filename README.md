@@ -424,7 +424,7 @@ Ollama is not required for deterministic tests and structural development. When 
 A minimal backend test setup remains:
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d --wait postgres
 
 Push-Location .\backend
 ..\.venv\Scripts\alembic upgrade head
