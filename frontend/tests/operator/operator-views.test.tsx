@@ -24,6 +24,7 @@ describe("operator views", () => {
     expect(
       screen.getByText("EVALUATION_REPORT_UNAVAILABLE"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Observation failed")).toBeInTheDocument();
   });
 
   it("does not display sensitive provider fields from operational payloads", () => {
@@ -94,7 +95,7 @@ describe("operator views", () => {
           candidate_decisions: [],
           candidates: [],
           chunk_set_ids: [],
-          decision: "answer",
+          decision: "ANSWER",
           embedding_configuration_id: "embed-v1",
           embedding_set_ids: [],
           parsed_markers: [],
@@ -111,5 +112,75 @@ describe("operator views", () => {
 
     expect(screen.getByText("Approved")).toBeInTheDocument();
     expect(screen.getByText("Backend recorded approval")).toBeInTheDocument();
+  });
+
+  it("keeps candidate source locator and measured zero distinct from missing metadata", () => {
+    render(
+      <TraceView
+        trace={{
+          alias_mapping: { E1: "chunk-1" },
+          branch_observation_schema_version: 1,
+          branch_observations: [],
+          candidate_decisions: [{ chunk_id: "chunk-1", reason: "SELECTED" }],
+          candidates: [
+            {
+              chunk_id: "chunk-1",
+              chunk_ordinal: 2,
+              chunk_set_id: "set-1",
+              content: "Evidence text",
+              document_version_id: "version-1",
+              end_line: 9,
+              final_decision: "SELECTED",
+              final_rank: 1,
+              fusion_score: 0,
+              source_key: "manual.pdf",
+              start_line: 7,
+              workspace_id: "ws-1",
+            },
+          ],
+          chunk_set_ids: ["set-1"],
+          decision: "answer",
+          embedding_configuration_id: "embed-v1",
+          embedding_set_ids: [],
+          parsed_markers: ["E1"],
+          provider_metadata: {
+            generation: {
+              cost: {
+                amount_usd: "0.012",
+                currency: "USD",
+                pricing_version: "price-v2",
+              },
+              usage: { prompt_tokens: 10, completion_tokens: 5 },
+            },
+            timing: {
+              clock_resolution_ms: 0.001,
+              phases: { generation: { duration_ms: 27 } },
+            },
+          },
+          retrieval_configuration_id: "retrieval-v1",
+          retrieval_latency_ms: 0,
+          trace_id: "trace-1",
+          trace_schema_version: 2,
+          validation_outcome: "valid",
+          workspace_id: "ws-1",
+        }}
+      />,
+    );
+    expect(screen.getByText("manual.pdf")).toBeInTheDocument();
+    expect(screen.getAllByText("0 ms").length).toBeGreaterThan(0);
+    expect(screen.getByText("Lines 7-9")).toBeInTheDocument();
+    expect(screen.getByText("Evidence text")).toBeInTheDocument();
+    expect(
+      screen.getByText("ANSWER").closest(".kn-status-badge"),
+    ).toHaveAttribute("data-kind", "success");
+    expect(screen.getByText("0.012 USD")).toBeInTheDocument();
+    expect(screen.getByText("price-v2")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.getByText("27 ms")).toBeInTheDocument();
+    expect(screen.getByText("0.001 ms")).toBeInTheDocument();
+    expect(screen.getByText("E1")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("chunk-1", { selector: "dd code" }).length,
+    ).toBeGreaterThan(0);
   });
 });

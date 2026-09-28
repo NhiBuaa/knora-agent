@@ -54,7 +54,7 @@ describe("operator theme access", () => {
     const markup = renderToStaticMarkup(
       await OperatorLayout({ children: <p>Operations</p> }),
     );
-    expect(markup).toContain("Operations");
+    expect(markup).toContain("Select a workspace");
     expect(markup).toContain("Appearance");
   });
 });

@@ -1,21 +1,29 @@
-import { EvaluationView } from "../../../components/operator/EvaluationView";
+import { redirect } from "next/navigation";
+import { Field } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
 
-export default function EvaluationsPage() {
+export default async function EvaluationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ reportId?: string; workspaceId?: string }>;
+}) {
+  const { reportId, workspaceId } = (await searchParams) ?? {};
+  if (reportId?.trim())
+    redirect(
+      `/operator/evaluations/${encodeURIComponent(reportId.trim())}${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`,
+    );
   return (
     <>
-      <h1>Evaluations</h1>
-      <p>
-        Evaluation reports are addressed by exact report ID. No client-side
-        scoring is performed.
-      </p>
-      <EvaluationView
-        evaluation={{
-          availability: "unavailable",
-          observation_failure: "REPORT_ID_REQUIRED",
-          report_id: "not-selected",
-          workspace_id: "",
-        }}
-      />
+      <PageHeader title="Evaluations" />
+      <form action="/operator/evaluations" method="get">
+        <Field id="report-id" label="Report ID">
+          <input name="reportId" required />
+        </Field>
+        <Field id="report-workspace-id" label="Workspace ID">
+          <input name="workspaceId" />
+        </Field>
+        <button type="submit">Open report</button>
+      </form>
     </>
   );
 }

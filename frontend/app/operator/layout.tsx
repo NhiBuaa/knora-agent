@@ -5,6 +5,7 @@ import type {
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
 import { AppShell } from "@/components/shell/AppShell";
+import { Notice } from "@/components/ui/Notice";
 import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 import {
@@ -13,6 +14,7 @@ import {
 } from "@/lib/auth/workspace-preference";
 import { readThemePreference, THEME_COOKIE_NAME } from "@/lib/theme";
 import "../workspaces/shell.css";
+import "./operator.css";
 
 export default async function OperatorLayout({
   children,
@@ -69,13 +71,20 @@ export default async function OperatorLayout({
         cookieStore.get(THEME_COOKIE_NAME)?.value,
       )}
     >
-      {selected ? (
-        <p>
-          Navigation preference: <strong>{selected.name}</strong>
-          {selected.archived ? " (archived)" : ""}
-        </p>
-      ) : null}
-      {children}
+      <div className="operator-surface">
+        {selected ? (
+          <p className="operator-context">
+            Navigation preference: <strong>{selected.name}</strong>
+            {selected.archived ? " (archived)" : ""}
+          </p>
+        ) : (
+          <Notice kind="info" title="Select a workspace">
+            Choose one from the sidebar for default observations, or enter an
+            exact Workspace ID for retained read-only evidence.
+          </Notice>
+        )}
+        {children}
+      </div>
     </AppShell>
   );
 }

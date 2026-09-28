@@ -18,6 +18,8 @@ export async function OperationsContent({
     return <p role="alert">Sign in to inspect operational observations.</p>;
   if (response.status === 403)
     return <p role="alert">You are not authorized to inspect operations.</p>;
+  if (response.status === 409)
+    return <p role="status">Select a workspace to inspect operations.</p>;
   if (!response.ok)
     return <p role="status">Operational observation unavailable.</p>;
   const data: unknown = await response.json();

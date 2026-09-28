@@ -36,4 +36,14 @@ describe("operator page BFF boundary", () => {
       "Observed Workspace: <code>archived-ws</code>",
     );
   });
+
+  it("asks for Workspace selection when there is no current context", async () => {
+    vi.mocked(readOperatorBff).mockResolvedValue(
+      new Response('{"detail":"WORKSPACE_SELECTION_REQUIRED"}', {
+        status: 409,
+      }),
+    );
+    const content = await OperationsContent();
+    expect(renderToStaticMarkup(content)).toContain("Select a workspace");
+  });
 });
