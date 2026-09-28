@@ -58,11 +58,29 @@ export function isOperatorOperations(
 export function isOperatorTrace(
   value: unknown,
 ): value is OperatorTraceResponse {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as { trace_id?: unknown; candidates?: unknown };
+  if (!isRecord(value)) return false;
   return (
-    typeof candidate.trace_id === "string" &&
-    Array.isArray(candidate.candidates)
+    typeof value.trace_id === "string" &&
+    typeof value.workspace_id === "string" &&
+    typeof value.decision === "string" &&
+    typeof value.retrieval_configuration_id === "string" &&
+    typeof value.embedding_configuration_id === "string" &&
+    typeof value.validation_outcome === "string" &&
+    isRecord(value.provider_metadata) &&
+    isRecord(value.alias_mapping) &&
+    Array.isArray(value.parsed_markers) &&
+    Array.isArray(value.branch_observations) &&
+    value.branch_observations.every(isRecord) &&
+    Array.isArray(value.candidate_decisions) &&
+    value.candidate_decisions.every(isRecord) &&
+    Array.isArray(value.candidates) &&
+    value.candidates.every(
+      (item: unknown) =>
+        isRecord(item) &&
+        typeof item.chunk_id === "string" &&
+        typeof item.source_key === "string" &&
+        typeof item.content === "string",
+    )
   );
 }
 

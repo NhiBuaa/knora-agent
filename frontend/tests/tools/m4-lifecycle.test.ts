@@ -114,5 +114,58 @@ describe("ToolLifecycleDisplay", () => {
       screen.getByText(/TOOL_LIFECYCLE_OBSERVATION_FAILED/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText("Technical details")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Tool lifecycle observation failure",
+    );
+    expect(screen.queryByText("In progress")).not.toBeInTheDocument();
+  });
+
+  it("preserves indeterminate execution and reconciliation timestamps", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          availability: "available",
+          items: [
+            {
+              proposal: {
+                proposal_id: "proposal-2",
+                state: "approved",
+                revision: 4,
+              },
+              approval: {
+                decision: "approved",
+                decided_at: "2026-09-18T10:00:00Z",
+              },
+              execution: {
+                lifecycle: "indeterminate_external_outcome",
+                revision: 5,
+                generation: 2,
+                observations: [],
+                failure_code: null,
+                finalized_at: null,
+              },
+              reconciliation: {
+                status: "pending",
+                observation_type: null,
+                failure_code: null,
+                observed_at: "2026-09-18T10:02:00Z",
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    render(React.createElement(ToolLifecycleDisplay, { workspaceId: "ws-1" }));
+    expect(
+      await screen.findByText("indeterminate_external_outcome", {
+        selector: "dd",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("2026-09-18T10:02:00Z", { selector: "dd" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("succeeded")).not.toBeInTheDocument();
   });
 });
