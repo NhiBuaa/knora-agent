@@ -18,6 +18,13 @@ MODEL = "qwen3-embedding:0.6b"
 DIGEST = "sha256:" + "b" * 64
 
 
+def test_daily_launcher_supervises_conversation_turn_worker() -> None:
+    launcher = SCRIPT.read_text(encoding="utf-8")
+    assert "scripts/run_conversation_worker.py" in launcher
+    assert "if ($conversationWorker.HasExited)" in launcher
+    assert "Stop-ProcessTree $conversationWorker" in launcher
+
+
 def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
     root = SCRIPT.parents[1]
     daily_environment = os.environ.copy()

@@ -235,6 +235,7 @@ try {
 
     $api = $null
     $worker = $null
+    $conversationWorker = $null
     $frontend = $null
     try {
         $api = Start-Process -FilePath $PythonExe -ArgumentList @(
@@ -245,6 +246,9 @@ try {
             '--reload-dir',$backendWatchRoot
         ) -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'api.out.log') -RedirectStandardError (Join-Path $logs 'api.err.log')
         $worker = Start-DevWorker
+        $conversationWorker = Start-Process -FilePath $PythonExe -ArgumentList @(
+            'scripts/run_conversation_worker.py'
+        ) -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'conversation-worker.out.log') -RedirectStandardError (Join-Path $logs 'conversation-worker.err.log')
         $frontend = Start-Process -FilePath $npm -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError (Join-Path $logs 'frontend.err.log')
 
         $apiHealthy = $false
@@ -261,19 +265,20 @@ try {
             } catch {
                 if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -ge 300 -and [int]$_.Exception.Response.StatusCode -lt 400) { $frontendHealthy = $true }
             }
-            if ($api.HasExited -or $worker.HasExited -or $frontend.HasExited) { break }
+            if ($api.HasExited -or $worker.HasExited -or $conversationWorker.HasExited -or $frontend.HasExited) { break }
             if ($apiHealthy -and $frontendHealthy) { break }
         }
-        if (-not $apiHealthy -or -not $frontendHealthy -or $api.HasExited -or $worker.HasExited -or $frontend.HasExited) {
+        if (-not $apiHealthy -or -not $frontendHealthy -or $api.HasExited -or $worker.HasExited -or $conversationWorker.HasExited -or $frontend.HasExited) {
             throw 'RUNTIME_START_FAILED'
         }
 
-        Write-Output "DEV_READY API_PID=$($api.Id) WORKER_PID=$($worker.Id) FRONTEND_PID=$($frontend.Id)"
+        Write-Output "DEV_READY API_PID=$($api.Id) WORKER_PID=$($worker.Id) CONVERSATION_WORKER_PID=$($conversationWorker.Id) FRONTEND_PID=$($frontend.Id)"
         Write-Output "LOG_DIR=$logs"
         Write-Output "[api] auto-reload enabled for backend/src/knora"
         Write-Output "[worker] restart-on-change enabled; current job drains before restart"
+        Write-Output "[conversation-worker] durable Turns enabled"
         Write-Output "[frontend] Next.js Fast Refresh enabled"
-        Write-Output "Press Ctrl+C to stop API, worker and frontend. PostgreSQL/MinIO stay running."
+        Write-Output "Press Ctrl+C to stop API, both workers and frontend. PostgreSQL/MinIO stay running."
         if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$FrontendPort" | Out-Null }
 
         while ($true) {
@@ -283,6 +288,9 @@ try {
             }
             if ($frontend.HasExited) {
                 throw "FRONTEND_EXITED:$($frontend.ExitCode)"
+            }
+            if ($conversationWorker.HasExited) {
+                throw "CONVERSATION_WORKER_EXITED:$($conversationWorker.ExitCode)"
             }
             if ($worker.HasExited) {
                 $exitCode = $worker.ExitCode
@@ -300,6 +308,7 @@ try {
         }
     } finally {
         Stop-ProcessTree $frontend
+        Stop-ProcessTree $conversationWorker
         Stop-ProcessTree $worker
         Stop-ProcessTree $api
     }

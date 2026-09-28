@@ -9,6 +9,7 @@ Windows host
 ├── Ollama
 ├── FastAPI                auto-reload
 ├── PDF ingestion worker   graceful restart-on-change
+├── Conversation worker    processes durable Turns
 └── Next.js                Fast Refresh / HMR
 
 Docker Desktop
@@ -82,11 +83,11 @@ The development launcher:
 3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` project, plus bundled Keycloak when its default realm is selected, and waits for readiness;
 4. creates/migrates the `knora_dev` database;
 5. starts FastAPI with Uvicorn auto-reload for `backend/src/knora`;
-6. starts the ingestion worker in `--dev-watch` mode;
+6. starts the ingestion worker in `--dev-watch` mode and the Conversation Turn worker;
 7. starts Next.js with its normal development server and Fast Refresh;
-8. stays in the foreground as the supervisor for those three host processes.
+8. stays in the foreground as the supervisor for all four host processes.
 
-Press `Ctrl+C` to stop API, worker and frontend. PostgreSQL, MinIO and Keycloak intentionally remain running so the next development start is faster.
+Press `Ctrl+C` to stop API, both workers and frontend. PostgreSQL, MinIO and Keycloak intentionally remain running so the next development start is faster. Restart the launcher after changing Conversation worker source; only the PDF worker has safe source-watch restarts.
 
 Before running the isolated M5 E2E workflow, stop the daily services. Both projects
 use host ports 5432, 9000 and 8180; the E2E preparation script refuses to reset its

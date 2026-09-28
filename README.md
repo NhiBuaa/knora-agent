@@ -400,14 +400,15 @@ It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, cre
 
 - FastAPI runs with Uvicorn auto-reload for `backend/src/knora`;
 - the ingestion worker watches Python source and restarts only at a safe job boundary;
-- if a worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
+- the Conversation worker processes durable Turns and is supervised for unexpected exits;
+- if the PDF worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
 - Next.js keeps its normal Fast Refresh / HMR behavior;
 - PostgreSQL, MinIO, Keycloak and Ollama do not restart for ordinary source edits;
 - unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
 
-`Ctrl+C` stops the API, worker and frontend supervisor children; PostgreSQL, MinIO and
+`Ctrl+C` stops the API, both workers and frontend supervisor children; PostgreSQL, MinIO and
 Keycloak remain running for a faster next start. Root `.env` is loaded at launcher startup,
-so restart `start-dev.ps1` after changing `.env`.
+so restart `start-dev.ps1` after changing `.env` or Conversation worker source.
 
 Use `start-ollama-demo.ps1` instead when you need the stable #103 demo/acceptance runtime without source watchers. See [Local development on Windows](docs/runbooks/local-development.md) for the exact reload and shutdown behavior.
 
