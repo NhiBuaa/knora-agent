@@ -8,6 +8,7 @@ from knora.providers.deterministic.embedding import DeterministicEmbeddingProvid
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.providers.gemini.embedding import GeminiEmbeddingProvider
+from knora.providers.ollama.generation import OllamaGenerationProvider
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
@@ -72,6 +73,45 @@ def test_bootstrap_selects_local_embedding_with_openai_generation() -> None:
     assert isinstance(selected.embedding_provider, DeterministicEmbeddingProvider)
     assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
     assert selected.embedding_configuration == EmbeddingConfiguration.milestone_one_local()
+
+
+def test_bootstrap_selects_ollama_generation_independently() -> None:
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            embedding_provider="deterministic-local",
+            generation_provider="ollama",
+            ollama_generation_model="qwen3:8b",
+            expected_generation_model_digest="sha256:" + "b" * 64,
+        )
+    )
+    assert isinstance(selected.embedding_provider, DeterministicEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OllamaGenerationProvider)
+
+
+@pytest.mark.parametrize("digest", [None, "", "sha256:wrong"])
+def test_bootstrap_requires_valid_ollama_generation_digest(digest: str | None) -> None:
+    with pytest.raises(ValueError, match="generation model digest"):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                embedding_provider="deterministic-local",
+                generation_provider="ollama",
+                expected_generation_model_digest=digest,
+            )
+        )
+
+
+def test_bootstrap_rejects_invalid_ollama_generation_configuration() -> None:
+    with pytest.raises(ValueError, match="provider configuration"):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                embedding_provider="deterministic-local",
+                generation_provider="ollama",
+                ollama_generation_model="unapproved-model",
+            )
+        )
 
 
 def test_bootstrap_selects_ollama_embedding_with_independent_generation(monkeypatch) -> None:
