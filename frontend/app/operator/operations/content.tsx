@@ -3,10 +3,14 @@ import { OperationsView } from "../../../components/operator/OperationsView";
 import { isOperatorOperations } from "../../../lib/operator/api";
 import { readOperatorBff } from "../../../lib/operator/bff";
 
-export async function OperationsContent() {
+export async function OperationsContent({
+  workspaceId,
+}: { workspaceId?: string } = {}) {
   let response: Response;
   try {
-    response = await readOperatorBff("/api/operator/operations");
+    response = await readOperatorBff(
+      `/api/operator/operations${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`,
+    );
   } catch {
     return <p role="status">Operational observation unavailable.</p>;
   }
@@ -22,6 +26,9 @@ export async function OperationsContent() {
   return (
     <>
       <h1>Operations</h1>
+      <p>
+        Observed Workspace: <code>{data.workspace_id}</code>
+      </p>
       <OperationsView operations={data} />
     </>
   );

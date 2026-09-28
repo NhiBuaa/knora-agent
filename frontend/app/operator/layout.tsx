@@ -1,10 +1,18 @@
 import React from "react";
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { ThemeControl } from "@/components/ui/ThemeControl";
+import type {
+  WorkspaceListResponse,
+  WorkspaceResponse,
+} from "@/generated/knora-openapi";
+import { AppShell } from "@/components/shell/AppShell";
+import { KnoraApiError, knoraRequest } from "@/lib/api/client";
+import { getSession } from "@/lib/auth/session";
+import {
+  decodePreference,
+  WORKSPACE_PREFERENCE_COOKIE,
+} from "@/lib/auth/workspace-preference";
 import { readThemePreference, THEME_COOKIE_NAME } from "@/lib/theme";
-import { getSession } from "../../lib/auth/session";
-import { readEntryWorkspace } from "../../lib/auth/workspace";
+import "../workspaces/shell.css";
 
 export default async function OperatorLayout({
   children,
@@ -12,57 +20,62 @@ export default async function OperatorLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  if (!session) {
-    return (
-      <main>
-        <h1>Operator access</h1>
-        <p role="alert">Sign in to inspect operator observations.</p>
-      </main>
+  if (!session?.issuer)
+    return <main role="alert">Sign in to inspect operator observations.</main>;
+  if (!session.capabilities.includes("operator:read"))
+    return <main role="alert">Operator access denied.</main>;
+
+  const cookieStore = await cookies();
+  let page: WorkspaceListResponse;
+  let selected: WorkspaceResponse | null = null;
+  try {
+    page = (await knoraRequest(
+      "/v1/workspaces?archived=false&limit=20" as "/v1/workspaces",
+      { accessToken: session.accessToken },
+    )) as WorkspaceListResponse;
+    const hint = await decodePreference(
+      cookieStore.get(WORKSPACE_PREFERENCE_COOKIE)?.value,
+      { issuer: session.issuer, subject: session.subject },
     );
-  }
-  let workspaceId: string | null = null;
-  if (session.issuer) {
-    try {
-      workspaceId = await readEntryWorkspace(
-        {
-          issuer: session.issuer,
-          subject: session.subject,
-          accessToken: session.accessToken,
-        },
-        null,
-      );
-    } catch {
-      return (
-        <main role="status">
-          Operator Workspace unavailable. Retry this page.
-        </main>
-      );
+    if (hint) {
+      try {
+        selected = (await knoraRequest(
+          `/v1/workspaces/${encodeURIComponent(hint)}` as "/v1/workspaces/{workspace_id}",
+          { accessToken: session.accessToken },
+        )) as WorkspaceResponse;
+        if (selected.id !== hint) selected = null;
+      } catch (error) {
+        if (
+          !(error instanceof KnoraApiError) ||
+          ![403, 404].includes(error.status)
+        )
+          throw error;
+      }
     }
-  }
-  if (!workspaceId) {
+  } catch {
     return (
-      <main>
-        <h1>Operator access</h1>
-        <p role="alert">
-          This session is not authorized for an operator workspace.
-        </p>
+      <main role="status">
+        Operator Workspace unavailable. Retry this page.
       </main>
     );
   }
   return (
-    <main>
-      <nav aria-label="Operator navigation">
-        <Link href="/operator">Overview</Link>{" "}
-        <Link href="/operator/traces">Traces</Link>{" "}
-        <Link href="/operator/evaluations">Evaluations</Link>{" "}
-        <Link href="/operator/operations">Operations</Link>
-      </nav>
-      <ThemeControl
-        initialPreference={readThemePreference(
-          (await cookies()).get(THEME_COOKIE_NAME)?.value,
-        )}
-      />
+    <AppShell
+      workspaces={page.items}
+      nextCursor={page.next_cursor}
+      capabilities={session.capabilities}
+      subject={session.subject}
+      themePreference={readThemePreference(
+        cookieStore.get(THEME_COOKIE_NAME)?.value,
+      )}
+    >
+      {selected ? (
+        <p>
+          Navigation preference: <strong>{selected.name}</strong>
+          {selected.archived ? " (archived)" : ""}
+        </p>
+      ) : null}
       {children}
-    </main>
+    </AppShell>
   );
 }
