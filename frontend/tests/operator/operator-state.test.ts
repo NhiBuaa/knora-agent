@@ -40,6 +40,15 @@ describe("operator observation presentation", () => {
     expect(isOperatorTrace({ trace_id: "trace-1", candidates: {} })).toBe(
       false,
     );
-    expect(isOperatorTrace({ trace_id: "trace-1", candidates: [] })).toBe(true);
+    expect(isOperatorTrace({ trace_id: "trace-1", candidates: [] })).toBe(
+      false,
+    );
+    expect(
+      isOperatorTrace({
+        trace_id: "trace-1",
+        candidates: [],
+        provider_metadata: null,
+      }),
+    ).toBe(false);
   });
 });

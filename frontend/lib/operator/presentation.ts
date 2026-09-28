@@ -32,13 +32,70 @@ export function observationState(value: {
 }
 
 export const OPERATOR_METRIC_KEYS = [
-  "retrieval_latency_ms",
-  "end_to_end_latency_ms",
-  "token_count",
-  "estimated_cost_usd",
-  "failure_count",
+  "queue_depth",
+  "oldest_job_age",
+  "claim_latency_count",
+  "claim_latency_sum",
+  "retry_rate",
+  "lease_expiry_recovery_total",
+  "cleanup_attempt_total",
+  "cleanup_failure_total",
+  "orphan_discovery_total",
+  "orphan_reconciliation_total",
 ] as const;
 
 export function safeNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function projectedAccounting(value: unknown): {
+  amount: string;
+  pricingVersion: string;
+  usage: string;
+} {
+  const section = isRecord(value) ? value : {};
+  const cost = isRecord(section.cost) ? section.cost : {};
+  const usage = isRecord(section.usage) ? section.usage : {};
+  const amount =
+    (typeof cost.amount_usd === "string" ||
+      typeof cost.amount_usd === "number") &&
+    typeof cost.currency === "string"
+      ? `${cost.amount_usd} ${cost.currency}`
+      : "Unavailable";
+  const tokens = ["prompt_tokens", "completion_tokens", "total_tokens"]
+    .filter((key) => safeNumber(usage[key]) !== null)
+    .map((key) => `${key}: ${usage[key]}`);
+  return {
+    amount,
+    pricingVersion:
+      typeof cost.pricing_version === "string"
+        ? cost.pricing_version
+        : "Unavailable",
+    usage: tokens.length ? tokens.join(", ") : "Unavailable",
+  };
+}
+
+export function projectedTiming(value: unknown): {
+  resolution: string;
+  phases: Array<{ name: string; duration: string }>;
+} {
+  const timing = isRecord(value) ? value : {};
+  const phases = isRecord(timing.phases) ? timing.phases : {};
+  return {
+    resolution:
+      safeNumber(timing.clock_resolution_ms) !== null
+        ? `${timing.clock_resolution_ms} ms`
+        : "Unavailable",
+    phases: Object.entries(phases).map(([name, phase]) => ({
+      name,
+      duration:
+        isRecord(phase) && safeNumber(phase.duration_ms) !== null
+          ? `${phase.duration_ms} ms`
+          : "Unavailable",
+    })),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
