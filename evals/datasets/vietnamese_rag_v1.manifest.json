@@ -1,0 +1,28 @@
+{
+  "version": "vietnamese-rag-v1",
+  "dataset_sha256": "5976b2f828d11c919f866c73809f9d57967d2c891d165aec71d9436ea788bf5c",
+  "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
+  "model_digest": "sha256:ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d",
+  "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
+  "corpus_digest_scheme": "single-original-pdf-sha256-v1",
+  "chunk_set_ids": ["b80ccb7e-df0f-458f-bd79-9759f31ca240"],
+  "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
+  "sources": [
+    {
+      "source_key": "Teacher Manh - Guidelines 2024.pdf",
+      "raw_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
+      "document_id": "f379a5b2-2e6c-4d7b-89a6-292b378dd9d7",
+      "document_version_id": "809dd8ce-4ec6-42b8-96d2-5b33d706cb94",
+      "active_embedding_set_id": "c2ea003b-03a0-4122-9495-e658917ed3f8",
+      "page_count": 12
+    }
+  ],
+  "provenance": {
+    "source_postgres_volume": "issue103_acceptance_postgres_data",
+    "source_minio_volume": "issue103_acceptance_minio_data",
+    "review_postgres_volume": "issue104_calibration_postgres_data",
+    "review_minio_volume": "issue104_calibration_minio_data",
+    "source_issue": 103,
+    "scope": "one-PDF within-document baseline; no cross-domain generalization"
+  }
+}
