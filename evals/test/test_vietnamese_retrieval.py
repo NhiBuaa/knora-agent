@@ -75,6 +75,17 @@ def test_scores_literal_rankings_and_refusal_separately():
     assert report.mean_latency_ms == 12.0
 
 
+def test_raw_diagnostic_does_not_claim_sufficiency_or_refusal_metrics():
+    observations = tuple(
+        _observation(f"answer-{index}", (f"{index}" * 64,), source="answering_store_diagnostic")
+        for index in (1, 2, 3)
+    ) + (_observation("negative", (), source="answering_store_diagnostic"),)
+    report = evaluate_retrieval(_dataset(), observations)
+    assert report.hit_at_5 == 1.0
+    assert report.false_insufficient_evidence_count is None
+    assert report.negative_refusal_rate is None
+
+
 @pytest.mark.parametrize(
     ("change", "error"),
     [

@@ -71,6 +71,12 @@ def load_vietnamese_dataset(path: Path, manifest_path: Path) -> VietnameseDatase
         if source_key in source_keys:
             raise DatasetContractError("duplicate source_key")
         source_keys.add(source_key)
+    if manifest.get("corpus_digest_scheme", "single-original-pdf-sha256-v1") != (
+        "single-original-pdf-sha256-v1"
+    ):
+        raise DatasetContractError("unsupported corpus digest scheme")
+    if len(sources) != 1 or sources[0]["raw_sha256"] != manifest.get("corpus_sha256"):
+        raise DatasetContractError("source digest does not match single-PDF corpus")
     cases = []
     seen = set()
     for line in raw.decode("utf-8-sig").splitlines():
@@ -112,6 +118,20 @@ def load_vietnamese_dataset(path: Path, manifest_path: Path) -> VietnameseDatase
         )
     if not cases:
         raise DatasetContractError("dataset is empty")
+    calibration_chunks = {
+        checksum
+        for case in cases
+        if case.split == "calibration"
+        for checksum in case.acceptable_chunk_checksums
+    }
+    held_out_chunks = {
+        checksum
+        for case in cases
+        if case.split == "held_out"
+        for checksum in case.acceptable_chunk_checksums
+    }
+    if calibration_chunks & held_out_chunks:
+        raise DatasetContractError("gold Chunk split independence violation")
     chunk_set_ids = _strings(manifest.get("chunk_set_ids"), "chunk_set_ids")
     if not chunk_set_ids:
         raise DatasetContractError("chunk_set_ids missing")

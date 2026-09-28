@@ -1,8 +1,13 @@
+import hashlib
+import json
+import math
+
 import pytest
 
 from knora.answering.retrieval_configuration import (
     CALIBRATED_M3_VECTOR_MIN_SIMILARITY,
     DeploymentRetrievalConfigurationResolver,
+    resolve_qwen_retrieval_configuration,
     resolve_retrieval_configuration,
     retrieval_configuration_for_id,
 )
@@ -30,9 +35,7 @@ def test_resolver_rejects_unknown_configuration_and_blank_workspace() -> None:
 
 def test_v2_resolver_fails_closed_without_calibrated_threshold() -> None:
     with pytest.raises(ValueError, match="exact calibrated numeric threshold"):
-        resolve_retrieval_configuration(
-            "retrieval-m3-rrf-v2", vector_min_similarity=None
-        )
+        resolve_retrieval_configuration("retrieval-m3-rrf-v2", vector_min_similarity=None)
 
 
 def test_v2_resolver_builds_exact_paired_configuration() -> None:
@@ -48,6 +51,107 @@ def test_v2_resolver_builds_exact_paired_configuration() -> None:
 
 def test_v2_resolver_rejects_guessed_or_inherited_numeric_threshold() -> None:
     with pytest.raises(ValueError, match="exact calibrated numeric threshold"):
-        resolve_retrieval_configuration(
-            "retrieval-m3-vector-v2", vector_min_similarity=0.65
+        resolve_retrieval_configuration("retrieval-m3-vector-v2", vector_min_similarity=0.65)
+
+
+def test_qwen_configuration_requires_a_sealed_matching_artifact() -> None:
+    artifact = {
+        "schema_version": 1,
+        "status": "PASSED",
+        "profile_id": "embedding-ollama-qwen3-test",
+        "model_digest": "sha256:" + "e" * 64,
+        "dataset_sha256": "a" * 64,
+        "corpus_sha256": "b" * 64,
+        "chunk_set_ids": ["chunk-set-1"],
+        "policy_id": "qwen-vietnamese-evidence-v1",
+        "threshold": 0.72,
+        "held_out_hit_at_5": 1.0,
+        "held_out_false_insufficient_evidence_rate": 0.0,
+        "held_out_negative_refusal_rate": 1.0,
+        "regression_case_passed": True,
+    }
+    artifact["artifact_sha256"] = hashlib.sha256(
+        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    configuration = resolve_qwen_retrieval_configuration(
+        artifact,
+        profile_id="embedding-ollama-qwen3-test",
+        model_digest="sha256:" + "e" * 64,
+        dataset_sha256="a" * 64,
+        corpus_sha256="b" * 64,
+        chunk_set_ids=("chunk-set-1",),
+    )
+    assert configuration.candidate_k == 16
+    assert configuration.max_evidence_chunks == 5
+    assert configuration.min_similarity == 0.72
+    with pytest.raises(ValueError, match="calibration"):
+        resolve_qwen_retrieval_configuration(
+            {**artifact, "threshold": 0.60},
+            profile_id="embedding-ollama-qwen3-test",
+            model_digest="sha256:" + "e" * 64,
+            dataset_sha256="a" * 64,
+            corpus_sha256="b" * 64,
+            chunk_set_ids=("chunk-set-1",),
+        )
+    for mismatched in (
+        {"profile_id": "another-profile"},
+        {"dataset_sha256": "c" * 64},
+        {"corpus_sha256": "d" * 64},
+        {"model_digest": "sha256:" + "f" * 64},
+        {"chunk_set_ids": ("chunk-set-2",)},
+    ):
+        with pytest.raises(ValueError, match="calibration"):
+            resolve_qwen_retrieval_configuration(
+                artifact,
+                profile_id=mismatched.get("profile_id", "embedding-ollama-qwen3-test"),
+                model_digest=mismatched.get("model_digest", "sha256:" + "e" * 64),
+                dataset_sha256=mismatched.get("dataset_sha256", "a" * 64),
+                corpus_sha256=mismatched.get("corpus_sha256", "b" * 64),
+                chunk_set_ids=mismatched.get("chunk_set_ids", ("chunk-set-1",)),
+            )
+    another = {**artifact, "threshold": 0.73}
+    another["artifact_sha256"] = hashlib.sha256(
+        json.dumps(
+            {key: value for key, value in another.items() if key != "artifact_sha256"},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    other_configuration = resolve_qwen_retrieval_configuration(
+        another,
+        profile_id="embedding-ollama-qwen3-test",
+        model_digest="sha256:" + "e" * 64,
+        dataset_sha256="a" * 64,
+        corpus_sha256="b" * 64,
+        chunk_set_ids=("chunk-set-1",),
+    )
+    assert other_configuration.id != configuration.id
+    invalid_metric = {**artifact, "held_out_hit_at_5": math.nan}
+    invalid_metric["artifact_sha256"] = hashlib.sha256(
+        json.dumps(
+            {key: value for key, value in invalid_metric.items() if key != "artifact_sha256"},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    with pytest.raises(ValueError, match="calibration"):
+        resolve_qwen_retrieval_configuration(
+            invalid_metric,
+            profile_id="embedding-ollama-qwen3-test",
+            model_digest="sha256:" + "e" * 64,
+            dataset_sha256="a" * 64,
+            corpus_sha256="b" * 64,
+            chunk_set_ids=("chunk-set-1",),
+        )
+
+
+def test_qwen_configuration_rejects_failed_artifact() -> None:
+    with pytest.raises(ValueError, match="calibration"):
+        resolve_qwen_retrieval_configuration(
+            {"status": "FAILED"},
+            profile_id="profile",
+            model_digest="sha256:" + "e" * 64,
+            dataset_sha256="a" * 64,
+            corpus_sha256="b" * 64,
+            chunk_set_ids=("chunk-set-1",),
         )

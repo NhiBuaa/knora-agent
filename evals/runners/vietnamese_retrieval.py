@@ -106,8 +106,8 @@ class RetrievalReport:
     hit_at_1: float
     hit_at_5: float
     mrr: float
-    false_insufficient_evidence_count: int
-    negative_refusal_rate: float
+    false_insufficient_evidence_count: int | None
+    negative_refusal_rate: float | None
     mean_latency_ms: float
     cases: tuple[CaseResult, ...]
 
@@ -180,6 +180,7 @@ def evaluate_retrieval(
     negatives = [item for item in results if item.expected_behavior == "REFUSAL"]
     if not positives or not negatives:
         raise ValueError("answer and refusal observations are both required")
+    thresholded_trace = all(item.source == "production_trace" for item in observations)
     return RetrievalReport(
         dataset.dataset_sha256,
         dataset.profile_id,
@@ -193,8 +194,8 @@ def evaluate_retrieval(
         fmean(
             1 / item.first_relevant_rank if item.first_relevant_rank else 0 for item in positives
         ),
-        sum(item.insufficient_evidence for item in positives),
-        fmean(item.insufficient_evidence for item in negatives),
+        sum(item.insufficient_evidence for item in positives) if thresholded_trace else None,
+        fmean(item.insufficient_evidence for item in negatives) if thresholded_trace else None,
         fmean(item.latency_ms for item in results),
         tuple(results),
     )

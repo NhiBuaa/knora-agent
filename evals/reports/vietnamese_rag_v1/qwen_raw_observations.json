@@ -106,8 +106,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 66.36650001746602,
-      "observation_id": "store-diagnostic-a8499e6f-d3b4-4b45-b74f-dc2cdf23e34c",
+      "latency_ms": 49.33439998421818,
+      "observation_id": "store-diagnostic-f96407fd-f17d-47ff-9fe0-3f8f8e5f9ee3",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -217,8 +217,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 23.70439999504015,
-      "observation_id": "store-diagnostic-4f0b803d-be11-4214-8ff7-07bac2463d9b",
+      "latency_ms": 27.588000026298687,
+      "observation_id": "store-diagnostic-e98a93f3-0b4c-4f41-9e54-097fdb1284bb",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -328,8 +328,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 28.33890001056716,
-      "observation_id": "store-diagnostic-eaa3c1d4-c3fe-47fd-8e87-061907f1b28a",
+      "latency_ms": 23.531999991973862,
+      "observation_id": "store-diagnostic-e7f48df3-c638-4f61-b28c-e32574935d97",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -439,8 +439,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 32.87190000992268,
-      "observation_id": "store-diagnostic-2a6d7843-03d5-46a1-8055-b5421dcf8898",
+      "latency_ms": 27.51929999794811,
+      "observation_id": "store-diagnostic-d7a197c5-2ef4-4f9b-8bdd-be8d983aa8a9",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -550,8 +550,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.038699997821823,
-      "observation_id": "store-diagnostic-3d9ecf2a-1b57-4f4c-9df0-45efe7920802",
+      "latency_ms": 26.520400017034262,
+      "observation_id": "store-diagnostic-bce22b29-303f-4966-8d10-667c348e43db",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -661,8 +661,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 20.482899999478832,
-      "observation_id": "store-diagnostic-afc1ee0a-83f0-4e32-a114-0966cd03f00b",
+      "latency_ms": 23.44499999890104,
+      "observation_id": "store-diagnostic-4dcb0aea-7b1b-47ed-aee7-b9c729dad1b6",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -772,8 +772,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 24.80050001759082,
-      "observation_id": "store-diagnostic-fa757d25-829c-4150-8784-2592b331fc63",
+      "latency_ms": 25.750700006028637,
+      "observation_id": "store-diagnostic-608ca1e0-f745-4131-9baa-2e22069d200b",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -883,8 +883,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 21.98109999881126,
-      "observation_id": "store-diagnostic-1874b872-1325-44d3-b511-10049fbc8102",
+      "latency_ms": 25.48519999254495,
+      "observation_id": "store-diagnostic-ccd822eb-1b97-42dd-abc8-b9de3216da52",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -994,8 +994,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 22.824799991212785,
-      "observation_id": "store-diagnostic-91b59dff-72a0-4ea3-bfa9-da960d44335f",
+      "latency_ms": 28.994199994485825,
+      "observation_id": "store-diagnostic-9a16f6a7-0f6f-4653-85e8-e58d883c6dc8",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1105,8 +1105,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 22.396799991838634,
-      "observation_id": "store-diagnostic-5c87a938-2c55-4b82-9f37-86c237310eb2",
+      "latency_ms": 32.68869998282753,
+      "observation_id": "store-diagnostic-6396d2bd-6bcb-4ad7-bbbe-8f650ce76e02",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1216,8 +1216,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.607000017771497,
-      "observation_id": "store-diagnostic-5bbee8c8-0a25-4f27-97c0-83c19bbb42d2",
+      "latency_ms": 26.52059998945333,
+      "observation_id": "store-diagnostic-62cf6703-488c-497e-ae27-59963190d54e",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1327,8 +1327,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 27.958799997577444,
-      "observation_id": "store-diagnostic-d69bfa54-820d-49e4-b917-c42a83cfdc96",
+      "latency_ms": 24.07469999161549,
+      "observation_id": "store-diagnostic-3afcbe64-1765-42df-ae70-d427c9392a56",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1438,8 +1438,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 32.0781999907922,
-      "observation_id": "store-diagnostic-847213cc-0e8c-47dd-8c18-c51dbceac795",
+      "latency_ms": 24.38119999715127,
+      "observation_id": "store-diagnostic-8623df1c-532e-4c20-b120-456cdc6d4a04",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1549,8 +1549,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 24.49810001417063,
-      "observation_id": "store-diagnostic-f44fb902-8644-4864-9ab4-49c8dc6dd0fb",
+      "latency_ms": 25.129899993771687,
+      "observation_id": "store-diagnostic-7b6be996-7078-4f52-b80c-333d5a264f45",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1660,8 +1660,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 22.993499995209277,
-      "observation_id": "store-diagnostic-60979da6-163a-4b4c-a8b0-d40a0895651e",
+      "latency_ms": 25.312900019343942,
+      "observation_id": "store-diagnostic-3d4bf6ef-49cb-4105-a4b5-aade86620496",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1771,8 +1771,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 24.513799988199025,
-      "observation_id": "store-diagnostic-8fcadcbf-231b-4889-b7a8-4d34d9ebde78",
+      "latency_ms": 23.67160000721924,
+      "observation_id": "store-diagnostic-e5af51e2-341c-43e2-908d-d13c8fd6e0e8",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1882,8 +1882,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 26.273800001945347,
-      "observation_id": "store-diagnostic-9ec53395-6ff1-4c29-bee9-2f7147f16512",
+      "latency_ms": 22.412999998778105,
+      "observation_id": "store-diagnostic-8b526e34-ac71-4a32-a85d-7b1eefcf5daf",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -1993,8 +1993,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 27.145700005348772,
-      "observation_id": "store-diagnostic-fd796ac4-c245-4d55-9834-9100098852bb",
+      "latency_ms": 24.862199992639944,
+      "observation_id": "store-diagnostic-bc096d77-29d1-44ee-8e4d-cf45469383ef",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2104,8 +2104,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 23.43319999636151,
-      "observation_id": "store-diagnostic-71ff467a-735c-4f4e-a5d5-0b1016b4f5d8",
+      "latency_ms": 24.384899996221066,
+      "observation_id": "store-diagnostic-8b64101d-7898-4e52-b2c4-8fd93b8a8fb1",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2215,8 +2215,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 23.086900007911026,
-      "observation_id": "store-diagnostic-fc584ed4-be22-49d8-aa34-5f37d0e6ee3c",
+      "latency_ms": 26.078900002175942,
+      "observation_id": "store-diagnostic-ac9ef89a-0416-4b2e-a6bb-945b6699a2e2",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2326,8 +2326,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.512599997455254,
-      "observation_id": "store-diagnostic-018b47c5-1cc4-47b5-9032-2887cd051c9f",
+      "latency_ms": 24.26730000297539,
+      "observation_id": "store-diagnostic-2a76e04f-8799-4549-95c1-2b4cd5b7caae",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2437,8 +2437,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 24.43170000333339,
-      "observation_id": "store-diagnostic-6408f9a9-1e99-4e17-8d28-9789c6783ab4",
+      "latency_ms": 27.93280000332743,
+      "observation_id": "store-diagnostic-93568610-d2e0-47f1-a6a4-9f52d313a0db",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2548,8 +2548,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 29.640699998708442,
-      "observation_id": "store-diagnostic-d7d2359a-aec8-4a59-85a6-91196b5eb8c4",
+      "latency_ms": 25.81560000544414,
+      "observation_id": "store-diagnostic-f118460d-2ec0-47ac-a6f4-02deb7c8e616",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2659,8 +2659,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.715900002978742,
-      "observation_id": "store-diagnostic-b2100a2a-ca36-49fd-9eea-e9d278bc43a0",
+      "latency_ms": 24.40930000739172,
+      "observation_id": "store-diagnostic-2f47b3c1-ede9-4629-bc87-fab098f1025a",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2770,8 +2770,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 28.233899996848777,
-      "observation_id": "store-diagnostic-06f74ed8-4df7-49f5-a9f4-961a88fbb90a",
+      "latency_ms": 21.147799998288974,
+      "observation_id": "store-diagnostic-4fdb82c1-aa10-49dc-a237-0da48e982f2e",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2881,8 +2881,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 30.762999987928197,
-      "observation_id": "store-diagnostic-16961627-544f-4eb2-8a38-ef746ec1eee2",
+      "latency_ms": 20.143000001553446,
+      "observation_id": "store-diagnostic-4fb01abc-15cf-457a-a8b1-39b68fc0b451",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -2992,8 +2992,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.537699984852225,
-      "observation_id": "store-diagnostic-c6663da5-c8f5-43a2-a761-db6fdbd2f748",
+      "latency_ms": 25.206199992680922,
+      "observation_id": "store-diagnostic-48316105-70b8-4a2b-bcd7-f53f15c168f0",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3103,8 +3103,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 26.530200004344806,
-      "observation_id": "store-diagnostic-f63852bd-139b-475d-9c1d-ae66b7a68402",
+      "latency_ms": 22.710499993991107,
+      "observation_id": "store-diagnostic-b7337bbd-d11e-4155-8902-6c6ece4f27e7",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3214,8 +3214,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.99050002754666,
-      "observation_id": "store-diagnostic-87ba24c8-5d3e-417f-afb9-43548d9f1b95",
+      "latency_ms": 25.568399985786527,
+      "observation_id": "store-diagnostic-a024b503-5c43-4fad-b29e-7d7438be7fd4",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3325,8 +3325,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 26.748200005386025,
-      "observation_id": "store-diagnostic-20d8f764-662b-4c1e-8440-f9f3c3179300",
+      "latency_ms": 23.357099998975173,
+      "observation_id": "store-diagnostic-c0dec74c-08f2-485a-8ea9-33e0a0436588",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3436,8 +3436,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 22.86100000492297,
-      "observation_id": "store-diagnostic-a03ed134-5393-4a80-888c-b483142c35fd",
+      "latency_ms": 25.840100017376244,
+      "observation_id": "store-diagnostic-752d3cb4-8073-44fe-b5a5-90d3e1795a61",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3547,8 +3547,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 20.976100000552833,
-      "observation_id": "store-diagnostic-a7478ffb-411d-4315-bb6e-b4f5a28f65cf",
+      "latency_ms": 22.33350000460632,
+      "observation_id": "store-diagnostic-1ae69877-7e1f-468d-a344-f2182bd7686c",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3658,8 +3658,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 26.25379999517463,
-      "observation_id": "store-diagnostic-98eea300-6cdc-46d1-93ce-1e95377b6d0d",
+      "latency_ms": 21.883900015382096,
+      "observation_id": "store-diagnostic-78881226-85b1-46ab-bf9f-15bd0025ccda",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3769,8 +3769,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 24.289099994348362,
-      "observation_id": "store-diagnostic-b50652a5-80de-42af-933b-6677dd44893a",
+      "latency_ms": 24.396699998760596,
+      "observation_id": "store-diagnostic-ebf70401-f993-436d-ba0e-420923e83371",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3880,8 +3880,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 23.06269999826327,
-      "observation_id": "store-diagnostic-c1ceb422-fbf9-4dcf-a550-c5e05e8e39c7",
+      "latency_ms": 23.29539999482222,
+      "observation_id": "store-diagnostic-fc5ae0c1-3dfe-4244-b085-d32a66ecfd42",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -3991,8 +3991,8 @@
       ],
       "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
       "insufficient_evidence": false,
-      "latency_ms": 25.402900006156415,
-      "observation_id": "store-diagnostic-79a057ba-7532-4255-ad75-407096a17e95",
+      "latency_ms": 26.421099988510832,
+      "observation_id": "store-diagnostic-bb7f726a-7c00-457c-addd-c2c8467211c1",
       "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
       "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
       "source": "answering_store_diagnostic"
@@ -4010,8 +4010,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 66.36650001746602,
-        "observation_id": "store-diagnostic-a8499e6f-d3b4-4b45-b74f-dc2cdf23e34c",
+        "latency_ms": 49.33439998421818,
+        "observation_id": "store-diagnostic-f96407fd-f17d-47ff-9fe0-3f8f8e5f9ee3",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4052,8 +4052,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 23.70439999504015,
-        "observation_id": "store-diagnostic-4f0b803d-be11-4214-8ff7-07bac2463d9b",
+        "latency_ms": 27.588000026298687,
+        "observation_id": "store-diagnostic-e98a93f3-0b4c-4f41-9e54-097fdb1284bb",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4094,8 +4094,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 28.33890001056716,
-        "observation_id": "store-diagnostic-eaa3c1d4-c3fe-47fd-8e87-061907f1b28a",
+        "latency_ms": 23.531999991973862,
+        "observation_id": "store-diagnostic-e7f48df3-c638-4f61-b28c-e32574935d97",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4136,8 +4136,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 32.87190000992268,
-        "observation_id": "store-diagnostic-2a6d7843-03d5-46a1-8055-b5421dcf8898",
+        "latency_ms": 27.51929999794811,
+        "observation_id": "store-diagnostic-d7a197c5-2ef4-4f9b-8bdd-be8d983aa8a9",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4166,7 +4166,7 @@
             "8c43abc88168141b27d4d58f0b91c5d9b8348f89ce803dd1dabab431c6c2dbd8"
           ]
         ],
-        "split": "calibration"
+        "split": "held_out"
       },
       {
         "case_id": "guideline-abstract-05",
@@ -4178,8 +4178,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 25.038699997821823,
-        "observation_id": "store-diagnostic-3d9ecf2a-1b57-4f4c-9df0-45efe7920802",
+        "latency_ms": 26.520400017034262,
+        "observation_id": "store-diagnostic-bce22b29-303f-4966-8d10-667c348e43db",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4220,8 +4220,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 20.482899999478832,
-        "observation_id": "store-diagnostic-afc1ee0a-83f0-4e32-a114-0966cd03f00b",
+        "latency_ms": 23.44499999890104,
+        "observation_id": "store-diagnostic-4dcb0aea-7b1b-47ed-aee7-b9c729dad1b6",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4262,8 +4262,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 24.80050001759082,
-        "observation_id": "store-diagnostic-fa757d25-829c-4150-8784-2592b331fc63",
+        "latency_ms": 25.750700006028637,
+        "observation_id": "store-diagnostic-608ca1e0-f745-4131-9baa-2e22069d200b",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4304,8 +4304,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 21.98109999881126,
-        "observation_id": "store-diagnostic-1874b872-1325-44d3-b511-10049fbc8102",
+        "latency_ms": 25.48519999254495,
+        "observation_id": "store-diagnostic-ccd822eb-1b97-42dd-abc8-b9de3216da52",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4346,8 +4346,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 22.824799991212785,
-        "observation_id": "store-diagnostic-91b59dff-72a0-4ea3-bfa9-da960d44335f",
+        "latency_ms": 28.994199994485825,
+        "observation_id": "store-diagnostic-9a16f6a7-0f6f-4653-85e8-e58d883c6dc8",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4388,8 +4388,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 22.396799991838634,
-        "observation_id": "store-diagnostic-5c87a938-2c55-4b82-9f37-86c237310eb2",
+        "latency_ms": 32.68869998282753,
+        "observation_id": "store-diagnostic-6396d2bd-6bcb-4ad7-bbbe-8f650ce76e02",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4430,8 +4430,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 25.607000017771497,
-        "observation_id": "store-diagnostic-5bbee8c8-0a25-4f27-97c0-83c19bbb42d2",
+        "latency_ms": 26.52059998945333,
+        "observation_id": "store-diagnostic-62cf6703-488c-497e-ae27-59963190d54e",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4472,8 +4472,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 27.958799997577444,
-        "observation_id": "store-diagnostic-d69bfa54-820d-49e4-b917-c42a83cfdc96",
+        "latency_ms": 24.07469999161549,
+        "observation_id": "store-diagnostic-3afcbe64-1765-42df-ae70-d427c9392a56",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4514,8 +4514,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 32.0781999907922,
-        "observation_id": "store-diagnostic-847213cc-0e8c-47dd-8c18-c51dbceac795",
+        "latency_ms": 24.38119999715127,
+        "observation_id": "store-diagnostic-8623df1c-532e-4c20-b120-456cdc6d4a04",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4556,8 +4556,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 24.49810001417063,
-        "observation_id": "store-diagnostic-f44fb902-8644-4864-9ab4-49c8dc6dd0fb",
+        "latency_ms": 25.129899993771687,
+        "observation_id": "store-diagnostic-7b6be996-7078-4f52-b80c-333d5a264f45",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4598,8 +4598,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 22.993499995209277,
-        "observation_id": "store-diagnostic-60979da6-163a-4b4c-a8b0-d40a0895651e",
+        "latency_ms": 25.312900019343942,
+        "observation_id": "store-diagnostic-3d4bf6ef-49cb-4105-a4b5-aade86620496",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4640,8 +4640,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 24.513799988199025,
-        "observation_id": "store-diagnostic-8fcadcbf-231b-4889-b7a8-4d34d9ebde78",
+        "latency_ms": 23.67160000721924,
+        "observation_id": "store-diagnostic-e5af51e2-341c-43e2-908d-d13c8fd6e0e8",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4682,8 +4682,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 26.273800001945347,
-        "observation_id": "store-diagnostic-9ec53395-6ff1-4c29-bee9-2f7147f16512",
+        "latency_ms": 22.412999998778105,
+        "observation_id": "store-diagnostic-8b526e34-ac71-4a32-a85d-7b1eefcf5daf",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4724,8 +4724,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 27.145700005348772,
-        "observation_id": "store-diagnostic-fd796ac4-c245-4d55-9834-9100098852bb",
+        "latency_ms": 24.862199992639944,
+        "observation_id": "store-diagnostic-bc096d77-29d1-44ee-8e4d-cf45469383ef",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4766,8 +4766,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 23.43319999636151,
-        "observation_id": "store-diagnostic-71ff467a-735c-4f4e-a5d5-0b1016b4f5d8",
+        "latency_ms": 24.384899996221066,
+        "observation_id": "store-diagnostic-8b64101d-7898-4e52-b2c4-8fd93b8a8fb1",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4808,8 +4808,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 23.086900007911026,
-        "observation_id": "store-diagnostic-fc584ed4-be22-49d8-aa34-5f37d0e6ee3c",
+        "latency_ms": 26.078900002175942,
+        "observation_id": "store-diagnostic-ac9ef89a-0416-4b2e-a6bb-945b6699a2e2",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4850,8 +4850,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 25.512599997455254,
-        "observation_id": "store-diagnostic-018b47c5-1cc4-47b5-9032-2887cd051c9f",
+        "latency_ms": 24.26730000297539,
+        "observation_id": "store-diagnostic-2a76e04f-8799-4549-95c1-2b4cd5b7caae",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4892,8 +4892,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 24.43170000333339,
-        "observation_id": "store-diagnostic-6408f9a9-1e99-4e17-8d28-9789c6783ab4",
+        "latency_ms": 27.93280000332743,
+        "observation_id": "store-diagnostic-93568610-d2e0-47f1-a6a4-9f52d313a0db",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4934,8 +4934,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 29.640699998708442,
-        "observation_id": "store-diagnostic-d7d2359a-aec8-4a59-85a6-91196b5eb8c4",
+        "latency_ms": 25.81560000544414,
+        "observation_id": "store-diagnostic-f118460d-2ec0-47ac-a6f4-02deb7c8e616",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -4976,8 +4976,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 25.715900002978742,
-        "observation_id": "store-diagnostic-b2100a2a-ca36-49fd-9eea-e9d278bc43a0",
+        "latency_ms": 24.40930000739172,
+        "observation_id": "store-diagnostic-2f47b3c1-ede9-4629-bc87-fab098f1025a",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5018,8 +5018,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 28.233899996848777,
-        "observation_id": "store-diagnostic-06f74ed8-4df7-49f5-a9f4-961a88fbb90a",
+        "latency_ms": 21.147799998288974,
+        "observation_id": "store-diagnostic-4fdb82c1-aa10-49dc-a237-0da48e982f2e",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5060,8 +5060,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 30.762999987928197,
-        "observation_id": "store-diagnostic-16961627-544f-4eb2-8a38-ef746ec1eee2",
+        "latency_ms": 20.143000001553446,
+        "observation_id": "store-diagnostic-4fb01abc-15cf-457a-a8b1-39b68fc0b451",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5090,7 +5090,7 @@
             "4a5dd04570bfdbc0251bfa150ad066ead43f826ef34b1cb61e4f693623b73c98"
           ]
         ],
-        "split": "calibration"
+        "split": "held_out"
       },
       {
         "case_id": "guideline-print-27",
@@ -5102,8 +5102,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 2,
         "insufficient_evidence": false,
-        "latency_ms": 25.537699984852225,
-        "observation_id": "store-diagnostic-c6663da5-c8f5-43a2-a761-db6fdbd2f748",
+        "latency_ms": 25.206199992680922,
+        "observation_id": "store-diagnostic-48316105-70b8-4a2b-bcd7-f53f15c168f0",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5144,8 +5144,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": 1,
         "insufficient_evidence": false,
-        "latency_ms": 26.530200004344806,
-        "observation_id": "store-diagnostic-f63852bd-139b-475d-9c1d-ae66b7a68402",
+        "latency_ms": 22.710499993991107,
+        "observation_id": "store-diagnostic-b7337bbd-d11e-4155-8902-6c6ece4f27e7",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5184,8 +5184,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 25.99050002754666,
-        "observation_id": "store-diagnostic-87ba24c8-5d3e-417f-afb9-43548d9f1b95",
+        "latency_ms": 25.568399985786527,
+        "observation_id": "store-diagnostic-a024b503-5c43-4fad-b29e-7d7438be7fd4",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5224,8 +5224,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 26.748200005386025,
-        "observation_id": "store-diagnostic-20d8f764-662b-4c1e-8440-f9f3c3179300",
+        "latency_ms": 23.357099998975173,
+        "observation_id": "store-diagnostic-c0dec74c-08f2-485a-8ea9-33e0a0436588",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5264,8 +5264,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 22.86100000492297,
-        "observation_id": "store-diagnostic-a03ed134-5393-4a80-888c-b483142c35fd",
+        "latency_ms": 25.840100017376244,
+        "observation_id": "store-diagnostic-752d3cb4-8073-44fe-b5a5-90d3e1795a61",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5304,8 +5304,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 20.976100000552833,
-        "observation_id": "store-diagnostic-a7478ffb-411d-4315-bb6e-b4f5a28f65cf",
+        "latency_ms": 22.33350000460632,
+        "observation_id": "store-diagnostic-1ae69877-7e1f-468d-a344-f2182bd7686c",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5344,8 +5344,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 26.25379999517463,
-        "observation_id": "store-diagnostic-98eea300-6cdc-46d1-93ce-1e95377b6d0d",
+        "latency_ms": 21.883900015382096,
+        "observation_id": "store-diagnostic-78881226-85b1-46ab-bf9f-15bd0025ccda",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5384,8 +5384,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 24.289099994348362,
-        "observation_id": "store-diagnostic-b50652a5-80de-42af-933b-6677dd44893a",
+        "latency_ms": 24.396699998760596,
+        "observation_id": "store-diagnostic-ebf70401-f993-436d-ba0e-420923e83371",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5424,8 +5424,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 23.06269999826327,
-        "observation_id": "store-diagnostic-c1ceb422-fbf9-4dcf-a550-c5e05e8e39c7",
+        "latency_ms": 23.29539999482222,
+        "observation_id": "store-diagnostic-fc5ae0c1-3dfe-4244-b085-d32a66ecfd42",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5464,8 +5464,8 @@
         "expected_source_key": "Teacher Manh - Guidelines 2024.pdf",
         "first_relevant_rank": null,
         "insufficient_evidence": false,
-        "latency_ms": 25.402900006156415,
-        "observation_id": "store-diagnostic-79a057ba-7532-4255-ad75-407096a17e95",
+        "latency_ms": 26.421099988510832,
+        "observation_id": "store-diagnostic-bb7f726a-7c00-457c-addd-c2c8467211c1",
         "observation_source": "answering_store_diagnostic",
         "selected_provenance": [
           [
@@ -5498,13 +5498,13 @@
       }
     ],
     "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
-    "dataset_sha256": "82d18f0d3d2c776aca7705d0af799fe688bca5e721138106274ad39c656be60e",
-    "false_insufficient_evidence_count": 0,
+    "dataset_sha256": "5976b2f828d11c919f866c73809f9d57967d2c891d165aec71d9436ea788bf5c",
+    "false_insufficient_evidence_count": null,
     "hit_at_1": 0.6428571428571429,
     "hit_at_5": 1.0,
-    "mean_latency_ms": 26.62070833482883,
+    "mean_latency_ms": 25.622680555291783,
     "mrr": 0.8214285714285714,
-    "negative_refusal_rate": 0.0,
+    "negative_refusal_rate": null,
     "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
     "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1"
   },

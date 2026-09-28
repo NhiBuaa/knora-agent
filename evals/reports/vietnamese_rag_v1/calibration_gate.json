@@ -1,0 +1,15 @@
+{
+  "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
+  "dataset_sha256": "5976b2f828d11c919f866c73809f9d57967d2c891d165aec71d9436ea788bf5c",
+  "held_out_false_insufficient_evidence_rate": 0.0,
+  "held_out_hit_at_5": 1.0,
+  "held_out_negative_refusal_rate": 0.25,
+  "negative_rate_semantics": "fraction with no threshold-eligible retrieved candidate; not a generation refusal",
+  "policy_id": "qwen-vietnamese-evidence-v1",
+  "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
+  "regression_case_passed": true,
+  "retrieval_only_negative_empty_candidate_rate": 0.25,
+  "schema_version": 1,
+  "sealed_artifact": null,
+  "status": "FAILED"
+}

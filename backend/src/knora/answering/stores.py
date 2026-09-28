@@ -62,6 +62,24 @@ class RetrievalConfiguration:
         return cls._milestone_three_v2(strategy="vector-only", min_similarity=min_similarity)
 
     @classmethod
+    def qwen_vietnamese_v1(
+        cls, *, min_similarity: float, artifact_sha256: str
+    ) -> "RetrievalConfiguration":
+        if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
+            raise TypeError("calibrated min_similarity must be numeric")
+        if not -1.0 <= min_similarity <= 1.0:
+            raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
+        return cls(
+            id=f"retrieval-qwen-v1-{artifact_sha256[:24]}",
+            candidate_k=16,
+            min_similarity=float(min_similarity),
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-token-overlap-v1",
+            vector_candidate_k=16,
+        )
+
+    @classmethod
     def milestone_three_hybrid_v2(cls, *, min_similarity: float) -> "RetrievalConfiguration":
         return cls._milestone_three_v2(strategy="hybrid", min_similarity=min_similarity)
 

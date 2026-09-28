@@ -34,7 +34,7 @@ def _load(tmp_path, records, **manifest_changes):
         "corpus_sha256": "c" * 64,
         "chunk_set_ids": ["chunk-set-test"],
         "retrieval_configuration_id": "retrieval-qwen-v1",
-        "sources": [{"source_key": "Teacher Manh - Guidelines 2024.pdf", "raw_sha256": "d" * 64}],
+        "sources": [{"source_key": "Teacher Manh - Guidelines 2024.pdf", "raw_sha256": "c" * 64}],
     }
     manifest.update(manifest_changes)
     path = tmp_path / "manifest.json"
@@ -67,6 +67,24 @@ def test_loader_rejects_invalid_labels(tmp_path, records, message):
 def test_loader_rejects_manifest_hash_mismatch(tmp_path):
     with pytest.raises(DatasetContractError, match="dataset_sha256"):
         _load(tmp_path, [_case()], dataset_sha256="0" * 64)
+
+
+def test_loader_rejects_source_digest_inconsistent_with_single_pdf_corpus(tmp_path):
+    with pytest.raises(DatasetContractError, match="source digest"):
+        _load(
+            tmp_path,
+            [_case()],
+            sources=[{"source_key": "Teacher Manh - Guidelines 2024.pdf", "raw_sha256": "d" * 64}],
+        )
+
+
+def test_loader_rejects_shared_gold_chunk_across_fit_and_held_out(tmp_path):
+    records = [
+        _case(id="fit", split="calibration"),
+        _case(id="gate", split="held_out", question="Another question"),
+    ]
+    with pytest.raises(DatasetContractError, match="split independence"):
+        _load(tmp_path, records)
 
 
 def test_loader_accepts_crlf_checkout_with_lf_manifest_digest(tmp_path):
