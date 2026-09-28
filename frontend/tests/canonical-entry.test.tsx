@@ -51,6 +51,17 @@ describe("canonical entry", () => {
     expect(html).toContain("/api/auth/login");
   });
 
+  it("shows the signed-out state after Keycloak returns from RP logout", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce(null);
+    const html = renderToStaticMarkup(
+      await HomePage({
+        searchParams: Promise.resolve({ state: "knora-logout-complete" }),
+      }),
+    );
+    expect(html).toContain("Signed out");
+    expect(html).toContain("/api/auth/login");
+  });
+
   it("does not claim a still-authenticated visitor has signed out", async () => {
     await expect(
       HomePage({ searchParams: Promise.resolve({ "signed-out": "1" }) }),
