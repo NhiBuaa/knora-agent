@@ -6,7 +6,7 @@
   "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
   "corpus_digest_scheme": "single-original-pdf-sha256-v1",
   "chunk_set_ids": ["b80ccb7e-df0f-458f-bd79-9759f31ca240"],
-  "retrieval_configuration_id": "retrieval-qwen-v1",
+  "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
   "sources": [
     {
       "source_key": "Teacher Manh - Guidelines 2024.pdf",
