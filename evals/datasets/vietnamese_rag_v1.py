@@ -55,7 +55,7 @@ def _strings(value: object, field: str) -> tuple[str, ...]:
 
 
 def load_vietnamese_dataset(path: Path, manifest_path: Path) -> VietnameseDataset:
-    raw = path.read_bytes()
+    raw = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("dataset_sha256") != hashlib.sha256(raw).hexdigest():
         raise DatasetContractError("dataset_sha256 mismatch")

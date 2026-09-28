@@ -28,7 +28,7 @@ def _load(tmp_path, records, **manifest_changes):
     )
     manifest = {
         "version": "vietnamese-rag-v1",
-        "dataset_sha256": hashlib.sha256(data.read_bytes()).hexdigest(),
+        "dataset_sha256": hashlib.sha256(data.read_bytes().replace(b"\r\n", b"\n")).hexdigest(),
         "profile_id": "embedding-ollama-qwen3-test",
         "model_digest": "sha256:" + "b" * 64,
         "corpus_sha256": "c" * 64,
@@ -67,6 +67,13 @@ def test_loader_rejects_invalid_labels(tmp_path, records, message):
 def test_loader_rejects_manifest_hash_mismatch(tmp_path):
     with pytest.raises(DatasetContractError, match="dataset_sha256"):
         _load(tmp_path, [_case()], dataset_sha256="0" * 64)
+
+
+def test_loader_accepts_crlf_checkout_with_lf_manifest_digest(tmp_path):
+    dataset = _load(tmp_path, [_case()])
+    path = tmp_path / "cases.jsonl"
+    path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    assert load_vietnamese_dataset(path, tmp_path / "manifest.json") == dataset
 
 
 def test_checked_in_set_has_30_to_50_distinct_cases_and_separate_negative_gate():
