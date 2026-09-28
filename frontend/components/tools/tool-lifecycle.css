@@ -1,0 +1,34 @@
+.tool-lifecycle-secondary {
+  min-width: 0;
+}
+
+.tool-lifecycle-secondary article,
+.tool-lifecycle-secondary dl,
+.tool-lifecycle-secondary dd {
+  min-width: 0;
+}
+
+.tool-lifecycle-secondary article {
+  margin: 0;
+  padding: 0.9rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.tool-lifecycle-secondary dd,
+.tool-lifecycle-secondary .kn-status-badge {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 48rem) {
+  .tool-lifecycle-secondary dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+
+  .tool-lifecycle-secondary dd {
+    margin-bottom: 0.55rem;
+  }
+}

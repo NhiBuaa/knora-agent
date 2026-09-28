@@ -8,6 +8,7 @@ import type {
 import { browserRequest } from "@/lib/api/browser-client";
 import { Notice } from "@/components/ui/Notice";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import "./tool-lifecycle.css";
 
 type LifecycleState =
   | { kind: "loading" }
@@ -61,7 +62,11 @@ export function ToolLifecycleDisplay({ workspaceId }: { workspaceId: string }) {
       <h2>Tool lifecycle</h2>
       {state.kind === "loading" && <p role="status">Loading tool lifecycle…</p>}
       {state.kind === "unavailable" && (
-        <Notice kind="system" title="Tool lifecycle unavailable" />
+        <Notice
+          kind="warning"
+          role="status"
+          title="Tool lifecycle unavailable."
+        />
       )}
       {state.kind === "observation_failure" && (
         <Notice
