@@ -376,11 +376,16 @@ The E2E preparation command is `.\scripts\prepare-local-e2e.ps1`; it uses the sa
 
 ## Daily local development
 
-After completing the setup above, run the preflight first:
+After completing the setup above, allow local scripts in this PowerShell window,
+then run the preflight:
 
 ```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
 .\scripts\start-dev.ps1 -PreflightOnly
 ```
+
+The policy change applies only to this PowerShell process; repeat it in each new
+window before running the launcher. It does not require administrator access.
 
 It checks the Ollama model, embedding response and PDF worker safety without starting
 PostgreSQL, MinIO, Keycloak, the API or the frontend. When it reports `PRECHECK_OK`,
