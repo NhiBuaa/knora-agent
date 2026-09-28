@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 const m5Environment = {
   baseUrl: "http://127.0.0.1:3000",
   apiUrl: "http://127.0.0.1:8000",
-  keycloakIssuer: "http://127.0.0.1:8180/realms/m5-e2e",
+  keycloakIssuer: "http://127.0.0.1:8180/realms/knora-dev",
 };
 
 process.env.M5_E2E_BASE_URL = m5Environment.baseUrl;
@@ -43,11 +43,11 @@ describe("Playwright live runner", () => {
     expect(packageJson.default.scripts.start).toBe("next start");
     expect(m5E2ERuntimeEnvironment(m5Environment, {})).toEqual({
       KEYCLOAK_AUTHORIZATION_URL:
-        "http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/auth",
+        "http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/auth",
       KEYCLOAK_TOKEN_URL:
-        "http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/token",
+        "http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/token",
       KEYCLOAK_JWKS_URL:
-        "http://127.0.0.1:8180/realms/m5-e2e/protocol/openid-connect/certs",
+        "http://127.0.0.1:8180/realms/knora-dev/protocol/openid-connect/certs",
       KEYCLOAK_ISSUER: m5Environment.keycloakIssuer,
       KEYCLOAK_AUDIENCE: "knora-web",
       KEYCLOAK_CLIENT_ID: "knora-web",

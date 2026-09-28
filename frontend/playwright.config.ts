@@ -9,7 +9,7 @@ const requiredM5Environment = [
   [
     "M5_E2E_KEYCLOAK_ISSUER",
     "keycloakIssuer",
-    "http://127.0.0.1:8180/realms/m5-e2e",
+    "http://127.0.0.1:8180/realms/knora-dev",
   ],
 ] as const;
 

@@ -354,5 +354,9 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
     def commit_pdf_submission(
         self,
         prepared: PreparedPdfSubmission,
+        *,
+        admission_id: str | None = None,
     ) -> PdfSubmissionResult:
-        return self._submission_store.commit_pdf_submission(prepared)
+        return self._submission_store.commit_pdf_submission(
+            prepared, admission_id=admission_id
+        )

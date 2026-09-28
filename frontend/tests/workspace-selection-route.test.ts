@@ -52,6 +52,22 @@ describe("Workspace preference mutation", () => {
     );
   });
 
+  it("uses the public Host when Next's internal request URL differs", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/workspace-selection", {
+        method: "POST",
+        headers: {
+          host: "127.0.0.1:3000",
+          origin: "http://127.0.0.1:3000",
+          "x-forwarded-proto": "http",
+          "sec-fetch-site": "same-origin",
+        },
+        body: JSON.stringify({ workspaceId: "workspace-a" }),
+      }),
+    );
+    expect(response.status).toBe(200);
+  });
+
   it("preserves backend ownership denial instead of reporting availability failure", async () => {
     vi.mocked(knoraRequest).mockRejectedValueOnce(new KnoraApiError(403, {}));
     const response = await POST(

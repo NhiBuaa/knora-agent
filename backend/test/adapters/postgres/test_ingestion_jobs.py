@@ -14,6 +14,7 @@ from knora.adapters.postgres.tables import (
     IdempotencyRecordTable,
     IngestionJobTable,
     OriginalSourceObjectTable,
+    WorkspaceAdmissionTable,
     WorkspaceTable,
 )
 from knora.domain.errors import KnoraError
@@ -112,6 +113,31 @@ def test_postgres_pdf_submission_commits_source_current_pointer_and_queued_job()
         assert job.embedding_configuration_id == "embedding-local-m1-v2"
         assert job.attempt_count == 0
         assert job.max_attempts == 4
+
+
+def test_postgres_pdf_submission_links_workspace_admission_through_facade() -> None:
+    workspace_id = f"test-m2-admission-{uuid4()}"
+    prepared = prepared_submission(workspace_id)
+    admission_id = str(uuid4())
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="PDF admission"))
+        session.flush()
+        session.add(
+            WorkspaceAdmissionTable(
+                id=admission_id,
+                workspace_id=workspace_id,
+                operation="submit_pdf",
+                operation_id=prepared.idempotency_key,
+            )
+        )
+
+    result = PostgresIngestionJobStore(SessionFactory).commit_pdf_submission(
+        prepared, admission_id=admission_id
+    )
+
+    with SessionFactory() as session:
+        admission = session.get(WorkspaceAdmissionTable, admission_id)
+        assert admission.ingestion_job_id == result.ingestion_job_id
 
 
 def test_postgres_pdf_submission_separates_replay_dedup_and_source_version_identity() -> None:

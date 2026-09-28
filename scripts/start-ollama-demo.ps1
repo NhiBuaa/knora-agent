@@ -2,11 +2,12 @@ param(
     [switch]$PreflightOnly,
     [switch]$NoBrowser,
     [switch]$UseExistingStorage,
-    [string]$OllamaBaseUrl = 'http://127.0.0.1:11434',
+    [string]$EnvFile,
+    [string]$OllamaBaseUrl,
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_issue103_demo',
     [string]$ObjectStoreEndpoint,
-    [string]$ObjectStoreBucket = 'knora',
+    [string]$ObjectStoreBucket,
     [int]$PostgresPort = 5432,
     [int]$ApiPort = 8000,
     [int]$FrontendPort = 3000
@@ -18,6 +19,60 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 function Fail([string]$Code) {
     [Console]::Error.WriteLine($Code)
     exit 2
+}
+
+function Import-DotEnv([string]$Path) {
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+    $lineNumber = 0
+    foreach ($rawLine in Get-Content -LiteralPath $Path) {
+        $lineNumber++
+        $trimmed = $rawLine.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith('#')) { continue }
+        $separator = $rawLine.IndexOf('=')
+        if ($separator -le 0) { Fail "INVALID_DOTENV_ENTRY:$lineNumber" }
+        $name = $rawLine.Substring(0, $separator).Trim()
+        if ($name -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+            Fail "INVALID_DOTENV_ENTRY:$lineNumber"
+        }
+        $value = $rawLine.Substring($separator + 1)
+        $existing = [Environment]::GetEnvironmentVariable(
+            $name,
+            [EnvironmentVariableTarget]::Process
+        )
+        if ($null -eq $existing) {
+            [Environment]::SetEnvironmentVariable(
+                $name,
+                $value,
+                [EnvironmentVariableTarget]::Process
+            )
+        }
+    }
+}
+
+if ($EnvFile) {
+    if (-not (Test-Path -LiteralPath $EnvFile -PathType Leaf)) { Fail 'ENV_FILE_UNAVAILABLE' }
+    $dotenvPath = (Resolve-Path -LiteralPath $EnvFile).Path
+} else {
+    $dotenvPath = Join-Path $repoRoot '.env'
+}
+Import-DotEnv $dotenvPath
+
+if (-not $OllamaBaseUrl) {
+    $OllamaBaseUrl = if ($env:KNORA_OLLAMA_BASE_URL) {
+        $env:KNORA_OLLAMA_BASE_URL
+    } else {
+        'http://127.0.0.1:11434'
+    }
+}
+if (-not $ObjectStoreEndpoint -and $env:KNORA_OBJECT_STORE_S3_ENDPOINT) {
+    $ObjectStoreEndpoint = $env:KNORA_OBJECT_STORE_S3_ENDPOINT
+}
+if (-not $ObjectStoreBucket) {
+    $ObjectStoreBucket = if ($env:KNORA_OBJECT_STORE_S3_BUCKET) {
+        $env:KNORA_OBJECT_STORE_S3_BUCKET
+    } else {
+        'knora'
+    }
 }
 
 if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { Fail 'WINDOWS_RUNTIME_REQUIRED' }
@@ -42,6 +97,7 @@ $env:KNORA_EMBEDDING_PROVIDER = 'ollama'
 $env:KNORA_GENERATION_PROVIDER = 'deterministic-local'
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
+$env:KNORA_BACKEND_URL = $env:KNORA_API_URL
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
 try {
@@ -91,14 +147,18 @@ if ($UseExistingStorage) {
     $env:KNORA_OBJECT_STORE_S3_ENDPOINT = $ObjectStoreEndpoint
 } else {
     if ($DatabaseName -notmatch '^[a-z][a-z0-9_]{0,62}$') { Fail 'INVALID_DATABASE_NAME' }
-    if (-not $env:KNORA_CANONICAL_MINIO_ACCESS_KEY -or -not $env:KNORA_CANONICAL_MINIO_SECRET_KEY) {
-        Fail 'MINIO_CREDENTIALS_REQUIRED'
-    }
+    $minioAccessKey = $env:KNORA_CANONICAL_MINIO_ACCESS_KEY
+    $minioSecretKey = $env:KNORA_CANONICAL_MINIO_SECRET_KEY
+    if (-not $minioAccessKey) { $minioAccessKey = $env:KNORA_OBJECT_STORE_S3_ACCESS_KEY }
+    if (-not $minioSecretKey) { $minioSecretKey = $env:KNORA_OBJECT_STORE_S3_SECRET_KEY }
+    if (-not $minioAccessKey -or -not $minioSecretKey) { Fail 'MINIO_CREDENTIALS_REQUIRED' }
+    $env:KNORA_CANONICAL_MINIO_ACCESS_KEY = $minioAccessKey
+    $env:KNORA_CANONICAL_MINIO_SECRET_KEY = $minioSecretKey
     $env:KNORA_EVAL_POSTGRES_HOST_PORT = [string]$PostgresPort
     $env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
     $env:KNORA_OBJECT_STORE_S3_ENDPOINT = 'http://127.0.0.1:9000'
-    $env:KNORA_OBJECT_STORE_S3_ACCESS_KEY = $env:KNORA_CANONICAL_MINIO_ACCESS_KEY
-    $env:KNORA_OBJECT_STORE_S3_SECRET_KEY = $env:KNORA_CANONICAL_MINIO_SECRET_KEY
+    $env:KNORA_OBJECT_STORE_S3_ACCESS_KEY = $minioAccessKey
+    $env:KNORA_OBJECT_STORE_S3_SECRET_KEY = $minioSecretKey
 }
 $env:KNORA_OBJECT_STORE_BACKEND = 's3_compatible'
 $env:KNORA_OBJECT_STORE_S3_BUCKET = $ObjectStoreBucket

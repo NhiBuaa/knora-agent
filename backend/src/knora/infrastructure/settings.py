@@ -92,7 +92,9 @@ class Settings(BaseSettings):
     semantic_scorer_input_cost_per_million_tokens: Decimal | None = None
     semantic_scorer_output_cost_per_million_tokens: Decimal | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="KNORA_")
+    # The root .env is shared by backend, frontend and local launchers. Ignore entries
+    # owned by another process while keeping Knora settings typed and explicit here.
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="KNORA_", extra="ignore")
 
     @property
     def object_store_settings(self) -> ObjectStoreSettings:
