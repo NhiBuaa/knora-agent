@@ -6,6 +6,8 @@ import type {
   ToolLifecycleResponse,
 } from "@/generated/knora-openapi";
 import { browserRequest } from "@/lib/api/browser-client";
+import { Notice } from "@/components/ui/Notice";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 type LifecycleState =
   | { kind: "loading" }
@@ -14,7 +16,7 @@ type LifecycleState =
   | { kind: "observation_failure"; code?: string | null };
 
 function shown(value: string | number | null | undefined): string {
-  return value === null || value === undefined ? "unavailable" : String(value);
+  return value === null || value === undefined ? "Unavailable" : String(value);
 }
 
 export function ToolLifecycleDisplay({ workspaceId }: { workspaceId: string }) {
@@ -59,18 +61,37 @@ export function ToolLifecycleDisplay({ workspaceId }: { workspaceId: string }) {
       <h2>Tool lifecycle</h2>
       {state.kind === "loading" && <p role="status">Loading tool lifecycle…</p>}
       {state.kind === "unavailable" && (
-        <p role="status">Tool lifecycle unavailable.</p>
+        <Notice kind="system" title="Tool lifecycle unavailable" />
       )}
       {state.kind === "observation_failure" && (
-        <p role="alert">
-          Tool lifecycle observation failure
-          {state.code ? `: ${state.code}` : "."}
-        </p>
+        <Notice
+          kind="error"
+          role="alert"
+          title="Tool lifecycle observation failure"
+        >
+          {state.code && (
+            <details>
+              <summary>Technical details</summary>
+              <code>{state.code}</code>
+            </details>
+          )}
+        </Notice>
       )}
       {state.kind === "available" &&
         state.items.map((item) => (
           <article key={item.proposal.proposal_id}>
             <h3>Proposal {item.proposal.proposal_id}</h3>
+            <StatusBadge
+              kind={
+                item.execution?.lifecycle === "succeeded"
+                  ? "success"
+                  : item.execution?.lifecycle === "failed"
+                    ? "error"
+                    : "warning"
+              }
+            >
+              {shown(item.execution?.lifecycle)}
+            </StatusBadge>
             <dl>
               <dt>Proposal state</dt>
               <dd>{shown(item.proposal.state)}</dd>
@@ -92,6 +113,12 @@ export function ToolLifecycleDisplay({ workspaceId }: { workspaceId: string }) {
               <dd>{shown(item.reconciliation?.status)}</dd>
               <dt>Reconciliation observation</dt>
               <dd>{shown(item.reconciliation?.observation_type)}</dd>
+              <dt>Reconciliation observed at</dt>
+              <dd>{shown(item.reconciliation?.observed_at)}</dd>
+              <dt>Execution finalized at</dt>
+              <dd>{shown(item.execution?.finalized_at)}</dd>
+              <dt>Execution failure</dt>
+              <dd>{shown(item.execution?.failure_code)}</dd>
             </dl>
           </article>
         ))}

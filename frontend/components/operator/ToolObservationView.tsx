@@ -1,4 +1,5 @@
 import React from "react";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 const LABELS: Record<string, string> = {
   proposed: "Proposed",
@@ -24,7 +25,17 @@ export function ToolObservationView({
   return (
     <section aria-labelledby="tool-observation-heading">
       <h2 id="tool-observation-heading">M4 tool observation</h2>
-      <p>{label}</p>
+      <StatusBadge
+        kind={
+          state === "succeeded"
+            ? "success"
+            : state === "failed"
+              ? "error"
+              : "warning"
+        }
+      >
+        {label}
+      </StatusBadge>
       {detail ? (
         <p>{detail}</p>
       ) : (

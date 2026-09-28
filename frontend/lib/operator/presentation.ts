@@ -32,11 +32,16 @@ export function observationState(value: {
 }
 
 export const OPERATOR_METRIC_KEYS = [
-  "retrieval_latency_ms",
-  "end_to_end_latency_ms",
-  "token_count",
-  "estimated_cost_usd",
-  "failure_count",
+  "queue_depth",
+  "oldest_job_age",
+  "claim_latency_count",
+  "claim_latency_sum",
+  "retry_rate",
+  "lease_expiry_recovery_total",
+  "cleanup_attempt_total",
+  "cleanup_failure_total",
+  "orphan_discovery_total",
+  "orphan_reconciliation_total",
 ] as const;
 
 export function safeNumber(value: unknown): number | null {
