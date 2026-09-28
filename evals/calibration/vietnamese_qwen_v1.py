@@ -1,7 +1,6 @@
 """Fit Qwen retrieval thresholds without looking at held-out labels."""
 
 import argparse
-import hashlib
 import json
 import math
 from dataclasses import dataclass
@@ -31,10 +30,10 @@ class QwenCalibrationPolicy:
     corpus_sha256: str
     model_digest: str
     chunk_set_ids: tuple[str, ...]
+    held_out_negative_case_ids: tuple[str, ...]
     policy_id: str = POLICY_ID
     minimum_held_out_hit_at_5: float = 0.80
     maximum_held_out_false_insufficient_evidence_rate: float = 0.10
-    minimum_held_out_negative_refusal_rate: float = 1.00
     maximum_fit_miss_rate: float = 0.10
 
 
@@ -44,7 +43,9 @@ class CalibrationResult:
     threshold: float | None
     held_out_hit_at_5: float
     held_out_false_insufficient_evidence_rate: float
-    held_out_negative_refusal_rate: float
+    held_out_negative_refusal_rate: None
+    retrieval_only_negative_candidate_presence_rate: float
+    negative_candidate_diagnostics: tuple[dict[str, object], ...]
     regression_case_passed: bool
     artifact: dict[str, object] | None
 
@@ -125,9 +126,24 @@ def calibrate_qwen_threshold(
     negatives = [item for item in held_out_observations if item.case.expected_behavior == "REFUSAL"]
     if not positives or not negatives:
         raise ValueError("held-out answers and negatives are required")
+    if {item.case.id for item in negatives} != set(policy.held_out_negative_case_ids):
+        raise ValueError("held-out negative set mismatch")
     hit_at_5 = sum(_has_gold(item, threshold) for item in positives) / len(positives)
     false_insufficient = sum(not _eligible(item, threshold) for item in positives) / len(positives)
-    negative_empty = sum(not _eligible(item, threshold) for item in negatives) / len(negatives)
+    negative_diagnostics = tuple(
+        {
+            "case_id": item.case.id,
+            "top_similarity": max(
+                (candidate.similarity for candidate in item.observation.candidates),
+                default=None,
+            ),
+            "eligible_candidate_count": len(_eligible(item, threshold)),
+        }
+        for item in negatives
+    )
+    negative_presence = sum(
+        diagnostic["eligible_candidate_count"] > 0 for diagnostic in negative_diagnostics
+    ) / len(negatives)
     regression_passed = next(
         _has_gold(item, threshold)
         for item in held_out_observations
@@ -136,37 +152,18 @@ def calibrate_qwen_threshold(
     passed = (
         hit_at_5 >= policy.minimum_held_out_hit_at_5
         and false_insufficient <= policy.maximum_held_out_false_insufficient_evidence_rate
-        and negative_empty >= policy.minimum_held_out_negative_refusal_rate
         and regression_passed
     )
-    artifact = None
-    if passed:
-        artifact = {
-            "schema_version": 1,
-            "status": "PASSED",
-            "profile_id": policy.profile_id,
-            "model_digest": policy.model_digest,
-            "dataset_sha256": policy.dataset_sha256,
-            "corpus_sha256": policy.corpus_sha256,
-            "chunk_set_ids": list(policy.chunk_set_ids),
-            "policy_id": policy.policy_id,
-            "threshold": threshold,
-            "held_out_hit_at_5": hit_at_5,
-            "held_out_false_insufficient_evidence_rate": false_insufficient,
-            "held_out_negative_refusal_rate": negative_empty,
-            "regression_case_passed": regression_passed,
-        }
-        artifact["artifact_sha256"] = hashlib.sha256(
-            json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
     return CalibrationResult(
-        "PASSED" if passed else "FAILED",
+        "RETRIEVAL_PASSED" if passed else "FAILED",
         threshold if passed else None,
         hit_at_5,
         false_insufficient,
-        negative_empty,
+        None,
+        negative_presence,
+        negative_diagnostics,
         regression_passed,
-        artifact,
+        None,
     )
 
 
@@ -211,6 +208,11 @@ def calibrate_observation_document(
         corpus_sha256=dataset.corpus_sha256,
         model_digest=dataset.model_digest,
         chunk_set_ids=dataset.chunk_set_ids,
+        held_out_negative_case_ids=tuple(
+            case.id
+            for case in dataset.cases
+            if case.split == "held_out" and case.expected_behavior == "REFUSAL"
+        ),
     )
     return calibrate_qwen_threshold(
         tuple(item for item in labeled if item.case.split == "calibration"),
@@ -233,19 +235,26 @@ def main() -> None:
         "schema_version": 1,
         "status": result.status,
         "profile_id": dataset.profile_id,
+        "model_digest": dataset.model_digest,
         "dataset_sha256": dataset.dataset_sha256,
         "corpus_sha256": dataset.corpus_sha256,
+        "chunk_set_ids": dataset.chunk_set_ids,
+        "retrieval_configuration_id": dataset.retrieval_configuration_id,
         "policy_id": POLICY_ID,
         "held_out_hit_at_5": result.held_out_hit_at_5,
         "held_out_false_insufficient_evidence_rate": (
             result.held_out_false_insufficient_evidence_rate
         ),
         "held_out_negative_refusal_rate": result.held_out_negative_refusal_rate,
-        "retrieval_only_negative_empty_candidate_rate": (result.held_out_negative_refusal_rate),
+        "retrieval_only_negative_candidate_presence_rate": (
+            result.retrieval_only_negative_candidate_presence_rate
+        ),
+        "negative_candidate_diagnostics": result.negative_candidate_diagnostics,
+        "candidate_threshold": result.threshold,
         "regression_case_passed": result.regression_case_passed,
         "sealed_artifact": result.artifact,
         "negative_rate_semantics": (
-            "fraction with no threshold-eligible retrieved candidate; not a generation refusal"
+            "candidate presence in answer-absent questions; generation refusal is unmeasured"
         ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
