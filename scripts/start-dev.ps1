@@ -134,6 +134,9 @@ $appOrigin = "http://127.0.0.1:$FrontendPort"
 if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_REDIRECT_URI) {
     $env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
 }
+if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_POST_LOGOUT_REDIRECT_URI) {
+    $env:KEYCLOAK_POST_LOGOUT_REDIRECT_URI = "$appOrigin/"
+}
 if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP_ORIGIN) {
     $env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
 }

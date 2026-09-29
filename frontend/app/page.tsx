@@ -13,10 +13,14 @@ import { routes } from "@/lib/navigation/routes";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams?: Promise<{ "signed-out"?: string }>;
+  searchParams?: Promise<{ "signed-out"?: string; state?: string }>;
 }) {
   const session = await getSession();
-  if ((await searchParams)?.["signed-out"] === "1" && !session) {
+  const query = await searchParams;
+  if (
+    !session &&
+    (query?.["signed-out"] === "1" || query?.state === "knora-logout-complete")
+  ) {
     return (
       <main>
         <h1>Signed out</h1>

@@ -13,7 +13,7 @@ test("a real user login exposes the expected safe session shape", async ({
   await context.close();
 });
 
-test("a user completes the real authorization-code login and can log out", async ({
+test("logout ends Keycloak SSO before the same browser signs in as the operator", async ({
   browser,
 }) => {
   const context = await newRoleContext(browser, "user");
@@ -23,8 +23,15 @@ test("a user completes the real authorization-code login and can log out", async
   await expect(page).toHaveURL(/\/workspaces\/[^/]+$/);
 
   await page.getByRole("button", { name: "Log out" }).press("Enter");
+  await expect(page).toHaveURL(/\/protocol\/openid-connect\/logout/);
+  await page.locator("#kc-logout").click();
   await expect(page.getByRole("heading", { name: "Signed out" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await loginAs(page, "operator");
+  await page.goto("/operator");
+  await expect(
+    page.getByRole("heading", { name: "Operator observations" }),
+  ).toBeVisible();
   await context.close();
 });
 

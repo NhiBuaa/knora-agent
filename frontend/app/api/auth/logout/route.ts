@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   const response = NextResponse.redirect(
-    new URL("/?signed-out=1", expectedOrigin),
+    logoutDestination(expectedOrigin),
     303,
   );
   const cookie = clearSessionCookie();
@@ -30,4 +30,38 @@ export async function POST(request: Request) {
     preference.options as never,
   );
   return response;
+}
+
+function logoutDestination(expectedOrigin: string): URL {
+  const local = new URL("/?signed-out=1", expectedOrigin);
+  const issuer = process.env.KEYCLOAK_ISSUER;
+  const configuredReturn = process.env.KEYCLOAK_POST_LOGOUT_REDIRECT_URI;
+  if (!issuer || !configuredReturn) return local;
+  try {
+    const issuerUrl = new URL(issuer);
+    const returnUrl = new URL(configuredReturn);
+    if (
+      !["http:", "https:"].includes(issuerUrl.protocol) ||
+      issuerUrl.username ||
+      issuerUrl.password ||
+      issuerUrl.search ||
+      issuerUrl.hash ||
+      returnUrl.origin !== expectedOrigin ||
+      returnUrl.pathname !== "/" ||
+      (returnUrl.search && returnUrl.search !== "?signed-out=1") ||
+      returnUrl.hash
+    )
+      return local;
+    const endpoint = new URL(issuerUrl);
+    endpoint.pathname = `${issuerUrl.pathname.replace(/\/$/, "")}/protocol/openid-connect/logout`;
+    endpoint.searchParams.set(
+      "client_id",
+      process.env.KEYCLOAK_CLIENT_ID ?? "knora-web",
+    );
+    endpoint.searchParams.set("post_logout_redirect_uri", returnUrl.toString());
+    endpoint.searchParams.set("state", "knora-logout-complete");
+    return endpoint;
+  } catch {
+    return local;
+  }
 }
