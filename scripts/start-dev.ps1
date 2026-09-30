@@ -69,6 +69,15 @@ if ($EnvFile) {
 }
 Import-DotEnv $dotenvPath
 
+# Check before provider calls, Compose changes, migrations, or truncating shared logs.
+# PreflightOnly checks provider configuration without claiming application ports.
+if (-not $PreflightOnly) {
+    foreach ($binding in @(@('ApiPort', $ApiPort), @('FrontendPort', $FrontendPort))) {
+        $listeners = @(Get-NetTCPConnection -LocalPort $binding[1] -State Listen -ErrorAction SilentlyContinue)
+        if ($listeners.Count -gt 0) { Fail "PORT_IN_USE:$($binding[0]):$($binding[1])" }
+    }
+}
+
 if (-not $GenerationProvider) {
     $GenerationProvider = if ($env:KNORA_GENERATION_PROVIDER) { $env:KNORA_GENERATION_PROVIDER } else { 'ollama' }
 }

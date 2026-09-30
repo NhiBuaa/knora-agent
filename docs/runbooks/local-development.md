@@ -92,6 +92,17 @@ Press `Ctrl+C` to stop API, both workers and frontend. PostgreSQL, MinIO and Key
 
 ### Real generation and explicit simulation
 
+If startup reports `PORT_IN_USE:ApiPort:8000` or `PORT_IN_USE:FrontendPort:3000`,
+stop the previous daily supervisor with Ctrl+C before starting another one. The launcher
+checks occupied ports before modifying services or logs and leaves existing processes alone.
+If the old supervisor has already exited, inspect the listening process and its parent before
+stopping it; do not stop every Node/Python process on the machine.
+
+An existing PowerShell window can retain `KNORA_GENERATION_PROVIDER=deterministic-local`
+from an older launcher. Process environment overrides `.env`. Open a fresh PowerShell window
+or set `$env:KNORA_GENERATION_PROVIDER = 'ollama'` before restarting. The explicit
+`-GenerationProvider ollama` parameter also overrides that stale value.
+
 Daily development defaults to `ollama` generation with `qwen3:8b`. For the CPU endpoint:
 
 ```powershell
