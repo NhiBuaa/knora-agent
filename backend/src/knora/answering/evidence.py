@@ -21,11 +21,20 @@ def _tokens(content: str) -> set[str]:
     return {token.casefold().strip(".,!?;:()[]{}") for token in content.split() if token}
 
 
-def _is_redundant(candidate: RetrievalCandidate, selected: RetrievalCandidate) -> bool:
+def _is_redundant(candidate: RetrievalCandidate, selected: RetrievalCandidate, policy: str) -> bool:
     if candidate.chunk_set_id != selected.chunk_set_id:
         return False
     if abs(candidate.chunk_ordinal - selected.chunk_ordinal) != 1:
         return False
+    if policy == "adjacent-content-containment-v1":
+        # Preserve order, repetitions, case and punctuation; only whitespace is normalized.
+        # Partial overlap cannot establish that the candidate adds no information.
+        needle = candidate.content.split()
+        haystack = selected.content.split()
+        return bool(needle) and any(
+            haystack[start : start + len(needle)] == needle
+            for start in range(len(haystack) - len(needle) + 1)
+        )
     candidate_tokens = _tokens(candidate.content)
     selected_tokens = _tokens(selected.content)
     smaller = min(len(candidate_tokens), len(selected_tokens))
@@ -36,12 +45,20 @@ def select_evidence(
     candidates: tuple[RetrievalCandidate, ...],
     configuration: RetrievalConfiguration,
 ) -> EvidenceSelection:
+    if configuration.overlap_policy not in {
+        "adjacent-token-overlap-v1",
+        "adjacent-content-containment-v1",
+    }:
+        raise ValueError("unsupported overlap policy")
     selected: list[CandidateDecision] = []
     decisions: list[CandidateDecision] = []
     selected_tokens = 0
     for candidate in candidates:
         budget_evidence: dict[str, Any] | None = None
-        if any(_is_redundant(candidate, item.candidate) for item in selected):
+        if any(
+            _is_redundant(candidate, item.candidate, configuration.overlap_policy)
+            for item in selected
+        ):
             outcome = "REDUNDANT_OVERLAP"
         elif len(selected) >= configuration.max_evidence_chunks:
             outcome = "CHUNK_COUNT_LIMIT"

@@ -67,6 +67,13 @@ bounded context and database, while Knora owns standalone Workspaces and Convers
 - A completed Embedding Set may become a Document's **Active Embedding Set**; inactive historical
   sets remain immutable for traceability and are excluded from retrieval.
 - An **Evidence Set** is the ordered collection of retrieved Chunks supplied to answer generation.
+- **Evidence containment policy** `adjacent-content-containment-v1` is opt-in through
+  `retrieval-evidence-containment-v1`. It retains M1's vector threshold (0.65), candidate count
+  (8), evidence count (5), and token budget (3000). An adjacent Chunk from the same Chunk Set
+  is redundant only when its entire whitespace-token sequence occurs contiguously in a selected
+  Chunk, preserving order, repetitions, case and punctuation. Partial overlap can contain unique
+  facts and remains eligible within the budgets. Legacy policies and Qwen calibration seals
+  are unchanged; this policy alone makes no semantic-quality or release claim.
 - An **Evidence Alias** is a request-scoped opaque identifier such as `E1`; application code owns
   its mapping to one Chunk and providers never receive database Chunk IDs.
 - A **Retrieval Configuration** is an immutable definition of candidate count, similarity
