@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -16,6 +17,50 @@ import pytest
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "start-dev.ps1"
 MODEL = "qwen3-embedding:0.6b"
 DIGEST = "sha256:" + "b" * 64
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("parameter", ["ApiPort", "FrontendPort"])
+def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path, parameter):
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+        with socket.socket() as unused:
+            unused.bind(("127.0.0.1", 0))
+            unused_port = unused.getsockname()[1]
+        other_parameter = "FrontendPort" if parameter == "ApiPort" else "ApiPort"
+        result = subprocess.run(
+            [
+                _powershell(),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(SCRIPT),
+                "-EnvFile",
+                str(env_file),
+                "-PythonExe",
+                sys.executable,
+                "-OllamaBaseUrl",
+                "http://127.0.0.1:1",
+                f"-{parameter}",
+                str(port),
+                f"-{other_parameter}",
+                str(unused_port),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 2
+        assert f"PORT_IN_USE:{parameter}:{port}" in result.stderr
+        assert "DEV_READY" not in result.stdout
+        # The pre-existing listener belongs to another session and must remain intact.
+        with socket.create_connection(("127.0.0.1", port), timeout=1):
+            pass
 
 
 @pytest.fixture(autouse=True)
