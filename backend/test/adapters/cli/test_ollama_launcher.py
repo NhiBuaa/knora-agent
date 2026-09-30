@@ -15,6 +15,7 @@ import pytest
 
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "start-ollama-demo.ps1"
 MODEL = "qwen3-embedding:0.6b"
+GENERATION_MODEL = "qwen3:8b"
 DIGEST = "sha256:" + "a" * 64
 
 
@@ -78,7 +79,7 @@ def _launch(
 
 @contextmanager
 def _ollama_server(
-    *, model_available: bool = True, dimensions: int = 1024
+    *, model_available: bool = True, generation_available: bool = True, dimensions: int = 1024
 ) -> Iterator[str]:
     class OllamaHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -86,6 +87,8 @@ def _ollama_server(
                 self.send_error(404)
                 return
             models = [{"name": MODEL, "digest": DIGEST}] if model_available else []
+            if generation_available:
+                models.append({"name": GENERATION_MODEL, "digest": "sha256:" + "b" * 64})
             self._respond({"models": models})
 
         def do_POST(self) -> None:
@@ -143,12 +146,24 @@ def test_launcher_preflight_checks_model_and_dimension(
     assert (result.returncode == 0) is (expected_error is None), result.stderr
     if expected_error is None:
         assert "PRECHECK_OK" in result.stdout
+        assert "GENERATION_MODEL=qwen3:8b" in result.stdout
+        assert "GENERATION_DIGEST=sha256:" + "b" * 64 in result.stdout
         assert "API_URL=http://127.0.0.1:8765" in result.stdout
         assert existing_result is not None
         assert existing_result.returncode != 0
         assert "EXISTING_STORAGE_CONFIG_REQUIRED" in existing_result.stderr
     else:
         assert expected_error in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_launcher_requires_ollama_generation_model(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated launcher test\n", encoding="utf-8")
+    with _ollama_server(generation_available=False) as url:
+        result = _launch(url, env_file=env_file)
+    assert result.returncode != 0
+    assert "GENERATION_MODEL_UNAVAILABLE" in result.stderr
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
@@ -199,3 +214,9 @@ def test_launcher_rejects_malformed_dotenv_without_echoing_content(tmp_path: Pat
     assert "INVALID_DOTENV_ENTRY:1" in result.stderr
     assert secret_marker not in result.stdout
     assert secret_marker not in result.stderr
+
+
+def test_launcher_starts_durable_conversation_worker() -> None:
+    launcher = SCRIPT.read_text(encoding="utf-8")
+    assert "scripts/run_conversation_worker.py" in launcher
+    assert "CONVERSATION_WORKER_PID=" in launcher

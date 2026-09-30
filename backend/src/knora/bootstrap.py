@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -12,6 +13,7 @@ from knora.providers.ollama.embedding import (
     OllamaEmbeddingProvider,
     resolve_ollama_embedding_configuration,
 )
+from knora.providers.ollama.generation import OllamaGenerationProvider
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
@@ -150,6 +152,20 @@ def _build_selected_embedding(
 def _build_selected_generation(runtime_settings: Settings, choice: str) -> GenerationProvider:
     if choice == "deterministic-local":
         return DeterministicGenerationProvider()
+    if choice == "ollama":
+        if runtime_settings.ollama_generation_model not in {"qwen3:8b", "qwen3:4b"}:
+            raise ValueError("invalid provider configuration: unsupported Ollama generation model")
+        if runtime_settings.ollama_generation_timeout_seconds <= 0:
+            raise ValueError("invalid provider configuration: timeout must be positive")
+        digest = runtime_settings.expected_generation_model_digest
+        if digest is None or re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest) is None:
+            raise ValueError("invalid provider configuration: generation model digest required")
+        return OllamaGenerationProvider(
+            base_url=runtime_settings.ollama_base_url,
+            model=runtime_settings.ollama_generation_model,
+            expected_digest=digest,
+            timeout_seconds=runtime_settings.ollama_generation_timeout_seconds,
+        )
     if choice == "openai-compatible":
         if any(
             cost is not None and cost < 0

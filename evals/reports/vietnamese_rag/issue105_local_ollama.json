@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "status": "BLOCKED",
+  "scope": "one local PDF, one positive and one absent-information question",
+  "generation_model": "qwen3:8b",
+  "generation_model_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "embedding_profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
+  "embedding_dimensions": 1024,
+  "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
+  "chunk_set_id": "44ac5763-d1c6-4e1b-b7a2-2c43043342bf",
+  "retrieval_configuration_ids_tested": ["retrieval-m1-v1", "retrieval-m3-rrf-v1"],
+  "dataset_sha256": "5976b2f828d11c919f866c73809f9d57967d2c891d165aec71d9436ea788bf5c",
+  "document_ingestion": "succeeded",
+  "positive_question": {
+    "expected_chunk_checksum": "f3081d1e2e6d069f574162a260070f5bc844ac906fac9dd51ebe8868882c0b2c",
+    "observed_citation_chunk_checksum": "5f9b7592ca8e1ececa7809376573cbd2f10d03446a5a57ebf02370db7f81dda3",
+    "observed_page": 1,
+    "required_facts_present": false,
+    "citation_correct": false,
+    "grounded_answer": false,
+    "selected_evidence_hit_at_1": 0.0,
+    "selected_evidence_hit_at_5": 0.0,
+    "selected_evidence_mrr": 0.0,
+    "false_insufficient_evidence": false,
+    "m1_latency_ms": 53055.9,
+    "m3_hybrid_latency_ms": 12479.3,
+    "m3_hybrid_same_incorrect_chunk": true
+  },
+  "absent_information_question": {
+    "refused": true,
+    "citation_count": 0,
+    "generation_status": "not_called",
+    "latency_ms": 148.1
+  },
+  "calibration_gate": {
+    "status": "RETRIEVAL_PASSED",
+    "sealed_artifact": null,
+    "negative_generation_refusal_measured": false
+  },
+  "limitations": [
+    "The required positive Conversation answer failed under both approved deployment retrieval configurations tested.",
+    "The absent-information refusal happened before model generation, so it does not seal the Qwen retrieval calibration artifact.",
+    "This one-PDF observation cannot establish general Vietnamese RAG quality."
+  ]
+}
