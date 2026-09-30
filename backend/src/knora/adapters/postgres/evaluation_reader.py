@@ -34,6 +34,7 @@ _VALID_BRANCH_STATUSES = {
     "fts": {"ELIGIBLE", "INELIGIBLE", "NO_CONTRIBUTION"},
 }
 _RETRIEVAL_PROVENANCE = {
+    "retrieval-evidence-containment-v1": (None, None, {"vector"}),
     "retrieval-m1-v1": (None, None, {"vector"}),
     "retrieval-m3-vector-v2": (None, None, {"vector"}),
     "retrieval-m3-rrf-v1": ("rrf-v1", "fts-v1", {"vector", "fts"}),

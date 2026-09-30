@@ -155,3 +155,19 @@ def test_qwen_configuration_rejects_failed_artifact() -> None:
             corpus_sha256="b" * 64,
             chunk_set_ids=("chunk-set-1",),
         )
+
+
+def test_containment_configuration_changes_only_identity_and_overlap():
+    from dataclasses import replace
+
+    from knora.answering.retrieval_configuration import resolve_retrieval_configuration
+    from knora.answering.stores import RetrievalConfiguration
+
+    actual = resolve_retrieval_configuration(
+        "retrieval-evidence-containment-v1", vector_min_similarity=None
+    )
+    assert actual == replace(
+        RetrievalConfiguration.milestone_one(),
+        id="retrieval-evidence-containment-v1",
+        overlap_policy="adjacent-content-containment-v1",
+    )

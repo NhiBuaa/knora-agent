@@ -22,6 +22,7 @@ from knora.adapters.postgres.tables import (
 )
 from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
+from knora.answering.stores import RetrievalConfiguration
 from knora.domain.access import WorkspacePrincipal
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.module import IngestDocument
@@ -89,9 +90,9 @@ def _persist_budget_trace(
                 "omitted_lexemes": [],
             }
         )
-        is_budget_candidate = (
-            decision_reason == "TOKEN_BUDGET" and rank == 1
-        ) or (decision_reason == "CHUNK_COUNT_LIMIT" and rank == len(chunk_ids))
+        is_budget_candidate = (decision_reason == "TOKEN_BUDGET" and rank == 1) or (
+            decision_reason == "CHUNK_COUNT_LIMIT" and rank == len(chunk_ids)
+        )
         evidence = None
         final_decision = "SELECTED"
         reason = None
@@ -167,7 +168,10 @@ def test_evaluation_reader_rejects_inconsistent_fused_rank_provenance() -> None:
 
 
 @pytest.mark.asyncio
-async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_corpus() -> None:
+@pytest.mark.parametrize("containment", [False, True])
+async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_corpus(
+    containment,
+) -> None:
     workspace_id = f"evaluation-reader-{uuid4()}"
     content = b"Refund requests are accepted within 30 days."
     with SessionFactory.begin() as session:
@@ -193,6 +197,11 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
         generation_provider=DeterministicGenerationProvider(),
         store=PostgresAnsweringStore(SessionFactory),
         embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration=(
+            RetrievalConfiguration.evidence_containment_v1()
+            if containment
+            else RetrievalConfiguration.milestone_one()
+        ),
     ).execute(
         QuestionCommand(workspace_id=workspace_id, question=content.decode()),
         WorkspacePrincipal(workspace_id=workspace_id, key_id="test"),
@@ -449,10 +458,10 @@ async def test_evaluation_reader_rejects_cross_workspace_candidate_reference() -
                 alias_mapping={},
                 parsed_markers=[],
                 validation_outcome="valid",
-                    provider_metadata=provider_metadata,
-                    latency_ms=0,
-                    branch_observations=branch_observations,
-                )
+                provider_metadata=provider_metadata,
+                latency_ms=0,
+                branch_observations=branch_observations,
+            )
         )
 
     with pytest.raises(LookupError, match="evaluation trace provenance is invalid"):
