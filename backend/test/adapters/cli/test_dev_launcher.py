@@ -18,6 +18,16 @@ MODEL = "qwen3-embedding:0.6b"
 DIGEST = "sha256:" + "b" * 64
 
 
+@pytest.fixture(autouse=True)
+def isolate_generation_environment(monkeypatch):
+    for key in (
+        "KNORA_GENERATION_PROVIDER",
+        "KNORA_OLLAMA_GENERATION_MODEL",
+        "KNORA_EXPECTED_GENERATION_MODEL_DIGEST",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
 def test_daily_launcher_supervises_conversation_turn_worker() -> None:
     launcher = SCRIPT.read_text(encoding="utf-8")
     assert "scripts/run_conversation_worker.py" in launcher
@@ -136,13 +146,16 @@ def _powershell() -> str:
 
 
 @contextmanager
-def _ollama_server() -> Iterator[str]:
+def _ollama_server(*, generation_digest: str | None = "c" * 64) -> Iterator[str]:
     class OllamaHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self.path != "/api/tags":
                 self.send_error(404)
                 return
-            self._respond({"models": [{"name": MODEL, "digest": DIGEST}]})
+            models = [{"name": MODEL, "digest": DIGEST}]
+            if generation_digest is not None:
+                models.append({"name": "qwen3:8b", "digest": generation_digest})
+            self._respond({"models": models})
 
         def do_POST(self) -> None:
             if self.path == "/api/show":
@@ -211,9 +224,98 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
 
     assert result.returncode == 0, result.stderr
     assert "PRECHECK_OK" in result.stdout
+    assert "GENERATION_PROVIDER=ollama" in result.stdout
+    assert "GENERATION_MODEL=qwen3:8b" in result.stdout
+    assert "GENERATION_DIGEST=sha256:" + "c" * 64 in result.stdout
     assert "API_URL=http://127.0.0.1:8765" in result.stdout
     assert "OIDC_REDIRECT_URI=http://127.0.0.1:8766/api/auth/callback" in result.stdout
     assert "OIDC_ISSUER=http://127.0.0.1:8180/realms/knora-dev" in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("digest", [None, "invalid"])
+def test_daily_real_generation_fails_closed_without_valid_model(tmp_path, digest):
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    environment = {k: v for k, v in os.environ.items() if not k.startswith("KNORA_GENERATION")}
+    with _ollama_server(generation_digest=digest) as url:
+        result = subprocess.run(
+            [
+                _powershell(),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(SCRIPT),
+                "-PreflightOnly",
+                "-EnvFile",
+                str(env_file),
+                "-OllamaBaseUrl",
+                url,
+                "-PythonExe",
+                sys.executable,
+            ],
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+    assert result.returncode == 2
+    assert "GENERATION_MODEL_UNAVAILABLE" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize(
+    ("parameter", "process_provider", "expected"),
+    [
+        ("-GenerationProvider ollama", "deterministic-local", "ollama"),
+        ("", "ollama", "ollama"),
+        ("", None, "deterministic-local"),
+    ],
+)
+def test_daily_generation_selection_and_child_environment(
+    tmp_path, parameter, process_provider, expected
+):
+    env_file = tmp_path / ".env"
+    env_file.write_text("KNORA_GENERATION_PROVIDER=deterministic-local\n")
+    environment = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in {"KNORA_GENERATION_PROVIDER", "KNORA_OLLAMA_GENERATION_MODEL"}
+    }
+    if process_provider:
+        environment["KNORA_GENERATION_PROVIDER"] = process_provider
+    environment["KNORA_EXPECTED_GENERATION_MODEL_DIGEST"] = "sha256:" + "d" * 64
+    command = (
+        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV "
+        f"-OllamaBaseUrl $env:TEST_URL -PythonExe $env:TEST_PYTHON {parameter}; "
+        "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; "
+        "& $env:TEST_PYTHON $env:TEST_CHILD"
+    )
+    child = tmp_path / "child.py"
+    child.write_text(
+        "import os\nfor key in ('KNORA_GENERATION_PROVIDER', "
+        "'KNORA_OLLAMA_GENERATION_MODEL', 'KNORA_EXPECTED_GENERATION_MODEL_DIGEST'):\n"
+        "    print(os.environ.get(key, 'unset'))\n"
+    )
+    with _ollama_server(generation_digest="c" * 64 if expected == "ollama" else None) as url:
+        result = subprocess.run(
+            [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+            capture_output=True,
+            text=True,
+            timeout=25,
+            env={
+                **environment,
+                "TEST_LAUNCHER": str(SCRIPT),
+                "TEST_ENV": str(env_file),
+                "TEST_URL": url,
+                "TEST_PYTHON": sys.executable,
+                "TEST_CHILD": str(child),
+            },
+        )
+    assert result.returncode == 0, result.stderr
+    digest = "sha256:" + "c" * 64 if expected == "ollama" else "unset"
+    assert result.stdout.splitlines()[-3:] == [expected, "qwen3:8b", digest]
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")

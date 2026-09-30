@@ -291,10 +291,11 @@ request cannot connect, start Ollama in a separate PowerShell window and keep it
 ollama serve
 ```
 
-In the repository terminal, pull the embedding model:
+In the repository terminal, pull the embedding and generation models:
 
 ```powershell
 ollama pull qwen3-embedding:0.6b
+ollama pull qwen3:8b
 ```
 
 When GPU embedding works, keep `KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11434` in
@@ -387,13 +388,35 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
 The policy change applies only to this PowerShell process; repeat it in each new
 window before running the launcher. It does not require administrator access.
 
-It checks the Ollama model, embedding response and PDF worker safety without starting
+Daily development uses real Ollama generation (`qwen3:8b`) by default, alongside
+`qwen3-embedding:0.6b`. The preflight prints `GENERATION_PROVIDER=ollama`, the model
+and its resolved digest. API and both workers inherit the same pinned configuration.
+Missing generation models stop startup; the launcher does not fall back to simulated answers.
+
+It checks the Ollama models, embedding response and PDF worker safety without starting
 PostgreSQL, MinIO, Keycloak, the API or the frontend. When it reports `PRECHECK_OK`,
 start the daily development supervisor:
 
 ```powershell
 .\scripts\start-dev.ps1
 ```
+
+For the CPU Ollama endpoint on port 11435, use:
+
+```powershell
+.\scripts\start-dev.ps1 -OllamaBaseUrl http://127.0.0.1:11435 -GenerationProvider ollama
+```
+
+Set `KNORA_GENERATION_PROVIDER=ollama` and `KNORA_OLLAMA_GENERATION_MODEL=qwen3:8b`
+in `.env` for persistent selection. Command parameters override process environment,
+then `.env`, then defaults. `-GenerationModel qwen3:4b` selects the smaller generation
+model after it has been installed; it does not change the embedding profile.
+For an explicit UI-only simulation, use `-GenerationProvider deterministic-local`.
+That mode copies evidence and cannot satisfy real-AI acceptance.
+
+After restarting, submit a new Conversation Turn. Previously saved answers stay unchanged.
+Provider selection does not establish answer quality: verify the new server trace records
+`provider=ollama`, and check answer facts, citations and refusal separately.
 
 It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, creates the
 `knora_dev` database, and optimizes the edit-run loop:
