@@ -125,6 +125,41 @@ The script checks that the local generation model has a digest and runs only `ol
 
 The [#105 local evaluation](../../evals/reports/vietnamese_rag/issue105_local_ollama.json) currently records a **blocked** positive gate: the selected evidence omits the labeled seven-chapter chunk under both `retrieval-m1-v1` and `retrieval-m3-rrf-v1`. The negative question refuses before generation. The #104 Qwen calibration artifact remains unsealed; do not lower the threshold or claim model-backed negative refusal from these observations. Re-run the live gate after the retrieval policy has passed its full calibration.
 
+## Repeatable refusal diagnosis (#105)
+
+The maintained replacement for the temporary `knora-issue105-negative-eval.py` is
+`evals/runners/ollama_refusal.py`, with tests in `evals/test/test_ollama_refusal.py`.
+Run it from the #105 worktree. It retrieves the active corpus within the requested
+Workspace, checks the dataset/profile/source/chunk-set binding, applies the existing
+evidence selector (including overlap and token budgets), and calls the digest-pinned
+Ollama adapter. It does not use the old temporary observations or an unscoped chunks query.
+
+Set `KNORA_DATABASE_URL` to the isolated issue database, `KNORA_OLLAMA_BASE_URL` to
+the running Ollama endpoint, and `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` to the
+reviewed generation digest through the local environment. The optional model variables
+are `KNORA_OLLAMA_EMBEDDING_MODEL` and `KNORA_OLLAMA_GENERATION_MODEL`.
+
+```powershell
+$env:PYTHONPATH = "$PWD\backend\src;$PWD"
+# Supply a manifest matching this Workspace's active corpus and the threshold
+# selected by the retrieval calibration. Neither value changes server configuration.
+& C:\Developer\Projects\knora-agent\.venv\Scripts\python.exe -m evals.runners.ollama_refusal `
+  --dataset evals/datasets/vietnamese_rag_v1.jsonl `
+  --manifest <workspace-manifest.json> `
+  --workspace-id <workspace-id> `
+  --threshold <calibration-selected-threshold> `
+  --output evals/reports/issue105-refusal-local.json
+```
+
+The report contains provenance, selected checksums and closed outcome labels, without
+questions, evidence text, answers, credentials or exception bodies. `MODEL_REFUSAL`
+means generation ran and its refusal passed backend validation; `PRE_GENERATION_REFUSAL`
+does not count in the model refusal rate. Unexpected answers, malformed output and
+provider failures remain in its denominator. A zero-generation run has a null rate.
+The report always marks `conversation_gate: NOT_EVALUATED` and has no calibration seal:
+this diagnostic does not exercise authenticated Conversation or replace its browser gate.
+If these cases are used to tune the prompt, treat them as development-exposed.
+
 ## Stop or recover
 
 Stop only the API, ingestion worker, Conversation worker and frontend PIDs printed by this launch. If no other test is using the issue's Compose project, stop its services with `docker compose -p issue-103-ollama-reindex stop postgres minio`. Do not remove volumes, source objects or the worktree as part of routine shutdown.
