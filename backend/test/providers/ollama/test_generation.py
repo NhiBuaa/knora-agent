@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 
 import httpx
 import pytest
@@ -78,9 +79,10 @@ async def test_ollama_chat_returns_structured_result(
     assert result.refusal_reason == reason
     assert result.provider == "ollama"
     assert result.model == "qwen3:8b"
-    assert result.prompt_version == "ollama-qwen3-cited-answer-v2"
+    assert result.prompt_version == "ollama-qwen3-cited-answer-v4"
     assert result.usage == {"prompt_tokens": 42, "completion_tokens": 17}
     assert result.cost == {}
+    assert "private" not in json.dumps(asdict(result))
 
 
 @pytest.mark.asyncio
@@ -132,3 +134,89 @@ async def test_ollama_generation_rejects_model_drift_before_chat(current: str | 
     with pytest.raises(KnoraError, match="GENERATION_MODEL_MISMATCH"):
         await provider.generate(question="Báo cáo?", evidence=(GenerationEvidence("E1", "A"),))
     assert chats == 0
+
+
+@pytest.mark.asyncio
+async def test_chat_keeps_current_question_separate_and_preserves_evidence_aliases() -> None:
+    paths: list[str] = []
+    bodies: list[dict] = []
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
+        bodies.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:8b",
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "decision": "ANSWER",
+                            "answer": "18 độ C. [[E2]]",
+                            "cited_evidence_ids": ["E2"],
+                            "refusal_reason": None,
+                        }
+                    )
+                },
+                "done": True,
+                "done_reason": "stop",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OllamaGenerationProvider(
+            base_url="http://ollama.test:11434", expected_digest=DIGEST, client=client
+        )
+        result = await provider.generate(
+            question="Nhiệt độ bao nhiêu?",
+            evidence=(
+                GenerationEvidence("E1", "Kiểm tra nhiệt kế mỗi ca."),
+                GenerationEvidence("E2", "Duy trì nhiệt độ 18 độ C."),
+            ),
+        )
+
+    assert paths == ["/api/tags", "/api/chat"]
+    assert [message["role"] for message in bodies[0]["messages"]] == ["system", "user"]
+    assert json.loads(bodies[0]["messages"][1]["content"]) == {
+        "evidence": [
+            {"evidence_id": "E1", "content": "Kiểm tra nhiệt kế mỗi ca."},
+            {"evidence_id": "E2", "content": "Duy trì nhiệt độ 18 độ C."},
+        ],
+        "current_question": "Nhiệt độ bao nhiêu?",
+    }
+    assert bodies[0]["options"] == {"num_ctx": 8192, "num_predict": 1024, "temperature": 0}
+    assert result.cited_evidence_ids == ("E2",)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    [
+        "not-json",
+        '{"decision":"ANSWER","answer":"Unsupported alias [[E9]]",'
+        '"cited_evidence_ids":["E9"],"refusal_reason":null}',
+    ],
+)
+async def test_invalid_generation_is_never_repaired_or_converted_to_refusal(content: str) -> None:
+    from knora.answering.generation_validation import validate_generation
+
+    paths: list[str] = []
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "qwen3:8b", "digest": DIGEST}]})
+        return httpx.Response(200, json={"message": {"content": content}, "done": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OllamaGenerationProvider(
+            base_url="http://ollama.test:11434", expected_digest=DIGEST, client=client
+        )
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+            result = await provider.generate(
+                question="Question?", evidence=(GenerationEvidence("E1", "Evidence."),)
+            )
+            validate_generation(result, available_evidence_ids=("E1",))
+    assert paths == ["/api/tags", "/api/chat"]

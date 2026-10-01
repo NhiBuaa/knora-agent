@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "scope": "development_candidate_selection",
+  "status": "UNACCEPTED",
+  "prompt_version": "ollama-qwen3-cited-answer-v4",
+  "system_prompt_sha256": "8a941bede3187f1a4bd660ef26e2b4cf771d02f879a99360abd3627804fc5f05",
+  "semantic_review": "NOT_EVALUATED",
+  "conversation_gate": "NOT_EVALUATED",
+  "release_gate": "NOT_EVALUATED",
+  "historical_scores_transfer": false,
+  "selection_note": "Provisional generic English prompt for the next real PDF Conversation diagnostic. This prompt does not reproduce the earlier bbdeb0b3 prompt hash. Historical synthetic scores do not apply to this candidate. No new synthetic inference was run for v4.",
+  "prior_variant_note": "The Vietnamese c6acc0a1 variant completed eleven real calls and failed two semantic cases: event year inferred from publication metadata and prohibition weakened to not mandatory. Its literal and semantic reports are retained separately."
+}
