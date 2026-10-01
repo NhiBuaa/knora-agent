@@ -1,0 +1,110 @@
+{
+  "browser_gate": "NOT_EVALUATED",
+  "case_count": 11,
+  "cases": [
+    {
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "f3d8b4d4970bf862bcf6204b91272f08d2694e5232014a78471d2e3b223f4ec9"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "d2edf8da184a7fda370386ca9971e0470b26d5400b3f591e88d58da5c8bb40bd"
+    },
+    {
+      "answer_sha256": "89f6b9011e3e42abb57dcec816ceaacf3b159e72c456d9601054ee6c030525f6",
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "ab80f5a95141db1b83519cbf4ed56b489aff1a3d03808d1f718f364a43dfd306"
+    },
+    {
+      "answer_sha256": "8077ee98fe326892e7385b9e529f553cc89ce58c099e3c9419fc2c9e06690501",
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "e60002aed9e1af90270f82a6f765df3f2ee8e883b9b2da7309af33261c99090b"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "63fa4423434c76920b6f6eaaee1144c4ce2fda0cfb295e37a3b7e8125b9a4fa8"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "metadata_count",
+      "passed": false,
+      "reason": "Required refusal is labeled as an answer with no answer content; output decision and shape are invalid.",
+      "repetition": 1,
+      "response_sha256": "418b4e2e710067665ea6a148f0d70aebbbeb8ca186fa4af86cd87ace82c2773a"
+    },
+    {
+      "answer_sha256": "c8288cfa55ee2f02312b89a7b35159ccbe8b70770754109f4cffd0b6c3e6c404",
+      "case_id": "prohibited_requirement",
+      "passed": false,
+      "reason": "Response weakens an explicit prohibition into an optional requirement.",
+      "repetition": 1,
+      "response_sha256": "6473ec3a017b4c5494a70d54502d27a831bb16d873299c230c85f34a134a5886"
+    },
+    {
+      "answer_sha256": "d952bbfeb73e5f496c4473e656b14e53bb250594738124a68b43c622021b92cb",
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "1e626d581ff9fd6e3b578d1bf9f2cbd87ec1975432d9661bcefe4de223d4703d"
+    },
+    {
+      "answer_sha256": "7fb99da1c2f547ad8eb2732fac18ea72d1a6f8035912e7d95c9f3fca782ad5f4",
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "580e08c114cd3e6976f81b5c2430dca6718845556dd14f739b5251f8922d97fc"
+    },
+    {
+      "answer_sha256": "d7e6465a44b8cb0b8133eb58adbfcf7c0cd7d94efe378f7df24a7746ef5c9b21",
+      "case_id": "rule_with_exception",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "a63a8561627f492fb24e33dd38d101a544d640c95facdeeeaf875ddf1fad7985"
+    },
+    {
+      "answer_sha256": "6a0841eacc5d0c09c513c4e68b5885184a3a60be2c6c67e9642c7a094b7c1083",
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and qualifications.",
+      "repetition": 1,
+      "response_sha256": "29f7584dcd499c98a67927a1f9f5cca912e8557b0168aa65da8bcfcabdc8cc00"
+    }
+  ],
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "generation_expected_digest": "sha256:359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+  "independent_review": true,
+  "literal_report_sha256": "4eadd381847f74c1054770b26fcc58a042e12bbc5bf69a17ddea33bc8e03c252",
+  "model": "qwen3:4b",
+  "original36_gate": "NOT_EVALUATED",
+  "private_responses_sha256": "377d8b7edd7d6bbccd3fe9da8ffea8fbaf7d6b15d552e436b09a87b38bdea9be",
+  "release_gate": "NOT_EVALUATED",
+  "response_binding_scheme": "fixture-prompt-case-repetition-result-canonical-json-sha256-v1",
+  "reviewer_role": "independent semantic/spec review agent",
+  "revised36_gate": "NOT_EVALUATED",
+  "schema_version": 1,
+  "semantic_passed_count": 9,
+  "source_commit": "7e1a8ca8061159a01c03059bf2f56f5bf569a8e6",
+  "status": "FAILED_PRELIMINARY_GATE",
+  "system_prompt_sha256": "c6acc0a1faf51cfa25646bc8fdbf50048b77c2017b07a3fc0bac1bfb3d2ba0c3"
+}
