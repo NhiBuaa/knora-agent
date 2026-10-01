@@ -1,9 +1,10 @@
 """Check local Conversation traces without printing document text or credentials."""
 
 import argparse
+import json
 import os
 import sys
-from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
@@ -12,9 +13,30 @@ NEGATIVE = "Hạn cuối nộp báo cáo chính xác là ngày nào?"
 EXPECTED_CHUNK = "f3081d1e2e6d069f574162a260070f5bc844ac906fac9dd51ebe8868882c0b2c"
 
 
+def load_exact_trace(connection, binding):
+    row = (
+        connection.execute(
+            text(
+                "SELECT qt.question, qt.decision, qt.generation_status, "
+                "qt.provider_metadata, ct.result "
+                "FROM question_traces qt JOIN conversation_turns ct "
+                "ON ct.id = qt.conversation_turn_id AND ct.workspace_id = qt.workspace_id "
+                "WHERE qt.id = :trace_id AND qt.workspace_id = :workspace_id "
+                "AND ct.id = :turn_id AND ct.conversation_id = :conversation_id"
+            ),
+            binding,
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise ValueError("Conversation trace correlation failed")
+    return row
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--since", type=datetime.fromisoformat, required=True)
+    parser.add_argument("--observations", type=Path, required=True)
     args = parser.parse_args()
     database_url = os.environ.get("KNORA_DATABASE_URL")
     if not database_url:
@@ -23,26 +45,17 @@ def main() -> int:
 
     try:
         engine = create_engine(database_url)
+        observations = json.loads(args.observations.read_text(encoding="utf-8"))
+        if set(observations) != {"positive", "negative"}:
+            raise ValueError("incomplete browser observations")
         with engine.connect() as connection:
-            rows = connection.execute(
-                text(
-                    "SELECT qt.question, qt.decision, qt.generation_status, "
-                    "qt.provider_metadata, ct.result "
-                    "FROM question_traces qt JOIN conversation_turns ct "
-                    "ON ct.id = qt.conversation_turn_id "
-                    "WHERE qt.created_at >= :since AND qt.question IN (:positive, :negative) "
-                    "ORDER BY qt.created_at DESC"
-                ),
-                {"since": args.since, "positive": POSITIVE, "negative": NEGATIVE},
-            ).mappings()
-            by_question = {row["question"]: row for row in rows}
+            positive = load_exact_trace(connection, observations["positive"])
+            negative = load_exact_trace(connection, observations["negative"])
     except Exception:
         print("CONVERSATION_TRACE_UNAVAILABLE", file=sys.stderr)
         return 2
 
-    positive = by_question.get(POSITIVE)
-    negative = by_question.get(NEGATIVE)
-    if positive is None or negative is None:
+    if positive["question"] != POSITIVE or negative["question"] != NEGATIVE:
         print("CONVERSATION_TRACE_MISSING", file=sys.stderr)
         return 1
 
