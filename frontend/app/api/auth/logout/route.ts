@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { clearSessionCookie } from "@/lib/auth/session";
+import {
+  clearSessionCookie,
+  decodeSession,
+  SESSION_COOKIE_NAME,
+} from "@/lib/auth/session";
+import { invalidateSession } from "@/lib/auth/session-refresh";
 import { clearPreferenceCookie } from "@/lib/auth/workspace-preference";
 
 export async function POST(request: Request) {
@@ -17,6 +22,13 @@ export async function POST(request: Request) {
       { error: "CROSS_ORIGIN_REQUEST" },
       { status: 403 },
     );
+  const sessionValue = request.headers
+    .get("cookie")
+    ?.split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${SESSION_COOKIE_NAME}=`))
+    ?.slice(SESSION_COOKIE_NAME.length + 1);
+  invalidateSession(await decodeSession(sessionValue));
   const response = NextResponse.redirect(
     logoutDestination(expectedOrigin),
     303,
