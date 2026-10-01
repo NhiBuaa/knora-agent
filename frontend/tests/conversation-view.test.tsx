@@ -43,6 +43,169 @@ const answered = {
 };
 
 describe("durable Conversation view", () => {
+  it("does not let an older history response clear a newer authentication failure", async () => {
+    let finishPage: (response: Response) => void = () => {};
+    let finishHistory: (response: Response) => void = () => {};
+    const page = { items: [], next_cursor: "next" };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(page)))
+      .mockRejectedValueOnce(new Error("connection lost"))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            finishPage = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            finishHistory = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(answered)));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "race-key") });
+    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    await screen.findByRole("button", { name: "Load more Turns" });
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Keep this question" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Load more Turns" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    finishPage(new Response(null, { status: 401 }));
+    await screen.findByRole("link", { name: "Sign in again" });
+    finishHistory(new Response(JSON.stringify(page)));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Reload history" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    expect(
+      fetchMock.mock.calls.filter((call) => call[1]?.method === "POST"),
+    ).toHaveLength(1);
+    expect(screen.getByLabelText("Question")).toHaveValue("Keep this question");
+  });
+  it("recovers an expired polling session by reading the completed Turn without posting", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [{ ...answered, status: "pending", result: null }],
+            next_cursor: null,
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ items: [answered], next_cursor: null })),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    const login = await screen.findByRole("link", { name: "Sign in again" });
+    expect(login).toHaveAttribute("href", "/api/auth/login");
+    expect(login).toHaveAttribute("target", "_blank");
+    expect(screen.queryByText("Processing question…")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reload history" }));
+    await screen.findByText("The guide says blue umbrellas.");
+    expect(
+      screen.queryByRole("link", { name: "Sign in again" }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter((call) => call[1]?.method === "POST"),
+    ).toHaveLength(0);
+  });
+
+  it("keeps the draft and original submission key through failed and successful reauthentication", async () => {
+    const history = () =>
+      new Response(JSON.stringify({ items: [], next_cursor: null }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(history())
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(history())
+      .mockResolvedValueOnce(new Response(JSON.stringify(answered)));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "original-key") });
+    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "My preserved question" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByRole("link", { name: "Sign in again" });
+    expect(screen.getByLabelText("Question")).toHaveValue(
+      "My preserved question",
+    );
+    expect(screen.getByLabelText("Question")).toHaveAttribute("readonly");
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reload history" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Reload history" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Ask" })).toBeEnabled(),
+    );
+    expect(
+      fetchMock.mock.calls.filter((call) => call[1]?.method === "POST"),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText("The guide says blue umbrellas.");
+    const posts = fetchMock.mock.calls.filter(
+      (call) => call[1]?.method === "POST",
+    );
+    expect(posts).toHaveLength(2);
+    for (const post of posts) {
+      expect(new Headers(post[1].headers).get("Idempotency-Key")).toBe(
+        "original-key",
+      );
+      expect(JSON.parse(post[1].body)).toEqual({
+        question: "My preserved question",
+      });
+    }
+  });
+
+  it.each(["initial history", "pagination"])(
+    "offers session recovery for expired %s",
+    async (phase) => {
+      const fetchMock = vi.fn();
+      if (phase === "pagination")
+        fetchMock.mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ items: [answered], next_cursor: "next" }),
+          ),
+        );
+      fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
+      vi.stubGlobal("fetch", fetchMock);
+      render(
+        <ConversationView workspaceId="w-1" conversation={conversation} />,
+      );
+      if (phase === "pagination")
+        fireEvent.click(
+          await screen.findByRole("button", { name: "Load more Turns" }),
+        );
+      await screen.findByRole("link", { name: "Sign in again" });
+      expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    },
+  );
+
+  it("keeps non-auth history failures separate from session expiry", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 500 })),
+    );
+    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    await screen.findByRole("alert");
+    expect(
+      screen.queryByRole("link", { name: "Sign in again" }),
+    ).not.toBeInTheDocument();
+  });
   it("locks the draft while a Turn submission is in flight", async () => {
     let complete: ((response: Response) => void) | undefined;
     const fetchMock = vi
@@ -119,6 +282,13 @@ describe("durable Conversation view", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
     await screen.findByText("This conversation is processing a question");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(screen.queryByText("Loading history…")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText("This conversation is processing a question"),
+    ).toBeInTheDocument();
     expect(
       (screen.getByLabelText("Question") as HTMLTextAreaElement).value,
     ).toBe("A follow-up?");
