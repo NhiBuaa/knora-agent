@@ -53,6 +53,11 @@ emitted dependency deprecation warnings. These checks do not establish semantic 
 
 ## Remaining work
 
+A later owner-approved Qwen3 8B thinking spike passed only 9/11 independently reviewed
+synthetic cases. Its preliminary gate failed, so no full question-set rerun or thinking-mode
+Conversation acceptance is claimed. See `issue105_thinking_v1_checkpoint.md` for the bound
+observations and outcome; the v5 result above remains unchanged.
+
 A new inference design needs a bounded probe after repeated prompt failures. Any successful
 candidate must repeat original36 and revised36 with separate observations and response-bound
 semantic review, then pass the actual Keycloak/BFF/browser journey and exact server trace gate.
