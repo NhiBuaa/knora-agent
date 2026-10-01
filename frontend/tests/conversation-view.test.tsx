@@ -143,6 +143,9 @@ describe("durable Conversation view", () => {
     expect(screen.getByLabelText("Question")).toHaveValue(
       "My preserved question",
     );
+    expect(screen.getByRole("alert").nextElementSibling).toBe(
+      screen.getByLabelText("Question").closest("form"),
+    );
     expect(screen.getByLabelText("Question")).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Reload history" }));

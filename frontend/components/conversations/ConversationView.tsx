@@ -243,25 +243,6 @@ export function ConversationView({
       {!loading && !turns.length && !error && !sessionExpired && (
         <p>No questions yet.</p>
       )}
-      {sessionExpired && (
-        <div role="alert">
-          <p>
-            Your session has expired. Keep this tab open to preserve your draft.
-            Sign in in a new tab, then return here and reload history before
-            retrying.
-          </p>
-          <a href="/api/auth/login" target="_blank" rel="noopener noreferrer">
-            Sign in again
-          </a>
-          <button
-            type="button"
-            disabled={loading || submitting}
-            onClick={() => void load()}
-          >
-            Reload history
-          </button>
-        </div>
-      )}
       <ol>
         {turns.map((turn) => (
           <li key={turn.id}>
@@ -296,6 +277,25 @@ export function ConversationView({
         >
           Load more Turns
         </button>
+      )}
+      {sessionExpired && (
+        <div role="alert">
+          <p>
+            Your session has expired. Keep this tab open to preserve your draft.
+            Sign in in a new tab, then return here and reload history before
+            retrying.
+          </p>
+          <a href="/api/auth/login" target="_blank" rel="noopener noreferrer">
+            Sign in again
+          </a>
+          <button
+            type="button"
+            disabled={loading || submitting}
+            onClick={() => void load()}
+          >
+            Reload history
+          </button>
+        </div>
       )}
       {!workspaceArchived && !conversation.archived && !serverArchived && (
         <form onSubmit={(event) => void submit(event)}>
