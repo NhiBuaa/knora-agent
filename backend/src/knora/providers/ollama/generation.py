@@ -7,7 +7,7 @@ from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence, GenerationResult
 from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA, SYSTEM_PROMPT
 
-OLLAMA_PROMPT_VERSION = "ollama-qwen3-cited-answer-v4"
+OLLAMA_PROMPT_VERSION = "ollama-qwen3-cited-answer-v5"
 OLLAMA_SYSTEM_PROMPT = (
     SYSTEM_PROMPT
     + " Grounding rules: "
@@ -19,31 +19,39 @@ OLLAMA_SYSTEM_PROMPT = (
     "or edition year does not establish an event's year. A nearby number, heading, identifier, "
     "example or related fact does not establish the requested value. If only related information "
     "exists, REFUSE rather than guess or substitute it. An evidenced negative or prohibition is "
-    "an ANSWER, not a refusal. For a rule or count, state the ordinary requirement AND every "
+    "an ANSWER, not a refusal. Preserve the source's force: a prohibition must remain a "
+    "prohibition, not 'optional' or merely 'not required'; a requirement must remain required, "
+    "not a recommendation. For a rule or count, state the ordinary requirement AND every "
     "stated exception or alternative with its condition, including required approval. Never "
     "present a qualified rule as universal. Read all evidence; cite only aliases that directly "
     "support the stated facts, never default to the first alias. Be concise while retaining "
     "these relevant exceptions, and use the current question's language. "
     "For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
     "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE."
-    "\nExamples illustrate the decision and JSON format only. Their facts are NOT evidence "
-    "for the user's question.\n"
-    'Example 1 input: {"current_question":"When did the kestrel census take place?",'
-    '"evidence":[{"evidence_id":"E1","content":"Wildlife bulletin, edition 2031. '
-    'The kestrel census uses observation logs."}]}\n'
+    "\nQuy tắc trả lời: chỉ trả lời dữ kiện mà evidence nói rõ về đúng đối tượng và "
+    "đúng thuộc tính được hỏi. Năm trên tên bản tin hay năm xuất bản không phải năm "
+    "diễn ra hoạt động được nhắc trong bản tin. Thiếu dữ kiện được hỏi thì trả REFUSAL, "
+    "không suy đoán từ tiêu đề hay một con số gần đó. Nếu nguồn cấm một việc, câu trả "
+    "lời phải nói rõ việc đó bị cấm; 'không bắt buộc' không thể thay cho 'không được'. "
+    "Giữ đầy đủ điều kiện và ngoại lệ liên quan. Chỉ xuất JSON, không giải thích cách suy luận.\n"
+    "Các ví dụ sau chỉ minh họa cách trả lời và định dạng JSON. Dữ kiện trong ví dụ "
+    "không phải bằng chứng cho câu hỏi của người dùng.\n"
+    'Example 1 input: {"current_question":"Cuộc điều tra chim cắt diễn ra năm nào?",'
+    '"evidence":[{"evidence_id":"E1","content":"Bản tin động vật hoang dã, ấn bản 2031. '
+    'Cuộc điều tra chim cắt sử dụng sổ quan sát."}]}\n'
     'Example 1 output: {"decision":"REFUSAL","answer":null,"cited_evidence_ids":[], '
     '"refusal_reason":"INSUFFICIENT_EVIDENCE"}\n'
-    'Example 2 input: {"current_question":"How many packs must each courier carry?",'
-    '"evidence":[{"evidence_id":"E1","content":"Couriers check their boots."},'
-    '{"evidence_id":"E2","content":"Each courier carries 9 packs. Couriers using a '
-    'supply station may carry 5 packs with the steward\'s signed approval."}]}\n'
-    'Example 2 output: {"decision":"ANSWER","answer":"Each courier carries 9 packs; '
-    'with a supply station and the steward\'s signed approval, 5 packs are permitted. [[E2]]",'
+    'Example 2 input: {"current_question":"Mỗi người giao hàng phải mang mấy gói hàng?",'
+    '"evidence":[{"evidence_id":"E1","content":"Người giao hàng kiểm tra giày."},'
+    '{"evidence_id":"E2","content":"Mỗi người giao hàng mang 9 gói hàng. Người dùng '
+    'trạm tiếp tế được mang 5 gói khi có văn bản chấp thuận của quản lý."}]}\n'
+    'Example 2 output: {"decision":"ANSWER","answer":"Mỗi người mang 9 gói hàng; '
+    'nếu dùng trạm tiếp tế và có văn bản chấp thuận của quản lý thì được mang 5 gói. [[E2]]",'
     '"cited_evidence_ids":["E2"],"refusal_reason":null}\n'
-    'Example 3 input: {"current_question":"Does the protocol require chlorine on the sensor?",'
-    '"evidence":[{"evidence_id":"E1","content":"Do not use chlorine on the sensor."}]}\n'
-    'Example 3 output: {"decision":"ANSWER","answer":"No. Chlorine must not be used '
-    'on the sensor. [[E1]]","cited_evidence_ids":["E1"],"refusal_reason":null}'
+    'Example 3 input: {"current_question":"Quy trình có bắt buộc dùng clo trên cảm biến không?",'
+    '"evidence":[{"evidence_id":"E1","content":"Không dùng clo trên cảm biến."}]}\n'
+    'Example 3 output: {"decision":"ANSWER","answer":"Không. Không được dùng clo '
+    'trên cảm biến. [[E1]]","cited_evidence_ids":["E1"],"refusal_reason":null}'
 )
 
 

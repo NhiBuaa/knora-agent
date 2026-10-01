@@ -79,7 +79,7 @@ async def test_ollama_chat_returns_structured_result(
     assert result.refusal_reason == reason
     assert result.provider == "ollama"
     assert result.model == "qwen3:8b"
-    assert result.prompt_version == "ollama-qwen3-cited-answer-v4"
+    assert result.prompt_version == "ollama-qwen3-cited-answer-v5"
     assert result.usage == {"prompt_tokens": 42, "completion_tokens": 17}
     assert result.cost == {}
     assert "private" not in json.dumps(asdict(result))
