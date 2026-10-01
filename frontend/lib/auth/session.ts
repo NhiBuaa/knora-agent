@@ -5,9 +5,11 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  randomUUID,
   timingSafeEqual,
 } from "node:crypto";
-import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
+import { createRemoteJWKSet, jwtVerify, EncryptJWT, jwtDecrypt } from "jose";
+import { renewSession } from "./session-refresh";
 
 export type KnoraSession = {
   issuer?: string;
@@ -16,6 +18,10 @@ export type KnoraSession = {
   workspaceIds: string[];
   capabilities: string[];
   expiresAt: number;
+  refreshToken?: string;
+  refreshExpiresAt?: number;
+  sessionId?: string;
+  sessionExpiresAt?: number;
 };
 export type AuthorizationTransaction = {
   state: string;
@@ -31,6 +37,7 @@ const secret = () =>
   new TextEncoder().encode(
     process.env.SESSION_SECRET ?? "development-only-session-secret-change-me",
   );
+const encryptionKey = () => createHash("sha256").update(secret()).digest();
 
 export function createAuthorizationTransaction(
   redirectUri: string,
@@ -108,24 +115,40 @@ export async function encodeSession(
   session: Omit<KnoraSession, "expiresAt"> & { expiresAt?: number },
 ): Promise<string> {
   const expiresAt = session.expiresAt ?? Math.floor(Date.now() / 1000) + 3600;
-  return new SignJWT({
+  const sessionExpiresAt =
+    session.sessionExpiresAt ?? Math.floor(Date.now() / 1000) + 8 * 3600;
+  return new EncryptJWT({
     issuer: session.issuer,
     workspaceIds: session.workspaceIds,
     capabilities: session.capabilities,
     accessToken: session.accessToken,
     expiresAt,
+    refreshToken: session.refreshToken,
+    refreshExpiresAt: session.refreshExpiresAt,
+    sessionId: session.sessionId ?? randomUUID(),
+    sessionExpiresAt,
   })
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
     .setSubject(session.subject)
-    .setExpirationTime(expiresAt)
-    .sign(secret());
+    .setExpirationTime(
+      session.refreshToken
+        ? Math.min(session.refreshExpiresAt ?? expiresAt, sessionExpiresAt)
+        : expiresAt,
+    )
+    .encrypt(encryptionKey());
 }
 export async function decodeSession(
   value: string | undefined,
 ): Promise<KnoraSession | null> {
   if (!value) return null;
   try {
-    const verified = await jwtVerify(value, secret());
+    const verified =
+      value.split(".").length === 5
+        ? await jwtDecrypt(value, encryptionKey(), {
+            keyManagementAlgorithms: ["dir"],
+            contentEncryptionAlgorithms: ["A256GCM"],
+          })
+        : await jwtVerify(value, secret(), { algorithms: ["HS256"] });
     const p = verified.payload;
     if (
       typeof p.sub !== "string" ||
@@ -138,6 +161,13 @@ export async function decodeSession(
       issuer: typeof p.issuer === "string" ? p.issuer : undefined,
       subject: p.sub,
       accessToken: p.accessToken,
+      refreshToken:
+        typeof p.refreshToken === "string" ? p.refreshToken : undefined,
+      refreshExpiresAt:
+        typeof p.refreshExpiresAt === "number" ? p.refreshExpiresAt : undefined,
+      sessionId: typeof p.sessionId === "string" ? p.sessionId : undefined,
+      sessionExpiresAt:
+        typeof p.sessionExpiresAt === "number" ? p.sessionExpiresAt : undefined,
       workspaceIds: p.workspaceIds.filter(
         (x): x is string => typeof x === "string",
       ),
@@ -151,10 +181,27 @@ export async function decodeSession(
     return null;
   }
 }
-export async function getSession(): Promise<KnoraSession | null> {
-  return decodeSession((await cookies()).get(COOKIE)?.value);
+export async function getSession(
+  persist = false,
+): Promise<KnoraSession | null> {
+  const jar = await cookies();
+  const previous = await decodeSession(jar.get(COOKIE)?.value);
+  if (!previous) return null;
+  if (!persist)
+    return previous.expiresAt > Math.floor(Date.now() / 1000) ? previous : null;
+  const session = await renewSession(previous);
+  if (persist && session !== previous) {
+    const cookie = session
+      ? sessionCookie(await encodeSession(session), session.refreshExpiresAt)
+      : clearSessionCookie();
+    jar.set(cookie.name, cookie.value, cookie.options as never);
+  }
+  return session;
 }
-export function sessionCookie(value: string): {
+export function sessionCookie(
+  value: string,
+  refreshExpiresAt?: number,
+): {
   name: string;
   value: string;
   options: Record<string, unknown>;
@@ -167,7 +214,9 @@ export function sessionCookie(value: string): {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 3600,
+      maxAge: refreshExpiresAt
+        ? Math.max(0, refreshExpiresAt - Math.floor(Date.now() / 1000))
+        : 3600,
     },
   };
 }
@@ -212,6 +261,8 @@ export async function exchangeCode(
     access_token?: string;
     expires_in?: number;
     id_token?: string;
+    refresh_token?: string;
+    refresh_expires_in?: number;
   };
   if (!token.access_token || !token.id_token)
     throw new Error("OIDC response did not contain required tokens");
@@ -238,6 +289,13 @@ export async function exchangeCode(
     workspaceIds: claimStrings(claims.workspace_ids),
     capabilities: claimStrings(claims.capabilities),
     expiresAt: Math.floor(Date.now() / 1000) + (token.expires_in ?? 3600),
+    refreshToken: token.refresh_token,
+    refreshExpiresAt:
+      token.refresh_token &&
+      typeof token.refresh_expires_in === "number" &&
+      token.refresh_expires_in > 0
+        ? Math.floor(Date.now() / 1000) + token.refresh_expires_in
+        : undefined,
   };
 }
 function claimStrings(value: unknown): string[] {

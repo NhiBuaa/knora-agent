@@ -188,6 +188,36 @@ for the stable Ollama PDF re-index demo and acceptance path. That launcher does 
 
 ## Logs and ports
 
+### Browser session renewal
+
+After upgrading from the old access-token-only session, sign in once through
+`/api/auth/login` to obtain a renewable session. Existing cookies remain readable,
+but cannot acquire a refresh token retroactively.
+
+The Next.js server retains access and refresh tokens in an encrypted HttpOnly,
+SameSite=Lax cookie (Secure in production). Before forwarding a protected API
+request, it renews an access token with 30 seconds or less remaining. Protected
+page middleware renews and persists the cookie before server rendering; rendering
+itself never consumes a refresh token. Refresh verifies the Keycloak issuer,
+audience and original subject, and re-reads capabilities from the validated ID token.
+Tokens never appear in the session JSON or browser JavaScript storage, and the
+session cookie is not forwarded to FastAPI.
+
+Keycloak controls idle expiry and revocation; Knora additionally caps one browser
+session at eight hours. Temporary refresh failures return a retryable 503 without
+forwarding or replaying a Turn POST. A rejected refresh requires sign-in again;
+the Conversation recovery controls preserve its mounted draft and idempotency key.
+Logout invalidates the local session before starting Keycloak browser logout.
+
+The current coordinator deduplicates refreshes within one Next.js server process,
+keeps results for 30 seconds for concurrent requests, and bounds that cache to 256
+entries. Daily dev runs this topology. Multiple frontend replicas require shared
+refresh coordination and shared logout revocation before rotated refresh tokens
+are enabled; process-local coordination is not evidence for that release gate.
+Do not extend Keycloak timeouts or disable refresh-token rotation to hide failures.
+
+Protocol reference: [Keycloak OpenID Connect endpoints](https://www.keycloak.org/securing-apps/oidc-layers).
+
 Defaults:
 
 ```text

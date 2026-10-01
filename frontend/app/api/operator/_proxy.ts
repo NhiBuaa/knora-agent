@@ -11,7 +11,15 @@ export async function proxyOperatorPath(
   pathForSession: (workspaceId: string) => string,
   requestedWorkspaceId?: string | null,
 ): Promise<Response> {
-  const session = await getSession();
+  let session;
+  try {
+    session = await getSession(true);
+  } catch {
+    return NextResponse.json(
+      { detail: "SESSION_REFRESH_UNAVAILABLE" },
+      { status: 503, headers: { "cache-control": "no-store" } },
+    );
+  }
   if (!session)
     return NextResponse.json({ detail: "UNAUTHENTICATED" }, { status: 401 });
   if (!session.issuer)
