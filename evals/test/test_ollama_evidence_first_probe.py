@@ -110,7 +110,8 @@ def test_malformed_extraction_is_a_failure_not_a_refusal(fault):
     assert error.value.code == "GENERATION_OUTPUT_INVALID"
 
 
-def test_real_adapter_roundtrip_uses_one_chat_call_and_captures_no_thinking():
+@pytest.mark.parametrize(("model", "context_tokens"), [("qwen3:8b", 8192), ("qwen3:14b", 4096)])
+def test_real_adapter_roundtrip_uses_one_chat_call_and_captures_no_thinking(model, context_tokens):
     module = probe_module()
     digest = "sha256:" + "b" * 64
     calls = []
@@ -118,16 +119,18 @@ def test_real_adapter_roundtrip_uses_one_chat_call_and_captures_no_thinking():
     async def endpoint(request):
         calls.append(request.url.path)
         if request.url.path == "/api/tags":
-            return httpx.Response(200, json={"models": [{"name": "qwen3:8b", "digest": digest}]})
+            return httpx.Response(200, json={"models": [{"name": model, "digest": digest}]})
         body = json.loads(request.content)
         assert body["format"]["properties"]["rules"]["type"] == "array"
         assert body["think"] is False
         assert body["options"]["num_predict"] <= 2048
+        assert body["options"]["num_ctx"] == context_tokens
+        assert body["model"] == model
         assert int(request.headers["content-length"]) == len(request.content)
         return httpx.Response(
             200,
             json={
-                "model": "qwen3:8b",
+                "model": model,
                 "done_reason": "stop",
                 "eval_count": 120,
                 "message": {
@@ -138,10 +141,15 @@ def test_real_adapter_roundtrip_uses_one_chat_call_and_captures_no_thinking():
         )
 
     async def scenario():
-        transport = module.EvidenceFirstProbeTransport(inner=httpx.MockTransport(endpoint))
+        transport = module.EvidenceFirstProbeTransport(
+            inner=httpx.MockTransport(endpoint), context_tokens=context_tokens
+        )
         async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
             provider = module.EvidenceFirstProbeProvider(
-                base_url="http://127.0.0.1:11435", expected_digest=digest, client=client
+                base_url="http://127.0.0.1:11435",
+                model=model,
+                expected_digest=digest,
+                client=client,
             )
             result = await provider.generate(question="Có bắt buộc ghi không?", evidence=EVIDENCE)
         assert result.answer == (

@@ -90,6 +90,24 @@ def test_development_report_counts_all_observations_and_exports_no_inputs():
             assert item.content not in serialized
 
 
+def test_deadline_expiry_stops_measurement_without_fabricating_unrun_cases():
+    from knora.domain.errors import KnoraError
+
+    class ExpiringProvider:
+        deadline_expired = False
+
+        async def generate(self, **kwargs):
+            self.deadline_expired = True
+            raise KnoraError("PROVIDER_REQUEST_FAILED")
+
+    report = asyncio.run(collect(ExpiringProvider(), stop_on_deadline=True))
+    assert report["observation_count"] == 1
+    assert report["case_count"] == 11
+    assert report["stopped_after_deadline"] is True
+    assert report["unmeasured_case_count"] == 10
+    assert report["cases"][0]["error"] == "PROVIDER_ERROR"
+
+
 def test_live_runner_records_actual_request_bound_and_cpu_runtime(monkeypatch, tmp_path):
     from evals.runners.ollama_grounding import run_live
 

@@ -299,10 +299,12 @@ async def collect(
     *,
     repetitions: int = 1,
     captured_responses: list[dict[str, object]] | None = None,
+    stop_on_deadline: bool = False,
 ) -> dict[str, object]:
     if repetitions < 1:
         raise ValueError("repetitions must be positive")
     rows = []
+    stopped = False
     for repetition in range(1, repetitions + 1):
         for case in CASES:
             capture_count = len(captured_responses) if captured_responses is not None else 0
@@ -313,7 +315,15 @@ async def collect(
                     captured_responses.append({"case_id": case.id, "error": row["error"]})
                 captured_responses[-1]["repetition"] = repetition
             rows.append(row)
-    return {
+            if stop_on_deadline and (
+                getattr(provider, "deadline_expired", False)
+                or getattr(provider, "supervisor_failed", False)
+            ):
+                stopped = True
+                break
+        if stopped:
+            break
+    report = {
         "schema_version": 2,
         "scope": "synthetic_development_literal_grounding",
         "held_out": False,
@@ -328,6 +338,13 @@ async def collect(
         "literal_passed_count": sum(bool(row["literal_checks_passed"]) for row in rows),
         "cases": rows,
     }
+    if stopped:
+        report.update(
+            stopped_after_deadline=getattr(provider, "deadline_expired", False),
+            stopped_after_supervisor_failure=getattr(provider, "supervisor_failed", False),
+            unmeasured_case_count=len(CASES) * repetitions - len(rows),
+        )
+    return report
 
 
 async def run_live(args: argparse.Namespace) -> dict[str, object]:

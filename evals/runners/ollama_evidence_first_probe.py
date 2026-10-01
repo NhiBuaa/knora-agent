@@ -140,15 +140,27 @@ def render_result(payload, evidence):
 
 
 class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
-    def __init__(self, *, inner=None, sampling_profile="greedy-v1", seed=105):
+    def __init__(
+        self,
+        *,
+        inner=None,
+        sampling_profile="greedy-v1",
+        seed=105,
+        context_tokens=8192,
+        observe_request=None,
+    ):
         if sampling_profile not in {"greedy-v1", "qwen-nonthinking-v1", "qwen-thinking-v1"}:
             raise ValueError("unknown sampling profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
             raise ValueError("probe uses predeclared seeds only")
+        if type(context_tokens) is not int or context_tokens not in {4096, 8192}:
+            raise ValueError("unknown context profile")
         self.inner = inner if inner is not None else httpx.AsyncHTTPTransport()
         self.observations = []
         self.sampling_profile = sampling_profile
         self.seed = seed
+        self.context_tokens = context_tokens
+        self.observe_request = observe_request
         self.request_policy_id = (
             REQUEST_POLICY_ID
             if sampling_profile == "greedy-v1"
@@ -165,6 +177,7 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         payload["format"] = EXTRACTION_SCHEMA
         payload["think"] = self.sampling_profile == "qwen-thinking-v1"
         payload["options"]["num_predict"] = 2048
+        payload["options"]["num_ctx"] = self.context_tokens
         if self.sampling_profile == "qwen-nonthinking-v1":
             payload["options"].update(temperature=0.7, top_p=0.8, top_k=20, min_p=0, seed=self.seed)
         elif self.sampling_profile == "qwen-thinking-v1":
@@ -182,7 +195,10 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
                 ).hexdigest(),
             }
         )
-        print(json.dumps({"probe_request_started": len(self.observations)}), flush=True)
+        if self.observe_request is None:
+            print(json.dumps({"probe_request_started": len(self.observations)}), flush=True)
+        else:
+            self.observe_request(self.observations[-1])
         forwarded = httpx.Request(
             request.method,
             request.url,
@@ -231,9 +247,11 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
 
 
 class EvidenceFirstProbeProvider:
-    def __init__(self, *, base_url, expected_digest, client):
+    def __init__(self, *, base_url, expected_digest, client, model="qwen3:8b"):
+        if model not in {"qwen3:8b", "qwen3:14b"}:
+            raise ValueError("unknown extraction probe model")
         actual = OllamaGenerationProvider(
-            base_url=base_url, expected_digest=expected_digest, client=client
+            base_url=base_url, expected_digest=expected_digest, client=client, model=model
         )
         self.bounded = BoundedThinkingProbeProvider(actual)
 
