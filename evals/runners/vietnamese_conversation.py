@@ -318,7 +318,7 @@ async def run_live(args):
     runtime_binding = dict(
         retrieval_configuration_id=configuration.id,
         context_policy_id=CONTEXT_POLICY_ID,
-        model="qwen3:8b",
+        model=args.generation_model,
         prompt_version=OLLAMA_PROMPT_VERSION,
         generation_model_digest=args.generation_digest,
         prompt_sha256=text_sha256(OLLAMA_SYSTEM_PROMPT),
@@ -326,7 +326,9 @@ async def run_live(args):
     engine = create_engine(database_url)
     factory = sessionmaker(engine)
     generation = OllamaGenerationProvider(
-        base_url=args.ollama_url, model="qwen3:8b", expected_digest=args.generation_digest
+        base_url=args.ollama_url,
+        model=args.generation_model,
+        expected_digest=args.generation_digest,
     )
     private_rows = []
     try:
@@ -381,7 +383,7 @@ async def run_live(args):
                         raise ValueError("evaluation trace provenance mismatch")
                     if generation_metadata and (
                         generation_metadata.get("provider") != "ollama"
-                        or generation_metadata.get("model") != "qwen3:8b"
+                        or generation_metadata.get("model") != args.generation_model
                         or generation_metadata.get("prompt_version") != OLLAMA_PROMPT_VERSION
                     ):
                         raise ValueError("evaluation generation provenance mismatch")
@@ -507,7 +509,7 @@ async def run_live(args):
         engine.dispose()
 
 
-def main():
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in (
         "dataset",
@@ -522,8 +524,13 @@ def main():
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--workspace-id", required=True)
     parser.add_argument("--generation-digest", required=True)
+    parser.add_argument("--generation-model", choices=("qwen3:8b", "qwen3:4b"), default="qwen3:8b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11435")
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = build_parser().parse_args()
     validate_private_output(args.private_output)
     report = asyncio.run(run_live(args))
     args.output.parent.mkdir(parents=True, exist_ok=True)
