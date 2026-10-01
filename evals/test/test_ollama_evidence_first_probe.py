@@ -157,3 +157,46 @@ def test_real_adapter_roundtrip_uses_one_chat_call_and_captures_no_thinking():
         assert calls == ["/api/tags", "/api/chat"]
 
     asyncio.run(scenario())
+
+
+def test_sampling_profile_reaches_actual_request_without_changing_extraction():
+    module = probe_module()
+    digest = "sha256:" + "b" * 64
+
+    async def endpoint(request):
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "qwen3:8b", "digest": digest}]})
+        options = json.loads(request.content)["options"]
+        assert options == {
+            "num_ctx": 8192,
+            "num_predict": 2048,
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0,
+            "seed": 105,
+        }
+        return httpx.Response(
+            200,
+            json={"model": "qwen3:8b", "message": {"content": json.dumps(supported_payload())}},
+        )
+
+    async def scenario():
+        try:
+            transport = module.EvidenceFirstProbeTransport(
+                inner=httpx.MockTransport(endpoint),
+                sampling_profile="qwen-nonthinking-v1",
+                seed=105,
+            )
+        except TypeError:
+            pytest.fail("probe cannot apply the declared sampling profile")
+        async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
+            provider = module.EvidenceFirstProbeProvider(
+                base_url="http://127.0.0.1:11435", expected_digest=digest, client=client
+            )
+            result = await provider.generate(question="Có bắt buộc ghi không?", evidence=EVIDENCE)
+        assert result.cited_evidence_ids == ("E2",)
+        assert "chấp thuận" in result.answer
+        assert transport.observations[0]["options"]["seed"] == 105
+
+    asyncio.run(scenario())

@@ -140,9 +140,20 @@ def render_result(payload, evidence):
 
 
 class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
-    def __init__(self, *, inner=None):
+    def __init__(self, *, inner=None, sampling_profile="greedy-v1", seed=105):
+        if sampling_profile not in {"greedy-v1", "qwen-nonthinking-v1"}:
+            raise ValueError("unknown sampling profile")
+        if type(seed) is not int or seed not in {105, 106, 107}:
+            raise ValueError("probe uses predeclared seeds only")
         self.inner = inner if inner is not None else httpx.AsyncHTTPTransport()
         self.observations = []
+        self.sampling_profile = sampling_profile
+        self.seed = seed
+        self.request_policy_id = (
+            REQUEST_POLICY_ID
+            if sampling_profile == "greedy-v1"
+            else f"{REQUEST_POLICY_ID}:{sampling_profile}:seed{seed}"
+        )
 
     async def handle_async_request(self, request):
         if request.method != "POST" or request.url.path != "/api/chat":
@@ -154,6 +165,8 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         payload["format"] = EXTRACTION_SCHEMA
         payload["think"] = False
         payload["options"]["num_predict"] = 2048
+        if self.sampling_profile == "qwen-nonthinking-v1":
+            payload["options"].update(temperature=0.7, top_p=0.8, top_k=20, min_p=0, seed=self.seed)
         self.observations.append(
             {
                 "model": payload["model"],
@@ -227,7 +240,7 @@ class EvidenceFirstProbeProvider:
 
 async def run_live(args):
     captures = []
-    transport = EvidenceFirstProbeTransport()
+    transport = EvidenceFirstProbeTransport(sampling_profile=args.sampling_profile, seed=args.seed)
     async with httpx.AsyncClient(transport=transport, timeout=240, trust_env=False) as client:
         provider = EvidenceFirstProbeProvider(
             base_url=args.base_url, expected_digest=args.digest, client=client
@@ -237,7 +250,7 @@ async def run_live(args):
     private = {
         "fixture_sha256": report["fixture_sha256"],
         "system_prompt_sha256": prompt_hash,
-        "request_policy_id": REQUEST_POLICY_ID,
+        "request_policy_id": transport.request_policy_id,
         "responses": captures,
     }
     content = (json.dumps(private, ensure_ascii=False, indent=2) + "\n").encode()
@@ -245,7 +258,8 @@ async def run_live(args):
     args.private_output.write_bytes(content)
     report.update(
         prompt_version=PROMPT_VERSION,
-        request_policy_id=REQUEST_POLICY_ID,
+        request_policy_id=transport.request_policy_id,
+        sampling_profile=transport.sampling_profile,
         system_prompt_sha256=prompt_hash,
         extraction_schema_sha256=hashlib.sha256(
             json.dumps(EXTRACTION_SCHEMA, sort_keys=True).encode()
@@ -268,6 +282,12 @@ def main():
     parser.add_argument("--digest", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--private-output", type=Path, required=True)
+    parser.add_argument(
+        "--sampling-profile",
+        choices=("greedy-v1", "qwen-nonthinking-v1"),
+        default="greedy-v1",
+    )
+    parser.add_argument("--seed", type=int, choices=(105, 106, 107), default=105)
     args = parser.parse_args()
     if not re.fullmatch(r"http://(?:127\.0\.0\.1|localhost):[0-9]{1,5}", args.base_url):
         raise ValueError("local probe endpoint required")
