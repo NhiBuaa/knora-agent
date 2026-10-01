@@ -325,3 +325,32 @@ def test_calibration_can_be_reused_only_for_same_corpus_and_profile():
     module.validate_calibration_target(dataset(), replace(dataset(), dataset_sha256="f" * 64))
     with pytest.raises(ValueError, match="corpus"):
         module.validate_calibration_target(dataset(), replace(dataset(), corpus_sha256="f" * 64))
+
+
+def test_cli_generation_model_is_explicit_and_bounded():
+    module = import_module("evals.runners.vietnamese_conversation")
+    arguments = []
+    for option in (
+        "dataset",
+        "manifest",
+        "calibration",
+        "calibration-dataset",
+        "calibration-manifest",
+        "output",
+        "private-output",
+        "rubric",
+        "workspace-id",
+        "generation-digest",
+    ):
+        arguments.extend((f"--{option}", "fixture"))
+    try:
+        parser = module.build_parser()
+    except AttributeError:
+        pytest.fail("evaluation CLI cannot select the approved generation fallback")
+    assert parser.parse_args(arguments).generation_model == "qwen3:8b"
+    assert (
+        parser.parse_args(arguments + ["--generation-model", "qwen3:4b"]).generation_model
+        == "qwen3:4b"
+    )
+    with pytest.raises(SystemExit):
+        parser.parse_args(arguments + ["--generation-model", "unknown:model"])
