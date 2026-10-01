@@ -1,6 +1,6 @@
 # Issue 105: process supervision and Qwen3 14B feasibility
 
-Status: code verified and independently reviewed for a bounded probe; no real 14B score yet.
+Status: code verified; real 14B seed 105 failed the independently reviewed preliminary gate.
 
 The owner approved process supervision and a bounded 14B trial after the 8B extraction
 experiment failed semantic acceptance and one cooperative-timeout call took 451.9 seconds.
@@ -74,3 +74,65 @@ run is retained here and the intermittent lifecycle result is not claimed repair
 No original36/revised36, durable Conversation, Keycloak/BFF/browser or release PASS is
 established by this provider probe. Keep #105 open, PR #135 draft and #116 as the final gate.
 No main merge, local codex/test integration or worktree removal.
+
+## Real Qwen3 14B seed 105 outcome
+
+The run used clean commit `0c14a5f17c11bf0098ae0f71d017913d08034909`, tree
+`2f9c08895fdf60a58f7bcf7e6a5d1772bd7ffc6c`, the predeclared non-thinking profile and
+context 4096. Both reviewer and coordinator verified the report/private byte hashes,
+fixture, prompt, extraction schema, three parent runtime sources, all eleven child source
+bindings, request options and normalized answer/response bindings. The reviewer independently
+verified all request message hashes as well. The coordinator reproduced every response binding.
+
+| Observation | Result |
+| --- | --- |
+| Actual chat requests / case observations | 11 / 11 |
+| Structurally valid results | 11/11 |
+| Literal checks | 8/11 |
+| Independent semantic review | 8/11 |
+| Per-case latency | 13.13–41.60 seconds; median 24.98 seconds |
+| Total observed case latency | 303.37 seconds |
+| Prompt / completion tokens | 470–539 / 41–194 |
+| Finish reason | `stop` for all eleven results |
+| Deadline exceedances / supervisor failures | 0 / 0 in these eleven observations |
+
+The following semantic failures remain:
+
+- `metadata_year`: infers the requested event attribute from document metadata; evidence
+  does not establish that attribute, so refusal is required.
+- `metadata_count`: substitutes program structure for an absent required item count.
+- `prohibited_requirement`: weakens an explicit prohibition into a statement that the
+  action is not mandatory.
+
+Both conditional-exception cases preserve the ordinary rule, eligibility and required
+approval in this run. This does not establish an isolated improvement: model and context
+both changed, and the development fixtures were already exposed. Exact quote membership
+and valid citation aliases do not independently establish semantic support for summaries.
+Intermediate extraction and raw thinking were not retained; normalized final responses
+do not prove which extraction field caused an error.
+
+The first profile failed. Seeds 106/107, PDF, original36/revised36, durable Conversation,
+Keycloak/BFF/browser and release gates were not run. There was no model reroll, validator
+relaxation or score repair. No deadline failure was observed in this run; controlled tests
+cover an uncooperative child, stalled receive, cancellation and cleanup failure. The
+unproven OS startup/kernel scheduling/server cancellation limits above still apply.
+
+Reports:
+
+- `../vietnamese_rag/issue105_process_14b_seed105_literal.json` — SHA256
+  `42cc50fc8c436be2cd96838980eb032a1b5e6c656c362291e833ed7a09fceaa8`.
+- `../vietnamese_rag/issue105_process_14b_seed105_semantic_review.json` — SHA256
+  `aa38b33d632bb01cfc1989bbc1753e56f964107742fb768b221cb70aee728e3c`.
+- Private normalized response artifact SHA256
+  `49cb6b371c89080136bb10d7744e8968396db77e842438f3f5af8fc449dabcb3`;
+  independent private verdict SHA256
+  `a596cca7266e1a22045a62c1dbb5f04f6ce789ed84c9a91444c8cac76d6a0fa2`.
+
+The observed Ollama runtime reported the same pinned 14B digest, context 4096 and zero
+VRAM bytes (CPU); model runtime size was 10,095,029,124 bytes and host available memory
+was about 4.69 GiB at the sampled time. These snapshots are not permanent guarantees.
+
+PR #135 remains draft and #105 remains open. Local `codex/test` was verified clean at
+`8ccddc4ce41ff5e5baa10a47cc5ab175351c4d31`; this experiment was not integrated there.
+The required Prettier status passed on the measured code commit; the report publication
+must retain its own current status. Keep #116 as the final release gate.
