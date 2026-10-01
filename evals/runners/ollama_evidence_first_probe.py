@@ -141,7 +141,7 @@ def render_result(payload, evidence):
 
 class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
     def __init__(self, *, inner=None, sampling_profile="greedy-v1", seed=105):
-        if sampling_profile not in {"greedy-v1", "qwen-nonthinking-v1"}:
+        if sampling_profile not in {"greedy-v1", "qwen-nonthinking-v1", "qwen-thinking-v1"}:
             raise ValueError("unknown sampling profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
             raise ValueError("probe uses predeclared seeds only")
@@ -163,14 +163,18 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         evidence = tuple(GenerationEvidence(**item) for item in user["evidence"])
         payload["messages"][0]["content"] = SYSTEM_PROMPT
         payload["format"] = EXTRACTION_SCHEMA
-        payload["think"] = False
+        payload["think"] = self.sampling_profile == "qwen-thinking-v1"
         payload["options"]["num_predict"] = 2048
         if self.sampling_profile == "qwen-nonthinking-v1":
             payload["options"].update(temperature=0.7, top_p=0.8, top_k=20, min_p=0, seed=self.seed)
+        elif self.sampling_profile == "qwen-thinking-v1":
+            payload["options"].update(
+                temperature=0.6, top_p=0.95, top_k=20, min_p=0, seed=self.seed
+            )
         self.observations.append(
             {
                 "model": payload["model"],
-                "think": False,
+                "think": payload["think"],
                 "options": payload["options"],
                 "system_prompt_sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
                 "user_message_sha256": hashlib.sha256(
@@ -284,7 +288,7 @@ def main():
     parser.add_argument("--private-output", type=Path, required=True)
     parser.add_argument(
         "--sampling-profile",
-        choices=("greedy-v1", "qwen-nonthinking-v1"),
+        choices=("greedy-v1", "qwen-nonthinking-v1", "qwen-thinking-v1"),
         default="greedy-v1",
     )
     parser.add_argument("--seed", type=int, choices=(105, 106, 107), default=105)

@@ -159,19 +159,30 @@ def test_real_adapter_roundtrip_uses_one_chat_call_and_captures_no_thinking():
     asyncio.run(scenario())
 
 
-def test_sampling_profile_reaches_actual_request_without_changing_extraction():
+@pytest.mark.parametrize(
+    ("profile", "thinking", "temperature", "top_p"),
+    [
+        ("qwen-nonthinking-v1", False, 0.7, 0.8),
+        ("qwen-thinking-v1", True, 0.6, 0.95),
+    ],
+)
+def test_sampling_profile_reaches_actual_request_without_changing_extraction(
+    profile, thinking, temperature, top_p
+):
     module = probe_module()
     digest = "sha256:" + "b" * 64
 
     async def endpoint(request):
         if request.url.path == "/api/tags":
             return httpx.Response(200, json={"models": [{"name": "qwen3:8b", "digest": digest}]})
-        options = json.loads(request.content)["options"]
+        payload = json.loads(request.content)
+        assert payload["think"] is thinking
+        options = payload["options"]
         assert options == {
             "num_ctx": 8192,
             "num_predict": 2048,
-            "temperature": 0.7,
-            "top_p": 0.8,
+            "temperature": temperature,
+            "top_p": top_p,
             "top_k": 20,
             "min_p": 0,
             "seed": 105,
@@ -185,7 +196,7 @@ def test_sampling_profile_reaches_actual_request_without_changing_extraction():
         try:
             transport = module.EvidenceFirstProbeTransport(
                 inner=httpx.MockTransport(endpoint),
-                sampling_profile="qwen-nonthinking-v1",
+                sampling_profile=profile,
                 seed=105,
             )
         except TypeError:
@@ -198,5 +209,7 @@ def test_sampling_profile_reaches_actual_request_without_changing_extraction():
         assert result.cited_evidence_ids == ("E2",)
         assert "chấp thuận" in result.answer
         assert transport.observations[0]["options"]["seed"] == 105
+        assert transport.observations[0]["think"] is thinking
+        assert transport.request_policy_id.endswith(f":{profile}:seed105")
 
     asyncio.run(scenario())
