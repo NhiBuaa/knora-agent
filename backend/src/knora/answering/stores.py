@@ -1,4 +1,6 @@
+import re
 from dataclasses import dataclass, field, replace
+from math import isfinite
 from typing import Protocol, overload
 
 from knora.answering.interface import QuestionResult
@@ -85,6 +87,28 @@ class RetrievalConfiguration:
             max_evidence_tokens=3000,
             overlap_policy="adjacent-token-overlap-v1",
             vector_candidate_k=16,
+        )
+
+    @classmethod
+    def qwen_containment_candidate_v2(
+        cls, *, min_similarity: float, provenance_sha256: str
+    ) -> "RetrievalConfiguration":
+        """Explicit evaluation composition; not registered as a deployment selector."""
+        if (
+            not isinstance(min_similarity, (int, float))
+            or isinstance(min_similarity, bool)
+            or not isfinite(min_similarity)
+            or not -1 <= min_similarity <= 1
+            or not isinstance(provenance_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", provenance_sha256) is None
+        ):
+            raise ValueError("invalid Qwen candidate provenance or threshold")
+        return replace(
+            cls.qwen_vietnamese_v1(
+                min_similarity=min_similarity, artifact_sha256=provenance_sha256
+            ),
+            id=f"retrieval-qwen-containment-candidate-v2-{provenance_sha256[:24]}",
+            overlap_policy="adjacent-content-containment-v1",
         )
 
     @classmethod
