@@ -294,7 +294,6 @@ class CandidateStore(EmptyStore):
 
 
 @pytest.mark.asyncio
-<<<<<<< HEAD
 async def test_ollama_answer_projects_pdf_provenance_from_selected_chunk() -> None:
     candidate = replace(
         retrieval_candidate("pdf-chunk-1", 0),
@@ -351,8 +350,6 @@ async def test_ollama_answer_projects_pdf_provenance_from_selected_chunk() -> No
 
 
 @pytest.mark.asyncio
-=======
->>>>>>> codex/issue-138-session-recovery
 async def test_containment_sends_unique_fact_to_generation_and_projects_its_citation():
     shared = "The report has seven sections."
     store = CandidateStore(
