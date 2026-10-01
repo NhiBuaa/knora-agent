@@ -28,7 +28,15 @@ export async function POST(request: Request) {
       { error: "CROSS_ORIGIN_REQUEST" },
       { status: 403 },
     );
-  const session = await getSession();
+  let session;
+  try {
+    session = await getSession(true);
+  } catch {
+    return NextResponse.json(
+      { error: "SESSION_REFRESH_UNAVAILABLE" },
+      { status: 503, headers: { "cache-control": "no-store" } },
+    );
+  }
   if (!session?.issuer)
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   let workspaceId: string;
@@ -99,7 +107,15 @@ export async function DELETE(request: Request) {
       { error: "CROSS_ORIGIN_REQUEST" },
       { status: 403 },
     );
-  const session = await getSession();
+  let session;
+  try {
+    session = await getSession(true);
+  } catch {
+    return NextResponse.json(
+      { error: "SESSION_REFRESH_UNAVAILABLE" },
+      { status: 503, headers: { "cache-control": "no-store" } },
+    );
+  }
   if (!session?.issuer)
     return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   const cleared = clearPreferenceCookie();
