@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 
 import httpx
 import pytest
@@ -8,6 +9,63 @@ from knora.providers.generation import GenerationEvidence
 from knora.providers.ollama.generation import OllamaGenerationProvider
 
 DIGEST = "sha256:" + "b" * 64
+
+
+@pytest.mark.asyncio
+async def test_gpt_oss_uses_named_reasoning_and_keeps_only_final_structured_content(
+    monkeypatch,
+) -> None:
+    from knora.providers.ollama import generation as module
+
+    monkeypatch.setattr(module, "OLLAMA_PROMPT_VERSION", "ollama-test-base-v9")
+    bodies: list[dict] = []
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gpt-oss:20b", "digest": DIGEST}]})
+        bodies.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "model": "gpt-oss:20b",
+                "message": {
+                    "role": "assistant",
+                    "thinking": "private-reasoning-canary",
+                    "content": json.dumps(
+                        {
+                            "decision": "ANSWER",
+                            "answer": "18 độ C. [[E1]]",
+                            "cited_evidence_ids": ["E1"],
+                            "refusal_reason": None,
+                        }
+                    ),
+                },
+                "done": True,
+                "done_reason": "stop",
+                "prompt_eval_count": 80,
+                "eval_count": 24,
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OllamaGenerationProvider(
+            base_url="http://ollama.test:11434",
+            model="gpt-oss:20b",
+            expected_digest=DIGEST,
+            client=client,
+        )
+        result = await provider.generate(
+            question="Nhiệt độ bao nhiêu?",
+            evidence=(GenerationEvidence("E1", "Duy trì 18 độ C."),),
+        )
+    assert bodies[0]["think"] == "low"
+    assert bodies[0]["options"] == {"num_ctx": 8192, "num_predict": 2048, "temperature": 0}
+    assert bodies[0]["format"]["type"] == "object"
+    assert result.answer == "18 độ C. [[E1]]"
+    assert result.cited_evidence_ids == ("E1",)
+    assert result.prompt_version == "ollama-gpt-oss-low-v1:ollama-test-base-v9"
+    assert result.usage == {"prompt_tokens": 80, "completion_tokens": 24}
+    assert "private-reasoning-canary" not in json.dumps(asdict(result))
 
 
 @pytest.mark.asyncio

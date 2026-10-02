@@ -4,6 +4,7 @@ param(
     [switch]$UseExistingStorage,
     [string]$EnvFile,
     [string]$OllamaBaseUrl,
+    [string]$GenerationModel,
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_issue103_demo',
     [string]$ObjectStoreEndpoint,
@@ -57,6 +58,13 @@ if ($EnvFile) {
 }
 Import-DotEnv $dotenvPath
 
+if (-not $GenerationModel) {
+    $GenerationModel = if ($env:KNORA_OLLAMA_GENERATION_MODEL) { $env:KNORA_OLLAMA_GENERATION_MODEL } else { 'qwen3:8b' }
+}
+if ($GenerationModel -notin @('qwen3:8b', 'qwen3:4b', 'gpt-oss:20b')) {
+    Fail 'INVALID_GENERATION_MODEL'
+}
+
 if (-not $OllamaBaseUrl) {
     $OllamaBaseUrl = if ($env:KNORA_OLLAMA_BASE_URL) {
         $env:KNORA_OLLAMA_BASE_URL
@@ -93,7 +101,7 @@ $OllamaBaseUrl = $OllamaBaseUrl.TrimEnd('/')
 $env:PYTHONPATH = "$repoRoot\backend\src;$repoRoot"
 $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl
 $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
-$env:KNORA_OLLAMA_GENERATION_MODEL = 'qwen3:8b'
+$env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel
 $env:KNORA_EMBEDDING_PROVIDER = 'ollama'
 $env:KNORA_GENERATION_PROVIDER = 'ollama'
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
@@ -110,7 +118,7 @@ $matching = @($tags.models | Where-Object { $_.name -eq 'qwen3-embedding:0.6b' }
 if ($matching.Count -ne 1 -or $matching[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
     Fail 'MODEL_UNAVAILABLE'
 }
-$generationModels = @($tags.models | Where-Object { $_.name -eq 'qwen3:8b' })
+$generationModels = @($tags.models | Where-Object { $_.name -eq $GenerationModel })
 if ($generationModels.Count -ne 1 -or $generationModels[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
     Fail 'GENERATION_MODEL_UNAVAILABLE'
 }
@@ -141,7 +149,7 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
     Fail 'PROFILE_MISMATCH'
 }
 Write-Output "PRECHECK_OK $profileId"
-Write-Output "GENERATION_MODEL=qwen3:8b"
+Write-Output "GENERATION_MODEL=$GenerationModel"
 Write-Output "GENERATION_DIGEST=$generationDigest"
 Write-Output "API_URL=$env:KNORA_API_URL"
 if ($UseExistingStorage -and (-not $env:KNORA_DATABASE_URL -or -not $ObjectStoreEndpoint)) {

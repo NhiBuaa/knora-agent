@@ -153,7 +153,7 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
     if choice == "deterministic-local":
         return DeterministicGenerationProvider()
     if choice == "ollama":
-        if runtime_settings.ollama_generation_model not in {"qwen3:8b", "qwen3:4b"}:
+        if runtime_settings.ollama_generation_model not in {"qwen3:8b", "qwen3:4b", "gpt-oss:20b"}:
             raise ValueError("invalid provider configuration: unsupported Ollama generation model")
         if runtime_settings.ollama_generation_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")

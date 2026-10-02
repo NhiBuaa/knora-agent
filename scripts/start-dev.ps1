@@ -85,7 +85,7 @@ if ($GenerationProvider -notin @('ollama', 'deterministic-local')) { Fail 'INVAL
 if (-not $GenerationModel) {
     $GenerationModel = if ($env:KNORA_OLLAMA_GENERATION_MODEL) { $env:KNORA_OLLAMA_GENERATION_MODEL } else { 'qwen3:8b' }
 }
-if ($GenerationProvider -eq 'ollama' -and $GenerationModel -notin @('qwen3:8b', 'qwen3:4b')) {
+if ($GenerationProvider -eq 'ollama' -and $GenerationModel -notin @('qwen3:8b', 'qwen3:4b', 'gpt-oss:20b')) {
     Fail 'INVALID_GENERATION_MODEL'
 }
 

@@ -407,10 +407,30 @@ For the CPU Ollama endpoint on port 11435, use:
 .\scripts\start-dev.ps1 -OllamaBaseUrl http://127.0.0.1:11435 -GenerationProvider ollama
 ```
 
-Set `KNORA_GENERATION_PROVIDER=ollama` and `KNORA_OLLAMA_GENERATION_MODEL=qwen3:8b`
-in `.env` for persistent selection. Command parameters override process environment,
-then `.env`, then defaults. `-GenerationModel qwen3:4b` selects the smaller generation
-model after it has been installed; it does not change the embedding profile.
+For GPT-OSS, install the model on the same Ollama endpoint used by daily development:
+
+```powershell
+$env:OLLAMA_HOST = '127.0.0.1:11435'
+ollama pull gpt-oss:20b
+```
+
+Set these values in `.env` for persistent selection:
+
+```dotenv
+KNORA_GENERATION_PROVIDER=ollama
+KNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b
+KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11435
+KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS=240
+```
+
+Then run `.\scripts\start-dev.ps1`. Command parameters override process environment,
+then `.env`, then defaults. Remove stale process variables before restarting if they
+override the model in `.env`. GPT-OSS uses low reasoning with a bounded output budget;
+only its final structured content enters answers and traces. The embedding model remains
+`qwen3-embedding:0.6b`, so switching generation does not require re-indexing.
+The default model for existing setups remains `qwen3:8b`; an explicit
+`-GenerationModel gpt-oss:20b` also works for both development launchers.
+This model selection is pending the #105 semantic and Conversation acceptance gates.
 For an explicit UI-only simulation, use `-GenerationProvider deterministic-local`.
 That mode copies evidence and cannot satisfy real-AI acceptance.
 

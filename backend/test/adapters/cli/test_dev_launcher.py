@@ -191,7 +191,9 @@ def _powershell() -> str:
 
 
 @contextmanager
-def _ollama_server(*, generation_digest: str | None = "c" * 64) -> Iterator[str]:
+def _ollama_server(
+    *, generation_digest: str | None = "c" * 64, generation_model: str = "qwen3:8b"
+) -> Iterator[str]:
     class OllamaHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self.path != "/api/tags":
@@ -199,7 +201,7 @@ def _ollama_server(*, generation_digest: str | None = "c" * 64) -> Iterator[str]
                 return
             models = [{"name": MODEL, "digest": DIGEST}]
             if generation_digest is not None:
-                models.append({"name": "qwen3:8b", "digest": generation_digest})
+                models.append({"name": generation_model, "digest": generation_digest})
             self._respond({"models": models})
 
         def do_POST(self) -> None:
@@ -361,6 +363,43 @@ def test_daily_generation_selection_and_child_environment(
     assert result.returncode == 0, result.stderr
     digest = "sha256:" + "c" * 64 if expected == "ollama" else "unset"
     assert result.stdout.splitlines()[-3:] == [expected, "qwen3:8b", digest]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_gpt_oss_selection_from_dotenv_pins_child_digest(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "KNORA_GENERATION_PROVIDER=ollama\nKNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b\n"
+    )
+    child = tmp_path / "child.py"
+    child.write_text(
+        "import os\nfor key in ('KNORA_OLLAMA_GENERATION_MODEL', "
+        "'KNORA_EXPECTED_GENERATION_MODEL_DIGEST'):\n    print(os.environ[key])\n"
+    )
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("KNORA_")}
+    command = (
+        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV "
+        "-OllamaBaseUrl $env:TEST_URL -PythonExe $env:TEST_PYTHON; "
+        "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; "
+        "& $env:TEST_PYTHON $env:TEST_CHILD"
+    )
+    with _ollama_server(generation_model="gpt-oss:20b") as url:
+        result = subprocess.run(
+            [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+            capture_output=True,
+            text=True,
+            timeout=25,
+            env={
+                **environment,
+                "TEST_LAUNCHER": str(SCRIPT),
+                "TEST_ENV": str(env_file),
+                "TEST_URL": url,
+                "TEST_PYTHON": sys.executable,
+                "TEST_CHILD": str(child),
+            },
+        )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines()[-2:] == ["gpt-oss:20b", "sha256:" + "c" * 64]
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")

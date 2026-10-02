@@ -75,13 +75,14 @@ def test_bootstrap_selects_local_embedding_with_openai_generation() -> None:
     assert selected.embedding_configuration == EmbeddingConfiguration.milestone_one_local()
 
 
-def test_bootstrap_selects_ollama_generation_independently() -> None:
+@pytest.mark.parametrize("model", ["qwen3:8b", "gpt-oss:20b"])
+def test_bootstrap_selects_ollama_generation_independently(model: str) -> None:
     selected = build_provider_selection(
         Settings(
             _env_file=None,
             embedding_provider="deterministic-local",
             generation_provider="ollama",
-            ollama_generation_model="qwen3:8b",
+            ollama_generation_model=model,
             expected_generation_model_digest="sha256:" + "b" * 64,
         )
     )

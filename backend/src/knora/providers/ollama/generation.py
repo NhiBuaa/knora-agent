@@ -72,8 +72,12 @@ class OllamaGenerationProvider:
                     ],
                     "format": STRUCTURED_RESULT_SCHEMA,
                     "stream": False,
-                    "think": False,
-                    "options": {"num_predict": 1024, "temperature": 0},
+                    "think": "low" if self._model == "gpt-oss:20b" else False,
+                    "options": (
+                        {"num_ctx": 8192, "num_predict": 2048, "temperature": 0}
+                        if self._model == "gpt-oss:20b"
+                        else {"num_predict": 1024, "temperature": 0}
+                    ),
                 },
             )
             response.raise_for_status()
@@ -101,7 +105,11 @@ class OllamaGenerationProvider:
                 refusal_reason=structured["refusal_reason"],
                 provider="ollama",
                 model=str(payload.get("model", self._model)),
-                prompt_version=OLLAMA_PROMPT_VERSION,
+                prompt_version=(
+                    f"ollama-gpt-oss-low-v1:{OLLAMA_PROMPT_VERSION}"
+                    if self._model == "gpt-oss:20b"
+                    else OLLAMA_PROMPT_VERSION
+                ),
                 finish_reason=payload.get("done_reason"),
                 usage=usage,
             )
