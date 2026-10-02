@@ -12,6 +12,49 @@ DIGEST = "sha256:" + "b" * 64
 
 
 @pytest.mark.asyncio
+async def test_gpt_oss_receives_schema_in_prompt_as_well_as_native_format() -> None:
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gpt-oss:20b", "digest": DIGEST}]})
+        payload = json.loads(request.content)
+        prompt = payload["messages"][0]["content"]
+        assert "\nRequired response JSON schema:\n" in prompt
+        schema = json.loads(prompt.rsplit("\nRequired response JSON schema:\n", 1)[1])
+        assert set(schema["required"]) == {
+            "decision",
+            "answer",
+            "cited_evidence_ids",
+            "refusal_reason",
+        }
+        assert schema == payload["format"]
+        assert "[[E1]]" in prompt
+        return httpx.Response(
+            200,
+            json={
+                "model": "gpt-oss:20b",
+                "message": {
+                    "content": (
+                        '{"decision":"REFUSAL","answer":null,"cited_evidence_ids":[], '
+                        '"refusal_reason":"INSUFFICIENT_EVIDENCE"}'
+                    )
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OllamaGenerationProvider(
+            base_url="http://ollama.test",
+            model="gpt-oss:20b",
+            expected_digest=DIGEST,
+            client=client,
+        )
+        result = await provider.generate(
+            question="Price?", evidence=(GenerationEvidence("E1", "18 C."),)
+        )
+    assert result.decision == "REFUSAL"
+
+
+@pytest.mark.asyncio
 async def test_gpt_oss_uses_named_reasoning_and_keeps_only_final_structured_content(
     monkeypatch,
 ) -> None:
@@ -63,7 +106,7 @@ async def test_gpt_oss_uses_named_reasoning_and_keeps_only_final_structured_cont
     assert bodies[0]["format"]["type"] == "object"
     assert result.answer == "18 độ C. [[E1]]"
     assert result.cited_evidence_ids == ("E1",)
-    assert result.prompt_version == "ollama-gpt-oss-low-v1:ollama-test-base-v9"
+    assert result.prompt_version == "ollama-gpt-oss-low-schema-v2:ollama-test-base-v9"
     assert result.usage == {"prompt_tokens": 80, "completion_tokens": 24}
     assert "private-reasoning-canary" not in json.dumps(asdict(result))
 
