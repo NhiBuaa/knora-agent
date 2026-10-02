@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     generation_provider: str | None = None
     ollama_base_url: str = "http://localhost:11434"
     ollama_embedding_model: str = "qwen3-embedding:0.6b"
+    ollama_generation_model: str = "qwen3:8b"
+    expected_generation_model_digest: str | None = None
+    ollama_generation_timeout_seconds: float = 120.0
     ollama_timeout_seconds: float = 60.0
     expected_embedding_configuration_id: str | None = None
     gemini_api_key: SecretStr | None = None

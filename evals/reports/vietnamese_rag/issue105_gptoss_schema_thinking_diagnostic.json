@@ -1,0 +1,60 @@
+{
+  "acceptance_claim": false,
+  "expected_model_digest": "sha256:17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7",
+  "measured_commit": "112f0208cd4ecf3f25ccf5d2efb47c66972697e2",
+  "private_payload_retained": false,
+  "raw_thinking_retained": false,
+  "request_count": 2,
+  "rows": [
+    {
+      "case_id": "rule_with_exception",
+      "completion_tokens": 95,
+      "content_character_count": 216,
+      "exceptions_count": 0,
+      "finish_reason": "stop",
+      "json_object": true,
+      "latency_seconds": 9.71,
+      "model": "gpt-oss:20b",
+      "prompt_tokens": 865,
+      "request_sha256": "8ebe83f9ddb15f09a156f1b065edc426cacc76b9c12497658f0dd5092a30d08f",
+      "schema_applied": true,
+      "think": "low",
+      "thinking_character_count": 59,
+      "thinking_field_present": true,
+      "top_level_fields": [
+        "decision",
+        "exceptions",
+        "facts",
+        "refusal_reason",
+        "rules"
+      ]
+    },
+    {
+      "case_id": "rule_with_exception",
+      "completion_tokens": 95,
+      "content_character_count": 216,
+      "exceptions_count": 0,
+      "finish_reason": "stop",
+      "json_object": true,
+      "latency_seconds": 8.12,
+      "model": "gpt-oss:20b",
+      "prompt_tokens": 865,
+      "request_sha256": "80b1ff0596ad274eeac1905538ea7481c49791a7f3bbb85015273619c89444f9",
+      "schema_applied": false,
+      "think": "low",
+      "thinking_character_count": 59,
+      "thinking_field_present": true,
+      "top_level_fields": [
+        "decision",
+        "exceptions",
+        "facts",
+        "refusal_reason",
+        "rules"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "scope": "UNSCORED_SINGLE_CASE_SCHEMA_INTERACTION_DIAGNOSTIC",
+  "timeout_scope": "cooperative_http_client_not_parent_supervisor",
+  "timeout_seconds": 240
+}

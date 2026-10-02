@@ -8,7 +8,7 @@ This is the stable demo/acceptance path. For day-to-day editing with FastAPI aut
 
 - Windows with the repository's Python virtual environment and frontend dependencies installed.
 - Docker Desktop running Linux containers. Ports 5432, 9000, 8000 and 3000 must be available, or pass alternate PostgreSQL, API and frontend ports to the launcher. MinIO uses port 9000.
-- Ollama installed on Windows with `qwen3-embedding:0.6b` pulled. The download can be large. Keep Ollama bound to localhost.
+- Ollama installed on Windows with `qwen3-embedding:0.6b` and `qwen3:8b` pulled. The downloads can be large. Keep Ollama bound to localhost.
 - Existing Keycloak configuration for browser sign-in. The launcher does not create or change a realm.
 
 From PowerShell, check whether Ollama is already running:
@@ -19,8 +19,9 @@ Invoke-RestMethod http://127.0.0.1:11434/api/tags
 
 If the request succeeds, skip `ollama serve`; a second server cannot bind port 11434.
 If it cannot connect, run `ollama serve` in another PowerShell window and leave it open.
-Then run `ollama pull qwen3-embedding:0.6b` in the repository terminal. The launcher verifies
+Then run `ollama pull qwen3-embedding:0.6b` and `ollama pull qwen3:8b` in the repository terminal. The launcher verifies
 `/api/tags`, `/api/show`, and a 1024-value `/api/embed` response. It resolves the exact model digest into one immutable Knora profile. API and worker startup are pinned to that profile ID, and embedding calls recheck the digest before work.
+The launcher requires the Qwen3 generation model and selects `KNORA_GENERATION_PROVIDER=ollama` independently of the embedding profile.
 
 If a GPU runner fails, start a separate CPU-only Ollama endpoint in another PowerShell session instead of changing the default service:
 
@@ -75,7 +76,7 @@ From the repository root:
 .\scripts\start-ollama-demo.ps1
 ```
 
-The preflight starts no database or service. It fails if Ollama, the model contract, exact vector size, profile pin or Windows PDF child memory limit is unavailable. The full launcher starts only PostgreSQL and MinIO through the existing Compose file, creates and migrates the separate `knora_issue103_demo` database, and starts API, worker and frontend as hidden host processes. It prints their PIDs and a log directory under the system temporary directory. It opens the frontend URL unless `-NoBrowser` is supplied.
+The preflight starts no database or service. It fails if Ollama, the model contract, exact vector size, profile pin or Windows PDF child memory limit is unavailable. The full launcher starts only PostgreSQL and MinIO through the existing Compose file, creates and migrates the separate `knora_issue103_demo` database, and starts the API, ingestion worker, durable Conversation worker and frontend as hidden host processes. It prints their PIDs and a log directory under the system temporary directory. It opens the frontend URL unless `-NoBrowser` is supplied.
 
 For a nondefault PostgreSQL/API/frontend port, use `-PostgresPort`, `-ApiPort` and `-FrontendPort`. The MinIO host port remains 9000. The Python interpreter can be selected with `-PythonExe`; the launcher otherwise checks the worktree and primary checkout virtual environments. `-EnvFile` can point to an alternate dotenv file for an isolated local run; the default is the repository-root `.env`.
 
@@ -110,8 +111,57 @@ Open the authenticated Documents surface. A retained PDF with an active embeddin
 
 For the issue acceptance fixture, re-index every non-archived test Document in the chosen local Workspace. Verify that `Teacher Manh - Guidelines 2024.pdf` reaches `succeeded`, the new active Embedding Set has 1024 dimensions, and the existing Document Version and Original Source Object identities remain unchanged. Record job/profile IDs and gate results only; do not attach the PDF or raw provider responses.
 
+## Conversation acceptance
+
+After re-index succeeds, sign in through Keycloak and create a Conversation in the same Workspace. Ask `cần trình bày báo cáo bao nhiêu chương?`. The answer must say that the guide suggests seven chapters and that a small report may combine chapters. Its citation must identify `Teacher Manh - Guidelines 2024.pdf`, physical page 1 and the expected chunk checksum from the labeled dataset. Ask `Hạn cuối nộp báo cáo chính xác là ngày nào?` in the Conversation and verify an insufficient-evidence refusal without a citation on that Turn.
+
+For a repeatable browser gate, start the reviewed M5 Keycloak realm, API, worker and frontend, set the existing `M5_E2E_*` endpoint and test-identity variables, then run:
+
+```powershell
+.\scripts\verify-ollama-demo.ps1 -OllamaBaseUrl http://127.0.0.1:11435
+```
+
+The script checks that the local generation model has a digest and runs only `ollama-local-acceptance.spec.ts` against the already-running frontend. Set `M5_E2E_BASE_URL` to that frontend, the test-only `M5_E2E_USER_USERNAME` and `M5_E2E_USER_PASSWORD` for its disposable Keycloak realm, and `KNORA_DATABASE_URL` for the same isolated local database used by the API. The browser test checks the current Conversation route, required answer facts, source/page/checksum and the absent-information refusal. The script then reads only the new server Question Traces and requires Ollama generation for both positive and negative Turns. A refusal before generation does not pass this gate. Browser traces, screenshots and videos are disabled for this credential-bearing run. The script does not copy the PDF or provider response into Git.
+
+The [#105 local evaluation](../../evals/reports/vietnamese_rag/issue105_local_ollama.json) currently records a **blocked** positive gate: the selected evidence omits the labeled seven-chapter chunk under both `retrieval-m1-v1` and `retrieval-m3-rrf-v1`. The negative question refuses before generation. The #104 Qwen calibration artifact remains unsealed; do not lower the threshold or claim model-backed negative refusal from these observations. Re-run the live gate after the retrieval policy has passed its full calibration.
+
+## Repeatable refusal diagnosis (#105)
+
+The maintained replacement for the temporary `knora-issue105-negative-eval.py` is
+`evals/runners/ollama_refusal.py`, with tests in `evals/test/test_ollama_refusal.py`.
+Run it from the #105 worktree. It retrieves the active corpus within the requested
+Workspace, checks the dataset/profile/source/chunk-set binding, applies the existing
+evidence selector (including overlap and token budgets), and calls the digest-pinned
+Ollama adapter. It does not use the old temporary observations or an unscoped chunks query.
+
+Set `KNORA_DATABASE_URL` to the isolated issue database, `KNORA_OLLAMA_BASE_URL` to
+the running Ollama endpoint, and `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` to the
+reviewed generation digest through the local environment. The optional model variables
+are `KNORA_OLLAMA_EMBEDDING_MODEL` and `KNORA_OLLAMA_GENERATION_MODEL`.
+
+```powershell
+$env:PYTHONPATH = "$PWD\backend\src;$PWD"
+# Supply a manifest matching this Workspace's active corpus and the threshold
+# selected by the retrieval calibration. Neither value changes server configuration.
+& C:\Developer\Projects\knora-agent\.venv\Scripts\python.exe -m evals.runners.ollama_refusal `
+  --dataset evals/datasets/vietnamese_rag_v1.jsonl `
+  --manifest <workspace-manifest.json> `
+  --workspace-id <workspace-id> `
+  --threshold <calibration-selected-threshold> `
+  --output evals/reports/issue105-refusal-local.json
+```
+
+The report contains provenance, selected checksums and closed outcome labels, without
+questions, evidence text, answers, credentials or exception bodies. `MODEL_REFUSAL`
+means generation ran and its refusal passed backend validation; `PRE_GENERATION_REFUSAL`
+does not count in the model refusal rate. Unexpected answers, malformed output and
+provider failures remain in its denominator. A zero-generation run has a null rate.
+The report always marks `conversation_gate: NOT_EVALUATED` and has no calibration seal:
+this diagnostic does not exercise authenticated Conversation or replace its browser gate.
+If these cases are used to tune the prompt, treat them as development-exposed.
+
 ## Stop or recover
 
-Stop only the API, worker and frontend PIDs printed by this launch. If no other test is using the issue's Compose project, stop its services with `docker compose -p issue-103-ollama-reindex stop postgres minio`. Do not remove volumes, source objects or the worktree as part of routine shutdown.
+Stop only the API, ingestion worker, Conversation worker and frontend PIDs printed by this launch. If no other test is using the issue's Compose project, stop its services with `docker compose -p issue-103-ollama-reindex stop postgres minio`. Do not remove volumes, source objects or the worktree as part of routine shutdown.
 
 If the model digest changes, stop API and worker, rerun preflight, and restart with the new pinned profile. Existing vectors remain under their old immutable profile and require explicit re-index. If PDF isolation preflight fails, do not start the worker or weaken the extractor limit.

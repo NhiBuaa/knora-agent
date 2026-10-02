@@ -1,0 +1,698 @@
+{
+  "case_count": 11,
+  "cases": [
+    {
+      "aliases_correct": true,
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "category": "absent_exact_fact",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 46496.07,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 48,
+        "prompt_tokens": 1242
+      }
+    },
+    {
+      "aliases_correct": false,
+      "answer_sha256": "54404b37489e9c13d99353f9f966c07387b0a1e089d71f8f34059839a7152bec",
+      "case_id": "metadata_year",
+      "category": "misleading_metadata",
+      "decision_correct": false,
+      "finish_reason": "stop",
+      "latency_ms": 14778.28,
+      "literal_checks_passed": false,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 140,
+        "prompt_tokens": 1257
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "37662cca44e60be7e5f7e0dc26ed6ac1f01853fa90e58bdd5da1452a4c49bcdc",
+      "case_id": "explicit_prohibition",
+      "category": "evidenced_negative",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 13461.9,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 135,
+        "prompt_tokens": 1239
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "019115ec20077f05b58c2b39ea2c2ec28e771fc0601c8db78ba75f4add3debab",
+      "case_id": "support_after_distractor",
+      "category": "supporting_alias",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 11052.75,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 83,
+        "prompt_tokens": 1258
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "category": "absent_exact_fact",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 8771.44,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 61,
+        "prompt_tokens": 1255
+      }
+    },
+    {
+      "aliases_correct": false,
+      "answer_sha256": "861697fcb4c485ae0e7af8ac17c61d1e35f04a7b4ff9a7c781693f0381ac57a6",
+      "case_id": "metadata_count",
+      "category": "misleading_metadata",
+      "decision_correct": false,
+      "finish_reason": "stop",
+      "latency_ms": 18125.77,
+      "literal_checks_passed": false,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 171,
+        "prompt_tokens": 1265
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "6a5b0fc5d9d65c2154687bae72a227ea904845a8dab0cdcabb4ff10cf2a9cbd8",
+      "case_id": "prohibited_requirement",
+      "category": "evidenced_negative",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 13848.99,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 127,
+        "prompt_tokens": 1243
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "f47e2067da3cb333fbd542ba7fbdb3902c893d5a9fece8b0341d2ac681c8e106",
+      "case_id": "support_after_related_rule",
+      "category": "supporting_alias",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 10677.49,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 81,
+        "prompt_tokens": 1291
+      }
+    },
+    {
+      "aliases_correct": false,
+      "answer_sha256": "e206f916ec1e0d64d03bc70864868cb4d089e6c78fb6887369c732e250be0ce0",
+      "case_id": "caveat_after_distractor",
+      "category": "relevant_caveat",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 24049.1,
+      "literal_checks_passed": false,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1",
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 232,
+        "prompt_tokens": 1279
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "ab1bd3c1b9b8688bf361f17ad6aec9cc5d813a291b7d678b6a7c7bbf27b5783b",
+      "case_id": "rule_with_exception",
+      "category": "relevant_caveat",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 11611.13,
+      "literal_checks_passed": false,
+      "literal_patterns_match": false,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 100,
+        "prompt_tokens": 1256
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "baa7b7f1f4b1ca29b3bb2c3ed20ce7cd4d4d38663c304cb7baecf566e7061260",
+      "case_id": "wrapped_current_question",
+      "category": "untrusted_prior_history",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 14095.64,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "gpt-oss:20b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 111,
+        "prompt_tokens": 1318
+      }
+    }
+  ],
+  "check_version": "synthetic-literal-pattern-checks-v2",
+  "child_cleanup_wait_budget_seconds": 0.65,
+  "code_provenance": {
+    "git_commit": "571a6ba24ca10420568d121d472d86e8f45a9229",
+    "git_tree": "adae547e9c678e2af4883ce0f990b293dd6bccda"
+  },
+  "context_tokens": 4096,
+  "conversation_gate": "NOT_EVALUATED",
+  "deployment_selection": false,
+  "extraction_schema_sha256": "97f2ad5d2f281dfba9f040fbe05aa9feb295e47010ec97c6ba906cfc31781f67",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "fixture_version": "ollama-synthetic-grounding-v3",
+  "generation_expected_digest": "sha256:17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7",
+  "held_out": false,
+  "literal_passed_count": 7,
+  "model": "gpt-oss:20b",
+  "observation_count": 11,
+  "observed_at": "2026-10-02T05:42:46.703011+00:00",
+  "private_responses_sha256": "18bb9457c6454e13b90ee2008ce364917421db9170470b946ac451e336fbd010",
+  "process_observations": [
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 46.46171079998021,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 14.777408099995228,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 13.460963999998057,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 11.052016600006027,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 8.770908899983624,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 18.125204499985557,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 13.848192200006451,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 10.675735600001644,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 24.047450300015043,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 11.610525199997937,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    },
+    {
+      "deadline_expired": false,
+      "elapsed_seconds": 14.095029899996007,
+      "invalid_output_stage": null,
+      "request_count": 1,
+      "runtime_sources": {
+        "backend/src/knora/answering/generation_validation.py": {
+          "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+          "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+        },
+        "backend/src/knora/providers/generation.py": {
+          "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+          "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+        },
+        "backend/src/knora/providers/ollama/generation.py": {
+          "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+          "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+        }
+      },
+      "supervisor_failed": false
+    }
+  ],
+  "prompt_version": "ollama-evidence-first-gpt-extraction-v3",
+  "release_gate": "NOT_EVALUATED",
+  "repetitions": 1,
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-extraction-v3:seed105",
+  "requests": [
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "13e178af14ed89f9f663819a15530bd8b0f4553b93b8857af13ff8e9c135d518"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "afa7f4b7879e8e9e1ad2ff4128eb8d18c69a158f18e22d4bf42111ec4551773c"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "32529fb5aaf4e4cd363ea86867b07928fbf6c0f71c6c6c8e82c12223ae2d9d02"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "b4a8f56e3b8cfd4fd2db463001848fd18dcf5c369834deecabcb0431bc7e770c"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "cd8183276a08e8dba9b120d0eb0779418a5a88033821e13485a4813c8b7dd15f"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "e0df47286b1e3ef07ab0f4e529c5e2a97352f62c878abe1cc5a808dc055dfcbe"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "c8dbd24c2407246415ef5b204d27bd01c3d14f143b32fdef618f599860ab5e92"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "e433dc6c94c7ebf057d2aa0934bda3738d840c1788228d8d1a4cf6c329cf4627"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "5f8326e58ffa3ad55eb640315f854bb3a1f712b75c03bde62ec76e3a68f954cb"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "30e18ad1969e5d05b6ace0ae81978dfd5806f441e6d58c2326c66108abda4f7e"
+    },
+    {
+      "model": "gpt-oss:20b",
+      "options": {
+        "num_ctx": 4096,
+        "num_predict": 2048,
+        "seed": 105,
+        "temperature": 0
+      },
+      "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+      "think": "low",
+      "user_message_sha256": "a2dd330430a6e293ffefeeb6009c5984ba1a557a908a0ef97ee4942d9a062a0f"
+    }
+  ],
+  "runtime_gate": "NO_DEADLINE_OR_SUPERVISOR_FAILURE",
+  "runtime_sources": {
+    "backend/src/knora/answering/generation_validation.py": {
+      "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+      "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+    },
+    "backend/src/knora/providers/generation.py": {
+      "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+      "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+    },
+    "backend/src/knora/providers/ollama/generation.py": {
+      "committed_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f",
+      "runtime_sha256": "29a76835d86d3b457272e6925a0d575195d1b6b5178e38a9a3d4d7dfb588261f"
+    }
+  },
+  "sampling_profile": "gpt-oss-extraction-v3",
+  "schema_version": 2,
+  "scope": "synthetic_development_literal_grounding",
+  "seed": 105,
+  "semantic_review": "NOT_EVALUATED",
+  "server_cancellation_proven": false,
+  "source_sha256": {
+    "ollama_evidence_first_probe.py": "0d67cde4149cd44640caf92e8505b4698a4fada18516be253f8b479b50dd6dcd",
+    "ollama_process_probe.py": "20ddd4ba2cfcf58d30a430f2f3256128e1509cee494de3c4c894b5fd583fab8c",
+    "process_probe.py": "cb5b4654506d1ab363910c53d79c6f55fbb781b740076f6ac7d68270edb471eb"
+  },
+  "startup_blocking_bound_proven": false,
+  "system_prompt_sha256": "ce81cfb97483983e7a6b4e828ae91c25cc3be3b3dc2857489172945a9ed0d0c4",
+  "timeout_scope": "parent_supervised_process_per_generate_timer_includes_startup_and_digest",
+  "timeout_seconds": 240,
+  "transport_gate": "PROVIDER_PROBE_NOT_CONVERSATION"
+}

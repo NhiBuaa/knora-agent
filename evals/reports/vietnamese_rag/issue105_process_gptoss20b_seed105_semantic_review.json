@@ -1,0 +1,129 @@
+{
+  "canonical_binding_format": {
+    "encoding": "UTF-8",
+    "ensure_ascii": true,
+    "excluded_convenience_field": "answer_sha256",
+    "hash": "SHA-256",
+    "separators": [
+      ",",
+      ":"
+    ],
+    "sort_keys": true
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "generation_expected_digest": "sha256:17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7",
+  "held_out": false,
+  "measured_source_commit": "e226ce0b9d8b93f61b5f28fca3fa056a7e4a9142",
+  "model": "gpt-oss:20b",
+  "next_measurements": "SEEDS_106_107_AND_PDF_NOT_AUTHORIZED_AFTER_FAILED_PRELIMINARY_CONDITION",
+  "observation_count": 11,
+  "observation_failure_count": 10,
+  "original36_gate": "NOT_EVALUATED",
+  "private_responses_sha256": "44abe2e4a9197f0206ffc915306f003a23c8f3fb08a34a2336db293d69c0c4ef",
+  "provenance_verified": true,
+  "public_report_sha256": "a84d7812386d3ffbc15219ca7a4fe0d1f753c21df291b8af434b5e66c306bdef",
+  "raw_thinking_persisted": false,
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-low-v1:seed105",
+  "review_kind": "independent_semantic_and_provenance_audit",
+  "review_private_verdict_sha256": "a888b019c4d6d2b743d8c09a472ce250237be3e3868149acfa421adb34aca4ba",
+  "reviewer": "review105_gpt_support",
+  "reviews": [
+    {
+      "case_id": "absent_fee",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "a887194efff022d1d0f1d090f11aee1ead41c00d2489d057420c2b8bcfe20b08"
+    },
+    {
+      "case_id": "metadata_year",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "36e2013a8d77fe49a4c04421efd278711e526b755642817465be16dd7c02eef5"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "5e1aa6291f02be5bb6aeb068e061617d2a44f76eafa2057fc1bf039398f0b6a4"
+    },
+    {
+      "case_id": "support_after_distractor",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "2050d53e6defd2622a530d1fcfb628faea3794b1d080c9fe02f5dc9b36361650"
+    },
+    {
+      "case_id": "absent_warranty",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "94202f06186c61d13ea7c8c2b3394680c03ff7dab9b08398de6f73c38217617e"
+    },
+    {
+      "case_id": "metadata_count",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "420091a9245d0ae9a4e928fb21c72642a2156c38bda8b8b535bb642f14cc4590"
+    },
+    {
+      "case_id": "prohibited_requirement",
+      "outcome": "FAIL",
+      "passed": false,
+      "reason_code": "SOURCE_PROHIBITION_WEAKENED_TO_NONREQUIREMENT",
+      "repetition": 1,
+      "response_sha256": "1e106b7765716a1ac760f23b4545121903a4c62cbc9528e9797ef1de67ec4fc7"
+    },
+    {
+      "case_id": "support_after_related_rule",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "16fe347d7e2f3f9f559a4fbb9f67ce3720362d0f5add77e8d2b9dd02473b5549"
+    },
+    {
+      "case_id": "caveat_after_distractor",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "aec41fb5600b11b184fe028dcb22bb2c43e14958dac04762de966deefbb21fd2"
+    },
+    {
+      "case_id": "rule_with_exception",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "3ca7d3022439d5a022f538c39c9d889b8e9fb57f07c12d65720383ed62072c17"
+    },
+    {
+      "case_id": "wrapped_current_question",
+      "outcome": "OBSERVATION_NOT_SCORABLE",
+      "passed": null,
+      "reason_code": "NO_RETAINED_VALID_FINAL_GENERATION_OUTPUT_INVALID",
+      "repetition": 1,
+      "response_sha256": "fb338081b91cbf0445a2f6caaa78e69add2a002b708cc23a0741c846021ba346"
+    }
+  ],
+  "revised36_gate": "NOT_EVALUATED",
+  "schema_version": 1,
+  "scope": "independent_review_of_retained_normalized_finals",
+  "semantic_failed_count": 1,
+  "semantic_passed_count": 0,
+  "semantically_scorable_count": 1,
+  "status": "FAILED_PRELIMINARY_GATE"
+}

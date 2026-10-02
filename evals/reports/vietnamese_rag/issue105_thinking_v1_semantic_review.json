@@ -1,0 +1,138 @@
+{
+  "browser_gate": "NOT_EVALUATED",
+  "case_count": 11,
+  "cases": [
+    {
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "b61609038e673f439303ffca3fd809db42156867da6b1f443a5dc551fda1a7a3"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "04c7bdf2d6e5988f08435c47fff92e9544025830723f4f4637e5e7073b795947"
+    },
+    {
+      "answer_sha256": "89f6b9011e3e42abb57dcec816ceaacf3b159e72c456d9601054ee6c030525f6",
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "476d1db7053b958fbc00a5cddf401ec3861bc1b8c1a9f2aa9fc2d54f0fb181a3"
+    },
+    {
+      "answer_sha256": "95b2a6b3118d2b13e469980763e35e4ab40cf607c5d12d4a5d5d1e76b5972b7a",
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "f1299ed5af72108a0866c062657514273910910b9a561b42dddd443a79fd90e3"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "f427d1ebc078efd4199e6596498410fb6e235e4c88a8b953d6ab41ac6310e71e"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "metadata_count",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "454ebfcad843b5d4524cfdfd148d90a6eb1cad9716a0c2f79520f806a373bdf0"
+    },
+    {
+      "answer_sha256": "c8288cfa55ee2f02312b89a7b35159ccbe8b70770754109f4cffd0b6c3e6c404",
+      "case_id": "prohibited_requirement",
+      "passed": false,
+      "reason": "Response weakens an explicit prohibition into an optional requirement.",
+      "repetition": 1,
+      "response_sha256": "e8b2e1df26ed3c0968e7c5aa982213fd915bedf379a14a21455b7f69fc381db6"
+    },
+    {
+      "answer_sha256": "cf1d4027b3067b9eefb8dafd14c66c0fa933bc2eff9204677f4278c773f2d9c2",
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason": "Supported numeric answer is complete because the question explicitly supplies its unit; cited alias supports the value.",
+      "repetition": 1,
+      "response_sha256": "bcab8bc8ff610cdb60ac8b0dff8e0dbe149f8de308ffd7191bf60b8cb3ca8cea"
+    },
+    {
+      "answer_sha256": "82654a0e337bf5fa4f0942c4d4afe20518531210b55b56c646315c5036947320",
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "fd225741ca056232202f5f573acafeb385f8fafb7522345e3f55575d4fd0d12a"
+    },
+    {
+      "answer_sha256": "531d16620c5925b72043d62cb96e2d85ce1c3278e890a1b7b3b6c04a4790038f",
+      "case_id": "rule_with_exception",
+      "passed": false,
+      "reason": "Response omits the conditional exception and required approval, making a qualified rule universal.",
+      "repetition": 1,
+      "response_sha256": "fb616d0c23d1071c21d1182473618d60d50aac70b1d144f2cb4b416fe84472b4"
+    },
+    {
+      "answer_sha256": "6a0841eacc5d0c09c513c4e68b5885184a3a60be2c6c67e9642c7a094b7c1083",
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason": "Required decision and supported response preserve the fixture facts, aliases, and relevant qualifications.",
+      "repetition": 1,
+      "response_sha256": "d18709f72976e3e62ddded98ecfeb88f8db87ebbee3add5e56bb857eb5f884e6"
+    }
+  ],
+  "code_provenance": {
+    "git_commit": "243cdcf7a01c2a71f2451fa160f79744812032ff",
+    "git_tree": "7c6c58db10438e76ac07f85eb6ddc119cda9c447"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "deployment_selection": false,
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "generation_expected_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "held_out": false,
+  "independent_review": true,
+  "independent_review_artifact_sha256": "907aa92d9e966e893771e902ba1ae5adb79c0a52bd7011bbb9ef04bcb553ac68",
+  "latency_ms": {
+    "maximum": 71995.89,
+    "median": 41966.14,
+    "minimum": 21805.9,
+    "nearest_rank_p95": 71995.89,
+    "scope": "provider_generate_including_digest_lookup",
+    "total": 445350.46
+  },
+  "literal_report_sha256": "d4d1626fbc8528e709508c2e53fab57a4da10aabc936cffeaabc669e39248169",
+  "model": "qwen3:8b",
+  "original36_gate": "NOT_EVALUATED",
+  "private_responses_sha256": "c65989db72fcb54cb31bb9beb71472d0a4599014d401aa159d07aa4798a6ab77",
+  "raw_thinking_persisted": false,
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-thinking-feasibility-v1",
+  "request_thinking_enabled": true,
+  "response_binding_json_encoding": "UTF-8; ensure_ascii=True; sort_keys=True; separators=(comma,colon)",
+  "response_binding_scheme": "fixture-prompt-policy-case-repetition-result-canonical-json-sha256-v1",
+  "response_thinking_presence": "NOT_RECORDED",
+  "reviewer_role": "independent semantic/spec review agent",
+  "revised36_gate": "NOT_EVALUATED",
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_normalized_final_responses",
+  "semantic_passed_count": 9,
+  "status": "FAILED_PRELIMINARY_GATE",
+  "system_prompt_sha256": "c6acc0a1faf51cfa25646bc8fdbf50048b77c2017b07a3fc0bac1bfb3d2ba0c3",
+  "verification": {
+    "answer_hashes_verified": 11,
+    "fixture_verified": true,
+    "normalized_final_responses_only": true,
+    "request_messages_verified": 11,
+    "response_hashes_computed": 11
+  }
+}
