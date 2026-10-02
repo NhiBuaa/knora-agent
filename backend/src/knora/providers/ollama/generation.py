@@ -62,12 +62,17 @@ class OllamaGenerationProvider:
                 or f"sha256:{current_hex.lower()}" != self._expected_digest
             ):
                 raise KnoraError("GENERATION_MODEL_MISMATCH")
+            system_prompt = OLLAMA_SYSTEM_PROMPT
+            if self._model == "gpt-oss:20b":
+                system_prompt += "\nRequired response JSON schema:\n" + json.dumps(
+                    STRUCTURED_RESULT_SCHEMA, sort_keys=True
+                )
             response = await self._client.post(
                 self._url,
                 json={
                     "model": self._model,
                     "messages": [
-                        {"role": "system", "content": OLLAMA_SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message(question, evidence)},
                     ],
                     "format": STRUCTURED_RESULT_SCHEMA,
@@ -106,7 +111,7 @@ class OllamaGenerationProvider:
                 provider="ollama",
                 model=str(payload.get("model", self._model)),
                 prompt_version=(
-                    f"ollama-gpt-oss-low-v1:{OLLAMA_PROMPT_VERSION}"
+                    f"ollama-gpt-oss-low-schema-v2:{OLLAMA_PROMPT_VERSION}"
                     if self._model == "gpt-oss:20b"
                     else OLLAMA_PROMPT_VERSION
                 ),
