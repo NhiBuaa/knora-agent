@@ -111,6 +111,14 @@ class OllamaGenerationProvider:
                 raise KnoraError("GENERATION_MODEL_MISMATCH")
             system_prompt = OLLAMA_SYSTEM_PROMPT
             if self._model == "gpt-oss:20b":
+                system_prompt += (
+                    '\nThe following is a formatting example only, not evidence or an answer to '
+                    'the current question: {"decision":"ANSWER","answer":"A supported fact. '
+                    '[[E1]]","cited_evidence_ids":["E1"],"refusal_reason":null}. Every ANSWER '
+                    'must include inline markers in answer itself, not only in cited_evidence_ids. '
+                    'For missing information output {"decision":"REFUSAL","answer":null,'
+                    '"cited_evidence_ids":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}.'
+                )
                 system_prompt += "\nRequired response JSON schema:\n" + json.dumps(
                     STRUCTURED_RESULT_SCHEMA, sort_keys=True
                 )
@@ -158,7 +166,7 @@ class OllamaGenerationProvider:
                 provider="ollama",
                 model=str(payload.get("model", self._model)),
                 prompt_version=(
-                    f"ollama-gpt-oss-low-schema-v2:{OLLAMA_PROMPT_VERSION}"
+                    f"ollama-gpt-oss-low-schema-v3:{OLLAMA_PROMPT_VERSION}"
                     if self._model == "gpt-oss:20b"
                     else OLLAMA_PROMPT_VERSION
                 ),

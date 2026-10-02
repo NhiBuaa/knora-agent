@@ -28,6 +28,8 @@ async def test_gpt_oss_receives_schema_in_prompt_as_well_as_native_format() -> N
         }
         assert schema == payload["format"]
         assert "[[E1]]" in prompt
+        assert '"answer":"A supported fact. [[E1]]"' in prompt
+        assert "not only in cited_evidence_ids" in prompt
         return httpx.Response(
             200,
             json={
@@ -106,7 +108,7 @@ async def test_gpt_oss_uses_named_reasoning_and_keeps_only_final_structured_cont
     assert bodies[0]["format"]["type"] == "object"
     assert result.answer == "18 độ C. [[E1]]"
     assert result.cited_evidence_ids == ("E1",)
-    assert result.prompt_version == "ollama-gpt-oss-low-schema-v2:ollama-test-base-v9"
+    assert result.prompt_version == "ollama-gpt-oss-low-schema-v3:ollama-test-base-v9"
     assert result.usage == {"prompt_tokens": 80, "completion_tokens": 24}
     assert "private-reasoning-canary" not in json.dumps(asdict(result))
 
