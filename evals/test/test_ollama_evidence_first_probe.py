@@ -17,6 +17,94 @@ def probe_module():
         pytest.fail("evidence-first probe is missing")
 
 
+def test_gpt_oss_probe_uses_low_reasoning_and_preserves_extraction_contract():
+    module = probe_module()
+    digest = "sha256:" + "b" * 64
+
+    async def endpoint(request):
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gpt-oss:20b", "digest": digest}]})
+        payload = json.loads(request.content)
+        assert payload["think"] == "low"
+        assert payload["options"] == {
+            "num_ctx": 4096,
+            "num_predict": 2048,
+            "temperature": 0,
+            "seed": 105,
+        }
+        assert payload["format"] == module.EXTRACTION_SCHEMA
+        assert payload["messages"][0]["content"] == module.SYSTEM_PROMPT
+        return httpx.Response(
+            200,
+            json={
+                "model": "gpt-oss:20b",
+                "done": True,
+                "done_reason": "stop",
+                "message": {
+                    "content": json.dumps(supported_payload()),
+                    "thinking": "PRIVATE_GPT_REASONING_CANARY",
+                },
+            },
+        )
+
+    async def scenario():
+        transport = module.EvidenceFirstProbeTransport(
+            inner=httpx.MockTransport(endpoint),
+            sampling_profile="gpt-oss-low-v1",
+            seed=105,
+            context_tokens=4096,
+        )
+        async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
+            provider = module.EvidenceFirstProbeProvider(
+                base_url="http://127.0.0.1:11435",
+                model="gpt-oss:20b",
+                expected_digest=digest,
+                client=client,
+            )
+            result = await provider.generate(question="Có bắt buộc ghi không?", evidence=EVIDENCE)
+        assert result.cited_evidence_ids == ("E2",)
+        assert "chấp thuận" in result.answer
+        assert transport.observations[0]["think"] == "low"
+        assert "PRIVATE_GPT_REASONING_CANARY" not in repr(result) + json.dumps(
+            transport.observations
+        )
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("model", "profile"),
+    [("gpt-oss:20b", "qwen-nonthinking-v1"), ("qwen3:8b", "gpt-oss-low-v1")],
+)
+def test_probe_rejects_model_profile_mismatch_before_http(model, profile):
+    module = probe_module()
+    calls = []
+
+    async def endpoint(request):
+        calls.append(request.url.path)
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": model, "digest": "b" * 64}]})
+        return httpx.Response(200, json={"message": {"content": json.dumps(supported_payload())}})
+
+    async def scenario():
+        transport = module.EvidenceFirstProbeTransport(
+            inner=httpx.MockTransport(endpoint),
+            sampling_profile=profile,
+        )
+        async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
+            provider = module.EvidenceFirstProbeProvider(
+                base_url="http://127.0.0.1:11435",
+                model=model,
+                expected_digest="sha256:" + "b" * 64,
+                client=client,
+            )
+            with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+                await provider.generate(question="Có bắt buộc ghi không?", evidence=EVIDENCE)
+        assert "/api/chat" not in calls
+
+    asyncio.run(scenario())
+
+
 def supported_payload():
     return {
         "decision": "ANSWER",

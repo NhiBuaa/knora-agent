@@ -205,11 +205,11 @@ async def run_live(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:11435")
-    parser.add_argument("--model", choices=("qwen3:8b", "qwen3:14b"), required=True)
+    parser.add_argument("--model", choices=("qwen3:8b", "qwen3:14b", "gpt-oss:20b"), required=True)
     parser.add_argument("--digest", required=True)
     parser.add_argument(
         "--sampling-profile",
-        choices=("qwen-nonthinking-v1", "qwen-thinking-v1"),
+        choices=("qwen-nonthinking-v1", "qwen-thinking-v1", "gpt-oss-low-v1"),
         default="qwen-nonthinking-v1",
     )
     parser.add_argument("--seed", choices=(105, 106, 107), type=int, default=105)

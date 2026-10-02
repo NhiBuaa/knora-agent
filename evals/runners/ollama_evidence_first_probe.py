@@ -149,7 +149,12 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         context_tokens=8192,
         observe_request=None,
     ):
-        if sampling_profile not in {"greedy-v1", "qwen-nonthinking-v1", "qwen-thinking-v1"}:
+        if sampling_profile not in {
+            "greedy-v1",
+            "qwen-nonthinking-v1",
+            "qwen-thinking-v1",
+            "gpt-oss-low-v1",
+        }:
             raise ValueError("unknown sampling profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
             raise ValueError("probe uses predeclared seeds only")
@@ -171,11 +176,17 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         if request.method != "POST" or request.url.path != "/api/chat":
             return await self.inner.handle_async_request(request)
         payload = json.loads(await request.aread())
+        if (payload["model"] == "gpt-oss:20b") != (self.sampling_profile == "gpt-oss-low-v1"):
+            invalid()
         user = json.loads(payload["messages"][1]["content"])
         evidence = tuple(GenerationEvidence(**item) for item in user["evidence"])
         payload["messages"][0]["content"] = SYSTEM_PROMPT
         payload["format"] = EXTRACTION_SCHEMA
-        payload["think"] = self.sampling_profile == "qwen-thinking-v1"
+        payload["think"] = (
+            "low"
+            if self.sampling_profile == "gpt-oss-low-v1"
+            else self.sampling_profile == "qwen-thinking-v1"
+        )
         payload["options"]["num_predict"] = 2048
         payload["options"]["num_ctx"] = self.context_tokens
         if self.sampling_profile == "qwen-nonthinking-v1":
@@ -184,6 +195,8 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
             payload["options"].update(
                 temperature=0.6, top_p=0.95, top_k=20, min_p=0, seed=self.seed
             )
+        elif self.sampling_profile == "gpt-oss-low-v1":
+            payload["options"].update(temperature=0, seed=self.seed)
         self.observations.append(
             {
                 "model": payload["model"],
@@ -248,7 +261,7 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
 
 class EvidenceFirstProbeProvider:
     def __init__(self, *, base_url, expected_digest, client, model="qwen3:8b"):
-        if model not in {"qwen3:8b", "qwen3:14b"}:
+        if model not in {"qwen3:8b", "qwen3:14b", "gpt-oss:20b"}:
             raise ValueError("unknown extraction probe model")
         actual = OllamaGenerationProvider(
             base_url=base_url, expected_digest=expected_digest, client=client, model=model

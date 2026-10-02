@@ -41,15 +41,23 @@ def test_runtime_guard_rejects_an_adapter_imported_from_another_checkout(monkeyp
         patched.setattr(
             module.inspect,
             "getfile",
-            lambda item: str(another_checkout / "backend/src/knora/providers/ollama/generation.py")
-            if item is module.OllamaGenerationProvider
-            else getfile(item),
+            lambda item: (
+                str(another_checkout / "backend/src/knora/providers/ollama/generation.py")
+                if item is module.OllamaGenerationProvider
+                else getfile(item)
+            ),
         )
         with pytest.raises(ValueError, match="runtime checkout mismatch"):
             module.runtime_module_sources()
 
 
-def test_spawned_adapter_returns_only_validated_result_and_actual_request_metadata():
+@pytest.mark.parametrize(
+    ("model", "profile", "think"),
+    [("qwen3:14b", "qwen-nonthinking-v1", False), ("gpt-oss:20b", "gpt-oss-low-v1", "low")],
+)
+def test_spawned_adapter_returns_only_validated_result_and_actual_request_metadata(
+    model, profile, think
+):
     try:
         module = importlib.import_module("evals.runners.ollama_process_probe")
     except ModuleNotFoundError:
@@ -70,14 +78,14 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
             self.wfile.write(body)
 
         def do_GET(self):
-            self.reply({"models": [{"name": "qwen3:14b", "digest": digest}]})
+            self.reply({"models": [{"name": model, "digest": digest}]})
 
         def do_POST(self):
             payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             observed_requests.append(payload)
             self.reply(
                 {
-                    "model": "qwen3:14b",
+                    "model": model,
                     "done_reason": "stop",
                     "prompt_eval_count": 450,
                     "eval_count": 40,
@@ -102,9 +110,9 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
     try:
         provider = module.ProcessEvidenceProvider(
             base_url=f"http://127.0.0.1:{server.server_port}",
-            model="qwen3:14b",
+            model=model,
             expected_digest=digest,
-            sampling_profile="qwen-nonthinking-v1",
+            sampling_profile=profile,
             seed=105,
             context_tokens=4096,
         )
@@ -115,10 +123,11 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
             )
         )
         assert result.answer == "Không ghi tên. [[E1]]"
-        assert result.model == "qwen3:14b"
+        assert result.model == model
         assert provider.deadline_expired is False
         assert len(observed_requests) == len(provider.requests) == 1
         assert provider.requests[0]["options"]["num_ctx"] == 4096
+        assert provider.requests[0]["think"] == think
         assert "PRIVATE_THINKING" not in repr(result) + json.dumps(provider.requests)
         assert provider.process_observations[0]["deadline_expired"] is False
         assert provider.process_observations[0]["runtime_sources"] == provider.runtime_sources
