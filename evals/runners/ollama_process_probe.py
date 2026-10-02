@@ -20,6 +20,8 @@ from evals.runners.ollama_evidence_first_probe import (
     extraction_system_prompt,
 )
 from evals.runners.ollama_grounding import collect
+from evals.runners.ollama_two_stage_probe import PROFILE as TWO_STAGE_PROFILE
+from evals.runners.ollama_two_stage_probe import TwoStageProbeTransport, stage_prompts
 from evals.runners.process_probe import run_process_async, safe_invalid_output_stage
 from evals.runners.vietnamese_conversation import code_provenance, validate_private_output
 
@@ -55,8 +57,18 @@ def extraction_worker(connection, arguments):
     config, question, evidence = arguments
 
     async def generate():
-        transport = EvidenceFirstProbeTransport(
-            sampling_profile=config["sampling_profile"],
+        transport_type = (
+            TwoStageProbeTransport
+            if config["sampling_profile"] == TWO_STAGE_PROFILE
+            else EvidenceFirstProbeTransport
+        )
+        profile_arguments = (
+            {}
+            if config["sampling_profile"] == TWO_STAGE_PROFILE
+            else {"sampling_profile": config["sampling_profile"]}
+        )
+        transport = transport_type(
+            **profile_arguments,
             seed=config["seed"],
             context_tokens=config["context_tokens"],
             observe_request=lambda row: connection.send({"kind": "request", "observation": row}),
@@ -143,12 +155,18 @@ class ProcessEvidenceProvider:
         if observation["error"]:
             raise KnoraError(observation["error"])
         result = observation["result"]
+        two_stage = self.config["sampling_profile"] == TWO_STAGE_PROFILE
+        prompt_budget = (
+            2 * (self.config["context_tokens"] - 1024)
+            if two_stage
+            else self.config["context_tokens"] - 2048
+        )
         if (
-            len(observation["requests"]) != 1
+            len(observation["requests"]) != (2 if two_stage else 1)
             or result.model != self.config["model"]
             or result.finish_reason != "stop"
             or type(result.usage.get("prompt_tokens")) is not int
-            or not 0 < result.usage["prompt_tokens"] <= self.config["context_tokens"] - 2048
+            or not 0 < result.usage["prompt_tokens"] <= prompt_budget
             or type(result.usage.get("completion_tokens")) is not int
             or not 0 < result.usage["completion_tokens"] <= 2048
         ):
@@ -215,6 +233,18 @@ async def run_live(args):
         deployment_selection=False,
         release_gate="NOT_EVALUATED",
     )
+    if args.sampling_profile == TWO_STAGE_PROFILE:
+        report.update(
+            system_prompt_hash_scope="ordered_stage_prompt_manifest",
+            stage_system_prompt_sha256={
+                stage: hashlib.sha256(prompt.encode()).hexdigest()
+                for stage, prompt in stage_prompts().items()
+            },
+            max_chat_requests_per_generate=2,
+            output_tokens_per_stage=1024,
+            max_total_output_tokens=2048,
+            reasoning_level="medium",
+        )
     return report
 
 
@@ -233,6 +263,7 @@ def main():
             "gpt-oss-extraction-v3",
             "gpt-oss-extraction-v4",
             "gpt-oss-extraction-v4-medium-v1",
+            TWO_STAGE_PROFILE,
         ),
         default="qwen-nonthinking-v1",
     )
@@ -257,6 +288,11 @@ def main():
                 Path(__file__),
                 Path(__file__).with_name("process_probe.py"),
                 Path(__file__).with_name("ollama_evidence_first_probe.py"),
+            )
+            + (
+                (Path(__file__).with_name("ollama_two_stage_probe.py"),)
+                if args.sampling_profile == TWO_STAGE_PROFILE
+                else ()
             )
         },
     )

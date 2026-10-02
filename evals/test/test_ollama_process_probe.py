@@ -2,6 +2,8 @@ import asyncio
 import importlib
 import json
 import threading
+import time
+from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -61,6 +63,7 @@ def test_runtime_guard_rejects_an_adapter_imported_from_another_checkout(monkeyp
         ("gpt-oss:20b", "gpt-oss-extraction-v3", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v4", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v4-medium-v1", "medium", None),
+        ("gpt-oss:20b", "gpt-oss-extraction-two-stage-v1", "medium", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "EXTRACTION_FIELDS"),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "SOURCE_QUOTE"),
     ],
@@ -155,13 +158,102 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
                 == f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
             )
         assert provider.deadline_expired is False
-        assert len(observed_requests) == len(provider.requests) == 1
+        two_stage = profile == "gpt-oss-extraction-two-stage-v1"
+        assert len(observed_requests) == len(provider.requests) == (2 if two_stage else 1)
+        if two_stage:
+            assert result.prompt_version == "ollama-evidence-first-gpt-two-stage-v1"
+            assert result.usage == {"prompt_tokens": 900, "completion_tokens": 80}
+            assert [row["stage"] for row in provider.requests] == ["EXTRACT", "AUDIT"]
+            assert all(row["options"]["num_predict"] == 1024 for row in provider.requests)
         assert provider.requests[0]["options"]["num_ctx"] == 4096
         assert provider.requests[0]["think"] == think
         assert "PRIVATE_THINKING" not in repr(result) + json.dumps(provider.requests)
         assert provider.process_observations[0]["deadline_expired"] is False
         assert provider.process_observations[0]["runtime_sources"] == provider.runtime_sources
         assert len(provider.runtime_sources) == 3
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_two_stage_deadline_covers_both_calls_and_discards_provisional_result(monkeypatch):
+    from evals.runners import ollama_process_probe as module
+
+    observed_requests = []
+
+    class Endpoint(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def reply(self, value):
+            body = json.dumps(value).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            with suppress(BrokenPipeError, ConnectionResetError):
+                self.wfile.write(body)
+
+        def do_GET(self):
+            self.reply({"models": [{"name": "gpt-oss:20b", "digest": "b" * 64}]})
+
+        def do_POST(self):
+            observed_requests.append(
+                json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            )
+            time.sleep(0.5 if len(observed_requests) == 1 else 5)
+            self.reply(
+                {
+                    "model": "gpt-oss:20b",
+                    "done_reason": "stop",
+                    "prompt_eval_count": 450,
+                    "eval_count": 40,
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "decision": "ANSWER",
+                                "facts": [],
+                                "rules": [{"evidence_id": "E1", "quote": "Do not sign."}],
+                                "exceptions": [],
+                                "refusal_reason": None,
+                            }
+                        )
+                    },
+                }
+            )
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Endpoint)
+    server.daemon_threads = True
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    actual_supervisor = module.run_process_async
+
+    async def short_supervisor(worker, arguments):
+        return await actual_supervisor(worker, arguments, deadline_seconds=3)
+
+    monkeypatch.setattr(module, "run_process_async", short_supervisor)
+    try:
+        provider = module.ProcessEvidenceProvider(
+            base_url=f"http://127.0.0.1:{server.server_port}",
+            model="gpt-oss:20b",
+            expected_digest="sha256:" + "b" * 64,
+            sampling_profile="gpt-oss-extraction-two-stage-v1",
+            seed=105,
+            context_tokens=4096,
+        )
+        with pytest.raises(KnoraError) as error:
+            asyncio.run(
+                provider.generate(
+                    question="May I sign?", evidence=(GenerationEvidence("E1", "Do not sign."),)
+                )
+            )
+        assert error.value.code == "PROVIDER_REQUEST_FAILED"
+        assert len(observed_requests) == len(provider.requests) == 2
+        observation = provider.process_observations[0]
+        assert observation["deadline_expired"] is True
+        assert observation["supervisor_failed"] is False
+        assert 3 <= observation["elapsed_seconds"] < 3.65
     finally:
         server.shutdown()
         server.server_close()
