@@ -8,7 +8,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($OllamaBaseUrl -notmatch '^http://(127\.0\.0\.1|localhost):[0-9]{1,5}$') {
     throw 'OLLAMA_LOCAL_ENDPOINT_REQUIRED'
 }
-if ($GenerationModel -notin @('qwen3:8b', 'qwen3:4b')) {
+if ($GenerationModel -notin @('qwen3:8b', 'qwen3:4b', 'gpt-oss:20b')) {
     throw 'GENERATION_MODEL_UNSUPPORTED'
 }
 

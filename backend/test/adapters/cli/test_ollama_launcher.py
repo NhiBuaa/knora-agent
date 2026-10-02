@@ -40,6 +40,7 @@ def _launch(
     environment.pop("KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID", None)
     environment.pop("KNORA_DATABASE_URL", None)
     environment.pop("KNORA_OLLAMA_BASE_URL", None)
+    environment.pop("KNORA_OLLAMA_GENERATION_MODEL", None)
     if database_url is not None:
         environment["KNORA_DATABASE_URL"] = database_url
     if environment_overrides:
@@ -79,7 +80,11 @@ def _launch(
 
 @contextmanager
 def _ollama_server(
-    *, model_available: bool = True, generation_available: bool = True, dimensions: int = 1024
+    *,
+    model_available: bool = True,
+    generation_available: bool = True,
+    dimensions: int = 1024,
+    generation_model: str = GENERATION_MODEL,
 ) -> Iterator[str]:
     class OllamaHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -88,7 +93,7 @@ def _ollama_server(
                 return
             models = [{"name": MODEL, "digest": DIGEST}] if model_available else []
             if generation_available:
-                models.append({"name": GENERATION_MODEL, "digest": "sha256:" + "b" * 64})
+                models.append({"name": generation_model, "digest": "sha256:" + "b" * 64})
             self._respond({"models": models})
 
         def do_POST(self) -> None:
@@ -154,6 +159,17 @@ def test_launcher_preflight_checks_model_and_dimension(
         assert "EXISTING_STORAGE_CONFIG_REQUIRED" in existing_result.stderr
     else:
         assert expected_error in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_launcher_gpt_oss_selection_uses_dotenv(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("KNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b\n", encoding="utf-8")
+    with _ollama_server(generation_model="gpt-oss:20b") as url:
+        result = _launch(url, env_file=env_file)
+    assert result.returncode == 0, result.stderr
+    assert "GENERATION_MODEL=gpt-oss:20b" in result.stdout
+    assert "GENERATION_DIGEST=sha256:" + "b" * 64 in result.stdout
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
