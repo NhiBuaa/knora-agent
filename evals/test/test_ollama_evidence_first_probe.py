@@ -73,7 +73,8 @@ def test_gpt_oss_probe_uses_low_reasoning_and_preserves_extraction_contract():
     asyncio.run(scenario())
 
 
-def test_gpt_extraction_v2_sends_schema_and_examples_without_changing_output_contract():
+@pytest.mark.parametrize("profile", ["gpt-oss-extraction-v2", "gpt-oss-extraction-v3"])
+def test_gpt_extraction_sends_schema_and_examples_without_changing_output_contract(profile):
     module = probe_module()
     requests = []
     digest = "sha256:" + "b" * 64
@@ -89,6 +90,11 @@ def test_gpt_extraction_v2_sends_schema_and_examples_without_changing_output_con
         assert '"decision":"ANSWER"' in prompt
         assert payload["format"] == module.EXTRACTION_SCHEMA
         assert payload["think"] == "low"
+        if profile.endswith("v3"):
+            assert "A prohibition is not optionality" in prompt
+            assert "different property or unit" in prompt
+            assert "every condition and required approval" in prompt
+            assert '"quote":"EXACT_RULE_QUOTE"' in prompt
         return httpx.Response(
             200,
             json={
@@ -103,7 +109,7 @@ def test_gpt_extraction_v2_sends_schema_and_examples_without_changing_output_con
 
     async def scenario():
         transport = module.EvidenceFirstProbeTransport(
-            inner=httpx.MockTransport(endpoint), sampling_profile="gpt-oss-extraction-v2"
+            inner=httpx.MockTransport(endpoint), sampling_profile=profile
         )
         async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
             provider = module.EvidenceFirstProbeProvider(
@@ -111,14 +117,17 @@ def test_gpt_extraction_v2_sends_schema_and_examples_without_changing_output_con
                 model="gpt-oss:20b",
                 expected_digest=digest,
                 client=client,
-                sampling_profile="gpt-oss-extraction-v2",
+                sampling_profile=profile,
             )
             result = await provider.generate(question="Có được ghi không?", evidence=EVIDENCE)
         assert result.answer == (
             "Không ghi số điện thoại trên phiếu. "
             "Riêng bản nội bộ được ghi khi quản lý chấp thuận. [[E2]]"
         )
-        assert result.prompt_version == "ollama-evidence-first-gpt-extraction-v2"
+        assert (
+            result.prompt_version
+            == f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
+        )
         assert len(requests) == 1
         assert (
             transport.observations[0]["system_prompt_sha256"]

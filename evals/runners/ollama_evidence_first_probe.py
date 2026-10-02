@@ -82,6 +82,29 @@ EXTRACTION_SCHEMA = {
 
 
 def extraction_system_prompt(profile):
+    if profile == "gpt-oss-extraction-v3":
+        return extraction_system_prompt("gpt-oss-extraction-v2") + (
+            "\nBefore selecting entries, match the requested entity, property and unit to the "
+            "source. Do not derive a requested total from a list describing a different property "
+            "or unit. Refuse if the requested value is absent. Select only entries that answer "
+            "or qualify this exact question; related background or prerequisites are not "
+            "supporting facts or rules.\n"
+            "A prohibition is not optionality. Even when a question asks whether an action is "
+            "mandatory, preserve a source prohibition as an exact quote in rules. Do not "
+            "paraphrase it as not required, optional or permitted. Obligations, prohibitions "
+            "and recommendations belong in rules, never facts. Facts describe supported values; "
+            "a fact text cannot alter the force of its quote.\n"
+            "For each selected fact or rule, read all supplied source clauses that qualify it. "
+            "Include every relevant exception, every condition and required approval as full "
+            "exact quotes in exceptions, even for a short or numeric question. Do not stop "
+            "at the ordinary rule and omit a permitted alternative. If none exists, keep "
+            "exceptions empty; never invent one.\n"
+            'Rule/exception formatting example only, not evidence: {"decision":"ANSWER", '
+            '"facts":[],"rules":[{"evidence_id":"E1","quote":"EXACT_RULE_QUOTE"}], '
+            '"exceptions":[{"evidence_id":"E1","quote":"EXACT_EXCEPTION_QUOTE"}], '
+            '"refusal_reason":null}. Replace placeholders with continuous quotes from actual '
+            "evidence, only when relevant. Do not use examples as evidence."
+        )
     if profile == "gpt-oss-extraction-v2":
         return (
             SYSTEM_PROMPT
@@ -106,8 +129,8 @@ def extraction_system_prompt(profile):
 def extraction_prompt_version(profile):
     extraction_system_prompt(profile)
     return (
-        "ollama-evidence-first-gpt-extraction-v2"
-        if profile == "gpt-oss-extraction-v2"
+        f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
+        if profile in {"gpt-oss-extraction-v2", "gpt-oss-extraction-v3"}
         else PROMPT_VERSION
     )
 
@@ -195,6 +218,7 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
             "qwen-thinking-v1",
             "gpt-oss-low-v1",
             "gpt-oss-extraction-v2",
+            "gpt-oss-extraction-v3",
         }:
             raise ValueError("unknown sampling profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
@@ -219,7 +243,11 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         if request.method != "POST" or request.url.path != "/api/chat":
             return await self.inner.handle_async_request(request)
         payload = json.loads(await request.aread())
-        gpt_profile = self.sampling_profile in {"gpt-oss-low-v1", "gpt-oss-extraction-v2"}
+        gpt_profile = self.sampling_profile in {
+            "gpt-oss-low-v1",
+            "gpt-oss-extraction-v2",
+            "gpt-oss-extraction-v3",
+        }
         if (payload["model"] == "gpt-oss:20b") != gpt_profile:
             invalid()
         user = json.loads(payload["messages"][1]["content"])

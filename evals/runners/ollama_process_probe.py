@@ -230,6 +230,7 @@ def main():
             "qwen-thinking-v1",
             "gpt-oss-low-v1",
             "gpt-oss-extraction-v2",
+            "gpt-oss-extraction-v3",
         ),
         default="qwen-nonthinking-v1",
     )

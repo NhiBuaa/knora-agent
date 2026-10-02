@@ -58,6 +58,7 @@ def test_runtime_guard_rejects_an_adapter_imported_from_another_checkout(monkeyp
         ("qwen3:14b", "qwen-nonthinking-v1", False, None),
         ("gpt-oss:20b", "gpt-oss-low-v1", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", None),
+        ("gpt-oss:20b", "gpt-oss-extraction-v3", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "EXTRACTION_FIELDS"),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "SOURCE_QUOTE"),
     ],
@@ -144,8 +145,11 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
         result = asyncio.run(generate())
         assert result.answer == "Không ghi tên. [[E1]]"
         assert result.model == model
-        if profile == "gpt-oss-extraction-v2":
-            assert result.prompt_version == "ollama-evidence-first-gpt-extraction-v2"
+        if profile in {"gpt-oss-extraction-v2", "gpt-oss-extraction-v3"}:
+            assert (
+                result.prompt_version
+                == f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
+            )
         assert provider.deadline_expired is False
         assert len(observed_requests) == len(provider.requests) == 1
         assert provider.requests[0]["options"]["num_ctx"] == 4096
