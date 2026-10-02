@@ -73,7 +73,9 @@ def test_gpt_oss_probe_uses_low_reasoning_and_preserves_extraction_contract():
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("profile", ["gpt-oss-extraction-v2", "gpt-oss-extraction-v3"])
+@pytest.mark.parametrize(
+    "profile", ["gpt-oss-extraction-v2", "gpt-oss-extraction-v3", "gpt-oss-extraction-v4"]
+)
 def test_gpt_extraction_sends_schema_and_examples_without_changing_output_contract(profile):
     module = probe_module()
     requests = []

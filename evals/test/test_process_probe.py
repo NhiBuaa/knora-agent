@@ -51,7 +51,7 @@ def test_spawn_supervisor_stops_a_worker_that_does_not_cooperate_with_cancellati
 def test_supervisor_returns_a_result_and_reaps_its_owned_child():
     before = {child.pid for child in multiprocessing.active_children()}
     observed = module().run_process(completed_worker, (), deadline_seconds=5)
-    assert observed["result"] == "completed"
+    assert observed["result"] == "completed", observed
     assert observed["deadline_expired"] is False
     assert {child.pid for child in multiprocessing.active_children()} == before
 

@@ -59,6 +59,7 @@ def test_runtime_guard_rejects_an_adapter_imported_from_another_checkout(monkeyp
         ("gpt-oss:20b", "gpt-oss-low-v1", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v3", "low", None),
+        ("gpt-oss:20b", "gpt-oss-extraction-v4", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "EXTRACTION_FIELDS"),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "SOURCE_QUOTE"),
     ],
@@ -145,7 +146,7 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
         result = asyncio.run(generate())
         assert result.answer == "Không ghi tên. [[E1]]"
         assert result.model == model
-        if profile in {"gpt-oss-extraction-v2", "gpt-oss-extraction-v3"}:
+        if profile in {"gpt-oss-extraction-v2", "gpt-oss-extraction-v3", "gpt-oss-extraction-v4"}:
             assert (
                 result.prompt_version
                 == f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"

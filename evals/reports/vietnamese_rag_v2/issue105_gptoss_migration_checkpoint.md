@@ -112,3 +112,76 @@ primary commit. Frontend files and the generated public API contract were not ed
 in this migration. Independent code reviews found no gate-blocking issues in the final
 support, transplant and formatting changes; the independent semantic gate still failed
 as recorded above.
+
+## Extraction continuation: v2 and v3 (2026-10-02)
+
+The owner approved repairing the extraction JSON contract and then preserving semantic
+force before later production/Conversation measurements. These changes are evaluation-only.
+The previously failed low-v1 observations remain immutable.
+
+| Profile | Measured commit | Structurally valid | Literal passes | Independently reviewed semantic passes |
+| --- | --- | --- | --- | --- |
+| `gpt-oss-extraction-v2` | `24cc845a05277ad4bd52acc3150bb84c95cdc1d2` | 11/11 | 7/11 | 7/11 |
+| `gpt-oss-extraction-v3` | `571a6ba24ca10420568d121d472d86e8f45a9229` | 11/11 | 7/11 | 7/11 |
+
+Both runs used the pinned GPT-OSS digest, temperature zero, seed 105, context 4096, output
+2048, named low reasoning and the 240-second parent supervisor. No deadline/supervisor
+failure occurred. All eleven valid finals in each run are semantically scorable; the four
+failures are not observation errors. The extraction schema, renderer acceptance, source
+quotes, fixture and rubric remained unchanged. No held-out claim or Conversation acceptance
+follows from these development-exposed synthetic cases.
+
+V2 fixes the JSON compatibility failure by supplying the exact schema and abstract formatting
+examples. Its four semantic failures are unsupported count, weakened prohibition,
+irrelevant background citation and omitted qualified exception. V3 adds general modality,
+relevance and qualification instructions. Its prohibition passes, but event-year inference
+regresses; unsupported count, irrelevant citation and omitted exception remain. The
+independent reviewer and root verified all request hashes, runtime/source provenance and
+canonical response bindings. Raw model payloads, intermediate extraction and thinking are
+not retained; private normalized finals and review notes remain outside Git.
+
+Artifacts in `../vietnamese_rag/`:
+
+- `issue105_process_gptoss20b_extraction_v2_seed105_literal.json`: SHA256
+  `9dd41012199ca9517b6b065d36d03ce49406f6736eb2d4c072b18fabd4e3fe58`.
+- `issue105_process_gptoss20b_extraction_v2_seed105_semantic_review.json`: SHA256
+  `052d82a6af8282d34156763d55cdc18d49f6fa2077d676f551ebe8b0d7f5e140`.
+- `issue105_process_gptoss20b_extraction_v3_seed105_literal.json`: SHA256
+  `e61e1eb6fb03b745240a742f3a86e6c9ed8690f1d505c91030ba445ca603b84a`.
+- `issue105_process_gptoss20b_extraction_v3_seed105_semantic_review.json`: SHA256
+  `efb5563cd30352d16efb4b7e020bb13a9beed22f0f32f042d65420a0bef90889`.
+
+V3 private finals SHA256:
+`18bb9457c6454e13b90ee2008ce364917421db9170470b946ac451e336fbd010`.
+V3 independent private verdict SHA256:
+`9bb4c1ff5e14332f2ea051d1215eb46618a35f48800694d8f3552d1b4c7ca040`.
+
+The actual local template SHA256 is
+`fa6710a93d78da62641e192361344be7a8c0a1c3737f139cf89f20ce1626b99c`;
+its `.System` value is inserted in Harmony developer instructions. No role drop was
+demonstrated. All V3 finals finished with `stop`, using 1239–1318 prompt tokens and
+48–232 completion tokens, within configured bounds. Structural validity and quote
+membership do not prove semantic entailment. The unchanged renderer retains supplied
+exceptions; missing qualifications are therefore lost during model selection.
+
+V2 code verification passed 1422 tests, 16 skipped; V3 passed 1424 tests, 16 skipped.
+Each reported 28 dependency deprecation warnings. Ruff, Compose configuration, OpenAPI
+and diff checks passed. Compose only validates configuration here and reports unset
+local MinIO credentials. Independent code review found no remaining blocker for these
+bounded measurements; semantic acceptance still failed.
+
+The final bounded instruction trial, `gpt-oss-extraction-v4`, requests compact source-clause
+selection and exact source text in `facts.text`. Its schema/renderer and other request bounds
+remain unchanged. It requires reviewed committed code and fresh measurement. If this third
+repair fails, stop prompt repair and revisit the model/interface design with the owner.
+No seeds 106/107, production eleven-case run or PDF/Conversation rerun follows a failed
+preliminary gate. No extraction-only changes were integrated into local `codex/test`.
+Keep #105 unaccepted and #116 as the final release gate.
+
+V4 premeasurement verification: independent focused review passed 42 tests; full fresh
+retry passed 1426 tests, 16 skipped, 28 dependency warnings in 216.59 seconds. The first
+full invocation failed the existing completed-worker supervisor test; its cause remains
+unestablished. Seven direct calls and the whole ten-test supervisor file then passed.
+Only a safe assertion failure message was added; supervisor/deadline/cleanup behavior and
+assertions remain unchanged. Both failed/passing log files are retained outside Git.
+Ruff, Compose configuration, OpenAPI and diff gates pass. No real V4 result is claimed yet.
