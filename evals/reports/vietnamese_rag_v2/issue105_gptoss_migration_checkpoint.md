@@ -185,3 +185,47 @@ unestablished. Seven direct calls and the whole ten-test supervisor file then pa
 Only a safe assertion failure message was added; supervisor/deadline/cleanup behavior and
 assertions remain unchanged. Both failed/passing log files are retained outside Git.
 Ruff, Compose configuration, OpenAPI and diff gates pass. No real V4 result is claimed yet.
+
+## Final bounded extraction trial: v4 fails (2026-10-02)
+
+Measured clean source `112f0208cd4ecf3f25ccf5d2efb47c66972697e2`, tree
+`bf8a320c7ef8aa18a62bae37f2a96a6ab777f4a8`, profile `gpt-oss-extraction-v4`:
+
+- Eleven structurally valid finals; nine literal and nine independent semantic passes.
+- `metadata_count` copies the entire source as ANSWER although the requested count is
+  absent. It no longer invents a count but still fails the required refusal.
+- `rule_with_exception` copies the ordinary requirement but omits the permitted alternative,
+  eligibility and required approval. The other nine finals pass independent semantic review.
+- No deadline/supervisor failure. Process latency 7.370–39.750 seconds; prompt tokens
+  848–927 and completion tokens 49–171. All finals finish with `stop`.
+- Pinned model, low reasoning, temperature zero, seed 105, context 4096, output 2048 and
+  240-second supervisor remain unchanged. This is one development-exposed run.
+- Root and independent reviewer verified all eleven response, actual request and parent/child
+  runtime bindings. No raw reasoning/intermediate extraction is persisted.
+
+Artifacts in `../vietnamese_rag/`:
+
+- `issue105_process_gptoss20b_extraction_v4_seed105_literal.json`: SHA256
+  `c4c0c795df34d7218c1957ca78f4aca997a793c5e561879dca2b4671c0dc29f4`.
+- `issue105_process_gptoss20b_extraction_v4_seed105_semantic_review.json`: SHA256
+  `dfd2dfc36ba9f88531eb0569299fdcc2ac67d1a18030b64f6af5e6a12eb39cdb`.
+- Private normalized finals: SHA256
+  `ad1de7009d58b4e5f650cbcc4ae19b123926cedb8752ea5c3756f020396eddbb`.
+- Independent private verdict: SHA256
+  `5268231ad148260ce32967d9804b2c1e86d4d825ed6e3ead4a8e4ed50bd345ea`.
+
+The unscored `issue105_gptoss_schema_thinking_diagnostic.json` (SHA256
+`312384a06aeee208f6bfcde6eb9ae1779209a959d43b401ba3844cf3952b8678`) compares
+schema-on/off on the exception case. Both requests retain the same model, v4 prompt,
+low reasoning, seed/context/output policy. Both return five-field JSON with zero exception
+entries, 59 thinking characters and 95 generated tokens. No raw provider content/thinking
+was retained; only shape/count/usage/request hashes. This single pair supplies no evidence
+that removing schema fixes the failure, and is not a scored retry or acceptance artifact.
+Its timeout is cooperative HTTP; no parent-supervisor deadline claim applies to it.
+
+The approved three-repair stop condition now applies. Later seeds, production-provider
+grounding, original36/revised36, durable Conversation and browser gates remain unperformed.
+The supported medium reasoning level is a possible next isolated hypothesis, not measured
+or selected for production. Discuss the changed request policy with the owner before code.
+Local `codex/test` stays clean at `691a6b810d3f4d729c73f26d4fcc2113f1e477fd`.
+Keep PR #135 draft, #105 unaccepted and #116 as the final release gate; retain worktrees.
