@@ -277,3 +277,65 @@ quote membership still cannot establish correct question support or qualificatio
 Discuss the model/interface design before further implementation. Do not select medium for
 daily dev from this failed trial. Local `codex/test` remains clean at `691a6b8`; PR #135
 stays draft, #105 remains unaccepted, #116 remains the final release gate; keep worktrees.
+
+## Owner-approved extraction and audit trial (2026-10-02)
+
+After the failed medium trial, the owner approved an evaluation pipeline with two fixed
+stages. EXTRACT uses the exact v4 prompt; AUDIT checks its untrusted provisional selection
+against the complete original question/evidence. The backend renders only the final exact
+source clauses. Both stages use medium, seed 105, temperature zero, context 4096 and at
+most 1024 output tokens each. One 240-second owned deadline includes startup, digest
+verification and both calls. Invalid output at either stage fails without repair/retry
+or conversion to refusal. Production, schema, renderer, core validator and fixtures remain
+unchanged; strict fact equality applies only to the new experimental transport.
+
+Measured clean source `ae3000af3ba23afb55b516503321da03475dfe64`, tree
+`93bde1f6357d004595f0af997de186c84f8317d7`, profile
+`gpt-oss-extraction-two-stage-v1`:
+
+- Eleven structurally valid finals; **eleven literal and eleven independently reviewed
+  semantic passes**, zero failures and zero unscorable observations.
+- The absent requested count correctly refuses. The ordinary rule includes its permitted
+  alternative, eligibility and required approval. The other original criteria also pass.
+- Root and reviewer independently verified all eleven canonical response bindings, 22
+  actual EXTRACT/AUDIT request controls, eleven EXTRACT user hashes, committed source
+  hashes and parent/child production runtime bindings. Ordered prompt manifest SHA256:
+  `cb6dadb11ffeff87ee779e26b6b264e4e960f6d191949661b77cd1c19a67463d`.
+- AUDIT user hashes bind actual requests but cannot be reconstructed from retained finals
+  because provisional selections were deliberately discarded. Source and roundtrip tests
+  verify that the full original question/evidence is copied before adding that selection.
+  Neither review claims complete AUDIT body/hash reconstruction.
+- No deadline/supervisor failure. Process latency 56.602–147.830 seconds, median 89.667;
+  aggregate prompt 1740–1942 / completion 310–1417 tokens; all finish with stop. The
+  transport enforces each stage's own 1024-token output limit.
+- Four finals repeat supported source clauses: `explicit_prohibition`,
+  `prohibited_requirement`, `caveat_after_distractor`, `rule_with_exception`. One also
+  contains unnecessary supported background. These reduce presentation quality without
+  changing the fixed semantic verdict; the rubric has not been broadened or relaxed.
+- This is one development-exposed seed-105 run, not held-out or production/Conversation
+  acceptance. No raw provider payloads, provisional selections or thinking are persisted.
+
+Artifacts in `../vietnamese_rag/`:
+
+- `issue105_process_gptoss20b_two_stage_seed105_literal.json`: SHA256
+  `485cf20daf3a375deb7daef7d2b0de2106f05a20da2bfa96da1e52f5ff3c8378`.
+- `issue105_process_gptoss20b_two_stage_seed105_semantic_review.json`: SHA256
+  `2da5dd4d3024b15ac8e8a9cd2b56f4789bd0eb02960841f084a2f1385c067e3f`.
+- Private normalized finals: SHA256
+  `0cd751fb24dc871621b72ad29fe4cebce9c20b78b477eb174290fd7a9a01d79b`.
+- Independent private verdict: SHA256
+  `60e927d6f46037d73c766dfe0c925d89ad4d19f63f806ea9a78fa1fc86133b58`.
+
+Premeasurement gates: root 69 focused tests; independent code review 67 (without two
+unchanged thinking tests), no actionable finding. Fresh full isolated PostgreSQL gate:
+1451 passed, 16 skipped, 28 dependency warnings in 239.08 seconds. Ruff, Compose
+configuration, OpenAPI and diff checks pass. Compose's missing local MinIO credential
+warnings are configuration observations, not proof of storage health.
+
+The approved trial ends after these eleven cases. Later seeds, actual production-provider
+grounding, original36/revised36 PDF, durable Conversation and browser/BFF/Keycloak gates
+remain unperformed. The next design step must address presentation, latency and production
+integration before those gates. Do not select this experiment for daily dev. Local
+`codex/test` remains clean at `691a6b810d3f4d729c73f26d4fcc2113f1e477fd`; keep PR #135
+draft, #105 unaccepted and #116 as final release gate. Preserve every prior failed report,
+branch and worktree; no main merge or issue closure.
