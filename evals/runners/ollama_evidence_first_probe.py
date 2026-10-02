@@ -81,13 +81,50 @@ EXTRACTION_SCHEMA = {
 }
 
 
-def invalid():
-    raise KnoraError("GENERATION_OUTPUT_INVALID")
+def extraction_system_prompt(profile):
+    if profile == "gpt-oss-extraction-v2":
+        return (
+            SYSTEM_PROMPT
+            + (
+                "\nReturn exactly the five top-level fields in the schema, including decision. "
+                "Do not return an answer field or inline citation markers. The following are "
+                "formatting examples only; placeholders are not evidence or answers. "
+                'Missing-information output: {"decision":"REFUSAL","facts":[],"rules":[], '
+                '"exceptions":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}. '
+                'Supported-fact output: {"decision":"ANSWER","facts":[{"evidence_id":"E1", '
+                '"quote":"EXACT_SOURCE_QUOTE","text":"SUPPORTED_FACT"}],"rules":[], '
+                '"exceptions":[],"refusal_reason":null}. Replace placeholders only with '
+                "the actual evidence and its exact continuous quote.\nRequired JSON schema:\n"
+            )
+            + json.dumps(EXTRACTION_SCHEMA, sort_keys=True)
+        )
+    if profile not in {"greedy-v1", "qwen-nonthinking-v1", "qwen-thinking-v1", "gpt-oss-low-v1"}:
+        raise ValueError("unknown sampling profile")
+    return SYSTEM_PROMPT
+
+
+def extraction_prompt_version(profile):
+    extraction_system_prompt(profile)
+    return (
+        "ollama-evidence-first-gpt-extraction-v2"
+        if profile == "gpt-oss-extraction-v2"
+        else PROMPT_VERSION
+    )
+
+
+class InvalidExtraction(KnoraError):
+    def __init__(self, stage):
+        super().__init__("GENERATION_OUTPUT_INVALID")
+        self.invalid_output_stage = stage
+
+
+def invalid(stage="EXTRACTION_CONTRACT"):
+    raise InvalidExtraction(stage)
 
 
 def render_result(payload, evidence):
     if not isinstance(payload, dict) or set(payload) != set(EXTRACTION_SCHEMA["required"]):
-        invalid()
+        invalid("EXTRACTION_FIELDS")
     groups = ("facts", "rules", "exceptions")
     if any(not isinstance(payload[key], list) or len(payload[key]) > 8 for key in groups):
         invalid()
@@ -118,12 +155,15 @@ def render_result(payload, evidence):
                 not isinstance(alias, str)
                 or re.fullmatch(r"E[1-9][0-9]*", alias) is None
                 or alias not in sources
-                or not isinstance(quote, str)
+            ):
+                invalid("SOURCE_ALIAS")
+            if (
+                not isinstance(quote, str)
                 or not quote.strip()
                 or len(quote) > 1200
                 or quote not in sources[alias]
             ):
-                invalid()
+                invalid("SOURCE_QUOTE")
             text = item["text"] if key == "facts" else quote
             if not isinstance(text, str) or not text.strip() or len(text) > 1200 or "[[" in text:
                 invalid()
@@ -154,6 +194,7 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
             "qwen-nonthinking-v1",
             "qwen-thinking-v1",
             "gpt-oss-low-v1",
+            "gpt-oss-extraction-v2",
         }:
             raise ValueError("unknown sampling profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
@@ -163,6 +204,8 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         self.inner = inner if inner is not None else httpx.AsyncHTTPTransport()
         self.observations = []
         self.sampling_profile = sampling_profile
+        self.system_prompt = extraction_system_prompt(sampling_profile)
+        self.prompt_version = extraction_prompt_version(sampling_profile)
         self.seed = seed
         self.context_tokens = context_tokens
         self.observe_request = observe_request
@@ -176,17 +219,14 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         if request.method != "POST" or request.url.path != "/api/chat":
             return await self.inner.handle_async_request(request)
         payload = json.loads(await request.aread())
-        if (payload["model"] == "gpt-oss:20b") != (self.sampling_profile == "gpt-oss-low-v1"):
+        gpt_profile = self.sampling_profile in {"gpt-oss-low-v1", "gpt-oss-extraction-v2"}
+        if (payload["model"] == "gpt-oss:20b") != gpt_profile:
             invalid()
         user = json.loads(payload["messages"][1]["content"])
         evidence = tuple(GenerationEvidence(**item) for item in user["evidence"])
-        payload["messages"][0]["content"] = SYSTEM_PROMPT
+        payload["messages"][0]["content"] = self.system_prompt
         payload["format"] = EXTRACTION_SCHEMA
-        payload["think"] = (
-            "low"
-            if self.sampling_profile == "gpt-oss-low-v1"
-            else self.sampling_profile == "qwen-thinking-v1"
-        )
+        payload["think"] = "low" if gpt_profile else self.sampling_profile == "qwen-thinking-v1"
         payload["options"]["num_predict"] = 2048
         payload["options"]["num_ctx"] = self.context_tokens
         if self.sampling_profile == "qwen-nonthinking-v1":
@@ -195,14 +235,14 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
             payload["options"].update(
                 temperature=0.6, top_p=0.95, top_k=20, min_p=0, seed=self.seed
             )
-        elif self.sampling_profile == "gpt-oss-low-v1":
+        elif gpt_profile:
             payload["options"].update(temperature=0, seed=self.seed)
         self.observations.append(
             {
                 "model": payload["model"],
                 "think": payload["think"],
                 "options": payload["options"],
-                "system_prompt_sha256": hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest(),
+                "system_prompt_sha256": hashlib.sha256(self.system_prompt.encode()).hexdigest(),
                 "user_message_sha256": hashlib.sha256(
                     payload["messages"][1]["content"].encode()
                 ).hexdigest(),
@@ -230,10 +270,13 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
                 return response
             try:
                 raw = response.json()
-                extraction = json.loads(raw["message"]["content"])
-                result = render_result(extraction, evidence)
             except (ValueError, TypeError, KeyError):
-                invalid()
+                invalid("RESPONSE_ENVELOPE")
+            try:
+                extraction = json.loads(raw["message"]["content"])
+            except (ValueError, TypeError, KeyError):
+                invalid("EXTRACTION_JSON")
+            result = render_result(extraction, evidence)
             normalized = {
                 key: raw[key]
                 for key in ("model", "done", "done_reason", "prompt_eval_count", "eval_count")
@@ -260,17 +303,20 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
 
 
 class EvidenceFirstProbeProvider:
-    def __init__(self, *, base_url, expected_digest, client, model="qwen3:8b"):
+    def __init__(
+        self, *, base_url, expected_digest, client, model="qwen3:8b", sampling_profile="greedy-v1"
+    ):
         if model not in {"qwen3:8b", "qwen3:14b", "gpt-oss:20b"}:
             raise ValueError("unknown extraction probe model")
         actual = OllamaGenerationProvider(
             base_url=base_url, expected_digest=expected_digest, client=client, model=model
         )
         self.bounded = BoundedThinkingProbeProvider(actual)
+        self.prompt_version = extraction_prompt_version(sampling_profile)
 
     async def generate(self, *, question, evidence):
         result = await self.bounded.generate(question=question, evidence=evidence)
-        return replace(result, prompt_version=PROMPT_VERSION)
+        return replace(result, prompt_version=self.prompt_version)
 
 
 async def run_live(args):

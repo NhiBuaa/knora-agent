@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import importlib
 import json
 
@@ -70,6 +71,79 @@ def test_gpt_oss_probe_uses_low_reasoning_and_preserves_extraction_contract():
         )
 
     asyncio.run(scenario())
+
+
+def test_gpt_extraction_v2_sends_schema_and_examples_without_changing_output_contract():
+    module = probe_module()
+    requests = []
+    digest = "sha256:" + "b" * 64
+
+    async def endpoint(request):
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gpt-oss:20b", "digest": digest}]})
+        payload = json.loads(request.content)
+        requests.append(payload)
+        prompt = payload["messages"][0]["content"]
+        assert json.dumps(module.EXTRACTION_SCHEMA, sort_keys=True) in prompt
+        assert '"decision":"REFUSAL"' in prompt
+        assert '"decision":"ANSWER"' in prompt
+        assert payload["format"] == module.EXTRACTION_SCHEMA
+        assert payload["think"] == "low"
+        return httpx.Response(
+            200,
+            json={
+                "model": "gpt-oss:20b",
+                "done_reason": "stop",
+                "message": {
+                    "content": json.dumps(supported_payload()),
+                    "thinking": "PRIVATE_CANARY",
+                },
+            },
+        )
+
+    async def scenario():
+        transport = module.EvidenceFirstProbeTransport(
+            inner=httpx.MockTransport(endpoint), sampling_profile="gpt-oss-extraction-v2"
+        )
+        async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
+            provider = module.EvidenceFirstProbeProvider(
+                base_url="http://127.0.0.1:11435",
+                model="gpt-oss:20b",
+                expected_digest=digest,
+                client=client,
+                sampling_profile="gpt-oss-extraction-v2",
+            )
+            result = await provider.generate(question="Có được ghi không?", evidence=EVIDENCE)
+        assert result.answer == (
+            "Không ghi số điện thoại trên phiếu. "
+            "Riêng bản nội bộ được ghi khi quản lý chấp thuận. [[E2]]"
+        )
+        assert result.prompt_version == "ollama-evidence-first-gpt-extraction-v2"
+        assert len(requests) == 1
+        assert (
+            transport.observations[0]["system_prompt_sha256"]
+            == hashlib.sha256(requests[0]["messages"][0]["content"].encode()).hexdigest()
+        )
+        assert "PRIVATE_CANARY" not in repr(result) + json.dumps(transport.observations)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("fault", "stage"),
+    [("missing_decision", "EXTRACTION_FIELDS"), ("bad_quote", "SOURCE_QUOTE")],
+)
+def test_invalid_extraction_reports_safe_failure_stage_without_source_text(fault, stage):
+    payload = supported_payload()
+    if fault == "missing_decision":
+        del payload["decision"]
+    else:
+        payload["rules"][0]["quote"] = "PRIVATE_INVALID_QUOTE_CANARY"
+    with pytest.raises(KnoraError) as error:
+        probe_module().render_result(payload, EVIDENCE)
+    assert error.value.code == "GENERATION_OUTPUT_INVALID"
+    assert getattr(error.value, "invalid_output_stage", None) == stage
+    assert "PRIVATE_INVALID_QUOTE_CANARY" not in str(error.value)
 
 
 @pytest.mark.parametrize(

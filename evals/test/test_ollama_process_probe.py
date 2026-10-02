@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
+from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
 
 
@@ -52,11 +53,17 @@ def test_runtime_guard_rejects_an_adapter_imported_from_another_checkout(monkeyp
 
 
 @pytest.mark.parametrize(
-    ("model", "profile", "think"),
-    [("qwen3:14b", "qwen-nonthinking-v1", False), ("gpt-oss:20b", "gpt-oss-low-v1", "low")],
+    ("model", "profile", "think", "failure_stage"),
+    [
+        ("qwen3:14b", "qwen-nonthinking-v1", False, None),
+        ("gpt-oss:20b", "gpt-oss-low-v1", "low", None),
+        ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", None),
+        ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "EXTRACTION_FIELDS"),
+        ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "SOURCE_QUOTE"),
+    ],
 )
 def test_spawned_adapter_returns_only_validated_result_and_actual_request_metadata(
-    model, profile, think
+    model, profile, think, failure_stage
 ):
     try:
         module = importlib.import_module("evals.runners.ollama_process_probe")
@@ -83,6 +90,17 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
         def do_POST(self):
             payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             observed_requests.append(payload)
+            extraction = {
+                "decision": "ANSWER",
+                "facts": [],
+                "rules": [{"evidence_id": "E1", "quote": "Không ghi tên."}],
+                "exceptions": [],
+                "refusal_reason": None,
+            }
+            if failure_stage == "EXTRACTION_FIELDS":
+                del extraction["decision"]
+            elif failure_stage == "SOURCE_QUOTE":
+                extraction["rules"][0]["quote"] = "PRIVATE_INVALID_QUOTE"
             self.reply(
                 {
                     "model": model,
@@ -91,15 +109,7 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
                     "eval_count": 40,
                     "message": {
                         "thinking": "PRIVATE_THINKING",
-                        "content": json.dumps(
-                            {
-                                "decision": "ANSWER",
-                                "facts": [],
-                                "rules": [{"evidence_id": "E1", "quote": "Không ghi tên."}],
-                                "exceptions": [],
-                                "refusal_reason": None,
-                            }
-                        ),
+                        "content": json.dumps(extraction),
                     },
                 }
             )
@@ -116,14 +126,26 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
             seed=105,
             context_tokens=4096,
         )
-        result = asyncio.run(
-            provider.generate(
+
+        async def generate():
+            return await provider.generate(
                 question="Có được ghi tên?",
                 evidence=(GenerationEvidence("E1", "Không ghi tên."),),
             )
-        )
+
+        if failure_stage:
+            with pytest.raises(KnoraError) as error:
+                asyncio.run(generate())
+            assert error.value.code == "GENERATION_OUTPUT_INVALID"
+            assert provider.process_observations[0]["invalid_output_stage"] == failure_stage
+            assert "PRIVATE" not in repr(error.value) + json.dumps(provider.process_observations)
+            assert len(observed_requests) == len(provider.requests) == 1
+            return
+        result = asyncio.run(generate())
         assert result.answer == "Không ghi tên. [[E1]]"
         assert result.model == model
+        if profile == "gpt-oss-extraction-v2":
+            assert result.prompt_version == "ollama-evidence-first-gpt-extraction-v2"
         assert provider.deadline_expired is False
         assert len(observed_requests) == len(provider.requests) == 1
         assert provider.requests[0]["options"]["num_ctx"] == 4096

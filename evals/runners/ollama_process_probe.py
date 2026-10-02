@@ -13,14 +13,14 @@ from pathlib import Path
 import httpx
 from evals.runners.ollama_evidence_first_probe import (
     EXTRACTION_SCHEMA,
-    PROMPT_VERSION,
     REQUEST_POLICY_ID,
-    SYSTEM_PROMPT,
     EvidenceFirstProbeProvider,
     EvidenceFirstProbeTransport,
+    extraction_prompt_version,
+    extraction_system_prompt,
 )
 from evals.runners.ollama_grounding import collect
-from evals.runners.process_probe import run_process_async
+from evals.runners.process_probe import run_process_async, safe_invalid_output_stage
 from evals.runners.vietnamese_conversation import code_provenance, validate_private_output
 
 from knora.answering.generation_validation import validate_generation
@@ -67,6 +67,7 @@ def extraction_worker(connection, arguments):
                 model=config["model"],
                 expected_digest=config["expected_digest"],
                 client=client,
+                sampling_profile=config["sampling_profile"],
             )
             return await provider.generate(question=question, evidence=evidence)
 
@@ -83,7 +84,17 @@ def extraction_worker(connection, arguments):
             if isinstance(error, KnoraError) and error.code == "GENERATION_OUTPUT_INVALID"
             else "PROVIDER_REQUEST_FAILED"
         )
-        connection.send({"kind": "error", "error": code})
+        connection.send(
+            {
+                "kind": "error",
+                "error": code,
+                "invalid_output_stage": safe_invalid_output_stage(
+                    getattr(error, "invalid_output_stage", None)
+                )
+                if code == "GENERATION_OUTPUT_INVALID"
+                else None,
+            }
+        )
     finally:
         connection.close()
 
@@ -122,6 +133,9 @@ class ProcessEvidenceProvider:
                 "request_count": len(observation["requests"]),
                 "supervisor_failed": self.supervisor_failed,
                 "runtime_sources": observation.get("runtime_sources"),
+                "invalid_output_stage": safe_invalid_output_stage(
+                    observation.get("invalid_output_stage")
+                ),
             }
         )
         if self.supervisor_failed:
@@ -157,7 +171,9 @@ async def run_live(args):
         f"{REQUEST_POLICY_ID}:process-v1:{args.model}:ctx{args.context_tokens}:"
         f"{args.sampling_profile}:seed{args.seed}"
     )
-    prompt_hash = hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()
+    prompt_hash = hashlib.sha256(
+        extraction_system_prompt(args.sampling_profile).encode()
+    ).hexdigest()
     private = {
         "fixture_sha256": report["fixture_sha256"],
         "system_prompt_sha256": prompt_hash,
@@ -168,7 +184,7 @@ async def run_live(args):
     args.private_output.parent.mkdir(parents=True, exist_ok=True)
     args.private_output.write_bytes(content)
     report.update(
-        prompt_version=PROMPT_VERSION,
+        prompt_version=extraction_prompt_version(args.sampling_profile),
         request_policy_id=policy,
         model=args.model,
         sampling_profile=args.sampling_profile,
@@ -209,7 +225,12 @@ def main():
     parser.add_argument("--digest", required=True)
     parser.add_argument(
         "--sampling-profile",
-        choices=("qwen-nonthinking-v1", "qwen-thinking-v1", "gpt-oss-low-v1"),
+        choices=(
+            "qwen-nonthinking-v1",
+            "qwen-thinking-v1",
+            "gpt-oss-low-v1",
+            "gpt-oss-extraction-v2",
+        ),
         default="qwen-nonthinking-v1",
     )
     parser.add_argument("--seed", choices=(105, 106, 107), type=int, default=105)

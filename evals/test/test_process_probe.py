@@ -16,6 +16,22 @@ def completed_worker(connection, _arguments):
     connection.send({"kind": "result", "result": "completed"})
 
 
+def invalid_worker(connection, stage):
+    connection.send(
+        {"kind": "error", "error": "GENERATION_OUTPUT_INVALID", "invalid_output_stage": stage}
+    )
+
+
+@pytest.mark.parametrize("stage", ["EXTRACTION_FIELDS", "SOURCE_QUOTE", "PRIVATE_RAW_CANARY"])
+def test_error_stage_crosses_spawn_boundary_only_when_allowlisted(stage):
+    observed = module().run_process(invalid_worker, stage, deadline_seconds=5)
+    assert observed["error"] == "GENERATION_OUTPUT_INVALID"
+    assert observed.get("invalid_output_stage") == (
+        None if stage == "PRIVATE_RAW_CANARY" else stage
+    )
+    assert "PRIVATE_RAW_CANARY" not in repr(observed)
+
+
 def module():
     try:
         return importlib.import_module("evals.runners.process_probe")

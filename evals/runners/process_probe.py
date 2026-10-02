@@ -7,6 +7,21 @@ import threading
 from contextlib import suppress
 from time import monotonic
 
+INVALID_OUTPUT_STAGES = frozenset(
+    {
+        "EXTRACTION_CONTRACT",
+        "EXTRACTION_FIELDS",
+        "SOURCE_ALIAS",
+        "SOURCE_QUOTE",
+        "RESPONSE_ENVELOPE",
+        "EXTRACTION_JSON",
+    }
+)
+
+
+def safe_invalid_output_stage(value):
+    return value if isinstance(value, str) and value in INVALID_OUTPUT_STAGES else None
+
 
 def run_process(worker, arguments, *, deadline_seconds=240, cancellation=None):
     if isinstance(deadline_seconds, bool) or not 0 < deadline_seconds <= 240:
@@ -66,6 +81,10 @@ def run_process(worker, arguments, *, deadline_seconds=240, cancellation=None):
                     if message.get("error") == "GENERATION_OUTPUT_INVALID"
                     else "PROVIDER_REQUEST_FAILED"
                 )
+                if observed["error"] == "GENERATION_OUTPUT_INVALID":
+                    observed["invalid_output_stage"] = safe_invalid_output_stage(
+                        message.get("invalid_output_stage")
+                    )
                 break
     except (EOFError, OSError, KeyError, TypeError):
         pass
