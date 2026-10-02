@@ -74,9 +74,17 @@ def test_gpt_oss_probe_uses_low_reasoning_and_preserves_extraction_contract():
 
 
 @pytest.mark.parametrize(
-    "profile", ["gpt-oss-extraction-v2", "gpt-oss-extraction-v3", "gpt-oss-extraction-v4"]
+    ("profile", "think", "prompt_version"),
+    [
+        ("gpt-oss-extraction-v2", "low", "ollama-evidence-first-gpt-extraction-v2"),
+        ("gpt-oss-extraction-v3", "low", "ollama-evidence-first-gpt-extraction-v3"),
+        ("gpt-oss-extraction-v4", "low", "ollama-evidence-first-gpt-extraction-v4"),
+        ("gpt-oss-extraction-v4-medium-v1", "medium", "ollama-evidence-first-gpt-extraction-v4"),
+    ],
 )
-def test_gpt_extraction_sends_schema_and_examples_without_changing_output_contract(profile):
+def test_gpt_extraction_sends_schema_and_examples_without_changing_output_contract(
+    profile, think, prompt_version
+):
     module = probe_module()
     requests = []
     digest = "sha256:" + "b" * 64
@@ -91,7 +99,11 @@ def test_gpt_extraction_sends_schema_and_examples_without_changing_output_contra
         assert '"decision":"REFUSAL"' in prompt
         assert '"decision":"ANSWER"' in prompt
         assert payload["format"] == module.EXTRACTION_SCHEMA
-        assert payload["think"] == "low"
+        assert payload["think"] == think
+        if "extraction-v4" in profile:
+            assert hashlib.sha256(prompt.encode()).hexdigest() == (
+                "91dbfc5727af9e26948878aa76bb105a55c22d78c3e074bc06325d4347234b38"
+            )
         if profile.endswith("v3"):
             assert "A prohibition is not optionality" in prompt
             assert "different property or unit" in prompt
@@ -126,11 +138,9 @@ def test_gpt_extraction_sends_schema_and_examples_without_changing_output_contra
             "Không ghi số điện thoại trên phiếu. "
             "Riêng bản nội bộ được ghi khi quản lý chấp thuận. [[E2]]"
         )
-        assert (
-            result.prompt_version
-            == f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
-        )
+        assert result.prompt_version == prompt_version
         assert len(requests) == 1
+        assert transport.observations[0]["think"] == think
         assert (
             transport.observations[0]["system_prompt_sha256"]
             == hashlib.sha256(requests[0]["messages"][0]["content"].encode()).hexdigest()
@@ -159,7 +169,11 @@ def test_invalid_extraction_reports_safe_failure_stage_without_source_text(fault
 
 @pytest.mark.parametrize(
     ("model", "profile"),
-    [("gpt-oss:20b", "qwen-nonthinking-v1"), ("qwen3:8b", "gpt-oss-low-v1")],
+    [
+        ("gpt-oss:20b", "qwen-nonthinking-v1"),
+        ("qwen3:8b", "gpt-oss-low-v1"),
+        ("qwen3:8b", "gpt-oss-extraction-v4-medium-v1"),
+    ],
 )
 def test_probe_rejects_model_profile_mismatch_before_http(model, profile):
     module = probe_module()

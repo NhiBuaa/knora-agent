@@ -82,6 +82,8 @@ EXTRACTION_SCHEMA = {
 
 
 def extraction_system_prompt(profile):
+    if profile == "gpt-oss-extraction-v4-medium-v1":
+        return extraction_system_prompt("gpt-oss-extraction-v4")
     if profile == "gpt-oss-extraction-v4":
         return (
             "Select source clauses for current_question; do not compose an answer. "
@@ -160,6 +162,8 @@ def extraction_system_prompt(profile):
 
 
 def extraction_prompt_version(profile):
+    if profile == "gpt-oss-extraction-v4-medium-v1":
+        return extraction_prompt_version("gpt-oss-extraction-v4")
     extraction_system_prompt(profile)
     return (
         f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
@@ -253,6 +257,7 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
             "gpt-oss-extraction-v2",
             "gpt-oss-extraction-v3",
             "gpt-oss-extraction-v4",
+            "gpt-oss-extraction-v4-medium-v1",
         }:
             raise ValueError("unknown sampling profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
@@ -282,6 +287,7 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
             "gpt-oss-extraction-v2",
             "gpt-oss-extraction-v3",
             "gpt-oss-extraction-v4",
+            "gpt-oss-extraction-v4-medium-v1",
         }
         if (payload["model"] == "gpt-oss:20b") != gpt_profile:
             invalid()
@@ -289,7 +295,12 @@ class EvidenceFirstProbeTransport(httpx.AsyncBaseTransport):
         evidence = tuple(GenerationEvidence(**item) for item in user["evidence"])
         payload["messages"][0]["content"] = self.system_prompt
         payload["format"] = EXTRACTION_SCHEMA
-        payload["think"] = "low" if gpt_profile else self.sampling_profile == "qwen-thinking-v1"
+        if self.sampling_profile == "gpt-oss-extraction-v4-medium-v1":
+            payload["think"] = "medium"
+        elif gpt_profile:
+            payload["think"] = "low"
+        else:
+            payload["think"] = self.sampling_profile == "qwen-thinking-v1"
         payload["options"]["num_predict"] = 2048
         payload["options"]["num_ctx"] = self.context_tokens
         if self.sampling_profile == "qwen-nonthinking-v1":
