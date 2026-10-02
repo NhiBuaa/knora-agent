@@ -20,8 +20,12 @@ from evals.runners.ollama_evidence_first_probe import (
     extraction_system_prompt,
 )
 from evals.runners.ollama_grounding import collect
-from evals.runners.ollama_two_stage_probe import PROFILE as TWO_STAGE_PROFILE
-from evals.runners.ollama_two_stage_probe import TwoStageProbeTransport, stage_prompts
+from evals.runners.ollama_two_stage_probe import (
+    DEDUP_PROFILE,
+    TwoStageProbeTransport,
+    stage_prompts,
+)
+from evals.runners.ollama_two_stage_probe import PROFILES as TWO_STAGE_PROFILES
 from evals.runners.process_probe import run_process_async, safe_invalid_output_stage
 from evals.runners.vietnamese_conversation import code_provenance, validate_private_output
 
@@ -59,16 +63,11 @@ def extraction_worker(connection, arguments):
     async def generate():
         transport_type = (
             TwoStageProbeTransport
-            if config["sampling_profile"] == TWO_STAGE_PROFILE
+            if config["sampling_profile"] in TWO_STAGE_PROFILES
             else EvidenceFirstProbeTransport
         )
-        profile_arguments = (
-            {}
-            if config["sampling_profile"] == TWO_STAGE_PROFILE
-            else {"sampling_profile": config["sampling_profile"]}
-        )
         transport = transport_type(
-            **profile_arguments,
+            sampling_profile=config["sampling_profile"],
             seed=config["seed"],
             context_tokens=config["context_tokens"],
             observe_request=lambda row: connection.send({"kind": "request", "observation": row}),
@@ -155,7 +154,7 @@ class ProcessEvidenceProvider:
         if observation["error"]:
             raise KnoraError(observation["error"])
         result = observation["result"]
-        two_stage = self.config["sampling_profile"] == TWO_STAGE_PROFILE
+        two_stage = self.config["sampling_profile"] in TWO_STAGE_PROFILES
         prompt_budget = (
             2 * (self.config["context_tokens"] - 1024)
             if two_stage
@@ -233,7 +232,7 @@ async def run_live(args):
         deployment_selection=False,
         release_gate="NOT_EVALUATED",
     )
-    if args.sampling_profile == TWO_STAGE_PROFILE:
+    if args.sampling_profile in TWO_STAGE_PROFILES:
         report.update(
             system_prompt_hash_scope="ordered_stage_prompt_manifest",
             stage_system_prompt_sha256={
@@ -245,6 +244,8 @@ async def run_live(args):
             max_total_output_tokens=2048,
             reasoning_level="medium",
         )
+    if args.sampling_profile == DEDUP_PROFILE:
+        report["source_clause_projection"] = "validated-source-interval-union-v1"
     return report
 
 
@@ -263,7 +264,7 @@ def main():
             "gpt-oss-extraction-v3",
             "gpt-oss-extraction-v4",
             "gpt-oss-extraction-v4-medium-v1",
-            TWO_STAGE_PROFILE,
+            *TWO_STAGE_PROFILES,
         ),
         default="qwen-nonthinking-v1",
     )
@@ -291,7 +292,12 @@ def main():
             )
             + (
                 (Path(__file__).with_name("ollama_two_stage_probe.py"),)
-                if args.sampling_profile == TWO_STAGE_PROFILE
+                if args.sampling_profile in TWO_STAGE_PROFILES
+                else ()
+            )
+            + (
+                (Path(__file__).with_name("source_clause_projection.py"),)
+                if args.sampling_profile == DEDUP_PROFILE
                 else ()
             )
         },

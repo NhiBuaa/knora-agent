@@ -64,6 +64,7 @@ def test_runtime_guard_rejects_an_adapter_imported_from_another_checkout(monkeyp
         ("gpt-oss:20b", "gpt-oss-extraction-v4", "low", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v4-medium-v1", "medium", None),
         ("gpt-oss:20b", "gpt-oss-extraction-two-stage-v1", "medium", None),
+        ("gpt-oss:20b", "gpt-oss-extraction-two-stage-dedup-v1", "medium", None),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "EXTRACTION_FIELDS"),
         ("gpt-oss:20b", "gpt-oss-extraction-v2", "low", "SOURCE_QUOTE"),
     ],
@@ -107,6 +108,8 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
                 del extraction["decision"]
             elif failure_stage == "SOURCE_QUOTE":
                 extraction["rules"][0]["quote"] = "PRIVATE_INVALID_QUOTE"
+            if profile == "gpt-oss-extraction-two-stage-dedup-v1":
+                extraction["rules"].append(dict(extraction["rules"][0]))
             self.reply(
                 {
                     "model": model,
@@ -158,10 +161,17 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
                 == f"ollama-evidence-first-gpt-extraction-{profile.rsplit('-', 1)[-1]}"
             )
         assert provider.deadline_expired is False
-        two_stage = profile == "gpt-oss-extraction-two-stage-v1"
+        two_stage = profile in {
+            "gpt-oss-extraction-two-stage-v1",
+            "gpt-oss-extraction-two-stage-dedup-v1",
+        }
         assert len(observed_requests) == len(provider.requests) == (2 if two_stage else 1)
         if two_stage:
-            assert result.prompt_version == "ollama-evidence-first-gpt-two-stage-v1"
+            assert result.prompt_version == (
+                "ollama-evidence-first-gpt-two-stage-dedup-v1"
+                if profile.endswith("dedup-v1")
+                else "ollama-evidence-first-gpt-two-stage-v1"
+            )
             assert result.usage == {"prompt_tokens": 900, "completion_tokens": 80}
             assert [row["stage"] for row in provider.requests] == ["EXTRACT", "AUDIT"]
             assert all(row["options"]["num_predict"] == 1024 for row in provider.requests)
@@ -177,7 +187,10 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
         thread.join()
 
 
-def test_two_stage_deadline_covers_both_calls_and_discards_provisional_result(monkeypatch):
+@pytest.mark.parametrize(
+    "profile", ["gpt-oss-extraction-two-stage-v1", "gpt-oss-extraction-two-stage-dedup-v1"]
+)
+def test_two_stage_deadline_covers_both_calls_and_discards_provisional_result(monkeypatch, profile):
     from evals.runners import ollama_process_probe as module
 
     observed_requests = []
@@ -238,7 +251,7 @@ def test_two_stage_deadline_covers_both_calls_and_discards_provisional_result(mo
             base_url=f"http://127.0.0.1:{server.server_port}",
             model="gpt-oss:20b",
             expected_digest="sha256:" + "b" * 64,
-            sampling_profile="gpt-oss-extraction-two-stage-v1",
+            sampling_profile=profile,
             seed=105,
             context_tokens=4096,
         )

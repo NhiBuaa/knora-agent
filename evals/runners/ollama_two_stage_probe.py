@@ -11,10 +11,13 @@ from evals.runners.ollama_evidence_first_probe import (
     invalid,
     render_result,
 )
+from evals.runners.source_clause_projection import render_source_clauses
 
 from knora.providers.generation import GenerationEvidence
 
 PROFILE = "gpt-oss-extraction-two-stage-v1"
+DEDUP_PROFILE = "gpt-oss-extraction-two-stage-dedup-v1"
+PROFILES = (PROFILE, DEDUP_PROFILE)
 PROMPT_VERSION = "ollama-evidence-first-gpt-two-stage-v1"
 
 
@@ -60,7 +63,17 @@ def prompt_manifest():
 
 
 class TwoStageProbeTransport(httpx.AsyncBaseTransport):
-    def __init__(self, *, inner=None, seed=105, context_tokens=4096, observe_request=None):
+    def __init__(
+        self,
+        *,
+        inner=None,
+        seed=105,
+        context_tokens=4096,
+        observe_request=None,
+        sampling_profile=PROFILE,
+    ):
+        if sampling_profile not in PROFILES:
+            raise ValueError("unknown two-stage profile")
         if type(seed) is not int or seed not in {105, 106, 107}:
             raise ValueError("probe uses predeclared seeds only")
         if type(context_tokens) is not int or context_tokens not in {4096, 8192}:
@@ -70,8 +83,8 @@ class TwoStageProbeTransport(httpx.AsyncBaseTransport):
         self.context_tokens = context_tokens
         self.observe_request = observe_request
         self.observations = []
-        self.sampling_profile = PROFILE
-        self.request_policy_id = f"{REQUEST_POLICY_ID}:{PROFILE}:seed{seed}"
+        self.sampling_profile = sampling_profile
+        self.request_policy_id = f"{REQUEST_POLICY_ID}:{sampling_profile}:seed{seed}"
 
     async def handle_async_request(self, request):
         if request.method != "POST" or request.url.path != "/api/chat":
@@ -157,6 +170,8 @@ class TwoStageProbeTransport(httpx.AsyncBaseTransport):
                 del raw
             finally:
                 await response.aclose()
+        if self.sampling_profile == DEDUP_PROFILE:
+            result = render_source_clauses(selection, evidence)
         return httpx.Response(
             200,
             json={

@@ -18,8 +18,11 @@ def two_stage_module():
 
 @pytest.mark.parametrize("final_decision", ["ANSWER", "REFUSAL"])
 @pytest.mark.parametrize("provisional_decision", ["ANSWER", "REFUSAL"])
+@pytest.mark.parametrize(
+    "profile", ["gpt-oss-extraction-two-stage-v1", "gpt-oss-extraction-two-stage-dedup-v1"]
+)
 def test_two_stage_adapter_audits_all_evidence_and_returns_only_the_final_selection(
-    final_decision, provisional_decision
+    final_decision, provisional_decision, profile
 ):
     module = two_stage_module()
     from evals.runners.ollama_evidence_first_probe import EvidenceFirstProbeProvider
@@ -37,7 +40,7 @@ def test_two_stage_adapter_audits_all_evidence_and_returns_only_the_final_select
     }
     final = {
         **provisional,
-        "exceptions": [{"evidence_id": "E2", "quote": "Deux suffisent avec accord écrit."}],
+        "exceptions": [{"evidence_id": "E2", "quote": evidence[1].content}],
     }
     if final_decision == "REFUSAL":
         final.update(
@@ -92,14 +95,16 @@ def test_two_stage_adapter_audits_all_evidence_and_returns_only_the_final_select
 
     async def scenario():
         transport = module.TwoStageProbeTransport(
-            inner=httpx.MockTransport(endpoint), context_tokens=4096
+            inner=httpx.MockTransport(endpoint),
+            context_tokens=4096,
+            sampling_profile=profile,
         )
         async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
             provider = EvidenceFirstProbeProvider(
                 base_url="http://127.0.0.1:11435",
                 model="gpt-oss:20b",
                 expected_digest="sha256:" + "b" * 64,
-                sampling_profile="gpt-oss-extraction-two-stage-v1",
+                sampling_profile=profile,
                 client=client,
             )
             result = await provider.generate(
@@ -107,12 +112,19 @@ def test_two_stage_adapter_audits_all_evidence_and_returns_only_the_final_select
             )
         assert result.decision == final_decision
         assert result.answer == (
-            "Le lot exige trois pièces. Deux suffisent avec accord écrit. [[E2]]"
+            (
+                ("Le lot exige trois pièces. " if not profile.endswith("dedup-v1") else "")
+                + "Le lot exige trois pièces. Deux suffisent avec accord écrit. [[E2]]"
+            )
             if final_decision == "ANSWER"
             else None
         )
         assert result.usage == {"prompt_tokens": 1000, "completion_tokens": 210}
-        assert result.prompt_version == "ollama-evidence-first-gpt-two-stage-v1"
+        assert result.prompt_version == (
+            "ollama-evidence-first-gpt-two-stage-dedup-v1"
+            if profile.endswith("dedup-v1")
+            else "ollama-evidence-first-gpt-two-stage-v1"
+        )
         assert len(calls) == len(transport.observations) == 2
         assert [row["stage"] for row in transport.observations] == ["EXTRACT", "AUDIT"]
         assert "PRIVATE_STAGE_THINKING" not in repr(result) + json.dumps(transport.observations)
@@ -122,6 +134,9 @@ def test_two_stage_adapter_audits_all_evidence_and_returns_only_the_final_select
 
 
 @pytest.mark.parametrize("stage", [1, 2])
+@pytest.mark.parametrize(
+    "profile", ["gpt-oss-extraction-two-stage-v1", "gpt-oss-extraction-two-stage-dedup-v1"]
+)
 @pytest.mark.parametrize(
     "fault",
     [
@@ -135,7 +150,7 @@ def test_two_stage_adapter_audits_all_evidence_and_returns_only_the_final_select
         "http_failure",
     ],
 )
-def test_invalid_stage_fails_without_retry_or_refusal(stage, fault):
+def test_invalid_stage_fails_without_retry_or_refusal(stage, fault, profile):
     module = two_stage_module()
     from evals.runners.ollama_evidence_first_probe import EvidenceFirstProbeProvider
 
@@ -183,14 +198,14 @@ def test_invalid_stage_fails_without_retry_or_refusal(stage, fault):
 
     async def scenario():
         transport = module.TwoStageProbeTransport(
-            inner=httpx.MockTransport(endpoint), context_tokens=4096
+            inner=httpx.MockTransport(endpoint), context_tokens=4096, sampling_profile=profile
         )
         async with httpx.AsyncClient(transport=transport, trust_env=False) as client:
             provider = EvidenceFirstProbeProvider(
                 base_url="http://127.0.0.1:11435",
                 model="gpt-oss:20b",
                 expected_digest="sha256:" + "b" * 64,
-                sampling_profile="gpt-oss-extraction-two-stage-v1",
+                sampling_profile=profile,
                 client=client,
             )
             with pytest.raises(KnoraError) as error:

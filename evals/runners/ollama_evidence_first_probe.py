@@ -82,7 +82,7 @@ EXTRACTION_SCHEMA = {
 
 
 def extraction_system_prompt(profile):
-    if profile == "gpt-oss-extraction-two-stage-v1":
+    if profile in {"gpt-oss-extraction-two-stage-v1", "gpt-oss-extraction-two-stage-dedup-v1"}:
         from evals.runners.ollama_two_stage_probe import prompt_manifest
 
         return prompt_manifest()
@@ -166,6 +166,8 @@ def extraction_system_prompt(profile):
 
 
 def extraction_prompt_version(profile):
+    if profile == "gpt-oss-extraction-two-stage-dedup-v1":
+        return "ollama-evidence-first-gpt-two-stage-dedup-v1"
     if profile == "gpt-oss-extraction-two-stage-v1":
         return "ollama-evidence-first-gpt-two-stage-v1"
     if profile == "gpt-oss-extraction-v4-medium-v1":
