@@ -339,3 +339,64 @@ integration before those gates. Do not select this experiment for daily dev. Loc
 `codex/test` remains clean at `691a6b810d3f4d729c73f26d4fcc2113f1e477fd`; keep PR #135
 draft, #105 unaccepted and #116 as final release gate. Preserve every prior failed report,
 branch and worktree; no main merge or issue closure.
+
+## Owner-approved source-clause deduplication trial (2026-10-02)
+
+The owner selected a duplication-only change after the first two-stage trial. The new
+evaluation profile `gpt-oss-extraction-two-stage-dedup-v1` validates the final AUDIT
+selection with the existing renderer, then joins only identical or overlapping/adjacent
+unambiguous selected spans from the same source alias. It copies their source text
+verbatim and retains full exceptions, refusal and errors. EXTRACT/AUDIT prompts, medium
+reasoning, source and fixture, model/digest, schema, temperature zero, seed 105, context
+4096, 1024 output tokens per stage, two calls and the shared 240-second deadline remain
+unchanged. This is evaluation-only; production, daily dev and local `codex/test` did not
+select the profile.
+
+Measured clean source `387c7cb1f2d8af779be77f05d8ed5824d69c979b`, tree
+`d55cd5b1ac0073e60e50a9596a946a9b9727c245`:
+
+- Eleven structurally valid finals, **eleven literal and eleven independently reviewed
+  semantic passes**, zero failures or unscorable observations. All seven answers retained
+  the requested facts and qualifications; the four refusals remained correct. No final
+  repeats a selected source clause, versus four repeated-clause finals in the prior
+  two-stage run. Atlas retains one supported but unnecessary background sentence. These
+  presentation notes are outside the unchanged semantic rubric.
+- Eleven ordered EXTRACT/AUDIT pairs used medium, temperature zero, seed 105, context
+  4096 and output cap 1024 per stage. Root and independent reviewer checked the 22
+  request records, eleven EXTRACT user hashes, all eleven canonical final bindings,
+  source/prompt/schema/fixture hashes and parent/child runtime source hashes. AUDIT user
+  hashes cannot be reconstructed from final-only artifacts because provisional selections
+  were deliberately discarded; committed source and adapter tests establish original
+  question/evidence construction. No complete AUDIT body reconstruction is claimed.
+- No process deadline, supervisor or structural failure. Process latency was
+  **66.702–171.070 seconds, median 101.199**. Ollama was observed as 0.35.0 before and
+  after; the pinned GPT-OSS digest and model-template hash matched. The earlier trial ran
+  against Ollama 0.34.4. This is not a controlled speed comparison, and before/after
+  snapshots are not an attestation of every instant during the run.
+- No provider payloads, provisional selections or thinking were retained. Normalized
+  final text and the independent detailed verdict stay in private files outside Git.
+
+Append-only artifacts in `../vietnamese_rag/`:
+
+- `issue105_process_gptoss20b_two_stage_dedup_seed105_literal.json`: SHA256
+  `dd558d0b374c4ade35cdecdf9b310e816f9d9e318504e71977c7f0264b520c0a`.
+- `issue105_process_gptoss20b_two_stage_dedup_seed105_semantic_review.json`: SHA256
+  `a6f51bc5335bd48161c4d9ad7cf32e4e6577aea3c172db8a0d30134299e4cfda`.
+- `issue105_process_gptoss20b_two_stage_dedup_seed105_runtime.json`: SHA256
+  `201fe6c07f3b5d9a3f8dce7c40a17df01d25c168c00d2749994356c7d0f1a6f2`.
+  This is the LF-normalized Git artifact; the original CRLF runtime capture and the
+  private-review `runtime_observation_sha256` are
+  `343d02cb95fc0a126c345c45dfcba4b75313ec30723160ca9bd337f683220f95`.
+- Private normalized finals: SHA256
+  `893807c3df671c0fd4eb5b9c58d7dd74b6522745af8ab08d08ae5bfa26837660`.
+- Independent private verdict: SHA256
+  `ccf3cff0aba98ed867a670ded8507952d2f7df9855207f52cc1198040546c61c`.
+
+Premeasurement code gates: root 104 focused tests; independent code review 67 focused
+tests without actionable findings. Fresh full isolated PostgreSQL gate: 1486 passed,
+16 skipped, 28 dependency warnings. Ruff, Compose configuration, OpenAPI and diff checks
+passed. The prior failed observations remain preserved. This single development-exposed
+seed 105 probe is not held-out or #105 acceptance. Later seeds, production integration,
+original36/revised36 PDF, durable Conversation, Keycloak/BFF/browser and correlated trace
+gates remain. Keep PR #135 draft, #105 unaccepted, #116 the final release gate; do not
+merge, close issues or remove worktrees.

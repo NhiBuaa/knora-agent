@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "scope": "local_generation_runtime_before_after_observations",
+  "code_provenance": {
+    "git_commit": "387c7cb1f2d8af779be77f05d8ed5824d69c979b",
+    "git_tree": "d55cd5b1ac0073e60e50a9596a946a9b9727c245"
+  },
+  "public_report_sha256": "dd558d0b374c4ade35cdecdf9b310e816f9d9e318504e71977c7f0264b520c0a",
+  "measurement_exit_code": 0,
+  "before": {
+    "observed_at": "2026-10-02T09:04:01.4512415Z",
+    "ollama_version": "0.35.0",
+    "model_inventory": [
+      {
+        "name": "gpt-oss:20b",
+        "digest": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7"
+      },
+      {
+        "name": "qwen3-embedding:0.6b",
+        "digest": "ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d"
+      }
+    ],
+    "generation_template_sha256": "fa6710a93d78da62641e192361344be7a8c0a1c3737f139cf89f20ce1626b99c",
+    "loaded_models": []
+  },
+  "after": {
+    "observed_at": "2026-10-02T09:22:21.1295569Z",
+    "ollama_version": "0.35.0",
+    "model_inventory": [
+      {
+        "name": "gpt-oss:20b",
+        "digest": "17052f91a42e97930aa6e28a6c6c06a983e6a58dbb00434885a0cf5313e376f7"
+      },
+      {
+        "name": "qwen3-embedding:0.6b",
+        "digest": "ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d"
+      }
+    ],
+    "generation_template_sha256": "fa6710a93d78da62641e192361344be7a8c0a1c3737f139cf89f20ce1626b99c",
+    "loaded_models": [
+      {
+        "name": "gpt-oss:20b",
+        "context_length": 4096,
+        "size_vram": 0
+      }
+    ]
+  },
+  "provider_probe_not_conversation": true,
+  "timing_comparison_to_prior_run": "UNCONTROLLED_SERVER_CHANGED_FROM_0.34.4_TO_0.35.0",
+  "raw_model_template_or_provider_payload_persisted": false
+}
