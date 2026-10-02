@@ -229,3 +229,51 @@ The supported medium reasoning level is a possible next isolated hypothesis, not
 or selected for production. Discuss the changed request policy with the owner before code.
 Local `codex/test` stays clean at `691a6b810d3f4d729c73f26d4fcc2113f1e477fd`.
 Keep PR #135 draft, #105 unaccepted and #116 as the final release gate; retain worktrees.
+
+## Owner-approved medium trial fails (2026-10-02)
+
+After reviewing the failed low v4 gate, the owner explicitly approved one medium reasoning
+trial with the same prompt/schema/fixture/rubric/bounds. The new evaluation-only profile is
+`gpt-oss-extraction-v4-medium-v1`; its prompt identity and SHA256 remain v4, while the
+request-policy identity distinguishes medium. No production selection or validator changes.
+
+Measured clean source `bbb75522a7ae1b9e6dc2d3d9f2f3556767ca139c`, tree
+`85338951de28062dffbed2dc8a07cbc4039776bf`:
+
+- Eleven structurally valid finals; **nine literal and nine independently reviewed semantic
+  passes**. Both failures remain `metadata_count` and `rule_with_exception`.
+- The absent count is still answered with program parts. The ordinary requirement is still
+  given without its permitted alternative, eligibility and required approval.
+- Ten normalized finals are identical to low v4; the remaining shorter final still fails
+  the same refusal criterion. No semantic gate improvement occurs in this single run.
+- All eleven wire requests record medium and exact v4 system/user prompt hashes, temperature
+  zero, seed 105, context 4096 and output 2048. Root and independent reviewer verified
+  request/source/runtime and all canonical response bindings.
+- No deadline/supervisor failure. Process latency 18.045–65.501 seconds, median 27.637;
+  prompt tokens 848–927, completion tokens 116–710; every final finishes with `stop`.
+- This is one development-exposed seed-105 run, not held-out or Conversation acceptance.
+  Raw provider payloads and thinking are not persisted.
+
+Artifacts in `../vietnamese_rag/`:
+
+- `issue105_process_gptoss20b_extraction_v4_medium_seed105_literal.json`: SHA256
+  `53af45a4ab7cbbea05ae56728668af18e947205d38f6061d33c6677ffc10a86c`.
+- `issue105_process_gptoss20b_extraction_v4_medium_seed105_semantic_review.json`: SHA256
+  `f525795b11b1bffe6c71440e020d549574ffd1e63d11b122d6a6ae77250f2db0`.
+- Private normalized finals: SHA256
+  `45182aac4ed188543e2115d6ed50b144ad747b6234788a1dad19cb14ebe93060`.
+- Independent private verdict: SHA256
+  `d66669032568265668aa3509dec3b0d0fd67cf6665cce274a49e6bece8d948ad`.
+
+Code verification: root and independent review each passed 45 focused tests. Fresh full
+isolated PostgreSQL gate passed 1429 tests, 16 skipped, 28 dependency warnings in 225.09
+seconds. Ruff, Compose configuration, OpenAPI and diff checks pass. Compose's unset local
+MinIO credential warnings do not establish storage health. No actionable code-review finding.
+
+The approved preliminary failure stop condition applies. No later seeds, production-provider
+grounding or PDF/original36/revised36/Conversation/browser measurements follow this run.
+The reported token headroom and normal completion do not identify a token/deadline cutoff;
+quote membership still cannot establish correct question support or qualification coverage.
+Discuss the model/interface design before further implementation. Do not select medium for
+daily dev from this failed trial. Local `codex/test` remains clean at `691a6b8`; PR #135
+stays draft, #105 remains unaccepted, #116 remains the final release gate; keep worktrees.

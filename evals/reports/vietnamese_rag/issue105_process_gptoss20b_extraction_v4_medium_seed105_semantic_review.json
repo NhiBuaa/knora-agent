@@ -1,0 +1,111 @@
+{
+  "code_provenance": {
+    "git_commit": "bbb75522a7ae1b9e6dc2d3d9f2f3556767ca139c",
+    "git_tree": "85338951de28062dffbed2dc8a07cbc4039776bf"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "held_out": false,
+  "observation_count": 11,
+  "observation_failure_count": 0,
+  "private_responses_sha256": "45182aac4ed188543e2115d6ed50b144ad747b6234788a1dad19cb14ebe93060",
+  "provenance_checks": {
+    "actual_medium_request_metadata": 11,
+    "committed_v4_medium_prompt_schema_and_fixture": true,
+    "parent_child_production_runtime_hashes": 11,
+    "probe_source_hashes_match_measured_commit": true,
+    "strict_private_final_projection_no_thinking_fields": true
+  },
+  "public_report_sha256": "53af45a4ab7cbbea05ae56728668af18e947205d38f6061d33c6677ffc10a86c",
+  "raw_thinking_persisted": false,
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-extraction-v4-medium-v1:seed105",
+  "review_private_verdict_sha256": "d66669032568265668aa3509dec3b0d0fd67cf6665cce274a49e6bece8d948ad",
+  "reviewer": "/root/review105_extraction_v2",
+  "reviews": [
+    {
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "46d30c37fea4c85d830d0ed5098442e6812bbf32061782aa4c0046300e0f7d3c"
+    },
+    {
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "6f34dc677503a0f5a5213f3b35fb5cd91816ac337910bf9e25150ac220bc8d42"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason_code": "SUPPORTED_PROHIBITION",
+      "repetition": 1,
+      "response_sha256": "7c8ca50335746696a8b90c9ce4e4ee2b34e2333f1145514225bb823f944c7bed"
+    },
+    {
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "b968287eadad324fd2dc9da7af199d009b775090a322cd379cc1c3163a4fc4bc"
+    },
+    {
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "ef5b581f385f3e980695916a42e20b1f4bfb6901021de02a55ac0666d73e7e76"
+    },
+    {
+      "case_id": "metadata_count",
+      "passed": false,
+      "reason_code": "UNSUPPORTED_EXACT_COUNT",
+      "repetition": 1,
+      "response_sha256": "a0ff56d2b5bb22b5e1c2c11c210337e71a9aeb236a41da119f4a1cfb8d7145d2"
+    },
+    {
+      "case_id": "prohibited_requirement",
+      "passed": true,
+      "reason_code": "SUPPORTED_PROHIBITION",
+      "repetition": 1,
+      "response_sha256": "1df5717d63b3fa89abd61f6e823870e3f9b8d56bc97196461fd7d8dcf9a2ec81"
+    },
+    {
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "768dda21f2cedacac304861afda3dd913b73179892217e8199453e2db772f6b5"
+    },
+    {
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "2c24ff840bbbf7f7734a35428a6272de8a3f49572c64cd65d6846ba11d842547"
+    },
+    {
+      "case_id": "rule_with_exception",
+      "passed": false,
+      "reason_code": "REQUIRED_EXCEPTION_OMITTED",
+      "repetition": 1,
+      "response_sha256": "339d83cdbe8a9d3356ac9f0bbbc37bedcfae363f5b91078e4295cdc1e1f76683"
+    },
+    {
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason_code": "CURRENT_QUESTION_GROUNDED",
+      "repetition": 1,
+      "response_sha256": "271d038fe958697421e267467095fcadaaa575d09c096d1d9c426784b38bae9d"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_synthetic_development_finals",
+  "semantic_failed_count": 2,
+  "semantic_passed_count": 9,
+  "semantic_unscorable_count": 0,
+  "system_prompt_sha256": "91dbfc5727af9e26948878aa76bb105a55c22d78c3e074bc06325d4347234b38",
+  "transport_gate": "PROVIDER_PROBE_NOT_CONVERSATION"
+}
