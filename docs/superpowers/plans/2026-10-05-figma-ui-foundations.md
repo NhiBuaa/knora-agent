@@ -25,7 +25,7 @@ The task's file list and this structure must remain consistent throughout execut
 - Keep ingestion lifecycle, source-version identity and serving state separate.
 - Deletion policy remains unavailable; do not silently introduce purge or withdrawal semantics.
 
-## Task F1: Display projections and complete search
+## Task 1: F1 — Display projections and complete search
 
 **Skills:** executing-plans, codebase-design, test-driven-development,
 verification-before-completion. Use brainstorming/domain-modeling only if an implementation
@@ -84,9 +84,9 @@ than silently skipping rows. No frontend-only first-page search for these lists.
 - [ ] Regenerate the client and check the contract:
 
 ~~~powershell
-..venvScriptspython scripts/export_openapi.py
-..venvScriptspython scripts/export_openapi.py --check
-..venvScriptspython -m pytest backend/test/adapters/http/test_document_routes.py backend/test/adapters/http/test_workspaces.py backend/test/adapters/http/test_conversations.py backend/test/adapters/postgres/test_workspace_store.py backend/test/adapters/postgres/test_conversation_store.py backend/test/adapters/postgres/test_document_ui_projection.py backend/test/api/test_openapi_contract.py
+./.venv/Scripts/python scripts/export_openapi.py
+./.venv/Scripts/python scripts/export_openapi.py --check
+./.venv/Scripts/python -m pytest backend/test/adapters/http/test_document_routes.py backend/test/adapters/http/test_workspaces.py backend/test/adapters/http/test_conversations.py backend/test/adapters/postgres/test_workspace_store.py backend/test/adapters/postgres/test_conversation_store.py backend/test/adapters/postgres/test_document_ui_projection.py backend/test/api/test_openapi_contract.py
 npm --prefix frontend run typecheck
 npm --prefix frontend run format
 npm --prefix frontend run format:check
@@ -107,7 +107,7 @@ assert projection.deletion_request.failure_reason == "DOCUMENT_DELETION_POLICY_U
 **Stop condition:** an eligibility projection would require changing retrieval semantics or
 retention policy. Keep the proposed UI contract truthful and resolve that domain change separately.
 
-## Task F2: Tailwind setup, tokens, assets, primitives and product header
+## Task 2: F2 — Tailwind setup, tokens, assets, primitives and product header
 
 **Skills:** executing-plans, codebase-design; test-driven-development for dialog/menu/navigation
 behavior. Use figma:figma-design-to-code before refreshing design context.
