@@ -56,7 +56,8 @@ frontend/components/workspaces/workspaces.css.
 frontend/public/icons/figma/figma-assets.json and .gitattributes (`*.svg -text`).
 Copy only originals with actual U1 selector/no-results callsites from the shared Figma cache;
 preserve bytes and intrinsic root dimensions. Record provenance/checksums and verify effective
-browser geometry. U2 may add d9407.svg for its Documents selector and append the same manifest;
+browser geometry. U2 may add d9407.svg for its Documents selector and 97a8a.svg for the Ready
+detail status callsite, appending the same manifest;
 later owners may append their own referenced icons. Do not create an icon framework.
 
 **Tests:** existing frontend/tests/workspace-preference.test.tsx,
@@ -124,8 +125,10 @@ frontend/app/workspaces/[workspaceId]/documents/page.tsx,
 DocumentActionsMenu.tsx, DeletionRequestDialog.tsx, documents.css;
 frontend/lib/documents/presentation.ts.
 
-**Exact assets:** allow frontend/public/icons/figma/d9407.svg and append figma-assets.json only
-for the actual Documents-heading selector callsite. Reuse reviewed U1 originals/attributes;
+**Exact assets:** allow frontend/public/icons/figma/{d9407,97a8a}.svg and append figma-assets.json
+only for actual Documents-heading selector and Ready-detail status callsites. The 97a8a.svg
+original has a 7×7 root and appears at node94:194 in the retrieved128:122 context; U3 later reuses
+the same committed original and appends its own callsite provenance. Reuse reviewed U1 attributes;
 preserve exported bytes/root dimensions and verify effective geometry. Compose WorkspaceSelector
 in the heading with feature presentation rules; do not duplicate selection lifecycle or change
 its approved props. Documents switching opens the new Workspace's list without an old detail ID.
@@ -202,8 +205,8 @@ TurnCard.tsx, ConversationComposer.tsx, conversations.css;
 frontend/components/citations/EvidenceInspector.tsx;
 frontend/lib/conversations/panel-preferences.ts.
 
-**Exact assets:** allow frontend/public/icons/figma/{5b324,97a8a,cd6f9,832ce}.svg and append
-figma-assets.json only for actual owning-context callsites. Reuse existing original brand/orbit
+**Exact assets:** allow frontend/public/icons/figma/{5b324,cd6f9,832ce}.svg, reuse U2's original
+97a8a.svg and append figma-assets.json only for actual owning-context callsites. Reuse original brand/orbit
 files; preserve bytes/root dimensions and verify every illustration layer. Screenshot exports
 are reference evidence only. Do not create an icon renderer or redraw provided SVGs.
 

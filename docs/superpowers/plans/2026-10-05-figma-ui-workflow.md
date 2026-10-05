@@ -160,6 +160,7 @@ frontend/
 │   ├── brand/                                  [+ F2] leaf/orbits/asset manifest
 │   └── icons/figma/                            [+ U1, later feature owners] exact originals
 │       ├── *.svg                               selector/no-results/status icons at real callsites
+│       │                                       U2: d9407 selector, 97a8a Ready dot; U3 reuses 97a8a
 │       └── figma-assets.json, .gitattributes     provenance/checksums, preserve SVG bytes
 ├── generated/knora-openapi.ts                   [~ F1, chỉ exporter]
 ├── tests/                                      [~] xem mục 5
