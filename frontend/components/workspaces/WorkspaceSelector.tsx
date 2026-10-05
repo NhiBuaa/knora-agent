@@ -212,7 +212,7 @@ export function WorkspaceSelector({
   return (
     <div
       ref={root}
-      className="workspace-selector"
+      className="workspace-selector relative min-w-0 [&_:is(button,input,a):focus-visible]:outline-2 [&_:is(button,input,a):focus-visible]:outline-offset-2 [&_:is(button,input,a):focus-visible]:outline-focus"
       onKeyDown={(event) => {
         if (event.key === "Escape" && open) {
           event.preventDefault();
@@ -222,18 +222,20 @@ export function WorkspaceSelector({
         }
       }}
     >
-      <p className="workspace-selector-label">Workspace</p>
-      <div className="workspace-selector-heading">
+      <p className="workspace-selector-label m-0 mb-1.5 text-[10px] leading-3 font-semibold text-text-muted uppercase">
+        Workspace
+      </p>
+      <div className="workspace-selector-heading flex min-h-[26px] items-center justify-between gap-2 [&_.kn-menu\_\_panel]:left-0 [&_.kn-menu\_\_panel]:right-auto [&_.kn-menu\_\_panel]:w-[182px] [&_.kn-menu\_\_panel]:min-w-[182px] [&_.kn-menu\_\_panel_button]:text-signature">
         <button
           ref={trigger}
           type="button"
-          className="workspace-selector-trigger"
+          className="workspace-selector-trigger flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-sm font-semibold text-text-primary"
           aria-label={`Switch workspace${current ? `: ${current.name}` : ""}`}
           aria-expanded={open}
           disabled={disabled}
           onClick={() => setOpen(!open)}
         >
-          <span>
+          <span className="truncate">
             {current?.name ??
               (unavailable
                 ? "Workspace unavailable"
@@ -248,6 +250,7 @@ export function WorkspaceSelector({
                 : "workspace-caret-small"
             }
           >
+            {/* eslint-disable-next-line @next/next/no-img-element -- Native local SVG preserves the original fractional caret geometry and negative inset. */}
             <img
               alt=""
               src={`/icons/figma/${open ? "23c31" : current?.archived ? "a4e11" : "21b31"}.svg`}
@@ -270,16 +273,21 @@ export function WorkspaceSelector({
         )}
       </div>
       {current?.archived && (
-        <p className="workspace-readonly">Archived · Read-only</p>
+        <p className="workspace-readonly rounded-lg bg-surface-subtle px-3 py-2.5 text-[13px] text-signature">
+          Archived · Read-only
+        </p>
       )}
       {open && (
         <div
-          className="workspace-selector-popup"
+          className="workspace-selector-popup absolute top-11 left-0 z-35 w-[220px] max-w-[calc(100vw-36px)] rounded-[10px] border border-border bg-surface p-3 shadow-[0_8px_16px_color-mix(in_srgb,var(--text-primary)_14%,transparent)]"
           role="region"
           aria-label="Switch workspace"
         >
-          <p className="workspace-selector-label">Switch workspace</p>
+          <p className="workspace-selector-label m-0 mb-1.5 text-[10px] leading-3 font-semibold text-text-muted uppercase">
+            Switch workspace
+          </p>
           <input
+            className="mb-2 w-full rounded-md border border-border bg-surface p-2 text-xs text-text-primary"
             ref={search}
             type="search"
             maxLength={200}
@@ -289,7 +297,7 @@ export function WorkspaceSelector({
             onChange={(event) => setQuery(event.target.value)}
           />
           <div
-            className="workspace-selector-options"
+            className="workspace-selector-options max-h-[min(320px,40dvh)] overflow-auto"
             onKeyDown={(event) => {
               if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
                 return;
@@ -316,6 +324,7 @@ export function WorkspaceSelector({
           >
             {items.map((workspace) => (
               <button
+                className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[7px] p-2.5 text-left text-[13px] text-text-primary [overflow-wrap:anywhere] hover:bg-surface-subtle aria-[current=true]:bg-[color-mix(in_srgb,var(--action)_12%,var(--surface))] aria-[current=true]:font-semibold aria-[current=true]:text-action-text"
                 key={workspace.id}
                 type="button"
                 disabled={busy}
@@ -344,8 +353,9 @@ export function WorkspaceSelector({
               Load more Workspaces
             </Button>
           )}
-          <div className="workspace-selector-footer">
+          <div className="workspace-selector-footer mt-2 grid gap-2 border-t border-border pt-2 text-[13px]">
             <button
+              className="px-2.5 py-2 text-left text-action-text no-underline"
               type="button"
               onClick={() => {
                 setOpen(false);
@@ -355,7 +365,12 @@ export function WorkspaceSelector({
             >
               + Create workspace
             </button>
-            <Link href={routes.archivedWorkspaces}>Archived workspaces</Link>
+            <Link
+              className="px-2.5 py-2 text-left text-action-text no-underline"
+              href={routes.archivedWorkspaces}
+            >
+              Archived workspaces
+            </Link>
           </div>
         </div>
       )}

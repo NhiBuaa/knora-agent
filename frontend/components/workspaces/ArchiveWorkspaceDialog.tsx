@@ -54,23 +54,25 @@ export function ArchiveWorkspaceDialog({
       open={Boolean(workspace)}
       onClose={onClose}
       title="Archive workspace"
-      className="workspace-dialog workspace-archive-dialog [--dialog-width:600px]"
+      className="workspace-dialog workspace-archive-dialog [--dialog-width:600px] [&_.kn-dialog\_\_close]:hidden [&_h2]:font-display [&_h2]:text-2xl [&_h2]:leading-8"
     >
-      <p className="workspace-dialog-intro">
+      <p className="workspace-dialog-intro m-0 mb-[34px] text-sm leading-[22px] text-text-muted">
         Archive “{workspace?.name}”? It will no longer be active until you
         restore it.
       </p>
-      <div className="workspace-archive-summary">
-        <strong>{workspace?.name}</strong>
-        <span>Current workspace</span>
+      <div className="workspace-archive-summary grid gap-1 rounded-lg bg-surface-subtle px-3.5 py-3 text-sm">
+        <strong className="leading-[18px]">{workspace?.name}</strong>
+        <span className="text-xs leading-[14px] text-text-muted">
+          Current workspace
+        </span>
       </div>
-      <p className="workspace-archive-explanation">
+      <p className="workspace-archive-explanation mt-4 text-xs leading-[18px] text-text-muted">
         Its documents and conversations become read-only. If another active
         workspace is available, Knora will switch to it. If none remain, you’ll
         see the no-active-workspace state.
       </p>
       {error && <p role="alert">{error}</p>}
-      <div className="workspace-dialog-actions">
+      <div className="workspace-dialog-actions mt-6 flex flex-wrap justify-end gap-2.5">
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>

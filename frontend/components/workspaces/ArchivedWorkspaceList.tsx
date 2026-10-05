@@ -127,16 +127,22 @@ export function ArchivedWorkspaceList({
     }
   }
   return (
-    <section className="workspace-archives">
-      <Link className="workspace-back" href={backHref}>
+    <section className="workspace-archives mx-auto w-full max-w-[1200px]">
+      <Link
+        className="workspace-back mb-6 inline-block text-sm leading-[18px] text-action-text no-underline"
+        href={backHref}
+      >
         ← Back
       </Link>
-      <h1>Archived workspaces</h1>
-      <p className="workspace-archives-intro">
+      <h1 className="m-0 mb-2 font-display text-[32px] leading-10">
+        Archived workspaces
+      </h1>
+      <p className="workspace-archives-intro m-0 mb-7 text-sm leading-5 text-text-muted">
         Restore archived workspaces to make them available again.
       </p>
-      <div className="workspace-archives-toolbar">
+      <div className="workspace-archives-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-border pb-[18px] text-[13px] text-text-muted">
         <input
+          className="m-0 h-10 w-[232px] max-w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-[13px] text-text-primary"
           type="search"
           maxLength={200}
           aria-label="Search archived workspaces"
@@ -153,18 +159,24 @@ export function ArchivedWorkspaceList({
             : `${items.length}${cursor ? "+ loaded" : ""} ${query.trim() ? "matches" : "archived workspaces"}`}
         </span>
       </div>
-      <ul className="workspace-archives-list">
+      <ul className="workspace-archives-list m-0 list-none p-0">
         {items.map((workspace) => (
-          <li key={workspace.id}>
-            <div>
-              <Link href={routes.workspace(workspace.id)}>
+          <li
+            className="m-0 flex min-h-[77px] items-center justify-between gap-4 border-b border-border py-[18px]"
+            key={workspace.id}
+          >
+            <div className="grid min-w-0 gap-1">
+              <Link
+                className="text-sm font-semibold text-text-primary no-underline [overflow-wrap:anywhere]"
+                href={routes.workspace(workspace.id)}
+              >
                 {workspace.name}
               </Link>
-              <span>Archived</span>
+              <span className="text-xs text-signature">Archived</span>
             </div>
             <Button
               variant="secondary"
-              className="border-action! text-action-text!"
+              className="min-h-[38px] min-w-[104px] border-action! text-action-text!"
               disabled={Boolean(busy)}
               aria-label={`Restore ${workspace.name}`}
               onClick={() => void restore(workspace)}
@@ -184,16 +196,23 @@ export function ArchivedWorkspaceList({
         </Button>
       )}
       {!loading && !error && !items.length && (
-        <div className="workspace-archives-empty">
+        <div className="workspace-archives-empty flex flex-col items-center justify-center gap-2.5 pt-[270px] text-center max-md:pt-40">
           {query.trim() && (
-            <img src="/icons/figma/ed1ac.svg" alt="" width={48} height={48} />
+            // eslint-disable-next-line @next/next/no-img-element -- Render the byte-preserved local Figma SVG at its original 48px geometry; no raster optimization is needed.
+            <img
+              className="mb-1.5 h-12 w-12"
+              src="/icons/figma/ed1ac.svg"
+              alt=""
+              width={48}
+              height={48}
+            />
           )}
-          <h2>
+          <h2 className="m-0 font-display text-[22px] leading-[30px]">
             {query.trim()
               ? "No archived workspaces found"
               : "No archived workspaces"}
           </h2>
-          <p>
+          <p className="m-0 text-sm text-text-muted">
             {query.trim()
               ? "Try a different search."
               : "Archived workspaces will appear here when you archive them."}

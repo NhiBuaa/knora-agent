@@ -154,22 +154,35 @@ export function WorkspaceManagement({
 
   return (
     <section
-      className={workspaces.length ? "workspace-management" : "workspace-state"}
+      className={
+        workspaces.length
+          ? "workspace-management"
+          : "workspace-state flex flex-col items-center px-4 pt-[130px] text-center [.workspace-shell-main>&]:pt-[120px] max-md:pt-[72px] max-md:[.workspace-shell-main>&]:pt-[72px]"
+      }
     >
       {workspaces.length ? (
         <h1>Workspaces</h1>
       ) : (
         <>
-          <p className="workspace-eyebrow">Workspace required</p>
-          <h1>No active workspace</h1>
-          <p>Create a new workspace or restore one to continue.</p>
+          <p className="workspace-eyebrow m-0 mb-[18px] max-w-[560px] text-[11px] leading-6 text-text-muted uppercase">
+            Workspace required
+          </p>
+          <h1 className="m-0 mb-4 font-display text-[32px] leading-[42px] max-md:text-[28px]">
+            No active workspace
+          </h1>
+          <p className="m-0 max-w-[560px] leading-6 text-text-muted">
+            Create a new workspace or restore one to continue.
+          </p>
         </>
       )}
-      <ul className="workspace-management-list">
+      <ul className="workspace-management-list list-none p-0">
         {workspaces.map((workspace) => (
-          <li key={workspace.id}>
+          <li
+            className="flex flex-wrap items-center gap-3 border-b border-border py-4"
+            key={workspace.id}
+          >
             <Link href={routes.workspace(workspace.id)}>{workspace.name}</Link>
-            <label>
+            <label className="ml-auto">
               Rename {workspace.name}
               <input
                 value={names[workspace.id] ?? workspace.name}
@@ -202,12 +215,17 @@ export function WorkspaceManagement({
           Load more Workspaces
         </button>
       )}
-      <div className="workspace-state-actions">
+      <div className="workspace-state-actions mt-7 flex flex-wrap justify-center gap-2.5">
         <Button onClick={() => setCreating(true)}>Create workspace</Button>
-        <Link href={routes.archivedWorkspaces}>Restore workspace</Link>
+        <Link
+          className="inline-flex min-h-10 items-center rounded-md border border-border px-6 py-2 text-sm font-semibold text-text-primary no-underline"
+          href={routes.archivedWorkspaces}
+        >
+          Restore workspace
+        </Link>
       </div>
       {!workspaces.length && (
-        <p className="workspace-state-help">
+        <p className="workspace-state-help m-0 mt-6 max-w-[560px] rounded-lg bg-surface-subtle px-5 py-2.5 text-[13px] leading-[18px] text-text-muted">
           Restoring a workspace makes its conversations, documents, and evidence
           available again.
         </p>
