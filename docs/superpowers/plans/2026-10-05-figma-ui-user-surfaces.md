@@ -157,6 +157,10 @@ test-driven-development, verification-before-completion.
 frontend/components/citations/CitationViewer.tsx;
 frontend/app/workspaces/[workspaceId]/conversations/page.tsx,
 [workspaceId]/conversations/[conversationId]/page.tsx.
+Also allow frontend/components/shell/AppShell.tsx and frontend/app/workspaces/shell.css for the
+bounded composition change that removes F2's interim desktop rail once ConversationPanels owns
+the final ConversationRail. Preserve AppShell's existing caller contract; render one rail with
+one sizing/preference owner, and retain workspace access through the shared navigation/drawer.
 
 **Create:** frontend/components/conversations/ConversationPanels.tsx, ConversationRail.tsx,
 TurnCard.tsx, ConversationComposer.tsx, conversations.css;
