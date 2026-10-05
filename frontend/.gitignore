@@ -1,5 +1,5 @@
 node_modules/
 .next/
 coverage/
-test-results/e2e/
+test-results/
 *.tsbuildinfo

@@ -1,0 +1,141 @@
+{
+  "case_count": 11,
+  "cases": [
+    {
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The evidence states session count and registration details, not a participation fee. Structured refusal is correct.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "d0011476f94b0e7ea5c41b128a8222b8f8de362302925fbf8a490d7571a7e247",
+      "case_id": "metadata_year",
+      "decision_correct": false,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer substitutes the bulletin edition year for an event year not stated in evidence. Its event-year claim is unsupported; ANSWER and E1 citation are incorrect.",
+      "stated_claims_supported": false,
+      "status": "FAIL",
+      "supporting_alias_correct": false
+    },
+    {
+      "answer_sha256": "a36456b8129cb19e00cc3c25287eb7c3f666e8716fe1dbb53b2136b2942c2119",
+      "case_id": "explicit_prohibition",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer preserves the explicit solvent prohibition and cites its supporting E1. It makes no additional claim.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "95b2a6b3118d2b13e469980763e35e4ab40cf607c5d12d4a5d5d1e76b5972b7a",
+      "case_id": "support_after_distractor",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer states 18 degrees C, supported by E2; it does not cite the thermometer-check distractor E1.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "Machine inventory count and filter-replacement interval do not establish a warranty term. Structured refusal is correct.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "metadata_count",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The handbook part number and broad program sections do not establish a mandatory performance count. Structured refusal is correct.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "79fee0479d5029d6e6a9e44007415c2547721425dda604d0f74c4eb4b5597e4f",
+      "case_id": "prohibited_requirement",
+      "decision_correct": true,
+      "relevant_qualification_complete": false,
+      "repetition": 1,
+      "review_note": "The answer says personal-phone entry is not mandatory; the source says not to enter it. No optional-entry claim is made, but the prohibition is weakened and omitted from the answer.",
+      "stated_claims_supported": true,
+      "status": "FAIL",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "dc49edf6c90f7ecedf149f73985900c052f3f92fc11a8b490b3ddcf9b378cf3b",
+      "case_id": "support_after_related_rule",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer preserves the exact 82 percent humidity requirement from E2 and does not substitute form identifier 65.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "0473f96d863f44df5ade3af22acfc0cc8ca91a67f0ceb717681e5dbbffa1ad12",
+      "case_id": "caveat_after_distractor",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer includes the ordinary four bottles, the two-bottle exception, the supply-station condition and captain confirmation, all supported by E2.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "28d42bc5bb8cb6d7347b2e75f0d75520460f78dc2176a75c5ce83e21518a3b8e",
+      "case_id": "rule_with_exception",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer includes three samples, the new-glaze two-sample exception and curator approval, all supported by E1.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    },
+    {
+      "answer_sha256": "6a0841eacc5d0c09c513c4e68b5885184a3a60be2c6c67e9642c7a094b7c1083",
+      "case_id": "wrapped_current_question",
+      "decision_correct": true,
+      "relevant_qualification_complete": true,
+      "repetition": 1,
+      "review_note": "The answer addresses current humidity question with fresh E1 value 82, ignoring prior assistant claims about 65 and six bottles.",
+      "stated_claims_supported": true,
+      "status": "PASS",
+      "supporting_alias_correct": true
+    }
+  ],
+  "failed_count": 2,
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "generation_expected_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "held_out": false,
+  "independent_review": "Root confirmed both failures from the private capture.",
+  "literal_report_sha256": "5f7695f5cb350bf8b6a77e3d2f1390f50628fdabb607ed968d702e1e250bde05",
+  "observed_at": "2026-10-01T07:14:18.993960+00:00",
+  "passed_count": 9,
+  "private_responses_sha256": "8e6266c447be8f4276ff8c55113a4eab2b4f00de6d8b472623d5f86f75428c64",
+  "review_method": "Agent read each exact captured response against the separately defined fixture evidence; no automatic regex or model judge determined these outcomes.",
+  "reviewer_role": "provider implementation agent",
+  "schema_version": 1,
+  "scope": "synthetic_development_semantic_inspection",
+  "status": "FAIL",
+  "system_prompt_sha256": "801a53b4773fa10963b02e7c0cd72845008ce1679bb305bff81522b671cf878a"
+}

@@ -1,0 +1,147 @@
+{
+  "browser_gate": "NOT_EVALUATED",
+  "case_count": 11,
+  "cases": [
+    {
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "1870e31a65ec0a0c786adc9bd11bda902ec15b687af885fb999c3ccfe3b8c3ca"
+    },
+    {
+      "answer_sha256": "d0011476f94b0e7ea5c41b128a8222b8f8de362302925fbf8a490d7571a7e247",
+      "case_id": "metadata_year",
+      "passed": false,
+      "reason": "Publication metadata is substituted for an absent event fact; the cited source does not entail the answer.",
+      "repetition": 1,
+      "response_sha256": "685c2b901360d9f3ada670facac539facc1b9397480a2a49488ff3d0fa2d79e8"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "error": "GENERATION_OUTPUT_INVALID",
+      "passed": false,
+      "reason": "Extraction was rejected as invalid; no valid final response exists, so the case fails.",
+      "repetition": 1,
+      "response_sha256": "e0b3786ebda0ae7c4c6784d3b00c08b292bfe25ccae4a92d8315cd9f3cbd2a95"
+    },
+    {
+      "answer_sha256": "019115ec20077f05b58c2b39ea2c2ec28e771fc0601c8db78ba75f4add3debab",
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "fc476c904b2024a4d3853caeb869f9331fbcaac4a090143e72587d07cdcc4811"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "b488ab902af245e94d28935de6ac50ac1cd1d3143f77c6a2d7a362f2995fb044"
+    },
+    {
+      "answer_sha256": "bd8b20998599193b97d2bc56496730ab22d73a761d68f3edc1eeea0934971f83",
+      "case_id": "metadata_count",
+      "passed": false,
+      "reason": "Related structural sections are substituted for an absent item-count fact; the required refusal is not returned.",
+      "repetition": 1,
+      "response_sha256": "400e69ef10de19a29765bb7e4430b3da6fba49941e45eb2a47c795fa6f86d1a0"
+    },
+    {
+      "answer_sha256": "9d970be515730d9f8d4b3844e1d9c2677d324405b3c8ad71ec5ceccfea6e110c",
+      "case_id": "prohibited_requirement",
+      "passed": false,
+      "reason": "Response weakens an explicit prohibition into an optional requirement despite source membership validation.",
+      "repetition": 1,
+      "response_sha256": "bc0afac1d86a55d379f8d9f2b0217be9679ef9a8595bfc110f72e178d777cefb"
+    },
+    {
+      "answer_sha256": "5bd66c8f73ff04ed1956807310b0d1124ae5c75c115e196b8867a720f7a1d479",
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "a8c1235311f6e8f5224eead9c690696275dc880d0223a31069b0140f8e166bc3"
+    },
+    {
+      "answer_sha256": "710909197aa4504c5ffb01aa94e4f7e6145b464739ea6064262fba2a72480802",
+      "case_id": "caveat_after_distractor",
+      "passed": false,
+      "reason": "Response makes a conditional alternative universal and omits the ordinary rule and approval conditions.",
+      "repetition": 1,
+      "response_sha256": "470228dc66d1b5ea24a2bd134f76cf0fc178c02e4f780244b0c58171499fa437"
+    },
+    {
+      "answer_sha256": "4e55c3a8ad6b7d56a9169859b6673df4976c9f10d0b761f7e517f3900a59b53d",
+      "case_id": "rule_with_exception",
+      "passed": true,
+      "reason": "Ordinary requirement, conditional exception, and required approval are all preserved and supported; redundant wording does not change meaning.",
+      "repetition": 1,
+      "response_sha256": "d9fddebb804767fd383851c6e73a3cee4d62c6017b546fcf9e4ec61a008ed2da"
+    },
+    {
+      "answer_sha256": "6a0841eacc5d0c09c513c4e68b5885184a3a60be2c6c67e9642c7a094b7c1083",
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "c837200392d7461c58be12d27cacf879536c5fc3a9d0a44e9b9907b93d2a04cd"
+    }
+  ],
+  "code_provenance": {
+    "git_commit": "b94a278c26e3a50d7dc383f4d4b55f7568dc743c",
+    "git_tree": "98aed5c2953c2547dcdfd98812ffde9b21f35469"
+  },
+  "comparison_to_thinking_probe": {
+    "caveat_after_distractor": "PASS_TO_FAIL",
+    "explicit_prohibition": "PASS_TO_ERROR",
+    "metadata_count": "PASS_TO_FAIL",
+    "metadata_year": "PASS_TO_FAIL",
+    "prohibited_requirement": "FAIL_TO_FAIL",
+    "rule_with_exception": "FAIL_TO_PASS"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "deployment_selection": false,
+  "diagnostic_limit": "Rejected extraction is not retained; its precise mechanical rejection reason cannot be established from these normalized results.",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "followup_diagnostic": {
+    "case_id": "explicit_prohibition",
+    "inference_payload_changed": false,
+    "observed_boundary": "extracted_quote_capitalization_differs_from_source",
+    "outcome": "GENERATION_OUTPUT_INVALID",
+    "private_artifact_sha256": "2b01d3015f16e11fd440aa80d7ae15e7230cedf115eeda7b41e30f9dd2f4c046",
+    "scope": "one_case_diagnostic_not_acceptance",
+    "score_transfer": false
+  },
+  "generation_expected_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "independent_review": true,
+  "independent_review_artifact_sha256": "e18e7f62c0738afc35b3ef849e7719d93188671076c009e07856b9e8d97a5836",
+  "literal_report_sha256": "e896364d5f7696b273996f5a0717d90dd1f5aa5183c02994cbbbad3c11a2d9e3",
+  "model": "qwen3:8b",
+  "original36_gate": "NOT_EVALUATED",
+  "private_responses_sha256": "e197a7376ab6e668ebc1fd56f8e4f32678bed28d0a207521ac96442bb6dd21e5",
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1",
+  "response_binding_json_encoding": "UTF-8; ensure_ascii=True; sort_keys=True; separators=(comma,colon)",
+  "response_binding_scheme": "fixture-prompt-policy-case-repetition-result-or-error-canonical-json-sha256-v1",
+  "reviewer_role": "independent semantic/spec review agent",
+  "revised36_gate": "NOT_EVALUATED",
+  "sampling_profile": "greedy-v1",
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_normalized_final_responses",
+  "semantic_passed_count": 6,
+  "status": "FAILED_PRELIMINARY_GATE",
+  "system_prompt_sha256": "9664672141a356686055248b3174e50d956b198f575561f91f2458b89011077a",
+  "verification": {
+    "answer_hashes_verified": 10,
+    "error_records_verified": 1,
+    "extraction_schema_verified": true,
+    "fixture_verified": true,
+    "normalized_final_responses_only": true,
+    "request_messages_verified": 11,
+    "response_hashes_computed": 11
+  }
+}

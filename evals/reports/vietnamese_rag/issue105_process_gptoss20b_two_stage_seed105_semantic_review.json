@@ -1,0 +1,133 @@
+{
+  "code_provenance": {
+    "git_commit": "ae3000af3ba23afb55b516503321da03475dfe64",
+    "git_tree": "93bde1f6357d004595f0af997de186c84f8317d7"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "held_out": false,
+  "latency_seconds": {
+    "max": 147.83,
+    "min": 56.602
+  },
+  "observation_count": 11,
+  "observation_failure_count": 0,
+  "presentation_observations": {
+    "duplicate_source_clause_case_count": 4,
+    "duplicate_source_clause_case_ids": [
+      "explicit_prohibition",
+      "prohibited_requirement",
+      "caveat_after_distractor",
+      "rule_with_exception"
+    ],
+    "outside_unchanged_semantic_rubric": true
+  },
+  "private_responses_sha256": "0cd751fb24dc871621b72ad29fe4cebce9c20b78b477eb174290fd7a9a01d79b",
+  "provenance_checks": {
+    "actual_medium_request_metadata": 22,
+    "aggregate_usage_and_parent_deadline_metadata_verified": true,
+    "audit_request_construction_source_and_tests_verified": true,
+    "audit_user_message_hash_limitation": "The recorded AUDIT user hash cannot be reconstructed from final-only artifacts because its untrusted provisional selection was deliberately discarded. Committed source and adapter tests verify that AUDIT copies the complete original question and evidence before adding the provisional selection. This review does not claim reconstruction of AUDIT bodies or hashes.",
+    "audit_user_message_hashes_reconstructed": 0,
+    "committed_two_stage_prompt_schema_and_fixture": true,
+    "extract_user_message_hashes_reconstructed": 11,
+    "generation_model_and_fixed_digest_binding_verified": true,
+    "ordered_extract_audit_pairs": 11,
+    "parent_child_production_runtime_hashes": 11,
+    "per_stage_response_bounds_enforced_in_committed_transport": true,
+    "probe_source_hashes_match_measured_commit": true,
+    "strict_private_final_projection_no_thinking_or_intermediate_fields": true
+  },
+  "public_report_sha256": "485cf20daf3a375deb7daef7d2b0de2106f05a20da2bfa96da1e52f5ff3c8378",
+  "raw_thinking_persisted": false,
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-extraction-two-stage-v1:seed105",
+  "review_private_verdict_sha256": "60e927d6f46037d73c766dfe0c925d89ad4d19f63f806ea9a78fa1fc86133b58",
+  "reviewer": "/root/review105_two_stage",
+  "reviews": [
+    {
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason_code": "MISSING_PROPERTY_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "e219f9439773526207826610ba5a906fab113d753af228d35ff5f195c21d4c21"
+    },
+    {
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason_code": "METADATA_NOT_ANSWER_EVIDENCE",
+      "repetition": 1,
+      "response_sha256": "962f36968656133e26a5129e35c14f7e80ace896d2ea0a791db8956080934d94"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason_code": "PROHIBITION_PRESERVED",
+      "repetition": 1,
+      "response_sha256": "f6f5ade34877485f36bff9da1fcf1ad3a4b40162a04dfeae0a3f1185f775601a"
+    },
+    {
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason_code": "EXACT_PROPERTY_RELEVANT_CITATION",
+      "repetition": 1,
+      "response_sha256": "ab21c14ac135f7db5bf08b6b56bec6b83955aae3becac1c38a2285eac869a386"
+    },
+    {
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason_code": "MISSING_PROPERTY_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "273918ba3275a203c181ae4d07b71a196b4c5d5787937ac94095523aa64fb85c"
+    },
+    {
+      "case_id": "metadata_count",
+      "passed": true,
+      "reason_code": "REQUESTED_UNIT_ABSENT_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "f4a8d731fdd9c004ca66acad404d086a7ccfd191f2252477d2519a5869ab845f"
+    },
+    {
+      "case_id": "prohibited_requirement",
+      "passed": true,
+      "reason_code": "PROHIBITION_PRESERVED",
+      "repetition": 1,
+      "response_sha256": "7c528df3bfa2e8c7d144242dd6ab4a54e8873a8f647e927445eadbd07e28785c"
+    },
+    {
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason_code": "EXACT_PROPERTY_RELEVANT_CITATION",
+      "repetition": 1,
+      "response_sha256": "be50d22579123ac376fcab7388d5d2ea9fd581ba00f101979028383c9b7a947b"
+    },
+    {
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason_code": "QUALIFIED_ALTERNATIVE_COMPLETE",
+      "repetition": 1,
+      "response_sha256": "bf5e3861cd93a64b5e3898af8cf2ead1fc34587dbbab7e900aa048f026988d64"
+    },
+    {
+      "case_id": "rule_with_exception",
+      "passed": true,
+      "reason_code": "QUALIFIED_ALTERNATIVE_COMPLETE",
+      "repetition": 1,
+      "response_sha256": "cc9ba4e7ff0bdbb772e7bfb2c1da3e79b2d0b2aa28f5d544737160021f1cc278"
+    },
+    {
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason_code": "UNTRUSTED_HISTORY_IGNORED",
+      "repetition": 1,
+      "response_sha256": "69fcd3b226123aeabb6843c800892ce0fe17b5c1b60d845fd6d0fb0b98005cfb"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_synthetic_development_finals",
+  "semantic_failed_count": 0,
+  "semantic_passed_count": 11,
+  "semantic_unscorable_count": 0,
+  "system_prompt_sha256": "cb6dadb11ffeff87ee779e26b6b264e4e960f6d191949661b77cd1c19a67463d",
+  "transport_gate": "PROVIDER_PROBE_NOT_CONVERSATION"
+}

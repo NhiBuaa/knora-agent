@@ -1,0 +1,111 @@
+{
+  "code_provenance": {
+    "git_commit": "24cc845a05277ad4bd52acc3150bb84c95cdc1d2",
+    "git_tree": "757d8adc801cc04b03eaf19e5a2f55cb2664344d"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "held_out": false,
+  "observation_count": 11,
+  "observation_failure_count": 0,
+  "private_responses_sha256": "192fd07f62812fc13180bfb61b02605c898cf77c2793ce408489dde5709bc4c6",
+  "provenance_checks": {
+    "actual_request_metadata": 11,
+    "committed_v2_prompt_schema_and_fixture": true,
+    "parent_child_production_runtime_hashes": 11,
+    "probe_source_hashes_match_measured_commit": true,
+    "strict_private_final_projection_no_thinking_fields": true
+  },
+  "public_report_sha256": "9dd41012199ca9517b6b065d36d03ce49406f6736eb2d4c072b18fabd4e3fe58",
+  "raw_thinking_persisted": false,
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-extraction-v2:seed105",
+  "review_private_verdict_sha256": "0776caf1eebdbeba35ea36c8b3378f0f1009caaf42f51b5d2de4f1c2a05b3329",
+  "reviewer": "/root/review105_extraction_v2",
+  "reviews": [
+    {
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "6799d1327787b5bb34634929dea36377fb10c589b7b4d1523d94adf12c9a520f"
+    },
+    {
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "da257b183d28545fe760545284758aefc44cc919d128969584fd86d8c616eb95"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason_code": "SUPPORTED_PROHIBITION",
+      "repetition": 1,
+      "response_sha256": "a78f8fd9a7928d046cabe0db15459ed10904f09cbea63878c6a449e2d04f1f18"
+    },
+    {
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "6013fed40bf5cc1b39dc384075e621a44b9ed20b9d65c470332d92ba2460e34a"
+    },
+    {
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "7f2f5773c6dfac9f0505e58c5a0ea605a04ea51378762b377ba16ab05805898e"
+    },
+    {
+      "case_id": "metadata_count",
+      "passed": false,
+      "reason_code": "UNSUPPORTED_EXACT_COUNT",
+      "repetition": 1,
+      "response_sha256": "b1878b2c8c4ab77e9ecc69c20db532d64d14ae40d457290ee69fa0c1cf790668"
+    },
+    {
+      "case_id": "prohibited_requirement",
+      "passed": false,
+      "reason_code": "MODAL_FORCE_WEAKENED",
+      "repetition": 1,
+      "response_sha256": "da22fb012ab3918f054db2fe19c8374deaae1ac092150faeaa8c97566d618c1d"
+    },
+    {
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "afada06405e35eb73d376dbac5a7d91d78e3381ec6f31629461805434a8cc859"
+    },
+    {
+      "case_id": "caveat_after_distractor",
+      "passed": false,
+      "reason_code": "IRRELEVANT_CITED_EVIDENCE",
+      "repetition": 1,
+      "response_sha256": "cbfcd3ee7be256f22d4a0f127f5af40df3eac748218c86f33fc8ea206c4c7176"
+    },
+    {
+      "case_id": "rule_with_exception",
+      "passed": false,
+      "reason_code": "REQUIRED_EXCEPTION_OMITTED",
+      "repetition": 1,
+      "response_sha256": "fefeac43d90e5672a60f01b1d636b92a95fac899e4c7f8e7f276e99393b20e29"
+    },
+    {
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason_code": "CURRENT_QUESTION_GROUNDED",
+      "repetition": 1,
+      "response_sha256": "034be6b3cd330bca11f33389f29d204e14fc37896a3e3ac3c5c0aa9e7631dedb"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "independent_review_of_retained_normalized_finals",
+  "semantic_failed_count": 4,
+  "semantic_passed_count": 7,
+  "semantically_scorable_count": 11,
+  "status": "FAILED_PRELIMINARY_GATE",
+  "system_prompt_sha256": "a9d00210544190a70beb40fb7c541f1ad939d02112e69b99c8340ecc8fd1c0c9"
+}

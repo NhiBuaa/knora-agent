@@ -759,7 +759,11 @@ These rules are normative for Knora unless superseded by an approved Standard or
   Semantic citation correctness and faithfulness are evaluation concerns.
 - Question Trace stores generation status, the Evidence Alias mapping, parsed markers, validation
   outcome, provider/model, prompt version, token usage, latency, finish reason and provider request
-  ID when present. Chain-of-thought must neither be requested nor persisted.
+  ID when present. Chain-of-thought must neither be requested nor persisted. The owner-approved
+  Issue #105 model trials and GPT-OSS local generation support permit bounded internal reasoning
+  controls (`think` on Qwen trials, `think=low` on GPT-OSS). Prompts never ask for reasoning
+  disclosure; provider reasoning fields remain ephemeral and must not enter answers, traces,
+  logs, evaluation artifacts or Git. This exception does not establish semantic acceptance.
 
 ## Response delivery
 

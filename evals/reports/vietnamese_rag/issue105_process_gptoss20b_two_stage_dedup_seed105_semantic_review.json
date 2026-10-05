@@ -1,0 +1,141 @@
+{
+  "acceptance_scope": {
+    "conversation_gate": "NOT_EVALUATED",
+    "development_exposed": true,
+    "held_out": false,
+    "preliminary_only": true,
+    "production_readiness": "NOT_EVALUATED",
+    "release_gate": "NOT_EVALUATED"
+  },
+  "code_provenance": {
+    "git_commit": "387c7cb1f2d8af779be77f05d8ed5824d69c979b",
+    "git_tree": "d55cd5b1ac0073e60e50a9596a946a9b9727c245"
+  },
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "latency_observations": {
+    "deadline_or_supervisor_failures": 0,
+    "maximum_seconds": 171.06959240001743,
+    "measurement_count": 11,
+    "median_seconds": 101.198799100006,
+    "minimum_seconds": 66.70164579999982,
+    "outside_unchanged_semantic_rubric": true,
+    "scope": "parent_supervised_process_per_generate_including_startup_digest_and_both_calls",
+    "timing_comparison_to_prior_run": "UNCONTROLLED_SERVER_CHANGED_FROM_0.34.4_TO_0.35.0",
+    "total_seconds": 1098.2932295000064
+  },
+  "presentation_observations": {
+    "additional_note": "The Atlas final includes a supported but unnecessary administrative sentence before the requested prohibition.",
+    "cases": [],
+    "outside_unchanged_semantic_rubric": true,
+    "repeated_source_clause_case_count": 0
+  },
+  "private_responses_sha256": "893807c3df671c0fd4eb5b9c58d7dd74b6522745af8ab08d08ae5bfa26837660",
+  "provenance_checks": {
+    "actual_medium_request_metadata": 22,
+    "audit_user_message_hash_limitation": "AUDIT user hashes cannot be reconstructed from final-only artifacts because provisional selections were discarded. Committed source shows AUDIT copies original question and evidence then adds the untrusted provisional selection. No claim of reconstructing AUDIT request bodies.",
+    "audit_user_message_hashes_reconstructed": 0,
+    "committed_two_stage_prompt_schema_and_fixture": true,
+    "extract_user_message_hashes_reconstructed": 11,
+    "generation_model_and_fixed_digest_binding_verified": true,
+    "ordered_extract_audit_pairs": 11,
+    "parent_child_production_runtime_hashes": 11,
+    "probe_source_hashes_match_measured_commit": true,
+    "runtime_before_after_same_server_model_digest_and_template": true,
+    "runtime_snapshots_are_not_mid_run_attestation": true,
+    "runtime_version": "0.35.0",
+    "strict_private_final_projection_no_thinking_or_intermediate_fields": true
+  },
+  "public_report_sha256": "dd558d0b374c4ade35cdecdf9b310e816f9d9e318504e71977c7f0264b520c0a",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-extraction-two-stage-dedup-v1:seed105",
+  "response_binding": "SHA256 of UTF-8 JSON with ensure_ascii=True, sort_keys=True, separators=(comma,colon), comprising fixture_sha256, system_prompt_sha256, request_policy_id, case_id, repetition and result or error; excludes answer_sha256.",
+  "review_count": 11,
+  "review_private_verdict_sha256": "ccf3cff0aba98ed867a670ded8507952d2f7df9855207f52cc1198040546c61c",
+  "reviewed_at": "2026-10-02T16:47:57.348658+07:00",
+  "reviewer": "/root/review105_dedup_final",
+  "reviews": [
+    {
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason_code": "MISSING_PROPERTY_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "d9ff846895a76e8eed4e9ccb46970f3e613c299f5c9579adee3ba481710c0c5b"
+    },
+    {
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason_code": "METADATA_NOT_ANSWER_EVIDENCE",
+      "repetition": 1,
+      "response_sha256": "71df9e82c1a6d1d29d2a68fabbf0e590736e1d9bd68ad698cfdced4668d91cf7"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason_code": "PROHIBITION_PRESERVED",
+      "repetition": 1,
+      "response_sha256": "9531a3b8ed7fa0e32f9810265d78c0a062759dac163c242c5297cd98554fc011"
+    },
+    {
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason_code": "EXACT_PROPERTY_RELEVANT_CITATION",
+      "repetition": 1,
+      "response_sha256": "0867d0405a58d5655139bad562e1b7c5f3d17afb5d79b2b91b5ce267991f03b5"
+    },
+    {
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason_code": "MISSING_PROPERTY_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "ac63df05e48fcb8d0e352df15fe09b834e389dd814397e1724af488049af2c7c"
+    },
+    {
+      "case_id": "metadata_count",
+      "passed": true,
+      "reason_code": "REQUESTED_UNIT_ABSENT_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "b578b8d13f2619c7f8b0a7ca5f44d91b96c4daed0d36aff57f2c9c1551c55cc3"
+    },
+    {
+      "case_id": "prohibited_requirement",
+      "passed": true,
+      "reason_code": "PROHIBITION_PRESERVED",
+      "repetition": 1,
+      "response_sha256": "b0771a516ec28fe5fff57199c7e0b1f0fd3994db8f01fb4959b925b0765d13d4"
+    },
+    {
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason_code": "EXACT_PROPERTY_RELEVANT_CITATION",
+      "repetition": 1,
+      "response_sha256": "b1ea8ab096b1b1fb25a1e1e11ecd8b561164be7a7ed0988eda8a82550501ecb9"
+    },
+    {
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason_code": "QUALIFIED_ALTERNATIVE_COMPLETE",
+      "repetition": 1,
+      "response_sha256": "1d70f3936e6a7fa43b51a8d153b8e52c31019d0cb115a48506625da926162d67"
+    },
+    {
+      "case_id": "rule_with_exception",
+      "passed": true,
+      "reason_code": "QUALIFIED_ALTERNATIVE_COMPLETE",
+      "repetition": 1,
+      "response_sha256": "93045b20cbaacdf3a1703951803812cdb21ffe0cc615187c1e055d98356fca18"
+    },
+    {
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason_code": "UNTRUSTED_HISTORY_IGNORED",
+      "repetition": 1,
+      "response_sha256": "8befd1f2561e75d6fe998e3e41d9c0bfc7f04048fcd8dd80911cb1d2b01774e1"
+    }
+  ],
+  "runtime_observation_sha256": "343d02cb95fc0a126c345c45dfcba4b75313ec30723160ca9bd337f683220f95",
+  "schema_version": 1,
+  "scope": "synthetic_development_final_only_semantic_review",
+  "semantic_failed_count": 0,
+  "semantic_passed_count": 11,
+  "semantic_unscorable_count": 0,
+  "system_prompt_sha256": "cb6dadb11ffeff87ee779e26b6b264e4e960f6d191949661b77cd1c19a67463d"
+}
