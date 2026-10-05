@@ -41,6 +41,13 @@ docs/development/figma-ui-visual-coverage.md.
 
 **Modify:** frontend/playwright.config.ts only for an explicit deterministic visual project;
 existing live E2E tests when accessible names intentionally change.
+Also allow the dedicated frontend/playwright.figma.config.ts and Figma environment/auth support
+from I1 for fixture/live projects; preserve the existing M5 fixed-endpoint guards. Add a test-only
+fixture server/component host under frontend/tests/e2e/support if necessary to compose actual
+modules with production CSS/local fonts. No fixture routes in the production application.
+Existing live test helpers may consume explicitly derived Figma-harness endpoints under this
+separate config; arbitrary ambient endpoint overrides must still be rejected. Default M5 runner
+and daily service behavior remain compatible.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
@@ -105,6 +112,9 @@ git diff --check
 Use the repository's isolated E2E stack/setup and current environment guardrails. A missing service,
 database or browser is a verification limitation, never a passing test. Do not point tests at live
 accounts or bypass the local endpoint guardrails. Capture build/provider version and dependency SHAs.
+With daily services running, run live identity/Figma and existing live regression scenarios through
+the reviewed dedicated Figma config/harness on its fixed alternate ports; record that exact command
+beside the conventional command above. Do not stop/reset daily services to obtain the old M5 ports.
 
 - [ ] Confirm cross-workspace isolation, owner preference, auth-before-lookup, expired sessions,
   idempotent retries, stale revisions, source/derivation identity, historical citation provenance,

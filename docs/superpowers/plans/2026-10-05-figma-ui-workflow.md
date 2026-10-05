@@ -164,6 +164,7 @@ frontend/
 ├── generated/knora-openapi.ts                   [~ F1, chỉ exporter]
 ├── tests/                                      [~] xem mục 5
 ├── postcss.config.mjs                           [+ F2]
+├── playwright.figma.config.ts                  [+ I1; ~ Q1] isolated identity/visual/live config
 ├── package.json, package-lock.json              [~ F2]
 ├── middleware.ts                               [~ I3 nếu cần public error routes]
 └── playwright.config.ts                        [~ Q1]
@@ -188,7 +189,9 @@ backend/
     ├── adapters/postgres/                      [~ F1] projection/query/cursor
     │   └── test_document_ui_projection.py      [+ F1]
     ├── api/test_openapi_contract.py             [~ F1]
-    └── config/test_keycloak_theme.py            [~ I1/I2]
+    └── config/
+        ├── test_keycloak_theme.py              [~ I1/I2]
+        └── test_figma_e2e_harness.py            [+ I1] exact isolated project/port guards
 infra/keycloak/
 ├── Dockerfile                                  [~ I2]
 └── providers/email-otp-reset/                   [+ I2] Java build độc lập
@@ -225,8 +228,12 @@ themes/knora/
 scripts/
 ├── export_openapi.py                           [=] sinh frontend contract
 ├── configure-keycloak-theme.ps1                [=] tooling theme hiện có
+├── prepare-figma-e2e.ps1                        [+ I1/I2] idempotent isolated test harness
 └── configure-keycloak-auth-flow.ps1             [+ I1/I2] targeted realm migration
-test/fixtures/keycloak/dev-realm.json             [~ I1/I2] fresh realm test/dev
+test/fixtures/keycloak/
+├── dev-realm.json                              [~ I1/I2] fresh realm test/dev
+└── figma-realm.json                            [+ I1/I2] isolated test callback/realm fixture
+docker-compose.figma-e2e.yml                    [+ I1/I2] standalone task-only test graph
 docs/
 ├── design/figma-ui-inventory-2026-10-05.json      [đã tạo khi lập plan]
 ├── research/keycloak-email-otp-reset-2026-10-05.md [đã tạo]
@@ -295,7 +302,11 @@ frontend/tests/
     ├── figma-identity.spec.ts                   [I1–I3]
     ├── figma-ui-visual.spec.ts                  [Q1]
     ├── figma-ui-interactions.spec.ts            [Q1]
-    └── support/figma-state-fixtures.ts          [Q1]
+    └── support/
+        ├── figma-environment.ts, figma-auth.ts  [I1; ~ Q1] fixed isolated test contracts
+        ├── figma-environment.test.ts           [I1] ambient endpoint rejection
+        ├── figma-state-fixtures.ts             [Q1]
+        └── figma-fixture-*                     [Q1 if needed] test-only host/server
 ~~~
 
 Baselines theo quy ước snapshot của Playwright; failure traces/video/screenshots vào

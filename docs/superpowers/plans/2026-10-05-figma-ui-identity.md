@@ -56,6 +56,17 @@ and .gitattributes (`*.svg -text`). Copy original bytes from the shared Figma ca
 intrinsic dimensions, and verify rendered geometry. Use Keycloak resource URLs rather than Next
 public URLs; later I2/I3 append only assets with their own designed callsites.
 
+**Isolated test harness:** create docker-compose.figma-e2e.yml, scripts/prepare-figma-e2e.ps1,
+test/fixtures/keycloak/figma-realm.json, frontend/playwright.figma.config.ts,
+frontend/tests/e2e/support/figma-environment.ts, figma-auth.ts, figma-environment.test.ts and
+backend/test/config/test_figma_e2e_harness.py. These are test infrastructure for the approved
+real-browser requirement. Use project knora-figma-e2e and fixed loopback ports: frontend3300,
+API8800, Keycloak8380, Postgres5543, Minio9900/9901, test SMTP1025/mailbox8025. Recheck availability.
+Validate exact project, ports, realm and ambient override rejection before mutations. Use separate
+Keycloak/Postgres database and project-namespaced volumes, idempotent migrations/fixture setup;
+ordinary startup must not delete/reset resources. Preserve daily services and all existing M5
+endpoint guards/configuration. I2 extends this harness for the real provider/two-node proof.
+
 **Consumes:** F2 local brand/font assets; pinned native templates and form contract.
 **Produces:** branded templates retaining Keycloak native loginAction, field names, hidden state,
 validation and escaping. Account menu remains an application component from F2/I3.
@@ -67,6 +78,9 @@ the current verifyEmail setting and document it. Use a test SMTP server for rese
 
 - [ ] Add real-browser failing checks for sign-in default/invalid, registration default/validation,
   successful registration landing in NO_ACTIVE_WORKSPACE, and password confirmation/policy errors.
+- [ ] Establish the isolated harness and guard tests before live identity checks. Derive only the
+  test realm/client callback for frontend3300; keep daily/dev fixture endpoints compatible. Do not
+  run the existing destructive prepare-local-e2e script against running daily services.
 - [ ] Adapt native 26.3.3 templates to the Figma layout, using the existing local fonts and exported
   assets. Keep any Figma display-name field mapped to explicit Keycloak profile fields; do not
   create a Knora password/profile store.
