@@ -11,6 +11,7 @@
   --action-hover: #2F9555;
   --action-active: #2D9052;
   --action-foreground: #0B1412;
+  --action-text: #1E6A41;
   --signature: #784131;
   --signature-foreground: #FFFFFF;
   --border: #D9E2DE;
@@ -35,6 +36,7 @@
   --action-hover: #69CF8B;
   --action-active: #3DA965;
   --action-foreground: #0B1412;
+  --action-text: #83DCA4;
   --signature: #C68F79;
   --signature-foreground: #0B1412;
   --border: #2A3D36;
@@ -60,6 +62,7 @@
     --action-hover: #69CF8B;
     --action-active: #3DA965;
     --action-foreground: #0B1412;
+    --action-text: #83DCA4;
     --signature: #C68F79;
     --signature-foreground: #0B1412;
     --border: #2A3D36;

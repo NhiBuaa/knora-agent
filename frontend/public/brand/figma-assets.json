@@ -1,0 +1,32 @@
+{
+  "fileKey": "BOVOx0bt1qYJFg9nBq6EaQ",
+  "capturedAt": "2026-10-05",
+  "assets": [
+    {
+      "nodeIds": ["20:2", "20:3"],
+      "path": "/brand/knora-leaf.svg",
+      "intrinsicSize": [18, 18],
+      "sha256": "FDA63DFBB12011B92EB338979D40482A202F6486D07231D339D42DCE778B72B3"
+    },
+    {
+      "nodeIds": ["21:73", "I21:73;20:3"],
+      "path": "/brand/knora-leaf-large.svg",
+      "intrinsicSize": [54, 54],
+      "sha256": "04AB031DCFF02669D8DF48374BAA0AD0CE29D26809913BC8BD5B5EC316C2A6E3"
+    },
+    {
+      "nodeIds": ["21:40"],
+      "path": "/brand/orbit-inner.png",
+      "intrinsicSize": [660, 420],
+      "designSize": [330, 210],
+      "sha256": "6D5CD26BA8B5C7DF62EE692EFC1E16DFF386F6A74FB9FC696316349EBAAA08B6"
+    },
+    {
+      "nodeIds": ["21:41"],
+      "path": "/brand/orbit-outer.png",
+      "intrinsicSize": [860, 552],
+      "designSize": [430, 276],
+      "sha256": "BDF6852BCAC14FFEE4B5C76266D012572DE432549057621FB79308F9E8711AFD"
+    }
+  ]
+}

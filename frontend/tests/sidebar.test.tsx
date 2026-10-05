@@ -143,6 +143,36 @@ describe("Workspace sidebar", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("dismisses the drawer backdrop and restores its trigger", () => {
+    render(
+      <MobileDrawer>
+        <a href="/workspaces">Workspaces</a>
+      </MobileDrawer>,
+    );
+    const trigger = screen.getByRole("button", { name: "Menu" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(
+      screen.getByRole("dialog", { name: "Workspace navigation" }),
+      { clientX: -1, clientY: -1 },
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("skips hidden and disabled controls when trapping drawer focus", () => {
+    render(
+      <MobileDrawer>
+        <a href="/workspaces">Workspaces</a>
+        <button disabled>Disabled</button>
+        <button hidden>Hidden</button>
+      </MobileDrawer>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("link", { name: "Workspaces" })).toHaveFocus();
+  });
+
   it("reuses one creation key after an ambiguous Conversation response", async () => {
     const fetchMock = vi
       .fn()

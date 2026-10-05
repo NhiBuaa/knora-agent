@@ -1,5 +1,4 @@
 import React, { type AriaAttributes, type ReactElement } from "react";
-import "../../styles/controls.css";
 
 type ControlProps = {
   id?: string;
@@ -36,7 +35,10 @@ export function Field({ id, label, hint, error, children }: FieldProps) {
       .join(" ") || undefined;
   const control = React.cloneElement(children, {
     id,
-    className: ["kn-field__control", children.props.className]
+    className: [
+      "kn-field__control w-full rounded-lg border border-control-border bg-surface text-text-primary",
+      children.props.className,
+    ]
       .filter(Boolean)
       .join(" "),
     "aria-describedby": describedBy,

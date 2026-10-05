@@ -1,5 +1,4 @@
 import React, { type HTMLAttributes, type ReactNode } from "react";
-import "../../styles/controls.css";
 
 export type EmptyStateProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   title: ReactNode;
@@ -15,7 +14,10 @@ export function EmptyState({
   ...props
 }: EmptyStateProps) {
   return (
-    <div {...props} className={`kn-empty-state ${className}`.trim()}>
+    <div
+      {...props}
+      className={`kn-empty-state text-text-primary ${className}`.trim()}
+    >
       <h2>{title}</h2>
       {description && <p>{description}</p>}
       {action && <div className="kn-empty-state__action">{action}</div>}

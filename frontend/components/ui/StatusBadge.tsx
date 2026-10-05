@@ -1,5 +1,4 @@
 import React, { type HTMLAttributes } from "react";
-import "../../styles/controls.css";
 
 export type StatusBadgeProps = HTMLAttributes<HTMLSpanElement> & {
   kind: "success" | "warning" | "error" | "info";
@@ -17,7 +16,7 @@ export function StatusBadge({
     <span
       {...props}
       data-kind={kind}
-      className={`kn-status-badge ${className}`.trim()}
+      className={`kn-status-badge inline-flex items-center rounded-full text-xs ${className}`.trim()}
     >
       <span aria-hidden="true" className="kn-status-badge__icon">
         {icons[kind]}

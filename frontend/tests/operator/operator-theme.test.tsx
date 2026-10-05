@@ -1,8 +1,16 @@
-// @vitest-environment node
-
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/operator" }));
+
+afterEach(cleanup);
 
 vi.mock("@/lib/auth/session", () => ({
   getSession: vi.fn(async () => ({
@@ -37,12 +45,21 @@ import OperatorLayout from "@/app/operator/layout";
 import { knoraRequest, KnoraApiError } from "@/lib/api/client";
 
 describe("operator theme access", () => {
-  it("retains one Appearance control after root theme control moves into product shells", async () => {
-    const markup = renderToStaticMarkup(
-      await OperatorLayout({ children: <p>Operations</p> }),
+  it("opens one Appearance control with the server supplied theme from the account menu", async () => {
+    render(await OperatorLayout({ children: <p>Operations</p> }));
+    fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
+    expect(
+      screen.getAllByRole("combobox", { name: "Appearance" }),
+    ).toHaveLength(1);
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
+      "dark",
     );
-    expect(markup).toContain("Appearance");
-    expect(markup).toContain('value="dark" selected=""');
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Primary navigation" }),
+      ).getByRole("link", { name: "Operator" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("keeps Workspace selection available when a signed hint is no longer owned", async () => {
@@ -51,10 +68,17 @@ describe("operator theme access", () => {
         return { items: [], next_cursor: null } as never;
       throw new KnoraApiError(403, null);
     });
-    const markup = renderToStaticMarkup(
-      await OperatorLayout({ children: <p>Operations</p> }),
+    render(await OperatorLayout({ children: <p>Operations</p> }));
+    expect(screen.getByText("Select a workspace")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    expect(
+      screen.getByRole("navigation", { name: "Workspace navigation" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
+      "dark",
     );
-    expect(markup).toContain("Select a workspace");
-    expect(markup).toContain("Appearance");
   });
 });
