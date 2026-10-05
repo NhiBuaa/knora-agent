@@ -157,7 +157,10 @@ frontend/
 │   └── controls.css                            [~ F2] layered/legacy controls
 ├── public/
 │   ├── fonts/                                  [=] Inter/Roboto Slab/licenses
-│   └── brand/                                  [+ F2] leaf/orbits/asset manifest
+│   ├── brand/                                  [+ F2] leaf/orbits/asset manifest
+│   └── icons/figma/                            [+ U1, later feature owners] exact originals
+│       ├── *.svg                               selector/no-results/status icons at real callsites
+│       └── figma-assets.json, .gitattributes     provenance/checksums, preserve SVG bytes
 ├── generated/knora-openapi.ts                   [~ F1, chỉ exporter]
 ├── tests/                                      [~] xem mục 5
 ├── postcss.config.mjs                           [+ F2]

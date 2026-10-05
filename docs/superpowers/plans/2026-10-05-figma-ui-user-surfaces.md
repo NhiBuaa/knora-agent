@@ -49,6 +49,13 @@ frontend/components/workspaces/WorkspaceShell.tsx (client composition host for t
 frontend/app/workspaces/archived/page.tsx;
 frontend/components/workspaces/workspaces.css.
 
+**Exact assets:** frontend/public/icons/figma/{23c31,21b31,a4e11,ed1ac}.svg,
+frontend/public/icons/figma/figma-assets.json and .gitattributes (`*.svg -text`).
+Copy only originals with actual U1 selector/no-results callsites from the shared Figma cache;
+preserve bytes and intrinsic root dimensions. Record provenance/checksums and verify effective
+browser geometry. U2 may add d9407.svg for its Documents selector and append the same manifest;
+later owners may append their own referenced icons. Do not create an icon framework.
+
 **Tests:** existing frontend/tests/workspace-preference.test.tsx,
 workspace-page-rendering.test.ts, canonical-entry.test.tsx;
 frontend/tests/user-pages.test.tsx and sidebar.test.tsx for existing lifecycle/navigation behavior;
