@@ -42,6 +42,9 @@ frontend/app/operator/layout.tsx for the bounded composition change that injects
 through an optional ReactNode slot. Keep server authentication/capability resolution unchanged.
 The shell must not import the Workspace feature; a feature-owned client composition host derives
 route context and supplies the selector. Preserve AppShell's existing caller contract.
+Also allow frontend/components/shell/MobileDrawer.tsx only for keyboard ownership when an open
+drawer launches a native feature Dialog: Escape/Tab must act on the top modal, then return focus
+to the still-open drawer. Preserve normal drawer Escape/focus trapping and all other behavior.
 
 **Create:** frontend/components/workspaces/WorkspaceSelector.tsx,
 CreateWorkspaceDialog.tsx, ArchiveWorkspaceDialog.tsx, ArchivedWorkspaceList.tsx;
@@ -59,6 +62,8 @@ later owners may append their own referenced icons. Do not create an icon framew
 **Tests:** existing frontend/tests/workspace-preference.test.tsx,
 workspace-page-rendering.test.ts, canonical-entry.test.tsx;
 frontend/tests/user-pages.test.tsx and sidebar.test.tsx for existing lifecycle/navigation behavior;
+frontend/tests/operator/operator-theme.test.tsx only to refresh its navigation mock for the new
+WorkspaceShell composition dependency;
 new frontend/tests/workspace-figma-flows.test.tsx.
 Refresh actual test filenames at task start if an existing file has moved.
 
@@ -95,6 +100,8 @@ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 ~~~
 
 - [ ] Run scoped Vitest, typecheck, format, format:check. Compare all 11 W nodes from the inventory.
+- [ ] Reproduce nested drawer Create/Archive Escape/Tab ownership before fixing it; cover modal
+  dismissal/focus return and subsequent normal drawer dismissal in focused tests/browser evidence.
 - [ ] Review/commit as feat: implement Figma workspace flows.
 
 ## Task 2: U2 — Documents, upload and detail lifecycle

@@ -109,7 +109,7 @@ frontend/
 │   │   └── Dialog.tsx, Menu.tsx                [+ F2]
 │   ├── shell/
 │   │   ├── AppShell.tsx                        [~ F2, U1 slot, U3 rail handoff]
-│   │   ├── MobileDrawer.tsx                    [~ F2]
+│   │   ├── MobileDrawer.tsx                    [~ F2; U1 modal keyboard ownership]
 │   │   ├── ProductHeader.tsx                   [+ F2]
 │   │   ├── AccountMenu.tsx                     [~ F2 rồi I3]
 │   │   └── WorkspaceSidebar.tsx                [~ U1]
