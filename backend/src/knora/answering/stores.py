@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol, overload
 
 from knora.answering.interface import QuestionResult
@@ -41,6 +41,14 @@ class RetrievalConfiguration:
             max_evidence_chunks=5,
             max_evidence_tokens=3000,
             overlap_policy="adjacent-token-overlap-v1",
+        )
+
+    @classmethod
+    def evidence_containment_v1(cls) -> "RetrievalConfiguration":
+        return replace(
+            cls.milestone_one(),
+            id="retrieval-evidence-containment-v1",
+            overlap_policy="adjacent-content-containment-v1",
         )
 
     @classmethod

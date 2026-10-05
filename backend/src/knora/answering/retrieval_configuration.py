@@ -31,6 +31,7 @@ class DeploymentRetrievalConfigurationResolver:
 def retrieval_configuration_for_id(configuration_id: str) -> RetrievalConfiguration:
     configurations = {
         "retrieval-m1-v1": RetrievalConfiguration.milestone_one(),
+        "retrieval-evidence-containment-v1": RetrievalConfiguration.evidence_containment_v1(),
         "retrieval-m3-rrf-v1": RetrievalConfiguration.milestone_three_hybrid(),
     }
     try:
@@ -55,7 +56,11 @@ def resolve_retrieval_configuration(
     configuration_id: str, *, vector_min_similarity: float | None
 ) -> RetrievalConfiguration:
     """Resolve the immutable deployment configuration, including calibrated v2 variants."""
-    if configuration_id in {"retrieval-m1-v1", "retrieval-m3-rrf-v1"}:
+    if configuration_id in {
+        "retrieval-m1-v1",
+        "retrieval-m3-rrf-v1",
+        "retrieval-evidence-containment-v1",
+    }:
         return retrieval_configuration_for_id(configuration_id)
     if configuration_id not in {"retrieval-m3-vector-v2", "retrieval-m3-rrf-v2"}:
         raise ValueError("unsupported retrieval configuration")

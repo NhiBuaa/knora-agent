@@ -1,12 +1,12 @@
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
 import pytest
 
 from knora.answering.interface import ConversationContext, QuestionCommand
 from knora.answering.module import AnswerQuestion
-from knora.answering.stores import QuestionTraceRecord, RetrievalCandidate
+from knora.answering.stores import QuestionTraceRecord, RetrievalCandidate, RetrievalConfiguration
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
@@ -20,9 +20,7 @@ class EmptyStore:
     incompatible: bool = False
     readiness_calls: list[tuple[str, str]] = field(default_factory=list)
 
-    def require_compatible_corpus(
-        self, workspace_id: str, embedding_configuration_id: str
-    ) -> None:
+    def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str) -> None:
         self.readiness_calls.append((workspace_id, embedding_configuration_id))
         if self.incompatible:
             raise KnoraError("REINDEX_REQUIRED")
@@ -291,6 +289,54 @@ class CandidateStore(EmptyStore):
 
     def retrieve_candidates(self, **kwargs) -> tuple[RetrievalCandidate, ...]:
         return self.candidates
+
+
+@pytest.mark.asyncio
+async def test_containment_sends_unique_fact_to_generation_and_projects_its_citation():
+    shared = "The report has seven sections."
+    store = CandidateStore(
+        candidates=(
+            replace(retrieval_candidate("chapter", 1), content=shared, page_start=1, page_end=1),
+            replace(
+                retrieval_candidate("date", 0),
+                content="Updated 2031-02-03. " + shared,
+                page_start=1,
+                page_end=1,
+            ),
+        )
+    )
+
+    class DateGenerator:
+        async def generate(self, *, question, evidence):
+            assert [(item.evidence_id, item.content) for item in evidence] == [
+                ("E1", shared),
+                ("E2", "Updated 2031-02-03. " + shared),
+            ]
+            return GenerationResult(
+                decision="ANSWER",
+                answer="2031-02-03. [[E2]]",
+                cited_evidence_ids=("E2",),
+                refusal_reason=None,
+                provider="deterministic-local",
+                model="test",
+                prompt_version="test",
+            )
+
+    result = await AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=DateGenerator(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration=RetrievalConfiguration.evidence_containment_v1(),
+    ).execute(
+        QuestionCommand(workspace_id="workspace-a", question="When was it updated?"),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+    )
+    assert result.decision == "ANSWER"
+    assert result.citations[0].content_checksum == "sha256:date"
+    assert result.citations[0].evidence_id == "E2"
+    assert result.citations[0].page_start == 1
+    assert store.traces[0].retrieval_configuration_id == "retrieval-evidence-containment-v1"
 
 
 class ReorderedGenerator:
@@ -576,8 +622,7 @@ async def test_follow_up_uses_context_without_treating_it_as_evidence() -> None:
         policy_id="conversation-context-v1",
         transcript='[{"question":"What does the guide cover?","answer":"Report structure."}]',
         retrieval_query=(
-            "Previous user question: What does the guide cover?\n"
-            f"Current question: {question}"
+            f"Previous user question: What does the guide cover?\nCurrent question: {question}"
         ),
         selected_turn_ids=("turn-prior",),
         token_count=31,
@@ -634,12 +679,10 @@ async def test_prior_answer_cannot_bypass_fresh_evidence_refusal_for_a_follow_up
     context = ConversationContext(
         policy_id="conversation-context-v1",
         transcript=(
-            '[{"question":"What did the last answer say?",'
-            '"answer":"Mars is made of cheese."}]'
+            '[{"question":"What did the last answer say?","answer":"Mars is made of cheese."}]'
         ),
         retrieval_query=(
-            "Previous user question: What did the last answer say?\n"
-            f"Current question: {question}"
+            f"Previous user question: What did the last answer say?\nCurrent question: {question}"
         ),
         selected_turn_ids=("turn-prior",),
         token_count=24,
