@@ -171,3 +171,43 @@ def test_containment_configuration_changes_only_identity_and_overlap():
         id="retrieval-evidence-containment-v1",
         overlap_policy="adjacent-content-containment-v1",
     )
+
+
+def test_qwen_containment_candidate_preserves_existing_deployment_policies():
+    from knora.answering.stores import RetrievalConfiguration
+
+    candidate = RetrievalConfiguration.qwen_containment_candidate_v2(
+        min_similarity=0.51, provenance_sha256="f" * 64
+    )
+    assert candidate.candidate_k == candidate.vector_candidate_k == 16
+    assert candidate.min_similarity == 0.51
+    assert candidate.max_evidence_chunks == 5
+    assert candidate.max_evidence_tokens == 3000
+    assert candidate.overlap_policy == "adjacent-content-containment-v1"
+    assert candidate.id == "retrieval-qwen-containment-candidate-v2-" + "f" * 24
+    assert RetrievalConfiguration.milestone_one().min_similarity == 0.65
+    assert RetrievalConfiguration.qwen_vietnamese_v1(
+        min_similarity=0.51, artifact_sha256="f" * 64
+    ).overlap_policy == "adjacent-token-overlap-v1"
+    with pytest.raises(ValueError, match="unsupported"):
+        retrieval_configuration_for_id(candidate.id)
+
+
+@pytest.mark.parametrize("threshold", [float("nan"), float("inf"), True, -1.1, 1.1])
+def test_qwen_candidate_rejects_invalid_threshold(threshold):
+    from knora.answering.stores import RetrievalConfiguration
+
+    with pytest.raises(ValueError, match="candidate"):
+        RetrievalConfiguration.qwen_containment_candidate_v2(
+            min_similarity=threshold, provenance_sha256="f" * 64
+        )
+
+
+@pytest.mark.parametrize("digest", ["", "diagnostic-unsealed", "a" * 63, "z" * 64])
+def test_qwen_candidate_requires_complete_provenance_digest(digest):
+    from knora.answering.stores import RetrievalConfiguration
+
+    with pytest.raises(ValueError, match="candidate"):
+        RetrievalConfiguration.qwen_containment_candidate_v2(
+            min_similarity=0.5, provenance_sha256=digest
+        )
