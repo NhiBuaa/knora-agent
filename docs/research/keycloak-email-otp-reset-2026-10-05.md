@@ -128,3 +128,60 @@ Build with Maven verify, then the existing Keycloak Dockerfile and repository ve
 The verify gate must include real-container and multi-node storage tests. Private SPI and overridden
 templates require rebuilding/retesting on Keycloak upgrades.
 [Theme upgrade guidance](https://github.com/keycloak/keycloak/blob/26.3.3/docs/documentation/server_development/topics/themes.adoc#L54-L57).
+
+## Pinned 26.3.3 I1/I2 source preflight
+
+2026-10-05: source inspection only; no provider implemented or tested. This confirms the
+preparation notes and leaves the storage decision and I2 proof gate open.
+
+### Implementation facts
+
+`SingleUseObjectProvider.remove` promises single-use removal across threads/nodes.
+`putIfAbsent` admits only an absent key; `replace` checks existence, with no expected-value
+argument or compare-and-swap contract. These methods alone do not specify atomic counters.
+[Interface](https://github.com/keycloak/keycloak/blob/26.3.3/server-spi/src/main/java/org/keycloak/models/SingleUseObjectProvider.java#L46-L69).
+
+The Infinispan provider enlists its transaction after completion. `put` queues a write;
+`get` reads through that transaction. Provider `remove`, `replace` and `putIfAbsent` call
+the cache directly. HotRod exceptions become `null` for removal and `false` for admission;
+`replace` does not have that exception translation.
+[Provider](https://github.com/keycloak/keycloak/blob/26.3.3/model/infinispan/src/main/java/org/keycloak/models/sessions/infinispan/InfinispanSingleUseObjectProvider.java#L43-L121).
+
+Queued writes execute on transaction commit; rollback clears them. The writer's `get`
+can see its queued value while another session reads the underlying cache. A second queued
+`put` for the same cache/key throws. Provider removal bypasses the transaction and therefore
+does not cancel its queued write. The transaction manager runs after-completion commits
+after successful main-transaction commits, or rolls them back if a main commit fails.
+[Cache transaction](https://github.com/keycloak/keycloak/blob/26.3.3/model/infinispan/src/main/java/org/keycloak/models/sessions/infinispan/InfinispanKeycloakTransaction.java#L61-L109),
+[transaction reads](https://github.com/keycloak/keycloak/blob/26.3.3/model/infinispan/src/main/java/org/keycloak/models/sessions/infinispan/InfinispanKeycloakTransaction.java#L170-L180),
+[completion ordering](https://github.com/keycloak/keycloak/blob/26.3.3/services/src/main/java/org/keycloak/services/DefaultKeycloakTransactionManager.java#L124-L148).
+
+The default profile requires `email`, `firstName` and `lastName` for the user role, with
+native permissions and validators. The supplied cached AU8/AU9 contract collects username,
+email, password and confirmation only. Omitting names in a template consequently requires
+a reviewed target-realm profile adjustment; it does not remove native requirements.
+[Default profile](https://github.com/keycloak/keycloak/blob/26.3.3/services/src/main/resources/org/keycloak/userprofile/config/keycloak-default-user-profile.json#L15-L52).
+Carry the approved optional-name adjustment into I1 inspect/diff/apply and rollback evidence,
+preserving existing values, permissions, validation and unrelated/custom attributes. Prove
+registration in the pinned real container; do not fabricate hidden names.
+
+### Inferences and I2 scheduling risks — not observed failures
+
+An immediately visible map mock cannot establish the candidate adapter's real contract.
+Releasing a reservation before deferred publication could admit a competing operation;
+immediate consume/removal could precede a queued write that restores the key. Likewise,
+`get` → increment → `replace` cannot establish account-wide budgets without a proven atomic
+protocol. These risks follow from the cited ordering, rather than an integration test result.
+
+Before connecting real password updates, schedule controlled two-session/two-node cases:
+
+- Pause after queued `put`, before completion; compete on account budget, generation rotation
+  and consume, then finish both commit orders. Check final state and one successful consume.
+- Exercise queued-write/removal ordering, duplicate queued writes, rollback after admission,
+  and failure during completion; reject extra valid generations or replenished budgets.
+- If reservations have leases, pause past expiry and resume the stale holder after takeover;
+  prove it cannot overwrite new state or remove another holder's reservation.
+- Test explicit expiry/window boundaries independently of cache eviction and fail-closed
+  ambiguous operations. Passing ordinary concurrent requests does not establish these schedules.
+
+If proof fails, use I2's approved design-revision seam before password integration.
