@@ -77,8 +77,8 @@ frontend/
 │   │   ├── unavailable/page.tsx
 │   │   └── failed/page.tsx
 │   ├── workspaces/
-│   │   ├── layout.tsx                          [~ F2] session + AppShell
-│   │   ├── shell.css                           [~ F2] migrate/scoped legacy CSS
+│   │   ├── layout.tsx                          [~ F2, U1] session + shell composition
+│   │   ├── shell.css                           [~ F2, U3] migrate/scoped legacy CSS
 │   │   ├── page.tsx                            [~ U1] list/no active workspace
 │   │   ├── archived/page.tsx                    [+ U1]
 │   │   └── [workspaceId]/
@@ -89,7 +89,7 @@ frontend/
 │   │       └── conversations/
 │   │           ├── page.tsx                    [~ U3]
 │   │           └── [conversationId]/page.tsx   [~ U3]
-│   ├── operator/                               [~ O1; layout thuộc F2]
+│   ├── operator/                               [~ O1; layout F2/U1 composition]
 │   │   ├── layout.tsx, page.tsx, operator.css
 │   │   ├── operations/{page,content}.tsx
 │   │   ├── traces/page.tsx
@@ -108,13 +108,15 @@ frontend/
 │   │   ├── EmptyState.tsx, PageHeader.tsx, ThemeControl.tsx
 │   │   └── Dialog.tsx, Menu.tsx                [+ F2]
 │   ├── shell/
-│   │   ├── AppShell.tsx, MobileDrawer.tsx       [~ F2]
+│   │   ├── AppShell.tsx                        [~ F2, U1 slot, U3 rail handoff]
+│   │   ├── MobileDrawer.tsx                    [~ F2]
 │   │   ├── ProductHeader.tsx                   [+ F2]
 │   │   ├── AccountMenu.tsx                     [~ F2 rồi I3]
 │   │   └── WorkspaceSidebar.tsx                [~ U1]
 │   ├── workspaces/
 │   │   ├── WorkspaceManagement.tsx, WorkspaceHome.tsx [~ U1]
 │   │   ├── WorkspaceSelector.tsx               [+ U1]
+│   │   ├── WorkspaceShell.tsx                  [+ U1] client composition host
 │   │   ├── CreateWorkspaceDialog.tsx           [+ U1]
 │   │   ├── ArchiveWorkspaceDialog.tsx          [+ U1]
 │   │   ├── ArchivedWorkspaceList.tsx           [+ U1]
@@ -265,6 +267,9 @@ components/ui không import feature/shell/API client. lib không import componen
 không import page.tsx; route phối hợp feature. WorkspaceSelector chỉ phụ thuộc ui và browser client,
 không import AppShell. Operator dùng interface của selector, không gọi nội bộ WorkspaceManagement.
 Nếu selector cần hiển thị trong shell, truyền qua composition slot để tránh vòng shell ↔ workspaces.
+WorkspaceShell là composition host thuộc feature: nhận context đã được xác thực từ server khi có,
+dùng route ID làm hint và truyền WorkspaceSelector vào slot ReactNode tùy chọn của AppShell /
+WorkspaceSidebar. Giữ server layout phụ trách session/capability; không đưa feature import vào shell.
 
 Chỉ các module dùng browser event/storage mới đặt “use client”. Giữ page/layout ở server khi có thể;
 không đổi toàn bộ root layout thành client chỉ để mở một modal.

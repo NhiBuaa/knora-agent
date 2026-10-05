@@ -37,9 +37,15 @@ verification-before-completion; Figma connector prerequisite when reading change
 frontend/components/shell/WorkspaceSidebar.tsx;
 frontend/app/workspaces/page.tsx, [workspaceId]/page.tsx;
 frontend/lib/navigation/routes.ts.
+Also allow frontend/components/shell/AppShell.tsx, frontend/app/workspaces/layout.tsx and
+frontend/app/operator/layout.tsx for the bounded composition change that injects WorkspaceSelector
+through an optional ReactNode slot. Keep server authentication/capability resolution unchanged.
+The shell must not import the Workspace feature; a feature-owned client composition host derives
+route context and supplies the selector. Preserve AppShell's existing caller contract.
 
 **Create:** frontend/components/workspaces/WorkspaceSelector.tsx,
 CreateWorkspaceDialog.tsx, ArchiveWorkspaceDialog.tsx, ArchivedWorkspaceList.tsx;
+frontend/components/workspaces/WorkspaceShell.tsx (client composition host for the shell slot);
 frontend/app/workspaces/archived/page.tsx;
 frontend/components/workspaces/workspaces.css.
 
@@ -65,6 +71,9 @@ type WorkspaceSelectorProps = {
   Test a match located on a later page through q; stale request responses must not replace a newer query.
 - [ ] Implement the selector and dialogs using shared primitives. Preserve backend resolver after
   archive/restore; never select a different identity's workspace from a stored preference.
+  Compose selector-in-shell through WorkspaceShell and the optional shell slot, as required by
+  the workflow's dependency rules. Route IDs are hints; resolve names/access with the authenticated
+  backend when absent from the first loaded page. Operator layout supplies only validated context.
 - [ ] Add /workspaces/archived before the dynamic workspace route resolves it as an ID.
   “Back” returns to a valid workspace or /workspaces; denied state does not disclose its name.
 - [ ] Verify this interaction expectation with the fixture's selected workspace:
