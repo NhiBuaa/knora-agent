@@ -375,6 +375,11 @@ database, Compose project and fault controls remain isolated from daily developm
 The E2E preparation command is `.\scripts\prepare-local-e2e.ps1`; it uses the same
 `docker-compose.dev.yml` with process-local test settings after the daily services are stopped.
 
+The bundled realm uses the Knora login theme on a fresh import. If the realm already exists in
+the persistent Keycloak volume, follow [the theme setup guide](docs/development/keycloak-theme.md)
+to set `loginTheme` without re-importing users or clients. The theme uses the same bundled fonts
+and color tokens as the app; its setting does not change OIDC or session behavior.
+
 ## Daily local development
 
 After completing the setup above, allow local scripts in this PowerShell window,

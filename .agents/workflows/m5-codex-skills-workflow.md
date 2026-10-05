@@ -1,6 +1,6 @@
 # M5 Codex-Skills Workflow
 
-Purpose: a local runbook for coordinating Milestone 5 with agents. This workflow uses only skills under C:/Users/NhiBuaa/.codex/skills and never uses feature-delivery.
+Purpose: a local runbook for coordinating Milestone 5 with agents. This workflow uses the installed skills under C:/Users/NhiBuaa/.codex/skills, according to the skill policy in AGENTS.md.
 
 ## M5 scope
 
@@ -31,7 +31,7 @@ Use only:
 - finishing-a-development-branch
 - executing-plans
 
-Do not use feature-delivery, or any skill outside the .codex/skills directory.
+Verify each selected skill's SKILL.md against the canonical source and current session catalog before use.
 
 ## Non-negotiable rules
 
