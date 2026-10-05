@@ -51,6 +51,7 @@ frontend/components/workspaces/workspaces.css.
 
 **Tests:** existing frontend/tests/workspace-preference.test.tsx,
 workspace-page-rendering.test.ts, canonical-entry.test.tsx;
+frontend/tests/user-pages.test.tsx and sidebar.test.tsx for existing lifecycle/navigation behavior;
 new frontend/tests/workspace-figma-flows.test.tsx.
 Refresh actual test filenames at task start if an existing file has moved.
 
