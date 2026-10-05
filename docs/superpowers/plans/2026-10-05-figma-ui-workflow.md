@@ -211,6 +211,8 @@ themes/knora/
 │   ├── theme.properties                        [~ I1]
 │   ├── resources/css/knora.css                  [~ I1]
 │   ├── resources/fonts/                        [=]
+│   ├── resources/images/                       [+ I1–I3] exact original brand/form assets
+│   │   └── figma-assets.json, .gitattributes     local provenance/checksums, preserve SVG bytes
 │   ├── messages/messages_en.properties         [+ I1]
 │   ├── login.ftl, register.ftl                  [+ I1]
 │   ├── login-update-password.ftl, info.ftl      [+ I1; info tiếp tục I3]

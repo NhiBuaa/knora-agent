@@ -50,6 +50,12 @@ themes/knora/login/messages/messages_en.properties;
 scripts/configure-keycloak-auth-flow.ps1;
 frontend/tests/e2e/figma-identity.spec.ts.
 
+**Exact assets:** themes/knora/login/resources/images/* for the original leaf/orbit and password
+eye-off assets actually used by I1; include a local figma-assets.json provenance/checksum manifest
+and .gitattributes (`*.svg -text`). Copy original bytes from the shared Figma cache, preserve
+intrinsic dimensions, and verify rendered geometry. Use Keycloak resource URLs rather than Next
+public URLs; later I2/I3 append only assets with their own designed callsites.
+
 **Consumes:** F2 local brand/font assets; pinned native templates and form contract.
 **Produces:** branded templates retaining Keycloak native loginAction, field names, hidden state,
 validation and escaping. Account menu remains an application component from F2/I3.
