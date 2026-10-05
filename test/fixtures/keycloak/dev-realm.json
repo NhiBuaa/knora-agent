@@ -2,6 +2,7 @@
   "realm": "knora-dev",
   "enabled": true,
   "displayName": "Knora Local Development",
+  "loginTheme": "knora",
   "registrationAllowed": false,
   "verifyEmail": false,
   "loginWithEmailAllowed": false,
