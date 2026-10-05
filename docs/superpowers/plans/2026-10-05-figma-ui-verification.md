@@ -27,7 +27,7 @@ The task's file list and this structure must remain consistent throughout execut
 - Verify Tailwind utility extraction in the production build, semantic-token dark mode and
   Preflight/cascade compatibility across migrated and remaining legacy surfaces.
 
-## Task Q1: Visual, responsive and interaction coverage
+## Task 1: Q1 — Visual, responsive and interaction coverage
 
 **Skills:** verification-before-completion, systematic-debugging when a defect is observed,
 test-driven-development for a behavior regression fix.
@@ -74,7 +74,7 @@ await expect(page).toHaveScreenshot("A4-grounded-answer.png", {
 - [ ] Run the new Playwright suites, fix concrete discrepancies and record screenshot/trace paths.
   Review/commit as test: cover Figma visual and interaction states.
 
-## Task Q2: Regression, independent review and completion record
+## Task 2: Q2 — Regression, independent review and completion record
 
 **Skills:** requesting-code-review, receiving-code-review, systematic-debugging,
 verification-before-completion, finishing-a-development-branch.

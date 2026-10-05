@@ -32,7 +32,7 @@ The task's file list and this structure must remain consistent throughout execut
   30-second resend cooldown, three sends per account/window, 20 sends per IP/window are proposals
   selected by this plan, not native Keycloak defaults.
 
-## Task I1: Keycloak presentation and registration
+## Task 1: I1 — Keycloak presentation and registration
 
 **Skills:** executing-plans, test-driven-development for form behavior; research for unresolved
 platform details; verification-before-completion.
@@ -78,7 +78,7 @@ await expect(page).toHaveURL(/\/realms\/knora-dev\//);
 - [ ] Run the Keycloak theme config pytest, scoped Playwright identity cases and visual comparison
   of AU1/AU2/AU8/AU9. Review/commit as feat: implement Figma Keycloak identity theme.
 
-## Task I2: Keycloak email OTP provider
+## Task 2: I2 — Keycloak email OTP provider
 
 **Skills:** research, codebase-design, test-driven-development, executing-plans,
 requesting-code-review and verification-before-completion.
@@ -157,7 +157,7 @@ docker build -f infra/keycloak/Dockerfile -t knora-keycloak:26.3.3-otp .
 **Acceptance:** real test email → one-time code → native password update; replay/parallel requests
 and account-wide budget bypass fail; all sensitive POSTs remain at Keycloak; existing MFA survives.
 
-## Task I3: BFF errors, reset completion and account menu
+## Task 3: I3 — BFF errors, reset completion and account menu
 
 **Skills:** executing-plans, test-driven-development, verification-before-completion.
 

@@ -26,7 +26,7 @@ The task's file list and this structure must remain consistent throughout execut
 - Use F2 semantic Tailwind utilities on migrated surfaces; retain custom CSS for specialized panel
   behavior. Remove superseded selectors only after checking remaining consumers.
 
-## Task U1: Workspace navigation and lifecycle
+## Task 1: U1 — Workspace navigation and lifecycle
 
 **Skills:** executing-plans or subagent-driven-development, test-driven-development,
 verification-before-completion; Figma connector prerequisite when reading changed nodes.
@@ -80,7 +80,7 @@ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 - [ ] Run scoped Vitest, typecheck, format, format:check. Compare all 11 W nodes from the inventory.
 - [ ] Review/commit as feat: implement Figma workspace flows.
 
-## Task U2: Documents, upload and detail lifecycle
+## Task 2: U2 — Documents, upload and detail lifecycle
 
 **Skills:** executing-plans or subagent-driven-development, test-driven-development,
 verification-before-completion.
@@ -146,7 +146,7 @@ npm --prefix frontend run format:check
 - [ ] Compare six D nodes and upload/archive/delete prototype transitions; review/commit as
   feat: implement Figma document lifecycle interface.
 
-## Task U3: Conversation panels, answers and evidence
+## Task 3: U3 — Conversation panels, answers and evidence
 
 **Skills:** executing-plans or subagent-driven-development, codebase-design,
 test-driven-development, verification-before-completion.

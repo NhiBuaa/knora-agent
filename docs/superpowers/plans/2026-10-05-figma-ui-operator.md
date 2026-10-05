@@ -25,7 +25,7 @@ The task's file list and this structure must remain consistent throughout execut
 - Use F2 semantic Tailwind utilities; retain specialized CSS only where needed and check legacy
   unlayered selectors do not override the utilities.
 
-## Task O1: Operator observation surfaces
+## Task 1: O1 — Operator observation surfaces
 
 **Skills:** executing-plans or subagent-driven-development, test-driven-development,
 verification-before-completion. Use dispatching-parallel-agents only if executing independently
