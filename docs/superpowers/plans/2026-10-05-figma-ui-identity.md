@@ -75,6 +75,12 @@ Proposed realm choices: registrationAllowed=true, resetPasswordAllowed=true,
 loginWithEmailAllowed=true, duplicateEmailsAllowed=false. Keep username registration and add email
 sign-in. Do not silently add a mandatory email-verification screen absent from this Figma; retain
 the current verifyEmail setting and document it. Use a test SMTP server for reset integration.
+AU8/AU9 collect username/email/password/confirmation only. Pinned Keycloak's default profile also
+requires firstName/lastName for users; make those two native attributes optional for registration
+in the exact target development/test realm. Preserve their existing values, validation, permissions
+and every unrelated/custom attribute. Include profile inspect/diff/apply and saved prior profile
+for rollback in the configuration script. Do not invent hidden names or add name fields absent
+from this design. If additional required custom attributes conflict, report before applying.
 
 - [ ] Add real-browser failing checks for sign-in default/invalid, registration default/validation,
   successful registration landing in NO_ACTIVE_WORKSPACE, and password confirmation/policy errors.

@@ -54,6 +54,14 @@ The existing BFF handlers are regression targets; change them only if the approv
 existing M4 projections and safe presentation helpers.
 **Produces:** the same component exports and routes with the Figma layout; no new operator authority.
 
+**Exact assets:** allow frontend/public/icons/figma/bab86.svg and append figma-assets.json only
+if the Operator-heading caret's owning context requires that original. Preserve bytes/root size,
+reuse reviewed icon-folder attributes and verify browser geometry. WorkspaceSelector keeps its
+reviewed props/lifecycle; Operator switching drops old trace/report IDs and refreshes the known
+subsection index after validated preference storage. Use the reviewed isolated Figma live harness
+for required real-authorized journeys while daily services occupy the old M5 endpoints; record
+the explicit config/command without weakening existing M5 endpoint guards.
+
 - [ ] Add failing assertions for O1 metrics, O2 provenance/citation mapping and O3 unavailable;
   include missing metric versus zero, empty candidate list, refused/failed trace, denied workspace
   and missing identifier. Verify lookup forms encode user-entered identifiers safely.

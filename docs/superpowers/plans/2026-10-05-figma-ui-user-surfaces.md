@@ -124,6 +124,12 @@ frontend/app/workspaces/[workspaceId]/documents/page.tsx,
 DocumentActionsMenu.tsx, DeletionRequestDialog.tsx, documents.css;
 frontend/lib/documents/presentation.ts.
 
+**Exact assets:** allow frontend/public/icons/figma/d9407.svg and append figma-assets.json only
+for the actual Documents-heading selector callsite. Reuse reviewed U1 originals/attributes;
+preserve exported bytes/root dimensions and verify effective geometry. Compose WorkspaceSelector
+in the heading with feature presentation rules; do not duplicate selection lifecycle or change
+its approved props. Documents switching opens the new Workspace's list without an old detail ID.
+
 **Tests:** frontend/tests/documents-management.test.tsx, documents-page-workspace.test.tsx;
 new frontend/tests/document-figma-states.test.tsx.
 
@@ -196,6 +202,11 @@ TurnCard.tsx, ConversationComposer.tsx, conversations.css;
 frontend/components/citations/EvidenceInspector.tsx;
 frontend/lib/conversations/panel-preferences.ts.
 
+**Exact assets:** allow frontend/public/icons/figma/{5b324,97a8a,cd6f9,832ce}.svg and append
+figma-assets.json only for actual owning-context callsites. Reuse existing original brand/orbit
+files; preserve bytes/root dimensions and verify every illustration layer. Screenshot exports
+are reference evidence only. Do not create an icon renderer or redraw provided SVGs.
+
 **Tests:** frontend/tests/conversation-view.test.tsx, conversation-list.test.tsx,
 citation-viewer.test.tsx; new frontend/tests/conversation-panels.test.tsx.
 
@@ -221,6 +232,10 @@ EvidenceSelection indexes the immutable citation array of the selected Turn, nev
 or current document. On history/workspace change validate the selection or clear it.
 Keep UI preferences in sessionStorage keyed by safe identity scope + workspace; store no evidence.
 Use observed Figma widths as defaults, then clamp to the available center-column minimum.
+The authenticated server conversation route may pass only safe issuer/subject scope into its
+feature component; never pass token/session secrets. Include a bounded preferences-clear export
+for I3's sign-out integration, removing this module's namespaced keys only. AccountMenu remains
+I3-owned; no U3 edit there. Keep preference storage separate from immutable EvidenceSelection.
 
 - [ ] Add RED tests for five panel states, drag/keyboard/reset, citation focus, session restore,
   narrow-screen drawer/sheet, and composer placement.

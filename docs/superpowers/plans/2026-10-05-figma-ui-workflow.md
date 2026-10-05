@@ -364,7 +364,9 @@ Behavior changes use actual failing tests before implementation.
 
 ## Execution order and ownership
 
-F1 → F2 → U1 → U2 → U3 → O1 → I1 → I2 → I3 → Q1 → Q2.
+Current serialized execution: F1 → F2 → U1 → U2 → U3 → I1 → I2 → I3 → O1 → Q1 → Q2.
+Identity precedes O1 to establish its safe isolated live harness while daily services occupy the
+existing M5 ports. Dependencies and user scope are unchanged; shared-file edits remain serialized.
 Start the identity implementation early after F2 if delivery risk warrants it; its SPI/security tests
 are the largest new capability. Keep shared-file changes serialized.
 
