@@ -1,0 +1,178 @@
+{
+  "browser_gate": "NOT_EVALUATED",
+  "case_count": 11,
+  "cases": [
+    {
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "3150c294947f8477717b9b234b669726d962c6bf46b1efa06c5737309bc8da9c"
+    },
+    {
+      "case_id": "metadata_year",
+      "error": "PROVIDER_ERROR",
+      "passed": false,
+      "reason": "Provider error left no valid final response; the case fails rather than receiving credit for refusal.",
+      "repetition": 1,
+      "response_sha256": "10097161db6a0886f08933206270e692412dcb45cbe577b94f1de1b8e5d1e7a0"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "error": "GENERATION_OUTPUT_INVALID",
+      "passed": false,
+      "reason": "Extraction was rejected as invalid; no valid final response exists, so the case fails.",
+      "repetition": 1,
+      "response_sha256": "b04bb7d2e9c7368e53166fa17ddc171f78c6940ced2cc6ef0edbd7f0a1e061f5"
+    },
+    {
+      "answer_sha256": "019115ec20077f05b58c2b39ea2c2ec28e771fc0601c8db78ba75f4add3debab",
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "ba948f9984d21166a776e07bc331e702c9bec7182048db185897676b8995be7d"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "eb35b1e529b105b9ed9814ae3b5a5f7254736d348c87d1de19ef749bfa5e028c"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "metadata_count",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "7586fac5cbe2299df81b13cc4abb7cbec569aaba12ec8dd717c45f77b459a24c"
+    },
+    {
+      "answer_sha256": "71e3f41d304271616b32f03045b80960cff028a9cf257339d3843d7610e7a329",
+      "case_id": "prohibited_requirement",
+      "passed": false,
+      "reason": "Response weakens an explicit prohibition into an optional requirement despite source membership validation.",
+      "repetition": 1,
+      "response_sha256": "b2b5493d5b24eedb6e53180290acfcc128fb325fe4b697d15522f6c184ce92bb"
+    },
+    {
+      "answer_sha256": "7c00eacba19e05197402771ee83c4ba4a886167976842745b2211c353fb08cb3",
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "edf6360acb158dae0f03bd50b1fad1ccbbdf03da0e54379dd4c587f589888a36"
+    },
+    {
+      "answer_sha256": "d001e02d1b97f6ba0a1ad28439d5d5b77c8e1d837d4ca1e6fbb065312fa3d26e",
+      "case_id": "caveat_after_distractor",
+      "passed": false,
+      "reason": "Response preserves the conditional exception and approval but omits the ordinary rule, leaving the answer incomplete.",
+      "repetition": 1,
+      "response_sha256": "e8b72fa9bd47df330451ea015a8d16e9ec408860d8b72f7f7e5c4b7d127b470c"
+    },
+    {
+      "answer_sha256": "f8e8a0c97819a9c1117552e38055e0959ef620e6c6b513750bf65d769d26495a",
+      "case_id": "rule_with_exception",
+      "passed": true,
+      "reason": "Ordinary requirement, conditional exception, and required approval are all preserved and supported; redundant wording does not change meaning.",
+      "repetition": 1,
+      "response_sha256": "e9ac83ed457f6696c8fa22b4f6c7d97884a7dc1d4bfd15bdd46aae3c3eccff9d"
+    },
+    {
+      "answer_sha256": "699e72c9eaddcd26c7c1ab0871f87f9a8edc4379e2e5697baaae01f668af9ab3",
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason": "Required decision and cited source support a complete answer or an appropriate refusal without unsupported additions.",
+      "repetition": 1,
+      "response_sha256": "34ecfa9ed43aabc0394d2b347fcb44a0433f280cb2274abdda0d718fbda81a86"
+    }
+  ],
+  "code_provenance": {
+    "git_commit": "c140abf7cc08e7036fbbaad605f7ee92d1981d1b",
+    "git_tree": "e2bd09c0b9f4347812616aaf0888ed4f5cc785c0"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "deployment_selection": false,
+  "diagnostic_limit": "Rejected extraction and precise provider failure details are not retained; their exact causes cannot be established from these normalized results.",
+  "extraction_schema_sha256": "97f2ad5d2f281dfba9f040fbe05aa9feb295e47010ec97c6ba906cfc31781f67",
+  "findings": [
+    {
+      "case_id": "metadata_year",
+      "reason": "Observed provider-call elapsed time exceeds the declared wall deadline. The exact cause is not established by the sanitized error record.",
+      "severity": "P2"
+    }
+  ],
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "generation_expected_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "independent_review": true,
+  "independent_review_artifact_sha256": "01dda47a0b92df59a6667a0f4370a1868c004c3e3b5d3de88570743662d8cd50",
+  "original36_gate": "NOT_EVALUATED",
+  "private_responses_sha256": "73b19c875be347dbad8de3020d5d371b484a64397cd481c49e23530b04d151f7",
+  "probe_source_sha256": "4e09e0942a5e3e918e982ad878f10f5889d68550c9e32eff94ecbb67329341ff",
+  "public_report_sha256": "5b7115faaab8bf7a379c35688a8eed036878d57896335f727726757c9ddd8197",
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:qwen-thinking-v1:seed105",
+  "response_binding_json_encoding": "UTF-8; ensure_ascii=True; sort_keys=True; separators=(comma,colon)",
+  "response_binding_scheme": "fixture-prompt-policy-case-repetition-result-or-error-canonical-json-sha256-v1",
+  "revised36_gate": "NOT_EVALUATED",
+  "runtime_observation": {
+    "declared_deadline_exceedances": [
+      {
+        "case_id": "metadata_year",
+        "error": "PROVIDER_ERROR",
+        "latency_ms": 451906.49
+      }
+    ],
+    "declared_timeout_seconds": 240,
+    "finish_reasons_for_returned_results": {
+      "stop": 9
+    },
+    "latency_max_ms": 451906.49,
+    "latency_min_ms": 21603.78,
+    "observed_hard_bound_satisfied": false,
+    "returned_result_latency_max_ms": 149519.39,
+    "returned_result_latency_min_ms": 21603.78
+  },
+  "sampling_profile": "qwen-thinking-v1",
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_normalized_final_responses",
+  "seed": 105,
+  "semantic_passed_count": 7,
+  "status": "FAILED_PRELIMINARY_AND_RUNTIME_GATES",
+  "stop_reason": "first_seed_failed_literal_semantic_and_runtime_gates",
+  "system_prompt_sha256": "9664672141a356686055248b3174e50d956b198f575561f91f2458b89011077a",
+  "thinking_observation": {
+    "nonempty_presence": "NOT_RECORDED",
+    "raw_thinking_persisted_by_review": false,
+    "requested": true
+  },
+  "timeout_implementation": "cooperative_asyncio_timeout_not_proven_hard_elapsed_bound",
+  "timeout_violation": {
+    "case_id": "metadata_year",
+    "cause_established": false,
+    "configured_seconds": 240,
+    "observed_seconds": 451.90649
+  },
+  "unrun_predeclared_seeds": [
+    106,
+    107
+  ],
+  "verification": {
+    "declared_model_digest_matches_existing_pin": true,
+    "error_records_verified": 2,
+    "extraction_schema_verified": true,
+    "final_result_answer_hashes_verified": 9,
+    "fixture_verified": true,
+    "non_null_answer_hashes_verified": 6,
+    "normalized_final_responses_only": true,
+    "prompt_verified": true,
+    "request_messages_verified": 11,
+    "request_options_verified": 11,
+    "response_hashes_computed": 11,
+    "reviewed_runner_hash_verified": true
+  }
+}

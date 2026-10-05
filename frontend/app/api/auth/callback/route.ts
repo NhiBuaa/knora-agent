@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       // The OIDC code was already exchanged. Keep the session for a retry.
     }
     const response = NextResponse.redirect(new URL(destination, origin));
-    const cookie = sessionCookie(value);
+    const cookie = sessionCookie(value, session.refreshExpiresAt);
     response.cookies.set(cookie.name, cookie.value, cookie.options as never);
     if (selectedWorkspaceId) {
       const selected = preferenceCookie(

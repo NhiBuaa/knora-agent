@@ -25,11 +25,33 @@ The behavior-preserving `PostgresIngestionJobStore` decomposition is complete th
 [PR #86](https://github.com/NhiBuaa/knora-agent/pull/86). Its compatible public facade remains at
 `knora.adapters.postgres.ingestion_job_store`; private collaborators are implementation details.
 
-## Governed workflows
+## Skill policy
 
-The following workflows are active for governed delivery: `feature-delivery`, `grill-with-docs`,
-`grilling`, `domain-modeling`, `handoff`, `codebase-design`, `to-tickets`,
-`manual-acceptance`, `implement`, `code-review`, and `session-continuity`.
+The canonical skill source is `C:/Users/NhiBuaa/.codex/skills`.
+Select skills from the current session's catalog and read their `SKILL.md` before use.
+Verify that the selected skill exists under this source; discover the current inventory rather
+than assuming a skill is installed because an older document mentions it.
+
+Use the installed skills according to their actual scope:
+
+- `using-superpowers` for selecting the workflow at the start of work.
+- `brainstorming` for requirements, design, architecture and unresolved domain decisions.
+- `writing-plans` for approved implementation plans; `executing-plans` for executing them.
+- `test-driven-development` for behavior changes; `systematic-debugging` for diagnosis.
+- `using-git-worktrees` for isolated work under the repository's worktree policy.
+- `subagent-driven-development` and `dispatching-parallel-agents` for delegated work when
+  authorized and appropriate to their scope.
+- `requesting-code-review` and `receiving-code-review` for review and handling findings.
+- `verification-before-completion` for evidence before completion claims;
+  `finishing-a-development-branch` for the user's integration choice.
+- `research` for primary-source investigation saved as cited Markdown.
+- `diagram-design` for standalone diagrams; `writing-skills` for authorized skill authoring.
+
+Repository domain, issue-tracker, acceptance and Git rules apply throughout these workflows.
+Record confirmed domain decisions in `CONTEXT.md` and relevant ADRs. Record session progress and
+next steps in repository documents when continuity is needed. These tasks do not require a
+separate skill. For Milestone 5, also follow
+[the M5 runbook](.agents/workflows/m5-codex-skills-workflow.md).
 
 Do not install, activate, trust, or grant permissions to additional skills without explicit user
 authorization.

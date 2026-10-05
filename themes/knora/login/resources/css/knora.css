@@ -1,0 +1,91 @@
+@font-face {
+  font-family: Inter;
+  src: url("../fonts/inter-latin-vietnamese.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Roboto Slab";
+  src: url("../fonts/roboto-slab-latin-vietnamese.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --knora-page: #EFFCFA;
+  --knora-surface: #FFFFFF;
+  --knora-action: #33A15B;
+  --knora-signature: #784131;
+  --knora-text: #1F3B36;
+  --knora-border: #D9E2DE;
+  --knora-focus: #176B43;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --knora-page: #0B1412;
+    --knora-surface: #12201C;
+    --knora-action: #4DBB73;
+    --knora-signature: #C68F79;
+    --knora-text: #D7EFE6;
+    --knora-border: #2A3D36;
+    --knora-focus: #9CE3B5;
+    color-scheme: dark;
+  }
+}
+
+body,
+.pf-v5-c-login {
+  background: var(--knora-page);
+  color: var(--knora-text);
+  font-family: Inter, sans-serif;
+}
+
+.pf-v5-c-login__main {
+  background: var(--knora-surface);
+  border: 1px solid var(--knora-border);
+  border-radius: 0.65rem;
+  box-shadow: none;
+}
+
+#kc-header-wrapper {
+  /* Keycloak v2 marks its white header color important. */
+  color: var(--knora-signature) !important;
+  font-family: "Roboto Slab", serif;
+}
+
+.pf-v5-c-login__main-header {
+  border-top-color: var(--knora-action);
+}
+
+.pf-v5-c-login__main-title,
+h1,
+h2 {
+  color: var(--knora-signature);
+  font-family: "Roboto Slab", serif;
+}
+
+.pf-v5-c-form__label,
+.pf-v5-c-form__label-text,
+.pf-v5-c-login__main-body {
+  color: var(--knora-text);
+}
+
+.pf-v5-c-form-control,
+.pf-v5-c-button.pf-m-secondary {
+  border-color: var(--knora-border);
+}
+
+.pf-v5-c-button.pf-m-primary {
+  background: var(--knora-action);
+  color: #0B1412;
+}
+
+:where(a, button, input):focus-visible {
+  outline: 3px solid var(--knora-focus);
+  outline-offset: 2px;
+}

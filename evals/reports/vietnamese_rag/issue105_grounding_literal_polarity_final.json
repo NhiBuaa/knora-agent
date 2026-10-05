@@ -1,0 +1,304 @@
+{
+  "case_count": 11,
+  "cases": [
+    {
+      "aliases_correct": true,
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "category": "absent_exact_fact",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 34020.42,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 845
+      }
+    },
+    {
+      "aliases_correct": false,
+      "answer_sha256": "d0011476f94b0e7ea5c41b128a8222b8f8de362302925fbf8a490d7571a7e247",
+      "case_id": "metadata_year",
+      "category": "misleading_metadata",
+      "decision_correct": false,
+      "finish_reason": "stop",
+      "latency_ms": 10216.29,
+      "literal_checks_passed": false,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 51,
+        "prompt_tokens": 858
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "a36456b8129cb19e00cc3c25287eb7c3f666e8716fe1dbb53b2136b2942c2119",
+      "case_id": "explicit_prohibition",
+      "category": "evidenced_negative",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 8529.99,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 46,
+        "prompt_tokens": 842
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "95b2a6b3118d2b13e469980763e35e4ab40cf607c5d12d4a5d5d1e76b5972b7a",
+      "case_id": "support_after_distractor",
+      "category": "supporting_alias",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 9003.92,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 45,
+        "prompt_tokens": 863
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "category": "absent_exact_fact",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 6809.61,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 855
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": null,
+      "case_id": "metadata_count",
+      "category": "misleading_metadata",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 6705.66,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 863
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "79fee0479d5029d6e6a9e44007415c2547721425dda604d0f74c4eb4b5597e4f",
+      "case_id": "prohibited_requirement",
+      "category": "evidenced_negative",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 9058.87,
+      "literal_checks_passed": false,
+      "literal_patterns_match": false,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 50,
+        "prompt_tokens": 848
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "dc49edf6c90f7ecedf149f73985900c052f3f92fc11a8b490b3ddcf9b378cf3b",
+      "case_id": "support_after_related_rule",
+      "category": "supporting_alias",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 9999.3,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 47,
+        "prompt_tokens": 891
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "0473f96d863f44df5ade3af22acfc0cc8ca91a67f0ceb717681e5dbbffa1ad12",
+      "case_id": "caveat_after_distractor",
+      "category": "relevant_caveat",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 12799.59,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 66,
+        "prompt_tokens": 879
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "28d42bc5bb8cb6d7347b2e75f0d75520460f78dc2176a75c5ce83e21518a3b8e",
+      "case_id": "rule_with_exception",
+      "category": "relevant_caveat",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 10996.92,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 64,
+        "prompt_tokens": 850
+      }
+    },
+    {
+      "aliases_correct": true,
+      "answer_sha256": "6a0841eacc5d0c09c513c4e68b5885184a3a60be2c6c67e9642c7a094b7c1083",
+      "case_id": "wrapped_current_question",
+      "category": "untrusted_prior_history",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 10900.18,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 46,
+        "prompt_tokens": 911
+      }
+    }
+  ],
+  "check_version": "synthetic-literal-pattern-checks-v2",
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "fixture_version": "ollama-synthetic-grounding-v3",
+  "generation_expected_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "generation_request_count": 11,
+  "held_out": false,
+  "inference_runtime": {
+    "context_tokens": 8192,
+    "model_size_bytes": 6662893075,
+    "size_vram_bytes": 0
+  },
+  "latency_scope": "provider_generate_including_digest_check",
+  "literal_passed_count": 9,
+  "observation_count": 11,
+  "observed_at": "2026-10-01T07:10:36.228834+00:00",
+  "private_responses_sha256": "8e6266c447be8f4276ff8c55113a4eab2b4f00de6d8b472623d5f86f75428c64",
+  "provider_source_sha256": "25807bc1cfd806029d0b40aa0d72d0deae83ee5d9fb5fa83681c0e354b11e4f2",
+  "repetitions": 1,
+  "request_options": {
+    "num_ctx": 8192,
+    "num_predict": 1024,
+    "temperature": 0
+  },
+  "runner_source_sha256": "30a4e11211b0878d7dc3d2b3ea6ba1ea16999097753e490b0b8b39d35bfd15ff",
+  "schema_version": 2,
+  "scope": "synthetic_development_literal_grounding",
+  "semantic_review": "NOT_EVALUATED",
+  "source_commit": "07d141d6e83a9969ffc17ab1f664635233ce70f0",
+  "system_prompt_sha256": "801a53b4773fa10963b02e7c0cd72845008ce1679bb305bff81522b671cf878a"
+}

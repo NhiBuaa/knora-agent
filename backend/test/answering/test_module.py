@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from knora.answering.interface import ConversationContext, QuestionCommand
@@ -11,6 +12,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 from knora.providers.generation import GenerationResult
+from knora.providers.ollama.generation import OllamaGenerationProvider
 from knora.workspaces.ports import WorkspaceAdmission
 
 
@@ -289,6 +291,62 @@ class CandidateStore(EmptyStore):
 
     def retrieve_candidates(self, **kwargs) -> tuple[RetrievalCandidate, ...]:
         return self.candidates
+
+
+@pytest.mark.asyncio
+async def test_ollama_answer_projects_pdf_provenance_from_selected_chunk() -> None:
+    candidate = replace(
+        retrieval_candidate("pdf-chunk-1", 0),
+        source_key="Teacher Manh - Guidelines 2024.pdf",
+        source_name="Teacher Manh - Guidelines 2024.pdf",
+        page_start=1,
+        page_end=1,
+        content="Gợi ý gồm 7 chương. Báo cáo nhỏ có thể gộp một số chương.",
+    )
+    store = CandidateStore(candidates=(candidate,))
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={"models": [{"name": "qwen3:8b", "digest": "sha256:" + "b" * 64}]},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:8b",
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        '{"decision":"ANSWER","answer":"Gợi ý 7 chương; báo cáo nhỏ '
+                        'có thể gộp một số chương. [[E1]]","cited_evidence_ids":["E1"],'
+                        '"refusal_reason":null}'
+                    ),
+                },
+                "done": True,
+            },
+        )
+
+    service = AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=OllamaGenerationProvider(
+            base_url="http://ollama.test:11434",
+            expected_digest="sha256:" + "b" * 64,
+            client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+        ),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+    )
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question="Báo cáo có mấy chương?"),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+    assert result.decision == "ANSWER"
+    assert result.citations[0].document_id == candidate.document_id
+    assert result.citations[0].document_version_id == candidate.document_version_id
+    assert store.traces[0].alias_mapping == {"E1": candidate.chunk_id}
+    assert result.citations[0].source_key == candidate.source_key
+    assert result.citations[0].page_start == 1
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,31 @@
+{
+  "version": "vietnamese-rag-v1",
+  "dataset_sha256": "5976b2f828d11c919f866c73809f9d57967d2c891d165aec71d9436ea788bf5c",
+  "profile_id": "embedding-ollama-qwen3-ac0dc2cd2e4b7e2d44cb70f0",
+  "model_digest": "sha256:ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d",
+  "corpus_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
+  "corpus_digest_scheme": "single-original-pdf-sha256-v1",
+  "chunk_set_ids": [
+    "b1101cf1-2666-4f3a-8513-60ef2f57f504"
+  ],
+  "retrieval_configuration_id": "retrieval-qwen-diagnostic-v1",
+  "sources": [
+    {
+      "source_key": "Teacher Manh - Guidelines 2024.pdf",
+      "raw_sha256": "219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6",
+      "document_id": "477d2303-8a54-4ba0-8c0d-22f6e217515e",
+      "document_version_id": "43d72838-b659-4e73-9ea9-e22cd191f238",
+      "active_embedding_set_id": "6e5b0e01-7a99-4ff8-98f1-6907a57a3a5b",
+      "page_count": 12
+    }
+  ],
+  "provenance": {
+    "source_issue": 142,
+    "source_database": "knora_dev",
+    "evaluation_snapshot": "knora_issue105_eval_20261001",
+    "source_conversation": "85f8cee7-5e51-4e41-9e43-2d0328a13a0c",
+    "scope": "development-exposed one-PDF regression; no independent held-out or cross-domain claim",
+    "held_out_after_tuning": false,
+    "label_changes": "vietnamese_rag_v2.changes.md"
+  }
+}
