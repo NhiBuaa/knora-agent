@@ -4,6 +4,7 @@ import React, {
   FormEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -11,20 +12,58 @@ import type {
   ConversationResponse,
   TurnResponse,
 } from "@/generated/knora-openapi";
-import { CitationViewer } from "@/components/citations/CitationViewer";
+import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
+import { ConversationPanels } from "./ConversationPanels";
+import { ConversationRail } from "./ConversationRail";
+import { TurnCard } from "./TurnCard";
+import {
+  ConversationComposer,
+  ConversationEmpty,
+} from "./ConversationComposer";
+import type {
+  EvidenceSelection,
+  PanelIdentityScope,
+} from "@/lib/conversations/panel-preferences";
 import { browserRequest } from "@/lib/api/browser-client";
 
 const pending = new Set(["queued", "processing", "pending"]);
 
-export function ConversationView({
-  workspaceId,
-  conversation,
-  workspaceArchived = false,
-}: {
+const emptyConversations: ConversationResponse[] = [];
+type ConversationViewProps = {
   workspaceId: string;
   conversation: ConversationResponse;
   workspaceArchived?: boolean;
-}) {
+  identityScope?: PanelIdentityScope;
+  workspaceName?: string;
+  workspaceSelector?: React.ReactNode;
+  initialConversations?: ConversationResponse[];
+  nextCursor?: string | null;
+};
+export function ConversationView(props: ConversationViewProps) {
+  return (
+    <ConversationViewState
+      key={`${props.workspaceId}:${props.conversation.id}`}
+      {...props}
+    />
+  );
+}
+function ConversationViewState({
+  workspaceId,
+  conversation,
+  workspaceArchived = false,
+  identityScope,
+  workspaceName,
+  workspaceSelector,
+  initialConversations = emptyConversations,
+  nextCursor = null,
+}: ConversationViewProps) {
+  const active = useRef(true);
+  const [projection, setProjection] = useState(conversation);
+  const [selection, setSelection] = useState<EvidenceSelection | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    setProjection(conversation);
+  }, [conversation]);
   const [turns, setTurns] = useState<TurnResponse[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,18 +92,27 @@ export function ConversationView({
 
   const pollTurn = useCallback(
     async function pollTurn(turnId: string) {
-      if (authenticationRequired.current) return;
+      if (!active.current || authenticationRequired.current) return;
+      const generation = authenticationGeneration.current;
       try {
         const response = await browserRequest(
           `${base}/turns/${encodeURIComponent(turnId)}`,
         );
+        if (!active.current || generation !== authenticationGeneration.current)
+          return;
         if (response.status === 401) {
           requireAuthentication();
           return;
         }
         if (!response.ok) throw new Error("Turn status unavailable");
         const turn = (await response.json()) as TurnResponse;
-        if (authenticationRequired.current) return;
+        if (!active.current) return;
+        if (
+          !active.current ||
+          authenticationRequired.current ||
+          generation !== authenticationGeneration.current
+        )
+          return;
         setTurns((current) => {
           const others = current.filter((item) => item.id !== turn.id);
           return [...others, turn].sort((a, b) => a.sequence - b.sequence);
@@ -79,7 +127,7 @@ export function ConversationView({
           setNotice(null);
         }
       } catch {
-        if (authenticationRequired.current) return;
+        if (!active.current || authenticationRequired.current) return;
         setNotice(
           "Unable to confirm this Turn. Reload history before retrying.",
         );
@@ -95,6 +143,7 @@ export function ConversationView({
     if (pollTimer.current) clearTimeout(pollTimer.current);
     try {
       const response = await browserRequest(`${base}/turns?limit=50`);
+      if (!active.current) return null;
       if (response.status === 401) {
         requireAuthentication();
         return null;
@@ -104,7 +153,8 @@ export function ConversationView({
         items: TurnResponse[];
         next_cursor: string | null;
       };
-      if (generation !== authenticationGeneration.current) return null;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       setTurns(page.items);
       setCursor(page.next_cursor);
       authenticationRequired.current = false;
@@ -116,6 +166,8 @@ export function ConversationView({
       setError(null);
       return page.items;
     } catch {
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       setError("Unable to load Conversation history. Retry this page.");
       return null;
     } finally {
@@ -125,10 +177,12 @@ export function ConversationView({
 
   async function loadMore() {
     if (!cursor || authenticationRequired.current) return;
+    const generation = authenticationGeneration.current;
     try {
       const response = await browserRequest(
         `${base}/turns?limit=50&cursor=${encodeURIComponent(cursor)}`,
       );
+      if (!active.current) return null;
       if (response.status === 401) {
         requireAuthentication();
         return;
@@ -138,6 +192,8 @@ export function ConversationView({
         items: TurnResponse[];
         next_cursor: string | null;
       };
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       setTurns((current) => {
         const seen = new Set(current.map((turn) => turn.id));
         return [
@@ -147,13 +203,17 @@ export function ConversationView({
       });
       setCursor(page.next_cursor);
     } catch {
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       setError("Unable to load more Turns. Retry.");
     }
   }
 
   useEffect(() => {
+    active.current = true;
     void load();
     return () => {
+      active.current = false;
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, [load]);
@@ -164,7 +224,7 @@ export function ConversationView({
     if (
       !question ||
       workspaceArchived ||
-      conversation.archived ||
+      projection.archived ||
       serverArchived ||
       authenticationRequired.current ||
       submitting ||
@@ -178,12 +238,13 @@ export function ConversationView({
       if (submitKey.current && error) {
         if (!(await load())) return;
       }
-      if (authenticationRequired.current) return;
+      if (!active.current || authenticationRequired.current) return;
       const response = await browserRequest(`${base}/turns`, {
         method: "POST",
         headers: { "Idempotency-Key": submitKey.current },
         body: JSON.stringify({ question }),
       });
+      if (!active.current) return null;
       if (response.status === 401) {
         setSubmissionUncertain(true);
         requireAuthentication();
@@ -214,6 +275,7 @@ export function ConversationView({
         return;
       }
       const turn = (await response.json()) as TurnResponse;
+      if (!active.current) return;
       submitKey.current = null;
       setSubmissionUncertain(false);
       setSubmissionConflict(false);
@@ -233,84 +295,134 @@ export function ConversationView({
     }
   }
 
+  const railConversations = useMemo(
+    () => [
+      projection,
+      ...initialConversations.filter((item) => item.id !== projection.id),
+    ],
+    [initialConversations, projection],
+  );
+  const readOnly = workspaceArchived || projection.archived || serverArchived;
+  const selectedTurn = selection
+    ? turns.find((turn) => turn.id === selection.turnId)
+    : null;
+  const selectedCitation =
+    selectedTurn?.result?.citations[selection?.citationIndex ?? -1] ?? null;
+  useEffect(() => {
+    if (selection && !selectedCitation) setSelection(null);
+  }, [selection, selectedCitation]);
+  function suggest(value: string) {
+    if (!readOnly && !submissionUncertain && !submitting && !sessionExpired) {
+      setDraft(value);
+      document.getElementById("conversation-question")?.focus();
+    }
+  }
+  async function retry(turn: TurnResponse) {
+    const history = await load();
+    if (!history || !active.current || authenticationRequired.current) return;
+    const latest = history.find((item) => item.id === turn.id);
+    if (
+      latest &&
+      (pending.has(latest.status) ||
+        latest.status === "answered" ||
+        latest.status === "refused")
+    )
+      return;
+    if (!submissionUncertain) setDraft(turn.question);
+    setNotice("History checked. Send the same question when ready.");
+    document.getElementById("conversation-question")?.focus();
+  }
+  async function restore() {
+    if (workspaceArchived || restoring || sessionExpired) return;
+    setRestoring(true);
+    try {
+      const response = await browserRequest(`${base}/restore`, {
+        method: "POST",
+        headers: { "If-Match": String(projection.revision) },
+      });
+      if (!active.current) return;
+      if (response.status === 401) {
+        requireAuthentication();
+        return;
+      }
+      if (!response.ok) throw new Error("restore failed");
+      const updated = (await response.json()) as ConversationResponse;
+      if (!active.current) return;
+      if (updated.id !== projection.id || updated.workspace_id !== workspaceId)
+        throw new Error("scope mismatch");
+      setProjection(updated);
+      setServerArchived(false);
+      setError(null);
+    } catch {
+      if (active.current)
+        setError("Unable to restore Conversation. Reload and retry.");
+    } finally {
+      if (active.current) setRestoring(false);
+    }
+  }
   return (
-    <section>
-      <h1>{conversation.title}</h1>
-      {(workspaceArchived || conversation.archived || serverArchived) && (
-        <p role="status">This Conversation is read-only.</p>
+    <ConversationPanels
+      workspaceId={workspaceId}
+      identityScope={identityScope}
+      selection={selection}
+      rail={(mode, onChange, overlay) => (
+        <ConversationRail
+          workspaceId={workspaceId}
+          workspaceName={workspaceName}
+          workspaceSelector={workspaceSelector}
+          conversations={railConversations}
+          nextCursor={nextCursor}
+          selectedId={projection.id}
+          onChanged={(updated) => {
+            if (updated.id === projection.id) setProjection(updated);
+          }}
+          workspaceArchived={workspaceArchived}
+          mode={mode}
+          onChange={onChange}
+          overlay={overlay}
+        />
       )}
-      {loading && <p>Loading history…</p>}
-      {!loading && !turns.length && !error && !sessionExpired && (
-        <p>No questions yet.</p>
-      )}
-      <ol>
-        {turns.map((turn) => (
-          <li key={turn.id}>
-            <h2>Question {turn.sequence}</h2>
-            <p>{turn.question}</p>
-            {turn.result?.decision === "ANSWER" && turn.result.answer && (
-              <p>{turn.result.answer}</p>
-            )}
-            {turn.result?.decision !== "ANSWER" &&
-              turn.result?.refusal_reason && (
-                <p>Refused: {turn.result.refusal_reason}</p>
-              )}
-            {turn.result?.citations && (
-              <CitationViewer
-                citations={turn.result.citations}
-                workspaceId={workspaceId}
-              />
-            )}
-            {pending.has(turn.status) && !sessionExpired && (
-              <p role="status">Processing question…</p>
-            )}
-            {turn.status === "interrupted" && <p>Outcome uncertain</p>}
-            {turn.error_code && <p role="alert">{turn.error_code}</p>}
-          </li>
-        ))}
-      </ol>
-      {cursor && (
-        <button
-          type="button"
-          disabled={sessionExpired || loading}
-          onClick={() => void loadMore()}
-        >
-          Load more Turns
-        </button>
-      )}
-      {sessionExpired && (
-        <div role="alert">
-          <p>
-            Your session has expired. Keep this tab open to preserve your draft.
-            Sign in in a new tab, then return here and reload history before
-            retrying.
-          </p>
-          <a href="/api/auth/login" target="_blank" rel="noopener noreferrer">
-            Sign in again
-          </a>
-          <button
-            type="button"
-            disabled={loading || submitting}
-            onClick={() => void load()}
-          >
-            Reload history
-          </button>
-        </div>
-      )}
-      {!workspaceArchived && !conversation.archived && !serverArchived && (
-        <form onSubmit={(event) => void submit(event)}>
-          <label htmlFor="conversation-question">Question</label>
-          <textarea
-            id="conversation-question"
-            value={draft}
-            readOnly={submissionUncertain || submitting || sessionExpired}
-            onChange={(event) => {
+      inspector={
+        <EvidenceInspector
+          workspaceId={workspaceId}
+          citation={selectedCitation}
+          turn={selectedTurn ?? turns.at(-1)}
+        />
+      }
+      composer={
+        <>
+          {sessionExpired && (
+            <div role="alert" className="px-6 py-3 text-sm">
+              <p>
+                Your session has expired. Keep this tab open to preserve your
+                draft. Sign in in a new tab, then return here and reload history
+                before retrying.
+              </p>
+              <a
+                href="/api/auth/login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mr-3 text-action-text underline"
+              >
+                Sign in again
+              </a>
+              <button
+                type="button"
+                disabled={loading || submitting}
+                onClick={() => void load()}
+              >
+                Reload history
+              </button>
+            </div>
+          )}
+          <ConversationComposer
+            draft={draft}
+            onChange={(value) => {
               if (!submissionUncertain && !submitting && !sessionExpired)
-                setDraft(event.target.value);
+                setDraft(value);
             }}
-          />
-          <button
-            type="submit"
+            onSubmit={(event) => void submit(event)}
+            readOnly={submissionUncertain || submitting || sessionExpired}
             disabled={
               !draft.trim() ||
               submissionConflict ||
@@ -318,13 +430,62 @@ export function ConversationView({
               sessionExpired ||
               loading
             }
-          >
-            Ask
-          </button>
-        </form>
+            archived={readOnly}
+            restoreDisabled={workspaceArchived || restoring || sessionExpired}
+            onRestore={projection.archived ? () => void restore() : undefined}
+          />
+        </>
+      }
+    >
+      <h1 className="sr-only">{projection.title}</h1>
+      {loading && <p className="text-sm text-text-muted">Loading history…</p>}
+      {!loading && !turns.length && !error && !sessionExpired && (
+        <ConversationEmpty
+          onSuggest={suggest}
+          disabled={readOnly || submissionUncertain || submitting}
+        />
       )}
-      {notice && <p role="status">{notice}</p>}
-      {error && <p role="alert">{error}</p>}
-    </section>
+      <ol className="m-0 flex flex-col gap-8 p-0">
+        {turns.map((turn) => (
+          <TurnCard
+            key={turn.id}
+            turn={turn}
+            workspaceId={workspaceId}
+            selection={selection}
+            onSelect={setSelection}
+            onSuggest={suggest}
+            onRetry={() => void retry(turn)}
+            disabled={
+              readOnly ||
+              submitting ||
+              loading ||
+              sessionExpired ||
+              submissionConflict
+            }
+            sessionExpired={sessionExpired}
+          />
+        ))}
+      </ol>
+      {cursor && (
+        <button
+          type="button"
+          className="mt-4 w-fit text-xs text-text-muted"
+          disabled={sessionExpired || loading}
+          onClick={() => void loadMore()}
+        >
+          Load more Turns
+        </button>
+      )}
+      {notice && (
+        <p role="status" className="mt-4 text-sm text-text-muted">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-status-error">
+          {error}
+        </p>
+      )}
+    </ConversationPanels>
   );
 }

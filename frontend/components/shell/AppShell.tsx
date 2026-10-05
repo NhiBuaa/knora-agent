@@ -43,7 +43,9 @@ export function AppShell({
       : parts[2] === "documents"
         ? "documents"
         : "conversations";
-  const showRail = Boolean(workspaceId && activeSection === "conversations");
+  const conversationSurface = Boolean(
+    workspaceId && parts[2] === "conversations",
+  );
   const navigation = (
     <WorkspaceSidebar
       workspaceSelector={workspaceSelector}
@@ -56,7 +58,8 @@ export function AppShell({
     <div
       className="workspace-shell"
       data-section={activeSection}
-      data-rail={showRail}
+      data-rail={false}
+      data-conversation-surface={conversationSurface}
     >
       <ProductHeader
         activeSection={activeSection}
@@ -70,9 +73,6 @@ export function AppShell({
         }
       />
       <div className="workspace-shell-body">
-        {showRail && (
-          <aside className="workspace-shell-desktop">{navigation}</aside>
-        )}
         <main className="workspace-shell-main">{children}</main>
       </div>
     </div>

@@ -5,7 +5,7 @@ import type {
   KnoraApiPath,
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
-import { ConversationList } from "@/components/conversations/ConversationList";
+import { ConversationHub } from "@/components/conversations/ConversationPanels";
 import { knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 
@@ -32,12 +32,18 @@ export default async function ConversationsPage({
       ) as Promise<ConversationListResponse>,
     ]);
     return (
-      <ConversationList
+      <ConversationHub
         workspaceId={workspaceId}
+        workspaceName={workspace.name}
         initialConversations={page.items}
         nextCursor={page.next_cursor}
         archived={archived}
         workspaceArchived={workspace.archived}
+        identityScope={
+          session.issuer
+            ? { issuer: session.issuer, subject: session.subject }
+            : undefined
+        }
       />
     );
   } catch {

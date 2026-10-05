@@ -9,22 +9,22 @@
     min-height: calc(100vh - 64px);
   }
 
-  .workspace-shell-desktop {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 252px;
-    flex: 0 0 252px;
-    padding: 18px;
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-  }
-
   .workspace-shell-main {
     width: min(100%, 80rem);
     min-width: 0;
     margin: 0 auto;
     padding: 48px 40px;
+  }
+
+  .workspace-shell[data-conversation-surface="true"] .workspace-shell-main {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .workspace-shell[data-conversation-surface="true"] .workspace-shell-body {
+    min-height: 0;
   }
 
   .workspace-shell-main > section {
@@ -201,10 +201,6 @@
   @media (max-width: 48rem) {
     .workspace-shell {
       display: block;
-    }
-
-    .workspace-shell-desktop {
-      display: none;
     }
 
     .mobile-navigation-trigger {

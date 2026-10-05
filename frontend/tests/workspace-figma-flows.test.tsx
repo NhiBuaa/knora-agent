@@ -201,6 +201,7 @@ it("resolves an authorized name absent from page one and suppresses a denied cac
       <p>Content</p>
     </WorkspaceShell>,
   );
+  fireEvent.click(screen.getByRole("button", { name: "Menu" }));
   await screen.findAllByText(workspace.name);
   view.unmount();
   vi.stubGlobal("fetch", async () => json({}, 403));

@@ -56,7 +56,37 @@
     "rootWidth": "7",
     "rootHeight": "7",
     "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
-    "sourceNodes": ["94:194", "111:129"],
+    "sourceNodes": ["94:194", "111:129", "36:51"],
     "originalExport": true
+  },
+  {
+    "sha256": "8541FD1D337F4367329D8067C7901E6BFA0849F0D9E0F41617FD1133350D91B1",
+    "originalExport": true,
+    "sourceNodes": ["8:162"],
+    "rootWidth": "888",
+    "bytes": 446,
+    "file": "5b324.svg",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "rootHeight": "48"
+  },
+  {
+    "sha256": "7DB03C50549F18FC3935E2CC5E6A6EC925F5A279267A11CB910F3E51BF20E0C8",
+    "originalExport": true,
+    "sourceNodes": ["36:52"],
+    "rootWidth": "7",
+    "bytes": 255,
+    "file": "cd6f9.svg",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "rootHeight": "7"
+  },
+  {
+    "sha256": "1D428293798CC29FD15C56F7421BCF220B317BBCF39B669282E938C70BDBE3D4",
+    "originalExport": true,
+    "sourceNodes": ["36:53"],
+    "rootWidth": "7",
+    "bytes": 255,
+    "file": "832ce.svg",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "rootHeight": "7"
   }
 ]

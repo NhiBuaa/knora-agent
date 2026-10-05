@@ -91,3 +91,44 @@ describe("Conversation lifecycle controls", () => {
     ).toBe("3");
   });
 });
+
+describe("backend conversation search", () => {
+  it("debounces backend q and keeps query-bound pagination", async () => {
+    const searched = {
+      ...conversation,
+      id: "c-search",
+      title: "Remote result",
+    };
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify({
+            items: url.includes("cursor=")
+              ? [{ ...searched, id: "c-page", title: "Remote next" }]
+              : [searched],
+            next_cursor: url.includes("cursor=") ? null : "q-next",
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ConversationList
+        workspaceId="w-1"
+        initialConversations={[conversation]}
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search conversations" }),
+      { target: { value: "  remote & policy  " } },
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    await screen.findByRole("link", { name: "Remote result" });
+    expect(fetchMock.mock.calls[0][0]).toContain("q=remote%20%26%20policy");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load more Conversations" }),
+    );
+    await screen.findByRole("link", { name: "Remote next" });
+    expect(fetchMock.mock.calls[1][0]).toContain("q=remote%20%26%20policy");
+    expect(fetchMock.mock.calls[1][0]).toContain("cursor=q-next");
+  });
+});

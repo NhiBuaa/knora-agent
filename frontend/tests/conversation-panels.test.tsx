@@ -1,0 +1,444 @@
+import React from "react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ConversationView } from "@/components/conversations/ConversationView";
+
+const conversation = {
+  id: "c",
+  workspace_id: "w",
+  title: "Annual reporting structure",
+  title_source: "manual",
+  archived: false,
+  revision: 3,
+  updated_at: "2026-09-26T00:00:00Z",
+};
+const citation = {
+  evidence_id: "E1",
+  document_id: "doc",
+  document_version_id: "historical-v1",
+  source_key: "guide",
+  source_name: "Guide",
+  heading_path: ["Report structure"],
+  start_line: 12,
+  end_line: 18,
+  excerpt: "Historical excerpt from the selected turn",
+  content_checksum: "sha-old",
+  page_start: 12,
+  page_end: 12,
+  start_offset: 4,
+  end_offset: 42,
+};
+const answered = {
+  id: "t",
+  conversation_id: "c",
+  sequence: 1,
+  question: "How many chapters?",
+  status: "answered",
+  stage: null,
+  error_code: null,
+  result: {
+    decision: "ANSWER",
+    answer: "Seven chapters are required.",
+    citations: [citation],
+    refusal_reason: null,
+    trace_id: "trace",
+    workspace_id: "w",
+  },
+};
+function history(items: (typeof answered)[] = [answered]) {
+  Object.defineProperty(window, "innerWidth", {
+    value: 1440,
+    writable: true,
+    configurable: true,
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () => new Response(JSON.stringify({ items, next_cursor: null })),
+    ),
+  );
+}
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
+describe("Conversation panel interactions", () => {
+  it("opens the selected historical citation and clears it when the conversation changes", async () => {
+    history();
+    const view = render(
+      <ConversationView workspaceId="w" conversation={conversation} />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /citation 1/i }));
+    const inspector = screen.getByRole("complementary", { name: /evidence/i });
+    expect(within(inspector).getByText(citation.excerpt)).toBeVisible();
+    expect(within(inspector).getByText("historical-v1")).toBeVisible();
+    expect(
+      within(inspector).getByRole("link", { name: /open document/i }),
+    ).toHaveAttribute("href", "/workspaces/w/documents/doc");
+    view.rerender(
+      <ConversationView
+        workspaceId="w"
+        conversation={{ ...conversation, id: "other" }}
+      />,
+    );
+    expect(
+      within(
+        screen.getByRole("complementary", { name: /evidence/i }),
+      ).queryByText(citation.excerpt),
+    ).not.toBeInTheDocument();
+  });
+  it("supports all five rail and inspector combinations without moving the composer", async () => {
+    history();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    await screen.findByText(answered.result.answer);
+    const center = screen.getByRole("region", {
+      name: "Conversation workspace",
+    });
+    expect(
+      within(center).getByRole("form", { name: "Question composer" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close evidence" }));
+    expect(
+      screen.queryByRole("complementary", { name: /evidence/i }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse rail" }));
+    expect(
+      screen.getByRole("navigation", { name: "Conversations" }),
+    ).toHaveAttribute("data-rail", "collapsed");
+    fireEvent.click(screen.getByRole("button", { name: "Open evidence" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide rail" }));
+    expect(
+      screen.queryByRole("navigation", { name: "Conversations" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show conversations" }));
+    expect(
+      screen.getByRole("navigation", { name: "Conversations" }),
+    ).toHaveAttribute("data-rail", "expanded");
+    expect(
+      within(center).getByRole("form", { name: "Question composer" }),
+    ).toBeInTheDocument();
+  });
+  it("resizes with keyboard, resets, restores session preferences and isolates identities", async () => {
+    history();
+    const props = {
+      workspaceId: "w",
+      conversation,
+      identityScope: {
+        issuer: "https://id.example/realms/knora",
+        subject: "alice",
+      },
+    };
+    const view = render(<ConversationView {...props} />);
+    await screen.findByText(answered.result.answer);
+    const divider = screen.getByRole("separator", {
+      name: "Resize conversation rail",
+    });
+    fireEvent.keyDown(divider, { key: "ArrowRight" });
+    expect(Number(divider.getAttribute("aria-valuenow"))).toBeGreaterThan(252);
+    fireEvent.doubleClick(divider);
+    expect(divider).toHaveAttribute("aria-valuenow", "252");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse rail" }));
+    view.unmount();
+    const restored = render(<ConversationView {...props} />);
+    expect(
+      screen.getByRole("navigation", { name: "Conversations" }),
+    ).toHaveAttribute("data-rail", "collapsed");
+    restored.rerender(
+      <ConversationView
+        {...props}
+        identityScope={{ ...props.identityScope, subject: "bob" }}
+      />,
+    );
+    expect(
+      screen.getByRole("navigation", { name: "Conversations" }),
+    ).toHaveAttribute("data-rail", "expanded");
+    expect(Object.values(sessionStorage)).not.toContain(citation.excerpt);
+  });
+  it("fills a suggested draft without sending until explicit Ask", async () => {
+    history([]);
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Summarize this workspace" }),
+    );
+    expect(screen.getByLabelText("Question")).toHaveValue(
+      "Summarize this workspace",
+    );
+    expect(
+      (fetch as any).mock.calls.filter(
+        (call: any[]) => call[1]?.method === "POST",
+      ),
+    ).toHaveLength(0);
+  });
+  it.each([
+    ["processing", "retrieving", "Retrieving evidence…"],
+    ["processing", "future-stage", "Processing question…"],
+    ["interrupted", null, "The answer was interrupted."],
+    ["failed", null, "System error"],
+  ])("renders truthful %s %s state", async (status, stage, label) => {
+    const turn = {
+      ...answered,
+      status,
+      stage,
+      result: null,
+      error_code: status === "failed" ? "SYSTEM_FAILURE" : null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string) =>
+          new Response(
+            JSON.stringify(
+              url.includes("?limit")
+                ? { items: [turn], next_cursor: null }
+                : turn,
+            ),
+          ),
+      ),
+    );
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText(answered.result.answer)).not.toBeInTheDocument();
+  });
+  it("restores an archived conversation with its revision but blocks an archived workspace", async () => {
+    const archived = { ...conversation, archived: true };
+    const requests: any[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        requests.push([url, init]);
+        return new Response(
+          JSON.stringify(
+            url.endsWith("/restore")
+              ? { ...conversation, revision: 4 }
+              : { items: [answered], next_cursor: null },
+          ),
+        );
+      }),
+    );
+    const view = render(
+      <ConversationView workspaceId="w" conversation={archived} />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Restore conversation" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Question")).toBeInTheDocument(),
+    );
+    expect(
+      new Headers(
+        requests.find(([url]) => url.endsWith("/restore"))[1].headers,
+      ).get("If-Match"),
+    ).toBe("3");
+    view.unmount();
+    render(
+      <ConversationView
+        workspaceId="w"
+        conversation={archived}
+        workspaceArchived
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Restore conversation" }),
+    ).toBeDisabled();
+  });
+});
+
+describe("narrow panel and citation recovery", () => {
+  it("keeps workspace mutation dialogs outside the narrow rail and retains canonical navigation", async () => {
+    history();
+    window.innerWidth = 390;
+    render(
+      <ConversationView
+        workspaceId="w"
+        workspaceName="Authorized workspace"
+        conversation={conversation}
+        workspaceSelector={<button>Switch workspace</button>}
+      />,
+    );
+    await screen.findByText(answered.result.answer);
+    fireEvent.click(screen.getByRole("button", { name: "Show conversations" }));
+    const dialog = screen.getByRole("dialog", { name: "Conversations" });
+    expect(
+      within(dialog).queryByRole("button", { name: "Switch workspace" }),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Authorized workspace")).toBeVisible();
+    expect(
+      within(dialog).getByRole("link", { name: "Manage workspaces" }),
+    ).toHaveAttribute("href", "/workspaces");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+  it("focuses a reopened desktop inspector after choosing a citation", async () => {
+    history();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const citationButton = await screen.findByRole("button", {
+      name: /citation 1/i,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close evidence" }));
+    citationButton.focus();
+    fireEvent.click(citationButton);
+    expect(
+      screen.getByRole("complementary", { name: /evidence/i }).parentElement,
+    ).toHaveFocus();
+  });
+  it("reopens a dismissed citation in a single narrow sheet and returns keyboard focus", async () => {
+    history();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const source = await screen.findByRole("button", { name: /citation 1/i });
+    window.innerWidth = 390;
+    fireEvent(window, new Event("resize"));
+    source.focus();
+    fireEvent.click(source);
+    const dialog = screen.getByRole("dialog", { name: "Evidence" });
+    expect(within(dialog).getByText(citation.excerpt)).toBeVisible();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(source).toHaveFocus();
+    fireEvent.click(source);
+    expect(screen.getByRole("dialog", { name: "Evidence" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close evidence" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show conversations" }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByRole("dialog", { name: "Conversations" })).toBeVisible();
+    expect(
+      screen.getByRole("form", { name: "Question composer" }),
+    ).toBeInTheDocument();
+  });
+  it("drags either divider within bounds and resets sizes with Enter", async () => {
+    history();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    await screen.findByText(answered.result.answer);
+    const rail = screen.getByRole("separator", {
+      name: "Resize conversation rail",
+    });
+    const pointer = (target: HTMLElement, type: string, x: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.assign(event, { clientX: x, pointerId: 7, button: 0 });
+      fireEvent(target, event);
+    };
+    pointer(rail, "pointerdown", 252);
+    pointer(rail, "pointermove", 350);
+    pointer(rail, "pointerup", 350);
+    expect(rail).toHaveAttribute("aria-valuenow", "350");
+    const evidence = screen.getByRole("separator", {
+      name: "Resize evidence inspector",
+    });
+    pointer(evidence, "pointerdown", 1064);
+    pointer(evidence, "pointermove", 1100);
+    pointer(evidence, "pointerup", 1100);
+    expect(evidence).toHaveAttribute("aria-valuenow", "340");
+    fireEvent.keyDown(evidence, { key: "Enter" });
+    expect(evidence).toHaveAttribute("aria-valuenow", "376");
+    fireEvent.keyDown(rail, { key: "End" });
+    expect(rail).toHaveAttribute("aria-valuenow", "400");
+  });
+  it("does not persist preferences without a validated identity scope", async () => {
+    history();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    await screen.findByText(answered.result.answer);
+    sessionStorage.setItem("unrelated-feature", "keep");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse rail" }));
+    expect(sessionStorage.length).toBe(1);
+    expect(sessionStorage.getItem("unrelated-feature")).toBe("keep");
+  });
+  it("selects the exact citation array of an earlier turn even when a later version is in history", async () => {
+    const newer = {
+      ...answered,
+      id: "new",
+      sequence: 2,
+      result: {
+        ...answered.result,
+        citations: [
+          {
+            ...citation,
+            document_version_id: "current-v2",
+            excerpt: "Replacement excerpt from newer version",
+          },
+        ],
+      },
+    };
+    history([answered, newer]);
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const earlier = await screen.findByRole("listitem", { name: "Question 1" });
+    fireEvent.click(
+      within(earlier).getByRole("button", { name: /citation 1/i }),
+    );
+    const inspector = screen.getByRole("complementary", { name: /evidence/i });
+    expect(within(inspector).getByText(citation.excerpt)).toBeVisible();
+    expect(
+      within(inspector).queryByText("Replacement excerpt from newer version"),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("rail mutations and stale scope", () => {
+  it("updates the current conversation to read-only when its rail action archives it", async () => {
+    history();
+    vi.stubGlobal("confirm", () => true);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: string, init: RequestInit = {}) =>
+          new Response(
+            JSON.stringify(
+              url.endsWith("/archive")
+                ? { ...conversation, archived: true, revision: 4 }
+                : { items: [answered], next_cursor: null },
+            ),
+          ),
+      ),
+    );
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    await screen.findByText(answered.result.answer);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Actions for Annual reporting structure",
+      }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
+    await screen.findByText("This Conversation is read-only.");
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+  });
+  it("ignores a pending poll from a previous conversation after switching routes", async () => {
+    let finish: (response: Response) => void = () => {};
+    const pending = { ...answered, status: "pending", result: null };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("/other/"))
+          return new Response(JSON.stringify({ items: [], next_cursor: null }));
+        if (url.endsWith("/turns/t"))
+          return new Promise<Response>((resolve) => {
+            finish = resolve;
+          });
+        return new Response(
+          JSON.stringify({ items: [pending], next_cursor: null }),
+        );
+      }),
+    );
+    const view = render(
+      <ConversationView workspaceId="w" conversation={conversation} />,
+    );
+    await screen.findByText("Processing question…");
+    view.rerender(
+      <ConversationView
+        workspaceId="w"
+        conversation={{ ...conversation, id: "other" }}
+      />,
+    );
+    await screen.findByRole("button", { name: "Summarize this workspace" });
+    finish(new Response(JSON.stringify(answered)));
+    await waitFor(() =>
+      expect(
+        screen.queryByText(answered.result.answer),
+      ).not.toBeInTheDocument(),
+    );
+  });
+});
