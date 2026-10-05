@@ -211,7 +211,9 @@ files; preserve bytes/root dimensions and verify every illustration layer. Scree
 are reference evidence only. Do not create an icon renderer or redraw provided SVGs.
 
 **Tests:** frontend/tests/conversation-view.test.tsx, conversation-list.test.tsx,
-citation-viewer.test.tsx; new frontend/tests/conversation-panels.test.tsx.
+citation-viewer.test.tsx; new frontend/tests/conversation-panels.test.tsx. Allow the bounded
+frontend/tests/workspace-figma-flows.test.tsx adaptation to open the shared Menu before checking
+the authorized workspace name after removal of the interim rail; retain denied-name assertions.
 
 **Consumes:** existing generated TurnResponse/ConversationResponse and citation array from
 TurnResponse.result. Preserve current durable polling/submission handler in ConversationView.
@@ -262,7 +264,7 @@ expect(screen.getByText("Historical excerpt from the selected turn")).toBeVisibl
 - [ ] Run:
 
 ~~~powershell
-npm --prefix frontend run test -- tests/conversation-view.test.tsx tests/conversation-list.test.tsx tests/citation-viewer.test.tsx tests/conversation-panels.test.tsx
+npm --prefix frontend run test -- tests/conversation-view.test.tsx tests/conversation-list.test.tsx tests/citation-viewer.test.tsx tests/conversation-panels.test.tsx tests/workspace-figma-flows.test.tsx
 npm --prefix frontend run typecheck
 npm --prefix frontend run format
 npm --prefix frontend run format:check
