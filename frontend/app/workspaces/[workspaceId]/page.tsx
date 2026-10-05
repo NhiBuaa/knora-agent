@@ -4,8 +4,11 @@ import type {
   KnoraApiPath,
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
-import { WorkspaceHome } from "@/components/workspaces/WorkspaceHome";
-import { knoraRequest } from "@/lib/api/client";
+import {
+  WorkspaceHome,
+  WorkspaceUnavailable,
+} from "@/components/workspaces/WorkspaceHome";
+import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 
 export default async function WorkspacePage({
@@ -27,7 +30,10 @@ export default async function WorkspacePage({
         capabilities={session.capabilities}
       />
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof KnoraApiError && [403, 404].includes(error.status)) {
+      return <WorkspaceUnavailable />;
+    }
     return <p role="alert">Unable to load this Workspace.</p>;
   }
 }

@@ -21,6 +21,10 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${path}`);
   }),
 }));
+vi.mock("@/lib/api/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/client")>()),
+  knoraRequest: vi.fn(),
+}));
 
 import HomePage from "@/app/page";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -29,8 +33,32 @@ import {
   resolveCurrentWorkspace,
 } from "@/lib/auth/workspace";
 import { getSession } from "@/lib/auth/session";
+import WorkspacePage from "@/app/workspaces/[workspaceId]/page";
+import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 
 describe("canonical entry", () => {
+  it("renders denied workspace recovery without disclosing the requested ID or name", async () => {
+    vi.mocked(knoraRequest).mockRejectedValueOnce(
+      new KnoraApiError(403, { name: "Private name" }),
+    );
+    const html = renderToStaticMarkup(
+      await WorkspacePage({
+        params: Promise.resolve({ workspaceId: "private-id" }),
+      }),
+    );
+    expect(html).toContain("Workspace unavailable");
+    expect(html).toContain("Choose another workspace");
+    expect(html).not.toContain("Private name");
+    expect(html).not.toContain("private-id");
+  });
+  it("keeps a transient failure distinct from denied workspace access", async () => {
+    vi.mocked(knoraRequest).mockRejectedValueOnce(new KnoraApiError(503, {}));
+    const html = renderToStaticMarkup(
+      await WorkspacePage({ params: Promise.resolve({ workspaceId: "ws" }) }),
+    );
+    expect(html).toContain("Unable to load this Workspace.");
+    expect(html).not.toContain("Workspace unavailable");
+  });
   it("uses read-only owner selection for an authenticated user without provisioning", async () => {
     await expect(HomePage({})).rejects.toThrow(
       "REDIRECT:/workspaces/workspace-a",

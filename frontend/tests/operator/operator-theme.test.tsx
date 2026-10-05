@@ -8,7 +8,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/operator" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/operator",
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 afterEach(cleanup);
 

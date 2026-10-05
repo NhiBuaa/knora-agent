@@ -16,6 +16,7 @@ export function AppShell({
   subject,
   themePreference,
   children,
+  workspaceSelector,
 }: {
   workspaces: WorkspaceResponse[];
   nextCursor: string | null;
@@ -23,6 +24,7 @@ export function AppShell({
   subject: string;
   themePreference: ThemePreference;
   children: React.ReactNode;
+  workspaceSelector?: React.ReactNode;
 }) {
   const pathname = usePathname() ?? "";
   const parts = pathname.split("/").filter(Boolean);
@@ -44,6 +46,7 @@ export function AppShell({
   const showRail = Boolean(workspaceId && activeSection === "conversations");
   const navigation = (
     <WorkspaceSidebar
+      workspaceSelector={workspaceSelector}
       workspaces={workspaces}
       capabilities={capabilities}
       nextCursor={nextCursor}

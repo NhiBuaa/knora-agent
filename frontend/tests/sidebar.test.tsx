@@ -9,6 +9,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceSidebar } from "@/components/shell/WorkspaceSidebar";
 import { MobileDrawer } from "@/components/shell/MobileDrawer";
+import { Dialog } from "@/components/ui/Dialog";
+import userEvent from "@testing-library/user-event";
 
 afterEach(() => {
   cleanup();
@@ -24,6 +26,41 @@ const workspace = {
 };
 
 describe("Workspace sidebar", () => {
+  it("leaves the drawer open when a feature dialog handles Escape and restores its own focus", async () => {
+    function NestedFeature() {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <MobileDrawer>
+          <button onClick={() => setOpen(true)}>Create workspace</button>
+          <Dialog
+            open={open}
+            onClose={() => setOpen(false)}
+            title="Create workspace"
+          >
+            <input aria-label="Workspace name" />
+            <button onClick={() => setOpen(false)}>Cancel</button>
+          </Dialog>
+        </MobileDrawer>
+      );
+    }
+    const user = userEvent.setup();
+    render(<NestedFeature />);
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Create workspace" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Workspace navigation" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Create workspace" }),
+    ).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveFocus();
+  });
   it("expands independently and fetches only five recent Conversations", async () => {
     const fetchMock = vi.fn(
       async (_url: string) =>

@@ -4,7 +4,7 @@ import type {
   WorkspaceListResponse,
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
-import { AppShell } from "@/components/shell/AppShell";
+import { WorkspaceShell } from "@/components/workspaces/WorkspaceShell";
 import { Notice } from "@/components/ui/Notice";
 import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
@@ -62,7 +62,8 @@ export default async function OperatorLayout({
     );
   }
   return (
-    <AppShell
+    <WorkspaceShell
+      selectedWorkspace={selected}
       workspaces={page.items}
       nextCursor={page.next_cursor}
       capabilities={session.capabilities}
@@ -85,6 +86,6 @@ export default async function OperatorLayout({
         )}
         {children}
       </div>
-    </AppShell>
+    </WorkspaceShell>
   );
 }

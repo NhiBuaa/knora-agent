@@ -1,0 +1,42 @@
+[
+  {
+    "file": "21b31.svg",
+    "bytes": 324,
+    "sha256": "9C8D9FCEEF740FD3EB8511F7D2C6223318DE2850A7B513A4288B499BD5F1C0E0",
+    "rootWidth": "6.98995",
+    "rootHeight": "4.48492",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "sourceNodes": ["148:116"],
+    "originalExport": true
+  },
+  {
+    "file": "23c31.svg",
+    "bytes": 321,
+    "sha256": "D02A164F7B6EA39D5EB754EE8F40CCDD669BCA2421D6936F7AB80AD711E400FE",
+    "rootWidth": "6.98995",
+    "rootHeight": "4.48492",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "sourceNodes": ["140:104"],
+    "originalExport": true
+  },
+  {
+    "file": "a4e11.svg",
+    "bytes": 446,
+    "sha256": "19A2CDEB61970196D4138979B0F8E66B8AF33C9547E93BAD3900C8CF98045B5C",
+    "rootWidth": "10",
+    "rootHeight": "6",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "sourceNodes": ["154:134", "154:290", "183:176"],
+    "originalExport": true
+  },
+  {
+    "file": "ed1ac.svg",
+    "bytes": 395,
+    "sha256": "B4BE36F83D7CA4C9007504AA74708A2E43ACCCE510D81A2C42AC4FC883DCBB70",
+    "rootWidth": "48",
+    "rootHeight": "48",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "sourceNodes": ["166:211"],
+    "originalExport": true
+  }
+]

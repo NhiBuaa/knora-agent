@@ -11,11 +11,13 @@ import { routes } from "@/lib/navigation/routes";
 
 export function WorkspaceSidebar({
   workspaces,
+  workspaceSelector,
   capabilities,
   nextCursor = null,
   onNavigate = (path: string) => window.location.assign(path),
 }: {
   workspaces: WorkspaceResponse[];
+  workspaceSelector?: React.ReactNode;
   capabilities: string[];
   nextCursor?: string | null;
   onNavigate?: (path: string) => void;
@@ -121,10 +123,15 @@ export function WorkspaceSidebar({
 
   return (
     <nav aria-label="Workspace navigation" className="workspace-sidebar">
-      <Link href="/workspaces" className="workspace-sidebar-brand">
-        Knora
-      </Link>
-      <Link href="/workspaces">New Workspace</Link>
+      {workspaceSelector}
+      {!workspaceSelector && (
+        <>
+          <Link href="/workspaces" className="workspace-sidebar-brand">
+            Knora
+          </Link>
+          <Link href="/workspaces">New Workspace</Link>
+        </>
+      )}
       {error && <p role="alert">{error}</p>}
       <ul>
         {owned

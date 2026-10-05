@@ -3,6 +3,7 @@ import type { ResolutionResponse } from "@/generated/knora-openapi";
 const segment = (value: string) => encodeURIComponent(value);
 
 export const routes = {
+  archivedWorkspaces: "/workspaces/archived",
   workspace: (workspaceId: string) => `/workspaces/${segment(workspaceId)}`,
   documents: (workspaceId: string) =>
     `/workspaces/${segment(workspaceId)}/documents`,

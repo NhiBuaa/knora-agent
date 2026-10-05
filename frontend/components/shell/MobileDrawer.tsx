@@ -21,6 +21,10 @@ export function MobileDrawer({ children }: { children: React.ReactNode }) {
     document.body.style.overflow = "hidden";
     focusableControls(dialog)[0]?.focus();
     function onKeyDown(event: KeyboardEvent) {
+      // A feature modal in the top layer owns keyboard input while this drawer is underneath it.
+      const owner =
+        event.target instanceof Element ? event.target.closest("dialog") : null;
+      if (owner && owner !== dialog) return;
       if (event.key === "Escape") {
         event.preventDefault();
         setOpen(false);

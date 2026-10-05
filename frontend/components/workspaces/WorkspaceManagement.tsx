@@ -1,10 +1,14 @@
 "use client";
 
-import React, { FormEvent, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { WorkspaceResponse } from "@/generated/knora-openapi";
 import { browserRequest } from "@/lib/api/browser-client";
+import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
+import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
+import { Button } from "@/components/ui/Button";
+import "./workspaces.css";
 import { routes } from "@/lib/navigation/routes";
 
 export function WorkspaceManagement({
@@ -21,11 +25,11 @@ export function WorkspaceManagement({
     setWorkspaces(initialWorkspaces);
     setCursor(nextCursor);
   }, [initialWorkspaces, nextCursor]);
-  const [archived, setArchived] = useState<WorkspaceResponse[]>([]);
-  const [archivedCursor, setArchivedCursor] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
-  const [name, setName] = useState("");
-  const createKey = useRef<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<WorkspaceResponse | null>(
+    null,
+  );
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -49,92 +53,6 @@ export function WorkspaceManagement({
       setCursor(page.next_cursor);
     } catch {
       setError("Unable to load more Workspaces. Retry.");
-    }
-  }
-
-  async function loadArchived() {
-    setError(null);
-    try {
-      const response = await browserRequest(
-        "/v1/workspaces?archived=true&limit=20",
-      );
-      if (!response.ok) throw new Error("archive read failed");
-      const page = (await response.json()) as {
-        items: WorkspaceResponse[];
-        next_cursor: string | null;
-      };
-      setArchived(page.items);
-      setArchivedCursor(page.next_cursor);
-      setShowArchived(true);
-    } catch {
-      setError("Unable to load archived Workspaces. Retry.");
-    }
-  }
-
-  async function loadMoreArchived() {
-    if (!archivedCursor) return;
-    setError(null);
-    try {
-      const response = await browserRequest(
-        `/v1/workspaces?archived=true&limit=20&cursor=${encodeURIComponent(archivedCursor)}`,
-      );
-      if (!response.ok) throw new Error("archive page unavailable");
-      const page = (await response.json()) as {
-        items: WorkspaceResponse[];
-        next_cursor: string | null;
-      };
-      setArchived((current) => {
-        const seen = new Set(current.map((item) => item.id));
-        return [...current, ...page.items.filter((item) => !seen.has(item.id))];
-      });
-      setArchivedCursor(page.next_cursor);
-    } catch {
-      setError("Unable to load more archived Workspaces. Retry.");
-    }
-  }
-
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const proposed = name.trim();
-    if (!proposed) return;
-    setError(null);
-    try {
-      const response = await browserRequest("/v1/workspaces", {
-        method: "POST",
-        headers: {
-          "Idempotency-Key": (createKey.current ??= crypto.randomUUID()),
-        },
-        body: JSON.stringify({ name: proposed }),
-      });
-      if (!response.ok) throw new Error("creation failed");
-      const created = (await response.json()) as WorkspaceResponse;
-      setWorkspaces((current) => [...current, created]);
-      router.refresh();
-      createKey.current = null;
-      setName("");
-      setMessage("Workspace created.");
-    } catch {
-      setError("Unable to create Workspace. Retry.");
-    }
-  }
-
-  async function restore(workspace: WorkspaceResponse) {
-    setError(null);
-    try {
-      const response = await browserRequest(
-        `/v1/workspaces/${encodeURIComponent(workspace.id)}/restore`,
-        { method: "POST", headers: { "If-Match": String(workspace.revision) } },
-      );
-      if (!response.ok) throw new Error("restore failed");
-      const restored = (await response.json()) as WorkspaceResponse;
-      setArchived((current) =>
-        current.filter((item) => item.id !== restored.id),
-      );
-      setWorkspaces((current) => [...current, restored]);
-      router.refresh();
-      setMessage("Workspace restored.");
-    } catch {
-      setError("Unable to restore Workspace. Reload and retry.");
     }
   }
 
@@ -165,12 +83,8 @@ export function WorkspaceManagement({
   }
 
   async function archive(workspace: WorkspaceResponse) {
-    if (
-      !window.confirm(
-        "Archive this Workspace? Its documents and Conversations become read-only until restored.",
-      )
-    )
-      return;
+    if (archiveBusy) return;
+    setArchiveBusy(true);
     setError(null);
     try {
       const response = await browserRequest(
@@ -182,10 +96,11 @@ export function WorkspaceManagement({
       setWorkspaces((current) =>
         current.filter((item) => item.id !== archivedWorkspace.id),
       );
-      setArchived((current) => [...current, archivedWorkspace]);
       router.refresh();
+      setArchiveTarget(null);
       setMessage("Workspace archived. Its retained content remains readable.");
     } catch {
+      setArchiveBusy(false);
       setError("Unable to archive Workspace. Reload and retry.");
       return;
     }
@@ -217,7 +132,7 @@ export function WorkspaceManagement({
           setError(
             "Workspace archived. Reload to select another active Workspace.",
           );
-        }
+        } else router.push(routes.workspace(resolution.workspace.id));
       } else {
         const cleared = await fetch("/api/workspace-selection", {
           method: "DELETE",
@@ -226,20 +141,31 @@ export function WorkspaceManagement({
           setError(
             "Workspace archived. Reload to clear the previous selection.",
           );
-        }
+        } else router.push("/workspaces");
       }
     } catch {
       setError(
         "Workspace archived. Reload to select another active Workspace.",
       );
+    } finally {
+      setArchiveBusy(false);
     }
   }
 
   return (
-    <section>
-      <h1>Workspaces</h1>
-      {!workspaces.length && <p>No active Workspace</p>}
-      <ul>
+    <section
+      className={workspaces.length ? "workspace-management" : "workspace-state"}
+    >
+      {workspaces.length ? (
+        <h1>Workspaces</h1>
+      ) : (
+        <>
+          <p className="workspace-eyebrow">Workspace required</p>
+          <h1>No active workspace</h1>
+          <p>Create a new workspace or restore one to continue.</p>
+        </>
+      )}
+      <ul className="workspace-management-list">
         {workspaces.map((workspace) => (
           <li key={workspace.id}>
             <Link href={routes.workspace(workspace.id)}>{workspace.name}</Link>
@@ -258,8 +184,15 @@ export function WorkspaceManagement({
             <button type="button" onClick={() => void rename(workspace)}>
               Save {workspace.name} name
             </button>
-            <button type="button" onClick={() => void archive(workspace)}>
-              Archive {workspace.name}
+            <button
+              type="button"
+              disabled={archiveBusy}
+              onClick={() => {
+                setError(null);
+                setArchiveTarget(workspace);
+              }}
+            >
+              Archive workspace {workspace.name}
             </button>
           </li>
         ))}
@@ -269,48 +202,48 @@ export function WorkspaceManagement({
           Load more Workspaces
         </button>
       )}
-      <form onSubmit={(event) => void create(event)}>
-        <label htmlFor="new-workspace-name">Workspace name</label>
-        <input
-          id="new-workspace-name"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            createKey.current = null;
-          }}
-        />
-        <button type="submit">Create Workspace</button>
-      </form>
-      <button type="button" onClick={() => void loadArchived()}>
-        Show archived Workspaces
-      </button>
-      {showArchived && (
-        <div>
-          <ul>
-            {archived.map((workspace) => (
-              <li key={workspace.id}>
-                <Link href={routes.workspace(workspace.id)}>
-                  {workspace.name}
-                </Link>{" "}
-                <button
-                  type="button"
-                  onClick={() => void restore(workspace)}
-                  aria-label={`Restore ${workspace.name}`}
-                >
-                  Restore
-                </button>
-              </li>
-            ))}
-          </ul>
-          {archivedCursor && (
-            <button type="button" onClick={() => void loadMoreArchived()}>
-              Load more archived Workspaces
-            </button>
-          )}
-        </div>
+      <div className="workspace-state-actions">
+        <Button onClick={() => setCreating(true)}>Create workspace</Button>
+        <Link href={routes.archivedWorkspaces}>Restore workspace</Link>
+      </div>
+      {!workspaces.length && (
+        <p className="workspace-state-help">
+          Restoring a workspace makes its conversations, documents, and evidence
+          available again.
+        </p>
       )}
+      <CreateWorkspaceDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onCreated={async (created) => {
+          setWorkspaces((current) => [...current, created]);
+          router.refresh();
+          setMessage("Workspace created.");
+          try {
+            const response = await fetch("/api/workspace-selection", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ workspaceId: created.id }),
+            });
+            if (!response.ok) throw new Error("selection failed");
+            router.push(routes.workspace(created.id));
+            router.refresh();
+          } catch {
+            setError("Workspace created. Reload to select the Workspace.");
+          }
+        }}
+      />
+      <ArchiveWorkspaceDialog
+        workspace={archiveTarget}
+        busy={archiveBusy}
+        error={archiveTarget ? error : null}
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={() => {
+          if (archiveTarget) void archive(archiveTarget);
+        }}
+      />
       {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
+      {error && !archiveTarget && <p role="alert">{error}</p>}
     </section>
   );
 }

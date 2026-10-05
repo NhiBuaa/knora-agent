@@ -5,11 +5,16 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const { refresh, push } = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  push: vi.fn(),
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push }) }));
 import { WorkspaceManagement } from "@/components/workspaces/WorkspaceManagement";
+import { ArchivedWorkspaceList } from "@/components/workspaces/ArchivedWorkspaceList";
 import { WorkspaceHome } from "@/components/workspaces/WorkspaceHome";
 
 afterEach(() => {
@@ -31,11 +36,6 @@ describe("Workspace management", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ items: [archived], next_cursor: null }), {
-          status: 200,
-        }),
-      )
-      .mockResolvedValueOnce(
         new Response(
           JSON.stringify({ ...archived, archived: false, revision: 3 }),
           {
@@ -51,14 +51,15 @@ describe("Workspace management", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<WorkspaceManagement initialWorkspaces={[]} />);
-    await screen.findByText("No active Workspace");
+    await screen.findByText("No active workspace");
     expect(
-      screen.getByRole("button", { name: "Create Workspace" }),
+      screen.getByRole("button", { name: "Create workspace" }),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show archived Workspaces" }),
-    );
-    await screen.findByText("Archived Workspace");
+    expect(
+      screen.getByRole("link", { name: "Restore workspace" }),
+    ).toHaveAttribute("href", "/workspaces/archived");
+    cleanup();
+    render(<ArchivedWorkspaceList initialWorkspaces={[archived]} />);
     expect(
       screen.getByRole("link", { name: "Archived Workspace" }),
     ).toHaveAttribute("href", "/workspaces/ws-archived");
@@ -67,7 +68,7 @@ describe("Workspace management", () => {
     );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(
-      new Headers(fetchMock.mock.calls[1][1].headers).get("If-Match"),
+      new Headers(fetchMock.mock.calls[0][1].headers).get("If-Match"),
     ).toBe("2");
     expect(refresh).toHaveBeenCalled();
   });
@@ -99,8 +100,14 @@ describe("Workspace management", () => {
     expect(
       new Headers(fetchMock.mock.calls[0][1].headers).get("If-Match"),
     ).toBe("4");
-    fireEvent.click(screen.getByRole("button", { name: "Archive Renamed" }));
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("read-only"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Archive workspace Renamed" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Archive workspace" }),
+    ).toHaveTextContent("read-only");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -123,35 +130,27 @@ describe("Workspace management", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("cursor=next-page");
   });
 
-  it("paginates archived Workspaces without loading them on navigation", async () => {
+  it("paginates archived Workspaces from its dedicated route with a backend cursor", async () => {
     const older = { ...archived, id: "ws-older", name: "Older Workspace" };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ items: [archived], next_cursor: "archive-next" }),
-          {
-            status: 200,
-          },
-        ),
-      )
-      .mockResolvedValueOnce(
+    const fetchMock = vi.fn(
+      async (_url: string) =>
         new Response(JSON.stringify({ items: [older], next_cursor: null }), {
           status: 200,
         }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-    render(<WorkspaceManagement initialWorkspaces={[]} />);
-    expect(fetchMock).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show archived Workspaces" }),
     );
-    await screen.findByText("Archived Workspace");
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ArchivedWorkspaceList
+        initialWorkspaces={[archived]}
+        nextCursor="archive-next"
+      />,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole("button", { name: "Load more archived Workspaces" }),
     );
     await screen.findByText("Older Workspace");
-    expect(fetchMock.mock.calls[1][0]).toContain("cursor=archive-next");
+    expect(fetchMock.mock.calls[0][0]).toContain("cursor=archive-next");
   });
 
   it("resolves the next active Workspace after an archive mutation", async () => {
@@ -188,7 +187,14 @@ describe("Workspace management", () => {
       vi.fn(() => true),
     );
     render(<WorkspaceManagement initialWorkspaces={[active]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Archive Active" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Archive workspace Active" }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: /^Archive workspace$/,
+      }),
+    );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(fetchMock.mock.calls[1][0]).toBe("/api/v1/workspaces/resolve");
     expect(fetchMock.mock.calls[1][1].body).toBe(
@@ -196,7 +202,7 @@ describe("Workspace management", () => {
     );
     expect(fetchMock.mock.calls[2][0]).toBe("/api/workspace-selection");
     expect(fetchMock.mock.calls[2][1].method).toBe("DELETE");
-    expect(screen.getByText("No active Workspace")).toBeInTheDocument();
+    expect(screen.getByText("No active workspace")).toBeInTheDocument();
   });
 
   it("keeps a successful archive truthful if the follow-up resolver fails", async () => {
@@ -223,7 +229,14 @@ describe("Workspace management", () => {
       vi.fn(() => true),
     );
     render(<WorkspaceManagement initialWorkspaces={[active]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Archive Active" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Archive workspace Active" }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: /^Archive workspace$/,
+      }),
+    );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Workspace archived. Reload to select another active Workspace.",
@@ -248,16 +261,25 @@ describe("Workspace management", () => {
         .mockReturnValueOnce("key-second"),
     });
     render(<WorkspaceManagement initialWorkspaces={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
     fireEvent.change(screen.getByLabelText("Workspace name"), {
       target: { value: "First" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create Workspace" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Create workspace",
+      }),
+    );
     await screen.findByRole("alert");
     fireEvent.change(screen.getByLabelText("Workspace name"), {
       target: { value: "Second" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create Workspace" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Create workspace",
+      }),
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(
       new Headers(fetchMock.mock.calls[0][1].headers).get("Idempotency-Key"),
     ).toBe("key-first");
