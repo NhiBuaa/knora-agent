@@ -593,7 +593,9 @@ export function DocumentList({
                       {sourceKind(document.source_name).label} document
                       {document.answer_availability === "unavailable"
                         ? " · Not available for new answers"
-                        : ""}
+                        : document.answer_availability === "available"
+                          ? ""
+                          : " · Answer availability unavailable"}
                     </p>
                   </div>
                   <div className="flex min-w-0 flex-col items-start gap-1">

@@ -72,6 +72,77 @@ afterEach(() => {
 });
 
 describe("Documents Figma lifecycle", () => {
+  it.each(["unknown", "omitted"])(
+    "renders %s answer availability independently of Ready in list rows",
+    async (availability) => {
+      const document: DocumentResponse = {
+        ...ready,
+        answer_availability: "unknown",
+      };
+      if (availability === "omitted") delete document.answer_availability;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(json({ documents: [document] })),
+      );
+      render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+      const row = (
+        await screen.findByRole("link", { name: "manual.pdf" })
+      ).closest("li")!;
+      expect(within(row).getByText("Ready", { exact: true })).toBeVisible();
+      expect(
+        within(row).getByText(/answer availability unavailable/i),
+      ).toBeVisible();
+    },
+  );
+
+  it("retains accepted reprocess status while its first poll is pending", async () => {
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST")
+        return json(
+          {
+            ingestion_job_id: "accepted-job",
+            document_version_id: "version-new",
+            outcome: "created",
+            status: "queued",
+          },
+          202,
+        );
+      if (url.includes("ingestion-jobs"))
+        return new Promise<Response>(() => {});
+      return json(ready);
+    });
+    vi.stubGlobal("fetch", fetcher);
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-1"
+        capabilities={capabilities}
+      />,
+    );
+    const reprocess = await screen.findByRole("button", {
+      name: "Reprocess document",
+    });
+    await userEvent.click(reprocess);
+    await waitFor(() =>
+      expect(
+        fetcher.mock.calls.some(([url]) =>
+          url.includes("ingestion-jobs/accepted-job"),
+        ),
+      ).toBe(true),
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Overview" })).getByText(
+        "Queued",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    expect(reprocess).toBeDisabled();
+    await userEvent.click(reprocess);
+    expect(
+      fetcher.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(1);
+  });
+
   it.each(["list", "detail"])(
     "uses the reloaded Document projection after a terminal %s job",
     async (surface) => {

@@ -43,9 +43,11 @@ export function DocumentDetail({
 }: Props) {
   const [document, setDocument] = useState<DocumentResponse | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [jobStatus, setJobStatus] = useState<IngestionJobStatusResponse | null>(
-    null,
-  );
+  const [jobStatus, setJobStatus] = useState<
+    | (Pick<IngestionJobStatusResponse, "status"> &
+        Partial<IngestionJobStatusResponse>)
+    | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmDeletion, setConfirmDeletion] = useState(false);
@@ -237,7 +239,7 @@ export function DocumentDetail({
       const result = (await response.json()) as ReprocessResponse;
       if (controller.signal.aborted) return;
       reprocessKey.current = null;
-      setJobStatus(null);
+      setJobStatus({ status: result.status });
       setJobId(result.ingestion_job_id);
     } catch {
       if (!controller.signal.aborted)
