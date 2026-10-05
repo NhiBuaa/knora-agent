@@ -64,3 +64,18 @@ def test_workspace_search_normalizes_blank_query_and_rejects_overlong_query():
     with pytest.raises(KnoraError, match="INVALID_WORKSPACE_QUERY"):
         store.list(owner, q="x" * 201)
     assert service.list(owner).items[0].id == workspace.id
+
+
+@pytest.mark.parametrize("first_query, next_query", [("İ", "i"), ("i", "İ")])
+def test_workspace_unicode_search_uses_postgres_case_semantics_for_matching_and_cursor(
+    first_query, next_query
+):
+    store = PostgresWorkspaceStore(SessionFactory)
+    owner = Identity("https://issuer", str(uuid4()))
+    first = store.create(owner, "İstanbul one", "first")
+    second = store.create(owner, "İstanbul two", "second")
+    page = store.list(owner, archived=False, limit=1, q=first_query)
+    assert [item.id for item in page.items] == [first.id]
+    assert page.next_cursor is not None
+    following = store.list(owner, archived=False, cursor=page.next_cursor, q=f" {next_query} ")
+    assert [item.id for item in following.items] == [second.id]

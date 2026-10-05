@@ -345,6 +345,65 @@ def test_zero_vectors_do_not_make_vector_only_evidence_available(database, hybri
     assert projection.answer_availability == ("available" if hybrid else "unavailable")
 
 
+@pytest.mark.parametrize(
+    "content, vector_state, v2, expected",
+    [
+        ("!!! ... ???", "zero", False, "unavailable"),
+        ("!!! ... ???", "missing", False, "unavailable"),
+        ("!!! ... ???", "usable", False, "available"),
+        ("refunds", "zero", False, "available"),
+        ("refunds", "missing", False, "available"),
+        ("the and", "zero", False, "available"),
+        ("the and", "zero", True, "unavailable"),
+        ("refunds", "missing", True, "available"),
+    ],
+)
+def test_hybrid_availability_requires_usable_vector_or_queryable_fts_evidence(
+    database, content, vector_state, v2, expected
+):
+    factory, workspace_id, principal = database
+    result = ingest_text(factory, workspace_id, principal)
+    with factory.begin() as session:
+        session.execute(
+            update(ChunkTable)
+            .where(ChunkTable.chunk_set_id == result.chunk_set_id)
+            .values(content=content)
+        )
+        if vector_state == "zero":
+            session.execute(
+                update(ChunkEmbeddingTable)
+                .where(ChunkEmbeddingTable.embedding_set_id == result.embedding_set_id)
+                .values(embedding=[0.0] * 1536)
+            )
+        elif vector_state == "missing":
+            session.execute(
+                ChunkEmbeddingTable.__table__.delete().where(
+                    ChunkEmbeddingTable.embedding_set_id == result.embedding_set_id
+                )
+            )
+        if v2:
+            session.add(
+                RetrievalV2CutoverTable(
+                    workspace_id=workspace_id,
+                    embedding_configuration_id="embedding-local-m1-v2",
+                    population_digest="a" * 64,
+                    status="completed",
+                )
+            )
+    reader = PostgresDocumentReader(
+        factory,
+        deployed_retrieval_configuration=(
+            RetrievalConfiguration.milestone_three_hybrid_v2(min_similarity=0.657410732025)
+            if v2
+            else RetrievalConfiguration.milestone_three_hybrid()
+        ),
+    )
+    projection = reader.read_document(
+        workspace_id=workspace_id, document_id=result.document_id, principal=principal
+    )
+    assert projection.answer_availability == expected
+
+
 def test_v2_cutover_gates_availability_using_deployed_retrieval_configuration(database):
     factory, workspace_id, principal = database
     result = ingest_text(factory, workspace_id, principal)

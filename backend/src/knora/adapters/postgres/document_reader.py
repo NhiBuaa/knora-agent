@@ -19,6 +19,7 @@ from knora.adapters.postgres.tables import (
     RetrievalV2CutoverTable,
     WorkspaceTable,
 )
+from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2
 from knora.answering.stores import RetrievalConfiguration
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
@@ -91,18 +92,50 @@ class PostgresDocumentReader:
             if cutover is None or cutover.status != "completed":
                 return "unavailable"
         chunks = select(ChunkTable.id).where(ChunkTable.chunk_set_id == active.chunk_set_id)
-        if retrieval.strategy == "vector-only":
-            chunks = chunks.join(
-                ChunkEmbeddingTable, ChunkEmbeddingTable.chunk_id == ChunkTable.id
-            ).where(
-                ChunkEmbeddingTable.embedding_set_id == row.active_embedding_set_id,
-                func.vector_dims(ChunkEmbeddingTable.embedding) == configuration.dimensions,
-                # A zero vector has undefined cosine similarity for every query.
-                func.vector_norm(ChunkEmbeddingTable.embedding) > 0,
-            )
-        elif retrieval.strategy != "hybrid":
+        if retrieval.strategy not in {"vector-only", "hybrid"}:
             return "unknown"
-        return "available" if session.scalar(select(exists(chunks))) else "unavailable"
+        vectors = chunks.join(
+            ChunkEmbeddingTable, ChunkEmbeddingTable.chunk_id == ChunkTable.id
+        ).where(
+            ChunkEmbeddingTable.embedding_set_id == row.active_embedding_set_id,
+            func.vector_dims(ChunkEmbeddingTable.embedding) == configuration.dimensions,
+            # A zero vector has undefined cosine similarity for every query.
+            func.vector_norm(ChunkEmbeddingTable.embedding) > 0,
+        )
+        if session.scalar(select(exists(vectors))):
+            return "available"
+        if retrieval.strategy == "vector-only":
+            return "unavailable"
+        lexical_policy = retrieval.lexical_policy_id or retrieval.fts_policy_version
+        lexical_chunks = chunks.where(func.length(ChunkTable.search_vector) > 0)
+        if lexical_policy == "fts-v1":
+            return "available" if session.scalar(select(exists(lexical_chunks))) else "unavailable"
+        if lexical_policy != "fts-m3-or-v2":
+            return "unknown"
+        # v2 removes stopwords and normalizes Unicode before producing its OR query.
+        # Check the generated vector against that same policy: raw nonempty FTS
+        # vectors can contain only lexemes which the deployed query policy omits.
+        for chunk_id, indexed_lexemes in session.execute(
+            select(ChunkTable.id, func.tsvector_to_array(ChunkTable.search_vector)).where(
+                ChunkTable.chunk_set_id == active.chunk_set_id,
+                func.length(ChunkTable.search_vector) > 0,
+            )
+        ):
+            query_lexemes = normalize_fts_m3_or_v2(" ".join(indexed_lexemes))
+            if query_lexemes and session.scalar(
+                select(
+                    exists(
+                        lexical_chunks.where(
+                            ChunkTable.id == chunk_id,
+                            ChunkTable.search_vector.op("@@")(
+                                func.to_tsquery("simple", " | ".join(query_lexemes))
+                            ),
+                        )
+                    )
+                )
+            ):
+                return "available"
+        return "unavailable"
 
     def _projection(self, session, row: DocumentTable) -> DocumentProjection:
         active = session.execute(

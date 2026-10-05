@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from knora.access.identity import Identity
@@ -167,11 +167,13 @@ class PostgresWorkspaceStore:
         trimmed_query = q.strip() if q else None
         if trimmed_query and len(trimmed_query) > 200:
             raise KnoraError("INVALID_WORKSPACE_QUERY")
-        normalized_query = trimmed_query.lower() if trimmed_query else None
         with self._session_factory() as session:
             owner_id = self._identity_id(session, identity)
             if owner_id is None:
                 return WorkspacePage(())
+            normalized_query = (
+                session.scalar(select(func.lower(trimmed_query))) if trimmed_query else None
+            )
             query = self._ordered(owner_id)
             if archived is not None:
                 query = query.where(WorkspaceTable.archived == archived)

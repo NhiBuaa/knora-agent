@@ -223,3 +223,32 @@ def test_conversation_store_rejects_overlong_search_and_normalizes_blank_query()
     )
     with pytest.raises(KnoraError, match="INVALID_CONVERSATION_QUERY"):
         store.list(workspace_id, False, None, 20, q="x" * 201)
+
+
+@pytest.mark.parametrize("first_query, next_query", [("İ", "i"), ("i", "İ")])
+def test_conversation_unicode_search_uses_postgres_case_semantics_for_matching_and_cursor(
+    first_query, next_query
+):
+    workspace_id = str(uuid4())
+    first_id, second_id = str(uuid4()), str(uuid4())
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="Unicode search"))
+        session.flush()
+        for index, conversation_id in enumerate((first_id, second_id)):
+            session.add(
+                ConversationTable(
+                    id=conversation_id,
+                    workspace_id=workspace_id,
+                    title=f"İstanbul {index}",
+                    title_source="manual",
+                    archived=False,
+                    revision=0,
+                    updated_at=datetime(2026, 10, 5, tzinfo=UTC) - timedelta(minutes=index),
+                )
+            )
+    store = conversation_store_class()(SessionFactory)
+    page = store.list(workspace_id, False, None, 1, q=first_query)
+    assert [item.id for item in page.items] == [first_id]
+    assert page.next_cursor is not None
+    following = store.list(workspace_id, False, page.next_cursor, 20, q=f" {next_query} ")
+    assert [item.id for item in following.items] == [second_id]
