@@ -87,6 +87,11 @@ type WorkspaceSelectorProps = {
   Compose selector-in-shell through WorkspaceShell and the optional shell slot, as required by
   the workflow's dependency rules. Route IDs are hints; resolve names/access with the authenticated
   backend when absent from the first loaded page. Operator layout supplies only validated context.
+  After a successful selection request, preserve the surface for direct U2/O1 consumers: Documents
+  opens the selected Workspace's Documents list, discarding an old document ID; Operator reloads
+  the known subsection index (operations/traces/evaluations), or /operator, discarding old trace/
+  report IDs and query context. Other selections keep Workspace Home navigation. Do not add props
+  or infer authority from pathname; test these destinations and refreshed server context.
 - [ ] Add /workspaces/archived before the dynamic workspace route resolves it as an ID.
   “Back” returns to a valid workspace or /workspaces; denied state does not disclose its name.
 - [ ] Verify this interaction expectation with the fixture's selected workspace:
