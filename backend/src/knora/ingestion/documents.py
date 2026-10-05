@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal, Protocol
 
 from knora.domain.access import WorkspacePrincipal
@@ -8,6 +9,7 @@ from knora.workspaces.ports import WorkspaceAdmissionStore
 DeletionState = Literal["requested", "blocked", "processing", "succeeded", "failed"]
 ServingState = Literal["unavailable", "current", "previous"]
 EmbeddingReadiness = Literal["ready", "reindex_required", "not_indexed"]
+AnswerAvailability = Literal["available", "unavailable", "unknown"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +27,10 @@ class DocumentProjection:
     active_embedding_configuration_id: str | None = None
     embedding_readiness: EmbeddingReadiness = "not_indexed"
     reprocess_supported: bool = False
+    served_document_version_id: str | None = None
+    last_processed_at: datetime | None = None
+    answer_availability: AnswerAvailability = "unknown"
+    deletion_request: "DocumentDeletionRequestProjection | None" = None
 
 
 @dataclass(frozen=True, slots=True)

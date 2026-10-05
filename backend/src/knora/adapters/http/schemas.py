@@ -70,6 +70,13 @@ class ReprocessResponse(BaseModel):
     status: Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
 
 
+class DocumentDeletionRequestResponse(BaseModel):
+    request_id: str
+    document_id: str
+    state: Literal["requested", "blocked", "processing", "succeeded", "failed"]
+    failure_reason: str | None = None
+
+
 class DocumentResponse(BaseModel):
     document_id: str
     workspace_id: str
@@ -84,17 +91,14 @@ class DocumentResponse(BaseModel):
     active_embedding_configuration_id: str | None = None
     embedding_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
     reprocess_supported: bool = False
+    served_document_version_id: str | None = None
+    last_processed_at: datetime | None = None
+    answer_availability: Literal["available", "unavailable", "unknown"] = "unknown"
+    deletion_request: DocumentDeletionRequestResponse | None = None
 
 
 class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
-
-
-class DocumentDeletionRequestResponse(BaseModel):
-    request_id: str
-    document_id: str
-    state: Literal["requested", "blocked", "processing", "succeeded", "failed"]
-    failure_reason: str | None = None
 
 
 JsonValue = Any

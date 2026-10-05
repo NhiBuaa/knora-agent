@@ -47,6 +47,7 @@ class WorkspaceStore(Protocol):
         archived: bool | None = None,
         cursor: str | None = None,
         limit: int = 20,
+        q: str | None = None,
     ) -> WorkspacePage: ...
 
     def mutate(

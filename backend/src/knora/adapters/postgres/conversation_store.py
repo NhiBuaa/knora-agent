@@ -166,16 +166,30 @@ class PostgresConversationStore:
         archived: bool,
         cursor: str | None,
         limit: int,
+        q: str | None = None,
     ) -> ConversationPage:
+        trimmed_query = q.strip() if q else None
+        if trimmed_query and len(trimmed_query) > 200:
+            raise KnoraError("INVALID_CONVERSATION_QUERY")
+        normalized_query = trimmed_query.lower() if trimmed_query else None
         query = select(ConversationTable).where(
             ConversationTable.workspace_id == workspace_id,
             ConversationTable.archived == archived,
         )
+        if normalized_query:
+            query = query.where(
+                ConversationTable.title.icontains(normalized_query, autoescape=True)
+            )
         if cursor is not None:
             try:
-                decoded = json.loads(
-                    base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
-                )
+                decoded = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
+                if not isinstance(decoded, list) or len(decoded) not in {2, 5}:
+                    raise ValueError
+                if len(decoded) == 2:
+                    if normalized_query is not None:
+                        raise ValueError
+                elif decoded[2:] != [normalized_query, archived, workspace_id]:
+                    raise ValueError
                 updated_at = datetime.fromisoformat(decoded[0])
                 cursor_id = decoded[1]
                 if not isinstance(cursor_id, str) or updated_at.tzinfo is None:
@@ -198,7 +212,9 @@ class PostgresConversationStore:
             next_cursor = None
             if len(rows) > limit:
                 last = items[-1]
-                payload = json.dumps([last.updated_at.isoformat(), last.id]).encode("utf-8")
+                payload = json.dumps(
+                    [last.updated_at.isoformat(), last.id, normalized_query, archived, workspace_id]
+                ).encode("utf-8")
                 next_cursor = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
             return ConversationPage(items, next_cursor)
 

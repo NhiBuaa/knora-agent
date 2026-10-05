@@ -55,10 +55,16 @@ class ConversationService:
         archived: bool = False,
         cursor: str | None = None,
         limit: int = 20,
+        q: str | None = None,
     ) -> ConversationPage:
         if limit < 1 or limit > 100:
             raise KnoraError("INVALID_CONVERSATION_LIMIT")
         self._authorize_owner(identity, workspace_id)
+        normalized = q.strip() if q else None
+        if normalized and len(normalized) > 200:
+            raise KnoraError("INVALID_CONVERSATION_QUERY")
+        if normalized:
+            return self._store.list(workspace_id, archived, cursor, limit, q=normalized)
         return self._store.list(workspace_id, archived, cursor, limit)
 
     def get_turn(

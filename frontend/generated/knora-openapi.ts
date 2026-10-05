@@ -81,14 +81,18 @@ export type DocumentListResponse = {
 };
 export type DocumentResponse = {
   active_embedding_configuration_id?: string | null;
+  answer_availability?: "available" | "unavailable" | "unknown";
   archived: boolean;
   current_document_version_id?: string | null;
+  deletion_request?: DocumentDeletionRequestResponse | null;
   document_id: string;
   embedding_readiness?: "ready" | "reindex_required" | "not_indexed";
   ingestion_job_id?: string | null;
   ingestion_status?: string | null;
+  last_processed_at?: string | null;
   reprocess_supported?: boolean;
   revision: number;
+  served_document_version_id?: string | null;
   serving_state: "unavailable" | "current" | "previous";
   source_key: string;
   source_name: string;

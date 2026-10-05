@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from importlib import import_module
 from pathlib import Path
 from uuid import uuid4
@@ -11,7 +12,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
 from knora.adapters.postgres.database import SessionFactory
-from knora.adapters.postgres.tables import WorkspaceTable
+from knora.adapters.postgres.tables import ConversationTable, WorkspaceTable
+from knora.domain.errors import KnoraError
 from knora.infrastructure.settings import settings
 
 
@@ -48,9 +50,7 @@ def alembic_config(database_url: str) -> Config:
 
 def conversation_store_class():
     try:
-        return import_module(
-            "knora.adapters.postgres.conversation_store"
-        ).PostgresConversationStore
+        return import_module("knora.adapters.postgres.conversation_store").PostgresConversationStore
     except ModuleNotFoundError as error:
         pytest.fail(f"Postgres Conversation store is not implemented: {error}", pytrace=False)
 
@@ -150,7 +150,76 @@ def test_runtime_migration_refuses_to_fabricate_bindings_for_existing_turns(
                 "e032cc86f4ca"
             )
             assert "idempotency_key" not in {
-                column["name"]
-                for column in inspect(connection).get_columns("conversation_turns")
+                column["name"] for column in inspect(connection).get_columns("conversation_turns")
             }
         engine.dispose()
+
+
+def test_conversation_search_filters_before_pagination_and_keeps_workspace_archive_scope():
+    workspace_id, other_workspace_id = str(uuid4()), str(uuid4())
+    ids = [str(uuid4()) for _ in range(5)]
+    with SessionFactory.begin() as session:
+        session.add_all(
+            [
+                WorkspaceTable(id=workspace_id, name="Search"),
+                WorkspaceTable(id=other_workspace_id, name="Other"),
+            ]
+        )
+        session.flush()
+        for index, (title, archived, workspace) in enumerate(
+            [
+                ("Unrelated", False, workspace_id),
+                ("Budget 100%_ FINAL", False, workspace_id),
+                ("Budget 100%_ second", False, workspace_id),
+                ("Budget 100%_ archived", True, workspace_id),
+                ("Budget 100%_ foreign", False, other_workspace_id),
+            ]
+        ):
+            session.add(
+                ConversationTable(
+                    id=ids[index],
+                    workspace_id=workspace,
+                    title=title,
+                    title_source="manual",
+                    archived=archived,
+                    revision=0,
+                    updated_at=datetime(2026, 10, 5, tzinfo=UTC) - timedelta(minutes=index),
+                )
+            )
+    store = conversation_store_class()(SessionFactory)
+    page = store.list(workspace_id, False, None, 1, q="  100%_  ")
+    assert [item.id for item in page.items] == [ids[1]]
+    assert page.next_cursor is not None
+    following = store.list(workspace_id, False, page.next_cursor, 1, q="100%_")
+    assert [item.id for item in following.items] == [ids[2]]
+    assert following.next_cursor is None
+    assert [item.id for item in store.list(workspace_id, True, None, 20, q="budget").items] == [
+        ids[3]
+    ]
+    assert store.list(workspace_id, False, None, 20, q="100%X").items == ()
+    assert [item.id for item in store.list(workspace_id, False, None, 20, q="final").items] == [
+        ids[1]
+    ]
+    for query, archived, workspace in (
+        ("other", False, workspace_id),
+        (None, False, workspace_id),
+        ("100%_", True, workspace_id),
+        ("100%_", False, other_workspace_id),
+    ):
+        with pytest.raises(KnoraError, match="INVALID_CONVERSATION_CURSOR"):
+            store.list(workspace, archived, page.next_cursor, 20, q=query)
+
+
+def test_conversation_store_rejects_overlong_search_and_normalizes_blank_query():
+    store = conversation_store_class()(SessionFactory)
+    workspace_id = str(uuid4())
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="Search length"))
+    store.create(workspace_id, "new")
+    assert store.list(workspace_id, False, None, 20, q=" " + "\u0130" * 200 + " ").items == ()
+    assert (
+        store.list(workspace_id, False, None, 20, q="   ").items
+        == store.list(workspace_id, False, None, 20).items
+    )
+    with pytest.raises(KnoraError, match="INVALID_CONVERSATION_QUERY"):
+        store.list(workspace_id, False, None, 20, q="x" * 201)

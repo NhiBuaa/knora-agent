@@ -62,8 +62,10 @@ class ConversationServiceFake:
         self.calls.append(("create", workspace_id, idempotency_key))
         return self.conversation
 
-    def list(self, identity, workspace_id, archived=False, cursor=None, limit=20):
+    def list(self, identity, workspace_id, archived=False, cursor=None, limit=20, q=None):
         self.calls.append(("list", workspace_id, archived, cursor, limit))
+        if q and q.strip().lower() not in self.conversation.title.lower():
+            return ConversationPage((), None)
         return ConversationPage((self.conversation,), "older-conversations")
 
     def read(self, identity, workspace_id, conversation_id):
@@ -117,12 +119,8 @@ class ConversationServiceFake:
         self.calls.append(("get_turn", workspace_id, conversation_id, turn_id))
         return make_turn()
 
-    def submit_turn(
-        self, identity, workspace_id, conversation_id, idempotency_key, question
-    ):
-        self.calls.append(
-            ("submit_turn", workspace_id, conversation_id, idempotency_key, question)
-        )
+    def submit_turn(self, identity, workspace_id, conversation_id, idempotency_key, question):
+        self.calls.append(("submit_turn", workspace_id, conversation_id, idempotency_key, question))
         if self.busy:
             raise KnoraError("CONVERSATION_BUSY")
         return TurnAdmission(
@@ -323,3 +321,35 @@ def test_workspace_owner_can_read_retained_history_without_ask_capability() -> N
 
     assert response.status_code == 200
     assert response.json()["items"][0]["question"] == make_turn().question
+
+
+def test_conversation_http_search_propagates_query_and_enforces_length():
+    client = make_client(ConversationServiceFake())
+    path = "/v1/workspaces/workspace-1/conversations"
+    headers = {"Authorization": "Bearer token"}
+    response = client.get(path, params={"q": "missing"}, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+    assert response.headers["Cache-Control"] == "no-store"
+    assert client.get(path, params={"q": "x" * 201}, headers=headers).status_code == 422
+
+
+def test_conversation_search_authorizes_before_store_lookup():
+    class OwnershipStore:
+        def owner_for(self, workspace_id):
+            return Identity("https://issuer", "bob")
+
+    class ReadStore:
+        def list(self, *args, **kwargs):
+            raise AssertionError("Unauthorized search must stop before lookup")
+
+    service = ConversationService(
+        store=ReadStore(), workspace_authorizer=WorkspaceAuthorizer(OwnershipStore())
+    )
+    response = make_client(service).get(
+        "/v1/workspaces/workspace-1/conversations",
+        params={"q": "secret", "cursor": "invalid"},
+        headers={"Authorization": "Bearer token"},
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "WORKSPACE_ACCESS_DENIED"

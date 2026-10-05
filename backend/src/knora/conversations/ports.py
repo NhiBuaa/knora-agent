@@ -27,6 +27,7 @@ class ConversationStore(Protocol):
         archived: bool,
         cursor: str | None,
         limit: int,
+        q: str | None = None,
     ) -> ConversationPage: ...
 
     def mutate(

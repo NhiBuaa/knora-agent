@@ -29,9 +29,15 @@ class WorkspaceService:
         archived: bool | None = None,
         cursor: str | None = None,
         limit: int = 20,
+        q: str | None = None,
     ):
         if limit < 1 or limit > 100:
             raise KnoraError("INVALID_WORKSPACE_LIMIT")
+        normalized = q.strip() if q else None
+        if normalized and len(normalized) > 200:
+            raise KnoraError("INVALID_WORKSPACE_QUERY")
+        if normalized:
+            return self._store.list(identity, archived, cursor, limit, q=normalized)
         return self._store.list(identity, archived, cursor, limit)
 
     def read(self, identity: Identity, workspace_id: str) -> WorkspaceView:
