@@ -3,6 +3,8 @@ param(
     [switch]$NoBrowser,
     [string]$EnvFile,
     [string]$OllamaBaseUrl,
+    [string]$GenerationProvider,
+    [string]$GenerationModel,
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_dev',
     [string]$ObjectStoreBucket,
@@ -67,6 +69,26 @@ if ($EnvFile) {
 }
 Import-DotEnv $dotenvPath
 
+# Check before provider calls, Compose changes, migrations, or truncating shared logs.
+# PreflightOnly checks provider configuration without claiming application ports.
+if (-not $PreflightOnly) {
+    foreach ($binding in @(@('ApiPort', $ApiPort), @('FrontendPort', $FrontendPort))) {
+        $listeners = @(Get-NetTCPConnection -LocalPort $binding[1] -State Listen -ErrorAction SilentlyContinue)
+        if ($listeners.Count -gt 0) { Fail "PORT_IN_USE:$($binding[0]):$($binding[1])" }
+    }
+}
+
+if (-not $GenerationProvider) {
+    $GenerationProvider = if ($env:KNORA_GENERATION_PROVIDER) { $env:KNORA_GENERATION_PROVIDER } else { 'ollama' }
+}
+if ($GenerationProvider -notin @('ollama', 'deterministic-local')) { Fail 'INVALID_GENERATION_PROVIDER' }
+if (-not $GenerationModel) {
+    $GenerationModel = if ($env:KNORA_OLLAMA_GENERATION_MODEL) { $env:KNORA_OLLAMA_GENERATION_MODEL } else { 'qwen3:8b' }
+}
+if ($GenerationProvider -eq 'ollama' -and $GenerationModel -notin @('qwen3:8b', 'qwen3:4b', 'gpt-oss:20b')) {
+    Fail 'INVALID_GENERATION_MODEL'
+}
+
 if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { Fail 'WINDOWS_RUNTIME_REQUIRED' }
 if (-not $PythonExe) {
     $candidates = @(
@@ -102,7 +124,9 @@ $env:PYTHONPATH = "$repoRoot\backend\src;$repoRoot"
 $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl
 $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
 $env:KNORA_EMBEDDING_PROVIDER = 'ollama'
-$env:KNORA_GENERATION_PROVIDER = 'deterministic-local'
+$env:KNORA_GENERATION_PROVIDER = $GenerationProvider
+$env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel
+Remove-Item Env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST -ErrorAction SilentlyContinue
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
 $env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
@@ -152,6 +176,13 @@ $matching = @($tags.models | Where-Object { $_.name -eq 'qwen3-embedding:0.6b' }
 if ($matching.Count -ne 1 -or $matching[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
     Fail 'MODEL_UNAVAILABLE'
 }
+if ($GenerationProvider -eq 'ollama') {
+    $generationModels = @($tags.models | Where-Object { $_.name -eq $GenerationModel })
+    if ($generationModels.Count -ne 1 -or $generationModels[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
+        Fail 'GENERATION_MODEL_UNAVAILABLE'
+    }
+    $env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST = 'sha256:' + (($generationModels[0].digest -replace '^sha256:', '').ToLowerInvariant())
+}
 try {
     $show = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/show" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b"}' -TimeoutSec 10
     $embedded = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/embed" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b","input":["Knora dev profile check"],"truncate":false}' -TimeoutSec 90
@@ -177,6 +208,11 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
     Fail 'PROFILE_MISMATCH'
 }
 Write-Output "PRECHECK_OK $profileId"
+Write-Output "GENERATION_PROVIDER=$GenerationProvider"
+if ($GenerationProvider -eq 'ollama') {
+    Write-Output "GENERATION_MODEL=$GenerationModel"
+    Write-Output "GENERATION_DIGEST=$env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST"
+}
 Write-Output "API_URL=$env:KNORA_API_URL"
 Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
 Write-Output "OIDC_ISSUER=$oidcIssuer"

@@ -291,10 +291,11 @@ request cannot connect, start Ollama in a separate PowerShell window and keep it
 ollama serve
 ```
 
-In the repository terminal, pull the embedding model:
+In the repository terminal, pull the embedding and generation models:
 
 ```powershell
 ollama pull qwen3-embedding:0.6b
+ollama pull qwen3:8b
 ```
 
 When GPU embedding works, keep `KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11434` in
@@ -392,13 +393,55 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
 The policy change applies only to this PowerShell process; repeat it in each new
 window before running the launcher. It does not require administrator access.
 
-It checks the Ollama model, embedding response and PDF worker safety without starting
+Daily development uses real Ollama generation (`qwen3:8b`) by default, alongside
+`qwen3-embedding:0.6b`. The preflight prints `GENERATION_PROVIDER=ollama`, the model
+and its resolved digest. API and both workers inherit the same pinned configuration.
+Missing generation models stop startup; the launcher does not fall back to simulated answers.
+
+It checks the Ollama models, embedding response and PDF worker safety without starting
 PostgreSQL, MinIO, Keycloak, the API or the frontend. When it reports `PRECHECK_OK`,
 start the daily development supervisor:
 
 ```powershell
 .\scripts\start-dev.ps1
 ```
+
+For the CPU Ollama endpoint on port 11435, use:
+
+```powershell
+.\scripts\start-dev.ps1 -OllamaBaseUrl http://127.0.0.1:11435 -GenerationProvider ollama
+```
+
+For GPT-OSS, install the model on the same Ollama endpoint used by daily development:
+
+```powershell
+$env:OLLAMA_HOST = '127.0.0.1:11435'
+ollama pull gpt-oss:20b
+```
+
+Set these values in `.env` for persistent selection:
+
+```dotenv
+KNORA_GENERATION_PROVIDER=ollama
+KNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b
+KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11435
+KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS=240
+```
+
+Then run `.\scripts\start-dev.ps1`. Command parameters override process environment,
+then `.env`, then defaults. Remove stale process variables before restarting if they
+override the model in `.env`. GPT-OSS uses low reasoning with a bounded output budget;
+only its final structured content enters answers and traces. The embedding model remains
+`qwen3-embedding:0.6b`, so switching generation does not require re-indexing.
+The default model for existing setups remains `qwen3:8b`; an explicit
+`-GenerationModel gpt-oss:20b` also works for both development launchers.
+This model selection is pending the #105 semantic and Conversation acceptance gates.
+For an explicit UI-only simulation, use `-GenerationProvider deterministic-local`.
+That mode copies evidence and cannot satisfy real-AI acceptance.
+
+After restarting, submit a new Conversation Turn. Previously saved answers stay unchanged.
+Provider selection does not establish answer quality: verify the new server trace records
+`provider=ollama`, and check answer facts, citations and refusal separately.
 
 It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, creates the
 `knora_dev` database, and optimizes the edit-run loop:

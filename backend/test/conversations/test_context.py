@@ -88,7 +88,7 @@ def test_context_keeps_only_recent_valid_turns_from_the_current_conversation() -
         question="Current question.",
     )
 
-    assert context.policy_id == "conversation-context-v1"
+    assert context.policy_id == "conversation-context-v2"
     assert context.selected_turn_ids == ("turn-6", "turn-7", "turn-8", "turn-9")
     assert "turn-6" not in context.transcript
     assert "Recent question six." in context.transcript
@@ -96,8 +96,7 @@ def test_context_keeps_only_recent_valid_turns_from_the_current_conversation() -
     assert "A validated answer." in context.transcript
     assert "Private other conversation." not in context.transcript
     assert "Current question." not in context.transcript
-    assert "Recent question six." in context.retrieval_query
-    assert "Current question." in context.retrieval_query
+    assert context.retrieval_query == "Current question."
     assert "A validated answer." not in context.retrieval_query
 
 
@@ -158,3 +157,108 @@ def test_context_obeys_token_budget_without_splitting_turns() -> None:
         selected = f"turn-{sequence}" in context.selected_turn_ids
         assert (f"Question {sequence}." in context.transcript) is selected
         assert (answers[sequence] in context.transcript) is selected
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Which font and line spacing should the document use?",
+        "Văn bản nên dùng font, cỡ chữ và giãn dòng nào?",
+        "Does the transit system support mobile tickets?",
+        "What are the IT department support hours?",
+        "Chúng tôi có thể nộp báo cáo bằng PDF không?",
+        "Chúng ta cần nộp báo cáo ở đâu?",
+        "Is it possible to enable SSO?",
+        "Which documents explain that refunds expire after 30 days?",
+    ],
+)
+def test_self_contained_retrieval_ignores_previous_topics(question: str) -> None:
+    history = (
+        turn("old", "conversation-1", 1, "Which load tests should the service run?"),
+        turn("recent", "conversation-1", 2, "When was the security policy published?"),
+    )
+    context = build_context(
+        history,
+        workspace_id="workspace-1",
+        conversation_id="conversation-1",
+        current_turn_id="current",
+        question=question,
+    )
+    assert context.retrieval_query == question
+    assert context.selected_turn_ids == ("old", "recent")
+    assert "A validated answer." not in context.retrieval_query
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What does that require?",
+        "Hướng dẫn này được cập nhật khi nào?",
+        "Nó yêu cầu những gì?",
+        "What about exceptions?",
+        "Còn các ngoại lệ thì sao?",
+        "Can you explain that?",
+        "Can you explain that requirement?",
+        "Can you show that?",
+    ],
+)
+def test_reference_retrieval_uses_nearest_topic_anchor(question: str) -> None:
+    history = (
+        turn("unrelated", "conversation-1", 1, "Which storage engine is available?"),
+        turn("anchor", "conversation-1", 2, "Which chapters should a project report contain?"),
+    )
+    context = build_context(
+        history,
+        workspace_id="workspace-1",
+        conversation_id="conversation-1",
+        current_turn_id="current",
+        question=question,
+    )
+    assert "Which chapters should a project report contain?" in context.retrieval_query
+    assert question in context.retrieval_query
+    assert "Which storage engine is available?" not in context.retrieval_query
+    assert "A validated answer." not in context.retrieval_query
+
+
+def test_chained_reference_retrieval_stops_at_nearest_independent_question() -> None:
+    history = (
+        turn("unrelated", "conversation-1", 1, "Which network protocol is supported?"),
+        turn("anchor", "conversation-1", 2, "What is the retention policy for archives?"),
+        turn("followup", "conversation-1", 3, "Does it apply to backups too?"),
+    )
+    context = build_context(
+        history,
+        workspace_id="workspace-1",
+        conversation_id="conversation-1",
+        current_turn_id="current",
+        question="What about its exceptions?",
+    )
+    assert "What is the retention policy for archives?" in context.retrieval_query
+    assert "Does it apply to backups too?" in context.retrieval_query
+    assert "What about its exceptions?" in context.retrieval_query
+    assert "Which network protocol is supported?" not in context.retrieval_query
+
+
+@pytest.mark.parametrize(
+    "anchor",
+    [
+        "What are the IT department support hours?",
+        "Chúng tôi có thể nộp báo cáo bằng PDF không?",
+        "Is it possible to enable SSO?",
+        "Which documents explain that refunds expire after 30 days?",
+    ],
+)
+def test_non_reference_words_stop_an_older_topic_chain(anchor: str) -> None:
+    history = (
+        turn("unrelated", "conversation-1", 1, "Which font should reports use?"),
+        turn("anchor", "conversation-1", 2, anchor),
+    )
+    context = build_context(
+        history,
+        workspace_id="workspace-1",
+        conversation_id="conversation-1",
+        current_turn_id="current",
+        question="What about exceptions?",
+    )
+    assert anchor in context.retrieval_query
+    assert "Which font should reports use?" not in context.retrieval_query

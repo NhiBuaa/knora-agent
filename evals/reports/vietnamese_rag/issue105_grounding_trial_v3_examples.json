@@ -1,0 +1,292 @@
+{
+  "case_count": 11,
+  "cases": [
+    {
+      "aliases_correct": true,
+      "case_id": "absent_fee",
+      "category": "absent_exact_fact",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 15849.08,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 811
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "metadata_year",
+      "category": "misleading_metadata",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 6888.44,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 824
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "explicit_prohibition",
+      "category": "evidenced_negative",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 8414.04,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 46,
+        "prompt_tokens": 808
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "support_after_distractor",
+      "category": "supporting_alias",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 8850.16,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 45,
+        "prompt_tokens": 829
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "absent_warranty",
+      "category": "absent_exact_fact",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 6644.87,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 821
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "metadata_count",
+      "category": "misleading_metadata",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 6842.71,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [],
+      "observed_decision": "REFUSAL",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 829
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "prohibited_requirement",
+      "category": "evidenced_negative",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 8988.15,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 50,
+        "prompt_tokens": 814
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "support_after_related_rule",
+      "category": "supporting_alias",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 10408.09,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 47,
+        "prompt_tokens": 857
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "caveat_after_distractor",
+      "category": "relevant_caveat",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 12229.92,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E2"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 66,
+        "prompt_tokens": 845
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "rule_with_exception",
+      "category": "relevant_caveat",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 11375.96,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 64,
+        "prompt_tokens": 816
+      }
+    },
+    {
+      "aliases_correct": true,
+      "case_id": "wrapped_current_question",
+      "category": "untrusted_prior_history",
+      "decision_correct": true,
+      "finish_reason": "stop",
+      "latency_ms": 10622.23,
+      "literal_checks_passed": true,
+      "literal_patterns_match": true,
+      "model": "qwen3:8b",
+      "observed_aliases": [
+        "E1"
+      ],
+      "observed_decision": "ANSWER",
+      "prompt_version": "ollama-qwen3-cited-answer-v3",
+      "provider": "ollama",
+      "repetition": 1,
+      "semantic_review": "NOT_EVALUATED",
+      "structural_valid": true,
+      "usage": {
+        "completion_tokens": 46,
+        "prompt_tokens": 877
+      }
+    }
+  ],
+  "check_version": "synthetic-literal-fact-checks-v1",
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "3748ea1184fda2f991cc194771634455a65ef49c39dfe4ce4bc830513255526b",
+  "fixture_version": "ollama-synthetic-grounding-v2",
+  "generation_expected_digest": "sha256:500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "generation_request_count": 11,
+  "held_out": false,
+  "inference_runtime": {
+    "context_tokens": 8192,
+    "model_size_bytes": 6662893075,
+    "size_vram_bytes": 0
+  },
+  "latency_scope": "provider_generate_including_digest_check",
+  "literal_passed_count": 11,
+  "observation_count": 11,
+  "observed_at": "2026-10-01T06:44:42.315686+00:00",
+  "provider_source_sha256": "e583dfa89b9b043b24fefd76d5ad8d28cc37145b692c53f6a5aeee193482f227",
+  "repetitions": 1,
+  "report_annotation_note": "Historical observations are unchanged. Original facts_correct and passed fields were literal checks, not semantic adjudication; labels are corrected without a new model run.",
+  "report_annotation_version": "literal-label-correction-v1",
+  "request_options": {
+    "num_ctx": 8192,
+    "num_predict": 1024,
+    "temperature": 0
+  },
+  "runner_source_sha256": "76083fe286d5130b541fbcaf61890c374d25dc717d6617ae85591a3cc78de9b7",
+  "schema_version": 2,
+  "scope": "synthetic_development_literal_grounding",
+  "semantic_review": "NOT_EVALUATED",
+  "source_commit": "07d141d6e83a9969ffc17ab1f664635233ce70f0",
+  "system_prompt_sha256": "bbdeb0b3fd2f1ad344097abc283d60ea9d15978ae1875f9c2b55435a2b89b0fe"
+}

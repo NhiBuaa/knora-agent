@@ -8,43 +8,11 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-
-_STRUCTURED_RESULT_SCHEMA = {
-    "name": "knora_structured_generation_result",
-    "strict": True,
-    "schema": {
-        "type": "object",
-        "properties": {
-            "decision": {"type": "string", "enum": ["ANSWER", "REFUSAL"]},
-            "answer": {"type": ["string", "null"]},
-            "cited_evidence_ids": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "refusal_reason": {
-                "type": ["string", "null"],
-                "enum": ["INSUFFICIENT_EVIDENCE", None],
-            },
-        },
-        "required": [
-            "decision",
-            "answer",
-            "cited_evidence_ids",
-            "refusal_reason",
-        ],
-        "additionalProperties": False,
-    },
-}
-MILESTONE_ONE_PROMPT_VERSION = "m1-cited-answer-v1"
-MILESTONE_ONE_SYSTEM_PROMPT = (
-    "Return only the requested JSON. Answer only from the supplied evidence and cite its opaque "
-    "aliases as inline markers such as [[E1]]. Refuse when the evidence is insufficient. "
-    "For an ANSWER, use each inline marker at most once. If several facts are supported by "
-    "one alias, combine those facts and place one marker after them; never repeat that marker. "
-    "For example, write 'Fact A; fact B. [[E1]]', never 'Fact A [[E1]]; fact B [[E1]]'. "
-    "cited_evidence_ids MUST list exactly the same aliases, exactly once each, in the same order "
-    "that their markers first appear "
-    "in answer text; never use evidence-list order when it differs."
+from knora.providers.structured_generation import (
+    PROMPT_VERSION,
+    STRUCTURED_RESULT_SCHEMA,
+    SYSTEM_PROMPT,
+    user_message,
 )
 
 
@@ -88,28 +56,20 @@ class OpenAICompatibleGenerationProvider:
                     "messages": [
                         {
                             "role": "system",
-                            "content": MILESTONE_ONE_SYSTEM_PROMPT,
+                            "content": SYSTEM_PROMPT,
                         },
                         {
                             "role": "user",
-                            "content": json.dumps(
-                                {
-                                    "question": question,
-                                    "evidence": [
-                                        {
-                                            "evidence_id": item.evidence_id,
-                                            "content": item.content,
-                                        }
-                                        for item in evidence
-                                    ],
-                                },
-                                ensure_ascii=False,
-                            ),
+                            "content": user_message(question, evidence),
                         },
                     ],
                     "response_format": {
                         "type": "json_schema",
-                        "json_schema": _STRUCTURED_RESULT_SCHEMA,
+                        "json_schema": {
+                            "name": "knora_structured_generation_result",
+                            "strict": True,
+                            "schema": STRUCTURED_RESULT_SCHEMA,
+                        },
                     },
                 },
             )
@@ -135,7 +95,7 @@ class OpenAICompatibleGenerationProvider:
                 refusal_reason=structured["refusal_reason"],
                 provider="openai-compatible",
                 model=str(payload.get("model", self._model)),
-                prompt_version=MILESTONE_ONE_PROMPT_VERSION,
+                prompt_version=PROMPT_VERSION,
                 finish_reason=choice.get("finish_reason"),
                 provider_request_id=response.headers.get("x-request-id") or payload.get("id"),
                 usage=usage,
