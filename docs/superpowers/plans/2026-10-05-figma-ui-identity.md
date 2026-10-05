@@ -148,7 +148,7 @@ assertEquals(VerifyOutcome.EXHAUSTED, sixthSubmissionInRecoveryWindow);
 ~~~powershell
 mvn -f infra/keycloak/providers/email-otp-reset/pom.xml clean verify
 docker build -f infra/keycloak/Dockerfile -t knora-keycloak:26.3.3-otp .
-..venvScriptspython -m pytest backend/test/config/test_keycloak_theme.py
+./.venv/Scripts/python -m pytest backend/test/config/test_keycloak_theme.py
 ~~~
 
 - [ ] Review security/concurrency evidence and compare AU10/AU11/AU11B/AU12/AU1B.

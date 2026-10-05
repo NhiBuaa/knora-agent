@@ -93,9 +93,9 @@ npm --prefix frontend run format:check
 npm --prefix frontend run typecheck
 npm --prefix frontend run test
 npm --prefix frontend run build
-..venvScriptspython scripts/export_openapi.py --check
-..venvScriptspython -m pytest
-..venvScriptsuff check .
+./.venv/Scripts/python scripts/export_openapi.py --check
+./.venv/Scripts/python -m pytest
+./.venv/Scripts/ruff check .
 docker compose config --quiet
 mvn -f infra/keycloak/providers/email-otp-reset/pom.xml clean verify
 npm --prefix frontend run test:e2e
