@@ -1,0 +1,1302 @@
+{
+  "capturedOn": "2026-10-05",
+  "fileKey": "BOVOx0bt1qYJFg9nBq6EaQ",
+  "source": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=124-140",
+  "pages": [
+    {
+      "id": "0:1",
+      "name": "01 · Product Screens"
+    },
+    {
+      "id": "4:2",
+      "name": "02 · Interaction & Response States"
+    },
+    {
+      "id": "124:140",
+      "name": "03 · Prototype Flows"
+    }
+  ],
+  "scopeNote": "41 final product wrappers include 34px annotation above a 1440x960 product viewport. Initial A/B/C exploration frames are references, not separate products. This is a dated inventory, not an immutable Figma version.",
+  "screens": [
+    {
+      "id": "128:107",
+      "name": "A2 · Expanded · Evidence selected",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-107",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:108",
+      "name": "A2 · Collapsed · Thinking",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-108",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:109",
+      "name": "A3 · New conversation · Empty",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-109",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:110",
+      "name": "A4 · Grounded answer · Default",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-110",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:111",
+      "name": "A5 · Insufficient evidence",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-111",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:112",
+      "name": "A6 · Retrieving evidence",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-112",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:115",
+      "name": "A7 · Citation selected",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-115",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:118",
+      "name": "A8 · Answer interrupted",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-118",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:119",
+      "name": "A9 · Archived · Read-only",
+      "group": "conversations",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-119",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:120",
+      "name": "D1 · Documents · State matrix",
+      "group": "documents",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-120",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:121",
+      "name": "D2 · Upload document · Selected file",
+      "group": "documents",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-121",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:122",
+      "name": "D7 · Document detail · Ready",
+      "group": "documents",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-122",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:125",
+      "name": "D8 · Document detail · Archived",
+      "group": "documents",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-125",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:128",
+      "name": "D9 · Request deletion · Confirm",
+      "group": "documents",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-128",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "128:131",
+      "name": "D9 · Document detail · Deletion requested",
+      "group": "documents",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=128-131",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "140:104",
+      "name": "W1 · Workspace selector · Open",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=140-104",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "148:116",
+      "name": "W2 · Create workspace · Ready",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=148-116",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "152:128",
+      "name": "W3 · No active workspace",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=152-128",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "154:134",
+      "name": "W4A · Workspace actions · Archive",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=154-134",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "154:290",
+      "name": "W4B · Archive workspace · Confirm",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=154-290",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "154:431",
+      "name": "W4C · Archived workspaces · Default",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=154-431",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "166:211",
+      "name": "W4D · Archived workspaces · No results",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=166-211",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "166:290",
+      "name": "W4E · Archived workspaces · Empty",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=166-290",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "183:176",
+      "name": "W5A · Workspace archived · Read-only",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=183-176",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "183:334",
+      "name": "W5B · Limited permissions · Documents",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=183-334",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "183:490",
+      "name": "W5C · Workspace unavailable · Access denied",
+      "group": "workspaces",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=183-490",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "194:194",
+      "name": "O1 · Operator · Operations",
+      "group": "operator",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=194-194",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "198:200",
+      "name": "O2 · Operator · Traces · Detail",
+      "group": "operator",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=198-200",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "206:206",
+      "name": "O3 · Operator · Evaluations · Unavailable",
+      "group": "operator",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=206-206",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "228:212",
+      "name": "AU1 · Sign in · Default",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=228-212",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "228:251",
+      "name": "AU2 · Sign in · Invalid credentials",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=228-251",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "228:293",
+      "name": "AU3 · Sign in · Unavailable",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=228-293",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "228:326",
+      "name": "AU4 · Authentication · Failed",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=228-326",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "228:424",
+      "name": "AU5 · Account menu · Open",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=228-424",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "237:251",
+      "name": "AU8 · Create account · Default",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=237-251",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "237:313",
+      "name": "AU9 · Create account · Validation error",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=237-313",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "242:272",
+      "name": "AU10 · Forgot password · Request",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=242-272",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "242:333",
+      "name": "AU11 · Forgot password · Verify code",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=242-333",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "242:389",
+      "name": "AU12 · Reset password · New password",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=242-389",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "246:311",
+      "name": "AU11B · Forgot password · Verify code · Error",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=246-311",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    },
+    {
+      "id": "246:404",
+      "name": "AU1B · Sign in · Password reset success",
+      "group": "identity",
+      "url": "https://www.figma.com/design/BOVOx0bt1qYJFg9nBq6EaQ/KnoraAgent-UX-Exploration?node-id=246-404",
+      "contextRetrieved": true,
+      "screenshotRetrieved": true
+    }
+  ],
+  "prototypeFrames": [
+    {
+      "id": "117:104",
+      "name": "Prototype · Documents · 01 List before upload",
+      "section": "124:523"
+    },
+    {
+      "id": "117:224",
+      "name": "Prototype · Documents · 02 Upload selected",
+      "section": "124:523"
+    },
+    {
+      "id": "117:344",
+      "name": "Prototype · Documents · 03 List processing",
+      "section": "124:523"
+    },
+    {
+      "id": "117:464",
+      "name": "Prototype · Documents · 04 Show archived",
+      "section": "124:524"
+    },
+    {
+      "id": "117:611",
+      "name": "Prototype · Documents · 05 Ready menu",
+      "section": "124:524"
+    },
+    {
+      "id": "124:141",
+      "name": "Prototype · Documents · 07 Ready detail",
+      "section": "124:524"
+    },
+    {
+      "id": "124:231",
+      "name": "Prototype · Documents · 08 Archived detail",
+      "section": "124:524"
+    },
+    {
+      "id": "117:758",
+      "name": "Prototype · Documents · 06 Archived menu",
+      "section": "124:524"
+    },
+    {
+      "id": "124:316",
+      "name": "Prototype · Documents · 09 Deletion confirm",
+      "section": "124:525"
+    },
+    {
+      "id": "124:424",
+      "name": "Prototype · Documents · 10 Deletion requested",
+      "section": "124:525"
+    },
+    {
+      "id": "136:166",
+      "name": "Prototype · Conversations · 01 New conversation",
+      "section": "136:164"
+    },
+    {
+      "id": "136:290",
+      "name": "Prototype · Conversations · 02 Question ready",
+      "section": "136:164"
+    },
+    {
+      "id": "136:414",
+      "name": "Prototype · Conversations · 03 Retrieving evidence",
+      "section": "136:164"
+    },
+    {
+      "id": "136:491",
+      "name": "Prototype · Conversations · 04 Grounded answer",
+      "section": "136:164"
+    },
+    {
+      "id": "136:576",
+      "name": "Prototype · Conversations · 05 Citation selected",
+      "section": "136:164"
+    },
+    {
+      "id": "136:666",
+      "name": "Prototype · Conversations · B1 Unsupported question ready",
+      "section": "136:165"
+    },
+    {
+      "id": "136:790",
+      "name": "Prototype · Conversations · B2 Insufficient evidence",
+      "section": "136:165"
+    },
+    {
+      "id": "136:880",
+      "name": "Prototype · Conversations · B3 Answer interrupted",
+      "section": "136:165"
+    },
+    {
+      "id": "136:965",
+      "name": "Prototype · Conversations · B4 Archived read-only",
+      "section": "136:165"
+    },
+    {
+      "id": "216:345",
+      "name": "Prototype · Operator · 01 Operations",
+      "section": "216:344"
+    },
+    {
+      "id": "216:448",
+      "name": "Prototype · Operator · 02 Traces lookup",
+      "section": "216:344"
+    },
+    {
+      "id": "216:573",
+      "name": "Prototype · Operator · 03 Trace detail",
+      "section": "216:344"
+    },
+    {
+      "id": "216:698",
+      "name": "Prototype · Operator · 04 Evaluations lookup",
+      "section": "216:344"
+    },
+    {
+      "id": "216:755",
+      "name": "Prototype · Operator · 05 Evaluation unavailable",
+      "section": "216:344"
+    },
+    {
+      "id": "250:549",
+      "name": "Prototype · Auth · A1 Sign in",
+      "section": "250:548"
+    },
+    {
+      "id": "250:589",
+      "name": "Prototype · Auth · A2 Create account",
+      "section": "250:548"
+    },
+    {
+      "id": "250:640",
+      "name": "Prototype · Auth · E4 Registration validation error",
+      "section": "250:548"
+    },
+    {
+      "id": "250:694",
+      "name": "Prototype · Auth · R1 Forgot password",
+      "section": "250:548"
+    },
+    {
+      "id": "250:723",
+      "name": "Prototype · Auth · R2 Verify OTP",
+      "section": "250:548"
+    },
+    {
+      "id": "250:761",
+      "name": "Prototype · Auth · E5 OTP incorrect / expired",
+      "section": "250:548"
+    },
+    {
+      "id": "250:801",
+      "name": "Prototype · Auth · R3 Choose new password",
+      "section": "250:548"
+    },
+    {
+      "id": "250:841",
+      "name": "Prototype · Auth · R4 Password reset success",
+      "section": "250:548"
+    },
+    {
+      "id": "250:884",
+      "name": "Prototype · Auth · E1 Invalid credentials",
+      "section": "250:548"
+    },
+    {
+      "id": "250:924",
+      "name": "Prototype · Auth · E2 Sign-in unavailable",
+      "section": "250:548"
+    },
+    {
+      "id": "250:948",
+      "name": "Prototype · Auth · E3 Authentication failed",
+      "section": "250:548"
+    },
+    {
+      "id": "250:972",
+      "name": "Prototype · Auth · A5 Account menu",
+      "section": "250:548"
+    },
+    {
+      "id": "250:1108",
+      "name": "Prototype · Auth · A4 Signed in · Active workspace",
+      "section": "250:548"
+    },
+    {
+      "id": "250:1235",
+      "name": "Prototype · Auth · A3 New account · No active workspace",
+      "section": "250:548"
+    }
+  ],
+  "prototypeTransitions": [
+    {
+      "f": "117:104",
+      "n": "Button · Upload document",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:224"
+    },
+    {
+      "f": "117:104",
+      "n": "Document row · Teacher Manh – Guidelines 2024.pdf",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "117:224",
+      "n": "Button · Cancel",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:104"
+    },
+    {
+      "f": "117:224",
+      "n": "Button · Upload document · Confirm",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:344"
+    },
+    {
+      "f": "117:344",
+      "n": "Button · Upload document",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:224"
+    },
+    {
+      "f": "117:344",
+      "n": "Show archived",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:464"
+    },
+    {
+      "f": "117:344",
+      "n": "Document row · Teacher Manh – Guidelines 2024.pdf",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "117:344",
+      "n": "More",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:611"
+    },
+    {
+      "f": "117:464",
+      "n": "Show archived",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:344"
+    },
+    {
+      "f": "117:464",
+      "n": "Document row · Teacher Manh – Guidelines 2024.pdf",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "117:464",
+      "n": "More",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:611"
+    },
+    {
+      "f": "117:464",
+      "n": "Document row · Legacy handbook.pdf · Archived",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:231"
+    },
+    {
+      "f": "117:464",
+      "n": "More",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:758"
+    },
+    {
+      "f": "117:611",
+      "n": "More",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:464"
+    },
+    {
+      "f": "117:611",
+      "n": "Menu item · View details",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "117:611",
+      "n": "Menu item · Archive document",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:231"
+    },
+    {
+      "f": "117:611",
+      "n": "Menu item · Request deletion · Destructive",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:316"
+    },
+    {
+      "f": "124:141",
+      "n": "← Documents",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:344"
+    },
+    {
+      "f": "124:141",
+      "n": "Button · Archive document",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:231"
+    },
+    {
+      "f": "124:141",
+      "n": "Button · Request deletion",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:316"
+    },
+    {
+      "f": "124:231",
+      "n": "← Documents",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:464"
+    },
+    {
+      "f": "124:231",
+      "n": "Button · Restore document",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "124:231",
+      "n": "Button · Request deletion",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:316"
+    },
+    {
+      "f": "117:758",
+      "n": "More",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:464"
+    },
+    {
+      "f": "117:758",
+      "n": "Menu item · View details",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:231"
+    },
+    {
+      "f": "117:758",
+      "n": "Menu item · Request deletion · Destructive",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:316"
+    },
+    {
+      "f": "117:758",
+      "n": "Menu item · Restore document",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "124:316",
+      "n": "Button · Cancel deletion request",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:141"
+    },
+    {
+      "f": "124:316",
+      "n": "Button · Request deletion · Confirm",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "124:424"
+    },
+    {
+      "f": "124:424",
+      "n": "← Documents",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "117:344"
+    },
+    {
+      "f": "136:166",
+      "n": "Prompt · Report chapter count",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:290"
+    },
+    {
+      "f": "136:166",
+      "n": "Prompt · Late-submission policy",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:666"
+    },
+    {
+      "f": "136:166",
+      "n": "Composer input",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:290"
+    },
+    {
+      "f": "136:290",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:290",
+      "n": "Send",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:414"
+    },
+    {
+      "f": "136:414",
+      "n": "Prototype · Conversations · 03 Retrieving evidence",
+      "t": "AFTER_TIMEOUT",
+      "a": "NODE",
+      "d": "136:491"
+    },
+    {
+      "f": "136:414",
+      "n": "Prototype · Conversations · 03 Retrieving evidence",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:491"
+    },
+    {
+      "f": "136:414",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:414",
+      "n": "Knora thinking",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:880"
+    },
+    {
+      "f": "136:491",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:491",
+      "n": "Chip · [01] p.12",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:576"
+    },
+    {
+      "f": "136:491",
+      "n": "Chip · [02] Report structure",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:576"
+    },
+    {
+      "f": "136:576",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:576",
+      "n": "Chip · [01] p.12",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:491"
+    },
+    {
+      "f": "136:666",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:666",
+      "n": "Send",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:790"
+    },
+    {
+      "f": "136:790",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:790",
+      "n": "Follow-up · Order",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:290"
+    },
+    {
+      "f": "136:880",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:880",
+      "n": "Action · Try again",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:414"
+    },
+    {
+      "f": "136:965",
+      "n": "Button · New conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:166"
+    },
+    {
+      "f": "136:965",
+      "n": "Button · Restore conversation",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "136:491"
+    },
+    {
+      "f": "216:345",
+      "n": "Tab · Traces",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:448"
+    },
+    {
+      "f": "216:345",
+      "n": "Tab · Evaluations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:698"
+    },
+    {
+      "f": "216:448",
+      "n": "Tab · Operations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:345"
+    },
+    {
+      "f": "216:448",
+      "n": "Tab · Evaluations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:698"
+    },
+    {
+      "f": "216:448",
+      "n": "Button · Open trace",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:573"
+    },
+    {
+      "f": "216:573",
+      "n": "Tab · Operations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:345"
+    },
+    {
+      "f": "216:573",
+      "n": "Tab · Evaluations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:698"
+    },
+    {
+      "f": "216:698",
+      "n": "Tab · Operations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:345"
+    },
+    {
+      "f": "216:698",
+      "n": "Tab · Traces",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:448"
+    },
+    {
+      "f": "216:698",
+      "n": "Button · Open report",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:755"
+    },
+    {
+      "f": "216:755",
+      "n": "Tab · Operations",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:345"
+    },
+    {
+      "f": "216:755",
+      "n": "Tab · Traces",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "216:448"
+    },
+    {
+      "f": "250:549",
+      "n": "Forgot password action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:694"
+    },
+    {
+      "f": "250:549",
+      "n": "Button · Sign in",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:1108"
+    },
+    {
+      "f": "250:549",
+      "n": "Auth secondary action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:589"
+    },
+    {
+      "f": "250:589",
+      "n": "Button · Create account",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:1235"
+    },
+    {
+      "f": "250:589",
+      "n": "Auth secondary action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:549"
+    },
+    {
+      "f": "250:640",
+      "n": "Button · Create account",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:1235"
+    },
+    {
+      "f": "250:640",
+      "n": "Auth secondary action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:549"
+    },
+    {
+      "f": "250:694",
+      "n": "Button · Send verification code",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:723"
+    },
+    {
+      "f": "250:694",
+      "n": "Auth secondary action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:549"
+    },
+    {
+      "f": "250:723",
+      "n": "Button · Verify code",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:801"
+    },
+    {
+      "f": "250:723",
+      "n": "Use different email",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:694"
+    },
+    {
+      "f": "250:761",
+      "n": "Button · Verify code",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:801"
+    },
+    {
+      "f": "250:761",
+      "n": "Use different email",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:694"
+    },
+    {
+      "f": "250:761",
+      "n": "Resend code",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:723"
+    },
+    {
+      "f": "250:801",
+      "n": "Button · Reset password",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:841"
+    },
+    {
+      "f": "250:841",
+      "n": "Forgot password action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:694"
+    },
+    {
+      "f": "250:841",
+      "n": "Button · Sign in",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:1108"
+    },
+    {
+      "f": "250:841",
+      "n": "Auth secondary action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:589"
+    },
+    {
+      "f": "250:884",
+      "n": "Forgot password action",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:694"
+    },
+    {
+      "f": "250:884",
+      "n": "Button · Sign in",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:1108"
+    },
+    {
+      "f": "250:924",
+      "n": "Button · Try again",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:549"
+    },
+    {
+      "f": "250:948",
+      "n": "Button · Try signing in again",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:549"
+    },
+    {
+      "f": "250:972",
+      "n": "Account avatar",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:1108"
+    },
+    {
+      "f": "250:972",
+      "n": "Button · Log out",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:549"
+    },
+    {
+      "f": "250:1108",
+      "n": "Account avatar",
+      "t": "ON_CLICK",
+      "a": "NODE",
+      "d": "250:972"
+    }
+  ],
+  "panelStates": [
+    {
+      "id": "4:10",
+      "name": "open rail / inspector closed"
+    },
+    {
+      "id": "4:35",
+      "name": "open rail / inspector open"
+    },
+    {
+      "id": "4:67",
+      "name": "collapsed rail / inspector open"
+    },
+    {
+      "id": "4:99",
+      "name": "hidden rail / inspector open"
+    },
+    {
+      "id": "4:126",
+      "name": "collapsed rail / inspector closed"
+    }
+  ],
+  "responseStates": [
+    {
+      "id": "4:165",
+      "name": "answered"
+    },
+    {
+      "id": "4:179",
+      "name": "processing"
+    },
+    {
+      "id": "4:190",
+      "name": "insufficient evidence"
+    },
+    {
+      "id": "4:201",
+      "name": "interrupted"
+    },
+    {
+      "id": "4:212",
+      "name": "system error"
+    }
+  ],
+  "interactionRules": {
+    "nodeId": "4:151",
+    "rules": [
+      "Rail expands, collapses and hides",
+      "Drag divider; double-click resets width",
+      "Citation opens inspector and focuses selected source",
+      "Remember panel state per session",
+      "Composer remains anchored to conversation column"
+    ]
+  },
+  "tokens": {
+    "color/text-muted": "#657a74",
+    "color/text-primary": "#1f3b36",
+    "color/surface": "#ffffff",
+    "color/action": "#33a15b",
+    "color/surface-subtle": "#f3f8f5",
+    "color/border": "#d9e2de",
+    "color/action-soft": "#e6f5eb",
+    "color/signature": "#784131",
+    "color/border-strong": "#b9c8c2",
+    "color/page": "#effcfa"
+  },
+  "assetReferences": [
+    {
+      "figmaAssetFile": "ad252.svg",
+      "exampleVariable": "imgKnoraLeafArtwork"
+    },
+    {
+      "figmaAssetFile": "a4e11.svg",
+      "exampleVariable": "imgChevronVector"
+    },
+    {
+      "figmaAssetFile": "5b324.svg",
+      "exampleVariable": "imgKnoraThinking"
+    },
+    {
+      "figmaAssetFile": "e8682.png",
+      "exampleVariable": "imgOrbitInner"
+    },
+    {
+      "figmaAssetFile": "b9ce7.png",
+      "exampleVariable": "imgOrbitOuter"
+    },
+    {
+      "figmaAssetFile": "21b31.svg",
+      "exampleVariable": "imgChevronDown"
+    },
+    {
+      "figmaAssetFile": "fdfdd.svg",
+      "exampleVariable": "imgKnoraLeafArtwork1"
+    },
+    {
+      "figmaAssetFile": "97a8a.svg",
+      "exampleVariable": "imgEllipse"
+    },
+    {
+      "figmaAssetFile": "cd6f9.svg",
+      "exampleVariable": "imgThinkingDot2"
+    },
+    {
+      "figmaAssetFile": "832ce.svg",
+      "exampleVariable": "imgThinkingDot3"
+    },
+    {
+      "figmaAssetFile": "d9407.svg",
+      "exampleVariable": "imgCaretDown"
+    },
+    {
+      "figmaAssetFile": "ed1ac.svg",
+      "exampleVariable": "imgMagnifierIcon"
+    },
+    {
+      "figmaAssetFile": "bab86.svg",
+      "exampleVariable": "imgChevronDown"
+    },
+    {
+      "figmaAssetFile": "bf7a4.svg",
+      "exampleVariable": "imgEyeOff"
+    },
+    {
+      "figmaAssetFile": "42cef.svg",
+      "exampleVariable": "imgEyeOff"
+    }
+  ],
+  "visualNotes": [
+    "Inter body; Roboto Slab headings and wordmark",
+    "Brand component 20:2",
+    "Desktop product viewport 1440x960",
+    "Mobile/tablet adaptation is a proposed implementation policy; no mobile target frames were identified",
+    "Dark mode compatibility is preserved; no pixel-match claim against a missing dark Figma variant"
+  ]
+}
