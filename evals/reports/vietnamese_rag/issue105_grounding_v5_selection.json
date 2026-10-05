@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "scope": "development_candidate_selection",
+  "status": "UNACCEPTED",
+  "prompt_version": "ollama-qwen3-cited-answer-v5",
+  "system_prompt_sha256": "c6acc0a1faf51cfa25646bc8fdbf50048b77c2017b07a3fc0bac1bfb3d2ba0c3",
+  "semantic_review": "NOT_EVALUATED",
+  "conversation_gate": "NOT_EVALUATED",
+  "release_gate": "NOT_EVALUATED",
+  "historical_scores_transfer": false,
+  "selection_note": "The v4 real PDF Conversation diagnostic answered the first four Vietnamese questions in English and omitted the small-report exception in its first answer. Select the previously trialed Vietnamese generic instructions and examples for an exact v5 diagnostic; no PDF or gold facts are embedded in the prompt.",
+  "known_limitations": "The same prompt text previously failed two synthetic semantic cases: event-year substitution from publication metadata and prohibition weakened to not mandatory. Those failures remain disclosed in issue105_grounding_vietnamese_semantic_review.json. Historical scores do not constitute a v5 acceptance run."
+}

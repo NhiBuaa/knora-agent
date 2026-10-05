@@ -22,13 +22,14 @@ The development launcher uses the dedicated `knora_dev` database by default. It 
 
 ## One-time setup
 
-Install dependencies, pull the Ollama embedding model and create the gitignored local environment file:
+Install dependencies, pull the Ollama embedding and generation models and create the gitignored local environment file:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -e ".\backend[dev]"
 npm --prefix frontend ci
 ollama pull qwen3-embedding:0.6b
+ollama pull qwen3:8b
 
 if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
@@ -79,7 +80,7 @@ Optional preflight without starting storage or application processes:
 The development launcher:
 
 1. loads root `.env` without overwriting explicit process environment values;
-2. verifies `qwen3-embedding:0.6b`, exact 1024-dimensional embeddings, immutable profile resolution and the Windows PDF Job Object safety path;
+2. verifies `qwen3-embedding:0.6b`, exact 1024-dimensional embeddings, immutable profile resolution, the selected generation model/digest and the Windows PDF Job Object safety path;
 3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` project, plus bundled Keycloak when its default realm is selected, and waits for readiness;
 4. creates/migrates the `knora_dev` database;
 5. starts FastAPI with Uvicorn auto-reload for `backend/src/knora`;
@@ -88,6 +89,39 @@ The development launcher:
 8. stays in the foreground as the supervisor for all four host processes.
 
 Press `Ctrl+C` to stop API, both workers and frontend. PostgreSQL, MinIO and Keycloak intentionally remain running so the next development start is faster. Restart the launcher after changing Conversation worker source; only the PDF worker has safe source-watch restarts.
+
+### Real generation and explicit simulation
+
+If startup reports `PORT_IN_USE:ApiPort:8000` or `PORT_IN_USE:FrontendPort:3000`,
+stop the previous daily supervisor with Ctrl+C before starting another one. The launcher
+checks occupied ports before modifying services or logs and leaves existing processes alone.
+If the old supervisor has already exited, inspect the listening process and its parent before
+stopping it; do not stop every Node/Python process on the machine.
+
+An existing PowerShell window can retain `KNORA_GENERATION_PROVIDER=deterministic-local`
+from an older launcher. Process environment overrides `.env`. Open a fresh PowerShell window
+or set `$env:KNORA_GENERATION_PROVIDER = 'ollama'` before restarting. The explicit
+`-GenerationProvider ollama` parameter also overrides that stale value.
+
+Daily development defaults to `ollama` generation with `qwen3:8b`. For the CPU endpoint:
+
+```powershell
+.\scripts\start-dev.ps1 -OllamaBaseUrl http://127.0.0.1:11435 -GenerationProvider ollama
+```
+
+`-GenerationProvider` and `-GenerationModel` override `KNORA_GENERATION_PROVIDER`
+and `KNORA_OLLAMA_GENERATION_MODEL` from the process environment or `.env`.
+The supported providers are `ollama` and `deterministic-local`; supported Ollama
+generation models are `qwen3:8b` and `qwen3:4b`. Missing models or invalid digests
+stop preflight. The resolved digest is pinned for API and worker generation calls.
+`GENERATION_PROVIDER`, `GENERATION_MODEL` and `GENERATION_DIGEST` in preflight
+output show the selection; the last two apply only to Ollama.
+
+Use `-GenerationProvider deterministic-local` only for deliberate UI simulation.
+Restart the full launcher after provider/model changes; auto-reload does not refresh
+the parent environment. Submit a new Turn and verify its server trace records Ollama.
+Old Turns are retained unchanged. Successful preflight does not certify retrieval,
+groundedness or the #105 Conversation gate.
 
 Before running the isolated M5 E2E workflow, stop the daily services. Both projects
 use host ports 5432, 9000 and 8180; the E2E preparation script refuses to reset its

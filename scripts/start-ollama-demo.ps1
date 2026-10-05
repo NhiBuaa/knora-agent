@@ -4,6 +4,7 @@ param(
     [switch]$UseExistingStorage,
     [string]$EnvFile,
     [string]$OllamaBaseUrl,
+    [string]$GenerationModel,
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_issue103_demo',
     [string]$ObjectStoreEndpoint,
@@ -57,6 +58,13 @@ if ($EnvFile) {
 }
 Import-DotEnv $dotenvPath
 
+if (-not $GenerationModel) {
+    $GenerationModel = if ($env:KNORA_OLLAMA_GENERATION_MODEL) { $env:KNORA_OLLAMA_GENERATION_MODEL } else { 'qwen3:8b' }
+}
+if ($GenerationModel -notin @('qwen3:8b', 'qwen3:4b', 'gpt-oss:20b')) {
+    Fail 'INVALID_GENERATION_MODEL'
+}
+
 if (-not $OllamaBaseUrl) {
     $OllamaBaseUrl = if ($env:KNORA_OLLAMA_BASE_URL) {
         $env:KNORA_OLLAMA_BASE_URL
@@ -93,8 +101,9 @@ $OllamaBaseUrl = $OllamaBaseUrl.TrimEnd('/')
 $env:PYTHONPATH = "$repoRoot\backend\src;$repoRoot"
 $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl
 $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
+$env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel
 $env:KNORA_EMBEDDING_PROVIDER = 'ollama'
-$env:KNORA_GENERATION_PROVIDER = 'deterministic-local'
+$env:KNORA_GENERATION_PROVIDER = 'ollama'
 $env:KNORA_EMBEDDING_DIMENSION = '1024'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
@@ -109,6 +118,12 @@ $matching = @($tags.models | Where-Object { $_.name -eq 'qwen3-embedding:0.6b' }
 if ($matching.Count -ne 1 -or $matching[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
     Fail 'MODEL_UNAVAILABLE'
 }
+$generationModels = @($tags.models | Where-Object { $_.name -eq $GenerationModel })
+if ($generationModels.Count -ne 1 -or $generationModels[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
+    Fail 'GENERATION_MODEL_UNAVAILABLE'
+}
+$generationDigest = 'sha256:' + (($generationModels[0].digest -replace '^sha256:', '').ToLowerInvariant())
+$env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST = $generationDigest
 try {
     $show = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/show" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b"}' -TimeoutSec 10
     $embedded = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/embed" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b","input":["Knora profile check"],"truncate":false}' -TimeoutSec 90
@@ -134,6 +149,8 @@ if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
     Fail 'PROFILE_MISMATCH'
 }
 Write-Output "PRECHECK_OK $profileId"
+Write-Output "GENERATION_MODEL=$GenerationModel"
+Write-Output "GENERATION_DIGEST=$generationDigest"
 Write-Output "API_URL=$env:KNORA_API_URL"
 if ($UseExistingStorage -and (-not $env:KNORA_DATABASE_URL -or -not $ObjectStoreEndpoint)) {
     Fail 'EXISTING_STORAGE_CONFIG_REQUIRED'
@@ -190,6 +207,8 @@ try {
         $started += $api
         $worker = Start-Process -FilePath $PythonExe -ArgumentList @('-m','knora.adapters.cli.worker') -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'worker.out.log') -RedirectStandardError (Join-Path $logs 'worker.err.log')
         $started += $worker
+        $conversationWorker = Start-Process -FilePath $PythonExe -ArgumentList @('scripts/run_conversation_worker.py') -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'conversation-worker.out.log') -RedirectStandardError (Join-Path $logs 'conversation-worker.err.log')
+        $started += $conversationWorker
         $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
         $env:PORT = [string]$FrontendPort
         $frontend = Start-Process -FilePath $npm -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError (Join-Path $logs 'frontend.err.log')
@@ -208,11 +227,11 @@ try {
             } catch {
                 if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -ge 300 -and [int]$_.Exception.Response.StatusCode -lt 400) { $frontendHealthy = $true }
             }
-            if ($api.HasExited -or $worker.HasExited -or $frontend.HasExited) { break }
+            if ($api.HasExited -or $worker.HasExited -or $conversationWorker.HasExited -or $frontend.HasExited) { break }
             if ($apiHealthy -and $frontendHealthy) { break }
         }
-        if (-not $apiHealthy -or -not $frontendHealthy -or $worker.HasExited -or $frontend.HasExited) { throw 'RUNTIME_START_FAILED' }
-        Write-Output "API_PID=$($api.Id) WORKER_PID=$($worker.Id) FRONTEND_PID=$($frontend.Id)"
+        if (-not $apiHealthy -or -not $frontendHealthy -or $worker.HasExited -or $conversationWorker.HasExited -or $frontend.HasExited) { throw 'RUNTIME_START_FAILED' }
+        Write-Output "API_PID=$($api.Id) WORKER_PID=$($worker.Id) CONVERSATION_WORKER_PID=$($conversationWorker.Id) FRONTEND_PID=$($frontend.Id)"
         Write-Output "LOG_DIR=$logs"
         if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$FrontendPort" | Out-Null }
     } catch {

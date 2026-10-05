@@ -1,0 +1,203 @@
+{
+  "browser_gate": "NOT_EVALUATED",
+  "case_count": 11,
+  "cases": [
+    {
+      "answer_sha256": null,
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason": "Appropriate refusal because the requested exact attribute is absent.",
+      "repetition": 1,
+      "response_sha256": "f4372e7822c4600f4008e3476a37b88e5e7d243687071bd09028d4f9bc924cf6"
+    },
+    {
+      "answer_sha256": "d0011476f94b0e7ea5c41b128a8222b8f8de362302925fbf8a490d7571a7e247",
+      "case_id": "metadata_year",
+      "passed": false,
+      "reason": "Uses document metadata to assert an event attribute that the cited source does not establish; refusal is required.",
+      "repetition": 1,
+      "response_sha256": "9d08439335ed08b793fab0741b7feefba1cc2e5aabcf437b4c169ebb025cfe32"
+    },
+    {
+      "answer_sha256": "a36456b8129cb19e00cc3c25287eb7c3f666e8716fe1dbb53b2136b2942c2119",
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason": "Preserves the explicit prohibition for the requested entity and action with the supporting alias.",
+      "repetition": 1,
+      "response_sha256": "1df46bc26587700d073cd5284a8479dcf64f4907e62f83e6fde8d9954d55e4f4"
+    },
+    {
+      "answer_sha256": "95b2a6b3118d2b13e469980763e35e4ab40cf607c5d12d4a5d5d1e76b5972b7a",
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason": "States the required attribute from its supporting source instead of the distractor.",
+      "repetition": 1,
+      "response_sha256": "1c84e73d507a21acc1d84742c5559b16590d96371a50d2b9e08b6c3f508376ce"
+    },
+    {
+      "answer_sha256": null,
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason": "Appropriate refusal because related quantities do not establish the requested exact attribute.",
+      "repetition": 1,
+      "response_sha256": "359825dafbc9e12ec431180a9fb6c1d1622ec0e67b103a5ce0786f5bd7ef64a3"
+    },
+    {
+      "answer_sha256": "074aed364e4808fa8af36687e1fd447366efa838ba5f3ca8fcc7b409afd017bb",
+      "case_id": "metadata_count",
+      "passed": false,
+      "reason": "Substitutes program structure for the absent required item count; the decision and cited source do not establish the requested attribute.",
+      "repetition": 1,
+      "response_sha256": "a68af1ff2545bc1f5dbd4279f920367886388c5801f586698b01163c4e385828"
+    },
+    {
+      "answer_sha256": "9d970be515730d9f8d4b3844e1d9c2677d324405b3c8ad71ec5ceccfea6e110c",
+      "case_id": "prohibited_requirement",
+      "passed": false,
+      "reason": "Weakens an explicit prohibition into a statement that the action is not mandatory.",
+      "repetition": 1,
+      "response_sha256": "12daa771df261e5f586d4bbf61ebea75958132e17ae738969622c1eae557ea42"
+    },
+    {
+      "answer_sha256": "dc49edf6c90f7ecedf149f73985900c052f3f92fc11a8b490b3ddcf9b378cf3b",
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason": "States the supported attribute and unit using the proper alias without substituting a related identifier.",
+      "repetition": 1,
+      "response_sha256": "a34d4937cb28f0f7b7fe69ca76ddbaeef474382e3effcc64f6f640f9f794f9da"
+    },
+    {
+      "answer_sha256": "6fde74a4a40046fc60f9c5f03a018ab87bce5b65034066dc73b5586537b9fb5f",
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason": "Retains the ordinary requirement and conditional alternative, including the required confirmation and supporting alias.",
+      "repetition": 1,
+      "response_sha256": "4da224771cf621e626468fa8ee947eeea39eb1a2e004a0ff34db0e9a7989eed3"
+    },
+    {
+      "answer_sha256": "f959377f7d79e73843de2e58193661d9177f5164b9de3ba90cc2b061fb907a50",
+      "case_id": "rule_with_exception",
+      "passed": true,
+      "reason": "Retains the ordinary requirement and special exception, including eligibility and required approval.",
+      "repetition": 1,
+      "response_sha256": "ac412a2e1aa510d39a799652a0e29bc186a473f4e3d02ab5cf3eb95c1b98e14d"
+    },
+    {
+      "answer_sha256": "931f107886315b799fb421fa8c3766e30c31845a5bf1287f306cab25f96af028",
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason": "Answers the current question from the supporting evidence without relying on the untrusted prior claim.",
+      "repetition": 1,
+      "response_sha256": "b2863204095f75aad1d6411eced26e6d5bae9a89e823c8765897a99fb2ed4a58"
+    }
+  ],
+  "code_provenance": {
+    "git_commit": "0c14a5f17c11bf0098ae0f71d017913d08034909",
+    "git_tree": "2f9c08895fdf60a58f7bcf7e6a5d1772bd7ffc6c"
+  },
+  "comparison_observation": "Both exception cases are complete in this run. Prohibition weakening and missing-attribute errors remain; model and context changed, so this is not an isolated capacity or generalization comparison.",
+  "context_tokens": 4096,
+  "conversation_gate": "NOT_EVALUATED",
+  "deployment_selection": false,
+  "extraction_quote_membership": "Enforced by the verified renderer; intermediate extraction is not retained and cannot be reconstructed from normalized finals.",
+  "extraction_schema_sha256": "97f2ad5d2f281dfba9f040fbe05aa9feb295e47010ec97c6ba906cfc31781f67",
+  "failure_types": [
+    "unsupported_metadata_inference",
+    "substitution_for_absent_requested_attribute",
+    "weakened_prohibition"
+  ],
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "fixture_version": "ollama-synthetic-grounding-v3",
+  "gate": "FAILED_SEMANTIC_REVIEW",
+  "generation_expected_digest": "sha256:bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+  "held_out": false,
+  "model": "qwen3:14b",
+  "original36_gate": "NOT_EVALUATED",
+  "private_responses_sha256": "49cb6b371c89080136bb10d7744e8968396db77e842438f3f5af8fc449dabcb3",
+  "public_report_sha256": "42cc50fc8c436be2cd96838980eb032a1b5e6c656c362291e833ed7a09fceaa8",
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:qwen3:14b:ctx4096:qwen-nonthinking-v1:seed105",
+  "response_binding_json_encoding": "UTF-8; ensure_ascii=True; sort_keys=True; separators=(comma,colon); excludes convenience answer_sha256",
+  "response_binding_scheme": "fixture-prompt-policy-case-repetition-result-or-error-canonical-json-sha256-v1",
+  "review_private_verdict_sha256": "a596cca7266e1a22045a62c1dbb5f04f6ce789ed84c9a91444c8cac76d6a0fa2",
+  "revised36_gate": "NOT_EVALUATED",
+  "runtime_observation": {
+    "completion_tokens_max": 194,
+    "completion_tokens_min": 41,
+    "declared_timeout_seconds": 240,
+    "finish_reasons": {
+      "stop": 11
+    },
+    "observed_deadline_exceedances": 0,
+    "process_elapsed_max_seconds": 41.59352890000446,
+    "process_elapsed_min_seconds": 13.127463600001647,
+    "prompt_tokens_max": 539,
+    "prompt_tokens_min": 470,
+    "provider_latency_max_ms": 41601.5,
+    "provider_latency_min_ms": 13128.17,
+    "runtime_gate": "NO_DEADLINE_OR_SUPERVISOR_FAILURE",
+    "server_cancellation_proven": false,
+    "startup_blocking_bound_proven": false,
+    "supervisor_failures": 0
+  },
+  "runtime_sources": {
+    "backend/src/knora/answering/generation_validation.py": {
+      "committed_sha256": "4c9b575b6f051e266a0d365bfe9051047a8e2cb5125c89afbb0c254ca3284abb",
+      "runtime_sha256": "360ac2cd7329f1a06af1cbe6043b94457271df73146181378d4307910033b41a"
+    },
+    "backend/src/knora/providers/generation.py": {
+      "committed_sha256": "8c9fe7a78bafbe6ab4d4bea466fe6024ae812871633042f51069df3c0a8c8754",
+      "runtime_sha256": "495da8de5c7e0cbb4d005f468a52c284579c7be5951bbe469785f385968cd983"
+    },
+    "backend/src/knora/providers/ollama/generation.py": {
+      "committed_sha256": "6d06e71e0d900c449c0e3e7ac50a3812aecd64b4eebff832f78e2fb8ba94dc70",
+      "runtime_sha256": "6d06e71e0d900c449c0e3e7ac50a3812aecd64b4eebff832f78e2fb8ba94dc70"
+    }
+  },
+  "sampling_profile": "qwen-nonthinking-v1",
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_normalized_final_responses",
+  "seed": 105,
+  "semantic_failed_count": 3,
+  "semantic_passed_count": 8,
+  "source_sha256": {
+    "ollama_evidence_first_probe.py": "5457ebfc697b690af1fde3e3f5efae10aebe3a51a5782bdf5cd7194aa98cc66e",
+    "ollama_process_probe.py": "422cd902c94f44775f64b2bcb502bd50ede8b34de24fbb2165af8b9839fe5770",
+    "process_probe.py": "e227aa72d129980f473d5b5859bfa01fe0538718649041347245cc2c61968f7a"
+  },
+  "status": "FAILED_PRELIMINARY_SEMANTIC_GATE",
+  "stop_reason": "first_seed_failed_literal_and_independent_semantic_gates",
+  "system_prompt_sha256": "9664672141a356686055248b3174e50d956b198f575561f91f2458b89011077a",
+  "thinking_observation": {
+    "nonempty_presence": "NOT_RECORDED",
+    "raw_thinking_persisted_by_review": false,
+    "requested": false
+  },
+  "unrun_predeclared_seeds": [
+    106,
+    107
+  ],
+  "verification": {
+    "child_runtime_source_hash_pairs_verified": 33,
+    "child_runtime_source_sets_verified": 11,
+    "clean_commit_and_tree_verified": true,
+    "declared_model_digest_verified": true,
+    "digest_enforcement_source_verified": true,
+    "error_records_verified": 0,
+    "extraction_schema_verified": true,
+    "final_result_answer_hashes_verified": 11,
+    "fixture_verified": true,
+    "non_null_answer_hashes_verified": 9,
+    "normalized_final_responses_only": true,
+    "parent_runtime_sources_verified": 3,
+    "private_and_report_byte_hashes_verified": true,
+    "prompt_verified": true,
+    "raw_thinking_artifact_keys_absent": true,
+    "request_messages_verified": 11,
+    "request_options_verified": 11,
+    "response_hashes_computed": 11,
+    "runner_source_hashes_verified": 3,
+    "single_chat_request_counts_verified": 11,
+    "structural_results_verified": 11
+  }
+}
