@@ -38,5 +38,25 @@
     "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
     "sourceNodes": ["166:211"],
     "originalExport": true
+  },
+  {
+    "file": "d9407.svg",
+    "bytes": 453,
+    "sha256": "5F4B56B7821C0C8496330DAADF207B6BFCFE5D6D6B7285A1309A251F37C3E000",
+    "rootWidth": "8",
+    "rootHeight": "5",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "sourceNodes": ["58:75", "61:99", "183:362"],
+    "originalExport": true
+  },
+  {
+    "file": "97a8a.svg",
+    "bytes": 240,
+    "sha256": "CED70EC951409765421E1C4C77B42220AEBD3FDA91732D4A819CDBB0FAC10E0E",
+    "rootWidth": "7",
+    "rootHeight": "7",
+    "sourceFile": "BOVOx0bt1qYJFg9nBq6EaQ",
+    "sourceNodes": ["94:194", "111:129"],
+    "originalExport": true
   }
 ]

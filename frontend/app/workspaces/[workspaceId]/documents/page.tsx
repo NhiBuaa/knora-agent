@@ -23,7 +23,9 @@ export default async function DocumentsPage({
     )) as WorkspaceResponse;
     return (
       <DocumentList
+        key={workspaceId}
         workspaceId={workspaceId}
+        workspaceName={workspace.name}
         capabilities={session.capabilities}
         workspaceArchived={workspace.archived}
       />

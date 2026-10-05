@@ -23,6 +23,7 @@ export default async function DocumentPage({
     )) as WorkspaceResponse;
     return (
       <DocumentDetail
+        key={`${workspaceId}:${documentId}`}
         workspaceId={workspaceId}
         documentId={documentId}
         capabilities={session.capabilities}
