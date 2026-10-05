@@ -25,6 +25,27 @@ const conversation = {
 };
 
 describe("Conversation lifecycle controls", () => {
+  it("announces uncertain creation in collapsed mode and preserves the retry key", async () => {
+    const keys: (string | null)[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit = {}) => {
+      keys.push(new Headers(init.headers).get("Idempotency-Key"));
+      throw new Error("response lost");
+    });
+    render(
+      <ConversationList
+        workspaceId="w-1"
+        initialConversations={[conversation]}
+        presentation="collapsed"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /creation.*Retry/i,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).toBe(keys[0]);
+  });
   it("renames with the loaded revision and keeps history link", async () => {
     const fetchMock = vi.fn(
       async (_url: string, _init: RequestInit) =>

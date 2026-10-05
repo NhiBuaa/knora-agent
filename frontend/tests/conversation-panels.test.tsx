@@ -71,6 +71,58 @@ afterEach(() => {
   sessionStorage.clear();
 });
 describe("Conversation panel interactions", () => {
+  it.each(["desktop", "narrow"])(
+    "preserves an uncertain creation request across %s rail dismissal",
+    async (mode) => {
+      history();
+      if (mode === "narrow") window.innerWidth = 390;
+      const keys: (string | null)[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init: RequestInit = {}) => {
+          if (init.method === "POST") {
+            keys.push(new Headers(init.headers).get("Idempotency-Key"));
+            throw new Error("Response lost after accepted creation");
+          }
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      render(<ConversationView workspaceId="w" conversation={conversation} />);
+      await screen.findByText(answered.result.answer);
+      if (mode === "narrow")
+        fireEvent.click(
+          screen.getByRole("button", { name: "Show conversations" }),
+        );
+      fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
+      await screen.findByText(/Unable to confirm Conversation creation/);
+      if (mode === "narrow") fireEvent.keyDown(document, { key: "Escape" });
+      else fireEvent.click(screen.getByRole("button", { name: "Hide rail" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show conversations" }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
+      await waitFor(() => expect(keys).toHaveLength(2));
+      expect(keys[0]).toBeTruthy();
+      expect(keys[1]).toBe(keys[0]);
+    },
+  );
+  it("returns focus to the selected citation when desktop evidence closes", async () => {
+    history();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const source = await screen.findByRole("button", { name: /citation 1/i });
+    source.focus();
+    fireEvent.click(source);
+    expect(
+      screen.getByRole("complementary", { name: /evidence/i }).parentElement,
+    ).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Close evidence" }));
+    expect(
+      screen.queryByRole("complementary", { name: /evidence/i }),
+    ).not.toBeInTheDocument();
+    expect(source).toHaveFocus();
+  });
   it("opens the selected historical citation and clears it when the conversation changes", async () => {
     history();
     const view = render(

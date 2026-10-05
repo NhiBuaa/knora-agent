@@ -15,8 +15,28 @@ import { ConversationRail } from "./ConversationRail";
 import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
 import { WorkspaceSelector } from "@/components/workspaces/WorkspaceSelector";
 import type { ConversationResponse } from "@/generated/knora-openapi";
+import {
+  ConversationCreationAlert,
+  ConversationCreationProvider,
+} from "./ConversationList";
 
-export function ConversationPanels({
+export function ConversationPanels(
+  props: React.ComponentProps<typeof ConversationPanelLayout>,
+) {
+  return (
+    <ConversationCreationProvider
+      key={
+        panelPreferenceKey(props.identityScope, props.workspaceId) ??
+        props.workspaceId
+      }
+      workspaceId={props.workspaceId}
+    >
+      <ConversationPanelLayout {...props} />
+    </ConversationCreationProvider>
+  );
+}
+
+function ConversationPanelLayout({
   workspaceId,
   identityScope,
   rail,
@@ -293,7 +313,9 @@ export function ConversationPanels({
             onClick={() =>
               narrow
                 ? setOverlay("evidence")
-                : update({ inspectorOpen: !preferences.inspectorOpen })
+                : preferences.inspectorOpen
+                  ? closeEvidence()
+                  : update({ inspectorOpen: true })
             }
           >
             {!narrow && preferences.inspectorOpen
@@ -311,6 +333,9 @@ export function ConversationPanels({
             Reset panels
           </button>
         </div>
+        {!narrow && preferences.rail === "collapsed" && (
+          <ConversationCreationAlert />
+        )}
         <div className="conversation-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-8 pt-5 min-[960px]:px-11">
           {children}
         </div>
