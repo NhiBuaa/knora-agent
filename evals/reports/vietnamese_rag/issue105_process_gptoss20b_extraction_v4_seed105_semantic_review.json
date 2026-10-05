@@ -1,0 +1,111 @@
+{
+  "code_provenance": {
+    "git_commit": "112f0208cd4ecf3f25ccf5d2efb47c66972697e2",
+    "git_tree": "bf8a320c7ef8aa18a62bae37f2a96a6ab777f4a8"
+  },
+  "conversation_gate": "NOT_EVALUATED",
+  "fixture_sha256": "1d7e16908ff382f3bad9114b82ec3b29355e57d19a43ba69e18a25e3f42201f5",
+  "held_out": false,
+  "observation_count": 11,
+  "observation_failure_count": 0,
+  "private_responses_sha256": "ad1de7009d58b4e5f650cbcc4ae19b123926cedb8752ea5c3756f020396eddbb",
+  "provenance_checks": {
+    "actual_request_metadata": 11,
+    "committed_v4_prompt_schema_and_fixture": true,
+    "parent_child_production_runtime_hashes": 11,
+    "probe_source_hashes_match_measured_commit": true,
+    "strict_private_final_projection_no_thinking_fields": true
+  },
+  "public_report_sha256": "c4c0c795df34d7218c1957ca78f4aca997a793c5e561879dca2b4671c0dc29f4",
+  "raw_thinking_persisted": false,
+  "release_gate": "NOT_EVALUATED",
+  "request_policy_id": "ollama-evidence-first-feasibility-v1:process-v1:gpt-oss:20b:ctx4096:gpt-oss-extraction-v4:seed105",
+  "review_private_verdict_sha256": "5268231ad148260ce32967d9804b2c1e86d4d825ed6e3ead4a8e4ed50bd345ea",
+  "reviewer": "/root/review105_extraction_v2",
+  "reviews": [
+    {
+      "case_id": "absent_fee",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "48737a3051d9b4fd1ac05ab49af27b0d9c89c9fdaae21ecc450a9ab6b355fcc8"
+    },
+    {
+      "case_id": "metadata_year",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "c0f70267767ea858f45a97f2d67a4712ca40d5377880fe401ce03220687d703e"
+    },
+    {
+      "case_id": "explicit_prohibition",
+      "passed": true,
+      "reason_code": "SUPPORTED_PROHIBITION",
+      "repetition": 1,
+      "response_sha256": "eea51c29c472f0efc83bdbc3a8b9f159032ea5b5119a313e9d55affa6b002233"
+    },
+    {
+      "case_id": "support_after_distractor",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "6360180f618f6c71554daef7443ea5d72153a11b45c686f1514218e1da708dc2"
+    },
+    {
+      "case_id": "absent_warranty",
+      "passed": true,
+      "reason_code": "SUPPORTED_REFUSAL",
+      "repetition": 1,
+      "response_sha256": "9dd44fb3c6827726f87fa303bec8c90909da185facc8329a10a23d57464e59a8"
+    },
+    {
+      "case_id": "metadata_count",
+      "passed": false,
+      "reason_code": "UNSUPPORTED_EXACT_COUNT",
+      "repetition": 1,
+      "response_sha256": "73b682a64445a484fc509ebee96efd72b12e3229bd06459431b9c103c6a72019"
+    },
+    {
+      "case_id": "prohibited_requirement",
+      "passed": true,
+      "reason_code": "SUPPORTED_PROHIBITION",
+      "repetition": 1,
+      "response_sha256": "ac9a12986afd1ca9f2aa2a93a1c2a5cd89337f83440e2745977a39e4f1d5c963"
+    },
+    {
+      "case_id": "support_after_related_rule",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "dbac3b3f25e43d0d94bd97973a7f0fe3d3fbe0cdb3aa0b953558a7433b6646c4"
+    },
+    {
+      "case_id": "caveat_after_distractor",
+      "passed": true,
+      "reason_code": "SUPPORTED_RELEVANT_FACT",
+      "repetition": 1,
+      "response_sha256": "82f072cf5ae60af6d6db495454a2bc7d8e3b87ccaf0c8eb503172559ff6417a9"
+    },
+    {
+      "case_id": "rule_with_exception",
+      "passed": false,
+      "reason_code": "REQUIRED_EXCEPTION_OMITTED",
+      "repetition": 1,
+      "response_sha256": "f054149fccad6cca98f700a14aa57f5bed787f1f3dd6f0f7fd2ff4a8eff23681"
+    },
+    {
+      "case_id": "wrapped_current_question",
+      "passed": true,
+      "reason_code": "CURRENT_QUESTION_GROUNDED",
+      "repetition": 1,
+      "response_sha256": "fc38468d64b470caed03b160313d6aedea2306490f6b9cdc1b33d9320d0532f4"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "independent_semantic_review_of_synthetic_development_finals",
+  "semantic_failed_count": 2,
+  "semantic_passed_count": 9,
+  "semantic_unscorable_count": 0,
+  "system_prompt_sha256": "91dbfc5727af9e26948878aa76bb105a55c22d78c3e074bc06325d4347234b38",
+  "transport_gate": "PROVIDER_PROBE_NOT_CONVERSATION"
+}

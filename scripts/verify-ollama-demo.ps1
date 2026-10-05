@@ -25,7 +25,7 @@ if ($matching.Count -ne 1 -or $matching[0].digest -notmatch '^(sha256:)?[0-9a-fA
 $env:KNORA_GENERATION_PROVIDER = 'ollama'
 $env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel
 $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl
-$gateStartedAt = [DateTimeOffset]::UtcNow.ToString('o')
+$env:KNORA_OLLAMA_BROWSER_OBSERVATIONS = Join-Path ([IO.Path]::GetTempPath()) ('knora-browser-observations-' + [Guid]::NewGuid().ToString('N') + '.json')
 Push-Location $repoRoot
 try {
     npm --prefix frontend run test:e2e -- --config playwright.ollama.config.ts
@@ -36,7 +36,7 @@ try {
     )
     $python = $pythonCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
     if (-not $python) { throw 'PYTHON_RUNTIME_UNAVAILABLE' }
-    & $python scripts/verify_ollama_conversation.py --since $gateStartedAt
+    & $python scripts/verify_ollama_conversation.py --observations $env:KNORA_OLLAMA_BROWSER_OBSERVATIONS
     if ($LASTEXITCODE -ne 0) { throw 'OLLAMA_TRACE_GATE_FAILED' }
 } finally {
     Pop-Location
