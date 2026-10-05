@@ -33,6 +33,13 @@ export function Menu({ label, children }: MenuProps) {
     <div
       ref={root}
       className="kn-menu relative"
+      onKeyDown={(event) => {
+        if (open && event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          dismiss(true);
+        }
+      }}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node))
           setOpen(false);
@@ -82,11 +89,6 @@ export function Menu({ label, children }: MenuProps) {
               dismiss(true);
           }}
           onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              dismiss(true);
-            }
             if (event.key === "Tab" && trigger.current) {
               event.preventDefault();
               const scope =

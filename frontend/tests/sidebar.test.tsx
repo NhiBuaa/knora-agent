@@ -173,6 +173,25 @@ describe("Workspace sidebar", () => {
     expect(screen.getByRole("link", { name: "Workspaces" })).toHaveFocus();
   });
 
+  it("skips controls in CSS-hidden ancestors at the drawer focus boundary", () => {
+    render(
+      <MobileDrawer>
+        <style>{`.hidden-drawer-actions { display: none; }`}</style>
+        <a href="/workspaces">Visible workspace</a>
+        <div className="hidden-drawer-actions">
+          <button>Hidden workspace</button>
+        </div>
+      </MobileDrawer>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(
+      screen.getByRole("link", { name: "Visible workspace" }),
+    ).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Close menu" })).toHaveFocus();
+  });
+
   it("reuses one creation key after an ambiguous Conversation response", async () => {
     const fetchMock = vi
       .fn()

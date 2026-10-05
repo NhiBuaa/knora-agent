@@ -10,7 +10,20 @@ export function focusableControls(container: HTMLElement): HTMLElement[] {
         ':disabled, [aria-disabled="true"], [hidden], [tabindex="-1"]',
       ) &&
       !element.closest("[hidden], [inert]") &&
-      getComputedStyle(element).display !== "none" &&
+      isDisplayed(element) &&
       getComputedStyle(element).visibility !== "hidden",
   );
+}
+
+function isDisplayed(element: HTMLElement): boolean {
+  // A descendant's computed display does not reflect a display:none ancestor.
+  // Check ancestry directly so the same rule works without a layout engine in jsdom.
+  for (
+    let current: HTMLElement | null = element;
+    current;
+    current = current.parentElement
+  ) {
+    if (getComputedStyle(current).display === "none") return false;
+  }
+  return true;
 }

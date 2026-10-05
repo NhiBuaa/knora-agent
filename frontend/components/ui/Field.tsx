@@ -36,7 +36,7 @@ export function Field({ id, label, hint, error, children }: FieldProps) {
   const control = React.cloneElement(children, {
     id,
     className: [
-      "kn-field__control w-full rounded-lg border border-control-border bg-surface text-text-primary",
+      "kn-field__control w-full rounded-lg border border-control-border bg-surface text-text-primary aria-[invalid=true]:border-status-error",
       children.props.className,
     ]
       .filter(Boolean)

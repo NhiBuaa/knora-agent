@@ -7,6 +7,67 @@ import { Menu } from "@/components/ui/Menu";
 
 afterEach(cleanup);
 
+it("traps modal focus at visible boundaries despite CSS-hidden ancestor controls", async () => {
+  render(
+    <Dialog open title="Visible boundaries" onClose={vi.fn()}>
+      <button>Visible last action</button>
+      <style>{`.hidden-modal-actions { display: none; }`}</style>
+      <div className="hidden-modal-actions">
+        <button>Hidden last action</button>
+      </div>
+    </Dialog>,
+  );
+  const first = screen.getByRole("button", {
+    name: "Close Visible boundaries",
+  });
+  const last = screen.getByRole("button", { name: "Visible last action" });
+  await userEvent.tab({ shift: true });
+  expect(last).toHaveFocus();
+  await userEvent.tab();
+  expect(first).toHaveFocus();
+});
+
+it("skips CSS-hidden ancestor actions during menu arrows and End", async () => {
+  render(
+    <Menu label="Visible actions">
+      <button role="menuitem">First visible</button>
+      <style>{`.hidden-menu-actions { display: none; }`}</style>
+      <div className="hidden-menu-actions">
+        <button role="menuitem">Hidden middle</button>
+      </div>
+      <button role="menuitem">Last visible</button>
+      <div className="hidden-menu-actions">
+        <button role="menuitem">Hidden end</button>
+      </div>
+    </Menu>,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Visible actions" }));
+  expect(screen.getByRole("menuitem", { name: "First visible" })).toHaveFocus();
+  await user.keyboard("{ArrowDown}");
+  expect(screen.getByRole("menuitem", { name: "Last visible" })).toHaveFocus();
+  await user.keyboard("{Home}{End}");
+  expect(screen.getByRole("menuitem", { name: "Last visible" })).toHaveFocus();
+});
+
+it("dismisses an all-disabled menu on Escape while focus remains on its trigger", async () => {
+  render(
+    <Menu label="Unavailable actions">
+      <button role="menuitem" disabled>
+        Unavailable
+      </button>
+    </Menu>,
+  );
+  const user = userEvent.setup();
+  const trigger = screen.getByRole("button", { name: "Unavailable actions" });
+  await user.click(trigger);
+  expect(screen.getByRole("menu")).toBeVisible();
+  expect(trigger).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+});
+
 it("labels the modal and closes it on Escape", async () => {
   const onClose = vi.fn();
   render(
