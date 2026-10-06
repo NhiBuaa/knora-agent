@@ -299,6 +299,11 @@ composition, and frontend/components/shell/account-menu.css for scoped AU5 styli
 shared global/provider CSS; use semantic Tailwind utilities and only necessary scoped overrides.
 Modify frontend/tests/auth-session.test.ts and frontend/tests/auth-callback-resolver.test.ts
 for callback RED cases and preservation of completed-login workspace recovery.
+Extend the existing offline template cases in
+infra/keycloak/providers/email-otp-reset/src/test/java/com/knora/keycloak/reset/EmailOtpResetFlowIT.java
+to render the trusted reset-completion CTA and preserve unfinished native action links. Do not
+change provider policy/service source for I3. The fixed application path resolves against trusted
+configured client base URL, not the Keycloak page origin or submitted/request redirect data.
 **Test:** frontend/tests/e2e/figma-identity.spec.ts and m5-authentication.spec.ts.
 
 **Consumes:** existing authorization transaction/session helpers. **Produces:** safe error pages
