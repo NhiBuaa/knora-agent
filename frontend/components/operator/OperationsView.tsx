@@ -1,23 +1,21 @@
 import React from "react";
 import type { OperatorOperationsResponse } from "../../generated/knora-openapi";
-import {
-  OPERATOR_METRIC_KEYS,
-  presentMetric,
-  safeNumber,
-} from "../../lib/operator/presentation";
+import { presentMetric, safeNumber } from "../../lib/operator/presentation";
 
-const LABELS: Record<(typeof OPERATOR_METRIC_KEYS)[number], string> = {
-  queue_depth: "Queue depth",
-  oldest_job_age: "Oldest job age (seconds)",
-  claim_latency_count: "Claim latency samples",
-  claim_latency_sum: "Claim latency sum (seconds)",
-  retry_rate: "Retry rate",
-  lease_expiry_recovery_total: "Lease expiry recoveries",
-  cleanup_attempt_total: "Cleanup attempts",
-  cleanup_failure_total: "Cleanup failures",
-  orphan_discovery_total: "Orphan discoveries",
-  orphan_reconciliation_total: "Orphan reconciliations",
-};
+const SIGNALS = [
+  ["queue_depth", "Queue depth"],
+  ["retry_rate", "Retry rate"],
+  ["cleanup_failure_total", "Cleanup failures"],
+  ["orphan_discovery_total", "Orphan discoveries"],
+] as const;
+const ACCOUNTING = [
+  ["oldest_job_age", "Oldest job age", " s"],
+  ["claim_latency_count", "Claim latency samples", ""],
+  ["claim_latency_sum", "Claim latency sum", " s"],
+  ["lease_expiry_recovery_total", "Lease expiry recoveries", ""],
+  ["cleanup_attempt_total", "Cleanup attempts", ""],
+  ["orphan_reconciliation_total", "Orphan reconciliations", ""],
+] as const;
 
 export function OperationsView({
   operations,
@@ -25,68 +23,140 @@ export function OperationsView({
   operations: OperatorOperationsResponse;
 }) {
   return (
-    <section aria-labelledby="operations-heading">
-      <h2 id="operations-heading">Operational observations</h2>
-      <p>
-        Configuration: <code>{operations.configuration_version}</code>
+    <section
+      aria-labelledby="operations-heading"
+      className="m-0 border-0 bg-transparent p-0"
+    >
+      <p className="mt-5 mb-0 flex min-h-[34px] flex-wrap items-center gap-2 text-[13px] text-text-muted">
+        Configuration version{" "}
+        <strong className="font-semibold text-text-primary">
+          {operations.configuration_version}
+        </strong>
       </p>
-      <dl>
-        {OPERATOR_METRIC_KEYS.map((key) => {
-          const metric = presentMetric(safeNumber(operations.metrics[key]));
+      <h2
+        id="operations-heading"
+        className="mt-[22px] mb-0 font-display text-xl leading-6 font-semibold"
+      >
+        Operational observations
+      </h2>
+      <p className="mt-1.5 mb-0 text-sm leading-[17px] text-text-muted">
+        Current workspace signals. Zero values remain visible; unavailable
+        values stay explicitly unavailable.
+      </p>
+      <dl
+        role="group"
+        aria-label="Runtime signals"
+        className="mt-6 mb-0 grid grid-cols-4 gap-0 border-y border-border max-md:grid-cols-2"
+      >
+        {SIGNALS.map(([key, label]) => {
+          const raw = safeNumber(operations.metrics[key]);
+          const metric = presentMetric(raw);
+          const value =
+            key === "retry_rate" && raw !== null
+              ? `${new Intl.NumberFormat("en", { maximumFractionDigits: 6 }).format(raw * 100)}%`
+              : metric.value;
           return (
-            <div key={key}>
-              <dt>{LABELS[key]}</dt>
-              <dd data-state={metric.state}>{metric.value}</dd>
+            <div
+              key={key}
+              className="min-h-[108px] min-w-0 border-border px-5 pt-[22px] pb-4 [&:not(:first-child)]:border-l"
+            >
+              <dt className="text-[13px] leading-4 font-medium text-text-muted">
+                {label}
+              </dt>
+              <dd
+                data-state={metric.state}
+                className="mt-[15px] font-display text-[26px] leading-8 font-semibold [overflow-wrap:anywhere]"
+              >
+                {value}
+              </dd>
             </div>
           );
         })}
       </dl>
-      {Object.entries(operations.histograms).map(([name, histogram]) => {
-        if (
-          !histogram ||
-          typeof histogram !== "object" ||
-          Array.isArray(histogram)
-        )
-          return null;
-        const projection = histogram as Record<string, unknown>;
-        return (
-          <details key={name}>
-            <summary>{name.replaceAll("_", " ")} histogram</summary>
-            <dl>
-              <dt>Samples</dt>
-              <dd>{presentMetric(safeNumber(projection.count)).value}</dd>
-              <dt>Sum (seconds)</dt>
-              <dd>{presentMetric(safeNumber(projection.sum)).value}</dd>
-            </dl>
-            {Array.isArray(projection.buckets) && (
-              <table>
-                <caption>Cumulative latency buckets</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Upper bound</th>
-                    <th scope="col">Samples</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projection.buckets.map((bucket, index) =>
-                    Array.isArray(bucket) && bucket.length === 2 ? (
-                      <tr key={index}>
-                        <td>
-                          {typeof bucket[0] === "number"
-                            ? `${bucket[0]} s`
-                            : String(bucket[0])}
-                        </td>
-                        <td>{presentMetric(safeNumber(bucket[1])).value}</td>
-                      </tr>
-                    ) : null,
-                  )}
-                </tbody>
-              </table>
-            )}
-          </details>
-        );
-      })}
-      <p role="status">Alerts: Unavailable</p>
+      <h3 className="mt-[30px] mb-0 font-display text-lg leading-6 font-semibold">
+        Execution accounting
+      </h3>
+      <dl className="mt-2.5 mb-0 grid grid-cols-2 gap-x-5 gap-y-0 pr-5 max-md:grid-cols-1 max-md:pr-0">
+        {ACCOUNTING.map(([key, label, unit]) => {
+          const metric = presentMetric(safeNumber(operations.metrics[key]));
+          return (
+            <div
+              key={key}
+              className="grid min-h-[49px] grid-cols-[minmax(0,1fr)_160px] items-center gap-3 border-b border-border text-sm max-sm:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <dt className="font-normal text-text-muted">{label}</dt>
+              <dd data-state={metric.state} className="font-semibold">
+                {metric.value}
+                {metric.state === "available" ? unit : ""}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      <h3 className="mt-8 mb-0 font-display text-lg leading-6 font-semibold">
+        Latency observations
+      </h3>
+      <div className="mt-1 grid grid-cols-[minmax(0,760px)_minmax(0,380px)] gap-[60px] max-lg:grid-cols-1 max-lg:gap-6">
+        <div className="min-w-0">
+          {Object.entries(operations.histograms).map(([name, histogram]) => {
+            if (
+              !histogram ||
+              typeof histogram !== "object" ||
+              Array.isArray(histogram)
+            )
+              return null;
+            const projection = histogram as Record<string, unknown>;
+            return (
+              <div key={name} className="mb-3">
+                <p className="m-0 text-[13px] leading-5 text-text-muted">
+                  {name} · {presentMetric(safeNumber(projection.count)).value}{" "}
+                  samples · {presentMetric(safeNumber(projection.sum)).value} s
+                  total
+                </p>
+                {Array.isArray(projection.buckets) && (
+                  <dl
+                    aria-label="Cumulative latency buckets"
+                    className="mt-2 mb-0 grid grid-cols-2 gap-x-5 gap-y-1.5 max-sm:grid-cols-1"
+                  >
+                    {projection.buckets.map((bucket, index) =>
+                      Array.isArray(bucket) && bucket.length === 2 ? (
+                        <div
+                          key={index}
+                          className="flex min-h-10 items-center justify-between gap-3 border-b border-border text-[13px]"
+                        >
+                          <dt className="font-normal text-text-muted">
+                            {safeNumber(bucket[0]) !== null ? "≤ " : ""}
+                            <span>
+                              {safeNumber(bucket[0]) !== null
+                                ? `${bucket[0]} s`
+                                : "Bound unavailable"}
+                            </span>
+                          </dt>
+                          <dd>{presentMetric(safeNumber(bucket[1])).value}</dd>
+                        </div>
+                      ) : null,
+                    )}
+                  </dl>
+                )}
+              </div>
+            );
+          })}
+          {!Object.keys(operations.histograms).length && (
+            <p className="m-0 text-[13px] text-text-muted">
+              Latency histogram unavailable.
+            </p>
+          )}
+        </div>
+        <div
+          role="status"
+          className="mt-7 h-fit rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-3"
+        >
+          <p className="m-0 text-[11px] font-semibold text-signature">ALERTS</p>
+          <p className="mt-2 mb-0 text-[13px]">
+            Unavailable in the current Operator contract.
+          </p>
+        </div>
+      </div>
     </section>
   );
 }

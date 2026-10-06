@@ -1,11 +1,9 @@
 import React from "react";
 import { cookies } from "next/headers";
-import type {
-  WorkspaceListResponse,
-  WorkspaceResponse,
-} from "@/generated/knora-openapi";
-import { WorkspaceShell } from "@/components/workspaces/WorkspaceShell";
-import { Notice } from "@/components/ui/Notice";
+import type { WorkspaceResponse } from "@/generated/knora-openapi";
+import { ProductHeader } from "@/components/shell/ProductHeader";
+import { AccountMenu } from "@/components/shell/AccountMenu";
+import { OperatorFrame } from "@/components/operator/OperatorFrame";
 import { KnoraApiError, knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 import {
@@ -28,13 +26,12 @@ export default async function OperatorLayout({
     return <main role="alert">Operator access denied.</main>;
 
   const cookieStore = await cookies();
-  let page: WorkspaceListResponse;
   let selected: WorkspaceResponse | null = null;
   try {
-    page = (await knoraRequest(
+    await knoraRequest(
       "/v1/workspaces?archived=false&limit=20" as "/v1/workspaces",
       { accessToken: session.accessToken },
-    )) as WorkspaceListResponse;
+    );
     const hint = await decodePreference(
       cookieStore.get(WORKSPACE_PREFERENCE_COOKIE)?.value,
       { issuer: session.issuer, subject: session.subject },
@@ -62,30 +59,26 @@ export default async function OperatorLayout({
     );
   }
   return (
-    <WorkspaceShell
-      selectedWorkspace={selected}
-      workspaces={page.items}
-      nextCursor={page.next_cursor}
-      capabilities={session.capabilities}
-      subject={session.subject}
-      themePreference={readThemePreference(
-        cookieStore.get(THEME_COOKIE_NAME)?.value,
-      )}
-    >
-      <div className="operator-surface">
-        {selected ? (
-          <p className="operator-context">
-            Navigation preference: <strong>{selected.name}</strong>
-            {selected.archived ? " (archived)" : ""}
-          </p>
-        ) : (
-          <Notice kind="info" title="Select a workspace">
-            Choose one from the sidebar for default observations, or enter an
-            exact Workspace ID for retained read-only evidence.
-          </Notice>
-        )}
+    <div className="min-h-dvh bg-surface">
+      <ProductHeader
+        activeSection="operator"
+        workspaceId={selected?.id ?? null}
+        canOpenOperator
+        account={
+          <AccountMenu
+            subject={session.subject}
+            themePreference={readThemePreference(
+              cookieStore.get(THEME_COOKIE_NAME)?.value,
+            )}
+          />
+        }
+      />
+      <OperatorFrame
+        workspaceId={selected?.id ?? null}
+        workspaceName={selected?.name ?? null}
+      >
         {children}
-      </div>
-    </WorkspaceShell>
+      </OperatorFrame>
+    </div>
   );
 }

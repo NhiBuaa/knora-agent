@@ -22,16 +22,18 @@ export async function OperationsContent({
     return <p role="status">Select a workspace to inspect operations.</p>;
   if (!response.ok)
     return <p role="status">Operational observation unavailable.</p>;
-  const data: unknown = await response.json();
+  const data: unknown = await response.json().catch(() => null);
   if (!isOperatorOperations(data))
     return <p role="status">Operational observation unavailable.</p>;
   return (
     <>
-      <h1>Operations</h1>
-      <p>
-        Observed Workspace: <code>{data.workspace_id}</code>
-      </p>
       <OperationsView operations={data} />
+      <details className="mt-4 text-xs text-text-muted">
+        <summary>Observation scope</summary>
+        <p>
+          Observed Workspace: <code>{data.workspace_id}</code>
+        </p>
+      </details>
     </>
   );
 }

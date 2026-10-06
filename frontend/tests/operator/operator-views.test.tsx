@@ -1,10 +1,11 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { EvaluationView } from "../../components/operator/EvaluationView";
 import { OperationsView } from "../../components/operator/OperationsView";
 import { ToolObservationView } from "../../components/operator/ToolObservationView";
 import { TraceView } from "../../components/operator/TraceView";
+afterEach(cleanup);
 
 describe("operator views", () => {
   it("renders an unavailable evaluation without inventing a score", () => {
@@ -19,12 +20,16 @@ describe("operator views", () => {
       />,
     );
 
-    expect(screen.getByText("Evaluation unavailable")).toBeInTheDocument();
-    expect(screen.queryByText(/score/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Evaluation report unavailable" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /download/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText("EVALUATION_REPORT_UNAVAILABLE"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Observation failed")).toBeInTheDocument();
+    expect(screen.getByText("Observation code")).toBeInTheDocument();
   });
 
   it("does not display sensitive provider fields from operational payloads", () => {
@@ -48,7 +53,9 @@ describe("operator views", () => {
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
     expect(screen.queryByText("do-not-render")).not.toBeInTheDocument();
     expect(screen.queryByText("nested-secret")).not.toBeInTheDocument();
-    expect(screen.getByText("Alerts: Unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Unavailable in the current Operator contract.",
+    );
   });
 
   it("renders M4 observations as read-only lifecycle evidence", () => {
@@ -166,19 +173,29 @@ describe("operator views", () => {
         }}
       />,
     );
-    expect(screen.getByText("manual.pdf")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("region", { name: "Candidate provenance" }),
+      ).getByText("manual.pdf"),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("0 ms").length).toBeGreaterThan(0);
     expect(screen.getByText("Lines 7-9")).toBeInTheDocument();
     expect(screen.getByText("Evidence text")).toBeInTheDocument();
     expect(
-      screen.getByText("ANSWER").closest(".kn-status-badge"),
+      within(screen.getByRole("region", { name: "Observed result" }))
+        .getByText("ANSWER")
+        .closest(".kn-status-badge"),
     ).toHaveAttribute("data-kind", "success");
     expect(screen.getByText("0.012 USD")).toBeInTheDocument();
     expect(screen.getByText("price-v2")).toBeInTheDocument();
     expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
     expect(screen.getByText("27 ms")).toBeInTheDocument();
     expect(screen.getByText("0.001 ms")).toBeInTheDocument();
-    expect(screen.getByText("E1")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("region", { name: "Citation mapping" }),
+      ).getByText("E1"),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("chunk-1", { selector: "dd code" }).length,
     ).toBeGreaterThan(0);

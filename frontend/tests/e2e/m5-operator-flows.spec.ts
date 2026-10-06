@@ -16,9 +16,21 @@ test("an operator reads authorized operations and explicit unavailable evaluatio
   ).toBeVisible();
   await page.goto("/operator/evaluations");
   await expect(
-    page.getByText("Evaluation unavailable", { exact: true }),
+    page.getByRole("button", { name: "Open report" }),
+  ).toBeDisabled();
+  await page
+    .getByRole("textbox", { name: "Report ID", exact: true })
+    .fill("m5-report-unavailable");
+  await page.getByRole("button", { name: "Open report" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Evaluation report unavailable",
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("REPORT_ID_REQUIRED");
+  await expect(
+    page.getByRole("region", { name: "Report context" }),
+  ).toContainText("EVALUATION_REPORT_UNAVAILABLE");
   await expect(page.locator("body")).not.toContainText("m5-operator-password");
   await context.close();
 });
@@ -32,7 +44,7 @@ test("a non-operator receives the public operator denial", async ({
   await loginAs(page, "no-operator");
   await page.goto("/operator/operations");
   await expect(
-    page.getByText("You are not authorized to inspect operations.", {
+    page.getByText("Operator access denied.", {
       exact: true,
     }),
   ).toBeVisible();

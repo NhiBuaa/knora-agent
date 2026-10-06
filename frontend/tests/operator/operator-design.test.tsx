@@ -32,7 +32,7 @@ describe("operator operations presentation", () => {
       0,
     );
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
-    expect(screen.getByText("Claim latency sum (seconds)")).toBeInTheDocument();
+    expect(screen.getByText("Claim latency sum")).toBeInTheDocument();
     expect(screen.getByText("0.01 s")).toBeInTheDocument();
   });
 

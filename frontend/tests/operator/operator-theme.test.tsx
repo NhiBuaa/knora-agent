@@ -10,10 +10,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/operator",
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+vi.mock("@/lib/api/browser-client", () => ({
+  browserRequest: vi.fn(
+    async () => new Response(JSON.stringify({ items: [], next_cursor: null })),
+  ),
+}));
 
 vi.mock("@/lib/auth/session", () => ({
   getSession: vi.fn(async () => ({
@@ -46,6 +55,7 @@ vi.mock("next/headers", () => ({
 
 import OperatorLayout from "@/app/operator/layout";
 import { knoraRequest, KnoraApiError } from "@/lib/api/client";
+import { getSession } from "@/lib/auth/session";
 
 describe("operator theme access", () => {
   it("opens one Appearance control with the server supplied theme from the account menu", async () => {
@@ -72,16 +82,32 @@ describe("operator theme access", () => {
       throw new KnoraApiError(403, null);
     });
     render(await OperatorLayout({ children: <p>Operations</p> }));
-    expect(screen.getByText("Select a workspace")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
     expect(
-      screen.getByRole("navigation", { name: "Workspace navigation" }),
+      screen.getByRole("button", { name: "Switch workspace" }),
     ).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch workspace" }));
+    expect(
+      screen.getByRole("region", { name: "Switch workspace" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Switch workspace" }));
     fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
     expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
       "dark",
     );
+  });
+  it("denies operator capability before Workspace listing or preference lookup", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce({
+      issuer: "https://id.example/realm",
+      subject: "viewer",
+      capabilities: [],
+      accessToken: "server-token",
+    } as never);
+    render(await OperatorLayout({ children: <p>Private evidence</p> }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Operator access denied.",
+    );
+    expect(screen.queryByText("Private evidence")).not.toBeInTheDocument();
+    expect(knoraRequest).not.toHaveBeenCalled();
   });
 });
