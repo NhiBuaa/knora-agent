@@ -1,0 +1,30 @@
+# Test classifier only. Always combine with the existing isolated Figma Compose file.
+name: knora-figma-e2e
+services:
+  keycloak:
+    environment:
+      KC_CACHE: ispn
+      KC_CACHE_STACK: jdbc-ping
+      KNORA_STORAGE_PROOF: enabled
+      KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:?proof script must supply the ephemeral header}
+    volumes:
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT-storage-probe.jar:/opt/keycloak/providers/knora-storage-probe.jar:ro
+  keycloak-proof:
+    image: quay.io/keycloak/keycloak:26.3.3
+    command: start-dev --spi-theme--cache-themes=false --spi-theme--cache-templates=false --spi-theme--static-max-age=-1
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: figma-test-keycloak-database
+      KC_HOSTNAME: http://127.0.0.1:8380
+      KC_CACHE: ispn
+      KC_CACHE_STACK: jdbc-ping
+      KNORA_STORAGE_PROOF: enabled
+      KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:?proof script must supply the ephemeral header}
+    ports: ["127.0.0.1:8381:8080"]
+    depends_on:
+      keycloak-db: { condition: service_healthy }
+    volumes:
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT-storage-probe.jar:/opt/keycloak/providers/knora-storage-probe.jar:ro
+      - ./themes/knora:/opt/keycloak/themes/knora:ro
