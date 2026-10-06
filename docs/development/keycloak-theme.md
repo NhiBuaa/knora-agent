@@ -156,3 +156,46 @@ a native form behavior RED. No daily resource reset was used during recovery or 
 Historical Issue #115 evidence used the earlier inherited-form theme on disposable port 8183.
 It proved stylesheet delivery, invalid credentials, a provider callback, and non-destructive theme
 selection. It does not verify the new I1 native templates or the current registration journey.
+
+## Email OTP provider source and operator provisioning
+
+The image packages `knora-reset-email-otp` before Keycloak augmentation and enables the pinned
+file Vault provider. The execution is currently **unbound**: this source build does not replace
+the realm's reset flow. Offline Java translation tests and pinned parent FreeMarker rendering
+are separate from deployed recovery acceptance. Native password, replay, MFA preservation,
+shared Vault restart/rotation and visual browser checks remain required. The physical database
+outage proof remains blocked by automatic tool review; a lock timeout or reply-loss proof is not
+a substitute for it. Do not apply the OTP reset flow until the controller releases that gate.
+
+Provision a cryptographically generated Base64 key containing at least 32 decoded bytes in
+Keycloak Vault. The application lookup entry is `knora-email-otp-hmac-` followed by lowercase
+SHA-256 hex of the **actual realm ID**, obtained from the existing realm representation. All nodes
+and restarts must resolve the same stable key. No environment, random or plaintext fallback is
+supported; missing/malformed/unavailable entries prevent store admission and SMTP.
+
+The [Keycloak 26.3.3 file Vault](https://github.com/keycloak/keycloak/blob/26.3.3/docs/guides/server/vault.adoc)
+uses the **realm name** as its physical filename prefix. With the default REALM_UNDERSCORE_KEY
+resolver, escape each underscore in the realm name and lookup entry by doubling it, then join
+them with one underscore. The ID-qualified application entry adds ID isolation; the native file
+provider itself does not supply realm-ID isolation. Realm rename requires coordinating the
+physical mapping while retaining the same key. Mount the operator-owned Vault directory read
+only and configure `--vault-dir` on every node. Do not bake secrets into the image, theme, realm
+export, source tree or logs. This change documents provisioning only; no production or daily
+Compose secret/mount is changed. Vault values close after each request; decoded bytes are
+cleared after MAC initialization, without claiming complete JVM zeroization.
+
+**Hot rotation is unsupported.** The key also identifies account and IP budgets, so changing it
+mid-window creates different identities. Disable recovery on all nodes, drain all in-flight
+HTTP and SMTP work, wait a full 15-minute recovery window plus transaction drain, coordinate
+replacement and readability across all nodes, then re-enable recovery. SMTP drain is not bounded
+by the five-second independent transaction timeout. Mixed-key rolling intervals and fallback
+key rings are unsupported. A changed key invalidates older codes; successful node restart alone
+must preserve the existing key and budget identities.
+
+The private relational adapter stores keyed digests, stable user IDs and fenced generations in
+Keycloak's own database. Five-minute challenges and fixed 15-minute account/IP windows retain
+expired rows for a further 24-hour inactivity grace. Admission performs indexed cleanup in
+separate batches of at most 100 with locked-row skipping and reference checks. This grace trades
+short-term retention for safe stale-operation fencing; opportunistic cleanup does not impose a
+hard total-row capacity limit. Custom JPA is an unsupported Keycloak extension API, so schema,
+transaction and multi-node proofs must be repeated when upgrading the pinned runtime.
