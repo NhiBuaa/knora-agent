@@ -33,6 +33,11 @@ The task's file list and this structure must remain consistent throughout execut
 test-driven-development for a behavior regression fix.
 
 **Dependency:** all implementation slices integrated in the verification worktree.
+The accepted frontend and unbound identity source are integrated while I2 native gates remain
+pending. Q1 may proceed with fixture/source visual checks and existing authorized application
+journeys; record native reset/Vault/outage and unavailable prototype references as explicit gaps.
+Do not apply recovery flow, import/reset realms, change passwords or retry the blocked outage.
+This partial execution does not satisfy Q1/Q2's no-unexplained-gap acceptance requirement.
 
 **Create:** frontend/tests/e2e/figma-ui-visual.spec.ts;
 frontend/tests/e2e/figma-ui-interactions.spec.ts;
