@@ -103,6 +103,9 @@ frontend/
 │       ├── auth/{logout,session}/route.ts      [=]
 │       └── operator/                           [=] handlers và _proxy.ts
 ├── components/
+│   ├── auth/                                   [+ I3] public outcome composition
+│   │   ├── AuthOutcome.tsx                     shared AU3/AU4 markup and safe retry links
+│   │   └── auth-outcome.css                    necessary scoped root/layout overrides
 │   ├── ui/                                     [~ F2]
 │   │   ├── Button.tsx, Field.tsx, Notice.tsx, StatusBadge.tsx
 │   │   ├── EmptyState.tsx, PageHeader.tsx, ThemeControl.tsx
@@ -112,6 +115,7 @@ frontend/
 │   │   ├── MobileDrawer.tsx                    [~ F2; U1 modal keyboard ownership]
 │   │   ├── ProductHeader.tsx                   [+ F2]
 │   │   ├── AccountMenu.tsx                     [~ F2 rồi I3]
+│   │   ├── account-menu.css                    [+ I3] owned AU5 styling
 │   │   └── WorkspaceSidebar.tsx                [~ U1]
 │   ├── workspaces/
 │   │   ├── WorkspaceManagement.tsx, WorkspaceHome.tsx [~ U1]

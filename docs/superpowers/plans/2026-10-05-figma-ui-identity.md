@@ -294,6 +294,11 @@ themes/knora/login/info.ftl; frontend/middleware.ts only for explicitly public e
 
 **Create:** frontend/app/auth/unavailable/page.tsx, frontend/app/auth/failed/page.tsx;
 frontend/tests/auth-figma-integration.test.tsx.
+Create frontend/components/auth/AuthOutcome.tsx and auth-outcome.css for the shared AU3/AU4
+composition, and frontend/components/shell/account-menu.css for scoped AU5 styling. Preserve
+shared global/provider CSS; use semantic Tailwind utilities and only necessary scoped overrides.
+Modify frontend/tests/auth-session.test.ts and frontend/tests/auth-callback-resolver.test.ts
+for callback RED cases and preservation of completed-login workspace recovery.
 **Test:** frontend/tests/e2e/figma-identity.spec.ts and m5-authentication.spec.ts.
 
 **Consumes:** existing authorization transaction/session helpers. **Produces:** safe error pages
