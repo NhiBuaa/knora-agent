@@ -90,7 +90,6 @@ frontend/
 │   │           ├── page.tsx                    [~ U3]
 │   │           └── [conversationId]/page.tsx   [~ U3]
 │   ├── operator/                               [~ O1; own header/content composition]
-│   │   └── tests use frontend/tests/e2e/figma-operator.spec.ts [+ O1] isolated harness
 │   │   ├── layout.tsx, page.tsx, operator.css
 │   │   ├── operations/{page,content}.tsx
 │   │   ├── traces/page.tsx
@@ -325,6 +324,7 @@ frontend/tests/
 ├── auth-figma-integration.test.tsx               [I3]
 └── e2e/
     ├── figma-identity.spec.ts                   [I1–I3]
+    ├── figma-operator.spec.ts                   [O1] isolated guarded journeys
     ├── figma-ui-visual.spec.ts                  [Q1]
     ├── figma-ui-interactions.spec.ts            [Q1]
     └── support/
@@ -333,6 +333,9 @@ frontend/tests/
         ├── figma-state-fixtures.ts             [Q1]
         └── figma-fixture-*                     [Q1 if needed] test-only host/server
 ~~~
+
+frontend/playwright.figma-operator.config.ts [O1] imports reviewed Figma config;
+only testMatch/outputDir differ, all environment/webServer/ownership guards retained.
 
 Baselines theo quy ước snapshot của Playwright; failure traces/video/screenshots vào
 frontend/test-results/e2e. Java target và Next .next là build output, không phải source.

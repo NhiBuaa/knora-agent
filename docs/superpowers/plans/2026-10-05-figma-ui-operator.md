@@ -58,7 +58,9 @@ actual accessible selector while preserving authorization/denied lookup tests.
 new frontend/tests/operator/operator-figma.test.tsx;
 frontend/tests/e2e/m5-operator-flows.spec.ts.
 Add frontend/tests/e2e/figma-operator.spec.ts for the isolated Figma harness, reusing its
-existing guarded auth/environment helpers. Preserve the default M5 guards and do not execute
+existing guarded auth/environment helpers, with frontend/playwright.figma-operator.config.ts
+importing the reviewed Figma config and overriding only testMatch/outputDir. Retain all
+fixed environment, webServer and ownership guards. Preserve the default M5 guards and do not execute
 shared live services concurrently with I2. The unchanged reviewed WorkspaceSelector retains
 its existing icons; record its difference from owning bab86 source as a Q1 visual deviation,
 not a Code Connect mapping or exact parity claim. Do not export an unused bab86 asset.
