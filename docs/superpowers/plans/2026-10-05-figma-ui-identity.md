@@ -281,7 +281,12 @@ and account-wide budget bypass fail; all sensitive POSTs remain at Keycloak; exi
 
 **Skills:** executing-plans, test-driven-development, verification-before-completion.
 
-**Dependency:** I2 + F2 + U1.
+**Dependency:** accepted I2 storage/service and unbound adapter source + F2 + U1 for frontend
+and source implementation. Full native reset-complete/password/SSO acceptance still depends on
+I2 runtime gates. While physical outage is blocked, implement and review the I3 source without
+reset-flow application, live password changes or claiming native completion. Local tests/build
+and prepared browser assertions remain partial evidence. This split permits safe source progress
+without waiving the pending I2 gates.
 
 **Modify:** frontend/app/api/auth/login/route.ts, callback/route.ts;
 frontend/components/shell/AccountMenu.tsx;
