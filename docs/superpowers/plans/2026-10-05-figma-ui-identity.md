@@ -117,6 +117,7 @@ requesting-code-review and verification-before-completion.
 **Create under infra/keycloak/providers/email-otp-reset:**
 
 - pom.xml
+- .gitignore (Maven target/ only)
 - src/main/java/com/knora/keycloak/reset/EmailOtpResetAuthenticator.java
 - src/main/java/com/knora/keycloak/reset/EmailOtpResetAuthenticatorFactory.java
 - src/main/java/com/knora/keycloak/reset/OtpChallengeService.java
@@ -126,6 +127,19 @@ requesting-code-review and verification-before-completion.
 - src/test/java/com/knora/keycloak/reset/OtpChallengeServiceTest.java
 - src/test/java/com/knora/keycloak/reset/EmailOtpResetFlowIT.java
 - src/test/java/com/knora/keycloak/reset/OtpChallengeConcurrencyIT.java
+- src/test/probe/java/com/knora/keycloak/reset/probe/StorageProbeResource.java
+- src/test/probe/java/com/knora/keycloak/reset/probe/StorageProbeResourceFactory.java
+- src/test/probe/resources/META-INF/services/org.keycloak.services.resource.RealmResourceProviderFactory
+
+**Create for storage proof only:** docker-compose.figma-otp-proof.yml,
+scripts/prepare-figma-otp-proof.ps1. The Maven storage-proof profile produces a separate
+storage-probe classifier JAR from test/probe sources; neither those classes nor the JAR may enter
+the production provider artifact or image. The override adds a second owned test node on
+127.0.0.1:8381 after checking port availability, exact project ownership and ambient selectors.
+The probe requires explicit enablement, the exact isolated knora-dev realm, a secret
+X-Knora-Storage-Proof header and a knora-otp-proof: key namespace scoped to the realm ID.
+Never log the header. Bounded in-process latches may schedule transactions; storage under test
+must remain the real KeycloakSession/SingleUseObjectProvider. Preserve the existing test project.
 
 **Create:** themes/knora/login/knora-reset-email.ftl, knora-reset-otp.ftl;
 themes/knora/email/theme.properties; themes/knora/email/html/knora-reset-otp.ftl;
@@ -152,6 +166,10 @@ Inject Clock, SecureRandom-backed generator, keyed digest and EmailTemplateProvi
   guarantee rotation/budgets, stop this slice before rollout and revise the storage design through
   brainstorming/codebase-design. A local in-memory map or auth-session notes alone cannot pass.
   This narrow technical decision does not block work on the other UI slices.
+- [ ] Use the test-only probe to observe both commit orders, deferred publication, rollback,
+  duplicate queued writes, token consume races and expiry/stale-holder replacement. Keep fault
+  characterization and deliberately failing safety assertions distinct from acceptance. A
+  characterized candidate failure does not establish that every SPI protocol is impossible.
 - [ ] Add policy RED cases for leading zero, expiry boundary, wrong code, resend before/after 30s,
   invalid old generation, consumed code, account disabled/email changed, SMTP/store failure and
   unknown-account decoy. Example contract expectations:

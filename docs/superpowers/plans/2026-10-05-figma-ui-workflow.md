@@ -197,6 +197,7 @@ infra/keycloak/
 ├── Dockerfile                                  [~ I2]
 └── providers/email-otp-reset/                   [+ I2] Java build độc lập
     ├── pom.xml
+    ├── .gitignore                              [+ I2] Maven target/ exclusion
     └── src/
         ├── main/java/com/knora/keycloak/reset/
         │   ├── EmailOtpResetAuthenticator.java
@@ -206,6 +207,12 @@ infra/keycloak/
         │   └── KeycloakOtpChallengeStore.java
         ├── main/resources/META-INF/services/
         │   └── org.keycloak.authentication.AuthenticatorFactory
+        ├── test/probe/                         [+ I2] separate storage-proof classifier only
+        │   ├── java/com/knora/keycloak/reset/probe/
+        │   │   ├── StorageProbeResource.java
+        │   │   └── StorageProbeResourceFactory.java
+        │   └── resources/META-INF/services/
+        │       └── org.keycloak.services.resource.RealmResourceProviderFactory
         └── test/java/com/knora/keycloak/reset/
             ├── OtpChallengeServiceTest.java
             ├── EmailOtpResetFlowIT.java
@@ -230,11 +237,13 @@ scripts/
 ├── export_openapi.py                           [=] sinh frontend contract
 ├── configure-keycloak-theme.ps1                [=] tooling theme hiện có
 ├── prepare-figma-e2e.ps1                        [+ I1/I2] idempotent isolated test harness
+├── prepare-figma-otp-proof.ps1                  [+ I2] guarded two-node storage proof
 └── configure-keycloak-auth-flow.ps1             [+ I1/I2] targeted realm migration
 test/fixtures/keycloak/
 ├── dev-realm.json                              [~ I1/I2] fresh realm test/dev
 └── figma-realm.json                            [+ I1/I2] isolated test callback/realm fixture
 docker-compose.figma-e2e.yml                    [+ I1/I2] standalone task-only test graph
+docker-compose.figma-otp-proof.yml              [+ I2] test-only override, loopback second node8381
 docs/
 ├── design/figma-ui-inventory-2026-10-05.json      [đã tạo khi lập plan]
 ├── research/keycloak-email-otp-reset-2026-10-05.md [đã tạo]
