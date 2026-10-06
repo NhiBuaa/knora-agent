@@ -18,6 +18,8 @@ class OtpChallengeServiceTest {
     private OtpChallengeStore.SendOutcome sendOutcome = OtpChallengeStore.SendOutcome.SENT;
     private OtpChallengeStore.VerifyOutcome verifyOutcome = OtpChallengeStore.VerifyOutcome.VERIFIED;
     private boolean deliveryThrows;
+    private OtpChallengeStore.ActivationOutcome activationOutcome = OtpChallengeStore.ActivationOutcome.ACTIVE;
+    private OtpChallengeStore.ActivationOutcome reconciliationOutcome = OtpChallengeStore.ActivationOutcome.UNAVAILABLE;
     private OtpChallengeService.Recipient recipient =
             new OtpChallengeService.Recipient("user", "known@example.test", true);
     private OtpChallengeStore.SendRequest captured;
@@ -39,6 +41,14 @@ class OtpChallengeServiceTest {
                 events.add("conditional-delivery-failure");
                 return true;
             }
+            public ActivationOutcome activate(ChallengeScope scope, ChallengeReference reference, String operationId) {
+                events.add("activate");
+                return activationOutcome;
+            }
+            public ActivationOutcome reconcileActivation(ChallengeScope scope, ChallengeReference reference, String operationId) {
+                events.add("reconcile");
+                return reconciliationOutcome;
+            }
         };
         return new OtpChallengeService(store, new OtpChallengeService.AccountLookup() {
             public OtpChallengeService.Recipient byEmail(String email) { return recipient; }
@@ -55,7 +65,7 @@ class OtpChallengeServiceTest {
     @Test
     void leadingZeroCodeIsDeliveredOnlyAfterDurableReservationAndDigestOnlyStored() {
         var result = service().request(scope, "known@example.test");
-        assertEquals(List.of("durable-reservation", "mail"), events);
+        assertEquals(List.of("durable-reservation", "mail", "activate"), events);
         assertEquals("keyed-digest", captured.codeDigest());
         assertEquals(reference, result.reference());
         assertFalse(result.toString().contains("000042"));
@@ -87,7 +97,7 @@ class OtpChallengeServiceTest {
         deliveryThrows = true;
         events.clear();
         var failed = service().request(scope, "known@example.test");
-        assertEquals(List.of("durable-reservation", "mail", "conditional-delivery-failure"), events);
+        assertEquals(List.of("durable-reservation", "mail"), events);
         assertEquals(unknown.messageKey(), disabled.messageKey());
         assertEquals(unknown.messageKey(), failed.messageKey());
         assertEquals(unknown, disabled);
@@ -124,5 +134,18 @@ class OtpChallengeServiceTest {
         assertEquals(firstAccount, captured.accountDigest());
         assertNull(captured.userId());
         assertThrows(IllegalArgumentException.class, () -> OtpChallengeService.hmacSha256(new byte[31]));
+    }
+
+    @Test
+    void ambiguousActivationReconcilesSameOperationOnceWithoutRepeatedMailOrReservation() {
+        activationOutcome = OtpChallengeStore.ActivationOutcome.UNAVAILABLE;
+        reconciliationOutcome = OtpChallengeStore.ActivationOutcome.ACTIVE;
+        assertEquals(reference, service().request(scope, "known@example.test").reference());
+        assertEquals(List.of("durable-reservation", "mail", "activate", "reconcile"), events);
+        events.clear();
+        reconciliationOutcome = OtpChallengeStore.ActivationOutcome.UNAVAILABLE;
+        var unconfirmed = service().request(scope, "known@example.test");
+        assertNull(unconfirmed.verifiedUserId());
+        assertEquals(List.of("durable-reservation", "mail", "activate", "reconcile"), events);
     }
 }

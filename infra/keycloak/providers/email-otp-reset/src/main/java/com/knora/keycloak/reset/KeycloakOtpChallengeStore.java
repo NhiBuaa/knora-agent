@@ -57,8 +57,8 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
                 if (previous == null) {
                     em.createNativeQuery("insert into KNORA_OTP_CHALLENGE "
                             + "(ID,REALM_ID,CLIENT_ID,AUTH_SESSION_ID,TAB_ID,EMAIL_DIGEST,ACCOUNT_ID,IP_ID,USER_ID,"
-                            + "CODE_DIGEST,GENERATION,EXPIRES_MS,CONSUMED,DELIVERY_FAILED) "
-                            + "values (:id,:realm,:client,:auth,:tab,:email,:account,:ip,:user,:digest,:generation,:expires,false,false)")
+                            + "CODE_DIGEST,GENERATION,EXPIRES_MS,CONSUMED,DELIVERY_FAILED,DELIVERY_STATE) "
+                            + "values (:id,:realm,:client,:auth,:tab,:email,:account,:ip,:user,:digest,:generation,:expires,false,false,'PENDING')")
                             .setParameter("id", request.reference().id()).setParameter("realm", request.scope().realmId())
                             .setParameter("client", request.scope().clientId()).setParameter("auth", request.scope().authSessionId())
                             .setParameter("tab", request.scope().tabId()).setParameter("email", request.scope().emailDigest())
@@ -67,7 +67,7 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
                             .setParameter("expires", now + CODE_MS).executeUpdate();
                 } else {
                     em.createNativeQuery("update KNORA_OTP_CHALLENGE set CODE_DIGEST=:digest,GENERATION=:generation,"
-                            + "EXPIRES_MS=:expires,IP_ID=:ip,USER_ID=:user where ID=:id")
+                            + "EXPIRES_MS=:expires,IP_ID=:ip,USER_ID=:user,DELIVERY_STATE='PENDING',ACTIVATION_OP=null where ID=:id")
                             .setParameter("digest", request.codeDigest()).setParameter("generation", request.reference().generation())
                             .setParameter("expires", now + CODE_MS).setParameter("ip", ipId).setParameter("user", request.userId())
                             .setParameter("id", request.reference().id()).executeUpdate();
@@ -78,6 +78,40 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
             // Includes ambiguous commit/resume. No permission to mail is returned.
             return send(SendOutcome.UNAVAILABLE, request, 0);
         }
+    }
+
+    @Override
+    public ActivationOutcome activate(ChallengeScope scope, ChallengeReference reference, String operationId) {
+        return activation(scope, reference, operationId, true);
+    }
+
+    @Override
+    public ActivationOutcome reconcileActivation(ChallengeScope scope, ChallengeReference reference, String operationId) {
+        return activation(scope, reference, operationId, false);
+    }
+
+    private ActivationOutcome activation(ChallengeScope scope, ChallengeReference reference, String operationId, boolean write) {
+        if (!validScope(scope) || reference == null || operationId == null
+                || !operationId.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"))
+            return ActivationOutcome.INVALID;
+        try {
+            return independent(em -> {
+                ChallengeRow observed = challenge(em, reference.id(), false);
+                if (observed == null || !matches(observed, scope)
+                        || existingWindow(em, observed.accountId(), scope.realmId(), "account") == null)
+                    return ActivationOutcome.INVALID;
+                ChallengeRow current = challenge(em, reference.id(), true);
+                if (current == null || !matches(current, scope) || current.generation() != reference.generation()
+                        || current.consumed() || current.failed() || now(em) >= current.expiresMs())
+                    return ActivationOutcome.INVALID;
+                if ("ACTIVE".equals(current.state()))
+                    return operationId.equals(current.activationOp()) ? ActivationOutcome.ACTIVE : ActivationOutcome.INVALID;
+                if (!write || !"PENDING".equals(current.state())) return ActivationOutcome.INVALID;
+                em.createNativeQuery("update KNORA_OTP_CHALLENGE set DELIVERY_STATE='ACTIVE',ACTIVATION_OP=:operation where ID=:id")
+                        .setParameter("operation", operationId).setParameter("id", reference.id()).executeUpdate();
+                return ActivationOutcome.ACTIVE;
+            });
+        } catch (RuntimeException unavailable) { return ActivationOutcome.UNAVAILABLE; }
     }
 
     @Override
@@ -97,12 +131,12 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
                 em.createNativeQuery("update KNORA_OTP_RECOVERY_WINDOW set ATTEMPTS=ATTEMPTS+1 where ID=:id")
                         .setParameter("id", account.id()).executeUpdate();
                 if (current == null || !matches(current, scope) || current.generation() != reference.generation()
-                        || current.consumed() || current.failed()) return verified(VerifyOutcome.INVALID, null);
+                        || current.consumed() || current.failed() || !"ACTIVE".equals(current.state())) return verified(VerifyOutcome.INVALID, null);
                 if (now >= current.expiresMs()) return verified(VerifyOutcome.EXPIRED, null);
                 if (current.userId() == null || submittedDigest == null || !MessageDigest.isEqual(
                         current.digest().getBytes(StandardCharsets.UTF_8), submittedDigest.getBytes(StandardCharsets.UTF_8)))
                     return verified(VerifyOutcome.INVALID, null);
-                em.createNativeQuery("update KNORA_OTP_CHALLENGE set CONSUMED=true,CODE_DIGEST='' where ID=:id")
+                em.createNativeQuery("update KNORA_OTP_CHALLENGE set CONSUMED=true,CODE_DIGEST='',DELIVERY_STATE='CONSUMED' where ID=:id")
                         .setParameter("id", reference.id()).executeUpdate();
                 return verified(VerifyOutcome.VERIFIED, current.userId());
             });
@@ -121,7 +155,7 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
                 if (existingWindow(em, observed.accountId(), scope.realmId(), "account") == null) return false;
                 ChallengeRow current = challenge(em, reference.id(), true);
                 if (current == null || current.consumed() || current.generation() != reference.generation()) return false;
-                em.createNativeQuery("update KNORA_OTP_CHALLENGE set DELIVERY_FAILED=true,CODE_DIGEST='' where ID=:id")
+                em.createNativeQuery("update KNORA_OTP_CHALLENGE set DELIVERY_FAILED=true,CODE_DIGEST='',DELIVERY_STATE='CANCELLED' where ID=:id")
                         .setParameter("id", reference.id()).executeUpdate();
                 return true;
             });
@@ -168,18 +202,44 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
 
     private <T> T independent(Function<EntityManager, T> work) {
         AtomicReference<T> result = new AtomicReference<>();
+        var completion = new java.util.concurrent.atomic.AtomicInteger(jakarta.transaction.Status.STATUS_UNKNOWN);
         var factory = caller.getKeycloakSessionFactory();
+        var outerSession = org.keycloak.utils.KeycloakSessionUtil.getKeycloakSession();
+        var lookup = caller.getProvider(org.keycloak.transaction.JtaTransactionManagerLookup.class);
+        var tm = lookup.getTransactionManager();
+        jakarta.transaction.Transaction outer;
+        try { outer = tm.getTransaction(); }
+        catch (jakarta.transaction.SystemException failed) { throw new IllegalStateException("Transaction context unavailable", failed); }
         KeycloakModelUtils.suspendJtaTransaction(factory, () -> {
             KeycloakModelUtils.setTransactionLimit(factory, 5);
             try {
-                result.set(KeycloakModelUtils.runJobInTransactionWithResult(factory, caller.getContext(), session -> {
+                KeycloakModelUtils.runJobInTransactionWithResult(factory, caller.getContext(), session -> {
+                    try {
+                        var transaction = session.getProvider(org.keycloak.transaction.JtaTransactionManagerLookup.class)
+                                .getTransactionManager().getTransaction();
+                        if (transaction == null || transaction == outer) throw new IllegalStateException("Independent transaction missing");
+                        transaction.registerSynchronization(new jakarta.transaction.Synchronization() {
+                            public void beforeCompletion() { }
+                            public void afterCompletion(int status) { completion.set(status); }
+                        });
+                    } catch (jakarta.transaction.RollbackException | jakarta.transaction.SystemException failed) {
+                        throw new IllegalStateException("Transaction completion observation unavailable", failed);
+                    }
                     var em = session.getProvider(JpaConnectionProvider.class).getEntityManager();
                     em.createNativeQuery("set local lock_timeout='2s'").executeUpdate();
                     em.createNativeQuery("set local statement_timeout='4s'").executeUpdate();
-                    return work.apply(em);
-                }, "knora-otp-recovery-transition"));
+                    result.set(work.apply(em));
+                    return null;
+                }, "knora-otp-recovery-transition");
             } finally { KeycloakModelUtils.setTransactionLimit(factory, 0); }
         });
+        try {
+            if (completion.get() != jakarta.transaction.Status.STATUS_COMMITTED || tm.getTransaction() != outer
+                    || org.keycloak.utils.KeycloakSessionUtil.getKeycloakSession() != outerSession)
+                throw new IllegalStateException("Independent transition completion not confirmed");
+        } catch (jakarta.transaction.SystemException failed) {
+            throw new IllegalStateException("Restored transaction context unavailable", failed);
+        }
         return result.get();
     }
 
@@ -209,13 +269,13 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
 
     private static ChallengeRow challenge(EntityManager em, String id, boolean lock) {
         var rows = em.createNativeQuery("select REALM_ID,CLIENT_ID,AUTH_SESSION_ID,TAB_ID,EMAIL_DIGEST,ACCOUNT_ID,"
-                + "CODE_DIGEST,USER_ID,GENERATION,EXPIRES_MS,CONSUMED,DELIVERY_FAILED from KNORA_OTP_CHALLENGE where ID=:id"
+                + "CODE_DIGEST,USER_ID,GENERATION,EXPIRES_MS,CONSUMED,DELIVERY_FAILED,DELIVERY_STATE,ACTIVATION_OP from KNORA_OTP_CHALLENGE where ID=:id"
                 + (lock ? " for update" : "")).setParameter("id", id).getResultList();
         if (rows.isEmpty()) return null;
         Object[] row = (Object[]) rows.get(0);
         return new ChallengeRow((String) row[0], (String) row[1], (String) row[2], (String) row[3],
                 (String) row[4], (String) row[5], (String) row[6], (String) row[7], number(row[8]),
-                number(row[9]), (Boolean) row[10], (Boolean) row[11]);
+                number(row[9]), (Boolean) row[10], (Boolean) row[11], (String) row[12], (String) row[13]);
     }
 
     private static boolean matches(ChallengeRow row, ChallengeScope scope) {
@@ -242,5 +302,5 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
     private record WindowRow(String id, long anchorMs, int attempts, int sends, long lastSendMs) { }
     private record ChallengeRow(String realmId, String clientId, String authSessionId, String tabId,
             String emailDigest, String accountId, String digest, String userId, long generation,
-            long expiresMs, boolean consumed, boolean failed) { }
+            long expiresMs, boolean consumed, boolean failed, String state, String activationOp) { }
 }

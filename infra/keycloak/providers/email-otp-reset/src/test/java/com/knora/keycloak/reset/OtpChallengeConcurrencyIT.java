@@ -415,6 +415,71 @@ class OtpChallengeConcurrencyIT {
     }
 
     @Test
+    @EnabledIfSystemProperty(named = "requireCommitReplyFault", matches = "true")
+    void serviceLostActivationReplyReconcilesExactOperationWithoutRepeatingMail() throws Exception {
+        String account = key();
+        String challenge = key();
+        try {
+            JsonNode result = post(1, "/jpa-service", Map.of("account", account, "challenge", challenge,
+                    "mode", "lost-activation-reply"));
+            assertTrue(result.path("mailAttempted").asBoolean());
+            assertTrue(result.path("durableBeforeMail").asBoolean());
+            assertEquals(1, result.path("activationCalls").asInt());
+            assertEquals(1, result.path("reconciliationCalls").asInt());
+            assertEquals("UNAVAILABLE", result.path("activationOutcome").asText());
+            assertEquals("ACTIVE", result.path("reconciliationOutcome").asText());
+            assertTrue(result.path("sameOperation").asBoolean());
+            assertTrue(result.path("outerTransactionRestored").asBoolean());
+            assertTrue(result.path("outerSessionRestored").asBoolean());
+            assertTrue(result.path("internallyVerified").asBoolean());
+            assertEquals(1, commitProxy("GET", "/state", null).path("confirmedCommitRepliesDropped").asInt());
+            JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+            assertEquals(1, state.path("sends").asInt());
+            assertEquals(1, state.path("ipSends").asInt());
+            assertEquals(1, mailboxCount(result.path("testRecipient").asText()));
+        } finally { commitProxy("DELETE", "/arm", null); }
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "requireActivationCrash", matches = "true")
+    void serviceCrashAfterSmtpBeforeActivationLeavesPendingAndNoBudgetRefund() throws Exception {
+        String account = key();
+        String challenge = key();
+        String gate = "00000000-0000-4000-8000-000000000006";
+        var held = CompletableFuture.supplyAsync(() -> {
+            try { return post(1, "/jpa-service", Map.of("account", account, "challenge", challenge,
+                    "mode", "crash-before-activation", "gate", gate)); }
+            catch (Exception expectedTransportFailure) { return null; }
+        });
+        try {
+            awaitGate(1, gate);
+            JsonNode pending = post(0, "/jpa-service", Map.of("account", account, "challenge", challenge,
+                    "mode", "verify-only"));
+            assertFalse(pending.path("internallyVerified").asBoolean());
+            assertEquals(1, mailboxCount(pending.path("testRecipient").asText()));
+            assertNull(held.get(50, TimeUnit.SECONDS), "Owned proof-node restart must interrupt the held request");
+            JsonNode survivor = post(0, "/jpa-service", Map.of("account", account, "challenge", challenge,
+                    "mode", "verify-only"));
+            assertFalse(survivor.path("internallyVerified").asBoolean());
+            JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+            assertEquals(1, state.path("sends").asInt());
+            assertEquals(1, state.path("ipSends").asInt());
+            assertEquals(1, mailboxCount(survivor.path("testRecipient").asText()));
+        } finally {
+            // Restart destroys the latch and may still be starting; durable assertions use the survivor.
+            try { release(1, gate); } catch (java.io.IOException nodeRestarting) { }
+        }
+    }
+
+    private static int mailboxCount(String address) throws Exception {
+        HttpResponse<String> response = HTTP.send(HttpRequest.newBuilder(URI.create("http://mail:8025/api/v1/search?query="
+                + java.net.URLEncoder.encode("to:" + address, java.nio.charset.StandardCharsets.UTF_8))).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode());
+        return JSON.readTree(response.body()).path("messages").size();
+    }
+
+    @Test
     void relationalCleanupCannotReviveHeldStaleVerifyResendOrFirstAdmission() throws Exception {
         for (String operation : List.of("verify", "resend", "send")) {
             String account = key();
@@ -484,6 +549,150 @@ class OtpChallengeConcurrencyIT {
     }
 
     @Test
+    void pendingReservationNeverVerifiesBeforeKnownSmtpActivation() throws Exception {
+        String account = key();
+        String challenge = key();
+        assertEquals("SENT", post(0, "/jpa-store", Map.of("operation", "send", "account", account,
+                "challenge", challenge, "generation", 1, "authSession", "session-a",
+                "digest", "digest-good", "rollback", false)).path("outcome").asText());
+        assertEquals("INVALID", store(1, "verify", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+    }
+
+    @Test
+    void historicDefaultPendingCannotVerifyDespiteLegacyCompatibilityFlags() throws Exception {
+        String account = key();
+        String challenge = key();
+        store(0, "send", account, challenge, 1, "session-a", "digest-good", false);
+        post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "legacy-default"));
+        assertEquals("INVALID", store(1, "verify", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+    }
+
+    @Test
+    void rollbackOnlyAfterReservationWorkCannotAuthorizeServiceSmtp() throws Exception {
+        String account = key();
+        String challenge = key();
+        JsonNode result = post(1, "/jpa-rollback-only", Map.of("operation", "service-send", "account", account, "challenge", challenge));
+        assertEquals("UNAVAILABLE", result.path("outcome").asText());
+        assertTrue(result.path("rollbackInjectedAfterWork").asBoolean());
+        assertFalse(result.path("mailAttempted").asBoolean());
+        assertTrue(result.path("outerTransactionRestored").asBoolean());
+        assertTrue(result.path("outerSessionRestored").asBoolean());
+        assertFalse(post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"))
+                .path("changed").asBoolean(true));
+    }
+
+    @Test
+    void activationRequiresExactGenerationOperationAndLiveUnconsumedState() throws Exception {
+        String account = key();
+        String challenge = key();
+        rawReserve(0, "send", account, challenge, 1);
+        String operation = UUID.randomUUID().toString();
+        assertEquals("INVALID", activation(1, "reconcile", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        assertEquals("ACTIVE", activation(1, "activate", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        assertEquals("ACTIVE", activation(0, "activate", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        assertEquals("ACTIVE", activation(0, "reconcile", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        assertEquals("INVALID", activation(1, "activate", account, challenge, 1, "session-a", UUID.randomUUID().toString()).path("outcome").asText());
+        assertEquals("VERIFIED", store(1, "verify", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        assertEquals("INVALID", activation(0, "reconcile", account, challenge, 1, "session-a", operation).path("outcome").asText());
+
+        account = key(); challenge = key();
+        rawReserve(0, "send", account, challenge, 1);
+        post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "cooldown-past"));
+        rawReserve(1, "resend", account, challenge, 2);
+        assertEquals("INVALID", activation(0, "activate", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        assertEquals("INVALID", store(0, "verify", account, challenge, 2, "session-a", "digest-good", false).path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "expired"));
+        assertEquals("INVALID", activation(1, "activate", account, challenge, 2, "session-a", operation).path("outcome").asText());
+        assertEquals("INVALID", activation(1, "activate", account, key(), 1, "session-a", operation).path("outcome").asText());
+    }
+
+    @Test
+    void heldLateActivationCannotActivateResentGenerationOrInvalidateIt() throws Exception {
+        String account = key();
+        String challenge = key();
+        rawReserve(0, "send", account, challenge, 1);
+        String gate = UUID.randomUUID().toString();
+        String operation = UUID.randomUUID().toString();
+        var late = CompletableFuture.supplyAsync(() -> {
+            try { return post(1, "/jpa-store", Map.of("operation", "activate", "account", account,
+                    "challenge", challenge, "generation", 1, "authSession", "session-a", "digest", "digest-good",
+                    "rollback", false, "gate", gate, "activationId", operation)); }
+            catch (Exception e) { throw new RuntimeException("Controlled late activation failed", e); }
+        });
+        try {
+            awaitGate(1, gate);
+            post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "cooldown-past"));
+            rawReserve(0, "resend", account, challenge, 2);
+        } finally { release(1, gate); }
+        assertEquals("INVALID", late.get(10, TimeUnit.SECONDS).path("outcome").asText());
+        assertEquals("INVALID", activation(0, "reconcile", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        assertEquals("INVALID", store(1, "verify", account, challenge, 2, "session-a", "digest-good", false).path("outcome").asText());
+        assertEquals("ACTIVE", activation(0, "activate", account, challenge, 2, "session-a", UUID.randomUUID().toString()).path("outcome").asText());
+        assertEquals("VERIFIED", store(1, "verify", account, challenge, 2, "session-a", "digest-good", false).path("outcome").asText());
+        assertEquals(2, post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state")).path("sends").asInt());
+    }
+
+    private static JsonNode rawReserve(int node, String operation, String account, String challenge, long generation) throws Exception {
+        JsonNode result = post(node, "/jpa-store", Map.of("operation", operation, "account", account,
+                "challenge", challenge, "generation", generation, "authSession", "session-a",
+                "digest", "digest-good", "rollback", false));
+        assertEquals("SENT", result.path("outcome").asText());
+        return result;
+    }
+
+    @Test
+    void unavailableActivationAndReconciliationLeavePendingUnverifiable() throws Exception {
+        String account = key();
+        String challenge = key();
+        rawReserve(0, "send", account, challenge, 1);
+        String gate = UUID.randomUUID().toString();
+        var holder = CompletableFuture.supplyAsync(() -> {
+            try { return post(0, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", true)); }
+            catch (Exception e) { throw new RuntimeException("Controlled activation wait failed", e); }
+        });
+        try {
+            awaitGate(0, gate);
+            String operation = UUID.randomUUID().toString();
+            assertEquals("UNAVAILABLE", activation(1, "activate", account, challenge, 1, "session-a", operation).path("outcome").asText());
+            assertEquals("UNAVAILABLE", activation(1, "reconcile", account, challenge, 1, "session-a", operation).path("outcome").asText());
+        } finally { release(0, gate); holder.get(10, TimeUnit.SECONDS); }
+        assertEquals("INVALID", store(1, "verify", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        assertEquals(1, post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state")).path("sends").asInt());
+    }
+
+    @Test
+    void rollbackOnlyAfterWorkCannotPublishReservationOrVerifiedResult() throws Exception {
+        rollbackOnlyResult("send");
+    }
+
+    @Test
+    void rollbackOnlyAfterWorkCannotPublishVerifiedResult() throws Exception {
+        rollbackOnlyResult("verify");
+    }
+
+    private void rollbackOnlyResult(String operation) throws Exception {
+            String account = key();
+            String challenge = key();
+            if ("verify".equals(operation)) assertEquals("SENT", store(0, "send", account, challenge, 1,
+                    "session-a", "digest-good", false).path("outcome").asText());
+            JsonNode result = post(1, "/jpa-rollback-only", Map.of("operation", operation, "account", account, "challenge", challenge));
+            assertTrue(result.path("rollbackInjectedAfterWork").asBoolean());
+            assertTrue(result.path("outerTransactionRestored").asBoolean());
+            assertTrue(result.path("outerSessionRestored").asBoolean());
+            assertEquals("UNAVAILABLE", result.path("outcome").asText());
+            JsonNode durable = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+            if ("send".equals(operation)) assertFalse(durable.path("changed").asBoolean(true));
+            else {
+                assertEquals(1, durable.path("sends").asInt());
+                assertEquals(0, durable.path("attempts").asInt());
+                assertEquals("VERIFIED", store(0, "verify", account, challenge, 1,
+                        "session-a", "digest-good", false).path("outcome").asText());
+            }
+    }
+
+    @Test
     void realServiceCommitsBeforeSmtpAndDeliveryFailureRetainsBudget() throws Exception {
         for (String mode : List.of("success", "failure", "unknown", "disabled")) {
             String account = key();
@@ -527,9 +736,21 @@ class OtpChallengeConcurrencyIT {
 
     private static JsonNode store(int node, String operation, String account, String challenge, long generation,
                                   String authSession, String digest, boolean rollback) throws Exception {
-        return post(node, "/jpa-store", Map.of("operation", operation, "account", account,
+        JsonNode result = post(node, "/jpa-store", Map.of("operation", operation, "account", account,
                 "challenge", challenge, "generation", generation, "authSession", authSession,
                 "digest", digest, "rollback", rollback));
+        // Legacy store contracts exercise delivered challenges; raw POST retains PENDING for delivery tests.
+        if (("send".equals(operation) || "resend".equals(operation)) && "SENT".equals(result.path("outcome").asText()))
+            assertEquals("ACTIVE", activation(node, "activate", account, challenge, generation, authSession,
+                    UUID.randomUUID().toString()).path("outcome").asText());
+        return result;
+    }
+
+    private static JsonNode activation(int node, String operation, String account, String challenge, long generation,
+            String authSession, String activationId) throws Exception {
+        return post(node, "/jpa-store", Map.of("operation", operation, "account", account, "challenge", challenge,
+                "generation", generation, "authSession", authSession, "digest", "digest-good", "rollback", false,
+                "activationId", activationId));
     }
 
     @Test

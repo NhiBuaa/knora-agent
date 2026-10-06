@@ -9,6 +9,8 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "KNORA_OTP_CHALLENGE")
 public class OtpChallengeEntity {
+    @Column(name = "DELIVERY_STATE", nullable = false, length = 16) private String deliveryState;
+    @Column(name = "ACTIVATION_OP", length = 36) private String activationOperation;
     @Id @Column(name = "ID", length = 160) private String id;
     @Column(name = "REALM_ID", nullable = false, length = 64) private String realmId;
     @Column(name = "CLIENT_ID", nullable = false, length = 160) private String clientId;

@@ -69,6 +69,20 @@ class Fault:
         self.connection = connection
         return True
 
+    def arm_request(self, request):
+        if not isinstance(request, dict) or set(request) not in ({"challenge"}, {"activationId"}):
+            raise ValueError("Exactly one synthetic fault identity required")
+        if "challenge" in request:
+            self.arm(request["challenge"])
+            return
+        target = request["activationId"]
+        if not isinstance(target, str) or not re.fullmatch(
+            r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", target
+        ):
+            raise ValueError("Exact synthetic activation UUID required")
+        self.arm("knora-otp-proof:activation")
+        self.target = target.encode("ascii")
+
     def suppress(self, connection, message_type, payload):
         if self.connection != connection or time.monotonic() >= self.deadline:
             return False
@@ -172,7 +186,7 @@ class Proxy:
                     raise ValueError("Control body too large")
                 payload = await reader.readexactly(size)
                 if method == "POST" and path == "/arm":
-                    self.fault.arm(json.loads(payload)["challenge"])
+                    self.fault.arm_request(json.loads(payload))
                     status, response = 200, {"armed": True}
                 elif method == "DELETE" and path == "/arm":
                     self.fault.disarm()
@@ -217,6 +231,30 @@ async def serve():
 
 
 class ProtocolTests(unittest.TestCase):
+    def test_activation_arm_accepts_only_one_validated_identity(self):
+        fault = Fault()
+        for request in (
+            {},
+            {"challenge": "knora-otp-proof:a", "activationId": str(uuid.uuid4())},
+            {"activationId": "malformed"},
+        ):
+            with self.assertRaises(ValueError):
+                fault.arm_request(request)
+        operation = str(uuid.uuid4())
+        fault.arm_request({"activationId": operation})
+        self.assertEqual(operation.encode("ascii"), fault.target)
+        payload = (
+            b"\0\0"
+            + struct.pack("!HHI", 0, 1, len(operation))
+            + operation.encode("ascii")
+            + b"\0\0"
+        )
+        unrelated = str(uuid.uuid4()).encode("ascii")
+        self.assertFalse(
+            fault.claim("other", b"B", payload.replace(operation.encode("ascii"), unrelated))
+        )
+        self.assertTrue(fault.claim("chosen", b"B", payload))
+
     def test_only_exact_bind_parameter_claims_one_connection(self):
         import struct
 

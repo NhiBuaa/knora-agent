@@ -52,11 +52,12 @@ public final class StorageProbeResource implements RealmResourceProvider {
     public record Reply(String provider, boolean transactionActive, List<Observation> results) { }
     public record RuntimeRequest(String key, boolean rollback) { }
     public record StoreRequest(String operation, String account, String challenge, long generation,
-            String authSession, String digest, boolean rollback, String ip, String scopeVariant, String gate) { }
+            String authSession, String digest, boolean rollback, String ip, String scopeVariant, String gate, String activationId) { }
     public record FixtureRequest(String challenge, String operation) { }
     public record LockRequest(String account, String gate, boolean rollback, String challenge, String mutation, String lockMode) { }
     public record BlockerRequest(String gate) { }
-    public record ServiceRequest(String account, String challenge, String mode) { }
+    public record ServiceRequest(String account, String challenge, String mode, String gate) { }
+    public record RollbackRequest(String account, String challenge, String operation) { }
     public record RuntimeReply(String factoryId, boolean distinctTransaction,
             boolean outerTransactionRestored, boolean outerSessionRestored,
             boolean independentCommitVisible, boolean failureRestored, boolean innerRollbackInvisible) { }
@@ -178,6 +179,9 @@ public final class StorageProbeResource implements RealmResourceProvider {
                 result = Map.of("outcome", response.outcome().name(), "retryAfter", response.retryAfterSeconds());
             }
             case "verify" -> result = Map.of("outcome", store.verify(scope, reference, request.digest()).outcome().name());
+            case "activate", "reconcile" -> result = Map.of("outcome", "activate".equals(request.operation())
+                    ? store.activate(scope, reference, request.activationId()).name()
+                    : store.reconcileActivation(scope, reference, request.activationId()).name());
             case "delivery-failed" -> result = Map.of("outcome", store.deliveryFailed(scope, reference) ? "INVALIDATED" : "UNCHANGED");
             default -> throw new NotFoundException();
         }
@@ -190,11 +194,99 @@ public final class StorageProbeResource implements RealmResourceProvider {
     }
 
     @POST
+    @Path("jpa-rollback-only")
+    public Map<String, Object> jpaRollbackOnly(@HeaderParam("X-Knora-Storage-Proof") String header, RollbackRequest request) throws Exception {
+        authorize(header);
+        if (request == null || !proofKey(request.account()) || !proofKey(request.challenge())
+                || !Set.of("send", "verify", "service-send").contains(request.operation())) throw new NotFoundException();
+        var tm = session.getProvider(JtaTransactionManagerLookup.class).getTransactionManager();
+        var outer = tm.getTransaction();
+        var outerSession = KeycloakSessionUtil.getKeycloakSession();
+        boolean[] injected = {false};
+        var realFactory = session.getKeycloakSessionFactory();
+        var factory = delegate(org.keycloak.models.KeycloakSessionFactory.class, realFactory, (target, method, args) -> {
+            Object value = invoke(target, method, args);
+            if (!"create".equals(method.getName()) || !(value instanceof KeycloakSession inner)) return value;
+            return delegate(KeycloakSession.class, inner, (innerTarget, innerMethod, innerArgs) -> {
+                if ("close".equals(innerMethod.getName()) && !injected[0] && inner.getTransactionManager().isActive()) {
+                    var em = inner.getProvider(JpaConnectionProvider.class).getEntityManager();
+                    var matches = em.createNativeQuery("select CONSUMED from KNORA_OTP_CHALLENGE where ID=:id")
+                            .setParameter("id", request.challenge()).getResultList();
+                    if (!matches.isEmpty() && (!"verify".equals(request.operation()) || Boolean.TRUE.equals(matches.get(0)))) {
+                        // Callback work has returned; exact real independent transaction is still open.
+                        inner.getTransactionManager().setRollbackOnly();
+                        injected[0] = true;
+                    }
+                }
+                return invoke(innerTarget, innerMethod, innerArgs);
+            });
+        });
+        var caller = delegate(KeycloakSession.class, session, (target, method, args) ->
+                "getKeycloakSessionFactory".equals(method.getName()) ? factory : invoke(target, method, args));
+        var scope = new OtpChallengeStore.ChallengeScope(session.getContext().getRealm().getId(),
+                "proof-client", "session-a", "proof-tab", "proof-email");
+        var ref = new OtpChallengeStore.ChallengeReference(request.challenge(), 1);
+        var store = new KeycloakOtpChallengeStore(caller);
+        if ("service-send".equals(request.operation())) {
+            boolean[] attempted = {false};
+            String[] reserved = {"NONE"};
+            var observedStore = delegate(OtpChallengeStore.class, store, (target, method, args) -> {
+                Object value = invoke(target, method, args);
+                if ("reserve".equals(method.getName())) reserved[0] = ((OtpChallengeStore.SendResult) value).outcome().name();
+                return value;
+            });
+            var user = new OtpChallengeService.Recipient("proof-user", "rollback@example.test", true);
+            var accounts = new OtpChallengeService.AccountLookup() {
+                public OtpChallengeService.Recipient byEmail(String email) { return user; }
+                public OtpChallengeService.Recipient byId(String id) { return user; }
+            };
+            var testDigest = new OtpChallengeService.KeyedDigest() {
+                public String code(OtpChallengeStore.ChallengeScope bound, OtpChallengeStore.ChallengeReference reference,
+                        String identity, String code) { return "digest-good"; }
+                public String account(String realm, String identity) { return request.account(); }
+            };
+            var service = new OtpChallengeService(observedStore, accounts, () -> "000042",
+                    testDigest, (recipient, code) -> attempted[0] = true,
+                    java.time.Clock.systemUTC(), request::challenge, request.account(), user.email());
+            service.request(scope, user.email());
+            return Map.of("outcome", reserved[0], "mailAttempted", attempted[0], "rollbackInjectedAfterWork", injected[0],
+                    "outerTransactionRestored", tm.getTransaction() == outer,
+                    "outerSessionRestored", KeycloakSessionUtil.getKeycloakSession() == outerSession);
+        }
+        String outcome = "send".equals(request.operation())
+                ? store.reserve(new OtpChallengeStore.SendRequest(scope, ref, null, request.account(), request.account(),
+                        "proof-user", "digest-good")).outcome().name()
+                : store.verify(scope, ref, "digest-good").outcome().name();
+        return Map.of("outcome", outcome, "rollbackInjectedAfterWork", injected[0],
+                "outerTransactionRestored", tm.getTransaction() == outer,
+                "outerSessionRestored", KeycloakSessionUtil.getKeycloakSession() == outerSession);
+    }
+
+    private static Object invoke(Object target, java.lang.reflect.Method method, Object[] args) throws Throwable {
+        try { return method.invoke(target, args); }
+        catch (java.lang.reflect.InvocationTargetException failure) { throw failure.getCause(); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T delegate(Class<T> type, T target, java.lang.reflect.InvocationHandler handler) {
+        return (T) java.lang.reflect.Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type},
+                (proxy, method, args) -> handler.invoke(target, method, args));
+    }
+
+    @POST
     @Path("jpa-service")
     public Map<String, Object> jpaService(@HeaderParam("X-Knora-Storage-Proof") String header, ServiceRequest request) {
         authorize(header);
         if (request == null || !proofKey(request.account()) || !proofKey(request.challenge())
-                || !Set.of("success", "failure", "unknown", "disabled").contains(request.mode())) throw new NotFoundException();
+                || !Set.of("success", "failure", "unknown", "disabled", "verify-only", "lost-activation-reply",
+                        "crash-before-activation").contains(request.mode())) throw new NotFoundException();
+        if ("crash-before-activation".equals(request.mode())
+                && !"00000000-0000-4000-8000-000000000006".equals(request.gate())) throw new NotFoundException();
+        var tm = session.getProvider(JtaTransactionManagerLookup.class).getTransactionManager();
+        jakarta.transaction.Transaction outer;
+        try { outer = tm.getTransaction(); }
+        catch (jakarta.transaction.SystemException failed) { throw new ServiceUnavailableException(); }
+        var outerSession = KeycloakSessionUtil.getKeycloakSession();
         String address = request.account().replace(":", "-") + "@example.test";
         var recipient = new OtpChallengeService.Recipient(request.account(), address, !"disabled".equals(request.mode()));
         var lookup = new OtpChallengeService.AccountLookup() {
@@ -222,14 +314,64 @@ public final class StorageProbeResource implements RealmResourceProvider {
                         "Isolated storage proof", "Isolated test recovery code: " + code,
                         "<p>Isolated test recovery code: " + code + "</p>");
             } catch (org.keycloak.email.EmailException failed) { throw new IllegalStateException("Controlled SMTP failure"); }
+            if ("crash-before-activation".equals(request.mode()))
+                pause(request.gate(), new Reply("known-smtp-success-before-activation",
+                        session.getTransactionManager().isActive(), List.of()));
         };
-        var service = new OtpChallengeService(new KeycloakOtpChallengeStore(session), lookup, () -> "000042", digest,
+        int[] activationCalls = {0, 0};
+        String[] activationState = {"NONE", "NONE", null};
+        boolean[] sameOperation = {false};
+        OtpChallengeStore realStore = new KeycloakOtpChallengeStore(session);
+        var observedStore = delegate(OtpChallengeStore.class, realStore, (target, method, args) -> {
+            if ("activate".equals(method.getName())) {
+                activationCalls[0]++;
+                activationState[2] = (String) args[2];
+                if ("lost-activation-reply".equals(request.mode())) armActivationFault(header, activationState[2]);
+                Object value = invoke(target, method, args);
+                activationState[0] = value.toString();
+                return value;
+            }
+            if ("reconcileActivation".equals(method.getName())) {
+                activationCalls[1]++;
+                sameOperation[0] = java.util.Objects.equals(activationState[2], args[2]);
+                Object value = invoke(target, method, args);
+                activationState[1] = value.toString();
+                return value;
+            }
+            return invoke(target, method, args);
+        });
+        var service = new OtpChallengeService(observedStore, lookup, () -> "000042", digest,
                 sender, java.time.Clock.systemUTC(), request::challenge, request.account(), address);
-        var render = service.request(scope, address);
+        var render = "verify-only".equals(request.mode()) ? null : service.request(scope, address);
         boolean verified = service.verify(scope, new OtpChallengeStore.ChallengeReference(request.challenge(), 1), "000042")
                 .verifiedUserId() != null;
-        return Map.of("messageKey", render.messageKey(), "mailAttempted", mailState[0], "durableBeforeMail", mailState[1],
-                "internallyVerified", verified, "testRecipient", address);
+        var reply = new java.util.HashMap<String, Object>();
+        reply.put("messageKey", render == null ? "verify-only" : render.messageKey());
+        reply.put("mailAttempted", mailState[0]);
+        reply.put("durableBeforeMail", mailState[1]);
+        reply.put("internallyVerified", verified);
+        reply.put("testRecipient", address);
+        reply.put("activationCalls", activationCalls[0]);
+        reply.put("reconciliationCalls", activationCalls[1]);
+        reply.put("activationOutcome", activationState[0]);
+        reply.put("reconciliationOutcome", activationState[1]);
+        reply.put("sameOperation", sameOperation[0]);
+        try { reply.put("outerTransactionRestored", tm.getTransaction() == outer); }
+        catch (jakarta.transaction.SystemException failed) { throw new ServiceUnavailableException(); }
+        reply.put("outerSessionRestored", KeycloakSessionUtil.getKeycloakSession() == outerSession);
+        return reply;
+    }
+
+    private static void armActivationFault(String header, String operation) throws Exception {
+        // Exact generated operation UUID only; SQL/data and control secret are never logged.
+        String body = "{\"activationId\":\"" + java.util.UUID.fromString(operation) + "\"}";
+        var response = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(2)).build()
+                .send(java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://otp-commit-proxy:8765/arm"))
+                        .timeout(java.time.Duration.ofSeconds(3)).header("X-Knora-Storage-Proof", header)
+                        .header("Content-Type", "application/json")
+                        .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body)).build(),
+                        java.net.http.HttpResponse.BodyHandlers.discarding());
+        if (response.statusCode() != 200) throw new IllegalStateException("Synthetic fault arm rejected");
     }
 
     @POST
@@ -312,6 +454,8 @@ public final class StorageProbeResource implements RealmResourceProvider {
         Object[] ids = (Object[]) found.get(0);
         String account = (String) ids[0];
         switch (request.operation()) {
+            case "legacy-default" -> em.createNativeQuery("update KNORA_OTP_CHALLENGE set DELIVERY_STATE=DEFAULT,ACTIVATION_OP=null,"
+                    + "CONSUMED=false,DELIVERY_FAILED=false where ID=:id").setParameter("id", request.challenge()).executeUpdate();
             case "retention-aged" -> {
                 em.createNativeQuery("update KNORA_OTP_CHALLENGE set EXPIRES_MS="
                         + "floor(extract(epoch from clock_timestamp())*1000)::bigint-86401000 where ID=:id")

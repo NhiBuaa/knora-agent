@@ -84,13 +84,19 @@ public final class OtpChallengeService {
             var request = new OtpChallengeStore.SendRequest(scope, reference, previous, accountDigest,
                     trustedIpDigest, deliverable ? recipient.id() : null, digest.code(scope, reference, identity, code));
             var reserved = store.reserve(request);
+            int retry = reserved.retryAfterSeconds() > 0 ? reserved.retryAfterSeconds() : 30;
             if (reserved.outcome() == OtpChallengeStore.SendOutcome.SENT && deliverable) {
                 try { mail.send(recipient, code); }
-                catch (RuntimeException deliveryFailure) { store.deliveryFailed(scope, reference); }
+                catch (RuntimeException deliveryFailure) { return generic(reference, retry); }
+                String activationId = java.util.UUID.randomUUID().toString();
+                var activation = store.activate(scope, reference, activationId);
+                if (activation == OtpChallengeStore.ActivationOutcome.UNAVAILABLE)
+                    activation = store.reconcileActivation(scope, reference, activationId);
+                if (activation != OtpChallengeStore.ActivationOutcome.ACTIVE) return generic(reference, retry);
             }
             // No reserve success is inferred from delivery, exception, timeout or an ambiguous outcome.
             return generic(reserved.outcome() == OtpChallengeStore.SendOutcome.SENT ? reference : previous,
-                    reserved.retryAfterSeconds() > 0 ? reserved.retryAfterSeconds() : 30);
+                    retry);
         } catch (RuntimeException unavailable) { return generic(previous, 30); }
     }
 

@@ -6,12 +6,15 @@ public interface OtpChallengeStore {
     record ChallengeReference(String id, long generation) { }
     enum VerifyOutcome { VERIFIED, INVALID, EXPIRED, EXHAUSTED, UNAVAILABLE }
     enum SendOutcome { SENT, COOLDOWN, EXHAUSTED, INVALID, UNAVAILABLE }
+    enum ActivationOutcome { ACTIVE, INVALID, UNAVAILABLE }
     record SendRequest(ChallengeScope scope, ChallengeReference reference, ChallengeReference previous,
                        String accountDigest, String ipDigest, String userId, String codeDigest) { }
     record SendResult(SendOutcome outcome, ChallengeReference reference, int retryAfterSeconds) { }
     record VerifyResult(VerifyOutcome outcome, String verifiedUserId) { }
 
     SendResult reserve(SendRequest request);
+    ActivationOutcome activate(ChallengeScope scope, ChallengeReference reference, String operationId);
+    ActivationOutcome reconcileActivation(ChallengeScope scope, ChallengeReference reference, String operationId);
     VerifyResult verify(ChallengeScope scope, ChallengeReference reference, String submittedDigest);
     boolean deliveryFailed(ChallengeScope scope, ChallengeReference reference);
 }
