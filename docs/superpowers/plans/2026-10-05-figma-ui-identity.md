@@ -83,7 +83,10 @@ for rollback in the configuration script. Do not invent hidden names or add name
 from this design. If additional required custom attributes conflict, report before applying.
 
 - [ ] Add real-browser failing checks for sign-in default/invalid, registration default/validation,
-  successful registration landing in NO_ACTIVE_WORKSPACE, and password confirmation/policy errors.
+  successful fresh registration landing in the backend-created active My Workspace, and password
+  confirmation/policy errors. Separately archive the owned Workspace through the real API with
+  its current revision, then prove NO_ACTIVE_WORKSPACE landing. Preserve the existing resolver's
+  first-identity default creation; do not fabricate an empty fresh-account state.
 - [ ] Establish the isolated harness and guard tests before live identity checks. Derive only the
   test realm/client callback for frontend3300; keep daily/dev fixture endpoints compatible. Do not
   run the existing destructive prepare-local-e2e script against running daily services.
