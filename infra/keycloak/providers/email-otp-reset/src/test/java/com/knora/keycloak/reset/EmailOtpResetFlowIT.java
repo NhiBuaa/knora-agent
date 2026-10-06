@@ -45,6 +45,51 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Offline native protocol translation only. This is not a deployed password recovery flow. */
 class EmailOtpResetFlowIT {
     @Test
+    void offlineCompletedInfoReturnsOnlyToTrustedAppOriginWithFreshSignIn() throws Exception {
+        for (String baseUrl : List.of("https://app.example", "https://app.example/old/path?code=private#fragment",
+                "http://127.0.0.1:3300/")) {
+            var data = templateData();
+            data.put("client", Map.of("baseUrl", baseUrl));
+            data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
+            data.put("pageRedirectUri", "https://untrusted.example/?code=private");
+            data.put("actionUri", "/native/unfinished");
+            String html = render("login", "info.ftl", data);
+            String origin = baseUrl.startsWith("https:") ? "https://app.example" : "http://127.0.0.1:3300";
+            assertTrue(html.contains("href=\"" + origin + "/api/auth/login?prompt=login\""));
+            assertFalse(html.contains("untrusted.example"));
+            assertFalse(html.contains("code=private"));
+            assertFalse(html.contains("href=\"/native/unfinished\""));
+        }
+    }
+
+    @Test
+    void offlineCompletedInfoFailsClosedWithoutSafeConfiguredAppOrigin() throws Exception {
+        for (String baseUrl : List.of("", "javascript:alert(1)", "//evil.example", "https://app.example@evil.example")) {
+            var data = templateData();
+            data.put("client", Map.of("baseUrl", baseUrl));
+            data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
+            data.put("pageRedirectUri", "https://untrusted.example");
+            String html = render("login", "info.ftl", data);
+            assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(html).find());
+            assertFalse(html.contains("untrusted.example"));
+        }
+    }
+
+    @Test
+    void offlineUnfinishedInfoKeepsNativeActionAndRedirectLinks() throws Exception {
+        var data = templateData();
+        data.put("client", Map.of("baseUrl", "https://app.example"));
+        data.put("message", Map.of("type", "warning", "summary", "Required action"));
+        data.put("actionUri", "/native/unfinished");
+        String html = render("login", "info.ftl", data);
+        assertTrue(html.contains("href=\"/native/unfinished\""));
+        assertFalse(html.contains("prompt=login"));
+        data.put("pageRedirectUri", "/native/continue");
+        html = render("login", "info.ftl", data);
+        assertTrue(html.contains("href=\"/native/continue\""));
+    }
+
+    @Test
     void offlineSharedKeyKeepsBudgetIdentityAcrossRequestsButSeparatesRealmAndTrustedIp() throws Exception {
         var first = new Fixture();
         first.post("request", "email", "known@example.test");

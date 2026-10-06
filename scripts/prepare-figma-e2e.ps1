@@ -10,6 +10,15 @@ foreach ($item in Get-ChildItem Env:) {
         throw "FIGMA_AMBIENT_OVERRIDE_REJECTED: $($item.Name)"
     }
 }
+$fixture = Get-Content -Raw (Join-Path $repositoryRoot 'test/fixtures/keycloak/figma-realm.json') | ConvertFrom-Json
+$client = @($fixture.clients | Where-Object clientId -eq 'knora-web')
+if ($fixture.realm -ne 'knora-dev' -or $client.Count -ne 1 -or
+    $client[0].rootUrl -ne 'http://127.0.0.1:3300' -or
+    $client[0].baseUrl -ne 'http://127.0.0.1:3300' -or
+    (@($client[0].redirectUris) -join '|') -ne 'http://127.0.0.1:3300/api/auth/callback' -or
+    (@($client[0].webOrigins) -join '|') -ne 'http://127.0.0.1:3300' -or
+    $client[0].attributes.'post.logout.redirect.uris' -ne 'http://127.0.0.1:3300/' -or
+    $fixture.smtpServer.host -ne 'mail') { throw 'FIGMA_FIXTURE_REJECTED' }
 $compose = @('--project-name', $project, '--project-directory', $repositoryRoot, '-f', (Join-Path $repositoryRoot 'docker-compose.figma-e2e.yml'))
 $configJson = (& docker compose @compose config --format json) -join "`n"
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_COMPOSE_CONFIG_FAILED' }
@@ -32,13 +41,6 @@ if ($config.services.api.environment.KNORA_KEYCLOAK_ISSUER -ne $issuer -or
 foreach ($volume in $config.volumes.PSObject.Properties) {
     if ($volume.Value.name -ne "${project}_$($volume.Name)") { throw 'FIGMA_VOLUME_REJECTED' }
 }
-$fixture = Get-Content -Raw (Join-Path $repositoryRoot 'test/fixtures/keycloak/figma-realm.json') | ConvertFrom-Json
-$client = @($fixture.clients | Where-Object clientId -eq 'knora-web')
-if ($fixture.realm -ne 'knora-dev' -or $client.Count -ne 1 -or
-    (@($client[0].redirectUris) -join '|') -ne 'http://127.0.0.1:3300/api/auth/callback' -or
-    (@($client[0].webOrigins) -join '|') -ne 'http://127.0.0.1:3300' -or
-    $client[0].attributes.'post.logout.redirect.uris' -ne 'http://127.0.0.1:3300/' -or
-    $fixture.smtpServer.host -ne 'mail') { throw 'FIGMA_FIXTURE_REJECTED' }
 if ($CheckConfigurationOnly) { Write-Output 'FIGMA_CONFIG_OK'; return }
 
 $running = @(& docker ps --format '{{.ID}}')

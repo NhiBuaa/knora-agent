@@ -91,6 +91,7 @@ test("native test-mail reset renders update password and information templates",
   try {
     const reset = await context.newPage();
     await reset.goto("http://127.0.0.1:3300/api/auth/login");
+    const initialAuthorization = new URL(reset.url()).searchParams;
     await reset.getByRole("link", { name: "Forgot Password?" }).click();
     await reset.locator("#username").fill(identity.email);
     await reset.getByRole("button", { name: "Submit", exact: true }).click();
@@ -159,7 +160,7 @@ test("native test-mail reset renders update password and information templates",
     const users = await usersResponse.json();
     expect(users).toHaveLength(1);
     const actionResponse = await page.request.put(
-      `http://127.0.0.1:8380/admin/realms/knora-dev/users/${users[0].id}/execute-actions-email`,
+      `http://127.0.0.1:8380/admin/realms/knora-dev/users/${users[0].id}/execute-actions-email?client_id=knora-web&redirect_uri=http%3A%2F%2F127.0.0.1%3A3300%2Fapi%2Fauth%2Fcallback`,
       { headers, data: ["UPDATE_PASSWORD"] },
     );
     expect(actionResponse.ok()).toBe(true);
@@ -197,9 +198,72 @@ test("native test-mail reset renders update password and information templates",
     await reset.locator("#kc-submit").click();
     await expect(reset.locator("#kc-info-message")).toBeVisible();
     await expect(reset.locator("#kc-info-message")).toContainText(/updated/i);
+    // Prepared native gate: the deployed client still needs the approved source origin.
+    const completion = reset.getByRole("link", {
+      name: "Sign in",
+      exact: true,
+    });
+    await expect(completion).toHaveAttribute(
+      "href",
+      "http://127.0.0.1:3300/api/auth/login?prompt=login",
+    );
+    const sso = await context.cookies("http://127.0.0.1:8380");
+    expect(sso.some((cookie) => cookie.name === "KEYCLOAK_IDENTITY")).toBe(
+      true,
+    );
+    await completion.click();
+    await expect(reset.locator("#kc-form-login")).toBeVisible();
+    const freshAuthorization = new URL(reset.url()).searchParams;
+    expect(freshAuthorization.get("prompt")).toBe("login");
+    for (const parameter of ["state", "nonce", "code_challenge"]) {
+      expect(Boolean(freshAuthorization.get(parameter))).toBe(true);
+      expect(
+        freshAuthorization.get(parameter) !==
+          initialAuthorization.get(parameter),
+      ).toBe(true);
+    }
   } finally {
     await context.close();
   }
+});
+
+test("AU3 and AU4 public outcomes have safe retry links and the original brand asset", async ({
+  page,
+}) => {
+  for (const [path, title, action, capture] of [
+    [
+      "/auth/unavailable",
+      "Sign-in is temporarily unavailable",
+      "Try again",
+      "AU3",
+    ],
+    [
+      "/api/auth/callback?error=untrusted&error_description=untrusted-detail",
+      "Couldn’t sign you in",
+      "Try signing in again",
+      "AU4",
+    ],
+  ] as const) {
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", { name: title, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: action })).toHaveAttribute(
+      "href",
+      "/api/auth/login",
+    );
+    await expect(page.getByText("untrusted-detail")).not.toBeVisible();
+    const leaf = page
+      .getByRole("complementary", { name: "Knora" })
+      .locator("img");
+    await expect(leaf).toHaveAttribute("src", "/brand/knora-leaf.svg");
+    expect(await leaf.boundingBox()).toMatchObject({ width: 18, height: 18 });
+    expect(
+      await page.locator(".kn-auth-outcome__content").boundingBox(),
+    ).toMatchObject({ x: 820, width: 440 });
+    await captureIdentity(page, `${evidence}/${capture}-live.png`);
+  }
+  await expect(page).toHaveURL("http://127.0.0.1:3300/auth/failed");
 });
 
 test("AU2 invalid credentials are a native Keycloak response", async ({
@@ -328,6 +392,23 @@ test("native registration lands in ACTIVE and archived owner returns to NO_ACTIV
     .getByRole("button", { name: "Create account", exact: true })
     .click();
   await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/);
+  const safeSession = await (
+    await page.request.get("/api/auth/session")
+  ).json();
+  await page
+    .getByRole("button", { name: `Account: ${safeSession.session.subject}` })
+    .click();
+  const account = page.getByRole("menu");
+  await expect(account.getByText("Signed in")).toBeVisible();
+  await expect(
+    account.getByText(safeSession.session.subject, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    account.getByRole("menuitem", { name: "Appearance" }),
+  ).toBeVisible();
+  expect(await account.boundingBox()).toMatchObject({ width: 230 });
+  await captureIdentity(page, `${evidence}/AU5-live.png`);
+  await page.keyboard.press("Escape");
   const resolution = await page.request.post("/api/v1/workspaces/resolve", {
     data: { hint_id: null },
   });

@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -22,6 +22,7 @@ vi.mock("@/lib/auth/session", () => ({
     accessToken: "server-token",
     workspaceIds: [],
     capabilities: [],
+    expiresAt: 2000000000,
   })),
   encodeSession: vi.fn(async () => "signed-session"),
   sessionCookie: vi.fn(() => ({
@@ -42,8 +43,95 @@ vi.mock("@/lib/auth/workspace", () => ({
 }));
 
 import { GET } from "@/app/api/auth/callback/route";
+import {
+  decodeAuthorizationTransaction,
+  exchangeCode,
+} from "@/lib/auth/session";
+import { resolveCurrentWorkspace } from "@/lib/auth/workspace";
+
+describe("safe browser callback failures", () => {
+  beforeEach(() => vi.clearAllMocks());
+  it.each([
+    "?error=private-provider-error&error_description=private-detail&state=private-state",
+    "?code=private-code",
+    "?code=private-code&state=wrong-state",
+    "?code=private-code&state=valid-state&error=untrusted",
+  ])(
+    "redirects invalid callback %s without exposing inputs and consumes its transaction",
+    async (query) => {
+      const response = await GET(
+        new Request(`https://app.example/api/auth/callback${query}`),
+      );
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe(
+        "https://app.example/auth/failed",
+      );
+      expect(response.cookies.get("knora_oidc_transaction")?.value).toBe("");
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+      expect(response.cookies.get("knora_session")).toBeUndefined();
+      expect(exchangeCode).not.toHaveBeenCalled();
+      expect(resolveCurrentWorkspace).not.toHaveBeenCalled();
+    },
+  );
+
+  it("clears a rejected signed transaction before returning to sign-in", async () => {
+    vi.mocked(decodeAuthorizationTransaction).mockResolvedValueOnce(null);
+    const response = await GET(
+      new Request(
+        "https://app.example/api/auth/callback?code=private-code&state=valid-state",
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/auth/failed",
+    );
+    expect(response.cookies.get("knora_oidc_transaction")?.value).toBe("");
+  });
+
+  it("clears a failed exchange without leaking its error", async () => {
+    vi.mocked(exchangeCode).mockRejectedValueOnce(
+      new Error("private-code private-token"),
+    );
+    const response = await GET(
+      new Request(
+        "https://app.example/api/auth/callback?code=private-code&state=valid-state",
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/auth/failed",
+    );
+    expect(response.cookies.get("knora_oidc_transaction")?.value).toBe("");
+    expect(await response.text()).not.toContain("private-");
+  });
+});
 
 describe("OIDC callback Workspace resolution", () => {
+  it("lands a resolved active owner in the backend-selected Workspace", async () => {
+    vi.mocked(resolveCurrentWorkspace).mockResolvedValueOnce({
+      state: "ACTIVE",
+      workspace: {
+        id: "owned-workspace",
+        name: "My Workspace",
+        archived: false,
+        revision: 1,
+        created_at: "2026-10-06T00:00:00Z",
+      },
+    });
+    const response = await GET(
+      new Request(
+        "https://app.example/api/auth/callback?code=one-time-code&state=valid-state",
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/workspaces/owned-workspace",
+    );
+    expect(exchangeCode).toHaveBeenLastCalledWith(
+      "one-time-code",
+      "https://app.example/api/auth/callback",
+      "verifier",
+      "nonce",
+    );
+    expect(response.cookies.get("knora_oidc_transaction")?.value).toBe("");
+  });
   it("redirects on the signed callback origin even if an ambient app origin differs", async () => {
     const previous = process.env.NEXT_PUBLIC_APP_ORIGIN;
     process.env.NEXT_PUBLIC_APP_ORIGIN = "https://wrong.example";

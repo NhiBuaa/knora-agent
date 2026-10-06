@@ -1,0 +1,52 @@
+.account-menu-root .kn-menu__panel {
+  right: 14px;
+  width: 230px;
+  max-width: calc(100vw - 32px);
+  margin-top: 19px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 11px rgb(15 31 26 / 12%);
+}
+.account-menu-root .account-menu {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+}
+.account-menu__title {
+  margin: 0;
+  font-size: 16px;
+}
+.account-menu__status,
+.account-menu__preference {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.account-menu-root .account-menu__identity {
+  font-size: 12px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.account-menu__divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+}
+.account-menu__theme {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.account-menu-root .account-menu__logout {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--signature);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--signature);
+  font-size: 14px;
+  font-weight: 600;
+}

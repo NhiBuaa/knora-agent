@@ -17,6 +17,8 @@
       "protocol": "openid-connect",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
+      "rootUrl": "http://127.0.0.1:3300",
+      "baseUrl": "http://127.0.0.1:3300",
       "redirectUris": [
         "http://127.0.0.1:3300/api/auth/callback"
       ],

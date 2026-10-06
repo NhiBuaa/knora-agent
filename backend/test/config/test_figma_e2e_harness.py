@@ -40,6 +40,8 @@ def test_figma_realm_keeps_native_profile_and_separate_callback() -> None:
     assert realm["duplicateEmailsAllowed"] is False
     client = next(c for c in realm["clients"] if c["clientId"] == "knora-web")
     assert client["redirectUris"] == ["http://127.0.0.1:3300/api/auth/callback"]
+    assert client["baseUrl"] == "http://127.0.0.1:3300"
+    assert client["rootUrl"] == "http://127.0.0.1:3300"
     assert realm["smtpServer"]["host"] == "mail"
 
 
@@ -80,6 +82,56 @@ def test_prepare_rejects_ambient_overrides_before_docker(name: str) -> None:
     )
     assert result.returncode != 0
     assert "FIGMA_AMBIENT_OVERRIDE_REJECTED" in result.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize("field", ["baseUrl", "rootUrl"])
+@pytest.mark.parametrize(
+    "value", [None, "https://evil.example", "http://127.0.0.1:3300/old?code=secret"]
+)
+def test_prepare_rejects_untrusted_completion_origin_before_docker(
+    tmp_path: Path, field: str, value: str | None
+) -> None:
+    scripts = tmp_path / "scripts"
+    fixtures = tmp_path / "test/fixtures/keycloak"
+    scripts.mkdir()
+    fixtures.mkdir(parents=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    realm = json.loads((ROOT / "test/fixtures/keycloak/figma-realm.json").read_text())
+    client = next(c for c in realm["clients"] if c["clientId"] == "knora-web")
+    client.update(baseUrl="http://127.0.0.1:3300", rootUrl="http://127.0.0.1:3300")
+    if value is None:
+        client.pop(field)
+    else:
+        client[field] = value
+    (fixtures / "figma-realm.json").write_text(json.dumps(realm))
+    # The shim proves the guard fails before even read-only Docker configuration.
+    (tmp_path / "docker.cmd").write_text("@echo DOCKER_MUST_NOT_RUN\n@exit /b 1\n")
+    environment = {
+        key: item
+        for key, item in os.environ.items()
+        if not re.match(
+            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)", key
+        )
+    }
+    environment["PATH"] = str(tmp_path) + os.pathsep + environment.get("PATH", "")
+    result = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckConfigurationOnly",
+        ],
+        capture_output=True,
+        text=True,
+        env=environment,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "FIGMA_FIXTURE_REJECTED" in result.stderr
+    assert "DOCKER_MUST_NOT_RUN" not in result.stdout
 
 
 def test_ordinary_preparation_has_no_resource_reset() -> None:

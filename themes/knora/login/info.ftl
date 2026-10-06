@@ -23,7 +23,15 @@
         <p class="instruction">${kcSanitize(message.summary)?no_esc}<#if requiredActions??><#list requiredActions>: <b><#items as reqActionItem>${kcSanitize(msg("requiredAction.${reqActionItem}"))?no_esc}<#sep>, </#items></b></#list><#else></#if></p>
         <#if skipLink??>
         <#else>
-            <#if pageRedirectUri?has_content>
+            <#if message?? && message.type == "success" && message.summary == msg("accountUpdatedMessage")>
+                <#-- Completion starts a new BFF transaction at the configured application origin.
+                     Never carry native action/callback parameters into the new sign-in. -->
+                <#assign appBase = (client.baseUrl)!"">
+                <#if appBase?matches("^https?://([A-Za-z0-9.-]+|\\[[A-Fa-f0-9:]+\\])(:[0-9]{1,5})?([/?#].*)?$")>
+                    <#assign appOrigin = appBase?replace("^(https?://[^/?#]+).*$", "$1", "r")>
+                    <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
+                </#if>
+            <#elseif pageRedirectUri?has_content>
                 <p><a href="${pageRedirectUri}">${kcSanitize(msg("backToApplication"))?no_esc}</a></p>
             <#elseif actionUri?has_content>
                 <p><a href="${actionUri}">${kcSanitize(msg("proceedWithAction"))?no_esc}</a></p>
