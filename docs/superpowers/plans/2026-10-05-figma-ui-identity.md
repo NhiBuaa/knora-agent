@@ -176,9 +176,26 @@ time after locks and exact generation checks. Preserve fixed 15-minute account/I
 five verification attempts, three account sends, twenty IP sends, 30-second cooldown and
 five-minute code expiry. Resend never resets the account verification budget.
 Prove bounded independent transactions in actual Quarkus/JTA, including suspension/restoration
-of the outer transaction and thread-local session. Commit budgets and digest-only challenge
-before SMTP. Failed/ambiguous delivery retains budgets; failed/ambiguous commit prevents mail
-and authentication. Generation-conditional follow-ups never recreate consumed/rotated state.
+of the outer transaction and thread-local session. Observe completion of the exact independent
+transaction; callback return alone is insufficient. Publish successful transitions only after
+STATUS_COMMITTED; rollback-only, unknown completion and restoration failure are UNAVAILABLE.
+Commit budgets and a digest-only PENDING challenge before SMTP. PENDING cannot verify;
+failed/ambiguous reservation completion prevents SMTP. Failed/ambiguous SMTP leaves PENDING
+unverifiable and retains budgets without relying on another invalidation write.
+After known SMTP success, activate only the existing exact scope/generation under account and
+challenge locks with a unique server-generated activation operation ID. Reject expired, consumed,
+cancelled, missing or rotated rows; same-operation ACTIVE is idempotent, different operations fail.
+On ambiguous activation completion, permit one bounded independently committed reconciliation
+of the same operation ID and exact ACTIVE, unexpired, unconsumed scope/generation. No repeated
+SMTP or reservation. Confirmed committed reconciliation may publish success; unconfirmed results
+remain UNAVAILABLE. Delivered ACTIVE state may survive reply loss and later be confirmed; generic
+responses or unavailable cancellation do not establish invalidation. Verification requires ACTIVE
+and confirmed committed consume. Generation-conditional follow-ups never recreate state or refund
+budgets. Actual proofs cover rollback-only after successful SQL, lost activation reply, crash
+between SMTP and activation, late activation after resend and failed follow-up.
+The existing test-only probe may wrap and delegate real session/JPA query calls to mark the real
+independent transaction rollback-only after actual insertion/consume. No production injection or
+mock completion result; observe durable outcomes on the other node and restored caller context.
 First-row races, lock order/timeouts, caller rollback, commit visibility, crash/expiry, competing
 resend/verify and SMTP failure all require actual two-node proof before password integration.
 Relational proof may extend the existing test-only probe and concurrency test at their scoped
