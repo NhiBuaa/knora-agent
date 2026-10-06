@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.25.xsd">
+  <changeSet id="knora-otp-window-v1" author="knora">
+    <createTable tableName="KNORA_OTP_RECOVERY_WINDOW">
+      <column name="ID" type="VARCHAR(160)"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="REALM_ID" type="VARCHAR(64)"><constraints nullable="false"/></column>
+      <column name="KIND" type="VARCHAR(16)"><constraints nullable="false"/></column>
+      <column name="ANCHOR_MS" type="BIGINT"><constraints nullable="false"/></column>
+      <column name="ATTEMPTS" type="INT"><constraints nullable="false"/></column>
+      <column name="SENDS" type="INT"><constraints nullable="false"/></column>
+      <column name="LAST_SEND_MS" type="BIGINT"><constraints nullable="false"/></column>
+    </createTable>
+  </changeSet>
+  <changeSet id="knora-otp-challenge-v1" author="knora">
+    <createTable tableName="KNORA_OTP_CHALLENGE">
+      <column name="ID" type="VARCHAR(160)"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="REALM_ID" type="VARCHAR(64)"><constraints nullable="false"/></column>
+      <column name="CLIENT_ID" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="AUTH_SESSION_ID" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="TAB_ID" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="EMAIL_DIGEST" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="ACCOUNT_ID" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="IP_ID" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="USER_ID" type="VARCHAR(64)"/>
+      <column name="CODE_DIGEST" type="VARCHAR(160)"><constraints nullable="false"/></column>
+      <column name="GENERATION" type="BIGINT"><constraints nullable="false"/></column>
+      <column name="EXPIRES_MS" type="BIGINT"><constraints nullable="false"/></column>
+      <column name="CONSUMED" type="BOOLEAN"><constraints nullable="false"/></column>
+      <column name="DELIVERY_FAILED" type="BOOLEAN"><constraints nullable="false"/></column>
+    </createTable>
+    <addForeignKeyConstraint baseTableName="KNORA_OTP_CHALLENGE" baseColumnNames="ACCOUNT_ID"
+                             referencedTableName="KNORA_OTP_RECOVERY_WINDOW" referencedColumnNames="ID"
+                             constraintName="KNORA_OTP_CHALLENGE_ACCOUNT_FK"/>
+  </changeSet>
+  <changeSet id="knora-otp-retention-v1" author="knora">
+    <createIndex indexName="KNORA_OTP_CHALLENGE_EXPIRY_IDX" tableName="KNORA_OTP_CHALLENGE">
+      <column name="REALM_ID"/><column name="EXPIRES_MS"/><column name="ID"/>
+    </createIndex>
+    <createIndex indexName="KNORA_OTP_CHALLENGE_ACCOUNT_IDX" tableName="KNORA_OTP_CHALLENGE"><column name="ACCOUNT_ID"/></createIndex>
+    <createIndex indexName="KNORA_OTP_CHALLENGE_IP_IDX" tableName="KNORA_OTP_CHALLENGE"><column name="IP_ID"/></createIndex>
+    <createIndex indexName="KNORA_OTP_WINDOW_RETENTION_IDX" tableName="KNORA_OTP_RECOVERY_WINDOW">
+      <column name="REALM_ID"/><column name="ANCHOR_MS"/><column name="LAST_SEND_MS"/>
+    </createIndex>
+  </changeSet>
+  <changeSet id="knora-otp-ip-reference-v1" author="knora">
+    <addForeignKeyConstraint baseTableName="KNORA_OTP_CHALLENGE" baseColumnNames="IP_ID"
+                             referencedTableName="KNORA_OTP_RECOVERY_WINDOW" referencedColumnNames="ID"
+                             constraintName="KNORA_OTP_CHALLENGE_IP_FK" onDelete="RESTRICT"/>
+  </changeSet>
+</databaseChangeLog>

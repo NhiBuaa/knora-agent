@@ -9,12 +9,13 @@ services:
       KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:?proof script must supply the ephemeral header}
     volumes:
       - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT-storage-probe.jar:/opt/keycloak/providers/knora-storage-probe.jar:ro
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT.jar:/opt/keycloak/providers/knora-email-otp.jar:ro
   keycloak-proof:
     image: quay.io/keycloak/keycloak:26.3.3
     command: start-dev --spi-theme--cache-themes=false --spi-theme--cache-templates=false --spi-theme--static-max-age=-1
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_URL: ${KNORA_STORAGE_PROOF_DB_URL:-jdbc:postgresql://keycloak-db:5432/keycloak}
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: figma-test-keycloak-database
       KC_HOSTNAME: http://127.0.0.1:8380
@@ -27,4 +28,18 @@ services:
       keycloak-db: { condition: service_healthy }
     volumes:
       - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT-storage-probe.jar:/opt/keycloak/providers/knora-storage-probe.jar:ro
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT.jar:/opt/keycloak/providers/knora-email-otp.jar:ro
       - ./themes/knora:/opt/keycloak/themes/knora:ro
+  otp-commit-proxy:
+    profiles: [commit-reply-fault]
+    image: python:3.12.10-slim-bookworm
+    command: python -B /proof/figma-otp-pg-commit-proxy.py --serve
+    environment:
+      KNORA_STORAGE_PROOF: enabled
+      KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:?proof script must supply the ephemeral header}
+    volumes:
+      - ./scripts/figma-otp-pg-commit-proxy.py:/proof/figma-otp-pg-commit-proxy.py:ro
+    depends_on:
+      keycloak-db: { condition: service_healthy }
+    mem_limit: 128m
+    pids_limit: 64

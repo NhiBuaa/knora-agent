@@ -35,7 +35,11 @@ class OtpChallengeConcurrencyIT {
     @AfterAll
     static void removeOnlySyntheticProofKeys() throws Exception {
         if (SECRET == null) return;
-        for (String key : KEYS) operation(0, op("remove", key, null, 60));
+        for (String key : KEYS) {
+            operation(0, op("remove", key, null, 60));
+            post(0, "/jpa-fixture", Map.of("challenge", key, "operation", "cleanup"));
+        }
+        for (String key : KEYS) post(0, "/jpa-fixture", Map.of("challenge", key, "operation", "cleanup-account"));
     }
 
     @BeforeAll
@@ -70,6 +74,462 @@ class OtpChallengeConcurrencyIT {
                     .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
             assertEquals(404, result.statusCode());
         }
+    }
+
+    @Test
+    void independentJpaCommitRestoresOuterJtaAndSessionOnBothNodes() throws Exception {
+        for (int node = 0; node < 2; node++) {
+            String key = key();
+            JsonNode runtime = post(node, "/jpa-runtime", Map.of("key", key, "rollback", true));
+            assertEquals("quarkus", runtime.path("factoryId").asText());
+            assertTrue(runtime.path("distinctTransaction").asBoolean());
+            assertTrue(runtime.path("outerTransactionRestored").asBoolean());
+            assertTrue(runtime.path("outerSessionRestored").asBoolean());
+            assertTrue(runtime.path("independentCommitVisible").asBoolean());
+            assertTrue(runtime.path("failureRestored").asBoolean());
+            assertTrue(runtime.path("innerRollbackInvisible").asBoolean());
+            JsonNode completed = post(1 - node, "/jpa-runtime-result", Map.of("key", key, "rollback", false));
+            assertTrue(completed.path("survivedCallerRollback").asBoolean());
+        }
+    }
+
+    @Test
+    void relationalAccountBudgetDoesNotResetAcrossSessionsOrCallerRollback() throws Exception {
+        String account = key();
+        String challenge = key();
+        JsonNode sent = store(0, "send", account, challenge, 1, "session-a", "digest-good", true);
+        assertEquals("SENT", sent.path("outcome").asText());
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertEquals("INVALID", store(attempt % 2, "verify", account, challenge, 1,
+                    "session-a", "wrong-digest", false).path("outcome").asText());
+        }
+        assertEquals("EXHAUSTED", store(1, "verify", account, challenge, 1,
+                "session-a", "digest-good", false).path("outcome").asText());
+        JsonNode newSession = store(1, "send", account, key(), 1, "session-b", "digest-good", false);
+        assertNotEquals("SENT", newSession.path("outcome").asText());
+    }
+
+    @Test
+    void relationalParallelConsumeAndRotationNeverReviveConsumedOrOldGeneration() throws Exception {
+        String account = key();
+        String challenge = key();
+        assertEquals("SENT", store(0, "send", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+        var first = CompletableFuture.supplyAsync(() -> uncheckedStore(0, "verify", account, challenge, 1, "digest-good"));
+        var second = CompletableFuture.supplyAsync(() -> uncheckedStore(1, "verify", account, challenge, 1, "digest-good"));
+        List<String> outcomes = List.of(first.get(10, TimeUnit.SECONDS).path("outcome").asText(),
+                second.get(10, TimeUnit.SECONDS).path("outcome").asText());
+        assertEquals(1, outcomes.stream().filter("VERIFIED"::equals).count());
+        assertEquals(1, outcomes.stream().filter("INVALID"::equals).count());
+        assertEquals("INVALID", store(0, "resend", account, challenge, 2, "session-a", "digest-next", false)
+                .path("outcome").asText());
+        assertEquals("INVALID", store(1, "verify", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+
+        String rotatedAccount = key();
+        String rotated = key();
+        assertEquals("SENT", store(0, "send", rotatedAccount, rotated, 1, "session-a", "digest-old", false)
+                .path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", rotated, "operation", "cooldown-past"));
+        assertEquals("SENT", store(1, "resend", rotatedAccount, rotated, 2, "session-a", "digest-new", false)
+                .path("outcome").asText());
+        assertEquals("INVALID", store(0, "verify", rotatedAccount, rotated, 1, "session-a", "digest-old", false)
+                .path("outcome").asText());
+        assertEquals("VERIFIED", store(1, "verify", rotatedAccount, rotated, 2, "session-a", "digest-new", false)
+                .path("outcome").asText());
+    }
+
+    private static JsonNode uncheckedStore(int node, String operation, String account, String challenge,
+                                          long generation, String digest) {
+        try { return store(node, operation, account, challenge, generation, "session-a", digest, false); }
+        catch (Exception e) { throw new RuntimeException("Relational proof request failed", e); }
+    }
+
+    @Test
+    void relationalHeldFirstRowRollbackFailsClosedThenAdmitsExactlyOnce() throws Exception {
+        String account = key();
+        String gate = UUID.randomUUID().toString();
+        var holder = CompletableFuture.supplyAsync(() -> {
+            try { return post(0, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", true)); }
+            catch (Exception e) { throw new RuntimeException("Controlled lock fixture failed", e); }
+        });
+        try {
+            awaitGate(0, gate);
+            JsonNode blocked = store(1, "send", account, key(), 1, "session-a", "digest-good", false);
+            assertEquals("UNAVAILABLE", blocked.path("outcome").asText());
+            assertTrue(blocked.path("outerTransactionRestored").asBoolean());
+            assertTrue(blocked.path("outerSessionRestored").asBoolean());
+        } finally {
+            release(0, gate);
+            holder.get(10, TimeUnit.SECONDS);
+        }
+        String challenge = key();
+        assertEquals("SENT", store(1, "send", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+        JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+        assertEquals(1, state.path("sends").asInt());
+        assertEquals(1, state.path("ipSends").asInt());
+    }
+
+    @Test
+    void relationalCooldownSendCapAndFixedWindowSurviveNewSessionAndResend() throws Exception {
+        String account = key();
+        String first = key();
+        assertEquals("SENT", store(0, "send", account, first, 1, "session-a", "digest-good", false).path("outcome").asText());
+        long anchor = post(1, "/jpa-fixture", Map.of("challenge", first, "operation", "state")).path("anchor").asLong();
+        assertEquals("COOLDOWN", store(1, "resend", account, first, 2, "session-a", "digest-next", false).path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", first, "operation", "cooldown-past"));
+        String second = key();
+        assertEquals("SENT", store(1, "send", account, second, 1, "session-b", "digest-good", false).path("outcome").asText());
+        assertEquals("INVALID", store(0, "verify", account, first, 1, "session-a", "wrong-digest", false).path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", second, "operation", "cooldown-past"));
+        assertEquals("SENT", store(0, "resend", account, second, 2, "session-b", "digest-next", false).path("outcome").asText());
+        JsonNode state = post(1, "/jpa-fixture", Map.of("challenge", second, "operation", "state"));
+        assertEquals(anchor, state.path("anchor").asLong());
+        assertEquals(1, state.path("attempts").asInt());
+        assertEquals(3, state.path("sends").asInt());
+        assertEquals("EXHAUSTED", store(1, "send", account, key(), 1, "session-c", "digest-good", false).path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", second, "operation", "window-past"));
+        post(0, "/jpa-fixture", Map.of("challenge", second, "operation", "cooldown-past"));
+        String fresh = key();
+        assertEquals("SENT", store(1, "send", account, fresh, 1, "session-c", "digest-good", false).path("outcome").asText());
+        JsonNode nextWindow = post(0, "/jpa-fixture", Map.of("challenge", fresh, "operation", "state"));
+        assertTrue(nextWindow.path("anchor").asLong() > anchor);
+        assertEquals(0, nextWindow.path("attempts").asInt());
+        assertEquals(1, nextWindow.path("sends").asInt());
+    }
+
+    @Test
+    void relationalExpiryAndLateDeliveryFailureNeverReviveAConsumedOrRotatedGeneration() throws Exception {
+        String account = key();
+        String challenge = key();
+        assertEquals("SENT", store(0, "send", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        post(1, "/jpa-fixture", Map.of("challenge", challenge, "operation", "expired"));
+        assertEquals("EXPIRED", store(1, "verify", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "cooldown-past"));
+        assertEquals("SENT", store(1, "resend", account, challenge, 2, "session-a", "digest-next", false).path("outcome").asText());
+        assertEquals("UNCHANGED", store(0, "delivery-failed", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        assertEquals("VERIFIED", store(0, "verify", account, challenge, 2, "session-a", "digest-next", false).path("outcome").asText());
+        assertEquals("UNCHANGED", store(1, "delivery-failed", account, challenge, 2, "session-a", "digest-next", false).path("outcome").asText());
+        assertEquals("INVALID", store(1, "verify", account, challenge, 2, "session-a", "digest-next", false).path("outcome").asText());
+    }
+
+    @Test
+    void relationalConcurrentFirstRequestsShareTwentySendIpBudget() throws Exception {
+        String ip = key();
+        List<CompletableFuture<JsonNode>> submissions = new java.util.ArrayList<>();
+        for (int request = 0; request < 24; request++) {
+            int node = request % 2;
+            String account = key();
+            String challenge = key();
+            submissions.add(CompletableFuture.supplyAsync(() -> {
+                try { return post(node, "/jpa-store", Map.of("operation", "send", "account", account,
+                        "challenge", challenge, "generation", 1, "authSession", "session-a",
+                        "digest", "digest-good", "rollback", false, "ip", ip)); }
+                catch (Exception e) { throw new RuntimeException("Concurrent IP admission failed", e); }
+            }));
+        }
+        List<String> outcomes = new java.util.ArrayList<>();
+        for (var submission : submissions) outcomes.add(submission.get(15, TimeUnit.SECONDS).path("outcome").asText());
+        assertEquals(20, outcomes.stream().filter("SENT"::equals).count());
+        assertEquals(4, outcomes.stream().filter("EXHAUSTED"::equals).count());
+    }
+
+    @Test
+    void relationalScopeBindsRealmClientTabAndCurrentEmail() throws Exception {
+        String account = key();
+        String challenge = key();
+        assertEquals("SENT", store(0, "send", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        for (String variant : List.of("realm", "client", "tab", "email")) {
+            JsonNode result = post(1, "/jpa-store", Map.of("operation", "verify", "account", account,
+                    "challenge", challenge, "generation", 1, "authSession", "session-a",
+                    "digest", "digest-good", "rollback", false, "scopeVariant", variant));
+            assertEquals("INVALID", result.path("outcome").asText());
+        }
+        assertEquals("INVALID", store(1, "verify", account, challenge, 1, "session-b", "digest-good", false).path("outcome").asText());
+        assertEquals("VERIFIED", store(0, "verify", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+    }
+
+    @Test
+    void relationalVerifierReReadsGenerationAfterHeldLockAndWindowExpiry() throws Exception {
+        String account = key();
+        String challenge = key();
+        assertEquals("SENT", store(0, "send", account, challenge, 1, "session-a", "digest-good", false).path("outcome").asText());
+        String gate = UUID.randomUUID().toString();
+        var holder = CompletableFuture.supplyAsync(() -> {
+            try { return post(0, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", false,
+                    "challenge", challenge, "mutation", "rotate-after-expiry")); }
+            catch (Exception e) { throw new RuntimeException("Controlled generation fixture failed", e); }
+        });
+        CompletableFuture<JsonNode> verifier = null;
+        try {
+            awaitGate(0, gate);
+            verifier = CompletableFuture.supplyAsync(() -> uncheckedStore(1, "verify", account, challenge, 1, "digest-good"));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+            boolean blocked = false;
+            while (!blocked && System.nanoTime() < deadline) {
+                blocked = post(0, "/jpa-blockers", Map.of("gate", gate)).path("blocked").asInt() > 0;
+                if (!blocked) Thread.sleep(25);
+            }
+            assertTrue(blocked, "Competing store transition must really be blocked on the held database row");
+        } finally { release(0, gate); holder.get(10, TimeUnit.SECONDS); }
+        assertEquals("INVALID", verifier.get(10, TimeUnit.SECONDS).path("outcome").asText());
+        assertEquals("VERIFIED", store(1, "verify", account, challenge, 2, "session-a", "digest-next", false).path("outcome").asText());
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "requireNodeCrashProof", matches = "true")
+    void relationalNodeCrashRollsBackUncommittedAdmission() throws Exception {
+        String account = key();
+        String gate = "00000000-0000-4000-8000-000000000002";
+        var holder = CompletableFuture.supplyAsync(() -> {
+            try { return post(1, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", false)); }
+            catch (Exception e) { throw new RuntimeException("Expected controlled node transport failure", e); }
+        });
+        awaitGate(1, gate);
+        assertThrows(java.util.concurrent.ExecutionException.class, () -> holder.get(20, TimeUnit.SECONDS));
+        String challenge = key();
+        JsonNode survivor = store(0, "send", account, challenge, 1, "session-a", "digest-good", false);
+        assertEquals("SENT", survivor.path("outcome").asText());
+        assertTrue(survivor.path("outerTransactionRestored").asBoolean());
+        assertTrue(survivor.path("outerSessionRestored").asBoolean());
+        JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+        assertEquals(1, state.path("sends").asInt());
+        assertEquals(1, state.path("ipSends").asInt());
+    }
+
+    @Test
+    void relationalHeldProductionResendAndVerifyHonorBothLockOrderings() throws Exception {
+        for (boolean resendFirst : List.of(false, true)) {
+            String account = key();
+            String challenge = key();
+            assertEquals("SENT", store(0, "send", account, challenge, 1, "session-a", "digest-good", false)
+                    .path("outcome").asText());
+            post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "cooldown-past"));
+            String gate = UUID.randomUUID().toString();
+            var holder = CompletableFuture.supplyAsync(() -> {
+                try { return post(0, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", true,
+                        "lockMode", resendFirst ? "account-only" : "ip-account")); }
+                catch (Exception e) { throw new RuntimeException("Controlled operation ordering failed", e); }
+            });
+            CompletableFuture<JsonNode> first = null;
+            CompletableFuture<JsonNode> second = null;
+            try {
+                awaitGate(0, gate);
+                first = CompletableFuture.supplyAsync(() -> uncheckedStore(1,
+                        resendFirst ? "resend" : "verify", account, challenge,
+                        resendFirst ? 2 : 1, resendFirst ? "digest-next" : "digest-good"));
+                awaitBlocked(0, gate, 1);
+                second = CompletableFuture.supplyAsync(() -> uncheckedStore(1,
+                        resendFirst ? "verify" : "resend", account, challenge,
+                        resendFirst ? 1 : 2, resendFirst ? "digest-good" : "digest-next"));
+                awaitBlocked(0, gate, 2);
+            } finally { release(0, gate); holder.get(10, TimeUnit.SECONDS); }
+            assertEquals(resendFirst ? "SENT" : "VERIFIED", first.get(10, TimeUnit.SECONDS).path("outcome").asText());
+            assertEquals("INVALID", second.get(10, TimeUnit.SECONDS).path("outcome").asText());
+            if (resendFirst) assertEquals("VERIFIED", store(0, "verify", account, challenge, 2,
+                    "session-a", "digest-next", false).path("outcome").asText());
+            JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+            assertEquals(resendFirst ? 2 : 1, state.path("sends").asInt());
+        }
+    }
+
+    private static void awaitBlocked(int node, String gate, int count) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(800);
+        int blocked = 0;
+        while (blocked < count && System.nanoTime() < deadline) {
+            blocked = post(node, "/jpa-blockers", Map.of("gate", gate)).path("blocked").asInt();
+            if (blocked < count) Thread.sleep(20);
+        }
+        assertTrue(blocked >= count, "All scheduled transitions must hold real database waits before release");
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "requireDatabaseOutageProof", matches = "true")
+    void relationalDatabaseOutageReturnsUnavailableAndRecoversCoherentBudget() throws Exception {
+        String account = key();
+        String challenge = key();
+        assertEquals("SENT", store(0, "send", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+        String unavailableChallenge = key();
+        var send = CompletableFuture.supplyAsync(() -> gatedStore("send", account, unavailableChallenge, "00000000-0000-4000-8000-000000000003"));
+        var verify = CompletableFuture.supplyAsync(() -> gatedStore("verify", account, challenge, "00000000-0000-4000-8000-000000000004"));
+        awaitGate(1, "00000000-0000-4000-8000-000000000003");
+        awaitGate(1, "00000000-0000-4000-8000-000000000004");
+        for (var future : List.of(send, verify)) {
+            JsonNode result = future.get(25, TimeUnit.SECONDS);
+            assertEquals("UNAVAILABLE", result.path("outcome").asText());
+            assertTrue(result.path("outerTransactionRestored").asBoolean());
+            assertTrue(result.path("outerSessionRestored").asBoolean());
+        }
+        // The host restores only the owned database while this bounded no-SQL gate is held.
+        JsonNode recovered = gatedStore("proof-wait", account, challenge, "00000000-0000-4000-8000-000000000005");
+        assertEquals("WAITED", recovered.path("outcome").asText());
+        JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+        assertEquals(1, state.path("sends").asInt());
+        assertEquals(1, state.path("ipSends").asInt());
+        assertEquals(0, state.path("attempts").asInt());
+        assertEquals("VERIFIED", store(0, "verify", account, challenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+    }
+
+    private static JsonNode gatedStore(String operation, String account, String challenge, String gate) {
+        try { return post(1, "/jpa-store", Map.of("operation", operation, "account", account,
+                "challenge", challenge, "generation", 1, "authSession", "session-a",
+                "digest", "digest-good", "rollback", false, "gate", gate)); }
+        catch (Exception e) { throw new RuntimeException("Controlled outage probe failed", e); }
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "requireCommitReplyFault", matches = "true")
+    void relationalLostConfirmedCommitReplyFailsClosedButPreservesBudget() throws Exception {
+        assertTrue(Boolean.getBoolean("proofDockerNetwork"), "Fault proxy has no host port");
+        String account = key();
+        String challenge = key();
+        commitProxy("POST", "/arm", Map.of("challenge", challenge));
+        try {
+            JsonNode ambiguous = store(1, "send", account, challenge, 1, "session-a", "digest-good", false);
+            assertEquals("UNAVAILABLE", ambiguous.path("outcome").asText());
+            assertTrue(ambiguous.path("outerTransactionRestored").asBoolean());
+            assertTrue(ambiguous.path("outerSessionRestored").asBoolean());
+            JsonNode fault = commitProxy("GET", "/state", null);
+            assertEquals(1, fault.path("confirmedCommitRepliesDropped").asInt());
+            assertFalse(fault.path("armed").asBoolean());
+            JsonNode durable = post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+            assertEquals(1, durable.path("sends").asInt());
+            assertEquals(1, durable.path("ipSends").asInt());
+            assertEquals("COOLDOWN", store(0, "send", account, key(), 1, "session-b", "digest-next", false)
+                    .path("outcome").asText());
+            // An unavailable outcome exposes no permission to send. The orphan digest is never known to a user.
+        } finally { commitProxy("DELETE", "/arm", null); }
+    }
+
+    private static JsonNode commitProxy(String method, String path, Object body) throws Exception {
+        var publisher = body == null ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body));
+        HttpResponse<String> response = HTTP.send(HttpRequest.newBuilder(URI.create("http://otp-commit-proxy:8765" + path))
+                .timeout(Duration.ofSeconds(3)).header("X-Knora-Storage-Proof", SECRET)
+                .header("Content-Type", "application/json").method(method, publisher).build(), HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, response.statusCode(), "Proxy control status only; bodies not logged");
+        return JSON.readTree(response.body());
+    }
+
+    @Test
+    void relationalCleanupCannotReviveHeldStaleVerifyResendOrFirstAdmission() throws Exception {
+        for (String operation : List.of("verify", "resend", "send")) {
+            String account = key();
+            String old = key();
+            assertEquals("SENT", store(0, "send", account, old, 1, "session-a", "digest-good", false)
+                    .path("outcome").asText());
+            post(0, "/jpa-fixture", Map.of("challenge", old, "operation", "retention-aged"));
+            String gate = UUID.randomUUID().toString();
+            var holder = CompletableFuture.supplyAsync(() -> {
+                try { return post(0, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", true)); }
+                catch (Exception e) { throw new RuntimeException("Controlled cleanup lock failed", e); }
+            });
+            String candidate = "send".equals(operation) ? key() : old;
+            CompletableFuture<JsonNode> stale = null;
+            try {
+                awaitGate(0, gate);
+                stale = CompletableFuture.supplyAsync(() -> uncheckedStore(1, operation, account, candidate,
+                        "resend".equals(operation) ? 2 : 1, "digest-good"));
+                awaitBlocked(0, gate, 1);
+                assertEquals("SENT", store(0, "send", key(), key(), 1, "session-a", "digest-good", false)
+                        .path("outcome").asText());
+                assertFalse(post(0, "/jpa-fixture", Map.of("challenge", old, "operation", "state"))
+                        .path("changed").asBoolean(true), "Production admission must clean beyond the24h grace");
+            } finally { release(0, gate); holder.get(10, TimeUnit.SECONDS); }
+            assertEquals("send".equals(operation) ? "SENT" : "INVALID",
+                    stale.get(10, TimeUnit.SECONDS).path("outcome").asText());
+            assertEquals("INVALID", store(0, "resend", account, old, 2, "session-a", "digest-good", false)
+                    .path("outcome").asText());
+            String fresh = "send".equals(operation) ? candidate : key();
+            if (!"send".equals(operation)) assertEquals("SENT", store(0, "send", account, fresh, 1,
+                    "session-a", "digest-good", false).path("outcome").asText());
+            JsonNode state = post(0, "/jpa-fixture", Map.of("challenge", fresh, "operation", "state"));
+            assertEquals(1, state.path("sends").asInt());
+            assertEquals(1, state.path("ipSends").asInt());
+            assertEquals("INVALID", store(1, "verify", account, old, 1, "session-a", "digest-good", false)
+                    .path("outcome").asText());
+        }
+    }
+
+    @Test
+    void relationalCleanupPreservesGraceAndActiveBudgetAndBoundsBatchWork() throws Exception {
+        String account = key();
+        String protectedChallenge = key();
+        assertEquals("SENT", store(0, "send", account, protectedChallenge, 1, "session-a", "digest-good", false)
+                .path("outcome").asText());
+        post(0, "/jpa-fixture", Map.of("challenge", protectedChallenge, "operation", "retention-within-grace"));
+        assertEquals("SENT", store(1, "send", key(), key(), 1, "session-a", "digest-good", false).path("outcome").asText());
+        JsonNode protectedState = post(0, "/jpa-fixture", Map.of("challenge", protectedChallenge, "operation", "state"));
+        assertEquals(1, protectedState.path("sends").asInt());
+        assertEquals("COOLDOWN", store(1, "send", account, key(), 1, "session-b", "digest-good", false).path("outcome").asText());
+        List<String> aged = new java.util.ArrayList<>();
+        for (int index = 0; index < 105; index++) {
+            String challenge = key();
+            assertEquals("SENT", store(index % 2, "send", key(), challenge, 1, "session-a", "digest-good", false)
+                    .path("outcome").asText());
+            aged.add(challenge);
+        }
+        // Age only after creating the batch so opportunistic admission cannot drain it early.
+        for (String challenge : aged) post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "retention-aged"));
+        assertEquals("SENT", store(1, "send", key(), key(), 1, "session-a", "digest-good", false).path("outcome").asText());
+        int remaining = 0;
+        for (String challenge : aged) if (post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"))
+                .has("sends")) remaining++;
+        assertEquals(5, remaining, "One admission cleans at most100 expired challenges");
+        assertEquals(1, post(0, "/jpa-fixture", Map.of("challenge", protectedChallenge, "operation", "state"))
+                .path("sends").asInt());
+    }
+
+    @Test
+    void realServiceCommitsBeforeSmtpAndDeliveryFailureRetainsBudget() throws Exception {
+        for (String mode : List.of("success", "failure", "unknown", "disabled")) {
+            String account = key();
+            String challenge = key();
+            JsonNode result = post(0, "/jpa-service", Map.of("account", account, "challenge", challenge, "mode", mode));
+            assertEquals("knoraOtpGenericSent", result.path("messageKey").asText());
+            assertEquals("success".equals(mode) || "failure".equals(mode), result.path("mailAttempted").asBoolean());
+            if (result.path("mailAttempted").asBoolean()) assertTrue(result.path("durableBeforeMail").asBoolean());
+            JsonNode state = post(1, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"));
+            assertEquals(1, state.path("sends").asInt());
+            assertEquals(1, state.path("ipSends").asInt());
+            assertEquals("success".equals(mode), result.path("internallyVerified").asBoolean());
+            String address = result.path("testRecipient").asText();
+            HttpResponse<String> mailbox = HTTP.send(HttpRequest.newBuilder(URI.create("http://mail:8025/api/v1/search?query="
+                    + java.net.URLEncoder.encode("to:" + address, java.nio.charset.StandardCharsets.UTF_8))).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, mailbox.statusCode());
+            assertEquals("success".equals(mode) ? 1 : 0, JSON.readTree(mailbox.body()).path("messages").size());
+        }
+    }
+
+    @Test
+    void realServiceLockTimeoutNeverAuthorizesSmtpOrBudgetMutation() throws Exception {
+        String account = key();
+        String challenge = key();
+        String gate = UUID.randomUUID().toString();
+        var holder = CompletableFuture.supplyAsync(() -> {
+            try { return post(0, "/jpa-lock", Map.of("account", account, "gate", gate, "rollback", true)); }
+            catch (Exception e) { throw new RuntimeException("Controlled service lock failed", e); }
+        });
+        try {
+            awaitGate(0, gate);
+            JsonNode render = post(1, "/jpa-service", Map.of("account", account, "challenge", challenge, "mode", "success"));
+            assertEquals("knoraOtpGenericSent", render.path("messageKey").asText());
+            assertFalse(render.path("mailAttempted").asBoolean());
+            assertFalse(render.path("internallyVerified").asBoolean());
+            assertFalse(post(0, "/jpa-fixture", Map.of("challenge", challenge, "operation", "state"))
+                    .path("changed").asBoolean(true));
+        } finally { release(0, gate); holder.get(10, TimeUnit.SECONDS); }
+    }
+
+    private static JsonNode store(int node, String operation, String account, String challenge, long generation,
+                                  String authSession, String digest, boolean rollback) throws Exception {
+        return post(node, "/jpa-store", Map.of("operation", operation, "account", account,
+                "challenge", challenge, "generation", generation, "authSession", authSession,
+                "digest", digest, "rollback", rollback));
     }
 
     @Test
