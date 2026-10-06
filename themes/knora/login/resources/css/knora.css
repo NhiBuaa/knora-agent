@@ -89,3 +89,392 @@ h2 {
   outline: 3px solid var(--knora-focus);
   outline-offset: 2px;
 }
+
+/* AU1/AU2/AU8/AU9: native v2 wrapper, state and field helpers remain Keycloak-owned. */
+:root {
+  --knora-muted: #546B63;
+  --knora-subtle: #F3F8F5;
+  --knora-signature-soft: #F4EAE6;
+  --knora-action-soft: #E6F5EB;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --knora-muted: #94B3A5;
+    --knora-subtle: #1B2B25;
+    --knora-signature-soft: #34251F;
+    --knora-action-soft: #163E27;
+  }
+}
+
+body:has(.knora-auth) {
+  min-height: 100vh;
+  background: var(--knora-surface);
+}
+
+body:has(.knora-auth) .pf-v5-c-login,
+body:has(.knora-auth) .pf-v5-c-login__container {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+  padding: 0;
+  background: var(--knora-surface);
+  grid-template-columns: none;
+}
+
+body:has(.knora-auth) #kc-header {
+  display: none;
+}
+
+body:has(.knora-auth) .pf-v5-c-login__main {
+  position: relative;
+  width: 420px;
+  max-width: calc(100vw - 48px);
+  margin: 0;
+  margin-left: calc(43.05556% + (56.94444% - 420px) / 2 + 10px);
+  padding: 174px 0 80px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+body:has(.knora-auth) .pf-v5-c-login__main-header,
+body:has(.knora-auth) .pf-v5-c-login__main-body {
+  padding: 0;
+  border: 0;
+}
+
+body:has(.knora-auth) #kc-page-title {
+  width: 100%;
+  max-width: 100%;
+  flex: 1 1 100%;
+  margin: 0 0 18px;
+  color: var(--knora-text);
+  font: 600 30px/40px "Roboto Slab", serif;
+}
+
+.knora-brand-panel {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 43.05556%;
+  background: var(--knora-subtle);
+  color: var(--knora-text);
+}
+
+.knora-brand {
+  position: absolute;
+  top: 42px;
+  left: 56px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: 600 22px/30px "Roboto Slab", serif;
+}
+
+.knora-brand img {
+  display: block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.knora-brand-copy {
+  position: absolute;
+  top: 230px;
+  left: 92px;
+  width: 430px;
+  max-width: calc(100% - 120px);
+}
+
+.knora-eyebrow {
+  margin: 0 0 20px;
+  font: 600 11px/14px Inter, sans-serif;
+  color: var(--knora-muted);
+}
+
+.knora-brand-copy h2 {
+  margin: 0 0 16px;
+  color: var(--knora-text);
+  font: 600 38px/48px "Roboto Slab", serif;
+}
+
+.knora-brand-copy h2 span {
+  display: block;
+}
+
+.knora-brand-description {
+  margin: 0 0 30px;
+  width: 420px;
+  max-width: 100%;
+  color: var(--knora-muted);
+  font: 400 16px/25px Inter, sans-serif;
+}
+
+.knora-evidence-cues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.knora-evidence-cues span {
+  padding: 5px 10px;
+  border: 1px solid var(--knora-border);
+  border-radius: 999px;
+  background: var(--knora-surface);
+  font: 600 11px/14px Inter, sans-serif;
+}
+
+.knora-evidence-cues span:first-child {
+  border-color: transparent;
+  color: var(--knora-signature);
+  background: var(--knora-signature-soft);
+}
+
+.knora-evidence-cues span:nth-child(2) {
+  border-color: transparent;
+  color: var(--knora-action);
+  background: var(--knora-action-soft);
+}
+
+.knora-brand-footnote {
+  position: absolute;
+  left: 92px;
+  bottom: 104px;
+  margin: 0;
+  color: var(--knora-muted);
+  font: 400 12px/18px Inter, sans-serif;
+}
+
+.knora-auth-description {
+  margin: 0 0 18px;
+  color: var(--knora-muted);
+  font: 400 15px/18px Inter, sans-serif;
+}
+
+.knora-auth .pf-v5-c-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.knora-auth .pf-v5-c-form__group {
+  display: block;
+  margin: 0;
+  min-height: 66px;
+}
+
+body:has(.knora-auth) .pf-v5-c-login__main-header {
+  grid-template-columns: 1fr;
+}
+
+.knora-auth .pf-v5-c-form__group:has(> .pf-v5-c-form__actions) {
+  min-height: 42px;
+}
+
+.knora-auth .pf-v5-c-form__group-label {
+  padding: 0 0 8px;
+}
+
+.knora-auth .pf-v5-c-form__label {
+  padding: 0;
+  font: 600 11px/13px Inter, sans-serif;
+  color: var(--knora-muted);
+  text-transform: uppercase;
+}
+
+.knora-auth .pf-v5-c-form__label-text {
+  color: inherit;
+}
+
+.knora-auth .pf-v5-c-form-control {
+  height: 40px;
+  border: 1px solid var(--knora-border);
+  border-radius: 8px;
+  background: var(--knora-surface);
+}
+
+.knora-auth .pf-v5-c-form-control::before,
+.knora-auth .pf-v5-c-form-control::after {
+  display: none;
+}
+
+.knora-auth input:not([type="checkbox"]):not([type="hidden"]):not([type="submit"]) {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--knora-text);
+  font: 400 14px/20px Inter, sans-serif;
+}
+
+.knora-auth .pf-v5-c-input-group {
+  position: relative;
+  display: block;
+}
+
+.knora-auth .pf-v5-c-input-group input {
+  padding-right: 48px !important;
+}
+
+.knora-auth .pf-v5-c-input-group > .pf-v5-c-input-group__item:last-child {
+  position: absolute;
+  right: 10px;
+  top: 6px;
+}
+
+.knora-auth button[data-password-toggle] {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.knora-auth button[data-password-toggle]::after {
+  display: none;
+}
+
+.knora-auth button[data-password-toggle] i {
+  width: 18px;
+  height: 18px;
+  background: url("../images/bf7a4.svg") center / 18px 18px no-repeat;
+}
+
+body[data-page-id="login-login-update-password"] .knora-auth button[data-password-toggle] i {
+  background-image: url("../images/42cef.svg");
+}
+
+.knora-auth button[data-password-toggle] i::before {
+  display: none;
+}
+
+.knora-auth button[data-password-toggle]:has(.fa-eye-slash) i {
+  opacity: 0.6;
+}
+
+.knora-auth .pf-v5-c-helper-text {
+  margin-top: 8px;
+  font: 400 12px/18px Inter, sans-serif;
+}
+
+.knora-auth a {
+  color: var(--knora-action);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.knora-auth #kc-form-login .pf-v5-c-helper-text {
+  justify-content: flex-end;
+}
+
+.knora-auth #kc-form-login .pf-v5-c-helper-text.pf-v5-u-justify-content-space-between {
+  justify-content: flex-end !important;
+}
+
+.knora-auth .pf-v5-c-button.pf-m-primary {
+  margin: 0;
+  height: 42px;
+  width: 100%;
+  border-radius: 8px;
+  border: 0;
+  padding: 0 20px;
+  color: #FFFFFF;
+  font: 600 14px/20px Inter, sans-serif;
+  background: var(--knora-action);
+}
+
+.knora-auth .pf-v5-c-form__actions,
+.knora-auth #kc-form-buttons {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.knora-auth .pf-v5-c-form__actions.pf-v5-u-pt-xs {
+  padding: 0 !important;
+  gap: 0;
+}
+
+.knora-auth .pf-v5-c-input-group .pf-v5-c-form-control__icon.pf-m-status {
+  transform: translateX(-32px);
+}
+
+.knora-disclaimer {
+  margin: 0;
+  color: var(--knora-muted);
+  font: 400 12px/18px Inter, sans-serif;
+}
+
+.knora-secondary {
+  margin: 0;
+  color: var(--knora-muted);
+  font: 400 13px/22px Inter, sans-serif;
+}
+
+.knora-notice {
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  border: 1px solid var(--knora-border);
+  border-radius: 8px;
+  background: var(--knora-signature-soft);
+  font: 400 12px/18px Inter, sans-serif;
+}
+
+.knora-notice strong {
+  color: var(--knora-signature);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.knora-notice p {
+  margin: 4px 0 0;
+}
+
+.knora-auth input[aria-invalid="true"] {
+  outline: 1px solid var(--knora-signature);
+}
+
+@media (max-width: 1100px) {
+  .knora-brand-copy,
+  .knora-brand-footnote {
+    left: 36px;
+  }
+  .knora-brand-copy {
+    max-width: calc(100% - 72px);
+  }
+  .knora-brand-copy h2 {
+    font-size: 30px;
+    line-height: 40px;
+  }
+  .knora-brand-footnote {
+    right: 24px;
+  }
+}
+
+@media (max-width: 800px) {
+  .knora-brand-panel {
+    position: absolute;
+    width: 100%;
+    height: 100px;
+  }
+  .knora-brand {
+    top: 24px;
+    left: 24px;
+  }
+  .knora-brand-copy,
+  .knora-brand-footnote {
+    display: none;
+  }
+  body:has(.knora-auth) .pf-v5-c-login__main {
+    margin: 0 auto;
+    padding-top: 140px;
+  }
+}

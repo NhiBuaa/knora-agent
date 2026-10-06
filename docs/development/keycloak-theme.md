@@ -1,6 +1,8 @@
 # Knora Keycloak login theme
 
-The theme changes presentation only. Keycloak still owns the username/password form, form action, hidden fields, error handling and OIDC protocol. Knora's BFF keeps state, nonce and S256 PKCE validation.
+The theme changes presentation. Keycloak owns credentials, native form actions, validation,
+password policy, registration, and the OIDC protocol. Knora's BFF retains state, nonce and S256
+PKCE validation. There is no Knora password or profile store.
 
 ## Verified Keycloak base
 
@@ -12,7 +14,19 @@ docker create quay.io/keycloak/keycloak:26.3.3
 docker cp <container-id>:/opt/keycloak/lib/lib/main/org.keycloak.keycloak-themes-26.3.3.jar <temporary-path>
 ```
 
-The JAR contains `theme/keycloak.v2/login/theme.properties`, `theme/base/login/*.ftl` and `theme/keycloak.v2/login/resources/css/styles.css`. The v2 login theme declares `parent=base`, `import=common/keycloak`, `styles=css/styles.css`, and PatternFly v5 common styles. Knora inherits v2 and appends `css/knora.css`; it does not replace the forms or templates. This was inspected against the actual image before authoring the theme.
+The JAR contains the actual v2 overrides for login, registration, update password and the layout
+wrapper, plus the field, profile and password-policy helpers. Knora inherits `keycloak.v2`, its
+wrapper, scripts, escaping and native helpers, and appends `css/knora.css`. Four child templates
+adapt login, registration, update password and information pages to the approved identity design.
+The registration template renders the real native username and email attributes and native
+password/confirmation fields. It retains locale, terms and recaptcha contracts, native profile
+annotations, read-only behavior, errors and policy helpers. A required custom field that appears
+after configuration drift remains visible; configuration preflight rejects that scope conflict.
+
+The layout uses bundled Inter and Roboto Slab and original Figma exports at their intrinsic
+18×18 size. `resources/images/figma-assets.json` records original hashes and owning nodes; SVG
+bytes remain unmodified. Identity resources use Keycloak resource URLs. The native password
+visibility script owns type and accessible-label changes. The AU12 eye asset has its own callsite.
 
 ## Local development and deployment
 
@@ -34,10 +48,111 @@ docker build -f infra/keycloak/Dockerfile -t knora-keycloak:26.3.3 .
 
 Inter and Roboto Slab are bundled from `frontend/public/fonts`; their OFL license files are included alongside the theme assets. Theme colors match `frontend/styles/tokens.css`. Keycloak follows the browser's system light/dark setting; the app's preference cookie is not shared with the identity provider.
 
-The current dev realm enables password login, invalid-password feedback, generic errors and logout. Registration and email verification are disabled, and password reset/email delivery is not enabled solely for styling. Theme inheritance still covers Keycloak's available error, expired and logout templates. OIDC redirect allowlists are unchanged.
+## Registration and existing realm configuration
+
+Fresh development imports enable registration, password reset, username or email sign-in, and
+unique email addresses, with `registrationEmailAsUsername=false` to keep the native username
+field. `verifyEmail=false` is retained from the development fixture. Existing
+realms retain their current `verifyEmail` setting when configured; no mandatory verification
+screen is added. Development callback and logout allowlists remain on port 3000.
+
+The [pinned native default profile](https://github.com/keycloak/keycloak/blob/26.3.3/services/src/main/resources/org/keycloak/userprofile/config/keycloak-default-user-profile.json)
+requires first and last names in the user context. AU8/AU9 collect four fields only, so this
+development/test profile removes the user-required rule from those two attributes. Existing
+values, validators, permissions, admin-required rules, unrelated attributes and groups remain
+untouched. No hidden name values are generated. Conditional name requirements or additional
+required custom attributes are reported as conflicts before applying.
+
+For an existing daily realm, set admin credentials in the current process and inspect the exact
+`knora-dev` target before changing it:
+
+```powershell
+.\scripts\configure-keycloak-auth-flow.ps1 -Mode Inspect
+.\scripts\configure-keycloak-auth-flow.ps1 -Mode Diff
+.\scripts\configure-keycloak-auth-flow.ps1 -Mode Apply
+```
+
+Only loopback port 8180 with Compose project `knora-dev`, or port 8380 with project
+`knora-figma-e2e`, is accepted. Apply and rollback verify container ownership before mutation.
+The script updates only the approved realm flags and copied native profile. It saves previous
+settings and the full previous profile before a change, prints the snapshot path without
+credentials, verifies the result, and makes a repeated identical apply a no-op. Restore with:
+
+```powershell
+.\scripts\configure-keycloak-auth-flow.ps1 -Mode Rollback -SnapshotPath '<saved snapshot>'
+```
+
+Snapshot files belong to local `.superpowers/figma/keycloak-rollback` continuity evidence and
+must be retained until the realm change has an explicit disposition. They contain profile
+configuration and realm flags, not credentials, user records, tokens or password values.
+Daily SMTP remains operator configuration; enabling reset alone does not prove mail delivery.
+
+## Isolated Figma identity harness
+
+`docker-compose.figma-e2e.yml` is standalone. It uses project `knora-figma-e2e`, project-namespaced
+volumes, separate application and Keycloak PostgreSQL databases, and test SMTP only. All exposed
+ports bind `127.0.0.1`: frontend 3300, API 8800, Keycloak 8380, PostgreSQL 5543, Minio 9900/9901,
+SMTP 1025 and mailbox 8025. The derived test realm has only the port-3300 client callback,
+logout and origin URLs; its reset SMTP host is the isolated `mail` service. The test-only native
+password policy is a minimum length of 12; development password policy is unchanged.
+
+In a shell without ambient `COMPOSE_*`, `DOCKER_*`, `FIGMA_E2E_*`, `M5_E2E_*`, `KEYCLOAK_*`, `KNORA_*` or
+`SESSION_SECRET` overrides:
+
+```powershell
+.\scripts\prepare-figma-e2e.ps1 -CheckConfigurationOnly
+.\scripts\prepare-figma-e2e.ps1
+Set-Location frontend
+.\node_modules\.bin\playwright.ps1 test --config=playwright.figma.config.ts
+```
+
+Preparation validates project, bindings, volume names, database and realm/client targets before
+starting resources, and checks running-container ownership and other listeners before mutation.
+Startup, migrations, bucket creation and profile application are idempotent; preparation never
+deletes or resets a realm, volume or daily resource. Do not use `prepare-local-e2e.ps1` for these
+tests. Existing M5 configuration and endpoint guards are independent and unchanged.
+
+The browser helper verifies exact Compose ownership before browser identity operations. Its
+test-created users remain in the test realm; reruns use unique identities. Traces, video and
+automatic failure screenshots are disabled because native action URLs contain authentication
+state and reset codes. Explicit AU1/AU2/AU8/AU9 screenshots mask password inputs by stable ID.
+Native failure page snapshots are also disabled with Playwright's installed
+`PLAYWRIGHT_NO_COPY_PROMPT` setting, since accessibility snapshots include native action URLs.
+Empty password fields are shown in explicit full-page captures; populated passwords are masked.
+The harness checks Next readiness through `/api/auth/session`, which returns 200 without
+following a sign-in redirect to Keycloak. The product base URL remains port 3300.
 
 ## Acceptance boundary
 
-Use a disposable realm to check rendered login, invalid credentials, callback state/nonce/PKCE, a protected API request and logout/login again. The logout/login account-switch gate depends on the session fix owned by #132; it must be rerun after that fix is integrated. Do not treat a themed page or a passing unit test as that gate.
+Source/fixture checks cover native action retention, assets, registration profile rules, harness
+guards and profile inspect/diff/apply/no-op/rollback using test HTTP fixtures. They do not execute
+FreeMarker, prove native registration, deliver reset mail, or establish rendered visual parity.
+`figma-identity.spec.ts` contains real-provider cases for default/invalid sign-in, four-field
+registration, real empty-field validation, password confirmation/policy errors and email sign-in.
+Fresh registration follows the preserved backend resolver: it atomically creates `My Workspace`
+and returns `ACTIVE`. A separate owner archive through the real API then proves
+`NO_ACTIVE_WORKSPACE` and the workspace-management landing. The test never silently archives
+an account to make fresh registration appear empty.
 
-Issue #115's disposable Keycloak on port 8183 returned the themed login and stylesheet with HTTP 200. A rejected password returned the inherited Keycloak error on the themed page; a valid password returned HTTP 302 to the configured callback with the original state. A realm update from `keycloak.v2` to `knora` left five users and the `knora-web` redirect allowlist unchanged, and running the update again reported `KEYCLOAK_THEME_ALREADY_SET`. These checks cover the identity provider side only; the complete application logout/account-switch sequence remains gated by #132.
+I1's isolated Keycloak 26.3.3 browser checks now execute all four native template overrides.
+The real test SMTP reset link renders update-password and completes authentication; a separate
+native execute-actions email for the test-created user renders information/proceed/completion.
+This native email-link check verifies the templates and SMTP only. The approved I2 OTP journey
+and I3 application CTAs remain separate work.
+
+Actual AU1/AU2/AU8/AU9 captures were compared with cached structural contexts and PNG targets.
+Checks cover 420×40 input containers, the 420×42 action at x830, right-aligned reset link,
+single-line registration title, local font loading and all three original 18×18 assets.
+Native autofocus, error summaries and per-field errors remain visible; real AU9 errors can
+increase page height and scroll, with the sign-in footer verified accessible. Those adaptations
+preserve native behavior instead of clipping actual validation. Controller review and broader
+callback-negative, protected API, logout/account-switch and full-suite gates remain independent.
+
+The earlier Docker Desktop `sailor-ingest.sock` failure was resolved by the user before live
+startup. Initial frontend readiness independently timed out because it followed the root's
+307 redirect; `/api/auth/session` readiness resolved it. Neither earlier failure is counted as
+a native form behavior RED. No daily resource reset was used during recovery or testing.
+
+Historical Issue #115 evidence used the earlier inherited-form theme on disposable port 8183.
+It proved stylesheet delivery, invalid credentials, a provider callback, and non-destructive theme
+selection. It does not verify the new I1 native templates or the current registration journey.
