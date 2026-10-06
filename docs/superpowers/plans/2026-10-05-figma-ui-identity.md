@@ -304,6 +304,12 @@ infra/keycloak/providers/email-otp-reset/src/test/java/com/knora/keycloak/reset/
 to render the trusted reset-completion CTA and preserve unfinished native action links. Do not
 change provider policy/service source for I3. The fixed application path resolves against trusted
 configured client base URL, not the Keycloak page origin or submitted/request redirect data.
+Add source-only fixed baseUrl/rootUrl `http://127.0.0.1:3300` to the isolated knora-web client
+in test/fixtures/keycloak/figma-realm.json; extend scripts/prepare-figma-e2e.ps1 configuration-only
+guards and backend/test/config/test_figma_e2e_harness.py regression. Run only
+CheckConfigurationOnly; do not import or update the existing running realm during this slice.
+Missing/invalid configured application base URL fails closed without provider-origin or
+submitted-redirect fallback. Actual runtime provisioning remains a native acceptance prerequisite.
 **Test:** frontend/tests/e2e/figma-identity.spec.ts and m5-authentication.spec.ts.
 
 **Consumes:** existing authorization transaction/session helpers. **Produces:** safe error pages
