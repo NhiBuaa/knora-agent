@@ -246,6 +246,7 @@ scripts/
 ├── configure-keycloak-theme.ps1                [=] tooling theme hiện có
 ├── prepare-figma-e2e.ps1                        [+ I1/I2] idempotent isolated test harness
 ├── prepare-figma-otp-proof.ps1                  [+ I2] guarded two-node storage proof
+├── figma-otp-pg-commit-proxy.py                 [+ I2] test-only lost commit reply, no host port
 └── configure-keycloak-auth-flow.ps1             [+ I1/I2] targeted realm migration
 test/fixtures/keycloak/
 ├── dev-realm.json                              [~ I1/I2] fresh realm test/dev

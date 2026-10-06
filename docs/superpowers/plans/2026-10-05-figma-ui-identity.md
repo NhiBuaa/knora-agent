@@ -139,7 +139,16 @@ requesting-code-review and verification-before-completion.
 - src/main/resources/META-INF/knora-otp-changelog.xml
 
 **Create for storage proof only:** docker-compose.figma-otp-proof.yml,
-scripts/prepare-figma-otp-proof.ps1. The Maven storage-proof profile produces a separate
+scripts/prepare-figma-otp-proof.ps1.
+Test-only scripts/figma-otp-pg-commit-proxy.py may be added for a controlled lost-COMMIT-response
+schedule: owned proof node only, isolated Keycloak database, internal network with no host port.
+Arm exactly one synthetic probe connection; forward COMMIT, confirm backend completion, then
+suppress its reply and close that connection. Bound timeouts and never log credentials, SQL or
+payloads. Assert adapter UNAVAILABLE/no mail authorization while the survivor reads committed
+budget; restore direct proof-node configuration and disarm after the test. This fault component
+must never enter production images or Compose graphs.
+
+The Maven storage-proof profile produces a separate
 storage-probe classifier JAR from test/probe sources; neither those classes nor the JAR may enter
 the production provider artifact or image. The override adds a second owned test node on
 127.0.0.1:8381 after checking port availability, exact project ownership and ambient selectors.
