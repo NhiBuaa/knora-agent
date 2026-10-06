@@ -39,6 +39,8 @@ ProductHeader and WorkspaceSelector without editing them.
 - frontend/components/operator/OperationsView.tsx, TraceView.tsx, EvaluationView.tsx,
   ToolObservationView.tsx
 - frontend/app/operator/operator.css
+- frontend/app/operator/layout.tsx (owning header/content shell; preserve authorization before
+  workspace listing/preference lookup, consume reviewed shared components without editing them)
 - frontend/app/operator/page.tsx
 - frontend/app/operator/operations/page.tsx, content.tsx
 - frontend/app/operator/traces/page.tsx, traces/[traceId]/page.tsx

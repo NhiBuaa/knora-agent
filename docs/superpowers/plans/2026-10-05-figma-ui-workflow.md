@@ -89,7 +89,7 @@ frontend/
 │   │       └── conversations/
 │   │           ├── page.tsx                    [~ U3]
 │   │           └── [conversationId]/page.tsx   [~ U3]
-│   ├── operator/                               [~ O1; layout F2/U1 composition]
+│   ├── operator/                               [~ O1; own header/content composition]
 │   │   ├── layout.tsx, page.tsx, operator.css
 │   │   ├── operations/{page,content}.tsx
 │   │   ├── traces/page.tsx
