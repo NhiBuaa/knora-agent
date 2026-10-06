@@ -165,6 +165,30 @@ themes/knora/email/messages/messages_en.properties.
 **Modify:** infra/keycloak/Dockerfile, scripts/configure-keycloak-auth-flow.ps1,
 test/fixtures/keycloak/dev-realm.json, docs/development/keycloak-theme.md;
 add isolated test SMTP/container configuration to the identity integration harness.
+Also modify themes/knora/login/messages/messages_en.properties and
+themes/knora/login/resources/css/knora.css for the owned OTP labels and layout.
+
+**Remaining source implementation while the physical database outage gate is blocked:**
+implement the unbound Authenticator/Factory, login/email templates and meaningful offline
+translation/rendering tests within the listed paths. Compile/package and inspect the production
+artifact without applying the reset flow, reloading the provider into live password recovery or
+performing real password changes. These tests are source evidence, not native acceptance.
+The blocked outage test must not be retried through an equivalent workaround.
+
+**Shared HMAC configuration:** obtain a Base64 secret of at least 32 bytes from Keycloak Vault
+using entry `knora-email-otp-hmac-` plus lowercase SHA-256 hex of the actual realm ID. The pinned
+file Vault provider prefixes physical entries using realm name; this does not constitute native
+realm-ID isolation. The application entry adds the ID namespace. Missing, malformed or
+unavailable keys fail closed before store/SMTP; no random, environment or plaintext fallback.
+Use request-local secret handling and close Vault values; do not claim complete JVM zeroization.
+All nodes and restarts use the same stable key. Hot rotation is unsupported because changing
+the key changes budget identities. Rotation requires disabling recovery on all nodes, draining
+all in-flight requests/SMTP, waiting a full 15-minute window plus transaction drain, then
+coordinating the replacement across all nodes before re-enabling. SMTP drain is not assumed
+bounded by the five-second JTA limit. No mixed-key rolling interval or fallback key ring.
+Document operator provisioning without editing daily Compose or production secrets. Future
+test-only Vault mounts may use the existing proof Compose/preparation paths after a separate
+runtime scope ruling; ordinary harness changes require an explicit path amendment.
 
 **Interface design:** the Authenticator delegates recovery policy to OtpChallengeService.
 The initial SingleUseObjectProvider anchored initializer was rejected by actual two-node
