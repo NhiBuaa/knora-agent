@@ -138,6 +138,32 @@ test.describe("isolated Figma Operator journeys", () => {
     await expect(page.getByRole("link", { name: /download/i })).toHaveCount(0);
     await captureIdentity(page, `${evidence}/O3-unavailable-live.png`);
 
+    const refreshed = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        response
+          .url()
+          .includes("/operator/evaluations/operator-no-persisted-report"),
+    );
+    await page.getByRole("button", { name: "Open report" }).click();
+    expect((await refreshed).ok()).toBe(true);
+    await expect(
+      page.getByRole("button", { name: "Open report" }),
+    ).toBeEnabled();
+    await expect(
+      page.getByRole("heading", { name: "Evaluation report unavailable" }),
+    ).toBeVisible();
+    await page
+      .getByRole("textbox", { name: "Report ID", exact: true })
+      .fill("operator-subsequent-report");
+    await page.getByRole("button", { name: "Open report" }).click();
+    await expect(
+      page.getByRole("region", { name: "Report context" }),
+    ).toContainText("operator-subsequent-report");
+    await expect(
+      page.getByRole("button", { name: "Open report" }),
+    ).toBeEnabled();
+
     const next = await workspace(
       page,
       `Next Operator workspace ${randomUUID()}`,

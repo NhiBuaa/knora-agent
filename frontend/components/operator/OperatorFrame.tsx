@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceSelector } from "@/components/workspaces/WorkspaceSelector";
@@ -88,12 +88,11 @@ export function OperatorLookup({
   const query = search.toString();
   const [value, setValue] = useState(identifier);
   const [target, setTarget] = useState(workspaceId ?? "");
-  const [pending, setPending] = useState(false);
+  const [pending, startNavigation] = useTransition();
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setValue(identifier);
     setTarget(workspaceId ?? "");
-    setPending(false);
     setError(null);
   }, [identifier, workspaceId, pathname, query]);
   const label = kind === "trace" ? "Trace ID" : "Report ID";
@@ -104,16 +103,21 @@ export function OperatorLookup({
       onSubmit={(event) => {
         event.preventDefault();
         if (!value.trim() || pending) return;
-        setPending(true);
         setError(null);
-        try {
-          router.push(
-            `/operator/${kind === "trace" ? "traces" : "evaluations"}/${encodeURIComponent(value.trim())}${target.trim() ? `?workspaceId=${encodeURIComponent(target.trim())}` : ""}`,
-          );
-        } catch {
-          setPending(false);
-          setError(`Unable to open ${kind}. Retry.`);
-        }
+        const destination = `/operator/${kind === "trace" ? "traces" : "evaluations"}/${encodeURIComponent(value.trim())}${target.trim() ? `?workspaceId=${encodeURIComponent(target.trim())}` : ""}`;
+        const [destinationPath, destinationQuery = ""] = destination.split("?");
+        startNavigation(() => {
+          try {
+            if (
+              destinationPath === pathname &&
+              new URLSearchParams(destinationQuery).toString() === query
+            )
+              router.refresh();
+            else router.push(destination);
+          } catch {
+            setError(`Unable to open ${kind}. Retry.`);
+          }
+        });
       }}
     >
       <label

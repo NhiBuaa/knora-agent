@@ -5,25 +5,33 @@ import {
   within,
   fireEvent,
   cleanup,
+  act,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OperatorTraceResponse } from "@/generated/knora-openapi";
 import { OperationsView } from "@/components/operator/OperationsView";
 import { TraceView } from "@/components/operator/TraceView";
 import { EvaluationView } from "@/components/operator/EvaluationView";
+import { OperatorLookup } from "@/components/operator/OperatorFrame";
 import TracesPage from "@/app/operator/traces/page";
 import EvaluationsPage from "@/app/operator/evaluations/page";
 
 const push = vi.fn();
+const refresh = vi.fn();
+let pathname = "/operator/traces";
+let searchQuery = "";
 vi.stubGlobal("React", React);
 afterEach(() => {
   cleanup();
   push.mockClear();
+  refresh.mockReset();
+  pathname = "/operator/traces";
+  searchQuery = "";
 });
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/operator/traces",
-  useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ push, refresh: vi.fn() }),
+  usePathname: () => pathname,
+  useSearchParams: () => new URLSearchParams(searchQuery),
+  useRouter: () => ({ push, refresh }),
   redirect: (url: string) => {
     throw new Error(url);
   },
@@ -71,6 +79,67 @@ const trace: OperatorTraceResponse = {
 };
 
 describe("Figma operator data surfaces", () => {
+  it.each([undefined, "ws /&"])(
+    "completes an unchanged unavailable report retry for scope %s and permits a subsequent lookup",
+    async (workspaceId) => {
+      pathname = "/operator/evaluations/report-1";
+      searchQuery = workspaceId
+        ? new URLSearchParams({ workspaceId }).toString()
+        : "";
+      let complete!: (value: string) => void;
+      let refreshedValue: string | null = null;
+      const refreshed = new Promise<string>((resolve) => {
+        complete = resolve;
+      }).then((value) => {
+        refreshedValue = value;
+        return value;
+      });
+      function Observation({ value }: { value: Promise<string> | null }) {
+        if (value && refreshedValue === null) throw value;
+        return <p role="status">{refreshedValue ?? "Report unavailable"}</p>;
+      }
+      function NavigationBoundary() {
+        const [observation, setObservation] =
+          React.useState<Promise<string> | null>(null);
+        refresh.mockImplementation(() => setObservation(refreshed));
+        return (
+          <>
+            <OperatorLookup
+              kind="report"
+              identifier="report-1"
+              workspaceId={workspaceId}
+            />
+            <React.Suspense fallback={<p>Loading observation</p>}>
+              <Observation value={observation} />
+            </React.Suspense>
+          </>
+        );
+      }
+      render(<NavigationBoundary />);
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Open report" }));
+      });
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(push).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", { name: "Opening report…" }),
+      ).toBeDisabled();
+      await act(async () => complete("Report remains unavailable"));
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Report remains unavailable",
+      );
+      expect(screen.getByRole("button", { name: "Open report" })).toBeEnabled();
+      const input = screen.getByRole("textbox", { name: "Report ID" });
+      expect(input).toBeEnabled();
+      fireEvent.change(input, { target: { value: "report-2" } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Open report" }));
+      });
+      expect(push).toHaveBeenCalledWith(
+        `/operator/evaluations/report-2${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`,
+      );
+    },
+  );
   it("formats measured millisecond precision for the columns and retains the raw values", () => {
     render(
       <TraceView
@@ -205,7 +274,7 @@ describe("Figma operator data surfaces", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
-  it("disables empty trace lookup, encodes exact identifiers, and exposes pending navigation", async () => {
+  it("disables empty trace lookup and encodes exact identifiers", async () => {
     render(
       await TracesPage({
         searchParams: Promise.resolve({ workspaceId: "ws /&" }),
@@ -220,9 +289,7 @@ describe("Figma operator data surfaces", () => {
     expect(push).toHaveBeenCalledWith(
       "/operator/traces/trace%20%2F%3F%26?workspaceId=ws%20%2F%26",
     );
-    expect(
-      screen.getByRole("button", { name: "Opening trace…" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open trace" })).toBeEnabled();
   });
   it("disables an empty report lookup", async () => {
     render(await EvaluationsPage({}));
