@@ -47,6 +47,13 @@ ProductHeader and WorkspaceSelector without editing them.
 - frontend/app/operator/evaluations/page.tsx, evaluations/[reportId]/page.tsx
 - frontend/lib/operator/presentation.ts
 
+**Create:** frontend/components/operator/OperatorFrame.tsx, an owned client composition with
+OperatorFrame({children, workspaceId, workspaceName}) and OperatorLookup({kind, identifier,
+workspaceId}). Reuse unchanged WorkspaceSelector, Button and safe known-subsection navigation;
+controlled lookup encodes identifiers and exposes disabled/loading state. ProductHeader and
+AccountMenu remain reviewed shared components. Update obsolete sidebar assertions to assert the
+actual accessible selector while preserving authorization/denied lookup tests.
+
 **Tests:** existing operator view/design/state/BFF tests under frontend/tests;
 new frontend/tests/operator/operator-figma.test.tsx;
 frontend/tests/e2e/m5-operator-flows.spec.ts.

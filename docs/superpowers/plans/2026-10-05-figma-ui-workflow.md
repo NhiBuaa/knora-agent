@@ -142,6 +142,7 @@ frontend/
 │   │   ├── CitationViewer.tsx                  [~ U3] facade hiện có
 │   │   └── EvidenceInspector.tsx               [+ U3] selected Turn evidence
 │   ├── operator/                               [~ O1]
+│   │   ├── OperatorFrame.tsx                    [+ O1] owned frame/lookup composition
 │   │   └── OperationsView.tsx, TraceView.tsx, EvaluationView.tsx,
 │   │       ToolObservationView.tsx
 │   └── tools/                                  [=] ToolLifecycle + CSS
