@@ -205,14 +205,22 @@ infra/keycloak/
         │   ├── OtpChallengeService.java
         │   ├── OtpChallengeStore.java
         │   └── KeycloakOtpChallengeStore.java
+        │   └── persistence/                    [+ I2] private Keycloak DB state
+        │       ├── OtpRecoveryWindowEntity.java
+        │       ├── OtpChallengeEntity.java
+        │       ├── OtpJpaEntityProvider.java
+        │       └── OtpJpaEntityProviderFactory.java
         ├── main/resources/META-INF/services/
         │   └── org.keycloak.authentication.AuthenticatorFactory
+        │   └── org.keycloak.connections.jpa.entityprovider.JpaEntityProviderFactory
+        ├── main/resources/META-INF/knora-otp-changelog.xml
         ├── test/probe/                         [+ I2] separate storage-proof classifier only
         │   ├── java/com/knora/keycloak/reset/probe/
         │   │   ├── StorageProbeResource.java
         │   │   └── StorageProbeResourceFactory.java
         │   └── resources/META-INF/services/
         │       └── org.keycloak.services.resource.RealmResourceProviderFactory
+        │   └── resources/META-INF/beans.xml      test classifier only
         └── test/java/com/knora/keycloak/reset/
             ├── OtpChallengeServiceTest.java
             ├── EmailOtpResetFlowIT.java

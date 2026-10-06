@@ -129,7 +129,14 @@ requesting-code-review and verification-before-completion.
 - src/test/java/com/knora/keycloak/reset/OtpChallengeConcurrencyIT.java
 - src/test/probe/java/com/knora/keycloak/reset/probe/StorageProbeResource.java
 - src/test/probe/java/com/knora/keycloak/reset/probe/StorageProbeResourceFactory.java
+- src/test/probe/resources/META-INF/beans.xml
 - src/test/probe/resources/META-INF/services/org.keycloak.services.resource.RealmResourceProviderFactory
+- src/main/java/com/knora/keycloak/reset/persistence/OtpRecoveryWindowEntity.java
+- src/main/java/com/knora/keycloak/reset/persistence/OtpChallengeEntity.java
+- src/main/java/com/knora/keycloak/reset/persistence/OtpJpaEntityProvider.java
+- src/main/java/com/knora/keycloak/reset/persistence/OtpJpaEntityProviderFactory.java
+- src/main/resources/META-INF/services/org.keycloak.connections.jpa.entityprovider.JpaEntityProviderFactory
+- src/main/resources/META-INF/knora-otp-changelog.xml
 
 **Create for storage proof only:** docker-compose.figma-otp-proof.yml,
 scripts/prepare-figma-otp-proof.ps1. The Maven storage-proof profile produces a separate
@@ -151,6 +158,22 @@ test/fixtures/keycloak/dev-realm.json, docs/development/keycloak-theme.md;
 add isolated test SMTP/container configuration to the identity integration harness.
 
 **Interface design:** the Authenticator delegates recovery policy to OtpChallengeService.
+The initial SingleUseObjectProvider anchored initializer was rejected by actual two-node
+expiry/stale-holder proof on 2026-10-06. Next prove a private relational adapter in Keycloak's
+own PostgreSQL database through the pinned custom JPA entity seam; no Knora database access.
+Keep the KeycloakOtpChallengeStore facade. The custom JPA API is unsupported and requires
+upgrade retesting. Use atomic initial-row admission, IP-before-account lock order, fresh database
+time after locks and exact generation checks. Preserve fixed 15-minute account/IP windows,
+five verification attempts, three account sends, twenty IP sends, 30-second cooldown and
+five-minute code expiry. Resend never resets the account verification budget.
+Prove bounded independent transactions in actual Quarkus/JTA, including suspension/restoration
+of the outer transaction and thread-local session. Commit budgets and digest-only challenge
+before SMTP. Failed/ambiguous delivery retains budgets; failed/ambiguous commit prevents mail
+and authentication. Generation-conditional follow-ups never recreate consumed/rotated state.
+First-row races, lock order/timeouts, caller rollback, commit visibility, crash/expiry, competing
+resend/verify and SMTP failure all require actual two-node proof before password integration.
+Relational proof may extend the existing test-only probe and concurrency test at their scoped
+paths. If runtime isolation cannot be proved, record the precise failure and revise the protocol.
 OtpChallengeStore owns atomic operations, not a public map of counters. Define immutable Java
 records for ChallengeScope(realmId, clientId, authSessionId, tabId, emailDigest),
 ChallengeReference(id, generation), and an enum VerifyOutcome

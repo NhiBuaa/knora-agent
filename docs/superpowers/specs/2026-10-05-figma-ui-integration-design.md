@@ -154,10 +154,20 @@ do not treat email reset OTP as an authenticator enrollment or remove an existin
 Enable registration/reset only in the intended realm through an idempotent configuration change.
 No destructive realm import, real-user password reset or live SMTP secret change during UI work.
 
-Proposed limits, subject to plan acceptance: six numeric digits; five-minute expiry; five failed
-attempts per challenge; 30-second resend cooldown shown in Figma; invalidate the previous code on
-resend; one successful consume. Enforce server-side, including cross-node concurrent requests.
+Accepted plan limits: six numeric digits; five-minute expiry; five verification attempts across
+sessions in a fixed 15-minute account recovery window; three sends per account window and twenty
+sends per IP window; 30-second resend cooldown shown in Figma; invalidate the previous code on
+resend; one successful consume. Resend does not replenish verification budget. Enforce server-side,
+including cross-node concurrent requests.
 Respond uniformly for unknown/disabled accounts and avoid account enumeration or OTP logging.
+
+Actual two-node proof rejected the initial expiring SingleUseObjectProvider anchor initializer:
+a stale holder can overwrite a replacement window. Use the existing I2 storage-revision seam to
+prove private relational state in Keycloak's own PostgreSQL database via pinned custom JPA
+entities. Keep storage details behind the typed store interface. The extension API is unsupported
+and requires retesting on upgrades. No password integration until transaction, budget, generation,
+expiry and delivery-failure invariants pass real two-node proof; diagnostic characterization alone
+is not acceptance. No Knora database or frontend credential store is introduced.
 
 Reset completion must not accidentally reuse an existing SSO session. The preferred small BFF
 extension permits only a fixed prompt=login option and creates a fresh state/nonce/PKCE transaction.
