@@ -18,6 +18,12 @@ test("AU1 native sign-in has the designed brand, fields and resource geometry", 
     page.getByRole("heading", { name: "Sign in to Knora", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Grounded answers,")).toBeVisible();
+  expect(await page.locator("#kc-page-title").boundingBox()).toMatchObject({
+    y: 175,
+  });
+  expect(await page.locator("#kc-form-login").boundingBox()).toMatchObject({
+    y: 269,
+  });
   await expect(page.locator("#username")).toHaveAttribute(
     "autocomplete",
     /username/,
@@ -43,6 +49,7 @@ test("AU1 native sign-in has the designed brand, fields and resource geometry", 
   });
   expect(await page.locator("#kc-login").boundingBox()).toMatchObject({
     x: 830,
+    y: 475,
     width: 420,
     height: 42,
   });
@@ -51,6 +58,14 @@ test("AU1 native sign-in has the designed brand, fields and resource geometry", 
     .boundingBox();
   expect(resetLink).not.toBeNull();
   expect(resetLink!.x + resetLink!.width).toBeCloseTo(1250, 0);
+  for (const [id, y] of [
+    ["username", 290],
+    ["password", 374],
+  ] as const) {
+    expect(
+      await page.locator(`.pf-v5-c-form-control:has(#${id})`).boundingBox(),
+    ).toMatchObject({ y });
+  }
   await captureIdentity(page, `${evidence}/AU1-live.png`);
 });
 
@@ -216,7 +231,24 @@ test("AU8 registration exposes exactly four approved native fields", async ({
   await expect(
     page.locator('input[name="firstName"], input[name="lastName"]'),
   ).toHaveCount(0);
+  for (const [id, y] of [
+    ["username", 308],
+    ["email", 392],
+    ["password", 476],
+    ["password-confirm", 560],
+  ] as const) {
+    expect(
+      await page.locator(`.pf-v5-c-form-control:has(#${id})`).boundingBox(),
+    ).toMatchObject({ y });
+  }
+  expect(await page.locator("#kc-submit").boundingBox()).toMatchObject({
+    y: 623,
+  });
+  expect(await page.locator("#kc-register-form").boundingBox()).toMatchObject({
+    y: 287,
+  });
   expect(await page.locator("#kc-page-title").boundingBox()).toMatchObject({
+    y: 175,
     width: 420,
     height: 40,
   });

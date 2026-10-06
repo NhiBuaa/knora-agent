@@ -57,7 +57,7 @@ foreach ($attribute in $profile.attributes) {
             if ($roles.Count -gt 0) { $attribute.required.roles = $roles }
             else { $attribute.PSObject.Properties.Remove('required') }
         }
-    } elseif ($attribute.name -notin 'username', 'email', 'locale' -and $attribute.required -and
+    } elseif ($attribute.name -notin 'username', 'email' -and $attribute.required -and
         ('user' -in @($attribute.required.roles) -or $attribute.required.scopes.Count -gt 0)) { $conflicts += $attribute.name }
 }
 if ($conflicts.Count -gt 0 -and $Mode -ne 'Rollback') {

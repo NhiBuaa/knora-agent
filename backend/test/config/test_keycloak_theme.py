@@ -154,20 +154,51 @@ def test_profile_diff_reports_required_custom_attributes(tmp_path: Path, require
     assert "KEYCLOAK_REQUIRED_CUSTOM_ATTRIBUTE_CONFLICT" in result.stderr
 
 
-def _profile_diff(tmp_path: Path, profile: dict) -> subprocess.CompletedProcess:
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+@pytest.mark.parametrize("required", [{"roles": ["user"]}, {"scopes": ["profile"]}])
+@pytest.mark.parametrize("mode", ["Diff", "Apply"])
+def test_profile_rejects_unsubmittable_required_locale_before_mutation(
+    tmp_path: Path, required: dict, mode: str
+) -> None:
+    result = _profile_diff(
+        tmp_path, {"attributes": [{"name": "locale", "required": required}]}, mode=mode
+    )
+    assert result.returncode != 0
+    assert "locale" in result.stdout
+    assert "KEYCLOAK_REQUIRED_CUSTOM_ATTRIBUTE_CONFLICT" in result.stderr
+    assert "UNEXPECTED_PROFILE_MUTATION" not in result.stderr
+    assert not (tmp_path / "snapshot.json").exists()
+    assert (tmp_path / "snapshot.json.put-count").read_text().strip() == "0"
+
+
+def _profile_diff(tmp_path: Path, profile: dict, mode: str = "Diff") -> subprocess.CompletedProcess:
     fixture = tmp_path / "profile.json"
     fixture.write_text(json.dumps(profile))
     wrapper = tmp_path / "diff.ps1"
     wrapper.write_text("""
-param($ProfilePath, $ScriptPath)
+param($ProfilePath, $ScriptPath, $Mode, $SnapshotPath)
 $profileFixture = Get-Content -Raw -LiteralPath $ProfilePath | ConvertFrom-Json
+$global:putCount = 0
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'ps') { return 'fixture-container' }
+    return '[{"NetworkSettings":{"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1","HostPort":"8180"}]}}}]'
+}
 function Invoke-RestMethod {
     param($Method, $Uri, $Headers, $ContentType, $Body)
     if ($Method -eq 'Post') { return @{ access_token = 'test-only' } }
+    if ($Method -eq 'Put') { $global:putCount++; throw 'UNEXPECTED_PROFILE_MUTATION' }
     if ($Uri.EndsWith('/users/profile')) { return $profileFixture }
-    return [pscustomobject]@{ realm = 'knora-dev'; verifyEmail = $true }
+    return [pscustomobject]@{
+        realm = 'knora-dev'; verifyEmail = $true; internationalizationEnabled = $false
+    }
 }
-& $ScriptPath -Mode Diff -AdminUsername 'test-only' -AdminPassword 'test-only'
+try {
+    $credentials = @{AdminUsername='test-only';AdminPassword='test-only'}
+    & $ScriptPath -Mode $Mode @credentials -SnapshotPath $SnapshotPath
+} finally {
+    $global:putCount | Set-Content -LiteralPath "$SnapshotPath.put-count"
+}
 """)
     return subprocess.run(
         [
@@ -177,6 +208,8 @@ function Invoke-RestMethod {
             str(wrapper),
             str(fixture),
             str(ROOT / "scripts/configure-keycloak-auth-flow.ps1"),
+            mode,
+            str(tmp_path / "snapshot.json"),
         ],
         capture_output=True,
         text=True,

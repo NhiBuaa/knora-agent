@@ -132,7 +132,7 @@ body:has(.knora-auth) .pf-v5-c-login__main {
   max-width: calc(100vw - 48px);
   margin: 0;
   margin-left: calc(43.05556% + (56.94444% - 420px) / 2 + 10px);
-  padding: 174px 0 80px;
+  padding: 175px 0 80px;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -274,7 +274,19 @@ body:has(.knora-auth) .pf-v5-c-login__main-header {
 }
 
 .knora-auth .pf-v5-c-form__group-label {
-  padding: 0 0 8px;
+  padding: 0 0 8px !important;
+  font: 600 11px/13px Inter, sans-serif;
+}
+
+/* Native password helpers render even without items; only empty helper space is removed. */
+.knora-auth .pf-v5-c-form__helper-text:not(:has(.pf-v5-c-helper-text__item)) {
+  display: none;
+}
+
+/* AU1 reset action is a separate 20px row after the 66px password field. */
+.knora-auth #kc-form-login .pf-v5-c-form__helper-text:has(a[href*="reset-credentials"]) .pf-v5-c-helper-text {
+  margin-top: 23px;
+  min-height: 20px;
 }
 
 .knora-auth .pf-v5-c-form__label {
