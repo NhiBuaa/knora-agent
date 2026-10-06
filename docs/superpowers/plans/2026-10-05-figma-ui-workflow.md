@@ -90,6 +90,7 @@ frontend/
 │   │           ├── page.tsx                    [~ U3]
 │   │           └── [conversationId]/page.tsx   [~ U3]
 │   ├── operator/                               [~ O1; own header/content composition]
+│   │   └── tests use frontend/tests/e2e/figma-operator.spec.ts [+ O1] isolated harness
 │   │   ├── layout.tsx, page.tsx, operator.css
 │   │   ├── operations/{page,content}.tsx
 │   │   ├── traces/page.tsx
