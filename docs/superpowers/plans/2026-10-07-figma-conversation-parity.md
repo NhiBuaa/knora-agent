@@ -43,10 +43,11 @@ but its bottom Workspace restore action is absent.
 | --- | --- |
 | `frontend/components/conversations/ConversationView.tsx` | Turn selection, restore orchestration and current authoritative props |
 | `frontend/components/conversations/ConversationComposer.tsx` | Bottom archived state and correct restore control |
+| `frontend/components/conversations/ConversationPanels.tsx` | ConversationHub list-route archived Workspace composition |
 | `frontend/app/workspaces/[workspaceId]/conversations/page.tsx` and `[conversationId]/page.tsx` | Server-authorized Workspace and Conversation projections |
 | `frontend/components/workspaces/ArchiveWorkspaceDialog.tsx` | Existing `resolveWorkspaceAfterMutation(hint)`; consume unchanged |
 | `frontend/tests/conversation-panels.test.tsx` | Selection, focus, mutation and archived-state regressions |
-| `frontend/tests/auth-figma-integration.test.tsx` | Existing route composition/authorized Workspace projection regression |
+| `frontend/tests/conversation-page-workspace.test.tsx` (create) | Node/server route composition and authorized Workspace projection regression |
 | `frontend/tests/e2e/support/figma-fixture-view.tsx`, `figma-state-fixtures.ts` | Actual module composition with deterministic test-only data |
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Focused fixture interaction and owned live verification |
 | `docs/development/figma-ui-visual-coverage.md` | Updated evidence and remaining gaps |
@@ -63,6 +64,12 @@ verification-before-completion, requesting-code-review.
 
 **Modify:** the exact Conversation component/route/test/fixture/coverage files in the table above.
 Do not modify ArchiveWorkspaceDialog.tsx or backend/generated files; consume its existing seam.
+Create the focused route test above using existing documents-page-workspace.test.tsx as the
+node/server composition pattern. The existing auth-figma-integration.test.tsx tests public auth
+and account controls only; leave it unchanged. The list route renders ConversationHub rather
+than ConversationView, so optional validated revision and the bottom Workspace restore state
+must also reach that composition. Reuse one focused Workspace restore control in the existing
+ConversationComposer.tsx for hub/detail; do not duplicate request/resolver orchestration.
 
 **Consumes:** `EvidenceSelection { turnId, citationIndex }`, validated Workspace revision from
 `WorkspaceResponse`, `browserRequest`, and `resolveWorkspaceAfterMutation(workspaceId)`.
