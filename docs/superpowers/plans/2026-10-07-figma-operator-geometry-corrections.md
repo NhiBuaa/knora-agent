@@ -15,7 +15,8 @@ metrics, candidate provenance, routing and all existing feature actions retain t
 - Preserve all current actions, safe navigation, historical provenance and missing-data semantics.
 - Never substitute illustrative Figma values for runtime data or invent report quality scores.
 - Full MCP structures supply source geometry; PNG comparison verifies actual composition.
-- Reuse existing local assets at their intrinsic dimensions; no downloads or SVG editing.
+- Reuse existing local assets at their intrinsic dimensions; only download the exact missing
+  bab86.svg through the mechanism permitted by Figma MCP response guidance. No SVG editing.
 - Use semantic tokens and preserve accessibility contrast, focus, responsive text fit and keyboard use.
 - No generated API edits, backend/schema/client/dependency additions or production fixture routes.
 - Run frontend format then format:check; no services/workers/realm/password/Vault/deletion/outage
@@ -31,6 +32,7 @@ metrics, candidate provenance, routing and all existing feature actions retain t
 | `frontend/components/operator/OperationsView.tsx` | Runtime signal band source108px inclusive borders |
 | `frontend/components/operator/TraceView.tsx` | Detail column and answer measure geometry |
 | `frontend/components/operator/EvaluationView.tsx` | Local unavailable badge source rectangle geometry |
+| Create `frontend/public/icons/figma/bab86.svg` | Exact trace/evaluation caret asset supplied by MCP, intrinsic geometry preserved |
 | `frontend/tests/operator/operator-figma.test.tsx` | Presentation variant/lookup/detail behavior regressions |
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Focused actual-component desktop geometry RED/GREEN/mobile preservation |
 | `docs/development/figma-ui-visual-coverage.md` | Correct addressed geometry statuses, preserve remaining gaps |
@@ -50,7 +52,8 @@ verification-before-completion, requesting-code-review.
 - [ ] Add browser RED assertions for source selector26px height, closed caret asset a4e11 and
   its actual intrinsic root geometry in source10×6wrapper; lookup field34px and buttons36px,
   trace button104wide/report124wide; runtime band108px including borders; trace left780/right380
-  gap40 and answer measure630px; unavailable badge92×28 with4px radius. Assert existing source
+  gap40 and answer measure630px; unavailable badge92×28 with8px radius. Trace/evaluation caret
+  uses exactbab86 in10×5slot with source negative inset (effective11.4×6.4). Assert existing source
   state copy/provenance and no overflow alongside geometry. Record actual failed measurements.
 - [ ] Add actual component checks that the optional selector variant is consumed only by Operator
   and default consumers retain their established selector markup/asset/action behavior. Existing
@@ -66,8 +69,11 @@ type WorkspaceSelectorProps = {
 };
 ```
 
-- [ ] Default presentation stays unchanged. Operator closed caret uses existing exact a4e11 asset
-  in source wrapper, no SVGroot width/height override; open-state current behavior remains usable.
+- [ ] Default presentation stays unchanged. Operations closed caret uses existing exact a4e11 asset
+  in10×6source wrapper; trace/evaluation use exactbab86 supplied by MCP in their10×5source slot,
+  preserving source negative inset and intrinsic SVGroot size. Parameterize only presentation
+  choices; never infer authorization from route/variant. No SVGroot width/height override;
+  open-state current behavior remains usable.
   Keep name truncation/mobile fit and archive/restore/create/selection routing authority intact.
 - [ ] Set lookup input34px and specific button width/min-height36px in OperatorLookup, overriding
   inherited primitive40px locally. Long pending text may grow; do not clip it to force source size.
@@ -77,7 +83,7 @@ type WorkspaceSelectorProps = {
   answer/provenance/candidate text, extra metadata disclosures, timing/validation availability and
   no fixed candidate height that truncates dynamic excerpts. Recorded source102px candidate versus
   actual dynamic131.375px is not permission to clip or delete provenance.
-- [ ] Set only EvaluationView's unavailable badge to source92×28 rectangular4px style, preserving
+- [ ] Set only EvaluationView's unavailable badge to source92×28 rectangular8px style, preserving
   semantic role/text/tone and genuine other observation states. Keep opaque IDs fully readable,
   allowing wrapping instead of replacing them with illustrative names/codes.
 - [ ] Run focused component tests GREEN and affected actual fixture geometry GREEN at1440/390.
