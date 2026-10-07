@@ -6,8 +6,8 @@ design. This is a continuity and evidence record, not Q1/Q2 or full-product acce
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Evaluation `6ff260d`.
-Operations content measures are executing from original BASE `6ff260d` after Evaluation review.
+Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Operations `81ff9e9`.
+Evaluation and Operations relative content measures are implemented and independently approved.
 No merge, push, deployment, branch disposition or worktree removal has occurred.
 
 The stack includes Next.js15.5.24, React18.3.1, TypeScript and Tailwind CSS v4, with local fonts,
@@ -33,6 +33,7 @@ its bounded scope; it does not promote fixture checks to native/live backend acc
 | `d57a588` | Operator Workspace label and local rectangular Trace badges | 63 relevant unit tests and five browser cases; spec PASS / quality APPROVED |
 | `bbf1cc1` | Trace summary, candidate inner widths and context text regions | 32 component tests, focused Trace case and five Operator cases; spec PASS / quality APPROVED |
 | `6ff260d` | Evaluation explanation minimum and context text regions/row flow | 36 component tests, focused Evaluation case and five Operator cases; spec PASS / quality APPROVED |
+| `81ff9e9` | Operations accounting/bucket allocations, value slots and Alerts text regions | 46 component tests; four Operator cases passed and Operations passed after asset-readiness recovery; spec PASS / quality APPROVED |
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
@@ -82,12 +83,10 @@ Detailed root logs and exit files are preserved at
 in the respective ignored SDD directories. Geometry task preserved239 unrelated artifact hashes
 with zero drift; its five affected comparison captures were updated deliberately.
 
-## Remaining acceptance work
-
-### October 8 frontend qualification
+## October 8 frontend qualification
 
 Fresh whole-frontend verification ran against source `81ff9e9`, including the independently
-approved typography, Trace and Evaluation follow-ups and the Operations task awaiting review.
+approved typography, Trace, Evaluation and Operations follow-ups.
 Vitest passed 366 tests across 44 files in49.76s, exit0. Production build first failed after
 compile/type checking/static generation at an ENOENT rename of generated `500.html`; the
 destination file already existed after failure. A sequential build with no source changes or
@@ -97,9 +96,11 @@ Both build logs, diagnosis and exit records are retained in the excluded `regres
 directory. This fresh frontend evidence does not qualify native identity or replace the earlier
 backend/Maven acceptance limits.
 
+## Remaining acceptance work
+
 - Operator label typography, Trace badges and relative Trace content measures are independently
-  approved. Evaluation content measures are independently approved; Operations accounting/bucket/Alerts
-  measures are executing. Page coordinates, natural row growth, theme differences and supported extra
+  approved. Evaluation content measures and Operations accounting/bucket/Alerts measures are also
+  independently approved. Page coordinates, natural row growth, theme differences and supported extra
   controls remain explicitly measured. Comparison test success does not imply whole-page parity.
 - [Visual coverage](figma-ui-visual-coverage.md) remains partial: original51 screen/panel/response
   mappings and89 prototype edge classifications retain per-edge unexercised paths and deviations.
