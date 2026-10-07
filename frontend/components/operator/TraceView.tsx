@@ -123,7 +123,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             aria-labelledby="observed-result-heading"
             className="m-0 border-0 bg-transparent p-0"
           >
-            <div className="flex max-w-[760px] flex-wrap items-center justify-between gap-3">
+            <div className="flex max-w-[760px] flex-wrap items-start justify-between gap-3">
               <h2 id="observed-result-heading" className={heading}>
                 Observed result
               </h2>
@@ -146,19 +146,19 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                 Refusal: {trace.refusal_reason}
               </p>
             )}
-            <p className="mt-2 mb-0 max-w-[630px] text-sm leading-5">
+            <p className="mt-1.5 mb-0 max-w-[630px] text-sm leading-5">
               {trace.answer ??
                 (trace.refusal_reason
                   ? "No answer was returned."
                   : "Answer unavailable in this trace.")}
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+            <div className="mt-2 flex min-h-6 flex-wrap items-center gap-2 text-xs leading-4 text-text-muted">
               <span>Citations</span>
               {trace.parsed_markers.length ? (
                 trace.parsed_markers.map((marker) => (
                   <span
                     key={marker}
-                    className="rounded-full border border-border bg-surface-subtle px-2 py-0.5"
+                    className="flex min-h-[22px] min-w-[38px] items-center justify-center rounded-full border border-border bg-surface-subtle px-2 font-medium"
                   >
                     {marker}
                   </span>
@@ -170,7 +170,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
           </section>
           <section
             aria-labelledby="candidate-heading"
-            className="mt-6 mb-0 border-0 bg-transparent p-0"
+            className="mt-5 mb-0 border-0 bg-transparent p-0"
           >
             <h2 id="candidate-heading" className={heading}>
               Candidate provenance
@@ -182,14 +182,14 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             {trace.candidates.length === 0 && (
               <p className="mt-4 text-sm">No candidates in this trace.</p>
             )}
-            <ol className="m-0 list-none p-0">
+            <ol className="mt-4 mb-0 grid list-none gap-2 p-0">
               {trace.candidates.map((candidate) => (
                 <li
                   key={candidate.chunk_id}
-                  className="m-0 max-w-[760px] border-b border-border py-4"
+                  className="m-0 min-h-[102px] max-w-[760px] border-b border-border pt-1 pb-[21px]"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <strong className="min-w-0 max-w-[420px] text-[15px] font-semibold [overflow-wrap:anywhere]">
+                  <div className="flex min-h-7 flex-wrap items-start justify-between gap-3">
+                    <strong className="mt-[3px] min-w-0 max-w-[420px] text-[15px] leading-5 font-semibold [overflow-wrap:anywhere]">
                       {candidate.source_key}
                     </strong>
                     <StatusBadge
@@ -207,7 +207,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                       {candidate.final_decision}
                     </StatusBadge>
                   </div>
-                  <p className="mt-1 mb-0 text-xs leading-4 text-text-muted [overflow-wrap:anywhere]">
+                  <p className="mt-px mb-0 min-h-[17px] text-xs leading-4 text-text-muted [overflow-wrap:anywhere]">
                     Chunk {candidate.chunk_ordinal} ·{" "}
                     <span>
                       Lines {candidate.start_line}-{candidate.end_line}
@@ -215,10 +215,10 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                     · Rank {candidate.final_rank} · Fusion{" "}
                     {presentMetric(candidate.fusion_score).value}
                   </p>
-                  <p className="mt-3 mb-0 text-[13px] leading-[18px] [overflow-wrap:anywhere]">
+                  <p className="mt-2.5 mb-0 min-h-5 max-w-[610px] text-[13px] leading-[18px] [overflow-wrap:anywhere]">
                     {candidate.content}
                   </p>
-                  <details className="mt-2 text-xs text-text-muted">
+                  <details className="mt-2 text-xs leading-[18px] text-text-muted">
                     <summary>Retrieval details</summary>
                     <dl className="m-0 block">
                       <ContextRow label="Chunk ID">

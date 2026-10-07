@@ -1,4 +1,5 @@
 import React from "react";
+import userEvent from "@testing-library/user-event";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { EvaluationView } from "../../components/operator/EvaluationView";
@@ -121,35 +122,50 @@ describe("operator views", () => {
     expect(screen.getByText("Backend recorded approval")).toBeInTheDocument();
   });
 
-  it("keeps candidate source locator and measured zero distinct from missing metadata", () => {
+  it("keeps full candidate evidence and both retrieval branches inspectable", async () => {
+    const user = userEvent.setup();
     render(
       <TraceView
         trace={{
-          alias_mapping: { E1: "chunk-1" },
+          alias_mapping: {
+            E1: "chunk-1-full-persisted-identity-01234567890123456789",
+          },
           branch_observation_schema_version: 1,
           branch_observations: [],
-          candidate_decisions: [{ chunk_id: "chunk-1", reason: "SELECTED" }],
+          candidate_decisions: [
+            {
+              chunk_id: "chunk-1-full-persisted-identity-01234567890123456789",
+              reason: "SELECTED",
+            },
+          ],
           candidates: [
             {
-              chunk_id: "chunk-1",
+              chunk_id: "chunk-1-full-persisted-identity-01234567890123456789",
               chunk_ordinal: 2,
               chunk_set_id: "set-1",
-              content: "Evidence text",
-              document_version_id: "version-1",
+              content:
+                "Evidence text with the full passage retained through its final sentence.",
+              document_version_id:
+                "version-1-full-persisted-identity-01234567890123456789",
               end_line: 9,
               final_decision: "SELECTED",
               final_rank: 1,
               fusion_score: 0,
-              source_key: "manual.pdf",
+              source_key:
+                "manual-with-a-complete-long-source-identity-01234567890123456789.pdf",
               start_line: 7,
               workspace_id: "ws-1",
+              decision_reason: "Both branches selected this evidence",
+              vector_contribution: { rank: 1, score: 0, status: "ELIGIBLE" },
+              fts_contribution: { rank: 2, score: 0.72, status: "ELIGIBLE" },
             },
           ],
           chunk_set_ids: ["set-1"],
           decision: "answer",
           embedding_configuration_id: "embed-v1",
           embedding_set_ids: [],
-          parsed_markers: ["E1"],
+          answer: "The complete backend answer remains available.",
+          parsed_markers: ["E1", "E2", "E123456789"],
           provider_metadata: {
             generation: {
               cost: {
@@ -176,11 +192,40 @@ describe("operator views", () => {
     expect(
       within(
         screen.getByRole("region", { name: "Candidate provenance" }),
-      ).getByText("manual.pdf"),
+      ).getByText(
+        "manual-with-a-complete-long-source-identity-01234567890123456789.pdf",
+      ),
     ).toBeInTheDocument();
     expect(screen.getAllByText("0 ms").length).toBeGreaterThan(0);
     expect(screen.getByText("Lines 7-9")).toBeInTheDocument();
-    expect(screen.getByText("Evidence text")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Evidence text with the full passage retained through its final sentence.",
+      ),
+    ).toBeInTheDocument();
+    const result = within(
+      screen.getByRole("region", { name: "Observed result" }),
+    );
+    expect(
+      result.getByText("The complete backend answer remains available."),
+    ).toBeVisible();
+    for (const marker of ["E1", "E2", "E123456789"])
+      expect(result.getByText(marker, { exact: true })).toBeVisible();
+    const disclosure = screen
+      .getByText("Retrieval details")
+      .closest("details")!;
+    await user.click(within(disclosure).getByText("Retrieval details"));
+    expect(disclosure).toHaveAttribute("open");
+    const evidence = within(disclosure);
+    for (const value of [
+      "chunk-1-full-persisted-identity-01234567890123456789",
+      "version-1-full-persisted-identity-01234567890123456789",
+      "set-1",
+      "Both branches selected this evidence",
+      '{"rank":1,"score":0,"status":"ELIGIBLE"}',
+      '{"rank":2,"score":0.72,"status":"ELIGIBLE"}',
+    ])
+      expect(evidence.getByText(value, { exact: true })).toBeVisible();
     expect(
       within(screen.getByRole("region", { name: "Observed result" }))
         .getByText("ANSWER")
@@ -197,7 +242,61 @@ describe("operator views", () => {
       ).getByText("E1"),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("chunk-1", { selector: "dd code" }).length,
+      screen.getAllByText(
+        "chunk-1-full-persisted-identity-01234567890123456789",
+        { selector: "dd code" },
+      ).length,
     ).toBeGreaterThan(0);
   });
+
+  it.each([
+    {
+      decision: "REFUSAL",
+      refusal: "INSUFFICIENT_EVIDENCE",
+      answer: "No answer was returned.",
+    },
+    {
+      decision: "ANSWER",
+      refusal: null,
+      answer: "Answer unavailable in this trace.",
+    },
+  ])(
+    "retains $decision missing-answer semantics with empty evidence",
+    ({ decision, refusal, answer }) => {
+      render(
+        <TraceView
+          trace={{
+            alias_mapping: {},
+            branch_observation_schema_version: 1,
+            branch_observations: [],
+            candidate_decisions: [],
+            candidates: [],
+            chunk_set_ids: [],
+            decision,
+            embedding_configuration_id: "embed-v1",
+            embedding_set_ids: [],
+            parsed_markers: [],
+            provider_metadata: {},
+            retrieval_configuration_id: "retrieval-v1",
+            retrieval_latency_ms: 0,
+            trace_id: "trace-1",
+            trace_schema_version: 2,
+            validation_outcome: "unavailable",
+            workspace_id: "ws-1",
+            refusal_reason: refusal,
+          }}
+        />,
+      );
+      const result = within(
+        screen.getByRole("region", { name: "Observed result" }),
+      );
+      expect(result.getByText(answer)).toBeVisible();
+      expect(result.getByText("Unavailable")).toBeVisible();
+      expect(screen.getByText("No candidates in this trace.")).toBeVisible();
+      if (refusal)
+        expect(result.getByRole("status")).toHaveTextContent(
+          `Refusal: ${refusal}`,
+        );
+    },
+  );
 });

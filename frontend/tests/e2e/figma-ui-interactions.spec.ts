@@ -192,6 +192,15 @@ async function operatorSourceGeometry(
     const signals = main.querySelector(
       'dl[aria-label="Trace summary signals"]',
     );
+    const result = main.querySelector(
+      'section[aria-labelledby="observed-result-heading"]',
+    );
+    const resultSlot = (element: Element) => ({
+      ...word(element),
+      top:
+        element.getBoundingClientRect().y - result!.getBoundingClientRect().y,
+      lineHeight: getComputedStyle(element).lineHeight,
+    });
     const traceContent = signals && {
       summary: box(signals),
       signals: Array.from(signals.children).map((cell) => {
@@ -222,18 +231,48 @@ async function operatorSourceGeometry(
       explanation: box(
         main.querySelector('section[aria-labelledby="candidate-heading"] > p')!,
       ),
+      resultHeading: resultSlot(result!.querySelector("h2")!),
+      answer: resultSlot(answer!),
+      citations: {
+        ...resultSlot(result!.lastElementChild!),
+        markers: Array.from(result!.lastElementChild!.children)
+          .slice(1)
+          .map(word),
+      },
+      provenanceHeading: resultSlot(main.querySelector("#candidate-heading")!),
+      description: resultSlot(
+        main.querySelector('section[aria-labelledby="candidate-heading"] > p')!,
+      ),
+      list: resultSlot(
+        main.querySelector(
+          'section[aria-labelledby="candidate-heading"] > ol',
+        )!,
+      ),
       candidates: Array.from(
         main.querySelectorAll(
           'section[aria-labelledby="candidate-heading"] > ol > li',
         ),
-      ).map((candidate) => ({
-        ...box(candidate),
-        name: {
-          ...box(candidate.querySelector("strong")!),
-          maxWidth: getComputedStyle(candidate.querySelector("strong")!)
-            .maxWidth,
-        },
-      })),
+      ).map((candidate) => {
+        const slot = (element: Element) => ({
+          ...word(element),
+          top:
+            element.getBoundingClientRect().y -
+            candidate.getBoundingClientRect().y,
+          lineHeight: getComputedStyle(element).lineHeight,
+          maxWidth: getComputedStyle(element).maxWidth,
+        });
+        return {
+          ...box(candidate),
+          top:
+            candidate.getBoundingClientRect().y -
+            result!.getBoundingClientRect().y,
+          name: slot(candidate.querySelector("strong")!),
+          badge: slot(candidate.querySelector(".kn-status-badge")!),
+          metadata: slot(candidate.querySelector(":scope > p")!),
+          excerpt: slot(candidate.querySelector(":scope > p:last-of-type")!),
+          disclosure: slot(candidate.querySelector("summary")!),
+        };
+      }),
       contextRows: Array.from(
         main.querySelectorAll(
           'section[aria-labelledby="trace-context-heading"] dl > div',
@@ -551,6 +590,36 @@ async function operatorSourceGeometry(
   }
   if (geometry.traceContent) {
     const content = geometry.traceContent;
+    for (const region of [content.answer, content.description]) {
+      expect.soft(region.fits).toBe(true);
+      expect.soft(region.textFitsParent).toBe(true);
+    }
+    for (const candidate of content.candidates) {
+      for (const slot of [
+        candidate.name,
+        candidate.metadata,
+        candidate.excerpt,
+        candidate.disclosure,
+      ]) {
+        expect.soft(slot.fits).toBe(true);
+        expect.soft(slot.textFitsParent).toBe(true);
+      }
+      expect.soft(candidate.height).toBeGreaterThanOrEqual(128);
+      expect
+        .soft(
+          candidate.disclosure.top -
+            candidate.excerpt.top -
+            candidate.excerpt.height,
+        )
+        .toBe(8);
+      expect.soft(candidate.disclosure.lineHeight).toBe("18px");
+    }
+    for (let index = 1; index < content.candidates.length; index++) {
+      const previous = content.candidates[index - 1];
+      expect
+        .soft(content.candidates[index].y - previous.y - previous.height)
+        .toBe(8);
+    }
     for (const signal of content.signals) {
       expect.soft(signal.minHeight).toBe("82px");
       expect
@@ -583,6 +652,46 @@ async function operatorSourceGeometry(
       });
     }
     if (width === 1440) {
+      expect.soft(content.resultHeading).toMatchObject({ top: 0, height: 24 });
+      expect.soft(geometry.traceBadges[0].y - content.resultRow.y).toBe(0);
+      expect
+        .soft(content.answer)
+        .toMatchObject({ top: 34, height: 40, width: 630, lineHeight: "20px" });
+      expect
+        .soft(content.citations)
+        .toMatchObject({ top: 82, height: 24, lineHeight: "16px" });
+      for (const marker of content.citations.markers) {
+        expect.soft(marker.height).toBe(22);
+        expect.soft(marker.width).toBeGreaterThanOrEqual(38);
+      }
+      expect
+        .soft(content.provenanceHeading)
+        .toMatchObject({ top: 126, height: 24 });
+      expect.soft(content.description).toMatchObject({ top: 156, height: 18 });
+      expect.soft(content.list.top).toBe(190);
+      expect.soft(content.candidates[0].top).toBe(190);
+      for (const candidate of content.candidates) {
+        // Retained disclosure adds 26px to the source's 102px clipped row.
+        expect.soft(candidate.height).toBe(128);
+        expect
+          .soft(candidate.name)
+          .toMatchObject({ top: 7, height: 20, maxWidth: "420px" });
+        expect
+          .soft(candidate.badge)
+          .toMatchObject({ top: 4, height: 28, width: 150 });
+        expect
+          .soft(candidate.metadata)
+          .toMatchObject({ top: 33, height: 17, lineHeight: "16px" });
+        expect.soft(candidate.excerpt).toMatchObject({
+          top: 60,
+          height: 20,
+          maxWidth: "610px",
+          lineHeight: "18px",
+        });
+        expect
+          .soft(candidate.disclosure)
+          .toMatchObject({ top: 88, height: 18 });
+      }
       expect
         .soft(
           content.summary.height,
@@ -1728,6 +1837,30 @@ test.describe("source fixtures", () => {
                 ? JSON.stringify(candidate.fts_contribution)
                 : "Unavailable",
             ]);
+            for (const value of await details.locator("dd").all())
+              await expect(value).toBeVisible();
+            const collapsedHeight =
+              sourceGeometry.traceContent!.candidates[index].height;
+            const expandedHeight = await details
+              .locator("..")
+              .evaluate(
+                (candidate) => candidate.getBoundingClientRect().height,
+              );
+            expect(expandedHeight).toBeGreaterThan(collapsedHeight);
+            const artifact = `${evidence}-geometry.json`;
+            const captured = JSON.parse(fs.readFileSync(artifact, "utf8"));
+            captured.disclosureGrowth ??= [];
+            captured.disclosureGrowth.push({
+              index,
+              collapsedHeight,
+              expandedHeight,
+            });
+            fs.writeFileSync(artifact, JSON.stringify(captured, null, 2));
+            await details.locator("summary").focus();
+            await page.keyboard.press("Enter");
+            await expect(details).not.toHaveAttribute("open", "");
+            await page.keyboard.press("Enter");
+            await expect(details).toHaveAttribute("open", "");
           }
           for (const heading of [
             "Additional provenance",
