@@ -65,10 +65,13 @@ verification-before-completion, requesting-code-review.
   a43px nav including border equals42px source nav. Natural responsive content may increase height.
   Use an aria-hidden decorative divider; preserve nav accessible name and active state.
 - [ ] Tabs source offsets0/104/182 with28px gaps and widths76/50/82,27px height at7.5px below navtop.
-  Source label17px region top5 inside tab; active2px underline at25,3px after label end. Use existing
-  Link elements and explicit minimum widths/27px minimum with17px line, top5/padding-bottom3 and
-  border2; active underline visible and inactive transparent. Retain source font-medium inactive,
-  semibold active; no stronger width clamp that clips enlarged/translated text. Desktop min slots
+  Source trace/Operations label17px region top5 inside tab; active2px underline at25,3px after label
+  end. Evaluation nodes216:726/728/730 and783/785/787 instead allocate20px labels,400 inactive and
+  500 active. Preserve that explicit source variant:20px line, top5/no bottom gap plus border2.
+  Use existing Link elements and explicit minimum widths/27px minimum; trace/Operations17px line,
+  top5/padding-bottom3 and border2. Active underline visible and inactive transparent. Retain
+  trace/Operations500 inactive/600 active, Evaluation400 inactive/500 active. No stronger width
+  clamp that clips enlarged/translated text. Desktop min slots
   establish source offsets for supplied labels; mobile accessible links remain keyboard reachable.
 - [ ] Lookup source top211 relative content; divider bottom194→17px gap. Use17px local form gap.
   Label13px region then5px gap gives field/button top229. Input34 vs button36 should top-align,
