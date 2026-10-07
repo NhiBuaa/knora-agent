@@ -154,7 +154,13 @@ and keeps generic server-rejected read-only copy. Desktop button151×34, inner74
 were verified; mobile grows naturally without clipping. Loaded Inter required7px rather than source
 12px button padding; this measured adaptation and semantic color differences are disclosed.
 Focused64 component checks and3 browser cases passed; format/check/typecheck exit0 in order.
-All285 earlier artifacts remain unchanged, with10 A9 additions. Independent task review is pending.
+All285 earlier artifacts remain unchanged, with10 A9 additions. Independent review identified
+missing collapsed composition evidence. Test-only fix `cd3fb99` adds genuine desktop/mobile
+collapsed captures using existing rail/evidence controls; both focused cases passed, with clean
+color environment output. All295 pre-fix artifacts remain unchanged; four captures/JSONs were added.
+Format/check/typecheck passed again in order. Scoped independent re-review returned Spec PASS /
+Quality Approved, no new findings. No production source changed after the full frontend run.
+The deferred static reset countdown-clock finding remains for a later test edit/final review.
 
 ## Remaining acceptance work
 
