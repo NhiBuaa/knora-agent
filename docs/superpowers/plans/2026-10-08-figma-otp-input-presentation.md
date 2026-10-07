@@ -65,6 +65,9 @@ requesting-code-review. Full source242-333.md/png and246-311.md/png are retained
 - [ ] Verify no-JS shows native56px input and hidden mirror layer, no decorative mark overlay;
   enabled resend00:30 remains. Check existing source-copy test for password/request preservation
   after scoped CSS update; normalize color env for authorized runs. No all51 capture rerun.
+  Route only the existing static-copy and no-JS capture filenames to this task's new evidence
+  folder in the owned test file; preserve their assertions/clock behavior. This prevents overwriting
+  historical reset captures after the CSS change and adds current request/password preservation evidence.
 - [ ] View all new empty-field captures and record source allocation versus actual origin, semantic
   color and privacy/error/expiry adaptations; no global parity claim. Verify exact static leaf18px
   load/slot unchanged and no new assets. Hash inventory permits only copied native CSS change plus
