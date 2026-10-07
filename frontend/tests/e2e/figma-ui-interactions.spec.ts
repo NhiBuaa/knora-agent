@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { prepareFixture } from "./support/figma-state-fixtures";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import realm from "../../../test/fixtures/keycloak/figma-realm.json";
 import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import type {
@@ -10,6 +11,14 @@ import type {
   ConversationResponse,
   TurnResponse,
 } from "../../generated/knora-openapi";
+
+function writeLookupGeometry(evidence: string, geometry: unknown) {
+  fs.mkdirSync(path.dirname(evidence), { recursive: true });
+  fs.writeFileSync(
+    `${evidence}-geometry.json`,
+    JSON.stringify(geometry, null, 2),
+  );
+}
 
 function classifyPDFObservation(observation: IngestionJobStatusResponse) {
   const statuses: readonly IngestionJobStatusResponse["status"][] = [
@@ -84,7 +93,17 @@ test.describe("source fixtures", () => {
   ] as const) {
     test(`Operator ${lookup.kind} lookup guidance fits desktop and mobile and preserves scoped navigation`, async ({
       page,
-    }) => {
+    }, testInfo) => {
+      const freshEvidence = testInfo.outputPath(
+        "fresh-nested-evidence",
+        "operator-prototypes-2026-10-07",
+        "lookup",
+      );
+      expect(fs.existsSync(path.dirname(freshEvidence))).toBe(false);
+      writeLookupGeometry(freshEvidence, { width: 1200 });
+      expect(
+        JSON.parse(fs.readFileSync(`${freshEvidence}-geometry.json`, "utf8")),
+      ).toEqual({ width: 1200 });
       const writes: string[] = [];
       page.on("request", (request) => {
         if (
@@ -205,10 +224,7 @@ test.describe("source fixtures", () => {
           ).toBe(true);
         }
         const evidence = `../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-${lookup.state.replace(":", "-")}-${width}`;
-        fs.writeFileSync(
-          `${evidence}-geometry.json`,
-          JSON.stringify({ ...geometry, assets }, null, 2),
-        );
+        writeLookupGeometry(evidence, { ...geometry, assets });
         await page.screenshot({
           path: `${evidence}.png`,
           fullPage: width !== 1440,
