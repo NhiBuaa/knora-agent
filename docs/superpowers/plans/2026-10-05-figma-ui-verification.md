@@ -84,6 +84,15 @@ responses with navigation before fixing: await validated preference storage, the
 a stale refresh cancelling the destination. Preserve creation idempotency, local recovery and
 backend authority. Add scheduling RED/GREEN and focused actual live creation verification;
 do not expand into WorkspaceSelector or unrelated lifecycle changes without separate diagnosis.
+The diagnosed actual refusal projection mismatch may modify
+frontend/components/conversations/TurnCard.tsx,
+frontend/components/citations/EvidenceInspector.tsx and the existing
+frontend/tests/conversation-view.test.tsx. Backend returns decision REFUSAL and
+refusal_reason INSUFFICIENT_EVIDENCE; the current UI and fixtures use REFUSE/lowercase.
+Use the actual public projection in regression RED/GREEN and existing Q1 state fixtures;
+verify persisted native refusal UI and no fabricated citations. Preserve controlled-refusal
+versus failed/interrupted distinctions, Turn-bound evidence and backend outcome authority.
+Recapture only affected refusal states/comparisons. No backend or generated contract edits.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
