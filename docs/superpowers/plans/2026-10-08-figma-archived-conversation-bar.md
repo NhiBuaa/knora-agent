@@ -66,9 +66,12 @@ verification-before-completion, requesting-code-review.
   ```
   Existing button stays onRestore-gated/restoreDisabled/onClick unchanged. Its local class:
   ```tsx
-  className="m-0 flex min-h-[34px] w-[151px] max-w-full items-center justify-center rounded-lg border border-action bg-action/10 px-3 py-2 text-[13px] leading-4 font-semibold text-action-text disabled:opacity-50"
+  className="m-0 flex min-h-[34px] w-[151px] max-w-full items-center justify-center rounded-lg border border-action bg-action/10 px-[7px] py-2 text-[13px] leading-4 font-semibold text-action-text disabled:opacity-50"
   ```
   Natural34 =16line+16padding+2border; desktop source151slot, mobile wraps naturally if needed.
+  Measured loaded production Inter gives133.29px label versus125px content with source12px padding.
+  Use7px horizontal button padding for135px content; record this source-padding adaptation rather
+  than clipping or allowing the normal label to wrap into50px height. The outer bar can still wrap.
   Preserve outer72 minimum and all active composer markup. Existing theme-aware action tint remains
   intentional source-color adaptation; no invented token/hardcoded source color.
 - [ ] GREEN targeted browser once, collapsed desktop/mobile captures with full history and evidence;
@@ -87,4 +90,3 @@ verification-before-completion, requesting-code-review.
 
 **Finish condition:** Authoritative archived label and control geometry proven, generic rejection and
 Workspace separation retained, no Important review finding. Whole-design/native acceptance remains open.
-
