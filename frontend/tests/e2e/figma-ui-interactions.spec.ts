@@ -4,7 +4,53 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import realm from "../../../test/fixtures/keycloak/figma-realm.json";
 import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
-import type { TurnResponse } from "../../generated/knora-openapi";
+import type {
+  IngestionJobStatusResponse,
+  TurnResponse,
+} from "../../generated/knora-openapi";
+
+function classifyPDFObservation(observation: IngestionJobStatusResponse) {
+  const statuses: readonly IngestionJobStatusResponse["status"][] = [
+    "queued",
+    "processing",
+    "retry_scheduled",
+    "succeeded",
+    "superseded",
+    "failed",
+  ];
+  expect(statuses).toContain(observation.status);
+  return ["queued", "processing", "retry_scheduled"].includes(
+    observation.status,
+  )
+    ? "pending"
+    : "terminal";
+}
+
+test("PDF observation classifies retry and superseded using the public projection", () => {
+  const projection: IngestionJobStatusResponse = {
+    ingestion_job_id: "fixture-job",
+    target_document_version_id: "fixture-version",
+    current_document_version_id: null,
+    served_document_version_id: null,
+    serving_state: "unavailable",
+    status: "retry_scheduled",
+    attempt_count: 1,
+    max_attempts: 3,
+    poll_after_seconds: 2,
+    created_at: "2026-10-05T12:00:00Z",
+    updated_at: "2026-10-05T12:00:00Z",
+  };
+  for (const status of ["queued", "processing", "retry_scheduled"] as const)
+    expect(classifyPDFObservation({ ...projection, status })).toBe("pending");
+  for (const status of ["succeeded", "superseded", "failed"] as const)
+    expect(classifyPDFObservation({ ...projection, status })).toBe("terminal");
+  expect(() =>
+    classifyPDFObservation({
+      ...projection,
+      status: "retry_wait" as IngestionJobStatusResponse["status"],
+    }),
+  ).toThrow();
+});
 
 test.describe("source fixtures", () => {
   test.skip(
@@ -582,18 +628,17 @@ test.describe("guarded application journeys", () => {
       `/api/v1/workspaces/${workspace.id}/ingestion-jobs/${submitted.ingestion_job_id}`,
     );
     expect(job.ok()).toBe(true);
-    const observation = (await job.json()) as { status: string };
-    expect([
-      "queued",
-      "processing",
-      "succeeded",
-      "failed",
-      "retry_wait",
-    ]).toContain(observation.status);
+    const observation = (await job.json()) as IngestionJobStatusResponse;
+    const classification = classifyPDFObservation(observation);
     fs.writeFileSync(
       "../.superpowers/figma/q1/evidence/live-pdf-observation.json",
       JSON.stringify(
-        { workspaceId: workspace.id, ...submitted, observation },
+        {
+          workspaceId: workspace.id,
+          ...submitted,
+          observation,
+          classification,
+        },
         null,
         2,
       ),

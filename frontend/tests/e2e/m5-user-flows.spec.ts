@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAs, newRoleContext } from "./support/auth";
+import { openFigmaLogin } from "./support/figma-auth";
+import realm from "../../../test/fixtures/keycloak/figma-realm.json";
 
 test.describe.configure({ mode: "serial" });
 
@@ -86,20 +88,53 @@ test("a persisted refusal remains a non-answer in the Conversation UI", async ({
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
 
-  await loginAs(page, "user");
+  if (
+    process.env.FIGMA_TEST_MODE === "application" &&
+    process.env.FIGMA_TEST_CASE === "m5-refusal"
+  ) {
+    const identity = realm.users.find((user) => user.username === "m5-user");
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+  } else {
+    await loginAs(page, "user");
+  }
+  await page
+    .getByRole("link", { name: "Conversations", exact: true })
+    .first()
+    .click();
   await projectTerminalTurn(page, "refused", {
-    decision: "REFUSE",
+    decision: "REFUSAL",
     answer: null,
     citations: [],
-    refusal_reason: "insufficient_evidence",
+    refusal_reason: "INSUFFICIENT_EVIDENCE",
     trace_id: "fixture-trace",
     workspace_id: "m5-workspace",
   });
-  await page.getByRole("button", { name: "New Conversation" }).first().click();
+  await page
+    .getByRole("button", { name: /^New conversation$/i })
+    .first()
+    .click();
   await expect(page.getByText(/^Refused:/).first()).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Citations" }),
-  ).not.toBeVisible();
+    page.getByRole("heading", {
+      name: "I don’t have enough evidence to answer that.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "No supporting citation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Citation \d+:/ }),
+  ).toHaveCount(0);
+  const responseBody = page
+    .getByRole("listitem", { name: "Question 1" })
+    .locator("article > p");
+  await expect(responseBody).toHaveCount(1);
+  await expect(responseBody).toHaveText("Refused: INSUFFICIENT_EVIDENCE");
   await context.close();
 });
 

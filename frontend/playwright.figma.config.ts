@@ -5,10 +5,36 @@ import {
   figmaRuntimeEnvironment,
 } from "./tests/e2e/support/figma-environment";
 
+export function figmaTestSelection(
+  mode: string | undefined,
+  selected: string | undefined,
+) {
+  if (mode && !["fixture", "application"].includes(mode))
+    throw new Error("Unknown Figma test mode.");
+  if (selected) {
+    if (mode !== "application" || selected !== "m5-refusal")
+      throw new Error("Unknown or incompatible Figma test selection.");
+    return {
+      testMatch: "m5-user-flows.spec.ts",
+      grep: /(?:^|m5-user-flows\.spec\.ts\s+)a persisted refusal remains a non-answer in the Conversation UI$/,
+    };
+  }
+  return {
+    testMatch:
+      mode === "fixture"
+        ? ["figma-ui-visual.spec.ts", "figma-ui-interactions.spec.ts"]
+        : mode === "application"
+          ? "figma-ui-interactions.spec.ts"
+          : "figma-identity.spec.ts",
+  };
+}
+
+const selection = figmaTestSelection(
+  process.env.FIGMA_TEST_MODE,
+  process.env.FIGMA_TEST_CASE,
+);
 const fixtureMode = process.env.FIGMA_TEST_MODE === "fixture";
 const applicationMode = process.env.FIGMA_TEST_MODE === "application";
-if (process.env.FIGMA_TEST_MODE && !fixtureMode && !applicationMode)
-  throw new Error("Unknown Figma test mode.");
 const environment = figmaEnvironment();
 const runtime = figmaRuntimeEnvironment(environment);
 // Native error snapshots include action URLs with authentication state.
@@ -16,11 +42,7 @@ process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: fixtureMode
-    ? ["figma-ui-visual.spec.ts", "figma-ui-interactions.spec.ts"]
-    : applicationMode
-      ? "figma-ui-interactions.spec.ts"
-      : "figma-identity.spec.ts",
+  ...selection,
   outputDir: fixtureMode
     ? "./test-results/figma-ui"
     : applicationMode

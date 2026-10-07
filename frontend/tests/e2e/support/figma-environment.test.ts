@@ -7,6 +7,40 @@ import {
 } from "./figma-environment";
 
 describe("isolated Figma identity environment", () => {
+  it("confines explicit M5 selection to the exact application refusal case", async () => {
+    const { figmaTestSelection } = await import(
+      "../../../playwright.figma.config"
+    );
+    expect(typeof figmaTestSelection).toBe("function");
+    const selection = figmaTestSelection("application", "m5-refusal");
+    expect(selection.testMatch).toBe("m5-user-flows.spec.ts");
+    expect(
+      selection.grep?.test(
+        "a persisted refusal remains a non-answer in the Conversation UI",
+      ),
+    ).toBe(true);
+    expect(
+      selection.grep?.test("a persisted failed Turn has no answer or citation"),
+    ).toBe(false);
+    expect(
+      selection.grep?.test(
+        "prefix a persisted refusal remains a non-answer in the Conversation UI",
+      ),
+    ).toBe(false);
+    for (const mode of [undefined, "fixture", "unknown"])
+      expect(() => figmaTestSelection(mode, "m5-refusal")).toThrow();
+    expect(() => figmaTestSelection("application", "other")).toThrow();
+    expect(figmaTestSelection(undefined, undefined).testMatch).toBe(
+      "figma-identity.spec.ts",
+    );
+    expect(figmaTestSelection("application", undefined).testMatch).toBe(
+      "figma-ui-interactions.spec.ts",
+    );
+    expect(figmaTestSelection("fixture", undefined).testMatch).toEqual([
+      "figma-ui-visual.spec.ts",
+      "figma-ui-interactions.spec.ts",
+    ]);
+  });
   it("accepts only the approved project, realm and loopback endpoints", () => {
     const environment = figmaEnvironment();
     expect(validateFigmaEnvironment(environment)).toEqual(environment);
@@ -28,6 +62,7 @@ describe("isolated Figma identity environment", () => {
       "DOCKER_HOST",
       "DOCKER_CONTEXT",
       "FIGMA_E2E_BASE_URL",
+      "M5_E2E_BASE_URL",
     ]) {
       expect(() =>
         figmaRuntimeEnvironment(figmaEnvironment(), { [name]: "other" }),
