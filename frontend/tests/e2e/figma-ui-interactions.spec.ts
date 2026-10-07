@@ -2413,6 +2413,161 @@ test.describe("source fixtures", () => {
   });
 
   for (const width of [1440, 390]) {
+    test(`archived Conversation bar uses source controls and preserves history at ${width}`, async ({
+      page,
+    }) => {
+      const height = width === 1440 ? 960 : 844;
+      await page.setViewportSize({ width, height });
+      const unexpected = await prepareFixture(page, "128:119");
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await Promise.all(
+          Array.from(document.images).map((img) => img.decode()),
+        );
+      });
+      const button = page.getByRole("button", {
+        name: "Restore conversation",
+        exact: true,
+      });
+      const bar = button.locator("..");
+      const label = bar.getByRole("status");
+      const outer = bar.locator("..");
+      const geometry = await bar.evaluate((element) => {
+        const control = element.querySelector("button")!;
+        const controlStyle = getComputedStyle(control);
+        const measure = document.createElement("canvas").getContext("2d")!;
+        measure.font = `${controlStyle.fontWeight} ${controlStyle.fontSize} ${controlStyle.fontFamily}`;
+        const bounds = (node: Element) => {
+          const box = node.getBoundingClientRect();
+          const css = getComputedStyle(node);
+          return {
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            minHeight: css.minHeight,
+            radius: css.borderRadius,
+            paddingLeft: css.paddingLeft,
+            paddingRight: css.paddingRight,
+            fontSize: css.fontSize,
+            fontWeight: css.fontWeight,
+            fontFamily: css.fontFamily,
+            lineHeight: css.lineHeight,
+            margin: css.margin,
+            scrollWidth: node.scrollWidth,
+            clientWidth: node.clientWidth,
+          };
+        };
+        return {
+          outer: bounds(element.parentElement!),
+          bar: bounds(element),
+          label: bounds(element.querySelector('[role="status"]')!),
+          button: bounds(element.querySelector("button")!),
+          buttonTextWidth: measure.measureText(control.textContent!).width,
+          fontLoaded: document.fonts.check(`600 13px inter`),
+          fontFaces: Array.from(document.fonts).map((font) => ({
+            family: font.family,
+            status: font.status,
+            weight: font.weight,
+          })),
+          copy: element.textContent,
+          assets: Array.from(document.querySelectorAll("img")).map((img) => ({
+            src: img.getAttribute("src"),
+            complete: img.complete,
+            naturalWidth: img.naturalWidth,
+            ...bounds(img),
+          })),
+          history: Array.from(document.querySelectorAll("ol > li")).map(
+            (turn) => turn.textContent,
+          ),
+          evidence: document.querySelector('[aria-label="Evidence Inspector"]')
+            ?.textContent,
+          noHorizontalOverflow:
+            document.documentElement.scrollWidth <= innerWidth,
+        };
+      });
+      const evidence = `../.superpowers/figma/q1/evidence/archived-conversation-bar-2026-10-08/implemented-128-119-${width}`;
+      writeLookupGeometry(evidence, {
+        source: "128:119",
+        viewport: { width, height },
+        geometry,
+      });
+      await page.screenshot({
+        path: `${evidence}.png`,
+        animations: "disabled",
+      });
+      await expect(label).toHaveText("Archived conversation · Read-only");
+      await expect(bar).toHaveAttribute(
+        "aria-label",
+        "Archived conversation controls",
+      );
+      await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Ask", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByText("How many chapters are in the report?", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          "The reporting guideline explicitly defines a seven-chapter structure. The chapter list and ordering are specified in the report-structure section of the indexed document.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /citation 1/i }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /citation 2/i }),
+      ).toBeVisible();
+      expect(geometry.bar.minHeight).toBe("48px");
+      expect(geometry.outer.minHeight).toBe("72px");
+      expect(geometry.bar.radius).toBe("10px");
+      expect(geometry.bar.paddingLeft).toBe("14px");
+      expect(geometry.bar.paddingRight).toBe("8px");
+      expect(geometry.label.fontSize).toBe("13px");
+      expect(geometry.label.fontWeight).toBe("400");
+      expect(geometry.label.margin).toBe("0px");
+      expect(geometry.button.width).toBe(151);
+      expect(geometry.button.height).toBe(34);
+      expect(geometry.button.radius).toBe("8px");
+      expect(geometry.button.fontSize).toBe("13px");
+      expect(geometry.button.fontWeight).toBe("600");
+      expect(geometry.button.lineHeight).toBe("16px");
+      expect(geometry.fontLoaded).toBe(true);
+      expect(
+        geometry.assets.every(
+          (asset) => asset.complete && asset.naturalWidth > 0,
+        ),
+      ).toBe(true);
+      expect(geometry.noHorizontalOverflow).toBe(true);
+      expect(geometry.label.scrollWidth).toBeLessThanOrEqual(
+        geometry.label.clientWidth,
+      );
+      expect(geometry.button.scrollWidth).toBeLessThanOrEqual(
+        geometry.button.clientWidth,
+      );
+      expect(geometry.outer.y + geometry.outer.height).toBeLessThanOrEqual(
+        height,
+      );
+      if (width === 1440) {
+        expect(geometry.outer.height).toBe(72);
+        expect(geometry.bar.height).toBe(48);
+        expect(geometry.bar.width).toBe(geometry.outer.width - 48);
+      } else {
+        expect(geometry.bar.height).toBeGreaterThanOrEqual(48);
+        expect(geometry.bar.width).toBe(geometry.outer.width - 32);
+      }
+      await expect(button).toBeEnabled();
+      await button.focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(button).not.toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(button).toBeFocused();
+      // Restore is intentionally not invoked: fixture admission rejects this mutation.
+      expect(unexpected).toEqual([]);
+      await expect(outer).toBeVisible();
+    });
     test(`archived Workspace bottom restore fits and activates by keyboard at ${width}`, async ({
       page,
     }) => {
@@ -2916,7 +3071,7 @@ test.describe("source fixtures", () => {
     await page.unrouteAll();
     await prepareFixture(page, "128:119");
     await expect(
-      page.getByText("This Conversation is read-only."),
+      page.getByText("Archived conversation · Read-only"),
     ).toBeVisible();
     await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
   });

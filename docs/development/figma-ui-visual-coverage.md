@@ -23,7 +23,7 @@ Oct 7, 2026. Review base `eed8f9660a626c6dc181aea01fea4ced6e791a1e`. This ledger
 | 128:112 / screen / A6 · Retrieving evidence | Q1/U2 | V:128:112 | `128-112-1440x960.png`; `128-112-comparison.png` | Retrieving state present. Production stage indicator uses actual pending status; clicking it does not advance to an answer. |
 | 128:115 / screen / A7 · Citation selected | Q1/U2 | V:128:115; parity toggle interaction | `128-115-1440x960.png`; `128-115-comparison.png`; `parity-citation-deselected.png` | Selected evidence and metadata shown. Oct 7 parity follow-up now clears the same Turn/index on repeated mouse or keyboard selection; another Turn/index keeps its own historical evidence. Remaining answer/citation copy and extra controls differ as documented. |
 | 128:118 / screen / A8 · Answer interrupted | Q1/U2 | V:128:118 | `128-118-1440x960.png`; `128-118-comparison.png` | Interrupted presentation and retry affordance present. Retry checks history and restores draft; it does not promise immediate answer/restart. |
-| 128:119 / screen / A9 · Archived · Read-only | Q1/U2 | V:128:119 | `128-119-1440x960.png`; `128-119-comparison.png` | Archived history remains visible; composer replaced by read-only notice and Restore conversation. Actual text differs from target archived notice. |
+| 128:119 / screen / A9 · Archived · Read-only | Q1/U2 | V:128:119; Oct8 archived Conversation interaction | `128-119-1440x960.png`; `128-119-comparison.png`; `archived-conversation-bar-2026-10-08/implemented-128-119-{1440,390}.png` | Original captures remain historical. Oct8 authoritative archived copy and local bar/restore geometry corrected; generic rejection keeps read-only copy. History, evidence and source assets retained. Whole-frame parity remains open. |
 | 128:120 / screen / D1 · Documents · State matrix | Q1/U3 | V:128:120 | `128-120-1440x960.png`; `128-120-comparison.png` | Five reference document names/state projections and Ready menu captured. Actual Reprocess/answer-availability copy is derived from API fields; menu includes supported reprocess action; contrast colors differ. |
 | 128:121 / screen / D2 · Upload document · Selected file | Q1/U3 | V:128:121 | `128-121-1440x960.png`; `128-121-comparison.png` | Selected Reporting policy.pdf and actual dialog captured. Backend accepted kinds shown; deterministic fixture file is not submitted or parsed. |
 | 128:122 / screen / D7 · Document detail · Ready | Q1/U3 | V:128:122 | `128-122-1440x960.png`; `128-122-comparison.png` | Reference document/title, overview/action columns and source geometry present. Actual source/serving fields and last-processed timestamp preserve API meanings. |
@@ -562,3 +562,37 @@ current accepted `info.ftl`: its prior cached copy predated the earlier completi
 validation and differs only in CTA whitespace (4491 → 4494 bytes). Exact historical bytes/hash
 are reproduced separately in the SDD report evidence; historical PNGs stay unchanged. This
 additional export difference makes no new completion or native recovery claim.
+
+### Oct8 archived Conversation bar — current measured status
+
+Complete fresh direct MCP128:119 and its uncropped returned PNG define the local bottom container
+46:130, bar46:131, caption46:132 and restore46:180/182. The authoritative Conversation archive
+now shows “Archived conversation · Read-only” as a status. The existing caller supplies onRestore
+only for projection.archived; generic WORKSPACE_ARCHIVED or CONVERSATION_ARCHIVED submission
+rejection keeps “This Conversation is read-only.” with no archive claim or restore button.
+Workspace archive still uses its separate composer and blocks Conversation restore.
+
+At1440×960, the retained outer container measures72px and its available-width inner bar748×48px
+inside the current796px panel. This is responsive geometry, with no748px width clamp. The bar
+has10px radius and14/8px inner horizontal padding. Caption is13px regular; restore is151×34px,
+8px radius and13px semibold with16px lines. Source12px restore padding adapts to7px: loaded
+production Inter measures133.29px text, exceeding the source125px content allocation;135px
+content preserves full text and the source button allocation without fixed-height clipping.
+The existing semantic action tint remains, so source-color parity is not accepted.
+
+At390×844, the inner bar grows naturally to358×76.14px and the outer container to99.14px;
+caption and151×34px button occupy separate rows. Complete text fits, history remains readable,
+and there is no horizontal overflow. Mobile has no source geometry and proves readable adaptation.
+Keyboard Tab returns focus to the enabled restore control; the browser does not invoke its blocked
+fixture endpoint. Real component tests activate the existing revision3 restore with Enter and
+recover the question composer; both generic409 variants and Workspace separation remain checked.
+
+The new A9 evidence folder contains current desktop/mobile full captures and geometry, retained
+RED captures and the loaded-font diagnostic. All285 pre-existing Q1 artifacts retain their hashes,
+including native exports, source/original51 and Operator outputs. Only root active
+`evidence/regression-preflight/**` is excluded. No asset was added or edited; existing18×18px
+brand and desktop caret slots remain. The retained answer has no invented “7 chapters” heading,
+second citation stays backend page-derived, and extra suggestion/panel/rail/menu controls remain.
+These checks accept only the local archived bar; whole-design, native identity and live acceptance
+remain open. Full RED/GREEN, source mapping, commands and artifact proof are in
+`.superpowers/sdd/2026-10-08-figma-archived-conversation-bar/task-1-report.md`.

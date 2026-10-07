@@ -548,9 +548,17 @@ describe("Conversation panel interactions", () => {
     const view = render(
       <ConversationView workspaceId="w" conversation={archived} />,
     );
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Restore conversation" }),
-    );
+    const restore = await screen.findByRole("button", {
+      name: "Restore conversation",
+    });
+    expect(
+      screen.getByText("Archived conversation · Read-only"),
+    ).toHaveAttribute("role", "status");
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+    expect(screen.getByText(answered.result.answer)).toBeVisible();
+    const user = userEvent.setup();
+    restore.focus();
+    await user.keyboard("{Enter}");
     await waitFor(() =>
       expect(screen.getByLabelText("Question")).toBeInTheDocument(),
     );
@@ -574,6 +582,38 @@ describe("Conversation panel interactions", () => {
       screen.queryByRole("button", { name: "Restore conversation" }),
     ).not.toBeInTheDocument();
   });
+  it.each(["WORKSPACE_ARCHIVED", "CONVERSATION_ARCHIVED"])(
+    "keeps generic read-only copy after %s rejection without archive authority",
+    async (code) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init: RequestInit = {}) =>
+          init.method === "POST"
+            ? new Response(JSON.stringify({ error: { code } }), { status: 409 })
+            : new Response(
+                JSON.stringify({ items: [answered], next_cursor: null }),
+              ),
+        ),
+      );
+      render(<ConversationView workspaceId="w" conversation={conversation} />);
+      await screen.findByText(answered.result.answer);
+      fireEvent.change(screen.getByLabelText("Question"), {
+        target: { value: "New question" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      expect(
+        await screen.findByText("This Conversation is read-only."),
+      ).toHaveAttribute("role", "status");
+      expect(
+        screen.queryByText("Archived conversation · Read-only"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /restore/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+      expect(screen.getByText(answered.result.answer)).toBeVisible();
+    },
+  );
 });
 
 describe("narrow panel and citation recovery", () => {
@@ -852,7 +892,7 @@ describe("rail mutations and stale scope", () => {
         conversation={archived}
       />,
     );
-    expect(screen.getByText("This Conversation is read-only.")).toBeVisible();
+    expect(screen.getByText("Archived conversation · Read-only")).toBeVisible();
     expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Restore conversation" }),
@@ -1143,7 +1183,7 @@ describe("rail mutations and stale scope", () => {
       }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
-    await screen.findByText("This Conversation is read-only.");
+    await screen.findByText("Archived conversation · Read-only");
     expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
   });
   it("ignores a pending poll from a previous conversation after switching routes", async () => {

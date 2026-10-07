@@ -148,14 +148,25 @@ export function ConversationComposer({
   return (
     <div className="flex min-h-[72px] items-center border-t border-border bg-surface px-4 py-[11px] min-[960px]:px-6">
       {archived ? (
-        <div className="flex min-h-12 w-full flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border bg-surface-subtle px-3.5 py-1.5 text-[13px] text-text-muted">
-          <p role="status">This Conversation is read-only.</p>
+        <div
+          aria-label={
+            onRestore
+              ? "Archived conversation controls"
+              : "Read-only conversation controls"
+          }
+          className="flex min-h-12 w-full flex-wrap items-center justify-between gap-2 rounded-[10px] border border-border bg-surface-subtle py-1.5 pl-3.5 pr-2 text-[13px] text-text-muted"
+        >
+          <p role="status" className="m-0">
+            {onRestore
+              ? "Archived conversation · Read-only"
+              : "This Conversation is read-only."}
+          </p>
           {onRestore && (
             <button
               type="button"
               disabled={restoreDisabled}
               onClick={onRestore}
-              className="m-0 rounded-lg border border-action bg-action/10 px-3 py-1 font-semibold text-action-text disabled:opacity-50"
+              className="m-0 flex min-h-[34px] w-[151px] max-w-full items-center justify-center rounded-lg border border-action bg-action/10 px-[7px] py-2 text-[13px] leading-4 font-semibold text-action-text disabled:opacity-50"
             >
               Restore conversation
             </button>
