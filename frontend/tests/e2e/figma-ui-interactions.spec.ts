@@ -60,6 +60,16 @@ async function operatorSourceGeometry(
     expect(sha256("public/icons/figma/bab86.svg").toUpperCase()).toBe(
       "864C1D2BB9B35ED4DD76DEE4346A2BF2BAE674A2B8E74EFBE6138A1651949911",
     );
+  await expect
+    .poll(() =>
+      page.locator("main img, header img").evaluateAll((elements) =>
+        elements.every((element) => {
+          const image = element as HTMLImageElement;
+          return image.complete && image.naturalWidth > 0;
+        }),
+      ),
+    )
+    .toBe(true);
   const geometry = await page.locator("main").evaluate((main) => {
     const box = (element: Element) => {
       const rect = element.getBoundingClientRect();
@@ -99,6 +109,57 @@ async function operatorSourceGeometry(
     )!;
     const input = main.querySelector("form > div > input");
     const button = main.querySelector("form > div > button");
+    const label = main.querySelector(".workspace-selector-label")!;
+    const title = main.querySelector("h1")!;
+    const description = main.querySelector(":scope > p")!;
+    const navigation = main.querySelector(
+      'nav[aria-label="Operator navigation"]',
+    )!;
+    const divider = navigation.nextElementSibling;
+    const lookup = main.querySelector("form");
+    const guidance = main.querySelector(
+      '[aria-labelledby="operator-trace-guidance-heading"], [aria-labelledby="operator-report-guidance-heading"]',
+    );
+    const origin = label.getBoundingClientRect().y;
+    const relative = (element: Element) => ({
+      ...box(element),
+      top: element.getBoundingClientRect().y - origin,
+    });
+    const frameFlow = {
+      origin,
+      selector: relative(main.querySelector(".workspace-selector-heading")!),
+      title: relative(title),
+      description: {
+        ...relative(description),
+        ...word(description),
+        lineHeight: getComputedStyle(description).lineHeight,
+        maxWidth: getComputedStyle(description).maxWidth,
+      },
+      navigation: relative(navigation),
+      divider:
+        divider?.getAttribute("aria-hidden") === "true"
+          ? relative(divider)
+          : null,
+      tabs: Array.from(navigation.querySelectorAll("a")).map((tab) => {
+        const text = tab.querySelector("span") ?? tab;
+        const style = getComputedStyle(tab);
+        const rect = tab.getBoundingClientRect();
+        return {
+          ...relative(tab),
+          offsetX: rect.x - navigation.getBoundingClientRect().x,
+          offsetY: rect.y - navigation.getBoundingClientRect().y,
+          label: word(text),
+          labelOffsetY: text.getBoundingClientRect().y - rect.y,
+          underlineTop: rect.height - parseFloat(style.borderBottomWidth),
+          underlineHeight: parseFloat(style.borderBottomWidth),
+          underlineColor: style.borderBottomColor,
+          active: tab.getAttribute("aria-current") === "page",
+        };
+      }),
+      lookup: lookup && relative(lookup),
+      lookupLabel: lookup && relative(lookup.querySelector("label")!),
+      guidance: guidance && relative(guidance),
+    };
     const band = main.querySelector('dl[aria-label="Runtime signals"]');
     const columns = main.querySelector("article > div");
     const answer = main.querySelector(
@@ -294,6 +355,7 @@ async function operatorSourceGeometry(
         };
       })();
     return {
+      frameFlow,
       workspaceLabel: box(main.querySelector(".workspace-selector-label")!),
       traceBadges,
       selector: box(main.querySelector(".workspace-selector-heading")!),
@@ -337,6 +399,76 @@ async function operatorSourceGeometry(
       ...(operationsContent ? { operationsContent } : {}),
     };
   });
+  const flow = geometry.frameFlow;
+  const evaluation = state === "216:698" || state === "216:755";
+  expect.soft(flow.description.fontSize).toBe("16px");
+  expect.soft(flow.description.lineHeight).toBe(evaluation ? "24px" : "19px");
+  // Font ink can extend beyond a source line allocation; visible overflow and
+  // parent/navigation clearance prove the complete copy remains readable.
+  expect.soft(flow.description.fits).toBe(true);
+  expect.soft(flow.description.textFitsParent).toBe(true);
+  expect.soft(flow.description.overflowY).toBe("visible");
+  expect
+    .soft(flow.description.ink.y + flow.description.ink.height)
+    .toBeLessThanOrEqual(flow.navigation.y);
+  expect.soft(flow.navigation.height).toBeGreaterThanOrEqual(42);
+  expect.soft(flow.tabs.filter((tab) => tab.active)).toHaveLength(1);
+  for (const tab of flow.tabs) {
+    expect.soft(tab.fits).toBe(true);
+    expect.soft(tab.label.textFitsParent).toBe(true);
+    expect
+      .soft(tab.fontWeight)
+      .toBe(
+        evaluation ? (tab.active ? "500" : "400") : tab.active ? "600" : "500",
+      );
+    expect.soft(tab.underlineHeight).toBe(2);
+    expect
+      .soft(tab.underlineColor)
+      .toBe(tab.active ? "rgb(51, 161, 91)" : "rgba(0, 0, 0, 0)");
+  }
+  if (width === 1440) {
+    expect.soft(flow.origin, "source content global origin").toBe(109);
+    expect.soft(flow.selector).toMatchObject({ top: 18, height: 26 });
+    expect.soft(flow.title).toMatchObject({ top: 58, height: 42 });
+    expect
+      .soft(flow.description)
+      .toMatchObject({ top: 105, height: evaluation ? 24 : 19 });
+    if (!operations && !evaluation)
+      expect.soft(flow.description.maxWidth).toBe("870px");
+    expect.soft(flow.navigation).toMatchObject({ top: 151, height: 42 });
+    expect
+      .soft(flow.divider, "source divider is separate from nav allocation")
+      .toMatchObject({ top: 193, height: 1 });
+    for (const [index, tab] of flow.tabs.entries()) {
+      expect.soft(tab).toMatchObject({
+        offsetX: [0, 104, 182][index],
+        offsetY: 7.5,
+        width: [76, 50, 82][index],
+        height: 27,
+        labelOffsetY: operations ? 0 : 5,
+        underlineTop: 25,
+      });
+      expect
+        .soft(tab.label.height, "allocated tab label region, distinct from ink")
+        .toBe(evaluation ? 20 : 17);
+    }
+    if (flow.lookup && geometry.input && geometry.button) {
+      expect.soft(flow.lookup).toMatchObject({ top: 211, height: 56 });
+      expect.soft(flow.lookupLabel).toMatchObject({ top: 211, height: 13 });
+      expect
+        .soft(flow.lookupLabel?.fontWeight)
+        .toBe(evaluation ? "500" : "600");
+      expect.soft(geometry.input.y - flow.origin).toBe(229);
+      expect.soft(geometry.button.y - flow.origin).toBe(229);
+    }
+    if (flow.guidance) expect.soft(flow.guidance.top).toBe(326);
+  } else {
+    expect.soft(flow.description.height).toBeGreaterThan(evaluation ? 24 : 19);
+    expect
+      .soft(flow.navigation.y)
+      .toBeGreaterThanOrEqual(flow.description.y + flow.description.height);
+    if (flow.lookup) expect.soft(flow.lookup.height).toBeGreaterThan(56);
+  }
   expect
     .soft(geometry.workspaceLabel.fontSize, "Operator Workspace label")
     .toBe("11px");

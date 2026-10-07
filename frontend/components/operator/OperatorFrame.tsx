@@ -40,7 +40,7 @@ export function OperatorFrame({
     section === "traces" || section === "evaluations" ? section : "operations";
   const target = search.get("workspaceId");
   return (
-    <main className="workspace-shell-main operator-surface mx-auto w-full max-w-[1200px] px-0 pt-11 pb-10 text-text-primary max-[1248px]:px-6 max-md:px-4">
+    <main className="workspace-shell-main operator-surface mx-auto w-full max-w-[1200px] px-0 pt-[45px] pb-10 text-text-primary max-[1248px]:px-6 max-md:px-4">
       <div className="w-[220px] max-w-full">
         <WorkspaceSelector
           workspaceId={workspaceId}
@@ -53,24 +53,27 @@ export function OperatorFrame({
       <h1 className="mt-3.5 mb-0 font-display text-[32px] leading-[42px] font-semibold">
         {SECTIONS[active].title}
       </h1>
-      <p className="mt-1 mb-0 text-base leading-6 text-text-muted">
+      <p
+        className={`mt-[5px] mb-0 text-base text-text-muted ${active === "evaluations" ? "leading-6" : "leading-[19px]"} ${active === "traces" ? "max-w-[870px]" : ""}`}
+      >
         {SECTIONS[active].description}
       </p>
       <nav
         aria-label="Operator navigation"
-        className="mt-6 mb-0 flex h-[43px] items-center gap-7 border-b border-border text-sm"
+        className={`mb-0 flex min-h-[42px] flex-wrap items-center gap-7 text-sm ${active === "evaluations" ? "mt-[22px]" : "mt-[27px]"}`}
       >
         {Object.entries(SECTIONS).map(([key]) => (
           <Link
             key={key}
             href={`/operator/${key}${target ? `?workspaceId=${encodeURIComponent(target)}` : ""}`}
             aria-current={key === active ? "page" : undefined}
-            className={`border-b-2 pt-1 pb-2 no-underline ${key === active ? "border-action font-semibold text-action-text" : "border-transparent text-text-muted"}`}
+            className={`min-h-[27px] shrink-0 border-b-2 no-underline ${key === "operations" ? "min-w-[76px]" : key === "traces" ? "min-w-[50px]" : "min-w-[82px]"} ${active === "operations" ? "pt-0 pb-2 leading-[17px]" : active === "evaluations" ? "pt-[5px] pb-0 leading-5" : "pt-[5px] pb-[3px] leading-[17px]"} ${key === active ? `border-action text-action-text ${active === "evaluations" ? "font-medium" : "font-semibold"}` : `border-transparent text-text-muted ${active === "evaluations" ? "font-normal" : "font-medium"}`}`}
           >
-            {key[0].toUpperCase() + key.slice(1)}
+            <span className="block">{key[0].toUpperCase() + key.slice(1)}</span>
           </Link>
         ))}
       </nav>
+      <div aria-hidden="true" className="h-px bg-border" />
       {children}
     </main>
   );
@@ -101,7 +104,7 @@ export function OperatorLookup({
   const label = kind === "trace" ? "Trace ID" : "Report ID";
   return (
     <form
-      className="mt-[18px] mb-0"
+      className="mt-[17px] mb-0 min-h-[56px]"
       aria-label={`${kind === "trace" ? "Trace" : "Report"} lookup`}
       onSubmit={(event) => {
         event.preventDefault();
@@ -125,11 +128,11 @@ export function OperatorLookup({
     >
       <label
         htmlFor={`operator-${kind}-id`}
-        className="block text-[11px] leading-[13px] font-semibold text-text-muted uppercase"
+        className={`block text-[11px] leading-[13px] text-text-muted uppercase ${kind === "trace" ? "font-semibold" : "font-medium"}`}
       >
         {label}
       </label>
-      <div className="mt-[5px] flex flex-wrap items-center gap-3">
+      <div className="mt-[5px] flex flex-wrap items-start gap-3">
         <input
           id={`operator-${kind}-id`}
           name={kind === "trace" ? "traceId" : "reportId"}

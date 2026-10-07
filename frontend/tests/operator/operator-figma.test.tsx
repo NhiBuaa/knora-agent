@@ -89,6 +89,44 @@ const trace: OperatorTraceResponse = {
 };
 
 describe("Figma operator data surfaces", () => {
+  it.each([
+    ["/operator/operations", "Operations"],
+    ["/operator/traces/trace-1", "Traces"],
+    ["/operator/evaluations/report-1", "Evaluations"],
+  ])(
+    "preserves scoped navigation and a decorative divider for %s",
+    (route, active) => {
+      pathname = route;
+      searchQuery = "workspaceId=ws%20%2F%26";
+      render(
+        <OperatorFrame workspaceId={null} workspaceName={null}>
+          <p>Observation</p>
+        </OperatorFrame>,
+      );
+      const navigation = screen.getByRole("navigation", {
+        name: "Operator navigation",
+      });
+      expect(within(navigation).getAllByRole("link")).toHaveLength(3);
+      for (const name of ["Operations", "Traces", "Evaluations"]) {
+        const link = within(navigation).getByRole("link", { name });
+        expect(link).toHaveAttribute(
+          "href",
+          `/operator/${name.toLowerCase()}?workspaceId=ws%20%2F%26`,
+        );
+        if (name === active)
+          expect(link).toHaveAttribute("aria-current", "page");
+        else expect(link).not.toHaveAttribute("aria-current");
+        link.focus();
+        expect(link).toHaveFocus();
+      }
+      expect(navigation.nextElementSibling).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+      expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+      expect(screen.getByText("Observation")).toBeVisible();
+    },
+  );
   it("keeps full long Trace provenance, mapped sources and zero observations inspectable", () => {
     const source =
       "Complete backend source name with a long revision and descriptive document title.pdf";
