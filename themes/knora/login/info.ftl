@@ -27,9 +27,24 @@
                 <#-- Completion starts a new BFF transaction at the configured application origin.
                      Never carry native action/callback parameters into the new sign-in. -->
                 <#assign appBase = (client.baseUrl)!"">
-                <#if appBase?matches("^https?://([A-Za-z0-9.-]+|\\[[A-Fa-f0-9:]+\\])(:[0-9]{1,5})?([/?#].*)?$")>
+                <#assign ipv6 = "([A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}"
+                    + "|([A-Fa-f0-9]{1,4}:){1,7}:"
+                    + "|([A-Fa-f0-9]{1,4}:){1,6}:[A-Fa-f0-9]{1,4}"
+                    + "|([A-Fa-f0-9]{1,4}:){1,5}(:[A-Fa-f0-9]{1,4}){1,2}"
+                    + "|([A-Fa-f0-9]{1,4}:){1,4}(:[A-Fa-f0-9]{1,4}){1,3}"
+                    + "|([A-Fa-f0-9]{1,4}:){1,3}(:[A-Fa-f0-9]{1,4}){1,4}"
+                    + "|([A-Fa-f0-9]{1,4}:){1,2}(:[A-Fa-f0-9]{1,4}){1,5}"
+                    + "|[A-Fa-f0-9]{1,4}:((:[A-Fa-f0-9]{1,4}){1,6})"
+                    + "|:((:[A-Fa-f0-9]{1,4}){1,7}|:)">
+                <#if appBase?matches("^https?://([A-Za-z0-9.-]+|\\[(" + ipv6 + ")\\])(:[0-9]{1,5})?([/?#].*)?$")>
                     <#assign appOrigin = appBase?replace("^(https?://[^/?#]+).*$", "$1", "r")>
-                    <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
+                    <#assign appAuthority = appOrigin?keep_after("://")>
+                    <#-- IPv6 hextets are host data; its optional port begins after the closing bracket. -->
+                    <#assign appPort = appAuthority?starts_with("[")?then(
+                        appAuthority?keep_after("]")?remove_beginning(":"), appAuthority?keep_after(":"))>
+                    <#if !appPort?has_content || appPort?number lte 65535>
+                        <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
+                    </#if>
                 </#if>
             <#elseif pageRedirectUri?has_content>
                 <p><a href="${pageRedirectUri}">${kcSanitize(msg("backToApplication"))?no_esc}</a></p>

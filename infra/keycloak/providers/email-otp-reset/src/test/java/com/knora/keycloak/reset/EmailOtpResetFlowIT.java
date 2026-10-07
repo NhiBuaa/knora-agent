@@ -46,33 +46,55 @@ import static org.junit.jupiter.api.Assertions.*;
 class EmailOtpResetFlowIT {
     @Test
     void offlineCompletedInfoReturnsOnlyToTrustedAppOriginWithFreshSignIn() throws Exception {
-        for (String baseUrl : List.of("https://app.example", "https://app.example/old/path?code=private#fragment",
-                "http://127.0.0.1:3300/")) {
+        for (var configuredOrigin : List.of(
+                Map.entry("https://app.example", "https://app.example"),
+                Map.entry("https://app.example/old/path?code=private#fragment", "https://app.example"),
+                Map.entry("http://127.0.0.1:3300/", "http://127.0.0.1:3300"),
+                Map.entry("https://app.example:65535/old/path?code=private#fragment", "https://app.example:65535"),
+                Map.entry("https://app.example:0/old/path?code=private#fragment", "https://app.example:0"),
+                Map.entry("http://[::1]:3300/old/path?code=private#fragment", "http://[::1]:3300"),
+                Map.entry("https://[1:2:3:4:5:6:7:8]/old/path?code=private#fragment", "https://[1:2:3:4:5:6:7:8]"),
+                Map.entry("https://[2001:db8::1]/old/path?code=private#fragment", "https://[2001:db8::1]"),
+                Map.entry("https://[1::]/old/path?code=private#fragment", "https://[1::]"),
+                Map.entry("https://[::]/old/path?code=private#fragment", "https://[::]"),
+                Map.entry("https://[::1]:65535/old/path?code=private#fragment", "https://[::1]:65535"),
+                Map.entry("https://[::1]:0/old/path?code=private#fragment", "https://[::1]:0"))) {
             var data = templateData();
-            data.put("client", Map.of("baseUrl", baseUrl));
+            data.put("client", Map.of("baseUrl", configuredOrigin.getKey()));
             data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
             data.put("pageRedirectUri", "https://untrusted.example/?code=private");
             data.put("actionUri", "/native/unfinished");
             String html = render("login", "info.ftl", data);
-            String origin = baseUrl.startsWith("https:") ? "https://app.example" : "http://127.0.0.1:3300";
-            assertTrue(html.contains("href=\"" + origin + "/api/auth/login?prompt=login\""));
+            assertTrue(html.contains("href=\"" + configuredOrigin.getValue() + "/api/auth/login?prompt=login\""),
+                    "Fresh sign-in link must retain only configured origin: " + configuredOrigin.getKey());
             assertFalse(html.contains("untrusted.example"));
             assertFalse(html.contains("code=private"));
+            assertFalse(html.contains("/old/path"));
+            assertFalse(html.contains("#fragment"));
             assertFalse(html.contains("href=\"/native/unfinished\""));
         }
     }
 
     @Test
     void offlineCompletedInfoFailsClosedWithoutSafeConfiguredAppOrigin() throws Exception {
-        for (String baseUrl : List.of("", "javascript:alert(1)", "//evil.example", "https://app.example@evil.example")) {
-            var data = templateData();
-            data.put("client", Map.of("baseUrl", baseUrl));
-            data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
-            data.put("pageRedirectUri", "https://untrusted.example");
-            String html = render("login", "info.ftl", data);
-            assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(html).find());
-            assertFalse(html.contains("untrusted.example"));
+        var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
+        for (String baseUrl : List.of("", "javascript:alert(1)", "//evil.example", "https://app.example@evil.example",
+                "https://app.example:65536", "http://127.0.0.1:99999/", "https://[123]", "https://[1:2:3]",
+                "https://[1::2::3]", "https://[1:2:3:4:5:6:7:8:9]", "https://[::1]:65536")) {
+            checks.add(() -> {
+                var data = templateData();
+                data.put("client", Map.of("baseUrl", baseUrl));
+                data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
+                data.put("pageRedirectUri", "https://untrusted.example");
+                data.put("actionUri", "/native/unfinished");
+                String html = render("login", "info.ftl", data);
+                assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(html).find(),
+                        "Invalid configured origin must not emit a link: " + baseUrl);
+                assertFalse(html.contains("untrusted.example"));
+                assertFalse(html.contains("href=\"/native/unfinished\""));
+            });
         }
+        assertAll(checks);
     }
 
     @Test
@@ -87,6 +109,24 @@ class EmailOtpResetFlowIT {
         data.put("pageRedirectUri", "/native/continue");
         html = render("login", "info.ftl", data);
         assertTrue(html.contains("href=\"/native/continue\""));
+    }
+
+    @Test
+    void offlineInfoSkipLinkSuppressesCompletionAndNativeLinks() throws Exception {
+        for (var message : List.of(Map.of("type", "success", "summary", "accountUpdatedMessage"),
+                Map.of("type", "warning", "summary", "Required action"))) {
+            for (boolean skipLink : List.of(true, false)) {
+                var data = templateData();
+                data.put("client", Map.of("baseUrl", "https://app.example"));
+                data.put("message", message);
+                data.put("pageRedirectUri", "/native/continue");
+                data.put("actionUri", "/native/unfinished");
+                data.put("skipLink", skipLink);
+                String html = render("login", "info.ftl", data);
+                assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(html).find(),
+                        "Presence of skipLink must suppress links regardless of its value or message");
+            }
+        }
     }
 
     @Test
