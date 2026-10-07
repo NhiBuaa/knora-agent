@@ -2860,7 +2860,7 @@ test.describe("source fixtures", () => {
     page,
   }) => {
     const evidence =
-      "../.superpowers/figma/q1/evidence/reset-presentation-2026-10-08";
+      "../.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08";
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
       for (const state of ["242:389", "242:272", "242:333", "246:311"]) {
@@ -3037,6 +3037,181 @@ test.describe("source fixtures", () => {
     }
   });
 
+  test("native FTL OTP allocation and empty marks preserve one native input", async ({
+    page,
+    context,
+  }) => {
+    const evidence =
+      "../.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08";
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
+      for (const state of ["242:333", "246:311"]) {
+        await page.route("**/native/blocked-action", (route) => route.abort());
+        const unexpected = await prepareFixture(page, state);
+        const input = page.getByRole("textbox", {
+          name: "Six-digit reset code",
+        });
+        await expect(input).toHaveCount(1);
+        await expect(input).toHaveValue("");
+        for (const [attribute, value] of Object.entries({
+          name: "code",
+          type: "text",
+          inputmode: "numeric",
+          pattern: "[0-9]{6}",
+          minlength: "6",
+          maxlength: "6",
+          autocomplete: "one-time-code",
+          required: "",
+          "aria-invalid": state === "246:311" ? "true" : "false",
+          "aria-describedby":
+            state === "246:311" ? "otp-error otp-expiry" : "otp-expiry",
+        })) {
+          await expect(input).toHaveAttribute(attribute, value);
+        }
+        await expect(page.locator(".knora-otp-cells")).toHaveAttribute(
+          "aria-hidden",
+          "true",
+        );
+        await expect(page.locator(".knora-otp-cells span")).toHaveCount(6);
+        await expect(page.locator("form")).toHaveAttribute("method", "post");
+        await expect(page.locator("form")).toHaveAttribute(
+          "action",
+          "/native/blocked-action",
+        );
+        const geometry = await page
+          .locator(".knora-otp-entry")
+          .evaluate((entry) => {
+            const box = (element: Element) => {
+              const rect = element.getBoundingClientRect();
+              return {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+              };
+            };
+            const cells = Array.from(entry.querySelectorAll("span"));
+            const grid = entry.querySelector(".knora-otp-cells")!;
+            const input = entry.querySelector("input")!;
+            const style = getComputedStyle(grid);
+            const brand =
+              document.querySelector<HTMLImageElement>(".knora-brand img")!;
+            return {
+              viewport: { width: innerWidth, height: innerHeight },
+              wrapper: box(entry),
+              form: box(entry.closest("form")!),
+              input: box(input),
+              cells: cells.map((cell) => ({
+                ...box(cell),
+                text: cell.textContent,
+                mark: getComputedStyle(cell, "::before").content,
+                markColor: getComputedStyle(cell, "::before").color,
+                fontSize: getComputedStyle(cell).fontSize,
+                fontWeight: getComputedStyle(cell).fontWeight,
+              })),
+              gridColumns: style.gridTemplateColumns,
+              gap: style.columnGap,
+              pointerEvents: style.pointerEvents,
+              mutedColor: getComputedStyle(
+                document.querySelector(".knora-auth-description")!,
+              ).color,
+              pageFits: document.documentElement.scrollWidth <= innerWidth,
+              brand: {
+                ...box(brand),
+                loaded: brand.complete && brand.naturalWidth > 0,
+                src: brand.getAttribute("src"),
+              },
+            };
+          });
+        const target = `${evidence}/otp-empty-${state.replace(":", "-")}-${width}`;
+        writeLookupGeometry(target, geometry);
+        await page.screenshot({
+          path: `${target}.png`,
+          fullPage: true,
+          animations: "disabled",
+        });
+        expect
+          .soft(geometry.wrapper.width)
+          .toBe(width === 1440 ? 420 : geometry.form.width);
+        expect(geometry.wrapper.height).toBe(56);
+        expect(geometry.input.height).toBe(56);
+        expect(geometry.input.width).toBe(geometry.wrapper.width);
+        expect(geometry.gap).toBe("10px");
+        expect(geometry.pointerEvents).toBe("none");
+        expect(geometry.pageFits).toBe(true);
+        expect(geometry.brand).toMatchObject({
+          width: 18,
+          height: 18,
+          loaded: true,
+          src: "/resources/images/ad252.svg",
+        });
+        for (const [index, cell] of geometry.cells.entries()) {
+          expect(cell.height).toBe(56);
+          expect(cell.fontSize).toBe("22px");
+          expect(cell.fontWeight).toBe("600");
+          expect.soft(cell.mark).toBe('"—"');
+          expect.soft(cell.markColor).toBe(geometry.mutedColor);
+          expect(cell.text).toBe("");
+          if (width === 1440) {
+            expect(cell.width).toBe(54);
+            expect.soft(cell.x - geometry.wrapper.x).toBe(23 + index * 64);
+          } else {
+            expect(cell.width).toBeGreaterThan(0);
+            expect(cell.width).toBeLessThan(54);
+            expect(cell.x).toBeGreaterThanOrEqual(geometry.wrapper.x);
+            expect(cell.x + cell.width).toBeLessThanOrEqual(
+              geometry.wrapper.x + geometry.wrapper.width + 0.1,
+            );
+          }
+          if (index > 0)
+            expect(
+              cell.x -
+                (geometry.cells[index - 1].x + geometry.cells[index - 1].width),
+            ).toBeCloseTo(10, 1);
+        }
+        await page.evaluate(() => navigator.clipboard.writeText("000042"));
+        await input.focus();
+        await expect(input).toBeFocused();
+        await input.press("Control+V");
+        await expect(input).toHaveValue("000042");
+        await expect(page.locator(".knora-otp-cells")).toHaveText("000042");
+        const pasted = await page
+          .locator(".knora-otp-entry")
+          .evaluate((entry) => ({
+            value: entry.querySelector<HTMLInputElement>("input")!.value,
+            cells: Array.from(entry.querySelectorAll("span")).map((cell) => ({
+              text: cell.textContent,
+              mark: getComputedStyle(cell, "::before").content,
+            })),
+          }));
+        expect(pasted.cells.map((cell) => cell.mark)).toEqual(
+          Array(6).fill("none"),
+        );
+        await input.fill("");
+        await expect(input).toHaveValue("");
+        await expect(page.locator(".knora-otp-cells")).toHaveText("");
+        const cleared = await page
+          .locator(".knora-otp-entry")
+          .evaluate((entry) => ({
+            value: entry.querySelector<HTMLInputElement>("input")!.value,
+            cells: Array.from(entry.querySelectorAll("span")).map((cell) => ({
+              text: cell.textContent,
+              mark: getComputedStyle(cell, "::before").content,
+            })),
+          }));
+        expect
+          .soft(cleared.cells.map((cell) => cell.mark))
+          .toEqual(Array(6).fill('"—"'));
+        writeLookupGeometry(target, {
+          ...geometry,
+          inputTransitions: { pasted, cleared },
+        });
+        expect(unexpected).toEqual([]);
+      }
+    }
+  });
+
   test("native FTL OTP input accepts leading-zero paste and enables resend after the cooldown", async ({
     page,
     context,
@@ -3125,7 +3300,7 @@ test.describe("source fixtures", () => {
       );
       await input.fill("");
       await page.screenshot({
-        path: "../.superpowers/figma/q1/evidence/reset-presentation-2026-10-08/otp-resend-no-js-enabled.png",
+        path: "../.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08/otp-resend-no-js-enabled.png",
         animations: "disabled",
       });
     } finally {

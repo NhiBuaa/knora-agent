@@ -563,6 +563,39 @@ validation and differs only in CTA whitespace (4491 → 4494 bytes). Exact histo
 are reproduced separately in the SDD report evidence; historical PNGs stay unchanged. This
 additional export difference makes no new completion or native recovery claim.
 
+### Oct8 OTP input presentation — local allocation and empty marks
+
+Cached complete direct MCP242:333/246:311 structures and renders map the OTP wrapper to
+246:292/363:420×56, with six54×56 cells,10px gaps and a centered374px inner row. Existing
+native CSS now uses the420px wrapper and centered bounded grid. Empty decorative cells show
+the source22px semibold em dash using the existing semantic muted token. The true labelled
+text/numeric input stays authoritative; the aria-hidden mirrors contain no placeholder text.
+
+Focused browser RED failed on374px allocation, missing23px inset and absent muted marks.
+GREEN proves normal/error at1440×960 and390×844, one56px input, unchanged required/pattern/
+length/autocomplete/ARIA, real clipboard000042 and focus, no pseudo marks on populated cells,
+and six marks after clearing. Desktop wrapper origins are830/287 and830/370 with cells at853;
+at390px the available342px wrapper holds approximately48.67px cells and no horizontal overflow.
+Mobile proves readable adaptation only; the source supplies no mobile geometry.
+
+The wrapper correction does not accept the whole content origin or shared notice/type geometry.
+Privacy adds a description line; the error remains generic, expiry stays the actual five minutes,
+and native input focus/error outlines remain visible. The source error sample234567 is never
+hardcoded; marks and digits reflect the empty/entered input. Existing semantic muted color is
+#546B63, while the source fallback is#657A74; semantic color policy remains unchanged.
+
+The existing JS cooldown and no-JavaScript cases pass, including visible native56px input,
+hidden mirrors, enabled native resend with00:30 and blocked fixture actions. Existing four-state
+source-copy checks also pass for request/password copy, toggles,18px exact assets and native forms.
+Their capture paths and the no-JS capture now use the separate task evidence namespace to preserve
+all historical files. Current evidence is `.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08/`:
+four dedicated OTP empty PNG/JSON pairs, eight source-copy PNG/JSON pairs and one no-JS PNG.
+Only copied native CSS changes among315 prior Q1 files; nine native HTMLs and all assets/modules/
+historical captures retain hashes. Detailed source map, transition geometry, commands and inventory
+are in `.superpowers/sdd/2026-10-08-figma-otp-input-presentation/task-1-report.md`.
+Local OTP presentation verification leaves native recovery/CSP and whole-design acceptance open;
+the controller owns independent Spec/Quality review.
+
 ### Oct8 archived Conversation bar — current measured status
 
 Complete fresh direct MCP128:119 and its uncropped returned PNG define the local bottom container

@@ -467,7 +467,7 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
 
 .knora-auth .knora-otp-entry {
   position: relative;
-  width: 374px;
+  width: 420px;
   max-width: 100%;
   height: 56px;
   margin: 0 auto;
@@ -489,7 +489,8 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 54px));
+  justify-content: center;
   gap: 10px;
   pointer-events: none;
 }
@@ -502,6 +503,11 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   background: var(--knora-surface);
   color: var(--knora-text);
   font: 600 22px/28px Inter, sans-serif;
+}
+
+.knora-otp-cells span:empty::before {
+  content: "—";
+  color: var(--knora-muted);
 }
 
 .knora-auth .knora-otp-enhanced #code {
