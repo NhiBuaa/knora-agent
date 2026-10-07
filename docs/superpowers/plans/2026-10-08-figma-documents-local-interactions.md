@@ -12,7 +12,8 @@ Do not substitute fixture navigation for real product destination or backend lif
 
 - Backend remains source of truth; fixtures establish presentation and local UI behavior only.
 - Preserve capabilities, native menus/dialog focus, API fields and all current production modules.
-- No production/component/helper/fixture response/exporter/renderer/dependency changes.
+- Production ownership is limited to the diagnosed mobile DocumentActionsMenu placement amendment below;
+  no helper/fixture response/exporter/renderer/dependency changes.
 - No live upload/archive/restore/reprocess/delete, service/realm/password/Vault/SMTP/outage/worker,
   merge/push/cleanup actions. Unexpected API requests must remain rejected.
 - Source structure drives interaction mapping; screenshots are evidence, never assets.
@@ -25,6 +26,7 @@ Do not substitute fixture navigation for real product destination or backend lif
 | --- | --- |
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Existing module local control journeys |
 | `docs/development/figma-ui-visual-coverage.md` | Precisely mapped edges and remaining live limitations |
+| `frontend/components/documents/DocumentActionsMenu.tsx` | Diagnosed mobile archived menu placement only |
 
 ## Task 1: Exercise Documents local control journeys
 
@@ -69,3 +71,23 @@ systematic-debugging if a failure occurs. This is verification-only, no fabricat
 
 **Finish condition:** Named local filter/menu/dialog actions verified and accurately mapped,
 independently reviewed. Real lifecycle/navigation/authorization and whole-design acceptance remain open.
+
+## Diagnosed mobile placement amendment
+
+Desktop local journey passed. Mobile Archived trigger reaches document end; even actual scrolling
+cannot center it because remaining scroll range is exhausted. Existing downward absolute menu
+extends to924.421875 in844px viewport. Ready mobile menu already fits; this failure is menu placement,
+not focus or API behavior. Preserve failing log and diagnostic geometry/PNG before correction.
+
+Ruling: Add only mobile upward placement to the owning DocumentActionsMenu wrapper using a static
+Tailwind descendant rule `max-md:[&_.kn-menu\_\_panel]:bottom-full` (same established escaped selector
+syntax as existing rules). Desktop downward source composition is retained. Documents list actions
+are below the heading/toolbar, providing room above on the tested mobile composition. There is no
+mobile Figma reference; this is disclosed responsive adaptation. No shared Menu props/positioning,
+handlers, source copy, API or fixture changes. Cost if wrong: local responsive rule rework.
+
+This amendment converts the task's diagnosed presentation correction to RED→GREEN: retain concrete
+overflow RED, apply the one-rule fix, run both original journeys GREEN and verify all menuitems fit,
+Escape/arrow/deletion cancel/file reset remain functional. Exactly three maintained paths now belong
+to implementer; record the expanded ownership in report. Controller plan commit is disclosed in
+originalBASE→HEAD review range. If another actual failure appears, diagnose it before another edit.
