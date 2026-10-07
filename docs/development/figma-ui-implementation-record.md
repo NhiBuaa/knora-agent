@@ -6,8 +6,8 @@ design. This is a continuity and evidence record, not Q1/Q2 or full-product acce
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Operator frame `58d7290`.
-Evaluation, Operations and shared Operator frame measures are implemented and independently approved.
+Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Trace flow `86679dc`.
+Evaluation, Operations, shared Operator frame and Trace flow are independently approved.
 No merge, push, deployment, branch disposition or worktree removal has occurred.
 
 The stack includes Next.js15.5.24, React18.3.1, TypeScript and Tailwind CSS v4, with local fonts,
@@ -35,6 +35,7 @@ its bounded scope; it does not promote fixture checks to native/live backend acc
 | `6ff260d` | Evaluation explanation minimum and context text regions/row flow | 36 component tests, focused Evaluation case and five Operator cases; spec PASS / quality APPROVED |
 | `81ff9e9` | Operations accounting/bucket allocations, value slots and Alerts text regions | 46 component tests; four Operator cases passed and Operations passed after asset-readiness recovery; spec PASS / quality APPROVED |
 | `58d7290` | Shared Operator flow, source-specific tabs, separate divider and top-aligned lookup | Five desktop/mobile browser cases and13 focused component checks; spec PASS / quality APPROVED, no findings |
+| `86679dc` | Trace answer/citations/provenance and candidate text/disclosure flow | Browser geometry RED→GREEN at1440/390;24 relevant component checks; spec PASS / quality APPROVED, no Important finding |
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
@@ -103,15 +104,28 @@ existing Next image lint warnings remain. Logs/exits are retained in the same ex
 with the `58d7290` suffix. No production source changed during these commands. Later Trace changes
 require their own covering evidence.
 
-## Active next source correction
+## Trace flow and active reset presentation
 
 The [Trace result/candidate plan](../superpowers/plans/2026-10-08-figma-trace-result-candidate-flow.md)
-continues the approved integration. Fresh complete direct MCP216:635 and its returned uncropped
+has passed independent review. Fresh complete direct MCP216:635 and its returned uncropped
 render are saved under Q1 `evidence/trace-content-source-2026-10-08`. Source structure drives
 result/citation/provenance positions and candidate text regions. Retained Retrieval details and
 full observations remain in natural flow; source102px candidates cannot be enforced by clipping
 those existing controls. Frame review remains pinned to28a6d3c→58d7290 and its263-entry artifact
 audit; next-task source files were added afterward and their timing is disclosed in its report.
+
+Trace result heading/answer/citations/provenance now follow source-relative0/34/82/126; first
+candidate begins190, with source inner slots7/4/33/60 and retained disclosure88. Short candidate
+rows naturally allocate128 rather than source102 to preserve that disclosure; the next starts326
+rather than300. All266 evidence hashes were independently checked, four expected Trace outputs
+changed and262 unchanged. The historical browser color-environment warning is a deferred minor
+for the next authorized browser run; no optional rerun was made solely for that warning.
+
+The [reset presentation plan](../superpowers/plans/2026-10-08-figma-reset-presentation.md) is active,
+with original task BASE86679dc. Fresh complete MCP242:272/333/389 and246:311 structures and returned
+renders are retained in its ignored SDD source directory. It changes existing template labels and
+server-derived countdown display only, with privacy, native POST and no-JS semantics retained.
+It cannot release the native reset binding/provider gate or prove a password transaction.
 
 ## Remaining acceptance work
 
