@@ -141,8 +141,6 @@ The reviewer independently verified285 artifact and12 source hashes. A deferred 
 the static copy test's live countdown clock; freeze it in a later authorized test edit while retaining
 the separate countdown interaction test. The source archived Conversation bar is the next task.
 
-## Remaining acceptance work
-
 ## Latest frontend qualification and archived Conversation bar
 
 Source `070e4d2` includes reset presentation and the local archived Conversation bar correction.
