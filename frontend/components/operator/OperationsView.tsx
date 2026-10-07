@@ -76,16 +76,19 @@ export function OperationsView({
       <h3 className="mt-[30px] mb-0 font-display text-lg leading-6 font-semibold">
         Execution accounting
       </h3>
-      <dl className="mt-2.5 mb-0 grid grid-cols-2 gap-x-5 gap-y-0 pr-5 max-md:grid-cols-1 max-md:pr-0">
+      <dl className="mt-2.5 mb-0 grid grid-cols-2 gap-x-5 gap-y-0 pr-5 max-md:grid-cols-1 max-md:pr-0 md:pb-px">
         {ACCOUNTING.map(([key, label, unit]) => {
           const metric = presentMetric(safeNumber(operations.metrics[key]));
           return (
             <div
               key={key}
-              className="grid min-h-[49px] grid-cols-[minmax(0,1fr)_160px] items-center gap-3 border-b border-border text-sm max-sm:grid-cols-[minmax(0,1fr)_auto]"
+              className="grid min-h-[49px] grid-cols-[minmax(0,1fr)_160px] items-start gap-3 border-b border-border pt-3.5 pb-3.5 text-sm leading-5 max-sm:grid-cols-2"
             >
               <dt className="font-normal text-text-muted">{label}</dt>
-              <dd data-state={metric.state} className="font-semibold">
+              <dd
+                data-state={metric.state}
+                className="min-w-0 font-semibold [overflow-wrap:anywhere]"
+              >
                 {metric.value}
                 {metric.state === "available" ? unit : ""}
               </dd>
@@ -116,15 +119,15 @@ export function OperationsView({
                 {Array.isArray(projection.buckets) && (
                   <dl
                     aria-label="Cumulative latency buckets"
-                    className="mt-2 mb-0 grid grid-cols-2 gap-x-5 gap-y-1.5 max-sm:grid-cols-1"
+                    className="mt-2 mb-0 grid grid-cols-2 gap-x-5 gap-y-1.5 max-sm:grid-cols-1 md:pb-1.5"
                   >
                     {projection.buckets.map((bucket, index) =>
                       Array.isArray(bucket) && bucket.length === 2 ? (
                         <div
                           key={index}
-                          className="flex min-h-10 items-center justify-between gap-3 border-b border-border text-[13px]"
+                          className="grid min-h-10 grid-cols-[minmax(0,1fr)_minmax(60px,max-content)] items-start border-b border-border pt-2.5 pb-[9px] text-[13px] leading-5"
                         >
-                          <dt className="font-normal text-text-muted">
+                          <dt className="font-normal text-text-muted [overflow-wrap:anywhere]">
                             {safeNumber(bucket[0]) !== null ? "≤ " : ""}
                             <span>
                               {safeNumber(bucket[0]) !== null
@@ -132,7 +135,9 @@ export function OperationsView({
                                 : "Bound unavailable"}
                             </span>
                           </dt>
-                          <dd>{presentMetric(safeNumber(bucket[1])).value}</dd>
+                          <dd className="font-semibold">
+                            {presentMetric(safeNumber(bucket[1])).value}
+                          </dd>
                         </div>
                       ) : null,
                     )}
@@ -149,10 +154,12 @@ export function OperationsView({
         </div>
         <div
           role="status"
-          className="mt-7 h-fit rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-3"
+          className="mt-7 h-fit min-h-[70px] rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-3"
         >
-          <p className="m-0 text-[11px] font-semibold text-signature">ALERTS</p>
-          <p className="mt-2 mb-0 text-[13px]">
+          <p className="m-0 text-[11px] leading-[15px] font-semibold text-signature">
+            ALERTS
+          </p>
+          <p className="mt-2 mb-0 text-[13px] leading-5">
             Unavailable in the current Operator contract.
           </p>
         </div>

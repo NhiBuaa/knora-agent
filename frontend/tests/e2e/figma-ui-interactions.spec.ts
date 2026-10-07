@@ -236,6 +236,63 @@ async function operatorSourceGeometry(
         }),
       ),
     };
+    const accounting = main.querySelector(
+      'section[aria-labelledby="operations-heading"] > h3 + dl',
+    );
+    const operationsContent =
+      accounting &&
+      (() => {
+        const rows = (list: Element) =>
+          Array.from(list.children).map((row) => ({
+            ...box(row),
+            minHeight: getComputedStyle(row).minHeight,
+            borderBottom: getComputedStyle(row).borderBottomWidth,
+            label: {
+              ...word(row.querySelector("dt")!),
+              lineHeight: getComputedStyle(row.querySelector("dt")!).lineHeight,
+            },
+            value: {
+              ...word(row.querySelector("dd")!),
+              lineHeight: getComputedStyle(row.querySelector("dd")!).lineHeight,
+            },
+          }));
+        const buckets = main.querySelector(
+          'dl[aria-label="Cumulative latency buckets"]',
+        )!;
+        const alerts = main.querySelector(
+          'section[aria-labelledby="operations-heading"] [role="status"]',
+        )!;
+        return {
+          accounting: {
+            ...box(accounting),
+            columnGap: getComputedStyle(accounting).columnGap,
+            paddingRight: getComputedStyle(accounting).paddingRight,
+            paddingBottom: getComputedStyle(accounting).paddingBottom,
+            rows: rows(accounting),
+          },
+          buckets: {
+            ...box(buckets),
+            columnGap: getComputedStyle(buckets).columnGap,
+            rowGap: getComputedStyle(buckets).rowGap,
+            paddingBottom: getComputedStyle(buckets).paddingBottom,
+            rows: rows(buckets),
+          },
+          alerts: {
+            ...box(alerts),
+            minHeight: getComputedStyle(alerts).minHeight,
+            backgroundColor: getComputedStyle(alerts).backgroundColor,
+            label: {
+              ...word(alerts.firstElementChild!),
+              lineHeight: getComputedStyle(alerts.firstElementChild!)
+                .lineHeight,
+            },
+            body: {
+              ...word(alerts.lastElementChild!),
+              lineHeight: getComputedStyle(alerts.lastElementChild!).lineHeight,
+            },
+          },
+        };
+      })();
     return {
       workspaceLabel: box(main.querySelector(".workspace-selector-label")!),
       traceBadges,
@@ -277,6 +334,7 @@ async function operatorSourceGeometry(
       ).map(word),
       ...(traceContent ? { traceContent } : {}),
       ...(evaluationContent ? { evaluationContent } : {}),
+      ...(operationsContent ? { operationsContent } : {}),
     };
   });
   expect
@@ -481,6 +539,99 @@ async function operatorSourceGeometry(
         expect.soft(row.height).toBeGreaterThan(40);
         expect.soft(row.value.y).toBeGreaterThan(row.label.y);
       }
+    }
+  }
+  if (geometry.operationsContent) {
+    const { accounting, buckets, alerts } = geometry.operationsContent;
+    for (const [list, rowHeight, fontSize, textTop] of [
+      [accounting, 49, "14px", 14],
+      [buckets, 40, "13px", 10],
+    ] as const) {
+      expect.soft(list.columnGap).toBe("20px");
+      for (const row of list.rows) {
+        expect.soft(row.minHeight).toBe(`${rowHeight}px`);
+        expect.soft(row.borderBottom).toBe("1px");
+        expect.soft(row.height).toBeGreaterThanOrEqual(rowHeight);
+        for (const text of [row.label, row.value]) {
+          expect.soft(text).toMatchObject({
+            fontSize,
+            lineHeight: "20px",
+            fits: true,
+            textFitsParent: true,
+          });
+          expect.soft(text.y - row.y).toBe(textTop);
+        }
+        expect.soft(row.value.fontWeight).toBe("600");
+      }
+    }
+    expect.soft(buckets.rowGap).toBe("6px");
+    expect
+      .soft(alerts)
+      .toMatchObject({ minHeight: "70px", radius: "8px", fits: true });
+    expect.soft(alerts.height).toBeGreaterThanOrEqual(70);
+    expect.soft(alerts.label).toMatchObject({
+      text: "ALERTS",
+      fontSize: "11px",
+      fontWeight: "600",
+      lineHeight: "15px",
+      height: 15,
+      fits: true,
+      textFitsParent: true,
+    });
+    expect.soft(alerts.body).toMatchObject({
+      text: "Unavailable in the current Operator contract.",
+      fontSize: "13px",
+      lineHeight: "20px",
+      fits: true,
+      textFitsParent: true,
+    });
+    expect.soft(alerts.label.x - alerts.x).toBe(14);
+    expect.soft(alerts.label.y - alerts.y).toBe(12);
+    expect.soft(alerts.body.y - alerts.y).toBe(35);
+    if (width === 1440) {
+      expect.soft(accounting).toMatchObject({
+        width: 1200,
+        height: 148,
+        paddingRight: "20px",
+        paddingBottom: "1px",
+      });
+      expect
+        .soft(buckets)
+        .toMatchObject({ width: 760, height: 92, paddingBottom: "6px" });
+      for (const [
+        list,
+        rowWidth,
+        rowHeight,
+        columnStep,
+        rowStep,
+        valueOffset,
+      ] of [
+        [accounting, 580, 49, 600, 49, 420],
+        [buckets, 370, 40, 390, 46, 310],
+      ] as const) {
+        for (const [index, row] of list.rows.entries()) {
+          expect.soft(row.width).toBe(rowWidth);
+          expect.soft(row.height).toBe(rowHeight);
+          expect.soft(row.x - list.x).toBe((index % 2) * columnStep);
+          expect.soft(row.y - list.y).toBe(Math.floor(index / 2) * rowStep);
+          expect.soft(row.label.x - row.x).toBe(0);
+          expect.soft(row.value.x - row.x).toBe(valueOffset);
+          expect.soft(row.label.height).toBe(20);
+          expect.soft(row.value.height).toBe(20);
+        }
+      }
+      expect
+        .soft(buckets.rows.map((row) => row.value.width))
+        .toEqual([60, 60, 60, 60]);
+      expect.soft(alerts).toMatchObject({ width: 380, height: 70 });
+      expect.soft(alerts.body.height).toBe(20);
+    } else {
+      expect
+        .soft(accounting.rows.every((row) => row.width === accounting.width))
+        .toBe(true);
+      expect
+        .soft(buckets.rows.every((row) => row.width === buckets.width))
+        .toBe(true);
     }
   }
   return { ...geometry, assetRoot: root };
@@ -1300,6 +1451,18 @@ test.describe("source fixtures", () => {
           );
           measurements.push({ ...measurement, actual, differences });
         }
+        // The header's Next Image is lazy: fonts/hydration ready does not imply
+        // its SVG has finished loading. Await readiness before reading geometry.
+        await expect
+          .poll(() =>
+            page.locator("main img, header img").evaluateAll((elements) =>
+              elements.every((element) => {
+                const image = element as HTMLImageElement;
+                return image.complete && image.naturalWidth > 0;
+              }),
+            ),
+          )
+          .toBe(true);
         const assets = await page
           .locator("main img, header img")
           .evaluateAll((elements) =>

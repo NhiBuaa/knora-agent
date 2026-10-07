@@ -543,6 +543,101 @@ describe("Figma operator data surfaces", () => {
       screen.getByRole("heading", { name: "Execution accounting" }),
     ).toBeVisible();
   });
+  it("retains all six accounting meanings and every supplied valid bucket without inventing missing values", () => {
+    const { container } = render(
+      <OperationsView
+        operations={{
+          workspace_id: "ws-1",
+          configuration_version: "ops-v1",
+          metrics: {
+            oldest_job_age: 0,
+            claim_latency_count: 124,
+            claim_latency_sum: 18.4,
+            cleanup_attempt_total: 32,
+            orphan_reconciliation_total: 0,
+          },
+          histograms: {
+            latency: {
+              count: 0,
+              sum: 0,
+              buckets: [
+                [0.1, 0],
+                [0.25, 91],
+                [0.5, 118],
+                [1, 124],
+                [2, 125],
+                [null, null],
+                null,
+                [4],
+                [5, 126, 127],
+                "malformed",
+              ],
+            },
+          },
+        }}
+      />,
+    );
+    const accounting = container.querySelector("h3 + dl")!;
+    expect(
+      Array.from(accounting.querySelectorAll("dt"), (node) => node.textContent),
+    ).toEqual([
+      "Oldest job age",
+      "Claim latency samples",
+      "Claim latency sum",
+      "Lease expiry recoveries",
+      "Cleanup attempts",
+      "Orphan reconciliations",
+    ]);
+    expect(
+      Array.from(accounting.querySelectorAll("dd"), (node) => [
+        node.textContent,
+        node.getAttribute("data-state"),
+      ]),
+    ).toEqual([
+      ["0 s", "available"],
+      ["124", "available"],
+      ["18.4 s", "available"],
+      ["Unavailable", "unavailable"],
+      ["32", "available"],
+      ["0", "available"],
+    ]);
+    const histogram = container.querySelector(
+      'dl[aria-label="Cumulative latency buckets"]',
+    )!;
+    expect(
+      Array.from(histogram.querySelectorAll("dt"), (node) => node.textContent),
+    ).toEqual([
+      "≤ 0.1 s",
+      "≤ 0.25 s",
+      "≤ 0.5 s",
+      "≤ 1 s",
+      "≤ 2 s",
+      "Bound unavailable",
+    ]);
+    expect(
+      Array.from(histogram.querySelectorAll("dd"), (node) => node.textContent),
+    ).toEqual(["0", "91", "118", "124", "125", "Unavailable"]);
+    expect(screen.getByText("latency · 0 samples · 0 s total")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "ALERTSUnavailable in the current Operator contract.",
+    );
+  });
+  it("keeps an absent histogram explicitly unavailable", () => {
+    render(
+      <OperationsView
+        operations={{
+          workspace_id: "ws-1",
+          configuration_version: "ops-v1",
+          metrics: {},
+          histograms: {},
+        }}
+      />,
+    );
+    expect(screen.getByText("Latency histogram unavailable.")).toBeVisible();
+    expect(
+      screen.queryByLabelText("Cumulative latency buckets"),
+    ).not.toBeInTheDocument();
+  });
   it("shows citation-to-source mapping and schema/configuration provenance without opening disclosures", () => {
     render(<TraceView trace={trace} />);
     expect(
