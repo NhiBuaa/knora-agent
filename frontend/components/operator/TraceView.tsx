@@ -34,7 +34,7 @@ function ContextRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid min-h-[38px] grid-cols-[minmax(0,170px)_minmax(0,1fr)] items-start gap-2.5 border-b border-border py-2.5 text-[13px] leading-[18px] max-sm:grid-cols-1">
+    <div className="grid min-h-[38px] grid-cols-[minmax(0,170px)_minmax(0,1fr)] items-start gap-2.5 border-b border-border pt-[7px] pb-[13px] text-[13px] leading-[17px] max-sm:grid-cols-1">
       <dt className="font-normal text-text-muted">{label}</dt>
       <dd className="min-w-0 [overflow-wrap:anywhere]">{children}</dd>
     </div>
@@ -103,12 +103,14 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
         ].map(([label, value, success]) => (
           <div
             key={String(label)}
-            className="min-h-[84px] min-w-0 border-r border-border px-[18px] py-4"
+            className="min-h-[82px] min-w-0 border-r border-border px-[18px] pt-[14px] pb-[18px]"
           >
-            <dt className="text-[13px] font-normal text-text-muted">{label}</dt>
+            <dt className="text-[13px] leading-[17px] font-normal text-text-muted [overflow-wrap:anywhere]">
+              {label}
+            </dt>
             <dd
               title={String(value)}
-              className={`mt-1.5 text-[22px] leading-[26px] font-semibold [overflow-wrap:anywhere] ${success ? "text-action-text" : "text-text-primary"}`}
+              className={`mt-[7px] text-[22px] leading-[26px] font-semibold [overflow-wrap:anywhere] ${success ? "text-action-text" : "text-text-primary"}`}
             >
               {displayMilliseconds(String(value))}
             </dd>
@@ -121,7 +123,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             aria-labelledby="observed-result-heading"
             className="m-0 border-0 bg-transparent p-0"
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex max-w-[760px] flex-wrap items-center justify-between gap-3">
               <h2 id="observed-result-heading" className={heading}>
                 Observed result
               </h2>
@@ -173,7 +175,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             <h2 id="candidate-heading" className={heading}>
               Candidate provenance
             </h2>
-            <p className="mt-1.5 mb-0 text-[13px] leading-[18px] text-text-muted">
+            <p className="mt-1.5 mb-0 max-w-[730px] text-[13px] leading-[18px] text-text-muted">
               Ranked evidence considered by retrieval. Selected passages keep
               their source, score, and excerpt inspectable.
             </p>
@@ -184,10 +186,10 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
               {trace.candidates.map((candidate) => (
                 <li
                   key={candidate.chunk_id}
-                  className="m-0 border-b border-border py-4"
+                  className="m-0 max-w-[760px] border-b border-border py-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <strong className="min-w-0 text-[15px] font-semibold [overflow-wrap:anywhere]">
+                    <strong className="min-w-0 max-w-[420px] text-[15px] font-semibold [overflow-wrap:anywhere]">
                       {candidate.source_key}
                     </strong>
                     <StatusBadge
@@ -205,7 +207,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                       {candidate.final_decision}
                     </StatusBadge>
                   </div>
-                  <p className="mt-1 mb-0 text-xs leading-4 text-text-muted">
+                  <p className="mt-1 mb-0 text-xs leading-4 text-text-muted [overflow-wrap:anywhere]">
                     Chunk {candidate.chunk_ordinal} ·{" "}
                     <span>
                       Lines {candidate.start_line}-{candidate.end_line}
@@ -213,7 +215,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                     · Rank {candidate.final_rank} · Fusion{" "}
                     {presentMetric(candidate.fusion_score).value}
                   </p>
-                  <p className="mt-3 mb-0 text-[13px] leading-[18px]">
+                  <p className="mt-3 mb-0 text-[13px] leading-[18px] [overflow-wrap:anywhere]">
                     {candidate.content}
                   </p>
                   <details className="mt-2 text-xs text-text-muted">
@@ -324,7 +326,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
           >
             <h3
               id="citation-mapping-heading"
-              className="m-0 font-display text-lg leading-6 font-semibold"
+              className="m-0 font-display text-lg leading-[22px] font-semibold"
             >
               Citation mapping
             </h3>
@@ -363,7 +365,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
           >
             <h3
               id="phase-timing-heading"
-              className="m-0 font-display text-lg leading-6 font-semibold"
+              className="m-0 font-display text-lg leading-[22px] font-semibold"
             >
               Phase timing
             </h3>

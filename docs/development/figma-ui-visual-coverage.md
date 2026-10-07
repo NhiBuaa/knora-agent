@@ -313,3 +313,45 @@ and accessible semantic contrast tokens. Validation timing remains reachable thr
 scroll. These focused fixture checks do not accept whole-page geometry, backend authorization,
 native identity flows or full regression qualification. Exact RED/GREEN, preservation proof and
 residuals are in `.superpowers/sdd/2026-10-07-figma-operator-type-and-badges/task-1-report.md`.
+
+### Oct7 Trace internal content measures — current measured status
+
+The bounded Trace follow-up supersedes the addressed summary, candidate-width and context measures
+above. Complete source 216:573 remains authoritative. At 1440×960 the summary is 1200×84 including
+both borders; its four 300×82 cells have 13px/17px labels at relative top 15 and 22px/26px values at 39.
+The existing 780/380 columns and 40px gap remain. The result row and candidates now use 760px inner
+measures, placing the 110px ANSWER badge 650px from the column origin. Candidate descriptions use
+730px; complete source names have a 420px maximum. The answer remains 630×40.
+
+All four desktop context rows measure 380×38 with 13px/17px text, 170px label/200px value/10px gap
+and text top 7px. Citation mapping and Phase timing headings are 18px/22px; Trace context retains
+20px/24px. These are minimums and responsive maximums: full IDs, configurations, excerpts,
+aliases, mapped sources, unavailable observations and disclosures remain readable through natural
+growth. Actual zero timing/contributions retain zero, independently of unavailable values.
+
+Remaining global differences are recorded in the desktop JSON: summary source y425/current429;
+detail columns 533/537; answer 567/573; candidate heading 659/667; first candidate 723/715 and second
+833/850. Both candidate rows are 135px high versus source 102, retaining Retrieval details. Context
+starts 567/571; citation heading 738/743; phase heading 851/869; validation row 927/943 and ends 969,
+below the 960px frame. Columns naturally grow to 500px versus source 420. Summary text boxes are
+263px versus source 264px under the retained cell border model. Added Workspace controls,
+optional scope, provenance/accounting/lifecycle disclosures, runtime IDs/E1/E2/ASCII separators,
+accessible semantic contrast and surrounding origins remain visible differences. No data is omitted
+to fit the supplied frame, and whole-page parity remains open.
+
+At 390px the 358×166 summary stacks two 179×82 cells per row; candidates are 358px wide with natural
+170.25/153px heights, and context rows stack to 65px. SELECTED stays one whole word, all provenance
+is inspectable, and both closed and expanded content have no horizontal overflow. No mobile Figma
+source exists, so this proves readable adaptation only. Guarded actual-component fixtures allow
+only Workspace hydration GETs, preserve prior lookup/navigation and selector/asset/badge geometry,
+and observe no unexpected requests or API writes; they do not prove backend authorization.
+
+Only the two Trace PNGs and two matching geometry JSONs changed. The combined Operator HTML was
+regenerated and remains byte-identical while referencing the updated captures. All 257 other
+inventoried Q1 artifacts retain hashes, including all 16 capture/JSON artifacts for the other four
+Operator cases and all original 51 source/capture/comparison artifacts. Active root-owned
+regression-preflight logs are excluded. Exhaustive source/current residuals remain in
+`implemented-216-573-{1440,390}-geometry.json` under the Operator prototype evidence cache.
+Preserved RED/GREEN logs, final formatting/type checks, retention manifests and self-review are in
+`.superpowers/sdd/2026-10-07-figma-trace-content-measures/task-1-report.md`.
+Native identity, full regression and full-goal acceptance remain open.

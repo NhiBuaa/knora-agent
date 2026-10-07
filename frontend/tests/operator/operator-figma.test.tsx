@@ -86,6 +86,91 @@ const trace: OperatorTraceResponse = {
 };
 
 describe("Figma operator data surfaces", () => {
+  it("keeps full long Trace provenance, mapped sources and zero observations inspectable", () => {
+    const source =
+      "Complete backend source name with a long revision and descriptive document title.pdf";
+    const chunkId =
+      "opaque-chunk-identifier-with-the-entire-backend-revision-0000000000000000000000";
+    render(
+      <TraceView
+        trace={{
+          ...trace,
+          trace_id:
+            "opaque-trace-identifier-with-the-entire-backend-revision-0000000000000000000000",
+          retrieval_configuration_id:
+            "retrieval-configuration-with-complete-immutable-policy-version",
+          candidates: [
+            {
+              ...trace.candidates[0],
+              chunk_id: chunkId,
+              source_key: source,
+              content: "Complete evidence beginning. Complete evidence ending.",
+              decision_reason: "CHUNK_COUNT_LIMIT",
+              vector_contribution: { rank: 1, similarity: 0 },
+              fts_contribution: { rank: 2, score: 0 },
+            },
+          ],
+          alias_mapping: {
+            E1: chunkId,
+            E2: "mapped-chunk-without-a-candidate",
+          },
+          provider_metadata: {
+            timing: {
+              phases: {
+                retrieval: { duration_ms: 0 },
+                generation: { duration_ms: null },
+              },
+            },
+          },
+          candidate_decisions: [
+            { chunk_id: chunkId, reason: "CHUNK_COUNT_LIMIT" },
+          ],
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("group", { name: "Trace summary signals" }),
+    ).toHaveTextContent("0 ms");
+    const context = screen.getByRole("region", { name: "Trace context" });
+    expect(context).toHaveTextContent(
+      "opaque-trace-identifier-with-the-entire-backend-revision-0000000000000000000000",
+    );
+    expect(context).toHaveTextContent(
+      "retrieval-configuration-with-complete-immutable-policy-version",
+    );
+    const mapping = screen.getByRole("region", { name: "Citation mapping" });
+    expect(mapping).toHaveTextContent(chunkId);
+    expect(mapping).toHaveTextContent(source);
+    expect(mapping).toHaveTextContent("mapped-chunk-without-a-candidate");
+    expect(mapping).toHaveTextContent("Source unavailable");
+    const timing = screen.getByRole("region", { name: "Phase timing" });
+    expect(within(timing).getByText("0 ms")).toBeVisible();
+    expect(within(timing).getByText("Unavailable")).toBeVisible();
+    const candidate = screen.getByRole("region", {
+      name: "Candidate provenance",
+    });
+    expect(candidate).toHaveTextContent(
+      "Complete evidence beginning. Complete evidence ending.",
+    );
+    fireEvent.click(within(candidate).getByText("Retrieval details"));
+    for (const value of [
+      chunkId,
+      "version-1",
+      "set-1",
+      "CHUNK_COUNT_LIMIT",
+      '{"rank":1,"similarity":0}',
+      '{"rank":2,"score":0}',
+    ]) {
+      expect(within(candidate).getByText(value, { exact: true })).toBeVisible();
+    }
+    fireEvent.click(screen.getByText("Candidate decisions", { exact: true }));
+    expect(
+      screen.getByText(
+        `{"chunk_id":"${chunkId}","reason":"CHUNK_COUNT_LIMIT"}`,
+        { exact: true },
+      ),
+    ).toBeVisible();
+  });
   it.each([
     "ANSWER",
     "REFUSAL",

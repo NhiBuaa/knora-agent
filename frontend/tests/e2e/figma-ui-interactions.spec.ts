@@ -128,6 +128,74 @@ async function operatorSourceGeometry(
         text: word(text),
       };
     });
+    const signals = main.querySelector(
+      'dl[aria-label="Trace summary signals"]',
+    );
+    const traceContent = signals && {
+      summary: box(signals),
+      signals: Array.from(signals.children).map((cell) => {
+        const label = cell.querySelector("dt")!;
+        const value = cell.querySelector("dd")!;
+        return {
+          ...box(cell),
+          minHeight: getComputedStyle(cell).minHeight,
+          label: {
+            ...box(label),
+            lineHeight: getComputedStyle(label).lineHeight,
+          },
+          value: {
+            ...box(value),
+            lineHeight: getComputedStyle(value).lineHeight,
+          },
+          labelOffset:
+            label.getBoundingClientRect().y - signals.getBoundingClientRect().y,
+          valueOffset:
+            value.getBoundingClientRect().y - signals.getBoundingClientRect().y,
+        };
+      }),
+      resultRow: box(
+        main.querySelector(
+          'section[aria-labelledby="observed-result-heading"] > div',
+        )!,
+      ),
+      explanation: box(
+        main.querySelector('section[aria-labelledby="candidate-heading"] > p')!,
+      ),
+      candidates: Array.from(
+        main.querySelectorAll(
+          'section[aria-labelledby="candidate-heading"] > ol > li',
+        ),
+      ).map((candidate) => ({
+        ...box(candidate),
+        name: {
+          ...box(candidate.querySelector("strong")!),
+          maxWidth: getComputedStyle(candidate.querySelector("strong")!)
+            .maxWidth,
+        },
+      })),
+      contextRows: Array.from(
+        main.querySelectorAll(
+          'section[aria-labelledby="trace-context-heading"] dl > div',
+        ),
+      ).map((row) => ({
+        ...box(row),
+        minHeight: getComputedStyle(row).minHeight,
+        paddingTop: getComputedStyle(row).paddingTop,
+        lineHeight: getComputedStyle(row).lineHeight,
+        gap: getComputedStyle(row).columnGap,
+        label: box(row.querySelector("dt")!),
+        value: box(row.querySelector("dd")!),
+      })),
+      headings: [
+        "trace-context-heading",
+        "citation-mapping-heading",
+        "phase-timing-heading",
+      ].map((id) => ({
+        id,
+        ...box(main.querySelector(`#${id}`)!),
+        lineHeight: getComputedStyle(main.querySelector(`#${id}`)!).lineHeight,
+      })),
+    };
     return {
       workspaceLabel: box(main.querySelector(".workspace-selector-label")!),
       traceBadges,
@@ -167,6 +235,7 @@ async function operatorSourceGeometry(
           'section[aria-labelledby="candidate-heading"] .kn-status-badge > span:last-child',
         ),
       ).map(word),
+      ...(traceContent ? { traceContent } : {}),
     };
   });
   expect
@@ -248,6 +317,74 @@ async function operatorSourceGeometry(
     expect.soft(selected.lines, "SELECTED must remain a whole word").toBe(1);
     expect.soft(selected.fits).toBe(true);
     expect.soft(selected.textFitsParent).toBe(true);
+  }
+  if (geometry.traceContent) {
+    const content = geometry.traceContent;
+    for (const signal of content.signals) {
+      expect.soft(signal.minHeight).toBe("82px");
+      expect
+        .soft(signal.label)
+        .toMatchObject({ fontSize: "13px", lineHeight: "17px", fits: true });
+      expect
+        .soft(signal.value)
+        .toMatchObject({ fontSize: "22px", lineHeight: "26px", fits: true });
+    }
+    expect
+      .soft(
+        content.headings.map(({ fontSize, lineHeight }) => [
+          fontSize,
+          lineHeight,
+        ]),
+      )
+      .toEqual([
+        ["20px", "24px"],
+        ["18px", "22px"],
+        ["18px", "22px"],
+      ]);
+    for (const row of content.contextRows) {
+      expect.soft(row).toMatchObject({
+        minHeight: "38px",
+        fontSize: "13px",
+        lineHeight: "17px",
+        paddingTop: "7px",
+        gap: "10px",
+        fits: true,
+      });
+    }
+    if (width === 1440) {
+      expect
+        .soft(
+          content.summary.height,
+          "Trace outer summary includes both borders",
+        )
+        .toBe(84);
+      for (const signal of content.signals) {
+        expect.soft(signal.height).toBe(82);
+        expect
+          .soft(signal.labelOffset, "source label top from outer band")
+          .toBe(15);
+        expect
+          .soft(signal.valueOffset, "source value top from outer band")
+          .toBe(39);
+      }
+      expect.soft(content.resultRow.width).toBe(760);
+      expect
+        .soft(geometry.traceBadges[0].x - geometry.columns!.children[0].x)
+        .toBe(650);
+      expect.soft(content.explanation.width).toBe(730);
+      for (const candidate of content.candidates) {
+        expect.soft(candidate.width).toBe(760);
+        expect.soft(candidate.name.width).toBeLessThanOrEqual(420);
+        expect.soft(candidate.name.maxWidth).toBe("420px");
+      }
+      for (const row of content.contextRows) {
+        expect.soft(row.height).toBe(38);
+        expect.soft(row.label.width).toBe(170);
+        expect.soft(row.value.width).toBe(200);
+        expect.soft(row.label.y - row.y).toBe(7);
+        expect.soft(row.value.y - row.y).toBe(7);
+      }
+    }
   }
   return { ...geometry, assetRoot: root };
 }
@@ -1183,7 +1320,9 @@ test.describe("source fixtures", () => {
               .locator('section[aria-labelledby="candidate-heading"] li')
               .nth(index)
               .locator("details");
-            await details.locator("summary").click();
+            await details.locator("summary").focus();
+            await page.keyboard.press("Enter");
+            await expect(details).toHaveAttribute("open", "");
             await expect(details.locator("dd")).toHaveText([
               candidate.chunk_id,
               candidate.document_version_id,
@@ -1202,8 +1341,10 @@ test.describe("source fixtures", () => {
             "Additional provenance",
             "Provider accounting",
             "M4 lifecycle evidence",
-          ])
-            await page.getByText(heading, { exact: true }).click();
+          ]) {
+            await page.getByText(heading, { exact: true }).focus();
+            await page.keyboard.press("Enter");
+          }
           const additional = page.locator("details").filter({
             has: page
               .locator("summary")
@@ -1229,6 +1370,30 @@ test.describe("source fixtures", () => {
           await expect(
             page.getByText("M4 observation unavailable", { exact: true }),
           ).toBeVisible();
+          const expandedFit = await page
+            .locator("article")
+            .evaluate((article) => {
+              const overflowing = Array.from(
+                article.querySelectorAll("p, dt, dd, code, summary"),
+              )
+                .filter((element) => {
+                  const rect = element.getBoundingClientRect();
+                  return (
+                    rect.width > 0 &&
+                    rect.height > 0 &&
+                    (rect.left < 0 ||
+                      rect.right > innerWidth ||
+                      element.scrollWidth > element.clientWidth)
+                  );
+                })
+                .map((element) => element.textContent);
+              return {
+                pageWidth: document.documentElement.scrollWidth,
+                overflowing,
+              };
+            });
+          expect(expandedFit.pageWidth).toBeLessThanOrEqual(width);
+          expect(expandedFit.overflowing).toEqual([]);
         }
         expect(unexpected).toEqual([]);
         expect(writes).toEqual([]);
