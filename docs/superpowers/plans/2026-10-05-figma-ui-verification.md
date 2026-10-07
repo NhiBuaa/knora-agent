@@ -69,6 +69,9 @@ Keycloak 26.3.3 parent theme resources. Export deterministic HTML/build classes 
 form submission in fixtures. Disposable offline Maven/JDK image plus the existing owned cache
 may compile/render this test-only source; no provider/POM changes or runtime recovery deployment.
 These renders prove source appearance and input behaviour, not actual password/Vault/MFA gates.
+Modify the repository .gitignore to ignore only .superpowers/figma/q1/ generated source-render
+and comparison artifacts. Keep the maintained renderer/host/test sources tracked; do not add
+generated native HTML, resource copies, Java classes or screenshot outputs to the source commit.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
