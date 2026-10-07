@@ -77,6 +77,13 @@ the generic input selector currently overrides enhanced OTP input height/text/fo
 Add computed-style RED/GREEN coverage in figma-ui-interactions.spec.ts with complete parent CSS;
 restore the source 56px enhanced input geometry and transparent text without changing accessible
 paste/leading-zero/native input or non-JavaScript behavior. Do not broaden this into a theme rewrite.
+The diagnosed create-Workspace navigation ordering may modify
+frontend/components/workspaces/WorkspaceManagement.tsx and its existing
+frontend/tests/workspace-figma-flows.test.tsx regression. Correlate successful create/selection
+responses with navigation before fixing: await validated preference storage, then navigate without
+a stale refresh cancelling the destination. Preserve creation idempotency, local recovery and
+backend authority. Add scheduling RED/GREEN and focused actual live creation verification;
+do not expand into WorkspaceSelector or unrelated lifecycle changes without separate diagnosis.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
