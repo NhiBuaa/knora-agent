@@ -132,6 +132,10 @@ no sparse response. Current brand18 leaf and password eye18 assets already local
   and rerun only failed source-copy browser case; two OTP GREEN cases remain valid. Report the
   missing-resource RED, exact pinned JAR/entry proof and new resource hash. This is offline
   reference extraction, not a theme/service asset edit or live fetch.
+  The password fixture must also set `pageId` to `login-update-password` for state242-389 only,
+  matching the native parent body prefix `login-` and existing theme selector
+  `body[data-page-id="login-login-update-password"]`. Keep the exact42cef asset assertion;
+  other fixture page IDs remain unchanged. This corrects offline page identity, without CSS edits.
 - [ ] Capture only four affected states at1440×960/390×844 with empty code/password values;
   preserve previous captures as historical evidence, use new reset-presentation evidence subdirectory.
   Capture JSON copy/fit/input/button/static asset effective geometry. Compare returned full wrapper
