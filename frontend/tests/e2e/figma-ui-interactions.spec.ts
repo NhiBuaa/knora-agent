@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   prepareFixture,
   prototypeTrace,
@@ -37,6 +37,167 @@ const prototypeEvidence =
   "../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07";
 const sha256 = (filename: string) =>
   createHash("sha256").update(fs.readFileSync(filename)).digest("hex");
+
+async function operatorSourceGeometry(
+  page: Page,
+  state: string,
+  width: number,
+) {
+  const operations = state === "216:345";
+  const asset = operations ? "a4e11" : "bab86";
+  // Only root metadata is inspected; source SVG drawing bytes are never adapted.
+  const svgRoot = fs
+    .readFileSync(`public/icons/figma/${asset}.svg`, "utf8")
+    .match(/<svg\b[^>]*>/)![0];
+  const root = {
+    width: Number(svgRoot.match(/\bwidth="([^"]+)"/)![1]),
+    height: Number(svgRoot.match(/\bheight="([^"]+)"/)![1]),
+  };
+  expect(root).toEqual(
+    operations ? { width: 10, height: 6 } : { width: 11.4, height: 6.4 },
+  );
+  if (!operations)
+    expect(sha256("public/icons/figma/bab86.svg").toUpperCase()).toBe(
+      "864C1D2BB9B35ED4DD76DEE4346A2BF2BAE674A2B8E74EFBE6138A1651949911",
+    );
+  const geometry = await page.locator("main").evaluate((main) => {
+    const box = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        radius: style.borderRadius,
+        fits: element.scrollWidth <= element.clientWidth,
+        overflowY: style.overflowY,
+      };
+    };
+    const word = (element: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const ink = range.getBoundingClientRect();
+      const parent = element.parentElement!.getBoundingClientRect();
+      return {
+        text: element.textContent,
+        lines: range.getClientRects().length,
+        ink: { x: ink.x, y: ink.y, width: ink.width, height: ink.height },
+        textFitsParent:
+          ink.left >= parent.left &&
+          ink.right <= parent.right &&
+          ink.top >= parent.top &&
+          ink.bottom <= parent.bottom,
+        ...box(element),
+      };
+    };
+    const caret = main.querySelector<HTMLImageElement>(
+      ".workspace-selector-trigger img",
+    )!;
+    const input = main.querySelector("form > div > input");
+    const button = main.querySelector("form > div > button");
+    const band = main.querySelector('dl[aria-label="Runtime signals"]');
+    const columns = main.querySelector("article > div");
+    const answer = main.querySelector(
+      'section[aria-labelledby="observed-result-heading"] > p:last-of-type',
+    );
+    const badge = main.querySelector(
+      'section[aria-labelledby="evaluation-heading"] > div > div > span',
+    );
+    return {
+      selector: box(main.querySelector(".workspace-selector-heading")!),
+      actions: box(main.querySelector(".kn-menu__trigger")!),
+      caret: {
+        src: caret.getAttribute("src"),
+        loaded: caret.complete && caret.naturalWidth > 0,
+        widthAttribute: caret.getAttribute("width"),
+        heightAttribute: caret.getAttribute("height"),
+        ...box(caret),
+        slot: box(caret.parentElement!),
+        insetX:
+          caret.getBoundingClientRect().x -
+          caret.parentElement!.getBoundingClientRect().x,
+        insetY:
+          caret.getBoundingClientRect().y -
+          caret.parentElement!.getBoundingClientRect().y,
+      },
+      input: input && box(input),
+      button: button && box(button),
+      band: band && {
+        ...box(band),
+        cells: Array.from(band.children).map(box),
+        missing: Array.from(
+          band.querySelectorAll('dd[data-state="unavailable"]'),
+        ).map(word),
+      },
+      columns: columns && {
+        gap: getComputedStyle(columns).columnGap,
+        children: Array.from(columns.children).map(box),
+      },
+      answer: answer && box(answer),
+      badge: badge && box(badge),
+      selected: Array.from(
+        main.querySelectorAll(
+          'section[aria-labelledby="candidate-heading"] .kn-status-badge > span:last-child',
+        ),
+      ).map(word),
+    };
+  });
+  expect.soft(geometry.selector.height, "Operator selector height").toBe(26);
+  expect
+    .soft(geometry.actions.height, "retained Workspace actions height")
+    .toBe(26);
+  expect
+    .soft(geometry.caret.src)
+    .toBe(`/icons/figma/${operations ? "a4e11" : "bab86"}.svg`);
+  expect.soft(geometry.caret.loaded).toBe(true);
+  expect.soft(geometry.caret.widthAttribute).toBeNull();
+  expect.soft(geometry.caret.heightAttribute).toBeNull();
+  expect.soft(geometry.caret.slot.width).toBe(10);
+  expect.soft(geometry.caret.slot.height).toBe(operations ? 6 : 5);
+  // Chromium quantizes the 6.4px root height to 6.390625px, then resolves
+  // its intrinsic aspect ratio to a quantized 11.375px width. No SVG size override.
+  expect.soft(geometry.caret.width).toBe(operations ? 10 : 11.375);
+  expect.soft(geometry.caret.height).toBe(operations ? 6 : 6.390625);
+  expect.soft(geometry.caret.insetX).toBe(operations ? 0 : -0.6875);
+  expect.soft(geometry.caret.insetY).toBe(operations ? 0 : -0.6875);
+  if (geometry.input && geometry.button) {
+    const trace = state === "216:448" || state === "216:573";
+    expect.soft(geometry.input.height).toBe(trace ? 34 : 36);
+    expect.soft(geometry.button.height).toBe(36);
+    expect.soft(geometry.button.width).toBe(trace ? 104 : 124);
+  }
+  if (geometry.band) {
+    if (width === 1440) expect.soft(geometry.band.height).toBe(108);
+    for (const missing of geometry.band.missing) {
+      expect.soft(missing.text).toBe("Unavailable");
+      expect
+        .soft(missing.lines, "Unavailable must remain a whole word")
+        .toBe(1);
+      expect.soft(missing.fits).toBe(true);
+      expect.soft(missing.textFitsParent).toBe(true);
+    }
+  }
+  if (geometry.columns && width === 1440) {
+    expect.soft(geometry.columns.gap).toBe("40px");
+    expect
+      .soft(geometry.columns.children.map((column) => column.width))
+      .toEqual([780, 380]);
+    expect.soft(geometry.answer?.width).toBe(630);
+  }
+  if (geometry.badge) {
+    expect
+      .soft(geometry.badge)
+      .toMatchObject({ width: 92, height: 28, radius: "8px", fits: true });
+  }
+  for (const selected of geometry.selected) {
+    expect.soft(selected.text).toBe("SELECTED");
+    expect.soft(selected.lines, "SELECTED must remain a whole word").toBe(1);
+    expect.soft(selected.fits).toBe(true);
+    expect.soft(selected.textFitsParent).toBe(true);
+  }
+  return { ...geometry, assetRoot: root };
+}
 
 // Full MCP structure coordinates, including the root 1px border and 64px navigation.
 // Keep declared local coordinates as well: the generated normal line heights do not give
@@ -531,7 +692,7 @@ test.describe("source fixtures", () => {
   ] as const) {
     test(`Operator prototype comparison ${prototype.state} ${prototype.name} records desktop deviations and mobile fit`, async ({
       page,
-    }) => {
+    }, testInfo) => {
       expect(visualStates).toHaveLength(51);
       expect(fixtureStates).toHaveLength(56);
       expect(statePath(prototype.state)).toBe(prototype.route);
@@ -585,6 +746,15 @@ test.describe("source fixtures", () => {
         await expect(page.locator("[data-fixture-state]")).toHaveAttribute(
           "data-fixture-state",
           prototype.state,
+        );
+        const sourceGeometry = await operatorSourceGeometry(
+          page,
+          prototype.state,
+          width,
+        );
+        writeLookupGeometry(
+          testInfo.outputPath(`operator-source-${width}`),
+          sourceGeometry,
         );
         if (prototype.state === "216:345") {
           await expect(
@@ -880,7 +1050,7 @@ test.describe("source fixtures", () => {
           classification:
             asset.src === "/brand/knora-leaf.svg"
               ? "original local brand asset; exact dimensions"
-              : "different local caret asset/slot; production parity work required",
+              : "exact local source caret and slot; SVG intrinsic dimensions retained",
         }));
         const fit = await page.locator("main").evaluate((main) => {
           const box = main.getBoundingClientRect();
@@ -938,6 +1108,7 @@ test.describe("source fixtures", () => {
           },
           measurements,
           assets: assetEvidence,
+          correctedGeometry: sourceGeometry,
           extraControls,
           apiRequests,
           fit,
@@ -1065,6 +1236,15 @@ test.describe("source fixtures", () => {
           height: width === 1440 ? 960 : 844,
         });
         const unexpected = await prepareFixture(page, lookup.state);
+        const sourceGeometry = await operatorSourceGeometry(
+          page,
+          lookup.state,
+          width,
+        );
+        writeLookupGeometry(
+          testInfo.outputPath(`operator-source-${width}`),
+          sourceGeometry,
+        );
         const guidance = page.getByRole("region", { name: lookup.heading });
         await expect(guidance).toBeVisible();
         const submit = page.getByRole("button", {
@@ -1073,7 +1253,7 @@ test.describe("source fixtures", () => {
         await expect(submit).toBeDisabled();
         const assets = await page
           .locator(
-            'img[src="/brand/knora-leaf.svg"], .workspace-caret-small img',
+            'img[src="/brand/knora-leaf.svg"], .workspace-selector-trigger img',
           )
           .evaluateAll((images) =>
             images.map((element) => {
@@ -1094,8 +1274,11 @@ test.describe("source fixtures", () => {
           width: 18,
           height: 18,
         });
-        expect(assets[1].width).toBeCloseTo(6.98995, 1);
-        expect(assets[1].height).toBeCloseTo(4.48492, 1);
+        expect(assets[1]).toMatchObject({
+          src: "/icons/figma/bab86.svg",
+          width: 11.375,
+          height: 6.390625,
+        });
         const geometry = await guidance.evaluate((element) => {
           const box = element.getBoundingClientRect();
           const heading = element.querySelector("h2")!;
@@ -1171,7 +1354,11 @@ test.describe("source fixtures", () => {
           ).toBe(true);
         }
         const evidence = `../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-${lookup.state.replace(":", "-")}-${width}`;
-        writeLookupGeometry(evidence, { ...geometry, assets });
+        writeLookupGeometry(evidence, {
+          ...geometry,
+          assets,
+          correctedGeometry: sourceGeometry,
+        });
         await page.screenshot({
           path: `${evidence}.png`,
           fullPage: width !== 1440,

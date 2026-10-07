@@ -6,13 +6,18 @@ import {
   fireEvent,
   cleanup,
   act,
+  waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OperatorTraceResponse } from "@/generated/knora-openapi";
 import { OperationsView } from "@/components/operator/OperationsView";
 import { TraceView } from "@/components/operator/TraceView";
 import { EvaluationView } from "@/components/operator/EvaluationView";
-import { OperatorLookup } from "@/components/operator/OperatorFrame";
+import {
+  OperatorFrame,
+  OperatorLookup,
+} from "@/components/operator/OperatorFrame";
+import { WorkspaceSelector } from "@/components/workspaces/WorkspaceSelector";
 import TracesPage from "@/app/operator/traces/page";
 import EvaluationsPage from "@/app/operator/evaluations/page";
 
@@ -27,6 +32,7 @@ afterEach(() => {
   refresh.mockReset();
   pathname = "/operator/traces";
   searchQuery = "";
+  vi.unstubAllGlobals();
 });
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
@@ -79,6 +85,90 @@ const trace: OperatorTraceResponse = {
 };
 
 describe("Figma operator data surfaces", () => {
+  it.each([
+    ["/operator/operations", "a4e11"],
+    ["/operator/traces/trace-1", "bab86"],
+    ["/operator/evaluations/report-1", "bab86"],
+  ])(
+    "uses the source caret only in the Operator frame for %s",
+    async (route, asset) => {
+      pathname = route;
+      const workspace = {
+        id: "ws-1",
+        name: "Research workspace",
+        archived: false,
+        revision: 7,
+      };
+      const requests = vi.fn(async (url: string, options?: RequestInit) => {
+        if (options?.method && options.method !== "GET")
+          throw new Error("Unexpected write");
+        return new Response(
+          JSON.stringify(
+            url.endsWith("/ws-1")
+              ? workspace
+              : { items: [workspace], next_cursor: null },
+          ),
+          { status: 200 },
+        );
+      });
+      vi.stubGlobal("fetch", requests);
+      const { container, unmount } = render(
+        <OperatorFrame workspaceId="ws-1" workspaceName={workspace.name}>
+          <p>Operator data</p>
+        </OperatorFrame>,
+      );
+      const trigger = await screen.findByRole("button", {
+        name: "Switch workspace: Research workspace",
+      });
+      expect(trigger.querySelector("img")).toHaveAttribute(
+        "src",
+        `/icons/figma/${asset}.svg`,
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Workspace actions" }),
+      );
+      expect(
+        screen.getByRole("menuitem", { name: "Archive workspace" }),
+      ).toBeVisible();
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+      fireEvent.click(trigger);
+      expect(trigger.querySelector("img")).toHaveAttribute(
+        "src",
+        "/icons/figma/23c31.svg",
+      );
+      expect(
+        screen.getByRole("button", { name: "+ Create workspace" }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole("link", { name: "Archived workspaces" }),
+      ).toHaveAttribute("href", "/workspaces/archived");
+      fireEvent.keyDown(container.querySelector(".workspace-selector")!, {
+        key: "Escape",
+      });
+      expect(trigger).toHaveFocus();
+      unmount();
+      // A default consumer stays unchanged even if its current route is Operator.
+      render(
+        <WorkspaceSelector workspaceId="ws-1" workspaceName={workspace.name} />,
+      );
+      const defaultTrigger = await screen.findByRole("button", {
+        name: "Switch workspace: Research workspace",
+      });
+      expect(defaultTrigger.querySelector("img")).toHaveAttribute(
+        "src",
+        "/icons/figma/21b31.svg",
+      );
+      expect(
+        defaultTrigger.querySelector(".workspace-caret-small"),
+      ).toBeInTheDocument();
+      await waitFor(() => expect(requests).toHaveBeenCalled());
+      expect(
+        requests.mock.calls.every(
+          ([, options]) => !options?.method || options.method === "GET",
+        ),
+      ).toBe(true);
+    },
+  );
   it("explains the recorded trace evidence on the actual async lookup route", async () => {
     render(await TracesPage({}));
     const guidance = screen.getByRole("region", {

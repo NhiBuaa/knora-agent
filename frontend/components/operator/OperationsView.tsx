@@ -58,7 +58,7 @@ export function OperationsView({
           return (
             <div
               key={key}
-              className="min-h-[108px] min-w-0 border-border px-5 pt-[22px] pb-4 [&:not(:first-child)]:border-l"
+              className="min-h-[106px] min-w-0 border-border px-5 pt-[22px] pb-4 max-md:px-1.5 [&:not(:first-child)]:border-l"
             >
               <dt className="text-[13px] leading-4 font-medium text-text-muted">
                 {label}

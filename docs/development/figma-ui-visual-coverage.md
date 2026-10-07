@@ -212,7 +212,7 @@ lookup ID. API requests are intercepted; unexpected requests fail and no API wri
 Actual RED/GREEN, final commands and runtime limits are recorded in
 `.superpowers/sdd/2026-10-07-figma-operator-lookup-guidance/task-1-report.md`.
 
-### Oct7 remaining Operator prototype comparisons — measured, parity unresolved
+### Oct7 remaining Operator prototype comparisons — historical diagnosis, parity unresolved
 
 Three individually named `Operator prototype comparison <id> <name> records desktop deviations and mobile fit` cases now compose the actual OperationsView, TraceView and EvaluationView at1440×960 and390×844. Separate fixtureStates contains56 entries; original visualStates remains51 and every original fixture/projection stays unchanged. Only the three new prototype states were captured. Their source PNGs remain1024×683 whole frames from1440×960 designs, with zero cropping. `remaining-operator-comparisons.html` displays source/current at the same720px width and links desktop/mobile geometry JSON.
 
@@ -253,3 +253,35 @@ have unchanged hashes. Evidence, initial navigation-harness failure and exact co
 The OTP resend fallback task removes permanent server-rendered disabled markup, preserving the existing native POST and server protocol. It re-exports actual FTL with the existing offline renderer and runs only the two affected OTP interactions. Only the changed no-JS rendering is captured; existing JS source comparisons and full MCP structures remain unchanged. RED/GREEN commands and runtime limits are recorded in `.superpowers/sdd/2026-10-07-figma-otp-resend-fallback/task-1-report.md`.
 
 The completion origin correction validates ordinary expanded/compressed bracketed IPv6 and optional one-to-five-digit ports up to 65535, including syntactic port 0. Actual `info.ftl` RED/GREEN verifies fail-closed rejection of seven malformed port/IPv6 configurations, preserves valid configured origins at the fixed `/api/auth/login?prompt=login` route without configured path/query/fragment or native action parameters, and retains unfinished native links and `skipLink` suppression. The existing ASCII hostname branch is unchanged; IPv4-embedded IPv6 and zone identifiers are outside this grammar. Configured-host trust, DNS/IDNA, deployed configuration and service reachability are separate acceptance limits. No visual baseline was changed or capture rerun. Commands and source-only evidence are recorded in `.superpowers/sdd/2026-10-07-figma-completion-origin-validation/task-1-report.md`.
+
+### Oct7 Operator geometry correction — current measured status
+
+The approved geometry task supersedes the addressed measurements in the historical comparison
+notes above. Five affected prototypes were recaptured at1440×960 and390×844 using actual
+production components, with scoped API interception and no writes. Source structures and PNGs
+remain unchanged. Full-frame parity, native acceptance and full-regression acceptance remain open.
+
+| Owning component | Corrected source geometry | Preserved behavior and remaining differences |
+| --- | --- | --- |
+| OperatorFrame / WorkspaceSelector | Selector220×26; retained Workspace actions trigger26px high. Operations uses exact local a4e11 in10×6; trace/evaluation use exact local bab86 root11.4×6.4 in10×5 with declared−0.7px inset. | Optional presentation is consumed only by OperatorFrame. Default consumers retain21b31/23c31 and archived a4e11 behavior; open menu, archive/create/restore navigation and backend authority remain intact. Chromium intrinsic layout quantizes bab86 to11.375×6.390625 and inset−0.6875; no root size overrides. Source fixed caret position and current natural-name positioning still differ. |
+| OperatorLookup | Trace field360×34/13px, report field360×36/14px; trace button104×36, report124×36. | Pending text may grow. Empty lookup, exact encoded IDs, optional Workspace scope and refresh/navigation behavior remain intact. Current trace input y340/button y339 versus source global y338; report field/button y339 versus338. |
+| OperationsView | Runtime band1200×108 including borders; mobile358×214 with179px cells. | Actual Unavailable stays complete on one line at390px: text range148.140625px inside166px value box, with visible natural overflow and text inside the cell. Zero/missing distinction is retained. Accounting147 versus source148px, buckets86 versus92px, Alerts69.1875 versus70px, token tone and origins remain unresolved. |
+| TraceView | Left780/right380/gap40; answer630×40. SELECTED remains one complete word at390px while the surrounding source-name row wraps. | Candidate excerpts, full source names, IDs, version/Chunk Set metadata, extra disclosures and timing remain. Candidate rows grow naturally to131.375px and780px width versus source102px/760px; context rows40 versus38px, heading heights24 versus22px, icon/pill badges and page coordinates remain unresolved. Validation timing y954.140625 extends below the960px viewport and is reachable by natural scroll. |
+| EvaluationView | Unavailable badge92×28/radius8, warning tone and text preserved; decorative icon hidden locally. | Available/other observations retain existing semantics. Explanation680×60 versus source680×70, context heading32 versus24px, first row41 versus40px and origins remain unresolved. Full opaque observation code wraps at200px rather than copying source300px extending past the380px column. |
+
+Current shared desktop selector is atx120/y126 versus reconstructed sourcey127; titley166 versus167;
+navigationy260/height43 versus sourcey260/height42; Workspace label10px versus source11px.
+Lookup guidance now starts atx120/y434, with360px columns atx120/540/960 andy526. The source's
+local x119/y434 becomes global x120/y435 after its1px outer border. Accessible Workspace actions,
+optional scope, provenance disclosures, data-derived IDs/E1/E2/ASCII separators and semantic
+contrast tokens remain deliberate visible differences. No source comparison is accepted as complete.
+
+Exact bab86 bytes are331bytes, SHA256
+`864C1D2BB9B35ED4DD76DEE4346A2BF2BAE674A2B8E74EFBE6138A1651949911`.
+The unchanged brand loads18×18. Fresh `correctedGeometry` records include root metadata,
+callsite/slot/rendered geometry and actual text-range fit. The five affected captures/JSONs and two
+comparison HTMLs are refreshed;239 other Q1 cached artifacts retain their recorded hashes,
+including the original51-state captures/comparisons and source/hash manifests. Active root-owned
+regression-preflight logs are excluded from this preservation inventory. Exact RED/GREEN commands,
+remaining limits and preservation proof are in
+`.superpowers/sdd/2026-10-07-figma-operator-geometry-corrections/task-1-report.md`.

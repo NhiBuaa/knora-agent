@@ -45,6 +45,9 @@ export function OperatorFrame({
         <WorkspaceSelector
           workspaceId={workspaceId}
           workspaceName={workspaceName}
+          presentation={
+            active === "operations" ? "operator-operations" : "operator-detail"
+          }
         />
       </div>
       <h1 className="mt-3.5 mb-0 font-display text-[32px] leading-[42px] font-semibold">
@@ -134,13 +137,13 @@ export function OperatorLookup({
           onChange={(event) => setValue(event.target.value)}
           required
           disabled={pending}
-          className="h-9 w-[360px] max-w-full rounded-lg border border-control-border bg-surface px-[11px] text-sm text-text-primary"
+          className={`w-[360px] max-w-full rounded-lg border border-control-border bg-surface px-[11px] text-text-primary ${kind === "trace" ? "h-[34px] text-[13px]" : "h-9 text-sm"}`}
         />
         <Button
           type="submit"
           variant="secondary"
           disabled={pending || !value.trim()}
-          className="min-h-9 py-1.5"
+          className={`min-h-9! px-2! py-1.5! ${kind === "trace" ? "w-[104px]" : "w-[124px]"}`}
         >
           {pending ? `Opening ${kind}…` : `Open ${kind}`}
         </Button>

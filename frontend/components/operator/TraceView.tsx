@@ -115,7 +115,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
           </div>
         ))}
       </dl>
-      <div className="mt-6 grid grid-cols-[minmax(0,760px)_minmax(0,380px)] gap-[60px] max-lg:grid-cols-1 max-lg:gap-8">
+      <div className="mt-6 grid grid-cols-[minmax(0,780px)_minmax(0,380px)] gap-10 max-lg:grid-cols-1 max-lg:gap-8">
         <div className="min-w-0">
           <section
             aria-labelledby="observed-result-heading"
@@ -137,7 +137,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                 Refusal: {trace.refusal_reason}
               </p>
             )}
-            <p className="mt-2 mb-0 text-sm leading-5">
+            <p className="mt-2 mb-0 max-w-[630px] text-sm leading-5">
               {trace.answer ??
                 (trace.refusal_reason
                   ? "No answer was returned."
@@ -179,11 +179,12 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                   key={candidate.chunk_id}
                   className="m-0 border-b border-border py-4"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <strong className="min-w-0 text-[15px] font-semibold [overflow-wrap:anywhere]">
                       {candidate.source_key}
                     </strong>
                     <StatusBadge
+                      className="shrink-0 whitespace-nowrap"
                       kind={
                         candidate.final_decision === "SELECTED"
                           ? "success"

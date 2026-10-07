@@ -22,12 +22,14 @@ export type WorkspaceSelectorProps = {
   workspaceId: string | null;
   workspaceName: string | null;
   disabled?: boolean;
+  presentation?: "default" | "operator-operations" | "operator-detail";
 };
 
 export function WorkspaceSelector({
   workspaceId,
   workspaceName,
   disabled = false,
+  presentation = "default",
 }: WorkspaceSelectorProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -46,6 +48,8 @@ export function WorkspaceSelector({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
+  const operator = presentation !== "default";
+  const operatorDetail = presentation === "operator-detail";
 
   useEffect(() => {
     setCurrent(null);
@@ -225,7 +229,9 @@ export function WorkspaceSelector({
       <p className="workspace-selector-label m-0 mb-1.5 text-[10px] leading-3 font-semibold text-text-muted uppercase">
         Workspace
       </p>
-      <div className="workspace-selector-heading flex min-h-[26px] items-center justify-between gap-2 [&_.kn-menu\_\_panel]:left-0 [&_.kn-menu\_\_panel]:right-auto [&_.kn-menu\_\_panel]:w-[182px] [&_.kn-menu\_\_panel]:min-w-[182px] [&_.kn-menu\_\_panel_button]:text-signature">
+      <div
+        className={String.raw`workspace-selector-heading flex min-h-[26px] items-center justify-between gap-2 [&_.kn-menu\_\_panel]:left-0 [&_.kn-menu\_\_panel]:right-auto [&_.kn-menu\_\_panel]:w-[182px] [&_.kn-menu\_\_panel]:min-w-[182px] [&_.kn-menu\_\_panel_button]:text-signature ${operator ? "[&_[aria-haspopup=menu]]:h-[26px] [&_[aria-haspopup=menu]]:py-0" : ""}`}
+      >
         <button
           ref={trigger}
           type="button"
@@ -245,15 +251,17 @@ export function WorkspaceSelector({
           </span>
           <span
             className={
-              current?.archived && !open
-                ? "workspace-caret-context"
-                : "workspace-caret-small"
+              operator && !open
+                ? `relative inline-block w-[10px] shrink-0 [&_img]:absolute [&_img]:max-w-none ${operatorDetail ? "h-[5px] [&_img]:-top-[0.7px] [&_img]:-left-[0.7px]" : "h-[6px] [&_img]:top-0 [&_img]:left-0"}`
+                : current?.archived && !open
+                  ? "workspace-caret-context"
+                  : "workspace-caret-small"
             }
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- Native local SVG preserves the original fractional caret geometry and negative inset. */}
             <img
               alt=""
-              src={`/icons/figma/${open ? "23c31" : current?.archived ? "a4e11" : "21b31"}.svg`}
+              src={`/icons/figma/${open ? "23c31" : operator ? (operatorDetail ? "bab86" : "a4e11") : current?.archived ? "a4e11" : "21b31"}.svg`}
             />
           </span>
         </button>

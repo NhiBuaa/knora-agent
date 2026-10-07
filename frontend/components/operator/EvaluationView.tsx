@@ -31,7 +31,14 @@ export function EvaluationView({
           >
             Evaluation report {available ? "available" : "unavailable"}
           </h2>
-          <StatusBadge kind={available ? "success" : "warning"}>
+          <StatusBadge
+            kind={available ? "success" : "warning"}
+            className={
+              available
+                ? undefined
+                : "h-7 w-[92px] shrink-0 justify-center rounded-lg px-2 font-semibold whitespace-nowrap [&_[aria-hidden]]:hidden"
+            }
+          >
             {available ? "Available" : "Unavailable"}
           </StatusBadge>
         </div>
