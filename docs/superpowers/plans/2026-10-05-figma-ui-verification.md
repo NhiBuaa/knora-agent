@@ -72,6 +72,11 @@ These renders prove source appearance and input behaviour, not actual password/V
 Modify the repository .gitignore to ignore only .superpowers/figma/q1/ generated source-render
 and comparison artifacts. Keep the maintained renderer/host/test sources tracked; do not add
 generated native HTML, resource copies, Java classes or screenshot outputs to the source commit.
+The diagnosed OTP cascade discrepancy may modify themes/knora/login/resources/css/knora.css:
+the generic input selector currently overrides enhanced OTP input height/text/focus geometry.
+Add computed-style RED/GREEN coverage in figma-ui-interactions.spec.ts with complete parent CSS;
+restore the source 56px enhanced input geometry and transparent text without changing accessible
+paste/leading-zero/native input or non-JavaScript behavior. Do not broaden this into a theme rewrite.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
