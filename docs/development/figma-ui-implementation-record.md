@@ -6,9 +6,8 @@ design. This is a continuity and evidence record, not Q1/Q2 or full-product acce
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Trace `bbf1cc1`.
-Evaluation content measures are executing from original BASE `bbf1cc1`; the subsequent Operations
-content-measures plan is prepared and depends on Evaluation review.
+Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Evaluation `6ff260d`.
+Operations content measures are executing from original BASE `6ff260d` after Evaluation review.
 No merge, push, deployment, branch disposition or worktree removal has occurred.
 
 The stack includes Next.js15.5.24, React18.3.1, TypeScript and Tailwind CSS v4, with local fonts,
@@ -33,6 +32,7 @@ its bounded scope; it does not promote fixture checks to native/live backend acc
 | `827f9f2` | Operator selector/carets, lookup dimensions, runtime band, trace columns and unavailable badge | 70 relevant unit tests and five browser cases at1440/390; no Important review finding |
 | `d57a588` | Operator Workspace label and local rectangular Trace badges | 63 relevant unit tests and five browser cases; spec PASS / quality APPROVED |
 | `bbf1cc1` | Trace summary, candidate inner widths and context text regions | 32 component tests, focused Trace case and five Operator cases; spec PASS / quality APPROVED |
+| `6ff260d` | Evaluation explanation minimum and context text regions/row flow | 36 component tests, focused Evaluation case and five Operator cases; spec PASS / quality APPROVED |
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
@@ -85,8 +85,8 @@ with zero drift; its five affected comparison captures were updated deliberately
 ## Remaining acceptance work
 
 - Operator label typography, Trace badges and relative Trace content measures are independently
-  approved. Evaluation content measures are executing; Operations accounting/bucket/Alerts measures
-  are planned next. Page coordinates, natural row growth, theme differences and supported extra
+  approved. Evaluation content measures are independently approved; Operations accounting/bucket/Alerts
+  measures are executing. Page coordinates, natural row growth, theme differences and supported extra
   controls remain explicitly measured. Comparison test success does not imply whole-page parity.
 - [Visual coverage](figma-ui-visual-coverage.md) remains partial: original51 screen/panel/response
   mappings and89 prototype edge classifications retain per-edge unexercised paths and deviations.
