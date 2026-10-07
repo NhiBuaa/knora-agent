@@ -8,6 +8,15 @@ separate OTP countdown interaction test and native provider/template behavior un
 **Tech Stack:** Playwright, TypeScript, existing Next fixture host.
 **Spec:** [Approved integration design](../specs/2026-10-05-figma-ui-integration-design.md).
 
+## Diagnostic ruling
+
+The unchanged `prepareFixture` helper already calls `page.clock.setFixedTime` before navigation.
+The planned elapsed1500ms diagnostic passed without the proposed local setter, disproving the
+reviewer's live-Date premise. Treat this task as verification-only: retain diagnostic evidence,
+revert only experimental test hunks, preserve prior artifacts, and request focused reviewer
+confirmation. Do not duplicate clock setters or manufacture a failing test. No maintained test or
+coverage edit is needed; the steps below preserve the original hypothesis for audit.
+
 ## Global Constraints
 
 - Backend remains authority; no native submissions or provider/template/CSS/resource changes.
