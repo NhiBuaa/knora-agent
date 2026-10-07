@@ -65,16 +65,20 @@ verification-before-completion, requesting-code-review.
   a43px nav including border equals42px source nav. Natural responsive content may increase height.
   Use an aria-hidden decorative divider; preserve nav accessible name and active state.
 - [ ] Tabs source offsets0/104/182 with28px gaps and widths76/50/82,27px height at7.5px below navtop.
-  Source trace/Operations label17px region top5 inside tab; active2px underline at25,3px after label
-  end. Evaluation nodes216:726/728/730 and783/785/787 instead allocate20px labels,400 inactive and
+  Trace label17px region top5 inside tab; active2px underline at25,3px after label end. Operations
+  source216:374–380 uses label17px at top0 and8px gap before the same underline at25; preserve this
+  variant with top0/padding-bottom8. Evaluation nodes216:726/728/730 and783/785/787 instead allocate20px labels,400 inactive and
   500 active. Preserve that explicit source variant:20px line, top5/no bottom gap plus border2.
-  Use existing Link elements and explicit minimum widths/27px minimum; trace/Operations17px line,
-  top5/padding-bottom3 and border2. Active underline visible and inactive transparent. Retain
+  Use existing Link elements and explicit minimum widths/27px minimum; trace17px line,
+  top5/padding-bottom3 and border2; Operations17px/top0/bottom8/border2. Active underline visible and inactive transparent. Retain
   trace/Operations500 inactive/600 active, Evaluation400 inactive/500 active. No stronger width
   clamp that clips enlarged/translated text. Desktop min slots
   establish source offsets for supplied labels; mobile accessible links remain keyboard reachable.
 - [ ] Lookup source top211 relative content; divider bottom194→17px gap. Use17px local form gap.
-  Label13px region then5px gap gives field/button top229. Input34 vs button36 should top-align,
+  Natural label13px region then5px gap gives field/button top229. Evaluation source label has24px
+  allocated region overlapping its controls by6px; preserve natural13px region to avoid overlap,
+  use its source500 weight (trace600), and record24→13 allocation as a deliberate natural-flow
+  adaptation rather than a parity claim. Input34 vs button36 should top-align,
   replacing center alignment's trace-only1px field drift. Keep all existing field/button widths,
   font sizes and minimum heights, input padding, pending growth, error and optional scope disclosure.
   Source lookup56 allocation exceeds label13+gap5+button36=54; use56px form minimum, mobile naturally
