@@ -104,6 +104,38 @@ it("opens creation explicitly from the no-active state and Escape returns focus"
   ).toHaveAttribute("href", "/workspaces/archived");
 });
 
+it("waits for validated creation selection before navigation without refreshing the stale route", async () => {
+  const user = userEvent.setup();
+  let finishSelection!: (response: Response) => void;
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url === "/api/v1/workspaces")
+      return json({ ...workspace, id: "created" }, 201);
+    if (url === "/api/workspace-selection")
+      return new Promise<Response>((resolve) => {
+        finishSelection = resolve;
+      });
+    throw new Error("Unexpected creation request");
+  });
+  render(<WorkspaceManagement initialWorkspaces={[]} />);
+  await user.click(screen.getByRole("button", { name: "Create workspace" }));
+  const dialog = screen.getByRole("dialog", { name: "Create workspace" });
+  await user.type(
+    within(dialog).getByLabelText("Workspace name"),
+    "Research workspace",
+  );
+  await user.click(
+    within(dialog).getByRole("button", {
+      name: "Create workspace",
+    }),
+  );
+  await waitFor(() => expect(finishSelection).toBeDefined());
+  expect(push).not.toHaveBeenCalled();
+  expect(refresh).not.toHaveBeenCalled();
+  await act(async () => finishSelection(json({ workspaceId: "created" })));
+  await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/created"));
+  expect(refresh).not.toHaveBeenCalled();
+});
+
 it("offers restore and retained navigation for archived read-only workspaces", () => {
   render(<WorkspaceHome workspace={{ ...workspace, archived: true }} />);
   expect(screen.getByText(/Archived workspace · Read-only/i)).toBeVisible();

@@ -473,7 +473,7 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   margin: 0 auto;
 }
 
-.knora-auth .knora-otp-entry input {
+.knora-auth .knora-otp-entry #code {
   height: 56px;
   border: 1px solid var(--knora-border);
   text-align: center;
@@ -504,7 +504,7 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   font: 600 22px/28px Inter, sans-serif;
 }
 
-.knora-auth .knora-otp-enhanced input {
+.knora-auth .knora-otp-enhanced #code {
   position: relative;
   z-index: 1;
   color: transparent;

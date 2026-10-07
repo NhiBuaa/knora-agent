@@ -411,9 +411,10 @@ describe("durable Conversation view", () => {
       status: "refused",
       result: {
         ...answered.result,
-        decision: "REFUSE",
+        decision: "REFUSAL",
         answer: null,
-        refusal_reason: "insufficient_evidence",
+        citations: [],
+        refusal_reason: "INSUFFICIENT_EVIDENCE",
       },
     };
     vi.stubGlobal(
@@ -427,7 +428,16 @@ describe("durable Conversation view", () => {
       ),
     );
     render(<ConversationView workspaceId="w-1" conversation={conversation} />);
-    await screen.findByText("Refused: insufficient_evidence");
+    await screen.findByText("Refused: INSUFFICIENT_EVIDENCE");
+    expect(
+      screen.getByRole("heading", {
+        name: "I don’t have enough evidence to answer that.",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "No supporting citation" }),
+    ).toBeVisible();
+    expect(screen.getAllByText("INSUFFICIENT EVIDENCE")).toHaveLength(1);
     expect(
       screen.queryByText("The guide says blue umbrellas."),
     ).not.toBeInTheDocument();

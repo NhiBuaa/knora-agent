@@ -1,0 +1,845 @@
+import { expect, test } from "@playwright/test";
+import { prepareFixture } from "./support/figma-state-fixtures";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import realm from "../../../test/fixtures/keycloak/figma-realm.json";
+import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
+import type { TurnResponse } from "../../generated/knora-openapi";
+
+test.describe("source fixtures", () => {
+  test.skip(
+    process.env.FIGMA_TEST_MODE !== "fixture",
+    "Dedicated fixture project required.",
+  );
+
+  test("citation selection persists on repeated click; inspector close returns keyboard focus", async ({
+    page,
+  }) => {
+    const unexpected = await prepareFixture(page, "128:110");
+    const citation = page.getByRole("button", { name: /citation 1/i });
+    await citation.focus();
+    await citation.press("Enter");
+    await expect(
+      page.getByRole("complementary", { name: /evidence/i }),
+    ).toContainText("The report consists of 7 chapters.");
+    await citation.click();
+    await expect(
+      page.getByRole("complementary", { name: /evidence/i }),
+    ).toContainText("The report consists of 7 chapters.");
+    await page.getByRole("button", { name: "Close evidence" }).click();
+    await expect(citation).toBeFocused();
+    expect(unexpected).toEqual([]);
+  });
+
+  test("narrow evidence and rail each open one modal and Escape restores their triggers", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const unexpected = await prepareFixture(page, "128:110");
+    const citation = page.getByRole("button", { name: /citation 1/i });
+    await citation.click();
+    await expect(page.getByRole("dialog", { name: "Evidence" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(citation).toBeFocused();
+    const trigger = page.getByRole("button", { name: "Show conversations" });
+    await trigger.click();
+    await expect(
+      page.getByRole("dialog", { name: "Conversations" }),
+    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    expect(unexpected).toEqual([]);
+  });
+
+  test("divider arrows resize and Enter resets the actual panel width", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "128:110");
+    const rail = page.getByRole("separator", {
+      name: "Resize conversation rail",
+    });
+    await rail.focus();
+    await rail.press("ArrowRight");
+    await expect(rail).toHaveAttribute("aria-valuenow", "268");
+    await rail.press("Enter");
+    await expect(rail).toHaveAttribute("aria-valuenow", "252");
+    expect(
+      (
+        await page
+          .getByRole("navigation", { name: "Conversations" })
+          .boundingBox()
+      )?.width,
+    ).toBe(252);
+    expect(
+      (await page.locator(".conversation-inspector-column").boundingBox())
+        ?.width,
+    ).toBe(376);
+  });
+
+  test("workspace dialog traps Tab, closes on Escape and returns focus", async ({
+    page,
+  }) => {
+    const unexpected = await prepareFixture(page, "152:128");
+    const trigger = page.getByRole("button", {
+      name: "Create workspace",
+      exact: true,
+    });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Create workspace" });
+    await expect(
+      page.getByLabel("Workspace name", { exact: true }),
+    ).toBeFocused();
+    for (let index = 0; index < 6; index++) {
+      await page.keyboard.press("Tab");
+      expect(
+        await dialog.evaluate((element) =>
+          element.contains(document.activeElement),
+        ),
+      ).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    expect(unexpected).toEqual([]);
+  });
+
+  test("workspace menu arrows and Escape retain keyboard context", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "154:134");
+    await expect(
+      page.getByRole("menuitem", { name: "Archive workspace" }),
+    ).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(
+      page.getByRole("menuitem", { name: "Archive workspace" }),
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("button", { name: "Workspace actions" }),
+    ).toBeFocused();
+  });
+
+  test("native FTL OTP input accepts leading-zero paste with accessible errors and disabled resend", async ({
+    page,
+    context,
+  }) => {
+    await prepareFixture(page, "246:311");
+    const code = page.getByRole("textbox", { name: "Six-digit reset code" });
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.evaluate(() => navigator.clipboard.writeText("000042"));
+    await code.focus();
+    await code.press("Control+V");
+    await expect(code).toHaveValue("000042");
+    await expect(code).toHaveAttribute("aria-invalid", "true");
+    expect(await code.evaluate((input) => getComputedStyle(input).height)).toBe(
+      "56px",
+    );
+    expect(await code.evaluate((input) => getComputedStyle(input).color)).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.locator(".knora-otp-cells")).toHaveText("000042");
+    await expect(page.locator("#otp-resend")).toBeDisabled();
+  });
+
+  test("native FTL OTP remains a visible labelled single input without JavaScript", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const page = await context.newPage();
+      await page.goto(`${baseURL}/native/242-333.html`);
+      const input = page.getByRole("textbox", { name: "Six-digit reset code" });
+      await input.fill("000042");
+      await expect(input).toHaveValue("000042");
+      expect(
+        await input.evaluate((element) => getComputedStyle(element).height),
+      ).toBe("56px");
+      expect(
+        await input.evaluate((element) => getComputedStyle(element).color),
+      ).not.toBe("rgba(0, 0, 0, 0)");
+      await expect(page.locator(".knora-otp-cells")).toBeHidden();
+      await expect(page.locator("#otp-resend")).toBeDisabled();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("light and dark text tokens meet contrast and reduced motion removes control transitions", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "128:110");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      const ratios = await page.evaluate(() => {
+        const styles = getComputedStyle(document.documentElement);
+        const luminance = (token: string) => {
+          const hex = styles.getPropertyValue(token).trim().replace("#", "");
+          const rgb = [0, 2, 4].map(
+            (index) => parseInt(hex.slice(index, index + 2), 16) / 255,
+          );
+          const linear = rgb.map((value) =>
+            value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
+          );
+          return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+        };
+        return [
+          ["--text-primary", "--surface"],
+          ["--text-muted", "--surface"],
+          ["--action-text", "--page"],
+          ["--action-foreground", "--action"],
+        ].map(([foreground, background]) => {
+          const values = [luminance(foreground), luminance(background)].sort(
+            (a, b) => b - a,
+          );
+          return (values[0] + 0.05) / (values[1] + 0.05);
+        });
+      });
+      for (const ratio of ratios)
+        expect(ratio, `${theme} text contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+    const citation = page.getByRole("button", { name: /citation 1/i });
+    await citation.focus();
+    await citation.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    expect(
+      await citation.evaluate(
+        (button) => getComputedStyle(button).outlineWidth,
+      ),
+    ).toBe("2px");
+    await page.unrouteAll();
+    await prepareFixture(page, "128:122");
+    expect(
+      await page
+        .getByRole("button", { name: "Archive document", exact: true })
+        .evaluate((button) => getComputedStyle(button).transitionDuration),
+    ).toBe("0s");
+  });
+
+  test("CSS 200 percent zoom reflows critical document actions without page overflow", async ({
+    page,
+  }, info) => {
+    await prepareFixture(page, "128:122");
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "2";
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const action = page.getByRole("button", {
+      name: "Request deletion",
+      exact: true,
+    });
+    await action.scrollIntoViewIfNeeded();
+    await expect(action).toBeVisible();
+    await page.screenshot({
+      path: info.outputPath("document-css-zoom-200.png"),
+      animations: "disabled",
+    });
+  });
+
+  test("empty suggestions edit the draft without submission; archived history remains read only", async ({
+    page,
+  }) => {
+    const unexpected = await prepareFixture(page, "128:109");
+    await page
+      .getByRole("button", { name: "Summarize this workspace" })
+      .click();
+    await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
+      "Summarize this workspace",
+    );
+    expect(unexpected).toEqual([]);
+    await page.unrouteAll();
+    await prepareFixture(page, "128:119");
+    await expect(
+      page.getByText("This Conversation is read-only."),
+    ).toBeVisible();
+    await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe("guarded application journeys", () => {
+  test.skip(
+    process.env.FIGMA_TEST_MODE !== "application",
+    "Dedicated guarded application project required.",
+  );
+  test("owned document and workspace lifecycle; authoritative Turn submission and lost-response recovery", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const identity = realm.users.find(
+      (user) => user.username === "m5-delete-user",
+    );
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+    await page.goto("/workspaces");
+    const navigation: string[] = [];
+    page.on("request", (request) => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.startsWith("/workspaces"))
+        navigation.push(`request ${pathname}`);
+    });
+    page.on("requestfailed", (request) => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.startsWith("/workspaces"))
+        navigation.push(`failed ${pathname}`);
+    });
+    const name = `Q1 verification ${randomUUID()}`;
+    await page
+      .getByRole("button", { name: "Create workspace", exact: true })
+      .click();
+    const creation = page.getByRole("dialog", { name: "Create workspace" });
+    await creation.getByLabel("Workspace name", { exact: true }).fill(name);
+    const workspaceCreation = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/v1/workspaces",
+    );
+    const workspaceSelection = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/workspace-selection",
+    );
+    await creation
+      .getByRole("button", { name: "Create workspace", exact: true })
+      .click();
+    const createdResponse = await workspaceCreation;
+    expect(
+      createdResponse.status(),
+      "Authoritative workspace creation status",
+    ).toBe(201);
+    expect(
+      (await workspaceSelection).status(),
+      "Authoritative selection status",
+    ).toBe(200);
+    try {
+      await expect(page).toHaveURL(/\/workspaces\/[^/]+$/);
+    } finally {
+      fs.writeFileSync(
+        "../.superpowers/figma/q1/evidence/live-create-navigation.json",
+        JSON.stringify(
+          {
+            creationStatus: 201,
+            selectionStatus: 200,
+            navigation,
+            finalPath: new URL(page.url()).pathname,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+    const workspaceId = new URL(page.url()).pathname.split("/")[2];
+    const base = `/workspaces/${workspaceId}`;
+    const evidence = "../.superpowers/figma/q1/evidence";
+    await page.goto(`${base}/documents`);
+    await page
+      .getByRole("button", { name: "Upload document", exact: true })
+      .click();
+    const upload = page.getByRole("dialog", { name: "Upload document" });
+    const sourceName = "q1-report-structure.md";
+    const statement =
+      "The reporting guideline defines seven chapters in the report structure.";
+    await upload.getByLabel("Document file").setInputFiles({
+      name: sourceName,
+      mimeType: "text/markdown",
+      buffer: Buffer.from(statement),
+    });
+    const uploaded = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname ===
+          `/api/v1/workspaces/${workspaceId}/documents`,
+    );
+    await upload
+      .getByRole("button", { name: "Upload document", exact: true })
+      .click();
+    expect((await uploaded).ok()).toBe(true);
+    await expect(upload).toBeHidden();
+    await page.getByRole("link", { name: sourceName, exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: sourceName, exact: true }),
+    ).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-document-ready.png`);
+    await page
+      .getByRole("button", { name: "Archive document", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Restore document", exact: true }),
+    ).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-document-archived.png`);
+    await page
+      .getByRole("button", { name: "Restore document", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Archive document", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Request deletion", exact: true })
+      .click();
+    const deletion = page.getByRole("dialog", {
+      name: "Request document deletion",
+    });
+    // Confirmation/cancellation only. Existing policy must not be assumed to block submission.
+    await captureIdentity(page, `${evidence}/live-deletion-confirm-only.png`);
+    await deletion.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.goto(base);
+    await page
+      .getByRole("button", { name: "New Conversation", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/conversations\//);
+    const conversationPath = new URL(page.url()).pathname;
+    await expect(
+      page.getByText("Loading history…", { exact: true }),
+    ).toBeHidden();
+    let accepted: TurnResponse | undefined;
+    await page.route("**/turns", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      accepted = (await response.json()) as TurnResponse;
+      await route.abort("failed");
+    });
+    await page.getByLabel("Question", { exact: true }).fill(statement);
+    await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
+      statement,
+    );
+    await expect(
+      page.getByRole("button", { name: "Ask", exact: true }),
+    ).toBeEnabled();
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Submission status is uncertain" }),
+    ).toContainText("Submission status is uncertain");
+    await captureIdentity(page, `${evidence}/live-lost-response.png`);
+    await page.unrouteAll();
+    await page.goto(conversationPath);
+    await expect(
+      page.getByText("Loading history…", { exact: true }),
+    ).toBeHidden();
+    const history = await page.request.get(`/api/v1${conversationPath}/turns`);
+    expect(history.ok()).toBe(true);
+    const turns = (await history.json()).items as TurnResponse[];
+    expect(turns.filter((turn) => turn.id === accepted?.id)).toHaveLength(1);
+    fs.writeFileSync(
+      `${evidence}/live-turn-observation.json`,
+      JSON.stringify(
+        {
+          workspaceId,
+          conversationPath,
+          acceptedStatus: accepted?.status,
+          observedStatus: turns.find((turn) => turn.id === accepted?.id)
+            ?.status,
+          turnId: accepted?.id,
+          completionGap:
+            "Owned graph has no authorized conversation worker; terminal answer/refusal/interruption is not proved.",
+        },
+        null,
+        2,
+      ),
+    );
+    await captureIdentity(page, `${evidence}/live-history-recovered.png`);
+    const actions = page.getByRole("button", { name: /^Actions for / }).first();
+    await actions.click();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
+    await expect(
+      page.getByText("This Conversation is read-only.", { exact: true }),
+    ).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-conversation-archived.png`);
+    await page
+      .getByRole("button", { name: "Restore conversation", exact: true })
+      .click();
+    await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-conversation-restored.png`);
+    await page.getByRole("button", { name: "Workspace actions" }).click();
+    await page.getByRole("menuitem", { name: "Archive workspace" }).click();
+    await page
+      .getByRole("dialog", { name: "Archive workspace" })
+      .getByRole("button", { name: "Archive workspace", exact: true })
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "Archive workspace" }),
+    ).toBeHidden();
+    await page.goto(base);
+    await expect(
+      page.getByText("Archived workspace · Read-only", { exact: true }),
+    ).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-workspace-archived.png`);
+    await page
+      .getByRole("button", { name: "Restore workspace", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "New Conversation", exact: true }),
+    ).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-workspace-restored.png`);
+    await page.goto("/workspaces");
+    const rename = page.getByLabel(`Rename ${name}`, { exact: true });
+    for (let index = 0; index < 5 && (await rename.count()) === 0; index++) {
+      const more = page.getByRole("button", {
+        name: "Load more Workspaces",
+        exact: true,
+      });
+      if (!(await more.count())) break;
+      const response = page.waitForResponse(
+        (item) =>
+          item.request().method() === "GET" &&
+          new URL(item.url()).pathname === "/api/v1/workspaces",
+      );
+      await more.click();
+      await response;
+    }
+    await rename.fill(`${name} retained`);
+    await page
+      .getByRole("button", { name: `Save ${name} name`, exact: true })
+      .click();
+    await expect(
+      page.getByRole("link", { name: `${name} retained`, exact: true }),
+    ).toBeVisible();
+    await captureIdentity(page, `${evidence}/live-workspace-renamed.png`);
+    // Owned synthetic data remains retained. No cleanup/deletion authority is inferred.
+  });
+
+  test("owned PDF upload exposes an authoritative job observation without starting a worker", async ({
+    page,
+  }) => {
+    const identity = realm.users.find((user) => user.username === "m5-user");
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+    const seed = await page.request.post("/api/v1/workspaces", {
+      headers: { "Idempotency-Key": randomUUID() },
+      data: { name: `Q1 PDF observation ${randomUUID()}` },
+    });
+    expect(seed.status()).toBe(201);
+    const workspace = (await seed.json()) as { id: string };
+    await page.goto(`/workspaces/${workspace.id}/documents`);
+    await page
+      .getByRole("button", { name: "Upload document", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Upload document" });
+    const text = "BT /F1 12 Tf 40 200 Td (Q1 synthetic PDF observation.) Tj ET";
+    const objects = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+      `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    ];
+    let pdf = "%PDF-1.4\n";
+    const offsets = [0];
+    for (const [index, object] of objects.entries()) {
+      offsets.push(Buffer.byteLength(pdf));
+      pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    }
+    const xref = Buffer.byteLength(pdf);
+    pdf += `xref\n0 6\n0000000000 65535 f \n${offsets
+      .slice(1)
+      .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+      .join(
+        "",
+      )}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    await dialog.getByLabel("Document file").setInputFiles({
+      name: "q1-observation.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(pdf),
+    });
+    const upload = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith("/documents"),
+    );
+    await dialog
+      .getByRole("button", { name: "Upload document", exact: true })
+      .click();
+    const response = await upload;
+    expect(response.status()).toBe(202);
+    const submitted = (await response.json()) as {
+      document_id: string;
+      ingestion_job_id: string;
+    };
+    const job = await page.request.get(
+      `/api/v1/workspaces/${workspace.id}/ingestion-jobs/${submitted.ingestion_job_id}`,
+    );
+    expect(job.ok()).toBe(true);
+    const observation = (await job.json()) as { status: string };
+    expect([
+      "queued",
+      "processing",
+      "succeeded",
+      "failed",
+      "retry_wait",
+    ]).toContain(observation.status);
+    fs.writeFileSync(
+      "../.superpowers/figma/q1/evidence/live-pdf-observation.json",
+      JSON.stringify(
+        { workspaceId: workspace.id, ...submitted, observation },
+        null,
+        2,
+      ),
+    );
+    await expect(dialog).toBeHidden();
+    await page
+      .getByRole("link", { name: "q1-observation.pdf", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "q1-observation.pdf", exact: true }),
+    ).toBeVisible();
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/live-pdf-job.png",
+    );
+  });
+
+  test("existing owned queued Turn reconciles to an actual grounded answer after the controller runner", async ({
+    page,
+  }) => {
+    test.skip(
+      process.env.FIGMA_CONTROLLER_PROOF !== "1",
+      "Controller-processed preserved records required; no worker is started by this suite.",
+    );
+    const artifact = fs.existsSync(
+      "../.superpowers/figma/q1/evidence/live-turn-terminal.json",
+    )
+      ? "../.superpowers/figma/q1/evidence/live-turn-terminal.json"
+      : "../.superpowers/figma/q1/evidence/live-turn-observation.json";
+    test.skip(
+      !fs.existsSync(artifact),
+      "Requires the preserved owned Q1 Turn processed by the controller.",
+    );
+    const observation = JSON.parse(fs.readFileSync(artifact, "utf8")) as {
+      workspaceId: string;
+      conversationPath: string;
+      turnId: string;
+    };
+    if (
+      !/^\/workspaces\/[a-f0-9-]+\/conversations\/[a-f0-9-]+$/.test(
+        observation.conversationPath,
+      ) ||
+      !observation.conversationPath.startsWith(
+        `/workspaces/${observation.workspaceId}/`,
+      )
+    )
+      throw new Error("Owned Turn artifact scope rejected.");
+    const identity = realm.users.find(
+      (user) => user.username === "m5-delete-user",
+    );
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+    await page.goto(observation.conversationPath);
+    await expect(
+      page.getByText("Loading history…", { exact: true }),
+    ).toBeHidden();
+    const response = await page.request.get(
+      `/api/v1${observation.conversationPath}/turns/${observation.turnId}`,
+    );
+    expect(response.ok()).toBe(true);
+    const turn = (await response.json()) as TurnResponse;
+    expect(turn.status).toBe("answered");
+    const citation = page.getByRole("button", { name: /citation 1/i }).first();
+    await citation.click();
+    await expect(
+      page.getByRole("complementary", { name: /evidence/i }),
+    ).toContainText("q1-report-structure.md");
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/live-answer-evidence.png",
+    );
+    fs.writeFileSync(
+      "../.superpowers/figma/q1/evidence/live-turn-terminal.json",
+      JSON.stringify(
+        {
+          ...observation,
+          status: turn.status,
+          decision: turn.result?.decision,
+          citationCount: turn.result?.citations.length,
+          completionGap: null,
+        },
+        null,
+        2,
+      ),
+    );
+    if (
+      !fs.existsSync(
+        "../.superpowers/figma/q1/evidence/live-refusal-pending.json",
+      )
+    ) {
+      await page
+        .getByLabel("Question", { exact: true })
+        .fill("Describe extraterrestrial volcanic ice skates zyx987.");
+      const submission = page.waitForResponse(
+        (item) =>
+          item.request().method() === "POST" &&
+          new URL(item.url()).pathname.endsWith("/turns"),
+      );
+      await page.getByRole("button", { name: "Ask", exact: true }).click();
+      const submitted = await submission;
+      expect(submitted.ok()).toBe(true);
+      const pending = (await submitted.json()) as TurnResponse;
+      fs.writeFileSync(
+        "../.superpowers/figma/q1/evidence/live-refusal-pending.json",
+        JSON.stringify(
+          {
+            workspaceId: observation.workspaceId,
+            conversationPath: observation.conversationPath,
+            turnId: pending.id,
+            status: pending.status,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+  });
+
+  test("existing owned PDF reconciles to Ready after the controller isolated extractor", async ({
+    page,
+  }) => {
+    test.skip(
+      process.env.FIGMA_CONTROLLER_PROOF !== "1",
+      "Controller-processed preserved PDF required.",
+    );
+    const artifact =
+      "../.superpowers/figma/q1/evidence/live-pdf-observation.json";
+    test.skip(
+      !fs.existsSync(artifact),
+      "Preserved owned PDF observation required.",
+    );
+    const ids = JSON.parse(fs.readFileSync(artifact, "utf8")) as {
+      workspaceId: string;
+      document_id: string;
+      ingestion_job_id: string;
+    };
+    for (const id of [ids.workspaceId, ids.document_id, ids.ingestion_job_id])
+      if (!/^[a-f0-9-]+$/.test(id))
+        throw new Error("Owned PDF artifact scope rejected.");
+    const identity = realm.users.find((user) => user.username === "m5-user");
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+    const base = `/api/v1/workspaces/${ids.workspaceId}`;
+    const job = await page.request.get(
+      `${base}/ingestion-jobs/${ids.ingestion_job_id}`,
+    );
+    expect(job.ok()).toBe(true);
+    const observation = (await job.json()) as {
+      status: string;
+      attempt_count: number;
+    };
+    expect(observation.status).toBe("succeeded");
+    await page.goto(
+      `/workspaces/${ids.workspaceId}/documents/${ids.document_id}`,
+    );
+    await expect(
+      page.getByRole("heading", { name: "q1-observation.pdf", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Overview" })).toContainText(
+      "Ready",
+    );
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/live-pdf-ready.png",
+    );
+    fs.writeFileSync(
+      "../.superpowers/figma/q1/evidence/live-pdf-terminal.json",
+      JSON.stringify({ ...ids, observation }, null, 2),
+    );
+  });
+
+  test("existing owned unsupported Turn reconciles to an actual refusal after the controller runner", async ({
+    page,
+  }) => {
+    test.skip(
+      process.env.FIGMA_CONTROLLER_PROOF !== "1",
+      "Controller-processed preserved refusal required.",
+    );
+    const artifact =
+      "../.superpowers/figma/q1/evidence/live-refusal-pending.json";
+    test.skip(
+      !fs.existsSync(artifact),
+      "Preserved owned refusal observation required.",
+    );
+    const ids = JSON.parse(fs.readFileSync(artifact, "utf8")) as {
+      workspaceId: string;
+      conversationPath: string;
+      turnId: string;
+    };
+    if (
+      !/^\/workspaces\/[a-f0-9-]+\/conversations\/[a-f0-9-]+$/.test(
+        ids.conversationPath,
+      ) ||
+      !ids.conversationPath.startsWith(`/workspaces/${ids.workspaceId}/`)
+    )
+      throw new Error("Owned refusal scope rejected.");
+    const identity = realm.users.find(
+      (user) => user.username === "m5-delete-user",
+    );
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+    await page.goto(ids.conversationPath);
+    await expect(
+      page.getByText("Loading history…", { exact: true }),
+    ).toBeHidden();
+    const response = await page.request.get(
+      `/api/v1${ids.conversationPath}/turns/${ids.turnId}`,
+    );
+    expect(response.ok()).toBe(true);
+    const turn = (await response.json()) as TurnResponse;
+    expect(turn.status).toBe("refused");
+    expect(turn.result?.decision).toBe("REFUSAL");
+    expect(turn.result?.citations).toEqual([]);
+    await expect(
+      page.getByRole("heading", {
+        name: "I don’t have enough evidence to answer that.",
+      }),
+    ).toBeVisible();
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/live-refusal.png",
+    );
+    fs.writeFileSync(
+      "../.superpowers/figma/q1/evidence/live-refusal-terminal.json",
+      JSON.stringify(
+        {
+          ...ids,
+          status: turn.status,
+          decision: turn.result?.decision,
+          citationCount: turn.result?.citations.length,
+        },
+        null,
+        2,
+      ),
+    );
+  });
+});

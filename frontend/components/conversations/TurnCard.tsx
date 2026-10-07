@@ -40,7 +40,7 @@ export function TurnCard({
   const interrupted = turn.status === "interrupted";
   const failed = turn.status === "failed" || Boolean(turn.error_code);
   const refused =
-    !working && !interrupted && !failed && turn.result?.decision === "REFUSE";
+    !working && !interrupted && !failed && turn.result?.decision === "REFUSAL";
   const answer =
     !working && !interrupted && !failed && turn.result?.decision === "ANSWER"
       ? turn.result.answer
@@ -89,7 +89,7 @@ export function TurnCard({
         {refused && (
           <>
             <h2 className="font-display text-2xl font-semibold leading-8">
-              {turn.result?.refusal_reason === "insufficient_evidence"
+              {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
                 ? "I don’t have enough evidence to answer that."
                 : "I can’t answer that from the available evidence."}
             </h2>
@@ -97,7 +97,7 @@ export function TurnCard({
               Refused: {turn.result?.refusal_reason}
             </p>
             <span className="m-0 w-fit rounded-full border border-signature bg-signature/10 px-2 py-1 text-[11px] text-signature">
-              {turn.result?.refusal_reason === "insufficient_evidence"
+              {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
                 ? "Insufficient evidence"
                 : "Controlled refusal"}
             </span>

@@ -235,7 +235,6 @@ export function WorkspaceManagement({
         onClose={() => setCreating(false)}
         onCreated={async (created) => {
           setWorkspaces((current) => [...current, created]);
-          router.refresh();
           setMessage("Workspace created.");
           try {
             const response = await fetch("/api/workspace-selection", {
@@ -245,7 +244,6 @@ export function WorkspaceManagement({
             });
             if (!response.ok) throw new Error("selection failed");
             router.push(routes.workspace(created.id));
-            router.refresh();
           } catch {
             setError("Workspace created. Reload to select the Workspace.");
           }

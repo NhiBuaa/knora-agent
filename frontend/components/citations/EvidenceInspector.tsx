@@ -17,9 +17,9 @@ export function EvidenceInspector({
     turn && ["queued", "processing", "pending"].includes(turn.status);
   const interrupted = turn?.status === "interrupted";
   const failed = turn?.status === "failed" || Boolean(turn?.error_code);
-  const refused = turn?.result?.decision === "REFUSE";
+  const refused = turn?.result?.decision === "REFUSAL";
   const insufficient =
-    refused && turn?.result?.refusal_reason === "insufficient_evidence";
+    refused && turn?.result?.refusal_reason === "INSUFFICIENT_EVIDENCE";
   const heading = citation
     ? citation.source_name
     : working
