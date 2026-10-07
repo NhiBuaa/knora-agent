@@ -355,3 +355,42 @@ regression-preflight logs are excluded. Exhaustive source/current residuals rema
 Preserved RED/GREEN logs, final formatting/type checks, retention manifests and self-review are in
 `.superpowers/sdd/2026-10-07-figma-trace-content-measures/task-1-report.md`.
 Native identity, full regression and full-goal acceptance remain open.
+
+### Oct8 Evaluation relative content measures — current measured status
+
+The bounded Evaluation follow-up uses complete source 216:755, specifically 216:794–811.
+Report context now has a 22px/24px title, with the first context text starting 44px below the
+title top. Desktop rows retain the 170px label/200px value/10px gap split. A 24px text region,
+10px top padding, 5px bottom padding and 1px divider give a 40px minimum row: the divider begins
+29px after the text starts, followed by its 1px thickness and 10px before the next text region.
+The complete opaque observation code wraps inside the column and grows its row to 64px; the
+source's 300px value region extending outside its 380px context column is not reproduced.
+
+The explanation retains the complete contract copy and 16px/20px type at a 680px maximum,
+with a 70px minimum allocation. Its desktop top is 44px below the existing 26px/32px main
+heading; the local 12px gap accounts for the unchanged 28px badge centered within that heading
+row. No fixed height clips longer content. At 390px the explanation is 358×100 and context rows
+stack to 358×74; the title/badge flex row grows naturally. Full report and Workspace IDs,
+available/unavailable/failure semantics and missing-observation defensive fallback remain
+inspectable. Undefined observation fields in the defensive component case are explicitly
+out of contract; the generated schema still requires strings.
+
+Absolute origins remain unresolved: desktop heading/context source y409 versus current411,
+explanation453/455, first context text453/455 and observation text573/575. The historical
+`report context row` measurement compares source text start453 against CSS container top445;
+the named `correctedGeometry.evaluationContent` regions record the actual text top455 and
+the 40px flow interval. Badge source x503/y412 versus current486.21875/413 remains a natural
+title-width/alignment difference. Semantic contrast, exact runtime IDs instead of illustrative
+display values, extra Workspace controls and optional scope remain visible differences.
+No mobile Figma source exists, so mobile evidence proves readable adaptation only.
+
+Actual-browser RED failed on the intended measures before implementation; focused Evaluation
+GREEN and all five existing Operator/guidance cases passed at both sizes with no writes or
+unexpected API requests. All 36 component checks and final format, format:check and typecheck
+passed. Only the two Evaluation PNGs and two geometry JSONs changed; all 257 other inventoried
+Q1 artifacts, including the other four Operator cases' 16 outputs and original 51-state evidence,
+retain their hashes. Combined Operator HTML was regenerated and remains byte-identical. Root
+active regression-preflight logs are excluded. Details, initial test-only typecheck recovery,
+visual QA and residual JSON links are in
+`.superpowers/sdd/2026-10-08-figma-evaluation-content-measures/task-1-report.md`.
+Whole-page parity, native identity and full-regression acceptance remain open (`parityAccepted:false`).

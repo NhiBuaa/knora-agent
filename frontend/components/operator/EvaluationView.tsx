@@ -42,7 +42,7 @@ export function EvaluationView({
             {available ? "Available" : "Unavailable"}
           </StatusBadge>
         </div>
-        <p className="mt-[18px] mb-0 max-w-[680px] text-base leading-5 text-text-muted">
+        <p className="mt-3 mb-0 min-h-[70px] max-w-[680px] text-base leading-5 text-text-muted">
           {contractUnavailable
             ? "Persisted evaluation reports are not available in the current Operator contract. Knora does not invent quality scores, pass/fail results, or other evaluation metrics when the backend has no report to expose."
             : available
@@ -56,19 +56,19 @@ export function EvaluationView({
       >
         <h2
           id="report-context-heading"
-          className="m-0 font-sans text-[22px] leading-8 font-semibold"
+          className="m-0 font-sans text-[22px] leading-6 font-semibold"
         >
           Report context
         </h2>
-        <dl className="mt-[18px] mb-0 block">
+        <dl className="mt-2.5 mb-0 block">
           {rows.map(([label, value]) => (
             <div
               key={label}
-              className="grid min-h-10 grid-cols-[minmax(0,170px)_minmax(0,1fr)] items-start gap-2.5 border-b border-border py-2.5 text-sm leading-5 max-sm:grid-cols-1"
+              className="grid min-h-10 grid-cols-[minmax(0,170px)_minmax(0,1fr)] items-start gap-2.5 border-b border-border pt-2.5 pb-[5px] text-sm leading-6 max-sm:grid-cols-1"
             >
               <dt className="font-normal text-text-muted">{label}</dt>
               <dd
-                className={`min-w-0 [overflow-wrap:anywhere] ${label === "Availability" && !available ? "font-semibold text-signature" : label === "Observation code" ? "text-xs text-text-muted" : "font-medium"}`}
+                className={`min-w-0 [overflow-wrap:anywhere] ${label === "Availability" && !available ? "font-semibold text-signature" : label === "Observation code" ? "text-xs leading-6 text-text-muted" : "font-medium"}`}
               >
                 {value}
               </dd>

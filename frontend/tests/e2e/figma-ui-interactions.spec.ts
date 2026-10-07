@@ -196,6 +196,46 @@ async function operatorSourceGeometry(
         lineHeight: getComputedStyle(main.querySelector(`#${id}`)!).lineHeight,
       })),
     };
+    const reportHeading = main.querySelector("#report-context-heading");
+    const evaluationContent = reportHeading && {
+      title: box(main.querySelector("#evaluation-heading")!),
+      heading: {
+        ...box(reportHeading),
+        lineHeight: getComputedStyle(reportHeading).lineHeight,
+      },
+      explanation: (() => {
+        const element = main.querySelector(
+          'section[aria-labelledby="evaluation-heading"] > div > p',
+        )!;
+        return {
+          ...box(element),
+          text: element.textContent,
+          minHeight: getComputedStyle(element).minHeight,
+          maxWidth: getComputedStyle(element).maxWidth,
+          lineHeight: getComputedStyle(element).lineHeight,
+        };
+      })(),
+      contextRows: Array.from(reportHeading.nextElementSibling!.children).map(
+        (row) => ({
+          ...box(row),
+          minHeight: getComputedStyle(row).minHeight,
+          paddingTop: getComputedStyle(row).paddingTop,
+          paddingBottom: getComputedStyle(row).paddingBottom,
+          borderBottom: getComputedStyle(row).borderBottomWidth,
+          gap: getComputedStyle(row).columnGap,
+          label: {
+            ...box(row.querySelector("dt")!),
+            text: row.querySelector("dt")!.textContent,
+            lineHeight: getComputedStyle(row.querySelector("dt")!).lineHeight,
+          },
+          value: {
+            ...box(row.querySelector("dd")!),
+            text: row.querySelector("dd")!.textContent,
+            lineHeight: getComputedStyle(row.querySelector("dd")!).lineHeight,
+          },
+        }),
+      ),
+    };
     return {
       workspaceLabel: box(main.querySelector(".workspace-selector-label")!),
       traceBadges,
@@ -236,6 +276,7 @@ async function operatorSourceGeometry(
         ),
       ).map(word),
       ...(traceContent ? { traceContent } : {}),
+      ...(evaluationContent ? { evaluationContent } : {}),
     };
   });
   expect
@@ -383,6 +424,62 @@ async function operatorSourceGeometry(
         expect.soft(row.value.width).toBe(200);
         expect.soft(row.label.y - row.y).toBe(7);
         expect.soft(row.value.y - row.y).toBe(7);
+      }
+    }
+  }
+  if (geometry.evaluationContent) {
+    const content = geometry.evaluationContent;
+    expect.soft(content.heading).toMatchObject({
+      fontSize: "22px",
+      lineHeight: "24px",
+      height: 24,
+      fits: true,
+    });
+    expect.soft(content.explanation).toMatchObject({
+      minHeight: "70px",
+      maxWidth: "680px",
+      fontSize: "16px",
+      lineHeight: "20px",
+      fits: true,
+    });
+    for (const row of content.contextRows) {
+      expect.soft(row).toMatchObject({
+        minHeight: "40px",
+        paddingTop: "10px",
+        paddingBottom: "5px",
+        borderBottom: "1px",
+        gap: "10px",
+        fits: true,
+      });
+      expect.soft(row.label.lineHeight).toBe("24px");
+      expect.soft(row.value.lineHeight).toBe("24px");
+      expect.soft(row.label.fits).toBe(true);
+      expect.soft(row.value.fits).toBe(true);
+      expect.soft(row.height).toBeGreaterThanOrEqual(40);
+    }
+    if (width === 1440) {
+      expect.soft(content.explanation.width).toBe(680);
+      expect.soft(content.explanation.height).toBe(70);
+      expect.soft(content.explanation.y - content.title.y).toBe(44);
+      expect.soft(content.contextRows[0].label.y - content.heading.y).toBe(44);
+      for (const row of content.contextRows) {
+        expect.soft(row.label.width).toBe(170);
+        expect.soft(row.value.width).toBe(200);
+        expect.soft(row.label.y - row.y).toBe(10);
+        expect.soft(row.value.y - row.y).toBe(10);
+      }
+      for (const [index, row] of content.contextRows.slice(0, 3).entries()) {
+        expect.soft(row.height).toBe(40);
+        expect.soft(row.y + row.height - 1 - row.label.y).toBe(29);
+        expect
+          .soft(content.contextRows[index + 1].label.y - row.label.y)
+          .toBe(40);
+      }
+    } else {
+      expect.soft(content.explanation.height).toBeGreaterThan(70);
+      for (const row of content.contextRows) {
+        expect.soft(row.height).toBeGreaterThan(40);
+        expect.soft(row.value.y).toBeGreaterThan(row.label.y);
       }
     }
   }

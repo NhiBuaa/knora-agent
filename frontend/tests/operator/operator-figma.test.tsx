@@ -9,7 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { OperatorTraceResponse } from "@/generated/knora-openapi";
+import type {
+  OperatorEvaluationResponse,
+  OperatorTraceResponse,
+} from "@/generated/knora-openapi";
 import { OperationsView } from "@/components/operator/OperationsView";
 import { TraceView } from "@/components/operator/TraceView";
 import { EvaluationView } from "@/components/operator/EvaluationView";
@@ -609,6 +612,94 @@ describe("Figma operator data surfaces", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
+  it.each([
+    {
+      availability: "available",
+      observation_failure: "",
+      boundary: "contract response",
+      available: true,
+      copy: "The backend reports this evaluation as available. No evaluation metrics are supplied by this observation.",
+    },
+    {
+      availability: "unavailable",
+      observation_failure: "EVALUATION_REPORT_UNAVAILABLE",
+      boundary: "contract response",
+      available: false,
+      copy: "Persisted evaluation reports are not available in the current Operator contract. Knora does not invent quality scores, pass/fail results, or other evaluation metrics when the backend has no report to expose.",
+    },
+    {
+      availability: "available",
+      observation_failure:
+        "OBSERVATION_FAILURE_WITH_COMPLETE_OPAQUE_BACKEND_REVISION_0000000000000000000000",
+      boundary: "contract response",
+      available: false,
+      copy: "The backend could not supply this evaluation report. No evaluation metrics are available for this observation.",
+    },
+    {
+      // Deliberately malformed runtime input characterizes existing defensive guards;
+      // undefined observation fields are not supported by the generated contract.
+      ...({
+        availability: undefined,
+        observation_failure: undefined,
+      } as unknown as Pick<
+        OperatorEvaluationResponse,
+        "availability" | "observation_failure"
+      >),
+      boundary: "out-of-contract defensive runtime input",
+      available: false,
+      copy: "The backend could not supply this evaluation report. No evaluation metrics are available for this observation.",
+    },
+  ])(
+    "preserves Evaluation context and complete copy for $availability / $observation_failure ($boundary)",
+    ({ availability, observation_failure, available, copy }) => {
+      const reportId =
+        "opaque-report-identifier-with-complete-backend-revision-0000000000000000000000";
+      const workspaceId =
+        "opaque-workspace-identifier-with-complete-backend-revision-0000000000000000000000";
+      render(
+        <EvaluationView
+          evaluation={{
+            report_id: reportId,
+            workspace_id: workspaceId,
+            availability,
+            observation_failure,
+          }}
+        />,
+      );
+      const result = screen.getByRole("region", {
+        name: `Evaluation report ${available ? "available" : "unavailable"}`,
+      });
+      expect(within(result).getByText(copy, { exact: true })).toBeVisible();
+      const context = within(
+        screen.getByRole("region", { name: "Report context" }),
+      );
+      expect(
+        context.getAllByRole("term").map((term) => term.textContent),
+      ).toEqual([
+        "Report ID",
+        "Observed Workspace",
+        "Availability",
+        "Observation code",
+      ]);
+      expect(
+        context.getAllByRole("definition").map((value) => value.textContent),
+      ).toEqual([
+        reportId,
+        workspaceId,
+        available ? "Available" : "Unavailable",
+        observation_failure ?? "Unavailable",
+      ]);
+      expect(result.querySelector(".kn-status-badge")).toHaveAttribute(
+        "data-kind",
+        available ? "success" : "warning",
+      );
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: /download/i }),
+      ).not.toBeInTheDocument();
+    },
+  );
   it("disables empty trace lookup and encodes exact identifiers", async () => {
     render(
       await TracesPage({
