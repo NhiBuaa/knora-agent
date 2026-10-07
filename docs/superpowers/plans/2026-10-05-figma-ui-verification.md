@@ -93,6 +93,13 @@ Use the actual public projection in regression RED/GREEN and existing Q1 state f
 verify persisted native refusal UI and no fabricated citations. Preserve controlled-refusal
 versus failed/interrupted distinctions, Turn-bound evidence and backend outcome authority.
 Recapture only affected refusal states/comparisons. No backend or generated contract edits.
+Review correction scope also includes frontend/tests/e2e/m5-user-flows.spec.ts: align its
+existing refusal projection double to REFUSAL/INSUFFICIENT_EVIDENCE and verify current
+refusal heading and absent citations through the guarded owned harness. Keep the default
+M5 endpoint guards; do not reintroduce invalid production aliases. In the existing Q1 PDF
+observation test, use the generated IngestionJobStatusResponse and all six canonical statuses:
+queued, processing, retry_scheduled, succeeded, superseded, failed. Verify retry/superseded
+classification with test-only projections, without worker/data changes.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
