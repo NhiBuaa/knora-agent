@@ -6,7 +6,7 @@ design. This is a continuity and evidence record, not Q1/Q2 or full-product acce
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Trace flow `86679dc`.
+Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: OTP presentation `5583df8`.
 Evaluation, Operations, shared Operator frame and Trace flow are independently approved.
 No merge, push, deployment, branch disposition or worktree removal has occurred.
 
@@ -165,6 +165,16 @@ captures/JSONs; all experimental maintained edits were reverted. The original re
 the helper freeze boundary and withdrew the Minor. Both presentation tasks have no surviving findings.
 
 ## Remaining acceptance work
+
+OTP input presentation `5583df8` received independent Spec compliance Approved / Task quality
+Approved. Four focused browser cases passed, with format/check/typecheck exit0. The420px wrapper
+centers six54px cells and10px gaps; narrower layouts shrink naturally. Empty marks remain decorative,
+while the labelled native input stays truly empty. Leading-zero paste and clear were verified.
+Of315 earlier Q1 artifacts,314 are unchanged and only copied native CSS changed; all nine native
+HTML hashes are unchanged, with25 additions. The reviewer noted existing Java compiler notes in
+the offline exporter; toolchain warning cleanup is deferred outside this bounded CSS task.
+Native recovery/CSP and whole-design acceptance remain open. The next bounded task exercises
+Documents local controls through existing modules without submitting mutations.
 
 - Operator label typography, Trace badges and relative Trace content measures are independently
   approved. Evaluation content measures and Operations accounting/bucket/Alerts measures are also
