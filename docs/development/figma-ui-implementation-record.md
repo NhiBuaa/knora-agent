@@ -137,9 +137,9 @@ the native password page identity. No theme CSS, provider protocol or production
 Before/after Q1 inventory records261 unchanged of266 prior artifacts, four reset HTML changes and
 one success HTML formatting drift from the earlier accepted source; exact historical success bytes
 remain separately identified. Nineteen additions contain captures/geometry and the pinned module.
-The reviewer independently verified285 artifact and12 source hashes. A deferred Minor concerns
-the static copy test's live countdown clock; freeze it in a later authorized test edit while retaining
-the separate countdown interaction test. The source archived Conversation bar is the next task.
+The reviewer independently verified285 artifact and12 source hashes. A proposed static-clock Minor
+was later withdrawn: unchanged prepareFixture fixes Date before navigation, and an elapsed1500ms
+diagnostic passed all eight static states without a new setter. No maintained test change was needed.
 
 ## Latest frontend qualification and archived Conversation bar
 
@@ -160,7 +160,9 @@ collapsed captures using existing rail/evidence controls; both focused cases pas
 color environment output. All295 pre-fix artifacts remain unchanged; four captures/JSONs were added.
 Format/check/typecheck passed again in order. Scoped independent re-review returned Spec PASS /
 Quality Approved, no new findings. No production source changed after the full frontend run.
-The deferred static reset countdown-clock finding remains for a later test edit/final review.
+The separate static-clock investigation preserved299 prior artifacts and added16 diagnostic
+captures/JSONs; all experimental maintained edits were reverted. The original reviewer confirmed
+the helper freeze boundary and withdrew the Minor. Both presentation tasks have no surviving findings.
 
 ## Remaining acceptance work
 
