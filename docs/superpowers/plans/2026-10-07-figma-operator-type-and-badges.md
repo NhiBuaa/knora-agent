@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use subagent-driven-development or executing-plans.
 
-**Goal:** Correct remaining measured Operator label/input typography and Trace decision badge shapes.
+**Goal:** Correct remaining measured Operator label typography and Trace decision badge shapes.
 **Architecture:** Extend only the owning presentation choices and local Trace badge callsites,
 composing the existing selector and semantic badge. Preserve default consumers, domain outcomes,
 dynamic provenance, disclosures and navigation. No shared primitive redesign.
@@ -27,7 +27,6 @@ dynamic provenance, disclosures and navigation. No shared primitive redesign.
 | File | Responsibility |
 | --- | --- |
 | `frontend/components/workspaces/WorkspaceSelector.tsx` | Operator label11px, default10px preserved |
-| `frontend/components/operator/OperatorFrame.tsx` | Trace input13px, report input14px preserved |
 | `frontend/components/operator/TraceView.tsx` | Source ANSWER and SELECTED badge dimensions/type/alignment |
 | `frontend/tests/operator/operator-figma.test.tsx` | Actual owning presentation/default/state regressions |
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Source geometry RED/GREEN, mobile preserved |
@@ -43,14 +42,14 @@ No shared StatusBadge/Menu or stylesheet edit. Fresh five-source cache remains a
 verification-before-completion, requesting-code-review.
 
 - [ ] Read five full MCP contexts and current affected measurementJSONs. Confirm source Workspace
-  label11px versus current10px; trace field13px versus current14px. Source report field14px stays.
+  label11px versus current10px. Prior geometry task already corrected trace field13px; report14px stays.
 - [ ] Inspect selector Operator presentation and Trace existing StatusBadge callsites. Reuse suitable
   components. Add meaningful actual-component/default-consumer tests and browser RED on named
   dimensions/font size/font weight/text alignment/icon absence, not assertions mirroring class strings.
 - [ ] Set only Operator Workspace label11px; keep default selector and open/default consumers
   unchanged. Use existing presentation parameter, not route-based authorization or new domain state.
-- [ ] Set only trace lookup field13px; keep report14px and established34/36px field geometry,
-  buttons, safe URL encoding, pending/error state and optional Workspace override unchanged.
+- [ ] Preserve and verify corrected trace lookup field13px/report14px and established34/36px field
+  geometry, buttons, safe URL encoding, pending/error state and optional Workspace override.
 - [ ] Source216:637 ANSWER is110×28 radius7px; text node216:638 isInter12px semibold600,
   source left padding10px, vertically centered16px text region. Source216:644 and216:651
   SELECTED are150×28 radius7px with same12px/600 and10px left padding. No icon appears in these
@@ -71,7 +70,7 @@ verification-before-completion, requesting-code-review.
   text measure, extra supported controls, natural dynamic growth and semantic-token contrast. No
   accepted-parity boolean or broad tolerance that waives a named mismatch.
 - [ ] Run format→format:check→typecheck, focused regressions, self-review and report exact RED/GREEN,
-  source/callsite/rendered geometry and command results. Commit only six owned maintained paths,
+  source/callsite/rendered geometry and command results. Commit only five owned maintained paths,
   release preview3300 and submit originalBASE→HEAD for independent spec/quality review.
 
 **Finish condition:** Named typography and source badge geometry proven with complete dynamic state,
