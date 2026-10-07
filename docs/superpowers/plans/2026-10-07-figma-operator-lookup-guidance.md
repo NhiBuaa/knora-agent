@@ -78,7 +78,10 @@ requesting-code-review. Record exact starting HEAD and own SDD workspace.
   grow for wrapped text and avoid clipping. Do not insert a fake source Trace/Report ID.
 - [ ] Run actual route/component GREEN and existing lookup encoding/same-route retry tests.
 - [ ] Extend the two exact fixture states using real OperatorFrame/OperatorLookup/Guidance; no
-  production fixture route. Requests remain intercepted/guarded, no API writes. At1440 check
+  production fixture route. Keep exported visualStates as the original51-item capture inventory;
+  export a separate fixtureStates union with the two named Operator prototypes for host lookup
+  and narrow fixture-request recognition. This avoids silently extending the51-state visual loop.
+  Requests remain intercepted/guarded, no API writes. At1440 check
   section and columns against cached geometry, then390 no horizontal overflow or clipped copy.
   Enter an exact synthetic lookup ID and verify encoded target navigation/Workspace scope using
   existing intercepted observation fixtures; do not claim backend authorization from fixture.
