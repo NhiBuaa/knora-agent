@@ -84,6 +84,19 @@ with zero drift; its five affected comparison captures were updated deliberately
 
 ## Remaining acceptance work
 
+### October 8 frontend qualification
+
+Fresh whole-frontend verification ran against source `81ff9e9`, including the independently
+approved typography, Trace and Evaluation follow-ups and the Operations task awaiting review.
+Vitest passed 366 tests across 44 files in49.76s, exit0. Production build first failed after
+compile/type checking/static generation at an ENOENT rename of generated `500.html`; the
+destination file already existed after failure. A sequential build with no source changes or
+cache cleanup passed, exit0. The precise cause of that intermittent generated-output failure
+is unconfirmed. Existing Next image lint warnings remain visible; no source waiver was added.
+Both build logs, diagnosis and exit records are retained in the excluded `regression-preflight`
+directory. This fresh frontend evidence does not qualify native identity or replace the earlier
+backend/Maven acceptance limits.
+
 - Operator label typography, Trace badges and relative Trace content measures are independently
   approved. Evaluation content measures are independently approved; Operations accounting/bucket/Alerts
   measures are executing. Page coordinates, natural row growth, theme differences and supported extra
