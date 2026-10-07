@@ -18,6 +18,7 @@ import {
   OperatorLookup,
 } from "@/components/operator/OperatorFrame";
 import { WorkspaceSelector } from "@/components/workspaces/WorkspaceSelector";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import TracesPage from "@/app/operator/traces/page";
 import EvaluationsPage from "@/app/operator/evaluations/page";
 
@@ -85,6 +86,73 @@ const trace: OperatorTraceResponse = {
 };
 
 describe("Figma operator data surfaces", () => {
+  it.each([
+    "ANSWER",
+    "REFUSAL",
+    "FAILED",
+    "GENERATION_OUTPUT_INVALID",
+    "UNKNOWN_RECORDED_OUTCOME",
+  ])(
+    "retains the complete observed decision %s and its existing semantic tone",
+    (decision) => {
+      render(<TraceView trace={{ ...trace, decision }} />);
+      const result = screen.getByRole("region", { name: "Observed result" });
+      const label = within(result).getByText(decision, { exact: true });
+      expect(label.closest(".kn-status-badge")).toHaveAttribute(
+        "data-kind",
+        decision === "ANSWER" ? "success" : "warning",
+      );
+      expect(result).toHaveTextContent("Evidence [[E1]]");
+    },
+  );
+  it.each([
+    "SELECTED",
+    "REDUNDANT_OVERLAP",
+    "BUDGET_EXCEEDED",
+    "ELIGIBLE_NOT_SELECTED",
+    "BELOW_THRESHOLD",
+    "UNKNOWN_RECORDED_CANDIDATE_DECISION_WITH_FULL_DETAIL",
+  ])(
+    "retains candidate decision %s with full evidence and provenance",
+    (final_decision) => {
+      render(
+        <TraceView
+          trace={{
+            ...trace,
+            candidates: [{ ...trace.candidates[0], final_decision }],
+          }}
+        />,
+      );
+      const candidate = within(
+        screen.getByRole("region", { name: "Candidate provenance" }),
+      );
+      const label = candidate.getByText(final_decision, { exact: true });
+      expect(label.closest(".kn-status-badge")).toHaveAttribute(
+        "data-kind",
+        final_decision === "SELECTED" ? "success" : "info",
+      );
+      expect(candidate.getByText("manual.pdf")).toBeVisible();
+      expect(candidate.getByText("Evidence text")).toBeVisible();
+      expect(candidate.getByText(/Rank 1 · Fusion 0/)).toBeVisible();
+      fireEvent.click(candidate.getByText("Retrieval details"));
+      for (const value of ["chunk-1", "version-1", "set-1"]) {
+        expect(candidate.getByText(value, { exact: true })).toBeVisible();
+      }
+    },
+  );
+  it("preserves shared StatusBadge default text, semantic tone and decorative icon", () => {
+    const { container } = render(
+      <StatusBadge kind="success">Other consumer</StatusBadge>,
+    );
+    expect(screen.getByText("Other consumer")).toBeVisible();
+    expect(
+      container.querySelector('[data-kind="success"]'),
+    ).toBeInTheDocument();
+    expect(container.querySelector('[aria-hidden="true"]')).toHaveTextContent(
+      "✓",
+    );
+    expect(container.querySelector('[aria-hidden="true"]')).toBeVisible();
+  });
   it.each([
     ["/operator/operations", "a4e11"],
     ["/operator/traces/trace-1", "bab86"],

@@ -285,3 +285,31 @@ including the original51-state captures/comparisons and source/hash manifests. A
 regression-preflight logs are excluded from this preservation inventory. Exact RED/GREEN commands,
 remaining limits and preservation proof are in
 `.superpowers/sdd/2026-10-07-figma-operator-geometry-corrections/task-1-report.md`.
+
+### Oct7 Operator typography and Trace badges — current measured status
+
+The owning selector presentation now renders the Workspace label at Inter11px/600 on all five
+Operator prototypes. Default consumers and the open popup retain10px; actions and source caret
+slots retain the preceding geometry correction. Trace lookup remains13px/34px high and report
+lookup14px/36px high.
+
+Trace detail reuses StatusBadge locally: ANSWER source216:637 is110×28/radius7, and SELECTED
+source216:644/651 is150×28/radius7. Both render Inter12px/600 with10px left padding and a16px
+text region centered6px from the top. Decorative icons are hidden only in those named states;
+semantic success tone and the complete backend label remain. Other observed decisions and
+candidate outcomes retain their existing warning/info meanings and can grow and wrap naturally.
+At390px SELECTED stays a whole word, with the source-name row wrapping and no page overflow.
+
+The five affected desktop/mobile captures, geometry JSONs and two comparison HTMLs are refreshed.
+The existing `correctedGeometry.workspaceLabel` and `correctedGeometry.traceBadges` records contain
+effective type, shape, text alignment, icon visibility and fit; descriptive `measurements` still
+record exact source/current deviations without a parity waiver.239 unrelated cached Q1 artifacts,
+including original51 source/capture/comparison evidence, retain their hashes; only active root-owned
+regression-preflight logs are excluded from the preservation inventory.
+
+Remaining differences include page origins/margins, candidate source-name measure and natural
+row growth, additional supported controls/disclosures, source data versus runtime IDs/citations,
+and accessible semantic contrast tokens. Validation timing remains reachable through natural
+scroll. These focused fixture checks do not accept whole-page geometry, backend authorization,
+native identity flows or full regression qualification. Exact RED/GREEN, preservation proof and
+residuals are in `.superpowers/sdd/2026-10-07-figma-operator-type-and-badges/task-1-report.md`.

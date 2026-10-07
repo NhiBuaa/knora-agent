@@ -72,6 +72,9 @@ async function operatorSourceGeometry(
         radius: style.borderRadius,
         fits: element.scrollWidth <= element.clientWidth,
         overflowY: style.overflowY,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        fontFamily: style.fontFamily,
       };
     };
     const word = (element: Element) => {
@@ -104,7 +107,30 @@ async function operatorSourceGeometry(
     const badge = main.querySelector(
       'section[aria-labelledby="evaluation-heading"] > div > div > span',
     );
+    const traceBadges = Array.from(
+      main.querySelectorAll(
+        'section[aria-labelledby="observed-result-heading"] .kn-status-badge, section[aria-labelledby="candidate-heading"] .kn-status-badge',
+      ),
+    ).map((element) => {
+      const text = element.lastElementChild!;
+      const rect = element.getBoundingClientRect();
+      const textRect = text.getBoundingClientRect();
+      return {
+        ...box(element),
+        label: text.textContent,
+        kind: element.getAttribute("data-kind"),
+        paddingLeft: getComputedStyle(element).paddingLeft,
+        textOffsetX: textRect.x - rect.x,
+        textOffsetY: textRect.y - rect.y,
+        textHeight: textRect.height,
+        iconVisible:
+          getComputedStyle(element.firstElementChild!).display !== "none",
+        text: word(text),
+      };
+    });
     return {
+      workspaceLabel: box(main.querySelector(".workspace-selector-label")!),
+      traceBadges,
       selector: box(main.querySelector(".workspace-selector-heading")!),
       actions: box(main.querySelector(".kn-menu__trigger")!),
       caret: {
@@ -143,6 +169,32 @@ async function operatorSourceGeometry(
       ).map(word),
     };
   });
+  expect
+    .soft(geometry.workspaceLabel.fontSize, "Operator Workspace label")
+    .toBe("11px");
+  expect.soft(geometry.workspaceLabel.fontWeight).toBe("600");
+  expect
+    .soft(geometry.workspaceLabel.fontFamily.toLowerCase())
+    .toContain("inter");
+  for (const badge of geometry.traceBadges) {
+    expect.soft(badge).toMatchObject({
+      width: badge.label === "ANSWER" ? 110 : 150,
+      height: 28,
+      radius: "7px",
+      fontSize: "12px",
+      fontWeight: "600",
+      paddingLeft: "10px",
+      textOffsetX: 10,
+      textOffsetY: 6,
+      textHeight: 16,
+      iconVisible: false,
+      kind: "success",
+      fits: true,
+    });
+    expect.soft(badge.fontFamily.toLowerCase()).toContain("inter");
+    expect.soft(badge.text.lines).toBe(1);
+    expect.soft(badge.text.textFitsParent).toBe(true);
+  }
   expect.soft(geometry.selector.height, "Operator selector height").toBe(26);
   expect
     .soft(geometry.actions.height, "retained Workspace actions height")
@@ -164,6 +216,7 @@ async function operatorSourceGeometry(
   if (geometry.input && geometry.button) {
     const trace = state === "216:448" || state === "216:573";
     expect.soft(geometry.input.height).toBe(trace ? 34 : 36);
+    expect.soft(geometry.input.fontSize).toBe(trace ? "13px" : "14px");
     expect.soft(geometry.button.height).toBe(36);
     expect.soft(geometry.button.width).toBe(trace ? 104 : 124);
   }

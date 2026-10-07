@@ -121,11 +121,18 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             aria-labelledby="observed-result-heading"
             className="m-0 border-0 bg-transparent p-0"
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 id="observed-result-heading" className={heading}>
                 Observed result
               </h2>
-              <StatusBadge kind={answer ? "success" : "warning"}>
+              <StatusBadge
+                kind={answer ? "success" : "warning"}
+                className={
+                  answer
+                    ? "h-7 w-[110px] shrink-0 rounded-[7px]! border-0 px-2.5 py-0 text-xs leading-4 font-semibold whitespace-nowrap [&_[aria-hidden]]:hidden"
+                    : "max-w-full [overflow-wrap:anywhere]"
+                }
+              >
                 {trace.decision.toUpperCase()}
               </StatusBadge>
             </div>
@@ -184,7 +191,11 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                       {candidate.source_key}
                     </strong>
                     <StatusBadge
-                      className="shrink-0 whitespace-nowrap"
+                      className={
+                        candidate.final_decision === "SELECTED"
+                          ? "h-7 w-[150px] shrink-0 rounded-[7px]! border-0 px-2.5 py-0 text-xs leading-4 font-semibold whitespace-nowrap [&_[aria-hidden]]:hidden"
+                          : "max-w-full [overflow-wrap:anywhere]"
+                      }
                       kind={
                         candidate.final_decision === "SELECTED"
                           ? "success"

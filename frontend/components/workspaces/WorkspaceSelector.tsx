@@ -226,7 +226,9 @@ export function WorkspaceSelector({
         }
       }}
     >
-      <p className="workspace-selector-label m-0 mb-1.5 text-[10px] leading-3 font-semibold text-text-muted uppercase">
+      <p
+        className={`workspace-selector-label m-0 mb-1.5 leading-3 font-semibold text-text-muted uppercase ${operator ? "text-[11px]" : "text-[10px]"}`}
+      >
         Workspace
       </p>
       <div
