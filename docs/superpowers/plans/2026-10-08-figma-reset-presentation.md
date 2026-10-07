@@ -141,7 +141,7 @@ no sparse response. Current brand18 leaf and password eye18 assets already local
   legitimately change four native HTMLs and add the exact698-byte parent script above; enumerate
   changes/addition and preserve unrelated HTML/resources.
   Both new current captures and new HTML differences explicitly allowed; no blanket rebaseline.
-- [ ] Run format→format:check→typecheck sequentially, self-review exact six paths, release owned3300,
+- [ ] Run format→format:check→typecheck sequentially, self-review exact seven paths, release owned3300,
   commit exactly seven owned paths and report command results, source mapping, RED/GREEN, hashes/visual QA,
   privacy/no-JS/generic-error adaptations and native blockers. Root independent originalBASE→HEAD review.
 
