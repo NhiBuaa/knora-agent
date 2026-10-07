@@ -79,6 +79,98 @@ const trace: OperatorTraceResponse = {
 };
 
 describe("Figma operator data surfaces", () => {
+  it("explains the recorded trace evidence on the actual async lookup route", async () => {
+    render(await TracesPage({}));
+    const guidance = screen.getByRole("region", {
+      name: "What this trace shows",
+    });
+    expect(
+      within(guidance).getByRole("heading", { name: "What this trace shows" }),
+    ).toBeVisible();
+    expect(guidance).toHaveTextContent(
+      "Open an exact Trace ID to inspect one question’s recorded retrieval and validation evidence.",
+    );
+    expect(guidance).toHaveTextContent("DECISION & VALIDATION");
+    expect(guidance).toHaveTextContent(
+      "Final answer or refusal, plus the validation outcome.",
+    );
+    expect(guidance).toHaveTextContent("CANDIDATE PROVENANCE");
+    expect(guidance).toHaveTextContent(
+      "Ranked evidence with source, chunk, score, and selection decision.",
+    );
+    expect(guidance).toHaveTextContent("CITATIONS & TIMING");
+    expect(guidance).toHaveTextContent(
+      "Citation mapping and per-phase timing for the request.",
+    );
+    expect(screen.getByRole("textbox", { name: "Trace ID" })).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Open trace" })).toBeDisabled();
+  });
+  it("explains persisted report availability on the actual async lookup route", async () => {
+    render(await EvaluationsPage({}));
+    const guidance = screen.getByRole("region", {
+      name: "What this report provides",
+    });
+    expect(
+      within(guidance).getByRole("heading", {
+        name: "What this report provides",
+      }),
+    ).toBeVisible();
+    expect(guidance).toHaveTextContent(
+      "Open an exact Report ID. Knora only shows persisted evaluation data that the backend actually provides.",
+    );
+    expect(guidance).toHaveTextContent("PERSISTED REPORT");
+    expect(guidance).toHaveTextContent(
+      "Evaluation data appears only when a persisted report is available.",
+    );
+    expect(guidance).toHaveTextContent("WORKSPACE SCOPED");
+    expect(guidance).toHaveTextContent(
+      "Report context stays tied to the workspace it was observed for.",
+    );
+    expect(guidance).toHaveTextContent("NO INVENTED METRICS");
+    expect(guidance).toHaveTextContent(
+      "Missing reports remain explicitly unavailable instead of becoming synthetic scores.",
+    );
+    expect(screen.getByRole("textbox", { name: "Report ID" })).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Open report" })).toBeDisabled();
+  });
+  it("retains encoded report lookup with an exact optional Workspace override", async () => {
+    render(
+      await EvaluationsPage({
+        searchParams: Promise.resolve({ workspaceId: "ws /&" }),
+      }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "Report ID" }), {
+      target: { value: " report /?& " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Open report" }));
+    expect(push).toHaveBeenCalledWith(
+      "/operator/evaluations/report%20%2F%3F%26?workspaceId=ws%20%2F%26",
+    );
+  });
+  it("retains encoded trace and Workspace query redirects before rendering", async () => {
+    await expect(
+      TracesPage({
+        searchParams: Promise.resolve({
+          traceId: " trace /?& ",
+          workspaceId: "ws /&",
+        }),
+      }),
+    ).rejects.toThrow(
+      "/operator/traces/trace%20%2F%3F%26?workspaceId=ws%20%2F%26",
+    );
+  });
+  it("retains encoded report and Workspace query redirects before rendering", async () => {
+    await expect(
+      EvaluationsPage({
+        searchParams: Promise.resolve({
+          reportId: " report /?& ",
+          workspaceId: "ws /&",
+        }),
+      }),
+    ).rejects.toThrow(
+      "/operator/evaluations/report%20%2F%3F%26?workspaceId=ws%20%2F%26",
+    );
+  });
   it.each([undefined, "ws /&"])(
     "completes an unchanged unavailable report retry for scope %s and permits a subsequent lookup",
     async (workspaceId) => {

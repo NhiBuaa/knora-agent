@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import React from "react";
 import { OperatorLookup } from "@/components/operator/OperatorFrame";
+import { OperatorLookupGuidance } from "@/components/operator/OperatorLookupGuidance";
 
 export default async function TracesPage({
   searchParams,
@@ -12,5 +13,10 @@ export default async function TracesPage({
     redirect(
       `/operator/traces/${encodeURIComponent(traceId.trim())}${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`,
     );
-  return <OperatorLookup kind="trace" workspaceId={workspaceId} />;
+  return (
+    <>
+      <OperatorLookup kind="trace" workspaceId={workspaceId} />
+      <OperatorLookupGuidance kind="trace" />
+    </>
+  );
 }

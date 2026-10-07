@@ -17,6 +17,7 @@ import {
 import { OperationsView } from "@/components/operator/OperationsView";
 import { TraceView } from "@/components/operator/TraceView";
 import { EvaluationView } from "@/components/operator/EvaluationView";
+import { OperatorLookupGuidance } from "@/components/operator/OperatorLookupGuidance";
 import { AuthOutcome } from "@/components/auth/AuthOutcome";
 import { ProductHeader } from "@/components/shell/ProductHeader";
 import { AccountMenu } from "@/components/shell/AccountMenu";
@@ -26,7 +27,7 @@ import {
   conversations,
   workspace,
   workspaces,
-  visualStates,
+  fixtureStates,
 } from "./figma-state-fixtures";
 
 const capabilities = [
@@ -39,9 +40,10 @@ const capabilities = [
 
 /** This composition is reachable only in the standalone test app, never frontend/app. */
 export function FigmaFixtureView() {
-  const state = useSearchParams().get("state") ?? "128:110";
+  const search = useSearchParams();
+  const state = search.get("state") ?? "128:110";
   const pathname = usePathname();
-  const entry = visualStates.find((item) => item.id === state);
+  const entry = fixtureStates.find((item) => item.id === state);
   if (!entry) return <p role="alert">Unknown fixture state</p>;
   if (["228:293", "228:326"].includes(state))
     return (
@@ -52,7 +54,17 @@ export function FigmaFixtureView() {
   if (entry.group === "operator") {
     content = (
       <OperatorFrame workspaceId={workspace.id} workspaceName={workspace.name}>
-        {state === "194:194" ? (
+        {state === "216:448" || state === "216:698" ? (
+          <>
+            <OperatorLookup
+              kind={state === "216:448" ? "trace" : "report"}
+              workspaceId={search.get("workspaceId") ?? undefined}
+            />
+            <OperatorLookupGuidance
+              kind={state === "216:448" ? "trace" : "report"}
+            />
+          </>
+        ) : state === "194:194" ? (
           <OperationsView
             operations={{
               configuration_version: "operational-alerts-v1",

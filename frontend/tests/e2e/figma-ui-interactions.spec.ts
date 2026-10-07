@@ -60,6 +60,199 @@ test.describe("source fixtures", () => {
     "Dedicated fixture project required.",
   );
 
+  for (const lookup of [
+    {
+      state: "216:448",
+      kind: "trace",
+      heading: "What this trace shows",
+      target: "traces",
+      observationState: "198:200",
+      observationPath: "/operator/traces/fixture-trace",
+      observation: "Trace context",
+      observationIdentity: "fixture-trace",
+    },
+    {
+      state: "216:698",
+      kind: "report",
+      heading: "What this report provides",
+      target: "evaluations",
+      observationState: "206:206",
+      observationPath: "/operator/evaluations/fixture-report",
+      observation: "Report context",
+      observationIdentity: "fixture-report",
+    },
+  ] as const) {
+    test(`Operator ${lookup.kind} lookup guidance fits desktop and mobile and preserves scoped navigation`, async ({
+      page,
+    }) => {
+      const writes: string[] = [];
+      page.on("request", (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith("/api/") &&
+          request.method() !== "GET"
+        )
+          writes.push(`${request.method()} ${new URL(request.url()).pathname}`);
+      });
+      for (const width of [1440, 390]) {
+        await page.setViewportSize({
+          width,
+          height: width === 1440 ? 960 : 844,
+        });
+        const unexpected = await prepareFixture(page, lookup.state);
+        const guidance = page.getByRole("region", { name: lookup.heading });
+        await expect(guidance).toBeVisible();
+        const submit = page.getByRole("button", {
+          name: `Open ${lookup.kind}`,
+        });
+        await expect(submit).toBeDisabled();
+        const assets = await page
+          .locator(
+            'img[src="/brand/knora-leaf.svg"], .workspace-caret-small img',
+          )
+          .evaluateAll((images) =>
+            images.map((element) => {
+              const image = element as HTMLImageElement;
+              const box = image.getBoundingClientRect();
+              return {
+                src: image.getAttribute("src"),
+                loaded: image.complete && image.naturalWidth > 0,
+                width: box.width,
+                height: box.height,
+              };
+            }),
+          );
+        expect(assets).toHaveLength(2);
+        expect(assets.every((asset) => asset.loaded)).toBe(true);
+        expect(assets[0]).toMatchObject({
+          src: "/brand/knora-leaf.svg",
+          width: 18,
+          height: 18,
+        });
+        expect(assets[1].width).toBeCloseTo(6.98995, 1);
+        expect(assets[1].height).toBeCloseTo(4.48492, 1);
+        const geometry = await guidance.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          const heading = element.querySelector("h2")!;
+          const columns = Array.from(element.querySelectorAll("li"));
+          return {
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            headingFont: getComputedStyle(heading).fontFamily,
+            headingSize: getComputedStyle(heading).fontSize,
+            headingWeight: getComputedStyle(heading).fontWeight,
+            columns: columns.map((column) => {
+              const card = column.getBoundingClientRect();
+              const label = column.querySelector("h3")!;
+              const body = column.querySelector("p")!;
+              const copy = body.getBoundingClientRect();
+              const style = getComputedStyle(body);
+              return {
+                x: card.x,
+                y: card.y,
+                width: card.width,
+                height: card.height,
+                labelSize: getComputedStyle(label).fontSize,
+                labelFont: getComputedStyle(label).fontFamily,
+                bodyFont: style.fontFamily,
+                bodySize: style.fontSize,
+                bodyLineHeight: style.lineHeight,
+                copyFits:
+                  copy.right <= card.right &&
+                  copy.bottom <= card.bottom &&
+                  body.scrollWidth <= body.clientWidth,
+              };
+            }),
+          };
+        });
+        expect(geometry.headingFont).toContain("Roboto Slab");
+        expect(geometry.headingSize).toBe("18px");
+        expect(geometry.headingWeight).toBe("600");
+        expect(geometry.columns).toHaveLength(3);
+        for (const column of geometry.columns) {
+          expect(column.labelSize).toBe("12px");
+          expect(column.labelFont).toContain("Inter");
+          expect(column.bodyFont).toContain("Inter");
+          expect(column.bodySize).toBe("14px");
+          expect(column.bodyLineHeight).toBe("20px");
+          expect(column.copyFits).toBe(true);
+        }
+        if (width === 1440) {
+          expect(geometry.x).toBe(120);
+          expect(geometry.width).toBe(1200);
+          expect(geometry.columns.map((column) => column.x)).toEqual([
+            120, 540, 960,
+          ]);
+          expect(geometry.columns.map((column) => column.width)).toEqual([
+            360, 360, 360,
+          ]);
+          expect(geometry.columns[0].y - geometry.y).toBe(92);
+        } else {
+          expect(geometry.columns.map((column) => column.x)).toEqual([
+            16, 16, 16,
+          ]);
+          expect(geometry.columns[1].y).toBeGreaterThanOrEqual(
+            geometry.columns[0].y + geometry.columns[0].height,
+          );
+          expect(geometry.columns[2].y).toBeGreaterThanOrEqual(
+            geometry.columns[1].y + geometry.columns[1].height,
+          );
+          expect(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth <= innerWidth,
+            ),
+          ).toBe(true);
+        }
+        const evidence = `../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-${lookup.state.replace(":", "-")}-${width}`;
+        fs.writeFileSync(
+          `${evidence}-geometry.json`,
+          JSON.stringify({ ...geometry, assets }, null, 2),
+        );
+        await page.screenshot({
+          path: `${evidence}.png`,
+          fullPage: width !== 1440,
+          animations: "disabled",
+        });
+
+        await page
+          .getByText("Exact Workspace ID (optional)", { exact: true })
+          .click();
+        await page
+          .getByRole("textbox", { name: "Workspace ID", exact: true })
+          .fill("fixture-workspace");
+        const identifier = `fixture-${lookup.kind} /?&`;
+        await page
+          .getByRole("textbox", {
+            name: lookup.kind === "trace" ? "Trace ID" : "Report ID",
+          })
+          .fill(identifier);
+        const targetPath = `/operator/${lookup.target}/fixture-${lookup.kind}%20%2F%3F%26`;
+        const requested = page.waitForRequest(
+          (request) => new URL(request.url()).pathname === targetPath,
+        );
+        await submit.click();
+        const request = await requested;
+        expect(request.method()).toBe("GET");
+        expect(new URL(request.url()).searchParams.get("workspaceId")).toBe(
+          "fixture-workspace",
+        );
+        await expect(page).toHaveURL(
+          `http://127.0.0.1:3300${targetPath}?workspaceId=fixture-workspace`,
+        );
+        // Observe the existing guarded detail fixture independently of the synthetic lookup ID.
+        await page.goto(
+          `${lookup.observationPath}?state=${encodeURIComponent(lookup.observationState)}&workspaceId=fixture-workspace`,
+        );
+        await expect(
+          page.getByRole("region", { name: lookup.observation }),
+        ).toContainText(lookup.observationIdentity);
+        expect(unexpected).toEqual([]);
+        expect(writes).toEqual([]);
+      }
+    });
+  }
+
   for (const width of [1440, 390]) {
     test(`archived Workspace evidence notice preserves selected source and fits at ${width}`, async ({
       page,

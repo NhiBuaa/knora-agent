@@ -15,6 +15,20 @@ export const visualStates = [
     group: "responses",
   })),
 ];
+/** Lookup prototypes are focused fixtures, outside the original 51-state capture loop. */
+export const fixtureStates = [
+  ...visualStates,
+  {
+    id: "216:448",
+    name: "Prototype · Operator · 02 Traces lookup",
+    group: "operator",
+  },
+  {
+    id: "216:698",
+    name: "Prototype · Operator · 04 Evaluations lookup",
+    group: "operator",
+  },
+];
 export const nativeStates = new Set([
   "228:212",
   "228:251",
@@ -222,6 +236,8 @@ export function statePath(state: string): string {
   if (["154:431", "166:211", "166:290"].includes(state))
     return "/workspaces/archived";
   if (state === "194:194") return "/operator/operations";
+  if (state === "216:448") return "/operator/traces";
+  if (state === "216:698") return "/operator/evaluations";
   if (state === "198:200") return "/operator/traces/fixture-trace";
   if (state === "206:206") return "/operator/evaluations/fixture-report";
   if (["128:122", "128:125", "128:128", "128:131"].includes(state))
@@ -237,7 +253,7 @@ export function fixtureResponse(
   path: string,
   method: string,
 ): unknown {
-  if (!visualStates.some((item) => item.id === state))
+  if (!fixtureStates.some((item) => item.id === state))
     throw new Error("Unrecognized fixture request");
   const url = new URL(path, "http://fixture.invalid");
   const base = `/api/v1/workspaces/${workspace.id}`;

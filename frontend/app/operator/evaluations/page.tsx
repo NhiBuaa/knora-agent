@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import React from "react";
 import { OperatorLookup } from "@/components/operator/OperatorFrame";
+import { OperatorLookupGuidance } from "@/components/operator/OperatorLookupGuidance";
 
 export default async function EvaluationsPage({
   searchParams,
@@ -12,5 +13,10 @@ export default async function EvaluationsPage({
     redirect(
       `/operator/evaluations/${encodeURIComponent(reportId.trim())}${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ""}`,
     );
-  return <OperatorLookup kind="report" workspaceId={workspaceId} />;
+  return (
+    <>
+      <OperatorLookup kind="report" workspaceId={workspaceId} />
+      <OperatorLookupGuidance kind="report" />
+    </>
+  );
 }
