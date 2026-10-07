@@ -50,7 +50,8 @@ verification-before-completion, requesting-code-review.
 - [ ] Read all five full MCP structures and measured comparison JSONs; inspect current selector,
   OperatorFrame/Lookup, runtime band, TraceView and EvaluationView before edits.
 - [ ] Add browser RED assertions for source selector26px height, closed caret asset a4e11 and
-  its actual intrinsic root geometry in source10×6wrapper; lookup field34px and buttons36px,
+  its actual intrinsic root geometry in source10×6wrapper; trace lookup field34px, evaluation
+  lookup field36px and buttons36px,
   trace button104wide/report124wide; runtime band108px including borders; trace left780/right380
   gap40 and answer measure630px; unavailable badge92×28 with8px radius. Trace/evaluation caret
   uses exactbab86 in10×5slot with source negative inset (effective11.4×6.4). Assert existing source
@@ -75,7 +76,8 @@ type WorkspaceSelectorProps = {
   choices; never infer authorization from route/variant. No SVGroot width/height override;
   open-state current behavior remains usable.
   Keep name truncation/mobile fit and archive/restore/create/selection routing authority intact.
-- [ ] Set lookup input34px and specific button width/min-height36px in OperatorLookup, overriding
+- [ ] Set trace lookup input34px and evaluation lookup input36px, with specific button
+  width/min-height36px in OperatorLookup, overriding
   inherited primitive40px locally. Long pending text may grow; do not clip it to force source size.
 - [ ] Correct runtime band total108px including its top/bottom borders; preserve natural growth
   for wrapped unavailable/long content and responsive two-column layout. At390px ensure the
