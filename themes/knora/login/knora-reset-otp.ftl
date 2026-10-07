@@ -27,7 +27,8 @@
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit" name="intent" value="verify">${msg("knoraOtpVerify")}</button>
                 <div class="knora-otp-utilities">
                     <button class="knora-text-button" type="submit" name="intent" value="change-email" formnovalidate>${msg("knoraOtpChangeEmail")}</button>
-                    <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate>${msg("knoraOtpResend")}<#if (retryAfterSeconds!0) gt 0> (<span id="otp-retry">${retryAfterSeconds?c}</span>s)</#if></button>
+                    <#assign retry = retryAfterSeconds!0>
+                    <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate data-ready-label="${msg("knoraOtpResend")}"><span id="otp-resend-label"><#if retry gt 0>${msg("knoraOtpResendPending")}<#else>${msg("knoraOtpResend")}</#if></span><#if retry gt 0> <span id="otp-retry" data-seconds="${retry?c}">${(retry / 60)?floor?string("00")}:${(retry % 60)?string("00")}</span></#if></button>
                 </div>
                 <p id="otp-expiry" class="knora-disclaimer">${msg("knoraOtpExpires")}</p>
             </form>
@@ -42,16 +43,23 @@
                 paint();
                 const countdown = document.getElementById('otp-retry');
                 if (!countdown) return;
-                const retry = Number(countdown.textContent);
+                const retry = Number(countdown.dataset.seconds);
                 if (!Number.isFinite(retry) || retry <= 0) return;
                 const resend = document.getElementById('otp-resend');
+                const resendLabel = document.getElementById('otp-resend-label');
+                <#noparse>
+                const formatCountdown = (seconds) =>
+                    `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+                </#noparse>
                 resend.disabled = true;
                 const end = Date.now() + retry * 1000;
                 const timer = setInterval(() => {
                     const remaining = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-                    countdown.textContent = remaining;
+                    countdown.textContent = formatCountdown(remaining);
                     if (remaining === 0) {
                         resend.disabled = false;
+                        resendLabel.textContent = resend.dataset.readyLabel;
+                        countdown.remove();
                         clearInterval(timer);
                     }
                 }, 250);

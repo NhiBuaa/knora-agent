@@ -201,8 +201,62 @@ class EmailOtpResetFlowIT {
     }
 
     @Test
+    void offlineResetPresentationUsesSourceCopyAndEscapedRuntimeAddress() throws Exception {
+        var data = templateData();
+        data.put("maskedEmail", "<script>alert(1)</script>@example.test");
+        String request = render("login", "knora-reset-email.ftl", data);
+        String otp = render("login", "knora-reset-otp.ftl", data);
+        assertAll(
+                () -> assertTrue(request.contains("Forgot your password?")),
+                () -> assertTrue(request.contains("Send verification code")),
+                () -> assertTrue(request.contains("Enter the email for your account. If an account exists, we’ll send a 6-digit verification code.")),
+                () -> assertTrue(request.contains("Remembered it?")),
+                () -> assertTrue(request.contains("For privacy, Knora won’t confirm whether an account exists for this email.")),
+                () -> assertTrue(otp.contains("Enter verification code")),
+                () -> assertTrue(otp.contains("Use a different email")),
+                () -> assertTrue(otp.contains("If an account exists, we sent a 6-digit verification code to &lt;script&gt;alert(1)&lt;/script&gt;@example.test.")),
+                () -> assertFalse(otp.contains("<script>alert(1)</script>")),
+                () -> assertTrue(otp.contains("The code expires after 5 minutes.")));
+        data.put("otpInvalid", true);
+        assertTrue(render("login", "knora-reset-otp.ftl", data)
+                .contains("Check the code or request a new one, then try again."));
+    }
+
+    @Test
+    void offlinePasswordPresentationScopesResetActionAndRetainsNativeMacros() throws Exception {
+        var data = templateData();
+        TemplateMethodModelEx empty = args -> "";
+        data.put("messagesPerField", Map.of("get", empty));
+        data.put("passwordPolicies", Map.of("length", 12));
+        String ordinary = render("login", "login-update-password.ftl", data);
+        assertAll(
+                () -> assertTrue(ordinary.contains("Choose a new password")),
+                () -> assertTrue(ordinary.contains("Set a new password for your Knora account.")),
+                () -> assertTrue(ordinary.contains("Confirm new password")),
+                () -> assertTrue(ordinary.contains("Reset password")),
+                () -> assertTrue(ordinary.contains("After resetting your password, sign in again with the new password.")));
+        for (boolean appInitiated : List.of(false, true)) {
+            data.put("isAppInitiatedAction", appInitiated);
+            String app = render("login", "login-update-password.ftl", data);
+            assertTrue(app.contains("doSubmit"));
+            assertTrue(app.contains("doCancel"));
+            assertTrue(app.contains("name=\"cancel-aia\""));
+            assertFalse(app.contains("After resetting your password"));
+            for (String html : List.of(ordinary, app)) {
+                assertTrue(html.contains("action=\"/native/action\" method=\"post\""));
+                assertTrue(html.contains("name=\"password-new\""));
+                assertTrue(html.contains("name=\"password-confirm\""));
+                assertTrue(html.contains("name=\"logout-sessions\""));
+                assertTrue(html.contains("name=\"login\""));
+                assertTrue(html.contains("/js/password-policy.js"));
+                assertTrue(html.contains("value: 12"));
+            }
+        }
+    }
+
+    @Test
     void offlineOtpResendRemainsUsableWithoutJavaScriptDuringAndAfterCooldown() throws Exception {
-        for (int retry : List.of(30, 0)) {
+        for (int retry : List.of(30, 61, 0)) {
             var data = templateData();
             data.put("retryAfterSeconds", retry);
             String html = render("login", "knora-reset-otp.ftl", data);
@@ -218,8 +272,17 @@ class EmailOtpResetFlowIT {
             assertTrue(html.contains("name=\"code\""));
             assertTrue(html.contains("value=\"verify\""));
             assertTrue(html.contains("value=\"change-email\""));
-            assertEquals(retry > 0, html.contains("<span id=\"otp-retry\">30</span>s"),
+            assertEquals(retry > 0, html.contains("id=\"otp-retry\""),
                     "Positive server cooldown remains visible without JavaScript");
+            assertTrue(button.contains("data-ready-label=\"Resend code\""));
+            if (retry > 0) {
+                String display = retry == 30 ? "00:30" : "01:01";
+                assertTrue(html.contains("<span id=\"otp-resend-label\">Resend code in</span>"));
+                assertTrue(html.contains("<span id=\"otp-retry\" data-seconds=\"" + retry + "\">" + display + "</span>"));
+            } else {
+                assertTrue(html.contains("<span id=\"otp-resend-label\">Resend code</span>"));
+                assertFalse(html.contains("Resend code in</span>"));
+            }
             assertTrue(html.contains("id=\"otp-expiry\""));
             assertFalse(html.contains("000042"), "The login form must not disclose an OTP");
         }

@@ -2547,6 +2547,187 @@ test.describe("source fixtures", () => {
     ).toBeFocused();
   });
 
+  test("native FTL reset presentation uses source labels and preserves accessible controls", async ({
+    page,
+  }) => {
+    const evidence =
+      "../.superpowers/figma/q1/evidence/reset-presentation-2026-10-08";
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
+      for (const state of ["242:389", "242:272", "242:333", "246:311"]) {
+        await page.route("**/native/blocked-action", (route) => route.abort());
+        const unexpected = await prepareFixture(page, state);
+        const password = state === "242:389";
+        const request = state === "242:272";
+        await expect(
+          page.getByRole("heading", {
+            name: request
+              ? "Forgot your password?"
+              : password
+                ? "Choose a new password"
+                : "Enter verification code",
+            exact: true,
+          }),
+        ).toBeVisible();
+        if (request) {
+          await expect(page.locator(".knora-auth-description")).toHaveText(
+            "Enter the email for your account. If an account exists, we’ll send a 6-digit verification code.",
+          );
+          await expect(
+            page.getByRole("button", {
+              name: "Send verification code",
+              exact: true,
+            }),
+          ).toBeVisible();
+          await expect(page.locator(".knora-secondary")).toContainText(
+            "Remembered it?",
+          );
+          await expect(page.locator(".knora-disclaimer")).toHaveText(
+            "For privacy, Knora won’t confirm whether an account exists for this email.",
+          );
+          await expect(page.locator("#email")).toHaveAttribute(
+            "autocomplete",
+            "email",
+          );
+        } else if (password) {
+          await expect(page.locator(".knora-auth-description")).toHaveText(
+            "Set a new password for your Knora account.",
+          );
+          await expect(
+            page.getByLabel("Confirm new password", { exact: true }),
+          ).toHaveAttribute("id", "password-confirm");
+          await expect(
+            page.getByRole("button", { name: "Reset password", exact: true }),
+          ).toBeVisible();
+          await expect(
+            page.locator(".knora-auth .knora-disclaimer"),
+          ).toHaveText(
+            "After resetting your password, sign in again with the new password.",
+          );
+          await expect(
+            page.locator('input[name="logout-sessions"]'),
+          ).toHaveCount(1);
+          for (const id of ["password-new", "password-confirm"]) {
+            const input = page.locator(`#${id}`);
+            await expect(input).toHaveAttribute("autocomplete", "new-password");
+            await expect(input).toHaveValue("");
+            await page.locator(`#${id}-show-password`).click();
+            await expect(input).toHaveAttribute("type", "text");
+            await page.locator(`#${id}-show-password`).click();
+            await expect(input).toHaveAttribute("type", "password");
+          }
+        } else {
+          await expect(page.locator(".knora-auth-description")).toHaveText(
+            "If an account exists, we sent a 6-digit verification code to n***@example.test.",
+          );
+          await expect(
+            page.getByRole("button", {
+              name: "Use a different email",
+              exact: true,
+            }),
+          ).toBeVisible();
+          await expect(page.locator("#code")).toHaveValue("");
+          await expect(page.locator("#code")).toHaveAttribute(
+            "autocomplete",
+            "one-time-code",
+          );
+          await expect(page.locator(".knora-otp-cells span")).toHaveCount(6);
+          await expect(page.locator("#otp-retry")).toHaveText("00:30");
+          await expect(page.locator("#otp-resend-label")).toHaveText(
+            "Resend code in",
+          );
+          await expect(page.locator("#otp-expiry")).toHaveText(
+            "The code expires after 5 minutes.",
+          );
+          if (state === "246:311")
+            await expect(page.getByRole("alert")).toContainText(
+              "Check the code or request a new one, then try again.",
+            );
+        }
+        await expect(page.locator(".knora-auth form")).toHaveAttribute(
+          "method",
+          "post",
+        );
+        await expect(page.locator(".knora-auth form")).toHaveAttribute(
+          "action",
+          "/native/blocked-action",
+        );
+        await expect
+          .poll(() =>
+            page
+              .locator(".knora-brand img")
+              .evaluate(
+                (element) =>
+                  (element as HTMLImageElement).complete &&
+                  (element as HTMLImageElement).naturalWidth > 0,
+              ),
+          )
+          .toBe(true);
+        expect(
+          await page.locator(".knora-brand img").boundingBox(),
+        ).toMatchObject({ width: 18, height: 18 });
+        for (const eye of await page
+          .locator('[id$="-show-password"] i')
+          .all()) {
+          expect(await eye.boundingBox()).toMatchObject({
+            width: 18,
+            height: 18,
+          });
+          expect(
+            await eye.evaluate(
+              (element) => getComputedStyle(element).backgroundImage,
+            ),
+          ).toContain("42cef.svg");
+        }
+        const geometry = await page.evaluate(() => {
+          const measure = (element: Element) => {
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return {
+              tag: element.tagName,
+              id: element.id,
+              text: element.textContent?.trim(),
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+              fits: element.scrollWidth <= element.clientWidth,
+              fontSize: style.fontSize,
+              lineHeight: style.lineHeight,
+              radius: style.borderRadius,
+              color: style.color,
+              background: style.backgroundColor,
+            };
+          };
+          return {
+            viewport: { width: innerWidth, height: innerHeight },
+            pageFits: document.documentElement.scrollWidth <= innerWidth,
+            regions: Array.from(
+              document.querySelectorAll(
+                "#kc-page-title, .knora-auth, .knora-auth-description, .knora-auth label, .knora-auth input, .knora-auth button, .knora-secondary, .knora-disclaimer, .knora-notice, .knora-brand img, [id$='-show-password'] i",
+              ),
+            ).map(measure),
+            inputValues: Array.from(
+              document.querySelectorAll<HTMLInputElement>(
+                "#code, #password-new, #password-confirm",
+              ),
+            ).map((input) => ({ id: input.id, empty: input.value === "" })),
+          };
+        });
+        expect(geometry.pageFits).toBe(true);
+        expect(geometry.inputValues.every((input) => input.empty)).toBe(true);
+        const target = `${evidence}/implemented-${state.replace(":", "-")}-${width}`;
+        writeLookupGeometry(target, geometry);
+        await page.screenshot({
+          path: `${target}.png`,
+          fullPage: true,
+          animations: "disabled",
+        });
+        expect(unexpected).toEqual([]);
+      }
+    }
+  });
+
   test("native FTL OTP input accepts leading-zero paste and enables resend after the cooldown", async ({
     page,
     context,
@@ -2557,7 +2738,14 @@ test.describe("source fixtures", () => {
     await page.clock.pauseAt(now);
     const resend = page.locator("#otp-resend");
     await expect(resend).toBeDisabled();
-    await expect(page.locator("#otp-retry")).toHaveText("30");
+    await expect(page.locator("#otp-retry")).toHaveText("00:30");
+    await expect(page.locator("#otp-resend-label")).toHaveText(
+      "Resend code in",
+    );
+    await expect(page.locator("#otp-retry")).toHaveAttribute(
+      "data-seconds",
+      "30",
+    );
     const code = page.getByRole("textbox", { name: "Six-digit reset code" });
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.evaluate(() => navigator.clipboard.writeText("000042"));
@@ -2576,11 +2764,12 @@ test.describe("source fixtures", () => {
     await page.clock.setFixedTime(new Date(now.getTime() + 29_000));
     await page.clock.runFor(250);
     await expect(resend).toBeDisabled();
-    await expect(page.locator("#otp-retry")).toHaveText("1");
+    await expect(page.locator("#otp-retry")).toHaveText("00:01");
     await page.clock.setFixedTime(new Date(now.getTime() + 30_000));
     await page.clock.runFor(250);
     await expect(resend).toBeEnabled();
-    await expect(page.locator("#otp-retry")).toHaveText("0");
+    await expect(page.locator("#otp-retry")).toHaveCount(0);
+    await expect(resend).toHaveText("Resend code");
     await expect(resend).toHaveAttribute("name", "intent");
     await expect(resend).toHaveAttribute("value", "resend");
     await expect(resend).toHaveAttribute("formnovalidate", "");
@@ -2616,7 +2805,10 @@ test.describe("source fixtures", () => {
       await expect(resend).toHaveAttribute("name", "intent");
       await expect(resend).toHaveAttribute("value", "resend");
       await expect(resend).toHaveAttribute("formnovalidate", "");
-      await expect(page.locator("#otp-retry")).toHaveText("30");
+      await expect(page.locator("#otp-retry")).toHaveText("00:30");
+      await expect(page.locator("#otp-resend-label")).toHaveText(
+        "Resend code in",
+      );
       await expect(page.locator("form")).toHaveAttribute("method", "post");
       await expect(page.locator("form")).toHaveAttribute(
         "action",
@@ -2624,7 +2816,7 @@ test.describe("source fixtures", () => {
       );
       await input.fill("");
       await page.screenshot({
-        path: "../.superpowers/figma/q1/evidence/otp-resend-no-js-enabled.png",
+        path: "../.superpowers/figma/q1/evidence/reset-presentation-2026-10-08/otp-resend-no-js-enabled.png",
         animations: "disabled",
       });
     } finally {

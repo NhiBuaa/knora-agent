@@ -526,3 +526,39 @@ regression-preflight logs are excluded. Full source map, RED/GREEN logs, artifac
 details are in `.superpowers/sdd/2026-10-08-figma-trace-result-candidate-flow/task-1-report.md`.
 Fixture measurements make no backend/native identity or whole-design acceptance claim; parity remains
 unaccepted. Independent review is owned by the controller.
+
+### Oct8 reset presentation — current measured status
+
+Fresh complete direct MCP 242:272, 242:333, 242:389 and 246:311 supplies the reset request,
+verification, ordinary new-password and generic-error labels. Request copy now says “Forgot your
+password?”, “Send verification code” and “Remembered it?”. Ordinary password actions say “Choose
+a new password”, “Confirm new password” and “Reset password”, followed by the source instruction
+to sign in with the new password. Native app-initiated Submit/Cancel and logout-other-sessions
+remain. The return instruction describes the next step and is not native completion evidence.
+
+OTP copy keeps “If an account exists” and an escaped runtime masked address. Actual five-minute
+expiry and generic error copy remain because provider failures can also represent budgets or
+storage. The source sample address, unconditional sent assertion and incorrect/expired-only
+failure statement are not substituted for runtime outcomes.
+
+Server retry seconds render zero-padded minutes:seconds (30 → 00:30, 61 → 01:01); zero renders
+only “Resend code”. The enhancement reads numeric data-seconds, uses the existing Date-based
+250ms timer and restores the localized ready label/removes the countdown at zero. Server markup
+keeps an enabled native resend POST for the existing no-JavaScript fallback; admission remains
+server-owned. Accessible single-code input, leading-zero paste, six mirror cells, native intent
+values, action URLs and formnovalidate remain.
+
+Focused actual-parent FreeMarker and browser evidence is recorded in
+`.superpowers/sdd/2026-10-08-figma-reset-presentation/task-1-report.md`. New current captures use
+the separate `reset-presentation-2026-10-08` Q1 evidence directory; historical captures remain.
+Labels/countdown verification does not accept shared CSS, content origin, field/notice geometry,
+whole-page parity or responsive source parity. Native recovery binding and live reset remain held.
+
+The bounded offline renderer now extracts only the referenced pinned 698-byte base password
+visibility module, after exact hash verification, and uses the native password page ID for the
+ordinary password fixture. Both empty password fields toggle password → text → password and
+retain the exact 18px source eye asset. The exporter also regenerates the success HTML from
+current accepted `info.ftl`: its prior cached copy predated the earlier completion-origin
+validation and differs only in CTA whitespace (4491 → 4494 bytes). Exact historical bytes/hash
+are reproduced separately in the SDD report evidence; historical PNGs stay unchanged. This
+additional export difference makes no new completion or native recovery claim.
