@@ -328,6 +328,15 @@ frontend/tests/
     ├── figma-ui-visual.spec.ts                  [Q1]
     ├── figma-ui-interactions.spec.ts            [Q1]
     └── support/
+        ├── figma-state-fixtures.ts             [Q1] deterministic test-only data
+        ├── figma-fixture-view.tsx              [Q1] actual module composition
+        ├── figma-fixture-server.mjs            [Q1] guarded fixture host launcher
+        ├── figma-source-inventory.test.ts      [Q1] screen/transition inventory integrity
+        ├── FigmaThemeRenderer.java, figma-theme-export.mjs [Q1] actual FTL source export
+        ├── figma-host/                        [Q1] isolated Next app, no production routes
+        │   ├── app/layout.tsx, app/[[...path]]/page.tsx
+        │   ├── next.config.mjs, tsconfig.json, postcss.config.mjs
+        │   └── .gitignore                     generated Next artifacts stay ignored
         ├── figma-environment.ts, figma-auth.ts  [I1; ~ Q1] fixed isolated test contracts
         ├── figma-environment.test.ts           [I1] ambient endpoint rejection
         ├── figma-state-fixtures.ts             [Q1]

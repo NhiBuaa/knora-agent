@@ -54,6 +54,22 @@ Existing live test helpers may consume explicitly derived Figma-harness endpoint
 separate config; arbitrary ambient endpoint overrides must still be rejected. Default M5 runner
 and daily service behavior remain compatible.
 
+**Exact test-only host scope:** frontend/tests/e2e/support/figma-host/app/layout.tsx,
+app/[[...path]]/page.tsx, next.config.mjs, tsconfig.json, postcss.config.mjs and .gitignore;
+frontend/tests/e2e/support/figma-fixture-server.mjs, figma-fixture-view.tsx and
+figma-source-inventory.test.ts. Compose actual integrated modules with production CSS/local fonts
+inside this isolated Next app; never add fixture routes to frontend/app or bypass production
+authority. Fixture API interception fails closed for unexpected requests and remains labelled
+fixture evidence. The guarded fixture/live projects share port 3300 serially, stop their own
+processes and preserve fixed environment/ownership guards.
+For native identity source visuals, use frontend/tests/e2e/support/FigmaThemeRenderer.java and
+figma-theme-export.mjs to render actual maintained FTL using pinned FreeMarker 2.3.32 and
+Keycloak 26.3.3 parent theme resources. Export deterministic HTML/build classes only to ignored
+.superpowers/figma/q1/native artifacts; serve production theme assets unchanged. Block native
+form submission in fixtures. Disposable offline Maven/JDK image plus the existing owned cache
+may compile/render this test-only source; no provider/POM changes or runtime recovery deployment.
+These renders prove source appearance and input behaviour, not actual password/Vault/MFA gates.
+
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
 prototype-only simulation. Each row records owning task, test, screenshot and accepted deviation.
