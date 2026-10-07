@@ -1,5 +1,131 @@
 "use client";
-import React, { type FormEvent } from "react";
+import React, { type FormEvent, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { WorkspaceResponse } from "@/generated/knora-openapi";
+import { browserRequest } from "@/lib/api/browser-client";
+import { resolveWorkspaceAfterMutation } from "@/components/workspaces/ArchiveWorkspaceDialog";
+
+/** Archive state remains authoritative until the destination reloads its Workspace. */
+export function WorkspaceReadOnlyComposer({
+  workspaceId,
+  workspaceRevision,
+  sessionExpired = false,
+  onAuthenticationRequired,
+}: {
+  workspaceId: string;
+  workspaceRevision?: number;
+  sessionExpired?: boolean;
+  onAuthenticationRequired?: () => void;
+}) {
+  const router = useRouter();
+  const active = useRef(true);
+  const expired = useRef(sessionExpired);
+  expired.current = sessionExpired;
+  const inFlight = useRef(false);
+  const restored = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [authenticationRequired, setAuthenticationRequired] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const validRevision =
+    Number.isSafeInteger(workspaceRevision) && workspaceRevision! >= 0;
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  async function restore() {
+    if (
+      !validRevision ||
+      sessionExpired ||
+      authenticationRequired ||
+      inFlight.current ||
+      restored.current
+    )
+      return;
+    inFlight.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await browserRequest(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/restore`,
+        {
+          method: "POST",
+          headers: { "If-Match": String(workspaceRevision) },
+        },
+      );
+      if (!active.current || expired.current) return;
+      if (response.status === 401) {
+        setAuthenticationRequired(true);
+        onAuthenticationRequired?.();
+        setError(
+          "Your session has expired. Sign in again, then reload this page.",
+        );
+        return;
+      }
+      if (!response.ok) throw new Error("restore failed");
+      const updated = (await response.json()) as WorkspaceResponse;
+      if (!active.current || expired.current) return;
+      if (
+        updated.id !== workspaceId ||
+        updated.archived !== false ||
+        !Number.isSafeInteger(updated.revision) ||
+        updated.revision <= workspaceRevision!
+      )
+        throw new Error("invalid restore projection");
+      restored.current = true;
+      const destination = await resolveWorkspaceAfterMutation(workspaceId);
+      if (active.current && !expired.current) router.push(destination);
+    } catch {
+      if (active.current)
+        setError(
+          restored.current
+            ? "Workspace restored. Reload to select an active Workspace."
+            : "Unable to restore Workspace. Reload and retry.",
+        );
+    } finally {
+      inFlight.current = false;
+      if (active.current) setBusy(false);
+    }
+  }
+  return (
+    <div
+      aria-label="Archived workspace controls"
+      className="flex min-h-[72px] flex-wrap items-center justify-between gap-2 border-t border-border bg-surface px-4 py-3 min-[960px]:px-6"
+    >
+      <div className="min-w-0">
+        <p
+          role="status"
+          className="m-0 text-[13px] font-semibold text-text-primary"
+        >
+          Archived workspace · Read-only
+        </p>
+        <p className="m-0 mt-0.5 text-[11px] text-text-muted">
+          Restore the workspace to make changes again.
+        </p>
+      </div>
+      <button
+        type="button"
+        disabled={
+          !validRevision ||
+          busy ||
+          sessionExpired ||
+          authenticationRequired ||
+          restored.current
+        }
+        onClick={() => void restore()}
+        className="m-0 flex h-10 w-[184px] max-w-full shrink-0 items-center justify-center rounded-[7px] border border-action bg-surface px-3 text-sm font-semibold text-action-text disabled:opacity-50"
+      >
+        Restore workspace
+      </button>
+      {error && (
+        <p role="alert" className="m-0 w-full text-sm text-status-error">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 export function ConversationComposer({
   draft,
   onChange,

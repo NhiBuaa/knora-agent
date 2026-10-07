@@ -1,14 +1,23 @@
 import React from "react";
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "@/components/conversations/ConversationView";
+import { ConversationHub } from "@/components/conversations/ConversationPanels";
+import userEvent from "@testing-library/user-event";
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, refresh: vi.fn() }),
+  usePathname: () => "/workspaces/w/conversations",
+}));
+beforeEach(() => push.mockReset());
 
 const conversation = {
   id: "c",
@@ -71,6 +80,100 @@ afterEach(() => {
   sessionStorage.clear();
 });
 describe("Conversation panel interactions", () => {
+  it("selects another citation on the same Turn and clears a citation removed by history reload", async () => {
+    history();
+    const response = {
+      ...answered,
+      result: {
+        ...answered.result,
+        citations: [
+          citation,
+          { ...citation, evidence_id: "E2", excerpt: "Second exact passage" },
+        ],
+      },
+    };
+    const interrupted = {
+      ...answered,
+      id: "interrupted",
+      sequence: 2,
+      status: "interrupted",
+      result: null,
+    };
+    let loads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              items: loads++ === 0 ? [response, interrupted] : [],
+              next_cursor: null,
+            }),
+          ),
+      ),
+    );
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const first = await screen.findByRole("button", { name: /citation 1/i });
+    const second = screen.getByRole("button", { name: /citation 2/i });
+    fireEvent.click(first);
+    fireEvent.click(second);
+    expect(first).toHaveAttribute("aria-pressed", "false");
+    expect(second).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(
+        screen.getByRole("complementary", { name: /evidence/i }),
+      ).getByText("Second exact passage"),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Second exact passage"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Evidence will appear here" }),
+    ).toBeVisible();
+  });
+  it("toggles the same Turn citation by mouse and keyboard without changing another Turn", async () => {
+    const later = {
+      ...answered,
+      id: "later",
+      sequence: 2,
+      result: {
+        ...answered.result,
+        citations: [{ ...citation, excerpt: "Later Turn evidence" }],
+      },
+    };
+    history([answered, later]);
+    const user = userEvent.setup();
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const earlier = within(
+      await screen.findByRole("listitem", { name: "Question 1" }),
+    ).getByRole("button", { name: /citation 1/i });
+    const second = within(
+      screen.getByRole("listitem", { name: "Question 2" }),
+    ).getByRole("button", { name: /citation 1/i });
+    await user.click(earlier);
+    expect(earlier).toHaveAttribute("aria-pressed", "true");
+    await user.click(earlier);
+    expect(earlier).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("heading", { name: "Select a citation" }),
+    ).toBeVisible();
+    earlier.focus();
+    await user.keyboard("{Enter}");
+    await user.click(second);
+    expect(earlier).toHaveAttribute("aria-pressed", "false");
+    expect(second).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(
+        screen.getByRole("complementary", { name: /evidence/i }),
+      ).getByText("Later Turn evidence"),
+    ).toBeVisible();
+    second.focus();
+    await user.keyboard(" ");
+    expect(second).toHaveAttribute("aria-pressed", "false");
+  });
   it.each(["desktop", "narrow"])(
     "preserves an uncertain creation request across %s rail dismissal",
     async (mode) => {
@@ -298,8 +401,11 @@ describe("Conversation panel interactions", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: "Restore conversation" }),
+      screen.getByRole("button", { name: "Restore workspace" }),
     ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Restore conversation" }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -353,6 +459,9 @@ describe("narrow panel and citation recovery", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(source).toHaveFocus();
+    fireEvent.click(source);
+    expect(source).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(source);
     expect(screen.getByRole("dialog", { name: "Evidence" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Close evidence" }));
@@ -431,6 +540,418 @@ describe("narrow panel and citation recovery", () => {
 });
 
 describe("rail mutations and stale scope", () => {
+  it.each([undefined, -1, NaN, 1.5])(
+    "does not authorize Workspace restoration with revision %s",
+    async (revision) => {
+      history();
+      render(
+        <ConversationView
+          workspaceId="w"
+          workspaceArchived
+          workspaceRevision={revision}
+          conversation={conversation}
+        />,
+      );
+      const button = screen.getByRole("button", { name: "Restore workspace" });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(
+        vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST"),
+      ).toBe(false);
+    },
+  );
+  it.each([401, 403, 409, 412])(
+    "keeps the archived Workspace on restore response %s",
+    async (status) => {
+      history();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) =>
+          url.endsWith("/restore")
+            ? new Response("{}", { status })
+            : new Response(
+                JSON.stringify({ items: [answered], next_cursor: null }),
+              ),
+        ),
+      );
+      render(
+        <ConversationView
+          workspaceId="w"
+          workspaceArchived
+          workspaceRevision={17}
+          conversation={conversation}
+        />,
+      );
+      await screen.findByText(answered.result.answer);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Restore workspace" }),
+      );
+      await screen.findByText(
+        status === 401
+          ? "Your session has expired. Sign in again, then reload this page."
+          : "Unable to restore Workspace. Reload and retry.",
+      );
+      expect(screen.getByText("Archived workspace · Read-only")).toBeVisible();
+      expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+      expect(push).not.toHaveBeenCalled();
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.filter(
+            ([url]) =>
+              String(url).includes("/conversations/") &&
+              String(url).endsWith("/restore"),
+          ),
+      ).toHaveLength(0);
+      if (status === 401)
+        expect(
+          screen.getByRole("button", { name: "Restore workspace" }),
+        ).toBeDisabled();
+    },
+  );
+  it("explains recovery after successful Workspace restore when resolution fails", async () => {
+    history();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith("/restore")
+          ? new Response(
+              JSON.stringify({ id: "w", archived: false, revision: 18 }),
+            )
+          : url.endsWith("/resolve")
+            ? new Response("{}", { status: 503 })
+            : new Response(
+                JSON.stringify({ items: [answered], next_cursor: null }),
+              ),
+      ),
+    );
+    render(
+      <ConversationView
+        workspaceId="w"
+        workspaceArchived
+        workspaceRevision={17}
+        conversation={conversation}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore workspace" }));
+    await screen.findByText(
+      "Workspace restored. Reload to select an active Workspace.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Restore workspace" }),
+    ).toBeDisabled();
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+  it("keeps the Conversation archived after the Workspace is authoritatively restored", async () => {
+    history();
+    const archived = { ...conversation, archived: true };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url === "/api/v1/workspaces/w/restore"
+          ? new Response(
+              JSON.stringify({ id: "w", archived: false, revision: 18 }),
+            )
+          : url.endsWith("/resolve")
+            ? new Response(
+                JSON.stringify({ state: "ACTIVE", workspace: { id: "w" } }),
+              )
+            : url === "/api/workspace-selection"
+              ? new Response("{}")
+              : url.endsWith("/restore")
+                ? new Response(JSON.stringify({ ...conversation, revision: 4 }))
+                : new Response(
+                    JSON.stringify({ items: [answered], next_cursor: null }),
+                  ),
+      ),
+    );
+    const view = render(
+      <ConversationView
+        workspaceId="w"
+        workspaceArchived
+        workspaceRevision={17}
+        conversation={archived}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore workspace" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/w"));
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+    view.rerender(
+      <ConversationView
+        workspaceId="w"
+        workspaceArchived={false}
+        workspaceRevision={18}
+        conversation={archived}
+      />,
+    );
+    expect(screen.getByText("This Conversation is read-only.")).toBeVisible();
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore conversation" }),
+    );
+    await screen.findByLabelText("Question");
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([url]) =>
+          String(url).endsWith("/conversations/c/restore"),
+        ),
+    ).toHaveLength(1);
+  });
+  it("renders the same revision-based Workspace restore control in the list hub", () => {
+    history();
+    render(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Authorized"
+        workspaceArchived
+        workspaceRevision={17}
+        initialConversations={[]}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Restore workspace" }),
+    ).toBeEnabled();
+  });
+  it("accepts a server-validated zero Workspace revision", () => {
+    history();
+    render(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Authorized"
+        workspaceArchived
+        workspaceRevision={0}
+        initialConversations={[]}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Restore workspace" }),
+    ).toBeEnabled();
+  });
+  it("ignores the previous Hub Workspace restore after switching scope", async () => {
+    history();
+    let complete!: (response: Response) => void;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        requests.push(url);
+        if (url.endsWith("/restore"))
+          return new Promise<Response>((resolve) => {
+            complete = resolve;
+          });
+        return new Response(JSON.stringify({ items: [], next_cursor: null }));
+      }),
+    );
+    const view = render(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Old"
+        workspaceArchived
+        workspaceRevision={17}
+        initialConversations={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore workspace" }));
+    view.rerender(
+      <ConversationHub
+        workspaceId="new"
+        workspaceName="New"
+        workspaceArchived
+        workspaceRevision={3}
+        initialConversations={[]}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Restore workspace" }),
+    ).toBeEnabled();
+    await act(async () =>
+      complete(
+        new Response(
+          JSON.stringify({ id: "w", archived: false, revision: 18 }),
+        ),
+      ),
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(requests).not.toContain("/api/v1/workspaces/resolve");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("resets Hub restore state on a new validated Workspace revision", async () => {
+    history();
+    let complete!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith("/restore")
+          ? new Promise<Response>((resolve) => {
+              complete = resolve;
+            })
+          : new Response(JSON.stringify({ items: [], next_cursor: null })),
+      ),
+    );
+    const view = render(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Old"
+        workspaceArchived
+        workspaceRevision={17}
+        initialConversations={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Restore workspace" }));
+    view.rerender(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Old"
+        workspaceArchived
+        workspaceRevision={20}
+        initialConversations={[]}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Restore workspace" }),
+    ).toBeEnabled();
+    await act(async () =>
+      complete(
+        new Response(
+          JSON.stringify({ id: "w", archived: false, revision: 18 }),
+        ),
+      ),
+    );
+    expect(push).not.toHaveBeenCalled();
+  });
+  it.each([
+    { id: "other", archived: false, revision: 18 },
+    { id: "w", archived: true, revision: 18 },
+    { id: "w", archived: false, revision: 17 },
+  ])(
+    "rejects an invalid restored Workspace projection %j",
+    async (projection) => {
+      history();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) =>
+          url.endsWith("/restore")
+            ? new Response(JSON.stringify(projection))
+            : new Response(
+                JSON.stringify({ items: [answered], next_cursor: null }),
+              ),
+        ),
+      );
+      render(
+        <ConversationView
+          workspaceId="w"
+          workspaceArchived
+          workspaceRevision={17}
+          conversation={conversation}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "Restore workspace" }),
+      );
+      await screen.findByText("Unable to restore Workspace. Reload and retry.");
+      expect(push).not.toHaveBeenCalled();
+      expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+    },
+  );
+  it("blocks restore when history has expired the session", async () => {
+    history();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 401 })),
+    );
+    render(
+      <ConversationView
+        workspaceId="w"
+        workspaceArchived
+        workspaceRevision={17}
+        conversation={conversation}
+      />,
+    );
+    await screen.findByRole("link", { name: "Sign in again" });
+    const button = screen.getByRole("button", { name: "Restore workspace" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
+  });
+  it("restores the archived Workspace with its revision and waits for authoritative selection", async () => {
+    history();
+    let complete!: (response: Response) => void;
+    const calls: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        calls.push({ url, init });
+        if (url === "/api/v1/workspaces/w/restore")
+          return new Promise<Response>((resolve) => {
+            complete = resolve;
+          });
+        if (url === "/api/v1/workspaces/resolve")
+          return new Response(
+            JSON.stringify({
+              state: "ACTIVE",
+              workspace: { id: "w", archived: false },
+            }),
+          );
+        if (url === "/api/workspace-selection") return new Response("{}");
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      }),
+    );
+    render(
+      <ConversationView
+        workspaceId="w"
+        workspaceArchived
+        workspaceRevision={17}
+        conversation={conversation}
+      />,
+    );
+    await screen.findByText(answered.result.answer);
+    expect(screen.getByText("Archived workspace · Read-only")).toBeVisible();
+    expect(
+      screen.getByText("Restore the workspace to make changes again."),
+    ).toBeVisible();
+    const restore = screen.getByRole("button", { name: "Restore workspace" });
+    fireEvent.click(restore);
+    fireEvent.click(restore);
+    expect(restore).toBeDisabled();
+    expect(calls.filter((call) => call.url.endsWith("/restore"))).toHaveLength(
+      1,
+    );
+    expect(
+      new Headers(
+        calls.find((call) => call.url.endsWith("/restore"))!.init.headers,
+      ).get("If-Match"),
+    ).toBe("17");
+    expect(push).not.toHaveBeenCalled();
+    await act(async () =>
+      complete(
+        new Response(
+          JSON.stringify({ id: "w", archived: false, revision: 18 }),
+        ),
+      ),
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/w"));
+    expect(
+      JSON.parse(
+        String(
+          calls.find((call) => call.url === "/api/v1/workspaces/resolve")!.init
+            .body,
+        ),
+      ),
+    ).toEqual({ hint_id: "w" });
+    expect(
+      JSON.parse(
+        String(
+          calls.find((call) => call.url === "/api/workspace-selection")!.init
+            .body,
+        ),
+      ),
+    ).toEqual({ workspaceId: "w" });
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+  });
   it("updates the current conversation to read-only when its rail action archives it", async () => {
     history();
     vi.stubGlobal("confirm", () => true);

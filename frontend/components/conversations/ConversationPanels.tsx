@@ -14,6 +14,7 @@ import "./conversations.css";
 import { ConversationRail } from "./ConversationRail";
 import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
 import { WorkspaceSelector } from "@/components/workspaces/WorkspaceSelector";
+import { WorkspaceReadOnlyComposer } from "./ConversationComposer";
 import type { ConversationResponse } from "@/generated/knora-openapi";
 import {
   ConversationCreationAlert,
@@ -389,6 +390,7 @@ export function ConversationHub({
   nextCursor = null,
   archived = false,
   workspaceArchived = false,
+  workspaceRevision,
   identityScope,
 }: {
   workspaceId: string;
@@ -397,6 +399,7 @@ export function ConversationHub({
   nextCursor?: string | null;
   archived?: boolean;
   workspaceArchived?: boolean;
+  workspaceRevision?: number;
   identityScope?: PanelIdentityScope;
 }) {
   return (
@@ -424,7 +427,15 @@ export function ConversationHub({
         />
       )}
       inspector={<EvidenceInspector workspaceId={workspaceId} />}
-      composer={null}
+      composer={
+        workspaceArchived ? (
+          <WorkspaceReadOnlyComposer
+            key={`${workspaceId}:${workspaceRevision}`}
+            workspaceId={workspaceId}
+            workspaceRevision={workspaceRevision}
+          />
+        ) : null
+      }
     >
       <div className="flex min-h-full flex-col items-center justify-center gap-4 text-center">
         <h1 className="font-display text-[27px] font-semibold leading-[34px]">

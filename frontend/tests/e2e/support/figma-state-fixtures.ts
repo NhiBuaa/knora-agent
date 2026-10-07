@@ -241,6 +241,31 @@ export function fixtureResponse(
     throw new Error("Unrecognized fixture request");
   const url = new URL(path, "http://fixture.invalid");
   const base = `/api/v1/workspaces/${workspace.id}`;
+  if (
+    state === "183:176" &&
+    method === "POST" &&
+    url.pathname === `${base}/restore`
+  )
+    return { ...workspace, archived: false, revision: workspace.revision + 1 };
+  if (
+    state === "183:176" &&
+    method === "POST" &&
+    url.pathname === "/api/v1/workspaces/resolve"
+  )
+    return {
+      state: "ACTIVE",
+      workspace: {
+        ...workspace,
+        archived: false,
+        revision: workspace.revision + 1,
+      },
+    };
+  if (
+    state === "183:176" &&
+    method === "POST" &&
+    url.pathname === "/api/workspace-selection"
+  )
+    return { workspaceId: workspace.id };
   if (method === "GET" && url.pathname === "/api/v1/workspaces")
     return {
       items:

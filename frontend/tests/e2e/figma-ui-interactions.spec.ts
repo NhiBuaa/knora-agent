@@ -6,6 +6,8 @@ import realm from "../../../test/fixtures/keycloak/figma-realm.json";
 import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import type {
   IngestionJobStatusResponse,
+  WorkspaceResponse,
+  ConversationResponse,
   TurnResponse,
 } from "../../generated/knora-openapi";
 
@@ -58,7 +60,7 @@ test.describe("source fixtures", () => {
     "Dedicated fixture project required.",
   );
 
-  test("citation selection persists on repeated click; inspector close returns keyboard focus", async ({
+  test("citation selection toggles on repeated click; inspector close returns keyboard focus", async ({
     page,
   }) => {
     const unexpected = await prepareFixture(page, "128:110");
@@ -69,6 +71,17 @@ test.describe("source fixtures", () => {
       page.getByRole("complementary", { name: /evidence/i }),
     ).toContainText("The report consists of 7 chapters.");
     await citation.click();
+    await expect(citation).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      page.getByRole("heading", { name: "Select a citation" }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: "../.superpowers/figma/q1/evidence/parity-citation-deselected.png",
+      animations: "disabled",
+    });
+    await citation.focus();
+    await citation.press("Space");
+    await expect(citation).toHaveAttribute("aria-pressed", "true");
     await expect(
       page.getByRole("complementary", { name: /evidence/i }),
     ).toContainText("The report consists of 7 chapters.");
@@ -76,6 +89,51 @@ test.describe("source fixtures", () => {
     await expect(citation).toBeFocused();
     expect(unexpected).toEqual([]);
   });
+
+  for (const width of [1440, 390]) {
+    test(`archived Workspace bottom restore fits and activates by keyboard at ${width}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
+      const unexpected = await prepareFixture(page, "183:176");
+      const bar = page.locator('[aria-label="Archived workspace controls"]');
+      const button = page.getByRole("button", {
+        name: "Restore workspace",
+        exact: true,
+      });
+      await expect(
+        page.getByText("Archived workspace · Read-only", { exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      const box = await bar.boundingBox();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(
+        width === 1440 ? 960 : 844,
+      );
+      if (width === 1440) {
+        expect(box!.height).toBe(72);
+        expect((await button.boundingBox())!.width).toBe(184);
+        expect((await button.boundingBox())!.height).toBe(40);
+      }
+      await page.screenshot({
+        path: `../.superpowers/figma/q1/evidence/parity-workspace-${width}.png`,
+        animations: "disabled",
+      });
+      const restore = page.waitForRequest((request) =>
+        request.url().endsWith("/fixture-workspace/restore"),
+      );
+      await button.focus();
+      await button.press("Enter");
+      const request = await restore;
+      expect(request.method()).toBe("POST");
+      expect(request.headers()["if-match"]).toBe("4");
+      await expect(page).toHaveURL(/\/workspaces\/fixture-workspace$/);
+      expect(unexpected).toEqual([]);
+    });
+  }
 
   test("narrow evidence and rail each open one modal and Escape restores their triggers", async ({
     page,
@@ -317,6 +375,141 @@ test.describe("guarded application journeys", () => {
     process.env.FIGMA_TEST_MODE !== "application",
     "Dedicated guarded application project required.",
   );
+  test("owned Workspace restores from the Conversation bottom bar while an archived Conversation stays archived", async ({
+    page,
+  }) => {
+    const identity = realm.users.find((user) => user.username === "m5-user");
+    if (!identity) throw new Error("Owned synthetic identity missing.");
+    await openFigmaLogin(page);
+    await page.locator("#username").fill(identity.username);
+    await page.locator("#password").fill(identity.credentials[0].value);
+    await page.locator("#kc-login").click();
+    await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+    const created = await page.request.post("/api/v1/workspaces", {
+      headers: { "Idempotency-Key": randomUUID() },
+      data: { name: `Conversation parity ${randomUUID()}` },
+    });
+    expect(created.status()).toBe(201);
+    const workspace = (await created.json()) as WorkspaceResponse;
+    const base = `/workspaces/${workspace.id}`;
+    const createConversation = async () => {
+      const response = await page.request.post(`/api/v1${base}/conversations`, {
+        headers: { "Idempotency-Key": randomUUID() },
+      });
+      expect(response.status()).toBe(201);
+      return (await response.json()) as ConversationResponse;
+    };
+    const active = await createConversation();
+    const second = await createConversation();
+    const archivedResponse = await page.request.post(
+      `/api/v1${base}/conversations/${second.id}/archive`,
+      { headers: { "If-Match": String(second.revision) } },
+    );
+    expect(archivedResponse.ok()).toBe(true);
+    expect((await archivedResponse.json()).archived).toBe(true);
+    await page.goto(`${base}/conversations/${active.id}`);
+    await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Workspace actions" }).click();
+    await page.getByRole("menuitem", { name: "Archive workspace" }).click();
+    const archive = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith(`${base}/archive`),
+    );
+    await page
+      .getByRole("dialog", { name: "Archive workspace" })
+      .getByRole("button", { name: "Archive workspace", exact: true })
+      .click();
+    const archivedWorkspace = (await (
+      await archive
+    ).json()) as WorkspaceResponse;
+    expect(archivedWorkspace.archived).toBe(true);
+    await expect(
+      page.getByRole("dialog", { name: "Archive workspace" }),
+    ).toBeHidden();
+    await page.goto(`${base}/conversations/${active.id}`);
+    await expect(
+      page.getByText("Archived workspace · Read-only", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/parity-live-workspace-archived.png",
+    );
+    await page.goto(`${base}/conversations/${second.id}`);
+    await expect(
+      page.getByRole("button", { name: "Restore workspace", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Restore conversation", exact: true }),
+    ).toHaveCount(0);
+    const restore = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith(`${base}/restore`),
+    );
+    const selection = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/workspace-selection",
+    );
+    const button = page.getByRole("button", {
+      name: "Restore workspace",
+      exact: true,
+    });
+    await button.focus();
+    await button.press("Enter");
+    const restoredResponse = await restore;
+    expect(restoredResponse.request().headers()["if-match"]).toBe(
+      String(archivedWorkspace.revision),
+    );
+    expect(restoredResponse.ok()).toBe(true);
+    const restored = (await restoredResponse.json()) as WorkspaceResponse;
+    expect(restored.id).toBe(workspace.id);
+    expect(restored.archived).toBe(false);
+    expect(restored.revision).toBeGreaterThan(archivedWorkspace.revision);
+    expect((await selection).status()).toBe(200);
+    await expect(page).toHaveURL(new RegExp(`${base}$`));
+    await page.goto(`${base}/conversations/${second.id}`);
+    await expect(
+      page.getByText("This Conversation is read-only.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Restore conversation", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+    const retained = await page.request.get(
+      `/api/v1${base}/conversations/${second.id}`,
+    );
+    expect((await retained.json()).archived).toBe(true);
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/parity-live-conversation-still-archived.png",
+    );
+    await page.goto(`${base}/conversations/${active.id}`);
+    await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
+    await captureIdentity(
+      page,
+      "../.superpowers/figma/q1/evidence/parity-live-workspace-restored.png",
+    );
+    fs.writeFileSync(
+      "../.superpowers/figma/q1/evidence/parity-live-restore.json",
+      JSON.stringify(
+        {
+          workspaceId: workspace.id,
+          activeConversationId: active.id,
+          archivedConversationId: second.id,
+          archivedRevision: archivedWorkspace.revision,
+          restoredRevision: restored.revision,
+          restoreStatus: restoredResponse.status(),
+          secondConversationArchived: true,
+          resolvedPath: base,
+        },
+        null,
+        2,
+      ),
+    );
+  });
   test("owned document and workspace lifecycle; authoritative Turn submission and lost-response recovery", async ({
     page,
   }) => {

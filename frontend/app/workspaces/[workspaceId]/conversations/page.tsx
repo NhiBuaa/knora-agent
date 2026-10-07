@@ -39,6 +39,7 @@ export default async function ConversationsPage({
         nextCursor={page.next_cursor}
         archived={archived}
         workspaceArchived={workspace.archived}
+        workspaceRevision={workspace.revision}
         identityScope={
           session.issuer
             ? { issuer: session.issuer, subject: session.subject }

@@ -1,4 +1,5 @@
 import React from "react";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 import {
   cleanup,
   fireEvent,
@@ -463,7 +464,7 @@ describe("durable Conversation view", () => {
     );
     await screen.findByText("The guide says blue umbrellas.");
     expect(
-      screen.getByText("This Conversation is read-only."),
+      screen.getByText("Archived workspace · Read-only"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Ask" }),

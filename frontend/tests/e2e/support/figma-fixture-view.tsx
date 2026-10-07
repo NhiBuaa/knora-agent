@@ -157,6 +157,7 @@ export function FigmaFixtureView() {
         workspaceName={workspace.name}
         conversation={{ ...conversation, archived: state === "128:119" }}
         workspaceArchived={state === "183:176"}
+        workspaceRevision={workspace.revision}
         initialConversations={conversations}
         workspaceSelector={
           <WorkspaceSelector

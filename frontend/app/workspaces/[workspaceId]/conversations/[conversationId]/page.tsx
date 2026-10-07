@@ -39,6 +39,7 @@ export default async function ConversationPage({
         workspaceId={workspaceId}
         conversation={conversation}
         workspaceArchived={workspace.archived}
+        workspaceRevision={workspace.revision}
         workspaceName={workspace.name}
         workspaceSelector={
           <WorkspaceSelector

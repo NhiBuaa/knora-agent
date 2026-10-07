@@ -19,6 +19,7 @@ import { TurnCard } from "./TurnCard";
 import {
   ConversationComposer,
   ConversationEmpty,
+  WorkspaceReadOnlyComposer,
 } from "./ConversationComposer";
 import type {
   EvidenceSelection,
@@ -33,6 +34,7 @@ type ConversationViewProps = {
   workspaceId: string;
   conversation: ConversationResponse;
   workspaceArchived?: boolean;
+  workspaceRevision?: number;
   identityScope?: PanelIdentityScope;
   workspaceName?: string;
   workspaceSelector?: React.ReactNode;
@@ -51,6 +53,7 @@ function ConversationViewState({
   workspaceId,
   conversation,
   workspaceArchived = false,
+  workspaceRevision,
   identityScope,
   workspaceName,
   workspaceSelector,
@@ -415,25 +418,35 @@ function ConversationViewState({
               </button>
             </div>
           )}
-          <ConversationComposer
-            draft={draft}
-            onChange={(value) => {
-              if (!submissionUncertain && !submitting && !sessionExpired)
-                setDraft(value);
-            }}
-            onSubmit={(event) => void submit(event)}
-            readOnly={submissionUncertain || submitting || sessionExpired}
-            disabled={
-              !draft.trim() ||
-              submissionConflict ||
-              submitting ||
-              sessionExpired ||
-              loading
-            }
-            archived={readOnly}
-            restoreDisabled={workspaceArchived || restoring || sessionExpired}
-            onRestore={projection.archived ? () => void restore() : undefined}
-          />
+          {workspaceArchived ? (
+            <WorkspaceReadOnlyComposer
+              key={`${workspaceId}:${workspaceRevision}`}
+              workspaceId={workspaceId}
+              workspaceRevision={workspaceRevision}
+              sessionExpired={sessionExpired}
+              onAuthenticationRequired={requireAuthentication}
+            />
+          ) : (
+            <ConversationComposer
+              draft={draft}
+              onChange={(value) => {
+                if (!submissionUncertain && !submitting && !sessionExpired)
+                  setDraft(value);
+              }}
+              onSubmit={(event) => void submit(event)}
+              readOnly={submissionUncertain || submitting || sessionExpired}
+              disabled={
+                !draft.trim() ||
+                submissionConflict ||
+                submitting ||
+                sessionExpired ||
+                loading
+              }
+              archived={readOnly}
+              restoreDisabled={workspaceArchived || restoring || sessionExpired}
+              onRestore={projection.archived ? () => void restore() : undefined}
+            />
+          )}
         </>
       }
     >
@@ -452,7 +465,14 @@ function ConversationViewState({
             turn={turn}
             workspaceId={workspaceId}
             selection={selection}
-            onSelect={setSelection}
+            onSelect={(next) =>
+              setSelection((current) =>
+                current?.turnId === next.turnId &&
+                current.citationIndex === next.citationIndex
+                  ? null
+                  : next,
+              )
+            }
             onSuggest={suggest}
             onRetry={() => void retry(turn)}
             disabled={
