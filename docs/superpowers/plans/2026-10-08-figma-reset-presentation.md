@@ -145,6 +145,10 @@ no sparse response. Current brand18 leaf and password eye18 assets already local
   legitimately change four native HTMLs and add the exact698-byte parent script above; enumerate
   changes/addition and preserve unrelated HTML/resources.
   Both new current captures and new HTML differences explicitly allowed; no blanket rebaseline.
+  Preservation exception: cached246-404 success HTML predates accepted completion-origin validation
+  commit5614653. Retain the current-source export and separately preserve the exactly reproduced
+  historical4491-byte HTML/hash with its old-source identity in this task's SDD evidence. Record the
+  fifth difference as prior-source formatting drift, not a reset change or new completion proof.
 - [ ] Run format→format:check→typecheck sequentially, self-review exact seven paths, release owned3300,
   commit exactly seven owned paths and report command results, source mapping, RED/GREEN, hashes/visual QA,
   privacy/no-JS/generic-error adaptations and native blockers. Root independent originalBASE→HEAD review.
