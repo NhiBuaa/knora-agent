@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { prepareFixture } from "./support/figma-state-fixtures";
-import { randomUUID } from "node:crypto";
+import {
+  prepareFixture,
+  prototypeTrace,
+  visualStates,
+  fixtureStates,
+  fixtureResponse,
+  statePath,
+} from "./support/figma-state-fixtures";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import realm from "../../../test/fixtures/keycloak/figma-realm.json";
@@ -18,6 +25,446 @@ function writeLookupGeometry(evidence: string, geometry: unknown) {
     `${evidence}-geometry.json`,
     JSON.stringify(geometry, null, 2),
   );
+}
+
+type SourceMeasurement = {
+  name: string;
+  node: string;
+  selector: string;
+  expected: Record<string, number | string>;
+};
+const prototypeEvidence =
+  "../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07";
+const sha256 = (filename: string) =>
+  createHash("sha256").update(fs.readFileSync(filename)).digest("hex");
+
+// Full MCP structure coordinates, including the root 1px border and 64px navigation.
+// Keep declared local coordinates as well: the generated normal line heights do not give
+// exact text ink bounds. Comparing CSS boxes is descriptive evidence, never a parity gate.
+function sourceMeasurements(state: string): SourceMeasurement[] {
+  const x = state === "216:345" ? 121 : 120;
+  const y = 109;
+  const rows: SourceMeasurement[] = [
+    {
+      name: "top navigation",
+      node:
+        state === "216:345"
+          ? "216:346"
+          : state === "216:573"
+            ? "216:574"
+            : "216:756",
+      selector: "header",
+      expected: { x: 1, y: 1, width: 1440, height: 64 },
+    },
+    {
+      name: "workspace selector",
+      node:
+        state === "216:345"
+          ? "216:366"
+          : state === "216:573"
+            ? "216:594"
+            : "216:776",
+      selector: "main > div:first-child > div > div",
+      expected: { x, y: y + 18, width: 220, height: 26 },
+    },
+    {
+      name: "page title",
+      node:
+        state === "216:345"
+          ? "216:371"
+          : state === "216:573"
+            ? "216:597"
+            : "216:779",
+      selector: "main > h1",
+      expected: {
+        x,
+        y: y + 58,
+        fontSize: "32px",
+        fontWeight: "600",
+        fontFamily: "Roboto Slab",
+      },
+    },
+    {
+      name: "page description",
+      node:
+        state === "216:345"
+          ? "216:372"
+          : state === "216:573"
+            ? "216:598"
+            : "216:780",
+      selector: "main > p",
+      expected: {
+        x,
+        y: y + 105,
+        fontSize: "16px",
+        fontFamily: "Inter",
+        color: "rgb(101, 122, 116)",
+      },
+    },
+    {
+      name: "operator navigation",
+      node:
+        state === "216:345"
+          ? "216:373"
+          : state === "216:573"
+            ? "216:599"
+            : "216:781",
+      selector: 'nav[aria-label="Operator navigation"]',
+      expected: { x, y: y + 151, width: 1200, height: 42, gap: "28px" },
+    },
+  ];
+  const add = (
+    name: string,
+    node: string,
+    selector: string,
+    expected: SourceMeasurement["expected"],
+  ) => rows.push({ name, node, selector, expected });
+  add(
+    "workspace label",
+    state === "216:345"
+      ? "216:365"
+      : state === "216:573"
+        ? "216:593"
+        : "216:775",
+    ".workspace-selector-label",
+    { x, y, fontSize: "11px", fontWeight: "600", fontFamily: "Inter" },
+  );
+  if (state === "216:345") {
+    add(
+      "configuration context",
+      "216:382",
+      'section[aria-labelledby="operations-heading"] > p:first-child',
+      { x, y: y + 213, height: 34, fontSize: "13px", gap: "8px" },
+    );
+    add("observations heading", "216:385", "#operations-heading", {
+      x,
+      y: y + 269,
+      fontSize: "20px",
+      fontFamily: "Roboto Slab",
+      fontWeight: "600",
+    });
+    add("observations description", "216:386", "#operations-heading + p", {
+      x,
+      y: y + 299,
+      fontSize: "14px",
+      color: "rgb(101, 122, 116)",
+    });
+    add("runtime signals", "216:387", 'dl[aria-label="Runtime signals"]', {
+      x,
+      y: y + 338,
+      width: 1200,
+      height: 108,
+    });
+    add("signal label", "216:389", 'dl[aria-label="Runtime signals"] dt', {
+      x: x + 20,
+      y: y + 360,
+      fontSize: "13px",
+      fontWeight: "500",
+    });
+    add("signal value", "216:390", 'dl[aria-label="Runtime signals"] dd', {
+      x: x + 20,
+      y: y + 391,
+      fontSize: "26px",
+      fontWeight: "600",
+      fontFamily: "Roboto Slab",
+    });
+    add(
+      "accounting heading",
+      "216:400",
+      'section[aria-labelledby="operations-heading"] > h3',
+      { x, y: y + 476, fontSize: "18px", fontFamily: "Roboto Slab" },
+    );
+    add(
+      "accounting list",
+      "216:401",
+      'section[aria-labelledby="operations-heading"] > h3 + dl',
+      { x, y: y + 510, width: 1200, height: 148, columnGap: "20px" },
+    );
+    add(
+      "accounting row",
+      "216:402",
+      'section[aria-labelledby="operations-heading"] > h3 + dl > div',
+      { x, y: y + 510, width: 580, height: 49 },
+    );
+    add(
+      "latency heading",
+      "216:426",
+      'section[aria-labelledby="operations-heading"] > h3:last-of-type',
+      { x, y: y + 690, fontSize: "18px", fontFamily: "Roboto Slab" },
+    );
+    add(
+      "histogram summary",
+      "216:427",
+      'section[aria-labelledby="operations-heading"] > div > div:first-child p',
+      { x, y: y + 720, fontSize: "13px" },
+    );
+    add(
+      "latency buckets",
+      "216:428",
+      'dl[aria-label="Cumulative latency buckets"]',
+      {
+        x,
+        y: y + 748,
+        width: 760,
+        height: 92,
+        columnGap: "20px",
+        rowGap: "6px",
+      },
+    );
+    add(
+      "alerts notice",
+      "216:445",
+      'section[aria-labelledby="operations-heading"] [role="status"]',
+      {
+        x: x + 820,
+        y: y + 748,
+        width: 380,
+        height: 70,
+        borderRadius: "8px",
+        backgroundColor: "rgb(244, 234, 230)",
+      },
+    );
+  } else {
+    const trace = state === "216:573";
+    add(
+      "lookup field",
+      trace ? "216:610" : "216:791",
+      trace ? "#operator-trace-id" : "#operator-report-id",
+      {
+        x,
+        y: y + 229,
+        width: 360,
+        height: trace ? 34 : 36,
+        fontSize: trace ? "13px" : "14px",
+        borderRadius: "8px",
+      },
+    );
+    add("lookup button", trace ? "216:612" : "216:793", "main form button", {
+      x: x + 372,
+      y: y + 229,
+      width: trace ? 104 : 124,
+      height: 36,
+      fontSize: "14px",
+      fontWeight: "600",
+    });
+    if (trace) {
+      add("summary heading", "216:614", "#trace-summary-heading", {
+        x,
+        y: y + 282,
+        height: 24,
+        fontSize: "20px",
+        fontFamily: "Roboto Slab",
+      });
+      add(
+        "summary signals",
+        "216:615",
+        'dl[aria-label="Trace summary signals"]',
+        { x, y: y + 316, width: 1200, height: 84 },
+      );
+      add(
+        "summary label",
+        "216:617",
+        'dl[aria-label="Trace summary signals"] dt',
+        { x: x + 18, y: y + 331, fontSize: "13px" },
+      );
+      add(
+        "summary value",
+        "216:618",
+        'dl[aria-label="Trace summary signals"] dd',
+        { x: x + 18, y: y + 355, fontSize: "22px", fontWeight: "600" },
+      );
+      add("detail columns", "216:634", "article > div", {
+        x,
+        y: y + 424,
+        width: 1200,
+        height: 420,
+        gap: "40px",
+      });
+      add("result and candidates column", "216:635", "article > div > div", {
+        x,
+        y: y + 424,
+        width: 780,
+        height: 420,
+      });
+      add("observed result heading", "216:636", "#observed-result-heading", {
+        x,
+        y: y + 424,
+        fontSize: "20px",
+        fontFamily: "Roboto Slab",
+      });
+      add(
+        "observed answer",
+        "216:639",
+        'section[aria-labelledby="observed-result-heading"] > p',
+        {
+          x,
+          y: y + 458,
+          width: 630,
+          height: 40,
+          fontSize: "14px",
+          lineHeight: "20px",
+        },
+      );
+      add("candidate heading", "216:640", "#candidate-heading", {
+        x,
+        y: y + 550,
+        height: 24,
+        fontSize: "20px",
+        fontFamily: "Roboto Slab",
+      });
+      add("candidate description", "216:641", "#candidate-heading + p", {
+        x,
+        y: y + 580,
+        width: 730,
+        height: 18,
+        fontSize: "13px",
+        lineHeight: "18px",
+      });
+      add(
+        "first candidate",
+        "216:642",
+        'section[aria-labelledby="candidate-heading"] li:first-child',
+        { x, y: y + 614, width: 760, height: 102 },
+      );
+      add(
+        "second candidate",
+        "216:649",
+        'section[aria-labelledby="candidate-heading"] li:nth-child(2)',
+        { x, y: y + 724, width: 760, height: 102 },
+      );
+      add("technical context column", "216:662", "article aside", {
+        x: x + 820,
+        y: y + 424,
+        width: 380,
+        height: 420,
+      });
+      add("trace context heading", "216:663", "#trace-context-heading", {
+        x: x + 820,
+        y: y + 424,
+        fontSize: "20px",
+        fontFamily: "Roboto Slab",
+      });
+      add("context row", "216:664", "#trace-context-heading + dl > div", {
+        x: x + 820,
+        y: y + 458,
+        width: 380,
+        height: 38,
+      });
+      add("citation heading", "216:680", "#citation-mapping-heading", {
+        x: x + 820,
+        y: y + 629,
+        height: 22,
+        fontSize: "18px",
+        fontFamily: "Roboto Slab",
+      });
+      add("phase heading", "216:685", "#phase-timing-heading", {
+        x: x + 820,
+        y: y + 742,
+        height: 22,
+        fontSize: "18px",
+        fontFamily: "Roboto Slab",
+      });
+      add("phase row", "216:686", "#phase-timing-heading + dl > div", {
+        x: x + 820,
+        y: y + 766,
+        width: 380,
+        height: 26,
+      });
+      add(
+        "validation timing row",
+        "216:694",
+        "#phase-timing-heading + dl > div:nth-child(3)",
+        { x: x + 820, y: y + 818, width: 380, height: 26 },
+      );
+      add(
+        "answer badge",
+        "216:637",
+        'section[aria-labelledby="observed-result-heading"] [data-kind]',
+        { x: x + 650, y: y + 424, width: 110, height: 28, borderRadius: "7px" },
+      );
+      add(
+        "selected candidate badge",
+        "216:644",
+        'section[aria-labelledby="candidate-heading"] li:first-child [data-kind]',
+        { x: x + 610, y: y + 618, width: 150, height: 28, borderRadius: "7px" },
+      );
+    } else {
+      add(
+        "evaluation columns",
+        "216:774/795/797",
+        'section[aria-labelledby="evaluation-heading"]',
+        { x, y: y + 300, width: 1200, columnGap: "60px" },
+      );
+      add("unavailable heading", "216:795", "#evaluation-heading", {
+        x,
+        y: y + 300,
+        fontSize: "26px",
+        fontFamily: "Inter",
+        fontWeight: "600",
+      });
+      add(
+        "unavailable explanation",
+        "216:796",
+        'section[aria-labelledby="evaluation-heading"] > div > p',
+        {
+          x,
+          y: y + 344,
+          width: 680,
+          height: 70,
+          fontSize: "16px",
+          lineHeight: "20px",
+          color: "rgb(94, 115, 107)",
+        },
+      );
+      add("report context heading", "216:797", "#report-context-heading", {
+        x: x + 820,
+        y: y + 300,
+        height: 24,
+        fontSize: "22px",
+        fontFamily: "Inter",
+      });
+      add(
+        "report context row",
+        "216:798/800",
+        "#report-context-heading + dl > div",
+        {
+          x: x + 820,
+          y: y + 344,
+          width: 380,
+          height: 40,
+          fontSize: "14px",
+          columnGap: "10px",
+        },
+      );
+      add(
+        "unavailable badge",
+        "216:810",
+        'section[aria-labelledby="evaluation-heading"] > div > div > span',
+        {
+          x: x + 383,
+          y: y + 303,
+          width: 92,
+          height: 28,
+          borderRadius: "8px",
+          fontSize: "12px",
+        },
+      );
+      add(
+        "observation code value",
+        "216:808",
+        "#report-context-heading + dl > div:last-child dd",
+        {
+          x: x + 1000,
+          y: y + 464,
+          width: 300,
+          height: 24,
+          fontSize: "12px",
+          fontFamily: "Inter",
+        },
+      );
+    }
+  }
+  return rows;
 }
 
 function classifyPDFObservation(observation: IngestionJobStatusResponse) {
@@ -68,6 +515,506 @@ test.describe("source fixtures", () => {
     process.env.FIGMA_TEST_MODE !== "fixture",
     "Dedicated fixture project required.",
   );
+
+  for (const prototype of [
+    { state: "216:345", name: "Operations", route: "/operator/operations" },
+    {
+      state: "216:573",
+      name: "Trace detail",
+      route: "/operator/traces/fixture-trace",
+    },
+    {
+      state: "216:755",
+      name: "Evaluation unavailable",
+      route: "/operator/evaluations/fixture-report",
+    },
+  ] as const) {
+    test(`Operator prototype comparison ${prototype.state} ${prototype.name} records desktop deviations and mobile fit`, async ({
+      page,
+    }) => {
+      expect(visualStates).toHaveLength(51);
+      expect(fixtureStates).toHaveLength(56);
+      expect(statePath(prototype.state)).toBe(prototype.route);
+      // These views receive presentation props. No backend endpoint is opened by the fixture.
+      expect(() =>
+        fixtureResponse(prototype.state, "/api/v1/unexpected", "GET"),
+      ).toThrow();
+      expect(() =>
+        fixtureResponse(prototype.state, "/api/v1/workspaces", "POST"),
+      ).toThrow();
+      expect(() =>
+        fixtureResponse(prototype.state, "/api/v1/workspaces", "GET"),
+      ).toThrow();
+      const writes: string[] = [];
+      const apiRequests: string[] = [];
+      page.on("request", (request) => {
+        if (new URL(request.url()).pathname.startsWith("/api/"))
+          apiRequests.push(
+            `${request.method()} ${new URL(request.url()).pathname}`,
+          );
+        if (
+          new URL(request.url()).pathname.startsWith("/api/") &&
+          request.method() !== "GET"
+        )
+          writes.push(`${request.method()} ${new URL(request.url()).pathname}`);
+      });
+      const id = prototype.state.replace(":", "-");
+      fs.mkdirSync(prototypeEvidence, { recursive: true });
+      const sourceIndex = JSON.parse(
+        fs.readFileSync(`${prototypeEvidence}/source-index.json`, "utf8"),
+      ) as Array<{
+        nodeId: string;
+        structureSHA256: string;
+        screenshotSHA256: string;
+      }>;
+      const source = sourceIndex.find(
+        (entry) => entry.nodeId === prototype.state,
+      )!;
+      expect(sha256(`${prototypeEvidence}/${id}.md`).toUpperCase()).toBe(
+        source.structureSHA256,
+      );
+      expect(sha256(`${prototypeEvidence}/${id}.png`).toUpperCase()).toBe(
+        source.screenshotSHA256,
+      );
+      for (const width of [1440, 390]) {
+        await page.setViewportSize({
+          width,
+          height: width === 1440 ? 960 : 844,
+        });
+        const unexpected = await prepareFixture(page, prototype.state);
+        await expect(page.locator("[data-fixture-state]")).toHaveAttribute(
+          "data-fixture-state",
+          prototype.state,
+        );
+        if (prototype.state === "216:345") {
+          await expect(
+            page.getByRole("heading", { name: "Operational observations" }),
+          ).toBeVisible();
+          await expect(
+            page.getByRole("heading", { name: "Execution accounting" }),
+          ).toBeVisible();
+          await expect(
+            page.getByRole("heading", { name: "Latency observations" }),
+          ).toBeVisible();
+          await expect(
+            page.getByText("runtime-config-v12", { exact: true }),
+          ).toBeVisible();
+          const signals = page.getByRole("group", { name: "Runtime signals" });
+          await expect(signals.locator("dt")).toHaveText([
+            "Queue depth",
+            "Retry rate",
+            "Cleanup failures",
+            "Orphan discoveries",
+          ]);
+          await expect(signals.locator("dd")).toHaveText([
+            "0",
+            "2.4%",
+            "0",
+            "Unavailable",
+          ]);
+          await expect(
+            signals.locator('dd[data-state="available"]'),
+          ).toHaveCount(3);
+          await expect(
+            signals.locator('dd[data-state="unavailable"]'),
+          ).toHaveCount(1);
+          const accounting = page.locator(
+            'section[aria-labelledby="operations-heading"] > h3 + dl',
+          );
+          await expect(accounting.locator("dt")).toHaveText([
+            "Oldest job age",
+            "Claim latency samples",
+            "Claim latency sum",
+            "Lease expiry recoveries",
+            "Cleanup attempts",
+            "Orphan reconciliations",
+          ]);
+          await expect(accounting.locator("dd")).toHaveText([
+            "18 s",
+            "124",
+            "18.4 s",
+            "1",
+            "32",
+            "0",
+          ]);
+          await expect(
+            page.getByText(
+              "claim_latency_seconds · 124 samples · 18.4 s total",
+              { exact: true },
+            ),
+          ).toBeVisible();
+          const histogram = page.locator(
+            'dl[aria-label="Cumulative latency buckets"]',
+          );
+          await expect(histogram.locator("dt")).toHaveText([
+            "≤ 0.1 s",
+            "≤ 0.25 s",
+            "≤ 0.5 s",
+            "≤ 1 s",
+          ]);
+          await expect(histogram.locator("dd")).toHaveText([
+            "38",
+            "91",
+            "118",
+            "124",
+          ]);
+          await expect(page.getByRole("status")).toHaveText(
+            "ALERTSUnavailable in the current Operator contract.",
+          );
+        } else if (prototype.state === "216:573") {
+          for (const heading of [
+            "Trace summary",
+            "Observed result",
+            "Candidate provenance",
+            "Trace context",
+            "Citation mapping",
+            "Phase timing",
+          ])
+            await expect(
+              page.getByRole("heading", { name: heading, exact: true }),
+            ).toBeVisible();
+          await expect(
+            page.getByRole("textbox", { name: "Trace ID", exact: true }),
+          ).toHaveValue("fixture-trace");
+          const summary = page.getByRole("group", {
+            name: "Trace summary signals",
+          });
+          await expect(summary.locator("dt")).toHaveText([
+            "Decision",
+            "Validation outcome",
+            "Retrieval latency",
+            "Candidates",
+          ]);
+          await expect(summary.locator("dd")).toHaveText([
+            "ANSWER",
+            "VALID",
+            "184 ms",
+            "2",
+          ]);
+          await expect(
+            page.getByText(prototypeTrace.answer!, { exact: true }),
+          ).toBeVisible();
+          const candidates = page.locator(
+            'section[aria-labelledby="candidate-heading"] li',
+          );
+          await expect(candidates).toHaveCount(2);
+          for (const [
+            index,
+            candidate,
+          ] of prototypeTrace.candidates.entries()) {
+            await expect(candidates.nth(index).locator("strong")).toHaveText(
+              candidate.source_key,
+            );
+            await expect(candidates.nth(index)).toContainText("SELECTED");
+            await expect(candidates.nth(index)).toContainText(
+              `Chunk ${candidate.chunk_ordinal} · Lines ${candidate.start_line}-${candidate.end_line} · Rank ${candidate.final_rank} · Fusion ${candidate.fusion_score}`,
+            );
+            await expect(
+              page.getByText(candidate.content, { exact: true }),
+            ).toBeVisible();
+          }
+          const context = page.getByRole("region", {
+            name: "Trace context",
+            exact: true,
+          });
+          await expect(context.locator("dd")).toHaveText([
+            "fixture-trace",
+            "retrieval-m1-v1",
+            "embedding-local-m1-v2",
+            "v2",
+          ]);
+          const mapping = page.getByRole("region", {
+            name: "Citation mapping",
+            exact: true,
+          });
+          await expect(mapping.locator("dt")).toHaveText(["E1", "E2"]);
+          await expect(mapping.locator("dd")).toHaveText([
+            "fixture-chunk-12Teacher Manh – Guidelines 2024.pdf",
+            "fixture-chunk-4Reporting policy.pdf",
+          ]);
+          const timing = page.getByRole("region", {
+            name: "Phase timing",
+            exact: true,
+          });
+          await expect(timing.locator("dt")).toHaveText([
+            "retrieval",
+            "generation",
+            "validation",
+          ]);
+          await expect(timing.locator("dd")).toHaveText([
+            "184 ms",
+            "612 ms",
+            "24 ms",
+          ]);
+        } else {
+          await expect(
+            page.getByRole("textbox", { name: "Report ID", exact: true }),
+          ).toHaveValue("fixture-report");
+          await expect(
+            page.getByRole("heading", {
+              name: "Evaluation report unavailable",
+              exact: true,
+            }),
+          ).toBeVisible();
+          await expect(
+            page.getByText(
+              "Persisted evaluation reports are not available in the current Operator contract. Knora does not invent quality scores, pass/fail results, or other evaluation metrics when the backend has no report to expose.",
+              { exact: true },
+            ),
+          ).toBeVisible();
+          const context = page.getByRole("region", {
+            name: "Report context",
+            exact: true,
+          });
+          await expect(context.locator("dt")).toHaveText([
+            "Report ID",
+            "Observed Workspace",
+            "Availability",
+            "Observation code",
+          ]);
+          await expect(context.locator("dd")).toHaveText([
+            "fixture-report",
+            "fixture-workspace",
+            "Unavailable",
+            "EVALUATION_REPORT_UNAVAILABLE",
+          ]);
+          await expect(
+            page.locator("[data-state], table, output, meter, progress"),
+          ).toHaveCount(0);
+        }
+        const measurements = [];
+        for (const measurement of sourceMeasurements(prototype.state)) {
+          const actual = await page
+            .locator(measurement.selector)
+            .first()
+            .evaluate((element) => {
+              const box = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              return {
+                x: box.x,
+                y: box.y,
+                width: box.width,
+                height: box.height,
+                fontFamily: style.fontFamily,
+                fontSize: style.fontSize,
+                fontWeight: style.fontWeight,
+                lineHeight: style.lineHeight,
+                gap: style.gap,
+                columnGap: style.columnGap,
+                rowGap: style.rowGap,
+                color: style.color,
+                backgroundColor: style.backgroundColor,
+                borderRadius: style.borderRadius,
+              };
+            });
+          const differences = Object.entries(measurement.expected).map(
+            ([property, expected]) => {
+              const value = actual[property as keyof typeof actual];
+              const exact =
+                property === "fontFamily"
+                  ? String(value).includes(String(expected))
+                  : value === expected;
+              return {
+                property,
+                source: expected,
+                current: value,
+                delta:
+                  typeof expected === "number" && typeof value === "number"
+                    ? value - expected
+                    : null,
+                classification:
+                  width !== 1440
+                    ? "responsive adaptation; no mobile source"
+                    : exact
+                      ? "exact measured match"
+                      : [
+                            "x",
+                            "y",
+                            "width",
+                            "height",
+                            "gap",
+                            "columnGap",
+                            "rowGap",
+                          ].includes(property)
+                        ? "geometry deviation; parity unresolved"
+                        : "typography/color/shape deviation; parity unresolved",
+              };
+            },
+          );
+          measurements.push({ ...measurement, actual, differences });
+        }
+        const assets = await page
+          .locator("main img, header img")
+          .evaluateAll((elements) =>
+            elements.map((element) => {
+              const image = element as HTMLImageElement;
+              const box = image.getBoundingClientRect();
+              return {
+                src: image.getAttribute("src")!,
+                loaded: image.complete && image.naturalWidth > 0,
+                x: box.x,
+                y: box.y,
+                width: box.width,
+                height: box.height,
+              };
+            }),
+          );
+        expect(assets).toHaveLength(2);
+        expect(assets.every((asset) => asset.loaded)).toBe(true);
+        expect(assets[0]).toMatchObject({
+          src: "/brand/knora-leaf.svg",
+          width: 18,
+          height: 18,
+        });
+        const assetEvidence = assets.map((asset) => ({
+          ...asset,
+          sha256: sha256(`public${asset.src}`),
+          sourceAsset:
+            asset.src === "/brand/knora-leaf.svg"
+              ? "ad252.svg; Brand/Knora Mark 20:2/20:3; 18x18"
+              : prototype.state === "216:345"
+                ? "a4e11.svg; 216:368/369; 10x6"
+                : prototype.state === "216:573"
+                  ? "bab86.svg; 216:596; 10x5 slot, 11.4x6.4 ink wrapper"
+                  : "bab86.svg; 216:778; 10x5 slot, 11.4x6.4 ink wrapper",
+          classification:
+            asset.src === "/brand/knora-leaf.svg"
+              ? "original local brand asset; exact dimensions"
+              : "different local caret asset/slot; production parity work required",
+        }));
+        const fit = await page.locator("main").evaluate((main) => {
+          const box = main.getBoundingClientRect();
+          const overflowing = Array.from(
+            main.querySelectorAll(
+              "p, h1, h2, h3, dt, dd, summary, input, button",
+            ),
+          )
+            .filter((element) => {
+              const rect = element.getBoundingClientRect();
+              return (
+                rect.width > 0 &&
+                rect.height > 0 &&
+                (rect.left < box.left ||
+                  rect.right > box.right ||
+                  element.scrollWidth > element.clientWidth)
+              );
+            })
+            .map((element) => element.textContent || element.tagName);
+          return {
+            pageWidth: document.documentElement.scrollWidth,
+            viewportWidth: innerWidth,
+            overflowing,
+          };
+        });
+        expect(fit.pageWidth).toBeLessThanOrEqual(width);
+        expect(fit.overflowing).toEqual([]);
+        const extraControls = await page
+          .locator("main summary, main .kn-menu__trigger")
+          .evaluateAll((elements) =>
+            elements.map((element) => ({
+              text: element.textContent,
+              label: element.getAttribute("aria-label"),
+              box: {
+                x: element.getBoundingClientRect().x,
+                y: element.getBoundingClientRect().y,
+                width: element.getBoundingClientRect().width,
+                height: element.getBoundingClientRect().height,
+              },
+            })),
+          );
+        const evidence = `${prototypeEvidence}/implemented-${id}-${width}`;
+        writeLookupGeometry(evidence, {
+          state: prototype.state,
+          viewport: page.viewportSize(),
+          authority:
+            "Synthetic typed fixture presentation only; no backend existence/authorization/runtime claim",
+          source: {
+            ...source,
+            frame: [1440, 960],
+            pngPixels: [1024, 683],
+            annotationCrop: 0,
+            coordinates:
+              "Full MCP CSS boxes reconstructed with 1px root border; declared content x=120 (Operations) or119, y=44 within 896px body after64px nav. Normal text ink bounds are not specified.",
+          },
+          measurements,
+          assets: assetEvidence,
+          extraControls,
+          apiRequests,
+          fit,
+          parityAccepted: false,
+        });
+        await page.screenshot({
+          path: `${evidence}.png`,
+          fullPage: width !== 1440,
+          animations: "disabled",
+        });
+        if (prototype.state === "216:573") {
+          // Expanded detail checks follow the source-comparison capture so extra disclosure
+          // content does not masquerade as the prototype's closed composition.
+          for (const [
+            index,
+            candidate,
+          ] of prototypeTrace.candidates.entries()) {
+            const details = page
+              .locator('section[aria-labelledby="candidate-heading"] li')
+              .nth(index)
+              .locator("details");
+            await details.locator("summary").click();
+            await expect(details.locator("dd")).toHaveText([
+              candidate.chunk_id,
+              candidate.document_version_id,
+              candidate.chunk_set_id,
+              String(candidate.fusion_score),
+              "Unavailable",
+              candidate.vector_contribution
+                ? JSON.stringify(candidate.vector_contribution)
+                : "Unavailable",
+              candidate.fts_contribution
+                ? JSON.stringify(candidate.fts_contribution)
+                : "Unavailable",
+            ]);
+          }
+          for (const heading of [
+            "Additional provenance",
+            "Provider accounting",
+            "M4 lifecycle evidence",
+          ])
+            await page.getByText(heading, { exact: true }).click();
+          const additional = page.locator("details").filter({
+            has: page
+              .locator("summary")
+              .filter({ hasText: /^Additional provenance$/ }),
+          });
+          await expect(additional.locator("dd")).toHaveText([
+            "fixture-workspace",
+            "fixture-chunk-set-12, fixture-chunk-set-4",
+            "fixture-embedding-set-12, fixture-embedding-set-4",
+            "0.001 ms",
+          ]);
+          const accounting = page.locator("details").filter({
+            has: page
+              .locator("summary")
+              .filter({ hasText: /^Provider accounting$/ }),
+          });
+          await expect(accounting.locator("dd")).toHaveText(
+            Array(6).fill("Unavailable"),
+          );
+          await expect(
+            page.getByText("Branch observation schema: 1", { exact: true }),
+          ).toBeVisible();
+          await expect(
+            page.getByText("M4 observation unavailable", { exact: true }),
+          ).toBeVisible();
+        }
+        expect(unexpected).toEqual([]);
+        expect(writes).toEqual([]);
+      }
+      fs.writeFileSync(
+        `${prototypeEvidence}/remaining-operator-comparisons.html`,
+        `<!doctype html><html lang="en"><meta charset="utf-8"><title>Remaining Operator whole-frame comparisons</title><style>body{font:14px system-ui;margin:24px;background:#eee}section{margin:32px 0}.pair{display:flex;gap:20px;align-items:flex-start}.pair img{width:720px;height:auto;border:1px solid #bbb}figure{margin:0}figcaption{margin:8px 0}a{color:#175b3a}</style><h1>Whole-frame comparisons; parity unresolved</h1><p>Figma1440×960 frame returned as1024×683 PNG; common display width720px. No annotation strip, no crop. Synthetic projections prove presentation only. Desktop CSS box measurements and every measured deviation are in linked JSON. Mobile has no supplied source geometry.</p>${["216-345", "216-573", "216-755"].map((node) => `<section><h2>${node}</h2><div class="pair"><figure><figcaption>Full MCP source</figcaption><img src="${node}.png" alt="Figma source ${node}"></figure><figure><figcaption>Actual production composition, synthetic fixture</figcaption><img src="implemented-${node}-1440.png" alt="Current desktop ${node}"></figure></div><p><a href="implemented-${node}-1440-geometry.json">Desktop geometry and deviations</a> · <a href="implemented-${node}-390.png">390px readable fit capture</a> · <a href="implemented-${node}-390-geometry.json">Mobile measurements</a></p></section>`).join("")}</html>`,
+      );
+    });
+  }
 
   for (const lookup of [
     {

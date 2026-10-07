@@ -28,6 +28,9 @@ import {
   workspace,
   workspaces,
   fixtureStates,
+  prototypeOperations,
+  prototypeTrace,
+  prototypeEvaluation,
 } from "./figma-state-fixtures";
 
 const capabilities = [
@@ -63,6 +66,21 @@ export function FigmaFixtureView() {
             <OperatorLookupGuidance
               kind={state === "216:448" ? "trace" : "report"}
             />
+          </>
+        ) : state === "216:345" ? (
+          <OperationsView operations={prototypeOperations} />
+        ) : state === "216:573" ? (
+          <>
+            <OperatorLookup kind="trace" identifier={prototypeTrace.trace_id} />
+            <TraceView trace={prototypeTrace} />
+          </>
+        ) : state === "216:755" ? (
+          <>
+            <OperatorLookup
+              kind="report"
+              identifier={prototypeEvaluation.report_id}
+            />
+            <EvaluationView evaluation={prototypeEvaluation} />
           </>
         ) : state === "194:194" ? (
           <OperationsView

@@ -2,6 +2,9 @@ import type { Page } from "@playwright/test";
 import type {
   ConversationResponse,
   DocumentResponse,
+  OperatorEvaluationResponse,
+  OperatorOperationsResponse,
+  OperatorTraceResponse,
   TurnResponse,
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
@@ -15,7 +18,7 @@ export const visualStates = [
     group: "responses",
   })),
 ];
-/** Lookup prototypes are focused fixtures, outside the original 51-state capture loop. */
+/** Operator prototypes are focused fixtures, outside the original 51-state capture loop. */
 export const fixtureStates = [
   ...visualStates,
   {
@@ -26,6 +29,21 @@ export const fixtureStates = [
   {
     id: "216:698",
     name: "Prototype · Operator · 04 Evaluations lookup",
+    group: "operator",
+  },
+  {
+    id: "216:345",
+    name: "Prototype · Operator · 01 Operations",
+    group: "operator",
+  },
+  {
+    id: "216:573",
+    name: "Prototype · Operator · 03 Trace detail",
+    group: "operator",
+  },
+  {
+    id: "216:755",
+    name: "Prototype · Operator · 05 Evaluation unavailable",
     group: "operator",
   },
 ];
@@ -46,6 +64,110 @@ export const workspace: WorkspaceResponse = {
   archived: false,
   revision: 4,
   created_at: "2026-10-05T00:00:00Z",
+};
+/** Synthetic presentation projections, never observations of existing backend resources. */
+export const prototypeOperations: OperatorOperationsResponse = {
+  configuration_version: "runtime-config-v12",
+  workspace_id: workspace.id,
+  metrics: {
+    queue_depth: 0,
+    retry_rate: 0.024,
+    cleanup_failure_total: 0,
+    // Deliberately absent observation exercises unavailable, independently of valid zeros.
+    orphan_discovery_total: null,
+    oldest_job_age: 18,
+    claim_latency_count: 124,
+    claim_latency_sum: 18.4,
+    lease_expiry_recovery_total: 1,
+    cleanup_attempt_total: 32,
+    orphan_reconciliation_total: 0,
+  },
+  histograms: {
+    claim_latency_seconds: {
+      count: 124,
+      sum: 18.4,
+      buckets: [
+        [0.1, 38],
+        [0.25, 91],
+        [0.5, 118],
+        [1, 124],
+      ],
+    },
+  },
+};
+export const prototypeTrace: OperatorTraceResponse = {
+  trace_id: "fixture-trace",
+  workspace_id: workspace.id,
+  trace_schema_version: 2,
+  branch_observation_schema_version: 1,
+  branch_observations: [],
+  retrieval_configuration_id: "retrieval-m1-v1",
+  embedding_configuration_id: "embedding-local-m1-v2",
+  chunk_set_ids: ["fixture-chunk-set-12", "fixture-chunk-set-4"],
+  embedding_set_ids: ["fixture-embedding-set-12", "fixture-embedding-set-4"],
+  retrieval_latency_ms: 184,
+  decision: "ANSWER",
+  validation_outcome: "valid",
+  refusal_reason: null,
+  answer:
+    "The report is organized into 7 chapters. The retrieved passages explicitly list the chapter structure and ordering.",
+  parsed_markers: ["E1", "E2"],
+  alias_mapping: { E1: "fixture-chunk-12", E2: "fixture-chunk-4" },
+  candidate_decisions: [],
+  candidates: [
+    {
+      workspace_id: workspace.id,
+      chunk_id: "fixture-chunk-12",
+      chunk_ordinal: 12,
+      chunk_set_id: "fixture-chunk-set-12",
+      document_version_id: "fixture-version-12",
+      source_key: "Teacher Manh – Guidelines 2024.pdf",
+      start_line: 84,
+      end_line: 102,
+      final_rank: 1,
+      fusion_score: 0.86,
+      final_decision: "SELECTED",
+      decision_reason: null,
+      vector_contribution: { status: "ELIGIBLE", rank: 1, score: 0.86 },
+      fts_contribution: null,
+      content: "“Seven chapters, presented in this order …”",
+    },
+    {
+      workspace_id: workspace.id,
+      chunk_id: "fixture-chunk-4",
+      chunk_ordinal: 4,
+      chunk_set_id: "fixture-chunk-set-4",
+      document_version_id: "fixture-version-4",
+      source_key: "Reporting policy.pdf",
+      start_line: 31,
+      end_line: 47,
+      final_rank: 2,
+      fusion_score: 0.72,
+      final_decision: "SELECTED",
+      decision_reason: null,
+      vector_contribution: null,
+      fts_contribution: { status: "ELIGIBLE", rank: 2, score: 0.72 },
+      content:
+        "“The required chapter structure follows the seven-part guideline …”",
+    },
+  ],
+  provider_metadata: {
+    timing: {
+      clock_resolution_ms: 0.001,
+      phases: {
+        retrieval: { duration_ms: 184 },
+        generation: { duration_ms: 612 },
+        validation: { duration_ms: 24 },
+      },
+    },
+    // Neither costs nor usage are supplied; the production view must retain unavailable.
+  },
+};
+export const prototypeEvaluation: OperatorEvaluationResponse = {
+  report_id: "fixture-report",
+  workspace_id: workspace.id,
+  availability: "unavailable",
+  observation_failure: "EVALUATION_REPORT_UNAVAILABLE",
 };
 export const workspaces: WorkspaceResponse[] = [
   workspace,
@@ -235,11 +357,13 @@ export function statePath(state: string): string {
   if (["152:128"].includes(state)) return "/workspaces";
   if (["154:431", "166:211", "166:290"].includes(state))
     return "/workspaces/archived";
-  if (state === "194:194") return "/operator/operations";
+  if (["194:194", "216:345"].includes(state)) return "/operator/operations";
   if (state === "216:448") return "/operator/traces";
   if (state === "216:698") return "/operator/evaluations";
-  if (state === "198:200") return "/operator/traces/fixture-trace";
-  if (state === "206:206") return "/operator/evaluations/fixture-report";
+  if (["198:200", "216:573"].includes(state))
+    return "/operator/traces/fixture-trace";
+  if (["206:206", "216:755"].includes(state))
+    return "/operator/evaluations/fixture-report";
   if (["128:122", "128:125", "128:128", "128:131"].includes(state))
     return `/workspaces/${workspace.id}/documents/${document.document_id}`;
   if (["128:120", "128:121", "183:334"].includes(state))
@@ -257,6 +381,12 @@ export function fixtureResponse(
     throw new Error("Unrecognized fixture request");
   const url = new URL(path, "http://fixture.invalid");
   const base = `/api/v1/workspaces/${workspace.id}`;
+  if (["216:345", "216:573", "216:755"].includes(state)) {
+    // The three comparison compositions only hydrate the existing Workspace selector.
+    if (method === "GET" && url.pathname === base && !url.search)
+      return workspace;
+    throw new Error("Unrecognized prototype comparison request");
+  }
   if (
     state === "183:176" &&
     method === "POST" &&
