@@ -22,6 +22,8 @@ export function EvidenceInspector({
   const refused = turn?.result?.decision === "REFUSAL";
   const insufficient =
     refused && turn?.result?.refusal_reason === "INSUFFICIENT_EVIDENCE";
+  const retainedAnswerContext =
+    workspaceArchived && !citation && turn?.result?.decision === "ANSWER";
   const heading = citation
     ? citation.source_name
     : working
@@ -101,7 +103,7 @@ export function EvidenceInspector({
           </p>
         ) : null}
         <blockquote
-          className={`m-0 flex min-h-[146px] flex-col gap-2 rounded-lg border border-border px-3.5 py-[13px] ${refused || interrupted ? "bg-signature/10" : "bg-surface-subtle"}`}
+          className={`m-0 flex flex-col gap-2 rounded-lg border border-border px-3.5 py-[13px] ${retainedAnswerContext ? "min-h-[96px] w-[340px] max-w-[calc(100%+2px)]" : "min-h-[146px]"} ${refused || interrupted ? "bg-signature/10" : "bg-surface-subtle"}`}
         >
           <p className="text-[10px] font-semibold uppercase text-text-muted">
             {label}

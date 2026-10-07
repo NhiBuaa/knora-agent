@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "@/components/conversations/ConversationView";
 import { ConversationHub } from "@/components/conversations/ConversationPanels";
 import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
+import type { TurnResponse } from "@/generated/knora-openapi";
 import userEvent from "@testing-library/user-event";
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -81,6 +82,70 @@ afterEach(() => {
   sessionStorage.clear();
 });
 describe("Conversation panel interactions", () => {
+  it("uses the retained context minimum only for an archived Workspace unselected answer", () => {
+    const view = render(
+      <EvidenceInspector
+        workspaceId="w"
+        workspaceArchived
+        turn={answered as TurnResponse}
+      />,
+    );
+    const context = screen.getByText("VERIFY THE ANSWER").closest("blockquote");
+    expect(context).toHaveClass("min-h-[96px]");
+    expect(context).not.toHaveClass("min-h-[146px]");
+    expect(
+      screen.getByText(
+        "Choose a citation in the answer to inspect the exact supporting passage and its source context.",
+      ),
+    ).toBeVisible();
+    view.rerender(
+      <EvidenceInspector workspaceId="w" turn={answered as TurnResponse} />,
+    );
+    expect(context).toHaveClass("min-h-[146px]");
+    expect(context).not.toHaveClass("min-h-[96px]");
+  });
+  it.each([
+    { state: "empty", turn: null },
+    {
+      state: "pending",
+      turn: { ...answered, status: "pending", result: null },
+    },
+    {
+      state: "interrupted",
+      turn: { ...answered, status: "interrupted", result: null },
+    },
+    {
+      state: "refused",
+      turn: {
+        ...answered,
+        status: "refused",
+        result: {
+          ...answered.result,
+          decision: "REFUSAL",
+          answer: null,
+          citations: [],
+          refusal_reason: "INSUFFICIENT_EVIDENCE",
+        },
+      },
+    },
+  ])(
+    "keeps the full evidence minimum for archived $state context",
+    ({ turn }) => {
+      render(
+        <EvidenceInspector
+          workspaceId="w"
+          workspaceArchived
+          turn={turn as TurnResponse | null}
+        />,
+      );
+      const inspector = screen.getByRole("complementary", {
+        name: /evidence/i,
+      });
+      const context = inspector.querySelector("blockquote");
+      expect(context).toHaveClass("min-h-[146px]");
+      expect(context).not.toHaveClass("min-h-[96px]");
+    },
+  );
   it("shows the archived Workspace notice beside selected historical evidence without changing provenance", async () => {
     history();
     const view = render(
@@ -99,6 +164,9 @@ describe("Conversation panel interactions", () => {
       ),
     ).toBeVisible();
     expect(within(inspector).getByText(citation.excerpt)).toBeVisible();
+    expect(
+      within(inspector).getByText(citation.excerpt).closest("blockquote"),
+    ).toHaveClass("min-h-[146px]");
     expect(within(inspector).getByText("historical-v1")).toBeVisible();
     expect(
       within(inspector).getByRole("link", { name: /open document/i }),

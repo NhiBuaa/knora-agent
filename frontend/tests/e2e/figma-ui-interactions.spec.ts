@@ -270,6 +270,148 @@ test.describe("source fixtures", () => {
   }
 
   for (const width of [1440, 390]) {
+    test(`W5A unselected retained answer context and notice fit at ${width}`, async ({
+      page,
+    }) => {
+      const writes: string[] = [];
+      page.on("request", (request) => {
+        if (
+          new URL(request.url()).pathname.startsWith("/api/") &&
+          request.method() !== "GET"
+        )
+          writes.push(`${request.method()} ${new URL(request.url()).pathname}`);
+      });
+      await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
+      const unexpected = await prepareFixture(page, "183:176");
+      if (width === 390)
+        await page.getByRole("button", { name: "Open evidence" }).click();
+      const inspector = page.getByRole("complementary", {
+        name: "Evidence Inspector",
+      });
+      const context = inspector.locator("blockquote");
+      const notice = inspector.locator(
+        '[aria-label="Read-only Workspace notice"]',
+      );
+      await expect(
+        inspector.getByRole("heading", { name: "Select a citation" }),
+      ).toBeVisible();
+      await expect(context).toHaveText(
+        "VERIFY THE ANSWERChoose a citation in the answer to inspect the exact supporting passage and its source context.",
+      );
+      await expect(notice).toHaveText(
+        "READ-ONLY WORKSPACEWorkspace archived. Restore it to ask new questions or make changes.",
+      );
+      const geometry = await context.evaluate((element) => {
+        const notice = element.nextElementSibling!;
+        const measure = (card: Element) => {
+          const box = card.getBoundingClientRect();
+          const style = getComputedStyle(card);
+          return {
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            minHeight: style.minHeight,
+            maxHeight: style.maxHeight,
+            overflowY: style.overflowY,
+            paddingX: style.paddingLeft,
+            paddingY: style.paddingTop,
+            radius: style.borderRadius,
+            gap: style.gap,
+            copyFits: Array.from(card.children).every((child) => {
+              const copy = child.getBoundingClientRect();
+              return (
+                copy.left >= box.left &&
+                copy.right <= box.right &&
+                copy.top >= box.top &&
+                copy.bottom <= box.bottom &&
+                child.scrollWidth <= child.clientWidth &&
+                child.scrollHeight <= child.clientHeight
+              );
+            }),
+          };
+        };
+        const card = measure(element);
+        const following = measure(notice);
+        return {
+          context: card,
+          notice: following,
+          noticeGap: following.y - (card.y + card.height),
+          viewportFits: document.documentElement.scrollWidth <= innerWidth,
+        };
+      });
+      expect(geometry.context.minHeight).toBe("96px");
+      expect(geometry.context.height).toBeGreaterThanOrEqual(96);
+      expect(geometry.context.maxHeight).toBe("none");
+      expect(geometry.context.overflowY).toBe("visible");
+      for (const card of [geometry.context, geometry.notice]) {
+        expect(card.paddingX).toBe("14px");
+        expect(card.paddingY).toBe("13px");
+        expect(card.radius).toBe("8px");
+        expect(card.gap).toBe("8px");
+        expect(card.copyFits).toBe(true);
+        expect(card.x).toBeGreaterThanOrEqual(0);
+        expect(card.x + card.width).toBeLessThanOrEqual(width);
+      }
+      expect(geometry.noticeGap).toBe(14);
+      expect(geometry.viewportFits).toBe(true);
+      if (width === 1440) {
+        expect(geometry.context.width).toBe(340);
+        expect(geometry.context.height).toBe(96);
+        expect(geometry.notice.width).toBe(340);
+        expect(geometry.notice.height).toBe(82);
+      }
+      const evidence = `../.superpowers/figma/q1/evidence/archived-inspector-context-${width}`;
+      writeLookupGeometry(evidence, geometry);
+      await page.screenshot({
+        path: `${evidence}.png`,
+        animations: "disabled",
+      });
+      if (width === 390) await page.keyboard.press("Escape");
+      const citation = page.getByRole("button", { name: /citation 1/i });
+      await citation.focus();
+      await citation.press("Enter");
+      await expect(context).toContainText("The report consists of 7 chapters.");
+      expect(
+        await context.evaluate(
+          (element) => getComputedStyle(element).minHeight,
+        ),
+      ).toBe("146px");
+      await expect(inspector).toContainText("fixture-version");
+      await inspector.getByText("Provenance", { exact: true }).click();
+      for (const value of ["E1", "guidelines-2024", "fixture-checksum"])
+        await expect(inspector.getByText(value, { exact: true })).toBeVisible();
+      const documentLink = inspector.getByRole("link", {
+        name: /open document/i,
+      });
+      await expect(documentLink).toHaveAttribute(
+        "href",
+        "/workspaces/fixture-workspace/documents/fixture-document",
+      );
+      const navigation = page.waitForRequest(
+        (request) =>
+          new URL(request.url()).pathname ===
+          "/workspaces/fixture-workspace/documents/fixture-document",
+      );
+      await documentLink.click();
+      expect((await navigation).method()).toBe("GET");
+      await expect(page).toHaveURL(
+        /\/workspaces\/fixture-workspace\/documents\/fixture-document/,
+      );
+      // The standalone host chooses composition by explicit state, not pathname.
+      // Check the existing document detail fixture independently after real link navigation.
+      await page.goto(
+        "/workspaces/fixture-workspace/documents/fixture-document?state=128%3A122",
+      );
+      await expect(
+        page.getByRole("heading", {
+          name: "Teacher Manh – Guidelines 2024.pdf",
+        }),
+      ).toBeVisible();
+      expect(unexpected).toEqual([]);
+      expect(writes).toEqual([]);
+    });
+
     test(`archived Workspace evidence notice preserves selected source and fits at ${width}`, async ({
       page,
     }) => {
