@@ -78,11 +78,16 @@ type WorkspaceSelectorProps = {
 - [ ] Set lookup input34px and specific button width/min-height36px in OperatorLookup, overriding
   inherited primitive40px locally. Long pending text may grow; do not clip it to force source size.
 - [ ] Correct runtime band total108px including its top/bottom borders; preserve natural growth
-  for wrapped unavailable/long content and responsive two-column layout.
+  for wrapped unavailable/long content and responsive two-column layout. At390px ensure the
+  known label/value Unavailable remains whole and readable by adjusting local responsive sizing,
+  padding or columns; never convert the actual missing observation into a zero or abbreviated value.
 - [ ] Match TraceView desktop left780/right380 gap40 and max630 answer measure. Preserve all real
   answer/provenance/candidate text, extra metadata disclosures, timing/validation availability and
   no fixed candidate height that truncates dynamic excerpts. Recorded source102px candidate versus
   actual dynamic131.375px is not permission to clip or delete provenance.
+- [ ] Prevent SELECTED badge word-breaking on narrow candidate rows: permit the surrounding
+  row to wrap while preserving the complete badge label and full source name/provenance. Assert
+  actual390px text geometry and no overflow; keep validation/timing reachable through natural scroll.
 - [ ] Set only EvaluationView's unavailable badge to source92×28 rectangular8px style, preserving
   semantic role/text/tone and genuine other observation states. Keep opaque IDs fully readable,
   allowing wrapping instead of replacing them with illustrative names/codes.
