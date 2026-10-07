@@ -30,9 +30,11 @@ with pinned parents remain the test subject; the fixture cannot authorize a reco
 | `themes/knora/login/login-update-password.ftl` | Source labels for ordinary reset, retained app-initiated controls |
 | `infra/keycloak/providers/email-otp-reset/src/test/java/com/knora/keycloak/reset/EmailOtpResetFlowIT.java` | Actual request/OTP FreeMarker copy and no-JS cooldown regression |
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Actual exported template presentation and JS countdown behavior |
+| `frontend/tests/e2e/support/FigmaThemeRenderer.java` | Exact pinned parent password-visibility resource for offline interaction |
 | `docs/development/figma-ui-visual-coverage.md` | Resolved copy/countdown and explicit remaining native/geometry limits |
 
-No changes to exporter, Java renderer, authenticator/store/service/POM, theme CSS or assets.
+No changes to exporter script, authenticator/store/service/POM, theme CSS or production assets.
+The renderer's sole resource correction below is required by the discovered toggle regression.
 
 ## Task 1: Correct reset labels and server countdown presentation
 
@@ -118,18 +120,30 @@ no sparse response. Current brand18 leaf and password eye18 assets already local
   ready Resend code enabled/countdown absent at30; no-JS proves enabled native button and00:30.
   Leading-zero paste, six mirror cells, invalid role and56px input checks retained.
   Native blocked action remains blocked; never submit password/reset.
+- [ ] Resolve the observed offline toggle failure at its resource boundary. Existing rendered
+  password HTML references `/resources/js/passwordVisibility.js`, but the renderer excludes the
+  base login resources prefix. In the existing pinned JarFile block, read only
+  `theme/base/login/resources/js/passwordVisibility.js`, require that entry exists, verify its
+  unchanged bytes length698 and SHA256
+  `6DF35FB0B98BFC3B78BB9936FCECA7D91BB53DCC0CD3DF7399B4FA3537C565ED`, then copy those exact bytes to
+  `output/resources/js/passwordVisibility.js`. Use existing JDK APIs, no dependency or broad
+  prefix expansion. Keep native toggle clicks/type password→text→password assertions for both
+  empty fields; do not replace functionality assertions with markup preservation. Re-export offline
+  and rerun only failed source-copy browser case; two OTP GREEN cases remain valid. Report the
+  missing-resource RED, exact pinned JAR/entry proof and new resource hash. This is offline
+  reference extraction, not a theme/service asset edit or live fetch.
 - [ ] Capture only four affected states at1440×960/390×844 with empty code/password values;
   preserve previous captures as historical evidence, use new reset-presentation evidence subdirectory.
   Capture JSON copy/fit/input/button/static asset effective geometry. Compare returned full wrapper
   source with annotation strip accounted for; do not crop or alter source artifacts. Record residual
   content origin/field/notice/CSS geometry; no page parity acceptance from labels.
   Before/after whole Q1 hashes exclude only root active regression-preflight. Offline exporter may
-  legitimately change four native HTMLs; enumerate changes and preserve unrelated HTML/resources.
+  legitimately change four native HTMLs and add the exact698-byte parent script above; enumerate
+  changes/addition and preserve unrelated HTML/resources.
   Both new current captures and new HTML differences explicitly allowed; no blanket rebaseline.
 - [ ] Run format→format:check→typecheck sequentially, self-review exact six paths, release owned3300,
-  commit exact paths and report command results, source mapping, RED/GREEN, hashes/visual QA,
+  commit exactly seven owned paths and report command results, source mapping, RED/GREEN, hashes/visual QA,
   privacy/no-JS/generic-error adaptations and native blockers. Root independent originalBASE→HEAD review.
 
 **Finish condition:** Source labels and actual server-derived countdown proven through existing native
 templates, privacy/protocol/no-JS preservation reviewed. Native binding/live reset remain held.
-
