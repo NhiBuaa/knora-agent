@@ -2413,6 +2413,160 @@ test.describe("source fixtures", () => {
   });
 
   for (const width of [1440, 390]) {
+    test(`archived Conversation collapsed panels retain controls and evidence at ${width}`, async ({
+      page,
+    }) => {
+      const height = width === 1440 ? 960 : 844;
+      await page.setViewportSize({ width, height });
+      const unexpected = await prepareFixture(page, "128:119");
+      const panels = page.locator(".conversation-panels");
+      const inspector = page.getByRole("complementary", { name: /evidence/i });
+      const history = page
+        .getByRole("region", { name: "Conversation workspace" })
+        .locator("ol");
+      const retainedHistory = await history.textContent();
+      if (width === 1440) {
+        await page
+          .getByRole("button", { name: "Collapse rail", exact: true })
+          .click();
+        await expect(panels).toHaveAttribute("data-rail", "collapsed");
+        await expect(
+          page.getByRole("button", { name: "Expand rail", exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.locator(".conversation-rail-column"),
+        ).toHaveJSProperty("clientWidth", 72);
+      } else {
+        await expect(page.locator(".conversation-rail-column")).toHaveCount(0);
+        await page
+          .getByRole("button", { name: "Open evidence", exact: true })
+          .click();
+      }
+      await expect(inspector).toContainText("Select a citation");
+      await expect(inspector).toContainText(
+        "Choose a citation in the answer to inspect the exact supporting passage and its source context.",
+      );
+      const retainedEvidence = await inspector.textContent();
+      await page
+        .getByRole("button", { name: "Close evidence", exact: true })
+        .click();
+      await expect(panels).toHaveAttribute("data-inspector", "false");
+      await expect(inspector).toHaveCount(0);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Open evidence", exact: true }),
+      ).toBeVisible();
+      await expect(history).toHaveText(retainedHistory!);
+      const bar = page.locator('[aria-label="Archived conversation controls"]');
+      const button = bar.getByRole("button", {
+        name: "Restore conversation",
+        exact: true,
+      });
+      await expect(bar.getByRole("status")).toHaveText(
+        "Archived conversation · Read-only",
+      );
+      await expect(button).toBeEnabled();
+      await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: "Ask", exact: true }),
+      ).toHaveCount(0);
+      for (const citation of [1, 2])
+        await expect(
+          page.getByRole("button", {
+            name: new RegExp(`citation ${citation}`, "i"),
+          }),
+        ).toBeVisible();
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await Promise.all(
+          Array.from(document.images).map((img) => img.decode()),
+        );
+      });
+      const geometry = await bar.evaluate((element) => {
+        const measure = (node: Element) => {
+          const box = node.getBoundingClientRect();
+          const css = getComputedStyle(node);
+          return {
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            radius: css.borderRadius,
+            fontSize: css.fontSize,
+            fontWeight: css.fontWeight,
+            paddingLeft: css.paddingLeft,
+            paddingRight: css.paddingRight,
+            scrollWidth: node.scrollWidth,
+            clientWidth: node.clientWidth,
+          };
+        };
+        return {
+          panel: measure(element.closest("section")!),
+          outer: measure(element.parentElement!),
+          bar: measure(element),
+          label: measure(element.querySelector('[role="status"]')!),
+          button: measure(element.querySelector("button")!),
+          assets: Array.from(document.images).map((img) => ({
+            src: img.getAttribute("src"),
+            complete: img.complete,
+            naturalWidth: img.naturalWidth,
+            ...measure(img),
+          })),
+          noHorizontalOverflow:
+            document.documentElement.scrollWidth <= innerWidth,
+        };
+      });
+      expect(geometry.bar.width).toBe(
+        geometry.panel.width - (width === 1440 ? 48 : 32),
+      );
+      expect(geometry.outer.width).toBe(geometry.panel.width);
+      expect(geometry.bar.radius).toBe("10px");
+      expect(geometry.bar.paddingLeft).toBe("14px");
+      expect(geometry.bar.paddingRight).toBe("8px");
+      expect(geometry.label.fontSize).toBe("13px");
+      expect(geometry.label.fontWeight).toBe("400");
+      expect(geometry.button.width).toBe(151);
+      expect(geometry.button.height).toBe(34);
+      expect(geometry.button.radius).toBe("8px");
+      expect(geometry.button.fontSize).toBe("13px");
+      expect(geometry.button.fontWeight).toBe("600");
+      for (const control of [geometry.label, geometry.button])
+        expect(control.scrollWidth).toBeLessThanOrEqual(control.clientWidth);
+      expect(geometry.noHorizontalOverflow).toBe(true);
+      expect(geometry.outer.y + geometry.outer.height).toBeLessThanOrEqual(
+        height,
+      );
+      if (width === 1440) {
+        expect(geometry.panel.width).toBe(1360);
+        expect(geometry.bar.width).toBe(1312);
+        expect(geometry.outer.height).toBe(72);
+        expect(geometry.bar.height).toBe(48);
+      } else {
+        expect(geometry.bar.height).toBeGreaterThanOrEqual(48);
+      }
+      await button.focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(button).not.toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(button).toBeFocused();
+      const evidence = `../.superpowers/figma/q1/evidence/archived-conversation-bar-2026-10-08/collapsed-128-119-${width}`;
+      writeLookupGeometry(evidence, {
+        source: "128:119",
+        composition: "collapsed",
+        viewport: { width, height },
+        rail: await panels.getAttribute("data-rail"),
+        inspectorOpen: await panels.getAttribute("data-inspector"),
+        retainedHistory,
+        retainedEvidence,
+        geometry,
+      });
+      await page.screenshot({
+        path: `${evidence}.png`,
+        animations: "disabled",
+      });
+      // Read-only fixture controls must not invoke restore or question endpoints.
+      expect(unexpected).toEqual([]);
+    });
     test(`archived Conversation bar uses source controls and preserves history at ${width}`, async ({
       page,
     }) => {

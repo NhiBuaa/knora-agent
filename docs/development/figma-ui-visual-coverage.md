@@ -596,3 +596,22 @@ second citation stays backend page-derived, and extra suggestion/panel/rail/menu
 These checks accept only the local archived bar; whole-design, native identity and live acceptance
 remain open. Full RED/GREEN, source mapping, commands and artifact proof are in
 `.superpowers/sdd/2026-10-08-figma-archived-conversation-bar/task-1-report.md`.
+
+#### Round1 review fix — collapsed panel coverage
+
+Review finding I1 required a genuine collapsed desktop composition in addition to the retained
+expanded source comparison. New tests use the actual “Collapse rail” and “Close evidence”
+controls at1440×960: the rail becomes72px, the inspector closes, the Conversation panel widens
+to1360px and its bar to1312×48px. Outer72px and restore151×34px remain; available width follows
+the panel. At390×844, the rail is naturally hidden; the test opens and closes the evidence
+sheet through actual controls before capturing the collapsed composition. Bar358×76.14px
+and outer99.14px retain natural growth and full text. Keyboard Tab focus, enabled restore,
+absent question submission, retained history/citations and default evidence copy are checked.
+These responsive compositions establish no new global source parity.
+
+Separate `collapsed-128-119-{1440,390}.png` and matching geometry JSON use the existing A9 folder;
+the earlier expanded desktop/mobile, RED and diagnostic evidence is untouched. All295 prior
+Q1 artifacts retain hashes, including all285 historical artifacts and10 initial A9 additions.
+Only4 new collapsed artifacts were added. Two focused browser cases passed with NO_COLOR and
+FORCE_COLOR removed from this owned invocation; no color warnings were emitted. Original
+warning-bearing logs remain historical. Report append records I1 disposition and hash proof.
