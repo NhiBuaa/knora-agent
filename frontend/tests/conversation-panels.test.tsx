@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "@/components/conversations/ConversationView";
 import { ConversationHub } from "@/components/conversations/ConversationPanels";
+import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
 import userEvent from "@testing-library/user-event";
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -80,6 +81,104 @@ afterEach(() => {
   sessionStorage.clear();
 });
 describe("Conversation panel interactions", () => {
+  it("shows the archived Workspace notice beside selected historical evidence without changing provenance", async () => {
+    history();
+    const view = render(
+      <ConversationView
+        workspaceId="w"
+        conversation={conversation}
+        workspaceArchived
+      />,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /citation 1/i }));
+    const inspector = screen.getByRole("complementary", { name: /evidence/i });
+    expect(within(inspector).getByText("READ-ONLY WORKSPACE")).toBeVisible();
+    expect(
+      within(inspector).getByText(
+        "Workspace archived. Restore it to ask new questions or make changes.",
+      ),
+    ).toBeVisible();
+    expect(within(inspector).getByText(citation.excerpt)).toBeVisible();
+    expect(within(inspector).getByText("historical-v1")).toBeVisible();
+    expect(
+      within(inspector).getByRole("link", { name: /open document/i }),
+    ).toHaveAttribute("href", "/workspaces/w/documents/doc");
+    fireEvent.click(within(inspector).getByText("Provenance"));
+    for (const value of ["E1", "guide", "sha-old", "4–42"])
+      expect(within(inspector).getByText(value)).toBeVisible();
+    expect(
+      within(inspector).queryByRole("button", { name: /restore/i }),
+    ).not.toBeInTheDocument();
+    view.rerender(
+      <ConversationView workspaceId="w" conversation={conversation} />,
+    );
+    expect(screen.queryByText("READ-ONLY WORKSPACE")).not.toBeInTheDocument();
+    view.rerender(
+      <ConversationView
+        workspaceId="w"
+        conversation={{ ...conversation, archived: true }}
+      />,
+    );
+    expect(screen.queryByText("READ-ONLY WORKSPACE")).not.toBeInTheDocument();
+    expect(screen.getByText(citation.excerpt)).toBeVisible();
+  });
+  it("shows the Workspace notice in the archived list Hub and removes it after authoritative active props", () => {
+    const hub = render(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Workspace"
+        initialConversations={[]}
+        workspaceArchived
+      />,
+    );
+    expect(screen.getByText("READ-ONLY WORKSPACE")).toBeVisible();
+    hub.rerender(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Workspace"
+        initialConversations={[]}
+        archived
+      />,
+    );
+    expect(screen.queryByText("READ-ONLY WORKSPACE")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Evidence will appear here" }),
+    ).toBeVisible();
+  });
+  it.each([
+    ["processing", null, "Processing question"],
+    ["interrupted", null, "Evidence unavailable"],
+    [
+      "refused",
+      {
+        ...answered.result,
+        decision: "REFUSAL",
+        answer: null,
+        citations: [],
+        refusal_reason: "INSUFFICIENT_EVIDENCE",
+      },
+      "No supporting citation",
+    ],
+  ])(
+    "keeps %s evidence presentation separate from the Workspace notice",
+    (status, result, heading) => {
+      render(
+        <EvidenceInspector
+          workspaceId="w"
+          workspaceArchived
+          turn={{ ...answered, status, result } as any}
+        />,
+      );
+      expect(
+        screen.getByRole("heading", { name: heading as string }),
+      ).toBeVisible();
+      expect(screen.getByText("READ-ONLY WORKSPACE")).toBeVisible();
+      expect(screen.queryByText(citation.excerpt)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: /open document/i }),
+      ).not.toBeInTheDocument();
+    },
+  );
   it("selects another citation on the same Turn and clears a citation removed by history reload", async () => {
     history();
     const response = {

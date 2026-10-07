@@ -60,6 +60,100 @@ test.describe("source fixtures", () => {
     "Dedicated fixture project required.",
   );
 
+  for (const width of [1440, 390]) {
+    test(`archived Workspace evidence notice preserves selected source and fits at ${width}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
+      const unexpected = await prepareFixture(page, "183:176");
+      const citation = page.getByRole("button", { name: /citation 1/i });
+      await citation.focus();
+      await citation.press("Enter");
+      const inspector = page.getByRole("complementary", {
+        name: "Evidence Inspector",
+      });
+      await expect(inspector).toContainText(
+        "The report consists of 7 chapters.",
+      );
+      await expect(
+        inspector.getByRole("link", { name: /open document/i }),
+      ).toHaveAttribute(
+        "href",
+        "/workspaces/fixture-workspace/documents/fixture-document",
+      );
+      const notice = inspector.locator(
+        '[aria-label="Read-only Workspace notice"]',
+      );
+      await expect(notice).toHaveText(
+        "READ-ONLY WORKSPACEWorkspace archived. Restore it to ask new questions or make changes.",
+      );
+      const geometry = await notice.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const body = element.lastElementChild!.getBoundingClientRect();
+        return {
+          width: box.width,
+          height: box.height,
+          paddingX: style.paddingLeft,
+          paddingY: style.paddingTop,
+          radius: style.borderRadius,
+          gap: style.gap,
+          bodyFits: body.right <= box.right && body.bottom <= box.bottom,
+          background: style.backgroundColor,
+        };
+      });
+      expect(geometry.height).toBeGreaterThanOrEqual(82);
+      expect(geometry.paddingX).toBe("14px");
+      expect(geometry.paddingY).toBe("13px");
+      expect(geometry.radius).toBe("8px");
+      expect(geometry.gap).toBe("8px");
+      expect(geometry.bodyFits).toBe(true);
+      expect(geometry.background).toBe("rgb(243, 248, 245)");
+      if (width === 1440) {
+        expect(geometry.width).toBe(340);
+        expect(geometry.height).toBe(82);
+      } else {
+        await expect(
+          page.getByRole("dialog", { name: "Evidence" }),
+        ).toBeVisible();
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+      }
+      await page.screenshot({
+        path: `../.superpowers/figma/q1/evidence/archived-evidence-notice-${width}.png`,
+        animations: "disabled",
+      });
+      if (width === 1440)
+        await page.getByRole("button", { name: "Close evidence" }).click();
+      else {
+        await notice.evaluate((element) => {
+          for (const child of element.children) {
+            const paragraph = child as HTMLElement;
+            const style = getComputedStyle(paragraph);
+            paragraph.style.fontSize = `${parseFloat(style.fontSize) * 2}px`;
+            paragraph.style.lineHeight = `${parseFloat(style.lineHeight) * 2}px`;
+          }
+        });
+        expect(
+          await notice.evaluate((element) => {
+            const card = element.getBoundingClientRect();
+            const body = element.lastElementChild!.getBoundingClientRect();
+            return (
+              body.bottom <= card.bottom &&
+              element.scrollWidth <= element.clientWidth
+            );
+          }),
+        ).toBe(true);
+        await page.keyboard.press("Escape");
+      }
+      await expect(citation).toBeFocused();
+      expect(unexpected).toEqual([]);
+    });
+  }
+
   test("citation selection toggles on repeated click; inspector close returns keyboard focus", async ({
     page,
   }) => {

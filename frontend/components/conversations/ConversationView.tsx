@@ -388,6 +388,7 @@ function ConversationViewState({
       inspector={
         <EvidenceInspector
           workspaceId={workspaceId}
+          workspaceArchived={workspaceArchived}
           citation={selectedCitation}
           turn={selectedTurn ?? turns.at(-1)}
         />

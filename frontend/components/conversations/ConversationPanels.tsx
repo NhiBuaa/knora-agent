@@ -426,7 +426,12 @@ export function ConversationHub({
           overlay={overlay}
         />
       )}
-      inspector={<EvidenceInspector workspaceId={workspaceId} />}
+      inspector={
+        <EvidenceInspector
+          workspaceId={workspaceId}
+          workspaceArchived={workspaceArchived}
+        />
+      }
       composer={
         workspaceArchived ? (
           <WorkspaceReadOnlyComposer

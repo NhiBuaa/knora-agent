@@ -8,10 +8,12 @@ export function EvidenceInspector({
   workspaceId,
   citation,
   turn,
+  workspaceArchived = false,
 }: {
   workspaceId: string;
   citation?: CitationResponse | null;
   turn?: TurnResponse | null;
+  workspaceArchived?: boolean;
 }) {
   const working =
     turn && ["queued", "processing", "pending"].includes(turn.status);
@@ -139,6 +141,20 @@ export function EvidenceInspector({
               </dl>
             </details>
           </>
+        )}
+        {workspaceArchived && (
+          <div
+            aria-label="Read-only Workspace notice"
+            className="flex min-h-[82px] w-[340px] max-w-[calc(100%+2px)] shrink-0 flex-col gap-2 rounded-lg border border-border bg-surface-subtle px-3.5 py-[13px] min-[960px]:h-[82px]"
+          >
+            <p className="m-0 text-[10px] font-semibold leading-normal text-text-muted">
+              READ-ONLY WORKSPACE
+            </p>
+            <p className="m-0 text-[13px] leading-5 text-text-primary">
+              Workspace archived. Restore it to ask new questions or make
+              changes.
+            </p>
+          </div>
         )}
       </div>
     </aside>
