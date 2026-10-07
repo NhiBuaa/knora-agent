@@ -83,7 +83,8 @@ requesting-code-review. Record exact starting HEAD and own SDD workspace.
   Enter an exact synthetic lookup ID and verify encoded target navigation/Workspace scope using
   existing intercepted observation fixtures; do not claim backend authorization from fixture.
 - [ ] Capture only the two affected prototype states, record geometry deviations explicitly.
-  Source PNGs are1440×960 with no annotation strip: do not crop34px or replace existing51 captures.
+  Source frames are1440×960; returned MCP PNGs are1024×683 with no annotation strip. Compare
+  whole-frame proportions at a common display size; do not crop34px or replace existing51 captures.
 - [ ] Update coverage: five references now retrieved through MCP, two lookup guidance states
   implemented/checked; other new-source and native/full-regression gaps remain open.
 - [ ] Run format→format:check→typecheck, focused Operator tests and two fixture cases. Report actual
