@@ -47,6 +47,7 @@ but its bottom Workspace restore action is absent.
 | `frontend/app/workspaces/[workspaceId]/conversations/page.tsx` and `[conversationId]/page.tsx` | Server-authorized Workspace and Conversation projections |
 | `frontend/components/workspaces/ArchiveWorkspaceDialog.tsx` | Existing `resolveWorkspaceAfterMutation(hint)`; consume unchanged |
 | `frontend/tests/conversation-panels.test.tsx` | Selection, focus, mutation and archived-state regressions |
+| `frontend/tests/conversation-view.test.tsx` | Existing Workspace-archive expectation and required Next router test context |
 | `frontend/tests/conversation-page-workspace.test.tsx` (create) | Node/server route composition and authorized Workspace projection regression |
 | `frontend/tests/e2e/support/figma-fixture-view.tsx`, `figma-state-fixtures.ts` | Actual module composition with deterministic test-only data |
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Focused fixture interaction and owned live verification |
@@ -70,6 +71,9 @@ and account controls only; leave it unchanged. The list route renders Conversati
 than ConversationView, so optional validated revision and the bottom Workspace restore state
 must also reach that composition. Reuse one focused Workspace restore control in the existing
 ConversationComposer.tsx for hub/detail; do not duplicate request/resolver orchestration.
+The existing ConversationView suite may update only its Workspace-archive message expectation
+to the new Workspace-specific bottom state and add the Next router mock required by the shared
+restore control. Keep Conversation-only archive expectations and unrelated behavior unchanged.
 
 **Consumes:** `EvidenceSelection { turnId, citationIndex }`, validated Workspace revision from
 `WorkspaceResponse`, `browserRequest`, and `resolveWorkspaceAfterMutation(workspaceId)`.
