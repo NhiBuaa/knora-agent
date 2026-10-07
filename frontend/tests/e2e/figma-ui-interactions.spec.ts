@@ -319,11 +319,17 @@ test.describe("source fixtures", () => {
     ).toBeFocused();
   });
 
-  test("native FTL OTP input accepts leading-zero paste with accessible errors and disabled resend", async ({
+  test("native FTL OTP input accepts leading-zero paste and enables resend after the cooldown", async ({
     page,
     context,
   }) => {
-    await prepareFixture(page, "246:311");
+    const now = new Date("2026-10-05T12:00:00Z");
+    await page.clock.install({ time: now });
+    const unexpected = await prepareFixture(page, "246:311");
+    await page.clock.pauseAt(now);
+    const resend = page.locator("#otp-resend");
+    await expect(resend).toBeDisabled();
+    await expect(page.locator("#otp-retry")).toHaveText("30");
     const code = page.getByRole("textbox", { name: "Six-digit reset code" });
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.evaluate(() => navigator.clipboard.writeText("000042"));
@@ -339,19 +345,36 @@ test.describe("source fixtures", () => {
     );
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.locator(".knora-otp-cells")).toHaveText("000042");
-    await expect(page.locator("#otp-resend")).toBeDisabled();
+    await page.clock.setFixedTime(new Date(now.getTime() + 29_000));
+    await page.clock.runFor(250);
+    await expect(resend).toBeDisabled();
+    await expect(page.locator("#otp-retry")).toHaveText("1");
+    await page.clock.setFixedTime(new Date(now.getTime() + 30_000));
+    await page.clock.runFor(250);
+    await expect(resend).toBeEnabled();
+    await expect(page.locator("#otp-retry")).toHaveText("0");
+    await expect(resend).toHaveAttribute("name", "intent");
+    await expect(resend).toHaveAttribute("value", "resend");
+    await expect(resend).toHaveAttribute("formnovalidate", "");
+    expect(unexpected).toEqual([]);
   });
 
-  test("native FTL OTP remains a visible labelled single input without JavaScript", async ({
+  test("native FTL OTP remains a visible labelled single input with enabled resend without JavaScript", async ({
     browser,
     baseURL,
   }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     try {
       const page = await context.newPage();
+      // Source fixtures never submit recovery actions, including with scripts blocked.
+      await page.route("**/native/blocked-action", (route) => route.abort());
       await page.goto(`${baseURL}/native/242-333.html`);
       const input = page.getByRole("textbox", { name: "Six-digit reset code" });
-      await input.fill("000042");
+      await expect(input).toBeVisible();
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.evaluate(() => navigator.clipboard.writeText("000042"));
+      await input.focus();
+      await input.press("Control+V");
       await expect(input).toHaveValue("000042");
       expect(
         await input.evaluate((element) => getComputedStyle(element).height),
@@ -360,7 +383,22 @@ test.describe("source fixtures", () => {
         await input.evaluate((element) => getComputedStyle(element).color),
       ).not.toBe("rgba(0, 0, 0, 0)");
       await expect(page.locator(".knora-otp-cells")).toBeHidden();
-      await expect(page.locator("#otp-resend")).toBeDisabled();
+      const resend = page.locator("#otp-resend");
+      await expect(resend).toBeEnabled();
+      await expect(resend).toHaveAttribute("name", "intent");
+      await expect(resend).toHaveAttribute("value", "resend");
+      await expect(resend).toHaveAttribute("formnovalidate", "");
+      await expect(page.locator("#otp-retry")).toHaveText("30");
+      await expect(page.locator("form")).toHaveAttribute("method", "post");
+      await expect(page.locator("form")).toHaveAttribute(
+        "action",
+        "/native/blocked-action",
+      );
+      await input.fill("");
+      await page.screenshot({
+        path: "../.superpowers/figma/q1/evidence/otp-resend-no-js-enabled.png",
+        animations: "disabled",
+      });
     } finally {
       await context.close();
     }

@@ -154,9 +154,34 @@ class EmailOtpResetFlowIT {
             assertFalse(otp.contains("<script>alert(1)</script>"));
             assertTrue(otp.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
             assertEquals(error, otp.contains("id=\"otp-error\""));
-            assertEquals(!error, java.util.regex.Pattern.compile("id=\"otp-resend\"[^>]*\\sdisabled[ >]").matcher(otp).find());
+            assertFalse(java.util.regex.Pattern.compile("id=\"otp-resend\"[^>]*\\sdisabled[ >]").matcher(otp).find());
             assertTrue(otp.contains("value=\"change-email\""));
             assertTrue(otp.contains("value=\"resend\""));
+        }
+    }
+
+    @Test
+    void offlineOtpResendRemainsUsableWithoutJavaScriptDuringAndAfterCooldown() throws Exception {
+        for (int retry : List.of(30, 0)) {
+            var data = templateData();
+            data.put("retryAfterSeconds", retry);
+            String html = render("login", "knora-reset-otp.ftl", data);
+            var resend = java.util.regex.Pattern.compile("<button\\s[^>]*id=\"otp-resend\"[^>]*>").matcher(html);
+            assertTrue(resend.find(), "Native resend button is present");
+            String button = resend.group();
+            assertFalse(java.util.regex.Pattern.compile("\\sdisabled(?:[\\s=>])").matcher(button).find(),
+                    "Native resend must remain enabled when JavaScript is blocked, including during cooldown");
+            assertTrue(button.contains("type=\"submit\""));
+            assertTrue(button.contains("name=\"intent\" value=\"resend\""));
+            assertTrue(button.contains("formnovalidate"));
+            assertTrue(html.contains("action=\"/native/action\" method=\"post\""));
+            assertTrue(html.contains("name=\"code\""));
+            assertTrue(html.contains("value=\"verify\""));
+            assertTrue(html.contains("value=\"change-email\""));
+            assertEquals(retry > 0, html.contains("<span id=\"otp-retry\">30</span>s"),
+                    "Positive server cooldown remains visible without JavaScript");
+            assertTrue(html.contains("id=\"otp-expiry\""));
+            assertFalse(html.contains("000042"), "The login form must not disclose an OTP");
         }
     }
 

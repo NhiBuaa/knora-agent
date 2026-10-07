@@ -27,7 +27,7 @@
                 <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit" name="intent" value="verify">${msg("knoraOtpVerify")}</button>
                 <div class="knora-otp-utilities">
                     <button class="knora-text-button" type="submit" name="intent" value="change-email" formnovalidate>${msg("knoraOtpChangeEmail")}</button>
-                    <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate <#if (retryAfterSeconds!0) gt 0>disabled</#if>>${msg("knoraOtpResend")}<#if (retryAfterSeconds!0) gt 0> (<span id="otp-retry">${retryAfterSeconds?c}</span>s)</#if></button>
+                    <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate>${msg("knoraOtpResend")}<#if (retryAfterSeconds!0) gt 0> (<span id="otp-retry">${retryAfterSeconds?c}</span>s)</#if></button>
                 </div>
                 <p id="otp-expiry" class="knora-disclaimer">${msg("knoraOtpExpires")}</p>
             </form>
@@ -42,12 +42,16 @@
                 paint();
                 const countdown = document.getElementById('otp-retry');
                 if (!countdown) return;
-                const end = Date.now() + Number(countdown.textContent) * 1000;
+                const retry = Number(countdown.textContent);
+                if (!Number.isFinite(retry) || retry <= 0) return;
+                const resend = document.getElementById('otp-resend');
+                resend.disabled = true;
+                const end = Date.now() + retry * 1000;
                 const timer = setInterval(() => {
                     const remaining = Math.max(0, Math.ceil((end - Date.now()) / 1000));
                     countdown.textContent = remaining;
                     if (remaining === 0) {
-                        document.getElementById('otp-resend').disabled = false;
+                        resend.disabled = false;
                         clearInterval(timer);
                     }
                 }, 250);
