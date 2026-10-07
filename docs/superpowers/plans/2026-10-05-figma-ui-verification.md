@@ -100,6 +100,12 @@ M5 endpoint guards; do not reintroduce invalid production aliases. In the existi
 observation test, use the generated IngestionJobStatusResponse and all six canonical statuses:
 queued, processing, retry_scheduled, succeeded, superseded, failed. Verify retry/superseded
 classification with test-only projections, without worker/data changes.
+For that single focused M5 regression, the existing frontend/playwright.figma.config.ts may
+accept only FIGMA_TEST_CASE=m5-refusal in application mode, selecting m5-user-flows.spec.ts
+with anchored exact-case grep. Reject unknown selections and non-application combinations;
+preserve fixed Figma endpoints and default M5 guards. That case alone may use the existing
+openFigmaLogin and owned versioned realm identity; default loginAs remains compatible.
+Add selection-guard regression to frontend/tests/e2e/support/figma-environment.test.ts.
 
 **Produces:** one coverage row for each of the 41 screen IDs, five panel states and five response
 cards, plus each of the 89 prototype transitions classified as real action, state display or
