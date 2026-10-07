@@ -143,6 +143,23 @@ the separate countdown interaction test. The source archived Conversation bar is
 
 ## Remaining acceptance work
 
+## Latest frontend qualification and archived Conversation bar
+
+Source `070e4d2` includes reset presentation and the local archived Conversation bar correction.
+Fresh full Vitest passed373 tests across44 files in46.69s, exit0. Production build passed its first
+run, exit0; existing Next image lint warnings remain. Exact logs/exits are retained under
+Q1 `evidence/regression-preflight/frontend-{test,build}-070e4d2.*`. No source changed during these
+commands. These results qualify current frontend source, not native reset or whole-design acceptance.
+
+Archived bar implementation uses authoritative existing restore availability for exact source copy,
+and keeps generic server-rejected read-only copy. Desktop button151×34, inner748×48 and outer72
+were verified; mobile grows naturally without clipping. Loaded Inter required7px rather than source
+12px button padding; this measured adaptation and semantic color differences are disclosed.
+Focused64 component checks and3 browser cases passed; format/check/typecheck exit0 in order.
+All285 earlier artifacts remain unchanged, with10 A9 additions. Independent task review is pending.
+
+## Remaining acceptance work
+
 - Operator label typography, Trace badges and relative Trace content measures are independently
   approved. Evaluation content measures and Operations accounting/bucket/Alerts measures are also
   independently approved. Page coordinates, natural row growth, theme differences and supported extra
