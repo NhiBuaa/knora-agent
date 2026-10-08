@@ -27,7 +27,47 @@ function Invoke-OtpAdmin {
     } catch { throw 'OTP_ADMIN_REQUEST_FAILED' }
 }
 
+function Assert-OtpNativeContainer {
+    param($Container)
+    $expectedCommand = @('start-dev', '--vault=file', '--vault-dir=/opt/keycloak/vault',
+        '--spi-theme--cache-themes=false', '--spi-theme--cache-templates=false', '--spi-theme--static-max-age=-1')
+    if ($Container.Config.Image -ne 'knora-figma-otp-runtime:26.3.3' -or
+        (@($Container.Config.Entrypoint) -join '|') -ne '/opt/keycloak/bin/kc.sh' -or
+        (@($Container.Config.Cmd) -join '|') -ne ($expectedCommand -join '|')) {
+        throw 'OTP_NATIVE_RUNTIME_REQUIRED'
+    }
+    $configFiles = @($Container.Config.Labels.'com.docker.compose.project.config_files' -split ',')
+    $expectedFiles = @('docker-compose.figma-e2e.yml', 'docker-compose.figma-otp-runtime.yml')
+    if ($configFiles.Count -ne 2) { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
+    for ($index = 0; $index -lt 2; $index++) {
+        if (-not $configFiles[$index] -or
+            [IO.Path]::GetFullPath($configFiles[$index]) -ne (Join-Path $repositoryRoot $expectedFiles[$index])) {
+            throw 'OTP_NATIVE_RUNTIME_REQUIRED'
+        }
+    }
+    # Inspect metadata stays in process; environment values and mount payloads are never emitted.
+    foreach ($entry in @($Container.Config.Env)) {
+        if ($entry -match '^KNORA_STORAGE_PROOF[^=]*=') { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
+    }
+    $mounts = @($Container.Mounts)
+    if ($mounts.Count -ne 3) { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
+    $expectedSources = @{
+        '/opt/keycloak/data/import/knora-dev-realm.json' = Join-Path $repositoryRoot 'test/fixtures/keycloak/figma-realm.json'
+        '/opt/keycloak/themes/knora' = Join-Path $repositoryRoot 'themes/knora'
+    }
+    foreach ($target in '/opt/keycloak/data/import/knora-dev-realm.json', '/opt/keycloak/themes/knora', '/opt/keycloak/vault') {
+        $matching = @($mounts | Where-Object Destination -eq $target)
+        if ($matching.Count -ne 1 -or $matching[0].Type -ne 'bind' -or
+            $matching[0].RW -ne $false -or -not $matching[0].Source) { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
+        if ($target -ne '/opt/keycloak/vault' -and
+            [IO.Path]::GetFullPath($matching[0].Source) -ne $expectedSources[$target]) {
+            throw 'OTP_NATIVE_RUNTIME_REQUIRED'
+        }
+    }
+}
+
 function Assert-OtpOwnership {
+    param([switch]$RequireNativeRuntime)
     $owned = 0
     $ids = @(& docker ps -a --format '{{.ID}}')
     if ($LASTEXITCODE -ne 0) { throw 'OTP_DOCKER_INSPECTION_FAILED' }
@@ -37,6 +77,20 @@ function Assert-OtpOwnership {
         $container = $items[0]
         $labels = $container.Config.Labels
         $isNamedTarget = $container.Name -eq '/knora-figma-e2e-keycloak-1'
+        if ($RequireNativeRuntime -and ($labels.'com.docker.compose.project' -eq $Project -or
+            $container.Name -like '/knora-figma-e2e-*')) {
+            if ($labels.'com.docker.compose.project' -ne $Project -or
+                -not $labels.'com.docker.compose.project.working_dir' -or
+                [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot) {
+                throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
+            }
+            $service = $labels.'com.docker.compose.service'
+            if ($service -in 'keycloak-proof', 'otp-commit-proxy') {
+                if ($container.State.Running -ne $false) { throw 'OTP_ACTIVE_PROOF_REJECTED' }
+            } elseif ($service -notin 'postgres', 'keycloak-db', 'keycloak', 'mail', 'minio', 'minio-init', 'api') {
+                throw 'OTP_NATIVE_RUNTIME_REQUIRED'
+            }
+        }
         foreach ($port in $container.NetworkSettings.Ports.PSObject.Properties) {
             foreach ($mapping in @($port.Value)) {
                 if ($null -eq $mapping -or $mapping.HostPort -ne '8380') { continue }
@@ -50,6 +104,7 @@ function Assert-OtpOwnership {
                     throw 'OTP_PORT_OWNERSHIP_REJECTED'
                 }
                 if (-not $container.State.Running) { throw 'OTP_RUNNING_KEYCLOAK_REQUIRED' }
+                if ($RequireNativeRuntime) { Assert-OtpNativeContainer $container }
                 $owned++
             }
         }
@@ -168,6 +223,8 @@ try {
             return
         }
         if ($flows.Count -ne 1) { throw 'OTP_PREPARED_FLOW_REQUIRED' }
+        # Standalone Bind must enforce the native activation contract itself, including no-op Bind.
+        Assert-OtpOwnership -RequireNativeRuntime
         if ($current.resetCredentialsFlow -eq $alias -and $current.emailTheme -eq 'knora' -and
             $current.resetPasswordAllowed -eq $true) { Write-Output 'OTP_BIND_ALREADY_SET'; return }
         if ($current.resetCredentialsFlow -eq $alias) { throw 'OTP_BOUND_SETTINGS_CONFLICT' }
@@ -200,9 +257,9 @@ try {
         }
     }
     try {
-        Assert-OtpOwnership
         $beforeWrite = Invoke-OtpAdmin -Uri $realmUri
         if ($beforeWrite.id -ne $realmId) { throw 'id' }
+        Assert-OtpOwnership -RequireNativeRuntime:($Mode -eq 'Bind')
         $null = Invoke-OtpAdmin -Method Put -Uri $realmUri -Payload $desired
         $verified = Invoke-OtpAdmin -Uri $realmUri
         if ($verified.id -ne $realmId) { throw 'id' }

@@ -211,7 +211,13 @@ The flow script defaults to read-only Inspect. Prepare creates the custom basic 
 ordered REQUIRED executions `knora-reset-email-otp`, then native `reset-password`. An existing
 conflicting alias/order/requirement fails closed. Repeat Prepare is a no-op, and Prepare never
 changes the reset binding. Bind requires explicit opt-in, registered providers and enabled native
-UPDATE_PASSWORD. It saves the prior reset binding, email theme, reset-enabled flag and actual
+UPDATE_PASSWORD. Standalone Bind also checks the main container's native image tag, exact command
+and entrypoint, base/runtime Compose-file provenance, absence of proof environment, and only the
+three reviewed read-only fixture/theme/Vault bind mounts. It rejects active proof/proxy siblings
+before creating a snapshot and rechecks native activation immediately before the realm update.
+Stopped siblings must have the exact project/checkout ownership. Restore remains available even
+if proof exposure has returned, without requiring cleanup. Bind saves the prior reset binding,
+email theme, reset-enabled flag and actual
 realm ID before changing only those three settings to the custom flow, `knora`, and true.
 Restore checks the exact target, checkout and actual realm ID, restores only the saved settings,
 and retains the custom unbound flow. Partial errors retain snapshots and report redacted codes;

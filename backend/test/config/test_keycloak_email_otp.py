@@ -53,6 +53,42 @@ def state() -> dict:
         "hostIp": "127.0.0.1",
         "ignored": True,
         "restricted": True,
+        "nativeRuntime": {
+            "image": "knora-figma-otp-runtime:26.3.3",
+            "entrypoint": ["/opt/keycloak/bin/kc.sh"],
+            "command": [
+                "start-dev",
+                "--vault=file",
+                "--vault-dir=/opt/keycloak/vault",
+                "--spi-theme--cache-themes=false",
+                "--spi-theme--cache-templates=false",
+                "--spi-theme--static-max-age=-1",
+            ],
+            "configFiles": str(ROOT / "docker-compose.figma-e2e.yml")
+            + ","
+            + str(ROOT / "docker-compose.figma-otp-runtime.yml"),
+            "environment": ["KC_DB=postgres", "KC_HOSTNAME=http://127.0.0.1:8380"],
+            "mounts": [
+                {
+                    "Type": "bind",
+                    "Source": str(ROOT / "test/fixtures/keycloak/figma-realm.json"),
+                    "Destination": "/opt/keycloak/data/import/knora-dev-realm.json",
+                    "RW": False,
+                },
+                {
+                    "Type": "bind",
+                    "Source": str(ROOT / "themes/knora"),
+                    "Destination": "/opt/keycloak/themes/knora",
+                    "RW": False,
+                },
+                {
+                    "Type": "bind",
+                    "Source": "C:/operator-vault",
+                    "Destination": "/opt/keycloak/vault",
+                    "RW": False,
+                },
+            ],
+        },
     }
 
 
@@ -94,9 +130,11 @@ param($StatePath, $ScriptPath, $RootPath, $Actions, $SnapshotPath, $VaultPath)
 $ErrorActionPreference = 'Stop'
 $global:data = Get-Content -Raw -LiteralPath $StatePath | ConvertFrom-Json
 $global:tokenCount = 0
+$global:ownershipChecks = 0
 function docker {
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'ps') {
+        $global:ownershipChecks++
         if ($global:data.extraService) { return @('owned-keycloak', 'retained-proof') }
         return 'owned-keycloak'
     }
@@ -113,13 +151,22 @@ function docker {
                 NetworkSettings=@{Ports=@{}}
             })
         }
+        $runtime = $global:data.nativeRuntime
+        $containerEnvironment = @($runtime.environment)
+        if ($global:data.proofAfterCheck -and
+            $global:ownershipChecks -ge $global:data.proofAfterCheck) {
+            $containerEnvironment += 'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
+        }
         return ConvertTo-Json -Depth 100 -InputObject @(@{
             Name='/knora-figma-e2e-keycloak-1'; State=@{Running=$true}
-            Config=@{Labels=@{
+            Config=@{Image=$runtime.image;Cmd=$runtime.command;Entrypoint=$runtime.entrypoint
+                Env=$containerEnvironment;Labels=@{
                 'com.docker.compose.project'=$global:data.owner
                 'com.docker.compose.service'=$global:data.service
                 'com.docker.compose.project.working_dir'=$global:data.workingDir
+                'com.docker.compose.project.config_files'=$runtime.configFiles
             }}
+            Mounts=$runtime.mounts
             NetworkSettings=@{Ports=@{'8080/tcp'=@(@{HostIp=$global:data.hostIp;HostPort='8380'})}}
         })
     }
@@ -235,6 +282,13 @@ try {
                 $saved | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $SnapshotPath
                 & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
             }
+            'RestoreWithProof' {
+                $global:data.nativeRuntime.environment +=
+                    'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
+                $global:data | Add-Member -Force NoteProperty extraService 'keycloak-proof'
+                $global:data | Add-Member -Force NoteProperty extraRunning $true
+                & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
+            }
             'RuntimeCheck' {
                 & $ScriptPath -VaultPath $VaultPath -CheckConfigurationOnly @parameters
             }
@@ -290,6 +344,7 @@ def run(
         "NEVER_PRINT_PASSWORD",
         "NEVER_PRINT_USERNAME",
         "NEVER_PRINT_ERROR_BODY_PASSWORD",
+        "NEVER_PRINT_PROOF_SECRET",
     ):
         assert secret not in result.stdout + result.stderr
     return result, after
@@ -425,6 +480,100 @@ def test_restore_rejects_recreated_realm(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
     assert len(after["mutations"]) == 1
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "proof_env",
+        "probe_mount",
+        "renamed_provider_mount",
+        "image",
+        "command",
+        "entrypoint",
+        "provenance",
+        "missing_vault",
+        "writable_vault",
+    ],
+)
+def test_bind_rejects_proof_or_unreviewed_main_before_snapshot(tmp_path: Path, fault: str) -> None:
+    data = state()
+    prepared(data)
+    runtime = data["nativeRuntime"]
+    if fault == "proof_env":
+        runtime["environment"].append("KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET")
+    elif fault in ("probe_mount", "renamed_provider_mount"):
+        runtime["mounts"].append(
+            {
+                "Type": "bind",
+                "Source": "C:/artifact.jar",
+                "Destination": "/opt/keycloak/providers/"
+                + ("knora-storage-probe.jar" if fault == "probe_mount" else "renamed.jar"),
+                "RW": False,
+            }
+        )
+    elif fault == "image":
+        runtime["image"] = "quay.io/keycloak/keycloak:26.3.3"
+    elif fault == "command":
+        runtime["command"].append("--import-realm")
+    elif fault == "entrypoint":
+        runtime["entrypoint"] = ["/proof/wrapper.sh"]
+    elif fault == "provenance":
+        runtime["configFiles"] = (
+            str(ROOT / "docker-compose.figma-e2e.yml")
+            + ","
+            + str(ROOT / "docker-compose.figma-otp-proof.yml")
+        )
+    elif fault == "missing_vault":
+        runtime["mounts"].pop()
+    else:
+        runtime["mounts"][-1]["RW"] = True
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_NATIVE_RUNTIME_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+    assert not (tmp_path / "snapshot.json").exists()
+
+
+@pytest.mark.parametrize("service", ["keycloak-proof", "otp-commit-proxy"])
+@pytest.mark.parametrize("running", [True, False])
+def test_bind_rejects_active_proof_but_accepts_stopped_owned_residue(
+    tmp_path: Path, service: str, running: bool
+) -> None:
+    data = state()
+    prepared(data)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "BindOptIn")
+    if running:
+        assert result.returncode != 0
+        assert "OTP_ACTIVE_PROOF_REJECTED" in result.stderr
+        assert after["mutations"] == []
+        assert not (tmp_path / "snapshot.json").exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        assert len(after["mutations"]) == 1
+        assert after["realm"]["resetCredentialsFlow"] == ALIAS
+
+
+def test_bind_rechecks_native_runtime_before_realm_put(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["proofAfterCheck"] = 3
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert after["mutations"] == []
+    assert (tmp_path / "snapshot.json").exists()
+    assert after["realm"]["resetCredentialsFlow"] == "reset credentials"
+
+
+def test_restore_remains_available_with_main_and_sibling_proof_exposure(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,RestoreWithProof")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 2
+    assert after["flows"] == data["flows"]
 
 
 @pytest.mark.parametrize("field", ["baseUrl", "realm", "project", "workingDirectory"])
