@@ -262,6 +262,8 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
 
     // Desktop proves the supported CONFIGURE_TOTP action on only this new account.
     let totpSecret = "";
+    let enrollmentCode = "";
+    let ssoCode = "";
     let enrolled: Credential | undefined;
     if (test.info().project.name === "desktop1440x960") {
       stage = "MFA_AUTHORIZATION";
@@ -281,12 +283,17 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       await sensitive(stage, () => page.goto(enrollment.toString()));
       stage = "MFA_CREDENTIAL_LOGIN";
       if (await page.locator("#kc-form-login").count()) {
-        await sensitive(stage, () =>
-          page.locator("#username").fill(identity.email),
-        );
+        if (await page.locator("#kc-form-login #username").count()) {
+          stage = "MFA_CREDENTIAL_USERNAME";
+          await sensitive(stage, () =>
+            page.locator("#kc-form-login #username").fill(identity.email),
+          );
+        }
+        stage = "MFA_CREDENTIAL_PASSWORD";
         await sensitive(stage, () =>
           page.locator("#password").fill(identity.password),
         );
+        stage = "MFA_CREDENTIAL_SUBMIT";
         await sensitive(stage, () => page.locator("#kc-login").click());
       }
       stage = "MFA_SETUP_FORM";
@@ -298,9 +305,8 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
         (await page.locator("#kc-totp-secret-key").textContent()) ?? "";
       await nativeForm(page, "#totp");
       stage = "MFA_SETUP_SUBMIT";
-      await sensitive(stage, () =>
-        page.locator("#totp").fill(totp(totpSecret)),
-      );
+      enrollmentCode = totp(totpSecret);
+      await sensitive(stage, () => page.locator("#totp").fill(enrollmentCode));
       await sensitive(stage, () =>
         page.locator("#userLabel").fill("Isolated native OTP proof"),
       );
@@ -324,21 +330,40 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     guards.push(await guardedContext(ssoContext));
     const ssoPage = await ssoContext.newPage();
     await openFigmaLogin(ssoPage);
-    await sensitive(stage, () =>
-      ssoPage.locator("#username").fill(identity.email),
-    );
-    await sensitive(stage, () =>
-      ssoPage.locator("#password").fill(identity.password),
-    );
-    await sensitive(stage, () => ssoPage.locator("#kc-login").click());
+    const password = ssoPage.locator("#kc-form-login #password");
+    if ((await password.count()) > 0) {
+      if (await ssoPage.locator("#kc-form-login #username").count()) {
+        stage = "EXISTING_SSO_USERNAME";
+        await sensitive(stage, () =>
+          ssoPage.locator("#kc-form-login #username").fill(identity.email),
+        );
+      }
+      stage = "EXISTING_SSO_PASSWORD";
+      await sensitive(stage, () => password.fill(identity.password));
+      stage = "EXISTING_SSO_PASSWORD_SUBMIT";
+      await sensitive(stage, () => ssoPage.locator("#kc-login").click());
+    } else {
+      expect(enrolled).toBeDefined();
+    }
     if (enrolled) {
+      stage = "EXISTING_SSO_TOTP_FORM";
       await expect(ssoPage.locator("#otp")).toBeVisible();
       await nativeForm(ssoPage, "#otp");
-      await sensitive(stage, () =>
-        ssoPage.locator("#otp").fill(totp(totpSecret)),
+      stage = "EXISTING_SSO_TOTP_FRESH_CODE";
+      await expect
+        .poll(() => totp(totpSecret) !== enrollmentCode, {
+          timeout: 35_000,
+          intervals: [500],
+        })
+        .toBe(true);
+      stage = "EXISTING_SSO_TOTP_CODE";
+      ssoCode = totp(totpSecret);
+      await sensitive(stage, () => ssoPage.locator("#otp").fill(ssoCode));
+      await sensitive("EXISTING_SSO_TOTP_SUBMIT", () =>
+        ssoPage.locator("#kc-login").click(),
       );
-      await sensitive(stage, () => ssoPage.locator("#kc-login").click());
     }
+    stage = "EXISTING_SSO_RETURN";
     await ssoPage.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
 
     stage = "EMAIL";
@@ -521,14 +546,23 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await sensitive(stage, () => reset.locator("#password").fill(newPassword));
     await sensitive(stage, () => reset.locator("#kc-login").click());
     if (enrolled) {
-      stage = "MFA_LOGIN";
+      stage = "MFA_LOGIN_FORM";
       await expect(reset.locator("#otp")).toBeVisible();
       expect(new URL(reset.url()).origin === keycloakOrigin).toBe(true);
       await nativeForm(reset, "#otp");
-      await sensitive(stage, () =>
-        reset.locator("#otp").fill(totp(totpSecret)),
+      stage = "MFA_LOGIN_FRESH_CODE";
+      await expect
+        .poll(() => totp(totpSecret) !== ssoCode, {
+          timeout: 45_000,
+          intervals: [500],
+        })
+        .toBe(true);
+      stage = "MFA_LOGIN_CODE";
+      const freshLoginCode = totp(totpSecret);
+      await sensitive(stage, () => reset.locator("#otp").fill(freshLoginCode));
+      await sensitive("MFA_LOGIN_SUBMIT", () =>
+        reset.locator("#kc-login").click(),
       );
-      await sensitive(stage, () => reset.locator("#kc-login").click());
     }
     stage = "WORKSPACE";
     await reset.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
@@ -600,7 +634,60 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
                 document.querySelector("#kc-passwd-update-form"),
               ),
               otpForm: Boolean(document.querySelector("#code")),
+              loginOtpForm: Boolean(document.querySelector("#otp")),
+              loginOtpControl: {
+                count: document.querySelectorAll("#otp").length,
+                visible: Boolean(
+                  (document.querySelector("#otp") as HTMLElement | null)
+                    ?.offsetParent,
+                ),
+              },
               loginForm: Boolean(document.querySelector("#kc-form-login")),
+              loginControls: ["#username", "#password", "#kc-login"].map(
+                (selector) => ({
+                  selector,
+                  count: document.querySelectorAll(selector).length,
+                  visible: Boolean(
+                    (document.querySelector(selector) as HTMLElement | null)
+                      ?.offsetParent,
+                  ),
+                }),
+              ),
+              visibleFormIds: Array.from(document.forms)
+                .filter((form) => Boolean(form.offsetParent))
+                .map((form) => form.id || "(anonymous)"),
+              visibleButtonLabels: Array.from(
+                document.querySelectorAll("button"),
+              )
+                .filter((button) =>
+                  Boolean((button as HTMLElement).offsetParent),
+                )
+                .map((button) => ({
+                  id: button.id || "(anonymous)",
+                  label: (button.textContent ?? "").trim().replace(/\s+/g, " "),
+                })),
+              headingAndAlertPresence: {
+                pageTitle: Boolean(document.querySelector("#kc-page-title")),
+                infoMessage: Boolean(
+                  document.querySelector("#kc-info-message"),
+                ),
+                alert: Boolean(document.querySelector('[role="alert"]')),
+              },
+              visibleNativeActionSafe: Array.from(document.forms)
+                .filter((form) => Boolean(form.offsetParent))
+                .every((form) => {
+                  const action = form.getAttribute("action");
+                  if (!action) return false;
+                  try {
+                    const url = new URL(action, window.location.href);
+                    return (
+                      url.origin === "http://127.0.0.1:8380" &&
+                      url.pathname.startsWith("/realms/knora-dev/")
+                    );
+                  } catch {
+                    return false;
+                  }
+                }),
               mfaForm: Boolean(
                 document.querySelector("#kc-totp-settings-form"),
               ),
