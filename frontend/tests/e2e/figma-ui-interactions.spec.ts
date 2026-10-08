@@ -4019,6 +4019,7 @@ test.describe("guarded application journeys", () => {
   );
   for (const viewport of [
     { width: 1440, height: 960 },
+    { width: 800, height: 844 },
     { width: 390, height: 844 },
   ]) {
     test(`live account logout and forced sign-in at ${viewport.width}`, async ({
@@ -4147,6 +4148,30 @@ test.describe("guarded application journeys", () => {
         () => document.documentElement.scrollWidth > innerWidth,
       );
       expect(forcedNativeHorizontalOverflow).toBe(false);
+      const restartTooltip = page.locator("#reset-login .kc-tooltip-text");
+      await page.locator("#reset-login").hover();
+      await expect(restartTooltip).toBeVisible();
+      const tooltipGeometry = await restartTooltip.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const arrow = getComputedStyle(element, "::after");
+        return {
+          fitsViewport: rect.left >= 0 && rect.right <= innerWidth,
+          arrowTop: arrow.top,
+          arrowBottomColor: arrow.borderBottomColor,
+          tooltipTop: style.top,
+        };
+      });
+      if (viewport.width <= 800) {
+        expect(tooltipGeometry).toEqual({
+          fitsViewport: true,
+          arrowTop: "-10px",
+          arrowBottomColor: "rgb(0, 0, 0)",
+          tooltipTop: "36px",
+        });
+      } else {
+        expect(tooltipGeometry.fitsViewport).toBe(true);
+      }
       await captureIdentity(
         page,
         `${evidence}/forced-sign-in-${viewport.width}.png`,
