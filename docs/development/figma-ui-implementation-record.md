@@ -227,3 +227,27 @@ Current runtime check: Docker responds, but `docker ps` reports no running conta
 identity/logout/session evidence therefore needs the guarded retained harness resumed separately.
 No recovery binding, password change, blocked outage retry, service mutation, merge, push or
 worktree cleanup was performed in these Documents tasks. The full goal remains active.
+
+## Oct8 live logout and forced sign-in
+
+The guarded live identity task committed at `c03b799` and received independent Spec compliance
+and Quality Approved review with no findings. The retained `knora-figma-e2e` services were started
+through `prepare-figma-e2e.ps1 -CheckConfigurationOnly` plus owned Compose start; issuer discovery,
+API health and Mailpit readiness returned200. No proof/proxy services or realm-configuration
+mutation were used.
+
+At1440×960 and390×844, the same browser context completed native login, then forced
+`prompt=login` reauthentication. The fixed Keycloak callback remained in use, untrusted
+`returnTo` was discarded, and state/nonce/PKCE values differed by boolean comparison only. The
+username-hidden reauthentication field was readonly and password-empty before capture. Account
+logout observed BFF303, native Keycloak logout confirmation, Signed out, scoped panel preference
+removal, unrelated preference retention, null safe session, protected Workspace401 and a fresh
+password-empty native sign-in form. No non-GET `/api/v1` writes occurred.
+
+The first attempt exposed a test assumption: Keycloak's username-hidden form has no editable
+username input. The test now asserts the readonly attempted username and reruns both cases green.
+All366 prior Q1 artifacts retain their hashes; eight PNGs and two sanitized JSON journey files
+were added under `live-logout-prompt-2026-10-08`. Mobile native forced sign-in reports horizontal
+overflow while desktop does not; this is disclosed as an adaptation gap because no mobile Figma
+identity reference exists. Natural expiry, reset completion, OTP/MFA, account switching and
+whole-design parity remain unproved.
