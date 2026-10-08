@@ -251,3 +251,29 @@ were added under `live-logout-prompt-2026-10-08`. Mobile native forced sign-in r
 overflow while desktop does not; this is disclosed as an adaptation gap because no mobile Figma
 identity reference exists. Natural expiry, reset completion, OTP/MFA, account switching and
 whole-design parity remain unproved.
+
+## Oct8 whole-branch acceptance audit
+
+Independent review of `531f06e..809d914` returned **NOT READY / FAIL for the complete
+approved objective**. The retained report is
+`.superpowers/sdd/2026-10-05-figma-ui-workflow/final-whole-branch-review.md`.
+Critical gaps are the unbound native OTP recovery flow, unresolved whole-design parity,
+and unexercised prototype transitions. Selected live journeys and approved local slices
+remain bounded evidence. The review does not authorize integration or close Q1/Q2.
+
+On source `809d914`, four existing auth suites passed28 tests when run from `frontend`:
+`npm exec vitest run tests/auth-session.test.ts tests/auth-logout-origin.test.ts
+tests/auth-refresh.test.ts tests/auth-figma-integration.test.tsx` (exit0). The initial
+repo-root invocation failed alias resolution before collecting tests; it is not a product
+regression. This focused result does not prove natural session expiry or final-head global
+qualification. Current OpenAPI and Ruff checks cannot run successfully in the host Python
+environment: FastAPI and Ruff are absent. Compose configuration check returned exit0.
+
+Actual native username-hidden reauthentication diagnosis ran twice at1440/390, both2
+cases passing. At390px, document scrollWidth525 comes solely from the inherited hidden
+restart-login tooltip: x394.80, width130, right524.80. Its48px button fits atx318/right366;
+desktop has no overflow. The retained sanitized diagnosis is
+`.superpowers/sdd/2026-10-05-figma-ui-workflow/native-reauth-overflow-diagnosis.md`.
+Temporary diagnostic tests/config were removed; no production CSS fix is yet claimed.
+OTP binding and the rejected physical outage proof remain held; equivalent workarounds
+are prohibited. Keep the goal active.
