@@ -336,7 +336,7 @@ export function DocumentDetail({
           ? "Not available for new answers in this workspace"
           : "Answer availability unavailable";
   const actionClass =
-    "h-[42px] min-h-[42px] w-full rounded-[7px] bg-surface py-0 text-sm font-medium";
+    "w-full rounded-[7px] bg-surface py-0 text-sm font-medium";
   return (
     <article className="m-0 flex min-w-0 flex-col gap-6 rounded-none border-0 bg-transparent p-0 text-text-primary">
       <Link
@@ -559,7 +559,7 @@ export function DocumentDetail({
                   <div className="mb-5">
                     <Button
                       variant="secondary"
-                      className={`${actionClass} !border-action !text-action-text`}
+                      className={`${actionClass} h-[42px] min-h-[42px] !border-action !text-action-text`}
                       disabled={
                         busy ||
                         jobIsActive(
@@ -579,7 +579,7 @@ export function DocumentDetail({
                 <div>
                   <Button
                     variant="secondary"
-                    className={`${actionClass} ${document.archived ? "!border-action !text-action-text" : "border-control-border"}`}
+                    className={`${actionClass} h-[42px] min-h-[42px] ${document.archived ? "!border-action !text-action-text" : "border-control-border"}`}
                     disabled={busy}
                     onClick={() => void archive()}
                   >

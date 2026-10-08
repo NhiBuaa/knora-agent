@@ -1360,6 +1360,241 @@ test.describe("source fixtures", () => {
     { width: 1440, height: 960 },
     { width: 390, height: 844 },
   ]) {
+    test(`Document detail action height and cancellation at ${viewport.width}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      const evidence =
+        "../.superpowers/figma/q1/evidence/document-detail-action-height-2026-10-08";
+      fs.mkdirSync(evidence, { recursive: true });
+      const requests: string[] = [];
+      const writes: string[] = [];
+      const observations: unknown[] = [];
+      page.on("request", (request) => {
+        const pathname = new URL(request.url()).pathname;
+        if (!pathname.startsWith("/api/")) return;
+        const entry = `${request.method()} ${pathname}`;
+        requests.push(entry);
+        if (request.method() !== "GET") writes.push(entry);
+      });
+      for (const state of ["128:122", "128:125"]) {
+        const requestStart = requests.length;
+        const unexpected = await prepareFixture(page, state);
+        const archived = state === "128:125";
+        const article = page.locator("article");
+        const overview = page.getByRole("region", {
+          name: "Overview",
+          exact: true,
+        });
+        await expect(article.getByRole("heading", { level: 1 })).toHaveText(
+          "Teacher Manh – Guidelines 2024.pdf",
+        );
+        await expect(overview.locator("dl > div").nth(0)).toHaveText(
+          `Status${archived ? "Archived" : "Ready"}`,
+        );
+        await expect(overview.locator("dl > div").nth(1)).toHaveText(
+          `Available for new answers${archived ? "No" : "Yes"}`,
+        );
+        await expect(overview.locator("dl > div").nth(2)).toContainText(
+          "Current: fixture-version",
+        );
+        await expect(overview.locator("dl > div").nth(2)).toContainText(
+          "Served: fixture-version",
+        );
+        await expect(overview.locator("dl > div").nth(3)).not.toContainText(
+          "Unavailable",
+        );
+        const source = page.getByRole("region", {
+          name: "Source",
+          exact: true,
+        });
+        await expect(source.getByRole("link")).toHaveAttribute(
+          "href",
+          "/workspaces/fixture-workspace/documents/fixture-document",
+        );
+        await source.getByText("Source details", { exact: true }).click();
+        for (const value of ["guidelines-2024", "7", "succeeded"])
+          await expect(
+            source.locator("details dd").filter({ hasText: value }),
+          ).toBeVisible();
+        await source.getByText("Source details", { exact: true }).click();
+        await expect(article.locator("input, textarea, select")).toHaveCount(0);
+
+        await page.evaluate(async () => {
+          await document.fonts.ready;
+          await Promise.all(
+            Array.from(document.images).map((img) => img.decode()),
+          );
+        });
+        const assets = [
+          { src: "/brand/knora-leaf.svg", size: 18 },
+          ...(!archived ? [{ src: "/icons/figma/97a8a.svg", size: 7 }] : []),
+        ];
+        for (const asset of assets) {
+          expect(fs.statSync(`public${asset.src}`).size).toBeGreaterThan(0);
+          const image = page.locator(`img[src="${asset.src}"]`);
+          await expect(image).toHaveCount(1);
+          expect(
+            await image.evaluate(
+              (el: HTMLImageElement) => el.complete && el.naturalWidth > 0,
+            ),
+          ).toBe(true);
+          const box = (await image.boundingBox())!;
+          expect(box.width).toBeCloseTo(asset.size, 1);
+          expect(box.height).toBeCloseTo(asset.size, 1);
+        }
+        await expect(
+          overview.locator('img[src="/icons/figma/97a8a.svg"]'),
+        ).toHaveCount(archived ? 0 : 1);
+
+        const deletion = page.getByRole("button", {
+          name: "Request deletion",
+          exact: true,
+        });
+        await expect(deletion).toBeEnabled();
+        const ordinaryNames = archived
+          ? ["Restore document"]
+          : ["Reprocess document", "Archive document"];
+        const actions = [];
+        for (const name of [...ordinaryNames, "Request deletion"]) {
+          const button = page.getByRole("button", { name, exact: true });
+          await expect(button).toBeEnabled();
+          const box = (await button.boundingBox())!;
+          actions.push({
+            name,
+            ...box,
+            minHeight: await button.evaluate(
+              (el) => getComputedStyle(el).minHeight,
+            ),
+          });
+          if (viewport.width === 1440) expect(box.width).toBeCloseTo(298, 1);
+          expect(box.x).toBeGreaterThanOrEqual(0);
+          expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+          if (name !== "Request deletion") {
+            expect(box.height).toBeCloseTo(42, 1);
+            expect(
+              await button.evaluate((el) => getComputedStyle(el).minHeight),
+            ).toBe("42px");
+          }
+        }
+        await expect(
+          page.getByRole("button", {
+            name: archived ? "Reprocess document" : "Restore document",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+        const geometry = await page.evaluate(() => ({
+          pageFits: document.documentElement.scrollWidth <= innerWidth,
+          fields: Array.from(document.querySelectorAll("article dl > div")).map(
+            (el) => ({
+              text: el.textContent,
+              height: el.getBoundingClientRect().height,
+            }),
+          ),
+          assets: Array.from(document.images).map((img) => ({
+            src: img.getAttribute("src"),
+            width: img.getBoundingClientRect().width,
+            height: img.getBoundingClientRect().height,
+            loaded: img.complete && img.naturalWidth > 0,
+          })),
+        }));
+        expect(geometry.pageFits).toBe(true);
+        if ((await deletion.boundingBox())!.height !== 40) {
+          fs.writeFileSync(
+            `${evidence}/red-${state.replace(":", "-")}-${viewport.width}.json`,
+            JSON.stringify({ viewport, actions, ...geometry }, null, 2),
+          );
+          await page.screenshot({
+            path: `${evidence}/red-${state.replace(":", "-")}-${viewport.width}.png`,
+            fullPage: true,
+          });
+        }
+        expect((await deletion.boundingBox())!.height).toBeCloseTo(40, 1);
+        expect(
+          await deletion.evaluate((el) => getComputedStyle(el).minHeight),
+        ).toBe("40px");
+        await page.evaluate(() => scrollTo(0, 0));
+        await page.screenshot({
+          path: `${evidence}/implemented-${state.replace(":", "-")}-${viewport.width}.png`,
+          fullPage: true,
+        });
+
+        await deletion.click();
+        const dialog = page.getByRole("dialog", {
+          name: "Request document deletion",
+          exact: true,
+        });
+        await expect(dialog).toBeVisible();
+        await expect(dialog).toContainText(
+          "Teacher Manh – Guidelines 2024.pdf",
+        );
+        await expect(dialog).toContainText(
+          archived ? "PDF source · Archived" : "PDF source · Ready",
+        );
+        const cancel = dialog.getByRole("button", {
+          name: "Cancel",
+          exact: true,
+        });
+        const confirm = dialog.getByRole("button", {
+          name: "Request deletion",
+          exact: true,
+        });
+        await expect(cancel).toBeEnabled();
+        await expect(cancel).toBeFocused();
+        await expect(confirm).toBeEnabled();
+        const dialogBox = (await dialog.boundingBox())!;
+        expect(dialogBox.x).toBeGreaterThanOrEqual(0);
+        expect(dialogBox.y).toBeGreaterThanOrEqual(0);
+        expect(dialogBox.x + dialogBox.width).toBeLessThanOrEqual(
+          viewport.width,
+        );
+        expect(dialogBox.y + dialogBox.height).toBeLessThanOrEqual(
+          viewport.height,
+        );
+        await page.screenshot({
+          path: `${evidence}/dialog-${state.replace(":", "-")}-${viewport.width}.png`,
+          fullPage: true,
+        });
+        await cancel.click();
+        await expect(dialog).toBeHidden();
+        await expect(deletion).toBeFocused();
+        await deletion.press("Enter");
+        await expect(dialog).toBeVisible();
+        await expect(
+          dialog.getByRole("button", { name: "Cancel", exact: true }),
+        ).toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toBeHidden();
+        await expect(deletion).toBeFocused();
+        expect(requests.slice(requestStart).sort()).toEqual([
+          "GET /api/v1/workspaces/fixture-workspace/documents/fixture-document",
+        ]);
+        expect(unexpected).toEqual([]);
+        expect(writes).toEqual([]);
+        observations.push({
+          state,
+          viewport,
+          actions,
+          ...geometry,
+          dialog: dialogBox,
+          cancelFocusReturned: true,
+          escapeFocusReturned: true,
+          requests: requests.slice(requestStart),
+          unexpected: [...unexpected],
+          writes: [...writes],
+        });
+      }
+      fs.writeFileSync(
+        `${evidence}/journey-${viewport.width}.json`,
+        JSON.stringify(observations, null, 2),
+      );
+    });
+  }
+
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
     test(`Documents local interactions ${viewport.width} verifies filters, menus and cancelled dialogs without mutations`, async ({
       page,
     }) => {
