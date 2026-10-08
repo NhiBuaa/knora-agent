@@ -4020,6 +4020,7 @@ test.describe("guarded application journeys", () => {
   for (const viewport of [
     { width: 1440, height: 960 },
     { width: 800, height: 844 },
+    { width: 801, height: 844 },
     { width: 390, height: 844 },
   ]) {
     test(`live account logout and forced sign-in at ${viewport.width}`, async ({
