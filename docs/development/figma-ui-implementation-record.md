@@ -276,9 +276,9 @@ desktop has no overflow. The retained sanitized diagnosis is
 `.superpowers/sdd/2026-10-05-figma-ui-workflow/native-reauth-overflow-diagnosis.md`.
 Temporary diagnostic tests/config were removed. Commit `decaab7` applies the bounded
 mobile-only tooltip placement and adds the no-overflow assertion; the live journeys passed
-at390px and1440px after the fix. This resolves the recorded adaptation defect only and does
+at390px, 800px and1440px after the fix, including the mobile hover arrow check. This resolves the recorded adaptation defect only and does
 not change the still-open native OTP, parity or transition gates.
-Fresh qualification after `decaab7`/`8279f8f`: frontend Vitest passed373 tests across44 files; the production build passed with only the existing Next `<img>` warnings. Format, format:check and typecheck passed before the two live viewport journeys. These results qualify the current frontend source and mobile tooltip correction only; whole-design acceptance remains partial.
+Fresh qualification after `decaab7`/`8279f8f`: frontend Vitest passed373 tests across44 files; the production build passed with only the existing Next `<img>` warnings. Format, format:check and typecheck passed before the three live viewport journeys (1440, 800 and 390), including the mobile hover arrow check. These results qualify the current frontend source and mobile tooltip correction only; whole-design acceptance remains partial.
 
 OTP binding and the rejected physical outage proof remain held; equivalent workarounds
 are prohibited. Keep the goal active.
