@@ -173,8 +173,8 @@ while the labelled native input stays truly empty. Leading-zero paste and clear 
 Of315 earlier Q1 artifacts,314 are unchanged and only copied native CSS changed; all nine native
 HTML hashes are unchanged, with25 additions. The reviewer noted existing Java compiler notes in
 the offline exporter; toolchain warning cleanup is deferred outside this bounded CSS task.
-Native recovery/CSP and whole-design acceptance remain open. The next bounded task exercises
-Documents local controls through existing modules without submitting mutations.
+Native recovery/CSP and whole-design acceptance remain open. Documents local controls and the
+detail action allocation are now independently approved, as recorded below.
 
 - Operator label typography, Trace badges and relative Trace content measures are independently
   approved. Evaluation content measures and Operations accounting/bucket/Alerts measures are also
@@ -193,3 +193,37 @@ Documents local controls through existing modules without submitting mutations.
   formatting workflow's passing Prettier status; no integration action is authorized by this record.
 
 Keep the goal active until the original requirements and their authoritative evidence are complete.
+
+## Oct8 Documents completion and refreshed frontend qualification
+
+Documents local interactions committed at `0528c72`; independent Spec compliance and Quality
+review both approved with no findings. Two desktop/mobile browser cases and45 relevant component
+checks passed. The owning menu wrapper now opens upward on mobile after a retained924.42px
+overflow RED in an844px viewport. Filtering, search, keyboard menus, cancelled deletion dialogs,
+selected-file reset and focus return are checked without API writes. Scoped href assertions do
+not prove destination arrival. All340 earlier Q1 artifacts remain unchanged;12 task additions
+bring the inventory to352. Upload trigger158.23×38 versus source154×38 remains a disclosed gap.
+
+Document detail action allocation committed at `145c41c`; independent Spec compliance and
+Quality review both approved with no findings. Actual42px deletion height failed against the
+source40px expectation before correction. Local callsite classes now preserve42px Reprocess,
+Archive and Restore, and40px Request deletion. Two final formatted browser cases cover both
+Ready/Archived at desktop/mobile, Cancel/Escape/focus, exact existing assets and GET-only guards;
+45 component checks passed. The first GREEN attempt's incorrect Workspace GET expectation was
+diagnosed from actual fixture composition and corrected only in the test. All352 prior artifacts
+remain unchanged;14 own-folder additions bring the inventory to366. Natural source/provenance
+row growth and other page differences remain documented in the visual ledger.
+
+Fresh complete frontend qualification on clean source `145c41cbfa6634de33e44d2233a0ff460ff24441`:
+`npm --prefix frontend run test` passed373 tests across44 files (28.06s), exit0;
+`npm --prefix frontend run build` passed, exit0. Existing Next image lint warnings remain.
+Full logs and exit files are retained under Q1 `evidence/regression-preflight/` as
+`frontend-{test,build}-145c41c.*`. HEAD and clean status were verified after both commands;
+no maintained source changed during qualification. Format/check/typecheck passed sequentially
+in the task. These results cover the current frontend source, including the mobile menu fix;
+they do not qualify native OTP or complete Q1/Q2.
+
+Current runtime check: Docker responds, but `docker ps` reports no running containers. Live
+identity/logout/session evidence therefore needs the guarded retained harness resumed separately.
+No recovery binding, password change, blocked outage retry, service mutation, merge, push or
+worktree cleanup was performed in these Documents tasks. The full goal remains active.
