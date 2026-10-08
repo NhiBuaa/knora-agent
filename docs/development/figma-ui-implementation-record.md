@@ -282,3 +282,23 @@ Fresh qualification after `decaab7`/`8279f8f`: frontend Vitest passed373 tests a
 
 OTP binding and the rejected physical outage proof remain held; equivalent workarounds
 are prohibited. Keep the goal active.
+
+## Oct8 Conversation creation navigation
+
+The retained Workspace restore journey now exercises New Conversation from an unsubmitted
+draft and from an archived Conversation in an active Workspace (prototype edges34 and51).
+It asserts POST201 with an idempotency key, waits for a different destination URL, then reads
+GET200 to confirm the new ID, Workspace and active state; the destination composer is empty.
+The source Conversation remains archived afterward. While the Workspace is archived, the
+creation button is absent. The full scoped live journey passed (1 case,20.7s before formatting,
+then 1 case,21.1s after formatting). Format, format:check, typecheck and diff checks passed.
+Independent review approved this bounded three-file change with no Critical or Important findings.
+
+Earlier attempts read a response body after document navigation, or inspected the old URL
+before navigation completed. The final test waits for navigation and reads persisted state.
+The original restore assertion also used superseded copy; it now expects the source-aligned
+“Archived conversation · Read-only” status already rendered by ConversationComposer.
+No production code changed. New evidence is in `conversation-creation-2026-10-08/`; future
+runs of this journey use that folder. Earlier failed attempts had already overwritten some
+legacy restore captures, so no unchanged-hash claim is made for those artifacts.
+Other Conversation starting states, native expiry/OTP and whole-design parity remain open.

@@ -4296,6 +4296,9 @@ test.describe("guarded application journeys", () => {
   test("owned Workspace restores from the Conversation bottom bar while an archived Conversation stays archived", async ({
     page,
   }) => {
+    const evidence =
+      "../.superpowers/figma/q1/evidence/conversation-creation-2026-10-08";
+    fs.mkdirSync(evidence, { recursive: true });
     const identity = realm.users.find((user) => user.username === "m5-user");
     if (!identity) throw new Error("Owned synthetic identity missing.");
     await openFigmaLogin(page);
@@ -4310,6 +4313,46 @@ test.describe("guarded application journeys", () => {
     expect(created.status()).toBe(201);
     const workspace = (await created.json()) as WorkspaceResponse;
     const base = `/workspaces/${workspace.id}`;
+    const creationJourneys: {
+      source: "draft" | "archived";
+      status: number;
+      destinationVerified: boolean;
+    }[] = [];
+    const createThroughButton = async (source: "draft" | "archived") => {
+      const previousPath = new URL(page.url()).pathname;
+      const responsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === `/api/v1${base}/conversations`,
+      );
+      await page
+        .getByRole("button", { name: "New Conversation", exact: true })
+        .click();
+      const response = await responsePromise;
+      expect(response.status()).toBe(201);
+      expect(response.request().headers()["idempotency-key"]).toBeTruthy();
+      await page.waitForURL(
+        (url) =>
+          url.pathname.startsWith(`${base}/conversations/`) &&
+          url.pathname !== previousPath,
+      );
+      const destination = new URL(page.url()).pathname;
+      const persisted = await page.request.get(`/api/v1${destination}`);
+      expect(persisted.status()).toBe(200);
+      const conversation = (await persisted.json()) as ConversationResponse;
+      expect(conversation.workspace_id).toBe(workspace.id);
+      expect(conversation.archived).toBe(false);
+      expect(destination).toBe(`${base}/conversations/${conversation.id}`);
+      await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
+        "",
+      );
+      creationJourneys.push({
+        source,
+        status: response.status(),
+        destinationVerified: true,
+      });
+      await captureIdentity(page, `${evidence}/created-from-${source}.png`);
+    };
     const createConversation = async () => {
       const response = await page.request.post(`/api/v1${base}/conversations`, {
         headers: { "Idempotency-Key": randomUUID() },
@@ -4327,6 +4370,10 @@ test.describe("guarded application journeys", () => {
     expect((await archivedResponse.json()).archived).toBe(true);
     await page.goto(`${base}/conversations/${active.id}`);
     await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
+    await page
+      .getByLabel("Question", { exact: true })
+      .fill("Draft not submitted");
+    await createThroughButton("draft");
     await page.getByRole("button", { name: "Workspace actions" }).click();
     await page.getByRole("menuitem", { name: "Archive workspace" }).click();
     const archive = page.waitForResponse(
@@ -4350,10 +4397,10 @@ test.describe("guarded application journeys", () => {
       page.getByText("Archived workspace · Read-only", { exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
-    await captureIdentity(
-      page,
-      "../.superpowers/figma/q1/evidence/parity-live-workspace-archived.png",
-    );
+    await expect(
+      page.getByRole("button", { name: "New Conversation", exact: true }),
+    ).toHaveCount(0);
+    await captureIdentity(page, `${evidence}/workspace-archived.png`);
     await page.goto(`${base}/conversations/${second.id}`);
     await expect(
       page.getByRole("button", { name: "Restore workspace", exact: true }),
@@ -4390,7 +4437,7 @@ test.describe("guarded application journeys", () => {
     await expect(page).toHaveURL(new RegExp(`${base}$`));
     await page.goto(`${base}/conversations/${second.id}`);
     await expect(
-      page.getByText("This Conversation is read-only.", { exact: true }),
+      page.getByText("Archived conversation · Read-only", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Restore conversation", exact: true }),
@@ -4400,18 +4447,18 @@ test.describe("guarded application journeys", () => {
       `/api/v1${base}/conversations/${second.id}`,
     );
     expect((await retained.json()).archived).toBe(true);
-    await captureIdentity(
-      page,
-      "../.superpowers/figma/q1/evidence/parity-live-conversation-still-archived.png",
+    await captureIdentity(page, `${evidence}/conversation-still-archived.png`);
+    await createThroughButton("archived");
+    const stillArchived = await page.request.get(
+      `/api/v1${base}/conversations/${second.id}`,
     );
+    expect(stillArchived.status()).toBe(200);
+    expect((await stillArchived.json()).archived).toBe(true);
     await page.goto(`${base}/conversations/${active.id}`);
     await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
-    await captureIdentity(
-      page,
-      "../.superpowers/figma/q1/evidence/parity-live-workspace-restored.png",
-    );
+    await captureIdentity(page, `${evidence}/workspace-restored.png`);
     fs.writeFileSync(
-      "../.superpowers/figma/q1/evidence/parity-live-restore.json",
+      `${evidence}/journey.json`,
       JSON.stringify(
         {
           workspaceId: workspace.id,
@@ -4422,6 +4469,7 @@ test.describe("guarded application journeys", () => {
           restoreStatus: restoredResponse.status(),
           secondConversationArchived: true,
           resolvedPath: base,
+          creationJourneys,
         },
         null,
         2,
