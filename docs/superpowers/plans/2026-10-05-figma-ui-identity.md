@@ -20,6 +20,13 @@ The task's file list and this structure must remain consistent throughout execut
 
 ## Global Constraints
 
+**Oct8 owner-approved follow-up:** The [native runtime plan](2026-10-08-figma-otp-native-runtime.md)
+implements the still-required functional recovery path under the
+[confirmed deferral boundary](../../development/figma-ui-deferred-work.md). Its explicit isolated
+functional-testing gate supersedes this plan's physical-outage prerequisite for that test scope.
+Rejected outage operations remain prohibited; essential safety proof remains required and
+ordinary/daily/production recovery bindings remain unchanged.
+
 - Preserve canonical /workspaces and /operator routes and backend authority.
 - Keep credentials, OTP and password changes in Keycloak.
 - Use Tailwind CSS v4 for the Next.js frontend, mapped to shared semantic tokens; no manual generated OpenAPI edits.
