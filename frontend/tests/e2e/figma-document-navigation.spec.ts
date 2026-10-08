@@ -7,7 +7,7 @@ import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import type { DocumentResponse } from "../../generated/knora-openapi";
 
 const evidence =
-  "../.superpowers/figma/q1/evidence/document-menu-destinations-2026-10-09";
+  "../.superpowers/figma/q1/evidence/document-menu-destinations-2026-10-09/fix-http200-2026-10-09";
 
 test("Documents live navigation preserves owned source and menu lifecycle", async ({
   page,

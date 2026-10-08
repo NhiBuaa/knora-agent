@@ -763,6 +763,32 @@ describe("Documents Figma lifecycle", () => {
     expect(navigation.push).not.toHaveBeenCalled();
   });
 
+  it.each([201, 202, 204])(
+    "does not navigate after archive HTTP %i",
+    async (status) => {
+      const fetcher = vi
+        .fn()
+        .mockResolvedValueOnce(json({ documents: [ready] }))
+        .mockResolvedValueOnce(
+          status === 204
+            ? new Response(null, { status })
+            : json({ ...ready, archived: true }, status),
+        );
+      vi.stubGlobal("fetch", fetcher);
+      render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Actions for manual.pdf" }),
+      );
+      await userEvent.click(
+        screen.getByRole("menuitem", { name: "Archive document" }),
+      );
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        `Unable to update document (${status})`,
+      );
+      expect(navigation.push).not.toHaveBeenCalled();
+    },
+  );
+
   it("does not navigate after a rejected archive request", async () => {
     const fetcher = vi
       .fn()

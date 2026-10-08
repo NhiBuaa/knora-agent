@@ -320,7 +320,7 @@ export function DocumentList({
           setError("This document changed. Reload and try again.");
         return;
       }
-      if (!response.ok) {
+      if (response.status !== 200) {
         setError(errorMessage("update document", response.status));
         return;
       }
