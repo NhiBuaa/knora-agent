@@ -39,6 +39,13 @@ def state() -> dict:
             "verifyEmail": True,
             "smtpServer": {"host": "mail"},
         },
+        "client": {
+            "id": "client-id",
+            "baseUrl": None,
+            "rootUrl": None,
+            "redirectUris": ["http://127.0.0.1:3300/api/auth/callback"],
+            "webOrigins": ["http://127.0.0.1:3300"],
+        },
         "providers": [{"id": "knora-reset-email-otp"}, {"id": "reset-password"}],
         "required": [
             {"alias": "UPDATE_PASSWORD", "providerId": "UPDATE_PASSWORD", "enabled": True}
@@ -221,6 +228,13 @@ function Invoke-RestMethod {
     if ($global:data.requireFreshToken -and $global:data.dockerMutations.Count -gt 0 -and
         $global:tokenCount -lt 2) { throw 'Preflight token expired during build' }
     if ($Method -eq 'Get') {
+        if ($Uri -eq "$realmUri/clients?clientId=knora-web") {
+            return @([pscustomobject]@{
+                id=$global:data.client.id;clientId='knora-web'
+                baseUrl=$global:data.client.baseUrl;rootUrl=$global:data.client.rootUrl
+                redirectUris=$global:data.client.redirectUris;webOrigins=$global:data.client.webOrigins
+            })
+        }
         switch ($Uri) {
             $realmUri { return $global:data.realm }
             "$realmUri/authentication/authenticator-providers" {
@@ -269,12 +283,37 @@ function Invoke-RestMethod {
         }
         return
     }
+    if ($Method -eq 'Put' -and $Uri -eq "$realmUri/clients/client-id") {
+        foreach ($property in $payload.PSObject.Properties) {
+            $global:data.client.($property.Name)=$property.Value
+        }
+        if ($global:data.corruptClientOrigins) {
+            $global:data.client.webOrigins=@('http://unrelated.invalid')
+        }
+        return
+    }
     throw 'Unexpected mutation boundary'
 }
 try {
     foreach ($action in ($Actions -split ',')) {
         $parameters = @{AdminUsername='NEVER_PRINT_USERNAME';AdminPassword='NEVER_PRINT_PASSWORD'}
         switch ($action) {
+            'BreakClientOrigin' { $global:data.client.baseUrl=$null }
+            'RecreateClient' { $global:data.client.id='recreated-client' }
+            'LegacySnapshot' {
+                $saved=Get-Content -Raw -LiteralPath $SnapshotPath | ConvertFrom-Json
+                $saved.PSObject.Properties.Remove('clientId')
+                $saved.PSObject.Properties.Remove('clientSettings')
+                $saved | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $SnapshotPath
+            }
+            'PartialBindRecover' {
+                try {
+                    & $ScriptPath -Mode Bind -EnableIsolatedOtp @parameters `
+                        -SnapshotPath $SnapshotPath
+                } catch {}
+                $global:data.failMutation=0
+                & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
+            }
             'default' { & $ScriptPath @parameters }
             'BindOptIn' {
                 & $ScriptPath -Mode Bind -EnableIsolatedOtp @parameters -SnapshotPath $SnapshotPath
@@ -469,15 +508,80 @@ def test_bind_saves_exact_prior_fields_and_restore_retains_unbound_flow(tmp_path
         "emailTheme": "keycloak",
         "resetPasswordAllowed": False,
     }
+    assert saved["clientSettings"] == {"baseUrl": None, "rootUrl": None}
     assert after["realm"] == data["realm"]
     assert after["flows"] == data["flows"]
-    assert len(after["mutations"]) == 2
+    assert len(after["mutations"]) == 4
     assert after["mutations"][0]["payload"] == {
+        "baseUrl": "http://127.0.0.1:3300",
+        "rootUrl": "http://127.0.0.1:3300",
+    }
+    assert after["mutations"][1]["payload"] == {
         "resetCredentialsFlow": ALIAS,
         "emailTheme": "knora",
         "resetPasswordAllowed": True,
     }
-    assert all(set(m["payload"]) == set(saved["settings"]) for m in after["mutations"])
+    assert all(
+        set(after["mutations"][index]["payload"]) == set(saved["settings"]) for index in (1, 2)
+    )
+    assert all(
+        set(after["mutations"][index]["payload"]) == {"baseUrl", "rootUrl"} for index in (0, 3)
+    )
+    assert after["client"] == data["client"]
+
+
+def test_client_noop_bind_requires_completion_origin(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,BreakClientOrigin,BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_BOUND_SETTINGS_CONFLICT" in result.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_client_verification_failure_never_binds_realm(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["corruptClientOrigins"] = True
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 1
+    assert (tmp_path / "snapshot.json").exists()
+
+
+def test_client_restore_rejects_recreated_identity_before_writes(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,RecreateClient,Restore")
+    assert result.returncode != 0
+    assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_client_legacy_snapshot_restore_does_not_mutate_client(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,LegacySnapshot,Restore")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 3
+    assert after["client"]["baseUrl"] == "http://127.0.0.1:3300"
+
+
+@pytest.mark.parametrize("failure", [1, 2])
+def test_client_partial_bind_retains_snapshot_and_restore_recovers(
+    tmp_path: Path, failure: int
+) -> None:
+    data = state()
+    prepared(data)
+    data["failMutation"] = failure
+    result, after = run(tmp_path, data, "PartialBindRecover")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert after["client"] == data["client"]
+    assert (tmp_path / "snapshot.json").exists()
 
 
 def test_restore_rejects_recreated_realm(tmp_path: Path) -> None:
@@ -486,7 +590,7 @@ def test_restore_rejects_recreated_realm(tmp_path: Path) -> None:
     result, after = run(tmp_path, data, "BindOptIn,RestoreWrongId")
     assert result.returncode != 0
     assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
-    assert len(after["mutations"]) == 1
+    assert len(after["mutations"]) == 2
 
 
 @pytest.mark.parametrize(
@@ -558,7 +662,7 @@ def test_bind_rejects_active_proof_but_accepts_stopped_owned_residue(
         assert not (tmp_path / "snapshot.json").exists()
     else:
         assert result.returncode == 0, result.stderr
-        assert len(after["mutations"]) == 1
+        assert len(after["mutations"]) == 2
         assert after["realm"]["resetCredentialsFlow"] == ALIAS
 
 
@@ -579,7 +683,7 @@ def test_restore_remains_available_with_main_and_sibling_proof_exposure(tmp_path
     result, after = run(tmp_path, data, "BindOptIn,RestoreWithProof")
     assert result.returncode == 0, result.stderr
     assert after["realm"] == data["realm"]
-    assert len(after["mutations"]) == 2
+    assert len(after["mutations"]) == 4
     assert after["flows"] == data["flows"]
 
 
@@ -591,7 +695,7 @@ def test_restore_rejects_snapshot_for_different_target(tmp_path: Path, field: st
     result, after = run(tmp_path, data, "BindOptIn,RestoreWrongTarget")
     assert result.returncode != 0
     assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
-    assert len(after["mutations"]) == 1
+    assert len(after["mutations"]) == 2
 
 
 def test_bind_requires_nonempty_actual_realm_id(tmp_path: Path) -> None:
@@ -832,7 +936,7 @@ def test_rest_collection_shape_preserves_exact_owned_flow_and_binding(tmp_path: 
     assert "OTP_BIND_VERIFIED" in result.stdout
     assert "OTP_RESTORE_VERIFIED" in result.stdout
     assert after["realm"] == data["realm"]
-    assert len(after["mutations"]) == 2
+    assert len(after["mutations"]) == 4
 
 
 def test_runtime_accepts_required_providers_in_rest_collection_shape(

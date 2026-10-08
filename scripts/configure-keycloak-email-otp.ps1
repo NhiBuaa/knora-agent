@@ -27,6 +27,29 @@ function Invoke-OtpAdmin {
     } catch { throw 'OTP_ADMIN_REQUEST_FAILED' }
 }
 
+function Get-OtpClient {
+    $matches = @(Invoke-OtpAdmin -Uri "$realmUri/clients?clientId=knora-web")
+    if ($matches.Count -ne 1 -or $matches[0].clientId -ne 'knora-web' -or -not $matches[0].id) {
+        throw 'OTP_CLIENT_REPRESENTATION_REJECTED'
+    }
+    return $matches[0]
+}
+
+function Set-OtpClientOrigins {
+    param($ExpectedId, $Origins)
+    $before = Get-OtpClient
+    if ($before.id -ne $ExpectedId) { throw 'OTP_CLIENT_REPRESENTATION_REJECTED' }
+    $redirects = ConvertTo-Json -InputObject @($before.redirectUris) -Compress
+    $webOrigins = ConvertTo-Json -InputObject @($before.webOrigins) -Compress
+    $null = Invoke-OtpAdmin -Method Put -Uri "$realmUri/clients/$ExpectedId" -Payload $Origins
+    $after = Get-OtpClient
+    if ($after.id -ne $ExpectedId -or $after.baseUrl -cne $Origins.baseUrl -or $after.rootUrl -cne $Origins.rootUrl -or
+        (ConvertTo-Json -InputObject @($after.redirectUris) -Compress) -cne $redirects -or
+        (ConvertTo-Json -InputObject @($after.webOrigins) -Compress) -cne $webOrigins) {
+        throw 'OTP_CLIENT_ORIGIN_VERIFICATION_FAILED'
+    }
+}
+
 function Assert-OtpNativeContainer {
     param($Container)
     $expectedCommand = @('start-dev', '--vault=file', '--vault-dir=/opt/keycloak/vault',
@@ -160,6 +183,13 @@ try {
         throw 'OTP_REALM_REPRESENTATION_REJECTED'
     }
     $realmId = $current.id
+    $desiredClient = $null
+    if ($Mode -eq 'Bind') {
+        $client = Get-OtpClient
+        $clientId = $client.id
+        $clientSettings = @{ baseUrl = $client.baseUrl; rootUrl = $client.rootUrl }
+        $desiredClient = @{ baseUrl = 'http://127.0.0.1:3300'; rootUrl = 'http://127.0.0.1:3300' }
+    }
     $settings = @{
         resetCredentialsFlow = $current.resetCredentialsFlow
         emailTheme = $current.emailTheme
@@ -226,7 +256,10 @@ try {
         # Standalone Bind must enforce the native activation contract itself, including no-op Bind.
         Assert-OtpOwnership -RequireNativeRuntime
         if ($current.resetCredentialsFlow -eq $alias -and $current.emailTheme -eq 'knora' -and
-            $current.resetPasswordAllowed -eq $true) { Write-Output 'OTP_BIND_ALREADY_SET'; return }
+            $current.resetPasswordAllowed -eq $true -and
+            $client.baseUrl -ceq $desiredClient.baseUrl -and $client.rootUrl -ceq $desiredClient.rootUrl) {
+            Write-Output 'OTP_BIND_ALREADY_SET'; return
+        }
         if ($current.resetCredentialsFlow -eq $alias) { throw 'OTP_BOUND_SETTINGS_CONFLICT' }
         if (-not $SnapshotPath) {
             $folder = Join-Path $repositoryRoot '.superpowers/sdd/2026-10-08-figma-otp-native-runtime/snapshots'
@@ -234,7 +267,7 @@ try {
             $SnapshotPath = Join-Path $folder "binding-$([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff')).json"
         }
         $saved = @{ baseUrl = $BaseUrl; realm = $Realm; realmId = $realmId; project = $Project
-            workingDirectory = $repositoryRoot; settings = $settings }
+            workingDirectory = $repositoryRoot; settings = $settings; clientId = $clientId; clientSettings = $clientSettings }
         if (Test-Path -LiteralPath $SnapshotPath) { throw 'OTP_SNAPSHOT_ALREADY_EXISTS' }
         $stream = [IO.File]::Open($SnapshotPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         try {
@@ -250,6 +283,23 @@ try {
             (@($saved.settings.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'emailTheme,resetCredentialsFlow,resetPasswordAllowed' -or
             -not $saved.settings.resetCredentialsFlow -or $saved.settings.resetCredentialsFlow -eq $alias -or
             $saved.settings.resetPasswordAllowed -isnot [bool]) { throw 'OTP_SNAPSHOT_TARGET_REJECTED' }
+        $hasClientId = $saved.PSObject.Properties.Name -contains 'clientId'
+        $hasClientSettings = $saved.PSObject.Properties.Name -contains 'clientSettings'
+        if ($hasClientId -ne $hasClientSettings) { throw 'OTP_SNAPSHOT_TARGET_REJECTED' }
+        if ($hasClientId) {
+            $client = Get-OtpClient
+            if ($saved.clientId -cne $client.id -or
+                (@($saved.clientSettings.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'baseUrl,rootUrl') {
+                throw 'OTP_SNAPSHOT_TARGET_REJECTED'
+            }
+            foreach ($name in 'baseUrl', 'rootUrl') {
+                if ($null -ne $saved.clientSettings.$name -and $saved.clientSettings.$name -isnot [string]) {
+                    throw 'OTP_SNAPSHOT_TARGET_REJECTED'
+                }
+            }
+            $clientId = $client.id
+            $desiredClient = @{ baseUrl = $saved.clientSettings.baseUrl; rootUrl = $saved.clientSettings.rootUrl }
+        }
         $desired = @{
             resetCredentialsFlow = $saved.settings.resetCredentialsFlow
             emailTheme = if ($null -eq $saved.settings.emailTheme) { '' } else { $saved.settings.emailTheme }
@@ -260,12 +310,21 @@ try {
         $beforeWrite = Invoke-OtpAdmin -Uri $realmUri
         if ($beforeWrite.id -ne $realmId) { throw 'id' }
         Assert-OtpOwnership -RequireNativeRuntime:($Mode -eq 'Bind')
+        if ($Mode -eq 'Bind') {
+            Set-OtpClientOrigins $clientId $desiredClient
+            $beforeWrite = Invoke-OtpAdmin -Uri $realmUri
+            if ($beforeWrite.id -ne $realmId -or $beforeWrite.resetCredentialsFlow -ne $settings.resetCredentialsFlow) { throw 'id' }
+            Assert-OtpOwnership -RequireNativeRuntime
+        }
         $null = Invoke-OtpAdmin -Method Put -Uri $realmUri -Payload $desired
         $verified = Invoke-OtpAdmin -Uri $realmUri
         if ($verified.id -ne $realmId) { throw 'id' }
         foreach ($name in $desired.Keys) {
             if ($verified.$name -ne $desired[$name] -and -not
                 ($name -eq 'emailTheme' -and -not $verified.$name -and -not $desired[$name])) { throw 'setting' }
+        }
+        if ($Mode -eq 'Restore' -and $null -ne $desiredClient) {
+            Set-OtpClientOrigins $clientId $desiredClient
         }
     } catch { throw 'OTP_UPDATE_OR_VERIFICATION_FAILED; retain the saved snapshot' }
     Write-Output "OTP_$($Mode.ToUpperInvariant())_VERIFIED"

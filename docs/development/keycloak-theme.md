@@ -261,3 +261,15 @@ separate batches of at most 100 with locked-row skipping and reference checks. T
 short-term retention for safe stale-operation fencing; opportunistic cleanup does not impose a
 hard total-row capacity limit. Custom JPA is an unsupported Keycloak extension API, so schema,
 transaction and multi-node proofs must be repeated when upgrading the pinned runtime.
+
+### Isolated native completion client origins (Task 2 source amendment)
+
+The retained isolated `knora-web` client had no base URL, so the native completed `info.ftl`
+rendered no trusted Sign in link. The guarded Bind helper now snapshots the actual client ID
+and nullable `baseUrl`/`rootUrl`, sets only those two fields to `http://127.0.0.1:3300`, and
+verifies the same client ID plus unchanged `redirectUris` and `webOrigins` before binding
+recovery. An already-bound no-op requires both origins to match. Restore unbinds the realm
+first, then restores the saved client fields, including explicit null values. Earlier realm-only
+snapshots remain compatible and leave the client untouched. Partial failures retain the snapshot.
+This amendment is source verified; a successful native completion CTA and subsequent fresh
+credential/MFA login still require the separately bounded runtime journey and review.
