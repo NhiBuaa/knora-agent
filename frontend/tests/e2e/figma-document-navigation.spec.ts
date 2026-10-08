@@ -201,10 +201,19 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   await page.getByRole("checkbox", { name: "Show archived" }).check();
 
   const row = page.getByRole("listitem").filter({ hasText: sourceName });
-  await row.getByRole("button", { name: `Actions for ${sourceName}` }).click();
+  const readyTrigger = row.getByRole("button", {
+    name: `Actions for ${sourceName}`,
+  });
+  await readyTrigger.click();
   await expect(
     page.getByRole("menuitem", { name: "View details" }),
   ).toBeVisible();
+  await expect(readyTrigger).toHaveAttribute("aria-expanded", "true");
+  await readyTrigger.click();
+  await expect(readyTrigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await readyTrigger.click();
+  await expect(readyTrigger).toHaveAttribute("aria-expanded", "true");
   await captureIdentity(page, path.join(evidence, "ready-menu.png"));
   await page.getByRole("menuitem", { name: "View details" }).click();
   await expectDetail(false);
@@ -217,11 +226,8 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   await expect(
     page.getByRole("link", { name: sourceName, exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: sourceName })
-    .getByRole("button", { name: `Actions for ${sourceName}` })
-    .click();
+  await readyTrigger.click();
+  await expect(readyTrigger).toHaveAttribute("aria-expanded", "true");
   const readyProjection = await observe(false, "ready-before-archive");
   const archiveRevision = readyProjection.revision;
   const archiveResponse = page.waitForResponse(
@@ -279,15 +285,38 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   const archivedRow = page
     .getByRole("listitem")
     .filter({ hasText: sourceName });
-  await archivedRow
-    .getByRole("button", { name: `Actions for ${sourceName}` })
-    .click();
+  const archivedTrigger = archivedRow.getByRole("button", {
+    name: `Actions for ${sourceName}`,
+  });
+  await archivedTrigger.click();
   await expect(
     page.getByRole("menuitem", { name: "Restore document" }),
   ).toBeVisible();
   await expect(
     page.getByRole("menuitem", { name: "Reprocess document" }),
   ).toHaveCount(0);
+  await expect(archivedTrigger).toHaveAttribute("aria-expanded", "true");
+  await archivedTrigger.click();
+  await expect(archivedTrigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await archivedTrigger.click();
+  await expect(archivedTrigger).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("menuitem", { name: "View details" }).click();
+  await expectDetail(true);
+  await expect(page.getByRole("link", { name: "← Documents" })).toHaveAttribute(
+    "href",
+    `${listPath}?archived=true`,
+  );
+  await page.getByRole("link", { name: "← Documents" }).click();
+  await expect(page).toHaveURL(`${listPath}?archived=true`);
+  await expect(
+    page.getByRole("checkbox", { name: "Show archived" }),
+  ).toBeChecked();
+  await archivedTrigger.click();
+  await expect(archivedTrigger).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("menuitem", { name: "Restore document" }),
+  ).toBeVisible();
   await captureIdentity(page, path.join(evidence, "archived-menu.png"));
   const restoreRevision = (await observe(true)).revision;
   const restoreResponse = page.waitForResponse(
