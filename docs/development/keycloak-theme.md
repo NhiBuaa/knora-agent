@@ -298,3 +298,9 @@ unverified. The physical outage, restart/rotation, CSP and upgrade/runbook check
 Issue #152. The runtime was restored after each bounded journey and client origins returned
 to their saved unset state. See the sanitized report in
 `.superpowers/sdd/2026-10-08-figma-otp-native-runtime/recovery-agent-report.md`.
+
+The final consumed-replay check submitted the prior native verification action after successful
+password completion. Keycloak returned an HTTP 400 `text/html` terminal page with
+`#kc-error-message` and a page-expired marker, no redirect, OTP form, login form, or password
+form. This native terminal behavior is combined with the retained storage/service consume proof;
+the browser check does not reopen the password flow.

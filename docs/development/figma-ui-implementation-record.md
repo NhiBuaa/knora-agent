@@ -207,6 +207,11 @@ completion and fresh login. Transitions 73, 75, 77, 80 and 82 remain unproved an
 marked complete. The completion capture was inspected against direct MCP source; its notice and
 native login composition differs from Figma node `250:841`, so completion parity remains open.
 
+The consumed-replay oracle was verified against the native result: a second submission of the
+prior verification action returns HTTP 400 HTML with the native `#kc-error-message` page-expired
+marker, no redirect, and no OTP, login, or password form. Storage/service consume evidence
+remains the authoritative challenge-consumption proof.
+
 The CTA test transfers only the observed BFF application session and requires a fresh native
 `prompt=login` transaction with new state, nonce and PKCE values. It records
 `existingBffSessionFreshLogin=true` and `providerBrowserSsoVerified=false`; the latter is

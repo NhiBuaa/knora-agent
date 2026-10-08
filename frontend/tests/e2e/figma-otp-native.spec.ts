@@ -463,7 +463,6 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     stage = "PASSWORD_NATIVE_SUBMIT";
     await sensitive(stage, () => reset.locator("#kc-submit").click());
     stage = "PASSWORD_COMPLETION_INFO";
-    stage = "PASSWORD_COMPLETION_INFO";
     await expect(reset.locator("#kc-info-message")).toBeVisible();
     expect(new URL(reset.url()).origin === keycloakOrigin).toBe(true);
     stage = "PASSWORD_COMPLETION_CTA";
@@ -489,10 +488,61 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       maxRedirects: 0,
     });
     const replayBody = await replay.text();
-    expect(replay.status()).toBe(200);
-    expect(replay.headers()["content-type"]).toMatch(/text\/html/i);
-    expect(replayBody.includes('id="code"')).toBe(true);
-    expect(replayBody.includes('id="otp-error"')).toBe(true);
+    const replayContentType = replay.headers()["content-type"] ?? "";
+    const replayLocation = replay.headers().location ?? "";
+    const replayLocationUrl = replayLocation
+      ? new URL(replayLocation, keycloakOrigin)
+      : undefined;
+    await writeFile(
+      path.join(
+        evidenceDirectory,
+        `replay-diagnostic-${test.info().project.name}.json`,
+      ),
+      JSON.stringify(
+        {
+          stage,
+          status: replay.status(),
+          contentTypeCategory: replayContentType.split(";", 1)[0].trim(),
+          contentTypeHtml: /text\/html/i.test(replayContentType),
+          locationPresent: Boolean(replayLocation),
+          locationNativeOrigin: Boolean(
+            replayLocationUrl?.origin === keycloakOrigin,
+          ),
+          locationExactNativeOrigin: Boolean(
+            replayLocationUrl?.origin === keycloakOrigin &&
+              replayLocationUrl.pathname.startsWith(realmPath),
+          ),
+          markers: {
+            code: replayBody.includes('id="code"'),
+            otpError: replayBody.includes('id="otp-error"'),
+            keycloakErrorMessage: replayBody.includes('id="kc-error-message"'),
+            keycloakLoginForm: replayBody.includes('id="kc-form-login"'),
+            keycloakPasswordForm: replayBody.includes(
+              'id="kc-passwd-update-form"',
+            ),
+          },
+          rejectionTextMarkers: {
+            pageExpiredMessage: /page has expired|expired/i.test(replayBody),
+            alreadyLoggedIn: /already logged in/i.test(replayBody),
+            errorMarkers:
+              /error-message|unexpected error|invalid request/i.test(
+                replayBody,
+              ),
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    expect(replay.status()).toBe(400);
+    expect(replayContentType).toMatch(/text\/html/i);
+    expect(replayLocation).toBe("");
+    expect(replayLocationUrl).toBeUndefined();
+    expect(replayBody.includes('id="kc-error-message"')).toBe(true);
+    expect(/page has expired|expired/i.test(replayBody)).toBe(true);
+    expect(replayBody.includes('id="code"')).toBe(false);
+    expect(replayBody.includes('id="otp-error"')).toBe(false);
+    expect(replayBody.includes('id="kc-form-login"')).toBe(false);
     expect(replayBody.includes('id="kc-passwd-update-form"')).toBe(false);
     if (enrolled) {
       const credentials = await adminCredentials(page, username);
@@ -505,10 +555,22 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       ).toBe(true);
     }
 
-    stage = "EXISTING_SSO_COOKIES";
-    // The BFF owns the browser session; Keycloak's SSO state is server-side.
+    stage = "EXISTING_BFF_SESSION";
+    // The observed browser session is application-owned; transfer only BFF session cookies.
     const realmCookieUrl = `${keycloakOrigin}${realmPath}`;
-    const sourceCookies = await ssoContext.cookies(realmCookieUrl);
+    const bffCookieNames = new Set([
+      "knora_session",
+      "knora_workspace_preference",
+    ]);
+    const sourceCookies = (await ssoContext.cookies(realmCookieUrl)).filter(
+      (cookie) => bffCookieNames.has(cookie.name),
+    );
+    expect(
+      sourceCookies.every((cookie) => bffCookieNames.has(cookie.name)),
+    ).toBe(true);
+    expect(
+      sourceCookies.some((cookie) => cookie.name === "knora_session"),
+    ).toBe(true);
     ssoCookieMetadata = (await ssoContext.cookies()).map(
       ({ name, domain, path: cookiePath, secure, httpOnly, sameSite }) => ({
         name,
