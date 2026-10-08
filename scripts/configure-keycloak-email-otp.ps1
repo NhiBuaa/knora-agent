@@ -35,15 +35,29 @@ function Get-OtpClient {
     return $matches[0]
 }
 
+function Test-OtpClientOrigin {
+    param($Actual, $Expected)
+    if ($null -eq $Expected -or $Expected -ceq '') {
+        return ($null -eq $Actual -or ($Actual -is [string] -and $Actual -ceq ''))
+    }
+    return ($Actual -is [string] -and $Actual -ceq $Expected)
+}
+
 function Set-OtpClientOrigins {
     param($ExpectedId, $Origins)
     $before = Get-OtpClient
     if ($before.id -ne $ExpectedId) { throw 'OTP_CLIENT_REPRESENTATION_REJECTED' }
     $redirects = ConvertTo-Json -InputObject @($before.redirectUris) -Compress
     $webOrigins = ConvertTo-Json -InputObject @($before.webOrigins) -Compress
-    $null = Invoke-OtpAdmin -Method Put -Uri "$realmUri/clients/$ExpectedId" -Payload $Origins
+    # Pinned Keycloak ignores JSON null URL updates. Empty string explicitly clears.
+    $payload = @{
+        baseUrl = if ($null -eq $Origins.baseUrl) { '' } else { $Origins.baseUrl }
+        rootUrl = if ($null -eq $Origins.rootUrl) { '' } else { $Origins.rootUrl }
+    }
+    $null = Invoke-OtpAdmin -Method Put -Uri "$realmUri/clients/$ExpectedId" -Payload $payload
     $after = Get-OtpClient
-    if ($after.id -ne $ExpectedId -or $after.baseUrl -cne $Origins.baseUrl -or $after.rootUrl -cne $Origins.rootUrl -or
+    if ($after.id -ne $ExpectedId -or -not (Test-OtpClientOrigin $after.baseUrl $Origins.baseUrl) -or
+        -not (Test-OtpClientOrigin $after.rootUrl $Origins.rootUrl) -or
         (ConvertTo-Json -InputObject @($after.redirectUris) -Compress) -cne $redirects -or
         (ConvertTo-Json -InputObject @($after.webOrigins) -Compress) -cne $webOrigins) {
         throw 'OTP_CLIENT_ORIGIN_VERIFICATION_FAILED'

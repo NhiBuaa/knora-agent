@@ -269,7 +269,10 @@ rendered no trusted Sign in link. The guarded Bind helper now snapshots the actu
 and nullable `baseUrl`/`rootUrl`, sets only those two fields to `http://127.0.0.1:3300`, and
 verifies the same client ID plus unchanged `redirectUris` and `webOrigins` before binding
 recovery. An already-bound no-op requires both origins to match. Restore unbinds the realm
-first, then restores the saved client fields, including explicit null values. Earlier realm-only
+first, then restores the saved client fields. The snapshot retains original null/string values;
+pinned Keycloak ignores JSON null URL updates, so restoring null sends an explicit empty string.
+Readback treats only null and empty string as equivalent unset values. Whitespace or a nonempty
+value is never accepted as unset; nonempty prior values must match exactly. Earlier realm-only
 snapshots remain compatible and leave the client untouched. Partial failures retain the snapshot.
 This amendment is source verified; a successful native completion CTA and subsequent fresh
 credential/MFA login still require the separately bounded runtime journey and review.

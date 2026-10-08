@@ -285,7 +285,18 @@ function Invoke-RestMethod {
     }
     if ($Method -eq 'Put' -and $Uri -eq "$realmUri/clients/client-id") {
         foreach ($property in $payload.PSObject.Properties) {
-            $global:data.client.($property.Name)=$property.Value
+            # Pinned Keycloak updateClientProperties retains the current value for JSON null.
+            if ($null -ne $property.Value) {
+                $global:data.client.($property.Name)=$property.Value
+                if ($property.Value -ceq '' -and
+                    $global:data.PSObject.Properties.Name -contains 'unsetReadback') {
+                    $global:data.client.($property.Name)=$global:data.unsetReadback
+                }
+                if ($property.Value -ceq 'https://prior.example/path' -and
+                    $global:data.PSObject.Properties.Name -contains 'nonemptyReadback') {
+                    $global:data.client.($property.Name)=$global:data.nonemptyReadback
+                }
+            }
         }
         if ($global:data.corruptClientOrigins) {
             $global:data.client.webOrigins=@('http://unrelated.invalid')
@@ -496,9 +507,13 @@ def test_bind_requires_explicit_opt_in(tmp_path: Path) -> None:
     assert after["mutations"] == []
 
 
-def test_bind_saves_exact_prior_fields_and_restore_retains_unbound_flow(tmp_path: Path) -> None:
+@pytest.mark.parametrize("prior", [None, "", "https://prior.example/path", " "])
+def test_bind_saves_exact_prior_fields_and_restore_retains_unbound_flow(
+    tmp_path: Path, prior: str | None
+) -> None:
     data = state()
     prepared(data)
+    data["client"].update(baseUrl=prior, rootUrl=prior)
     result, after = run(tmp_path, data, "BindOptIn,BindOptIn,Restore")
     assert result.returncode == 0, result.stderr
     saved = json.loads((tmp_path / "snapshot.json").read_text(encoding="utf-8-sig"))
@@ -508,7 +523,7 @@ def test_bind_saves_exact_prior_fields_and_restore_retains_unbound_flow(tmp_path
         "emailTheme": "keycloak",
         "resetPasswordAllowed": False,
     }
-    assert saved["clientSettings"] == {"baseUrl": None, "rootUrl": None}
+    assert saved["clientSettings"] == {"baseUrl": prior, "rootUrl": prior}
     assert after["realm"] == data["realm"]
     assert after["flows"] == data["flows"]
     assert len(after["mutations"]) == 4
@@ -527,7 +542,15 @@ def test_bind_saves_exact_prior_fields_and_restore_retains_unbound_flow(tmp_path
     assert all(
         set(after["mutations"][index]["payload"]) == {"baseUrl", "rootUrl"} for index in (0, 3)
     )
-    assert after["client"] == data["client"]
+    expected = data["client"] | {
+        "baseUrl": prior if prior is not None else "",
+        "rootUrl": prior if prior is not None else "",
+    }
+    assert after["client"] == expected
+    assert after["mutations"][3]["payload"] == {
+        "baseUrl": prior if prior is not None else "",
+        "rootUrl": prior if prior is not None else "",
+    }
 
 
 def test_client_noop_bind_requires_completion_origin(tmp_path: Path) -> None:
@@ -580,8 +603,38 @@ def test_client_partial_bind_retains_snapshot_and_restore_recovers(
     result, after = run(tmp_path, data, "PartialBindRecover")
     assert result.returncode == 0, result.stderr
     assert after["realm"] == data["realm"]
-    assert after["client"] == data["client"]
+    assert after["client"] == data["client"] | {"baseUrl": "", "rootUrl": ""}
     assert (tmp_path / "snapshot.json").exists()
+
+
+@pytest.mark.parametrize(
+    "readback,accepted", [(None, True), ("", True), (" ", False), ("http://127.0.0.1:3300", False)]
+)
+def test_client_unset_restore_accepts_only_null_or_empty(
+    tmp_path: Path, readback: str | None, accepted: bool
+) -> None:
+    data = state()
+    prepared(data)
+    data["unsetReadback"] = readback
+    result, after = run(tmp_path, data, "BindOptIn,Restore")
+    assert (result.returncode == 0) is accepted
+    assert after["realm"] == data["realm"]
+    if not accepted:
+        assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+
+
+@pytest.mark.parametrize("readback", ["", "https://PRIOR.example/path"])
+def test_client_nonempty_restore_requires_exact_value(tmp_path: Path, readback: str) -> None:
+    data = state()
+    prepared(data)
+    data["client"].update(
+        baseUrl="https://prior.example/path", rootUrl="https://prior.example/path"
+    )
+    data["nonemptyReadback"] = readback
+    result, after = run(tmp_path, data, "BindOptIn,Restore")
+    assert result.returncode != 0
+    assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+    assert after["realm"] == data["realm"]
 
 
 def test_restore_rejects_recreated_realm(tmp_path: Path) -> None:
