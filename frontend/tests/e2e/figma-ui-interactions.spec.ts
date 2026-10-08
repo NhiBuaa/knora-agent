@@ -4017,6 +4017,255 @@ test.describe("guarded application journeys", () => {
     process.env.FIGMA_TEST_MODE !== "application",
     "Dedicated guarded application project required.",
   );
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`live account logout and forced sign-in at ${viewport.width}`, async ({
+      page,
+      context,
+    }) => {
+      await page.setViewportSize(viewport);
+      const evidence =
+        "../.superpowers/figma/q1/evidence/live-logout-prompt-2026-10-08";
+      fs.mkdirSync(evidence, { recursive: true });
+      const identity = realm.users.find((user) => user.username === "m5-user");
+      if (!identity) throw new Error("Owned synthetic identity missing.");
+      const businessWrites: { method: string; pathname: string }[] = [];
+      context.on("request", (request) => {
+        const pathname = new URL(request.url()).pathname;
+        if (pathname.startsWith("/api/v1/") && request.method() !== "GET")
+          businessWrites.push({ method: request.method(), pathname });
+      });
+      const applicationOrigin = "http://127.0.0.1:3300";
+      const keycloakOrigin = "http://127.0.0.1:8380";
+      const authorizationPath =
+        "/realms/knora-dev/protocol/openid-connect/auth";
+      const logoutPath = "/realms/knora-dev/protocol/openid-connect/logout";
+      const readTransaction = () => {
+        const authorization = new URL(page.url());
+        // Only boolean checks may expose comparisons of native auth values.
+        expect(authorization.origin === keycloakOrigin).toBe(true);
+        expect(authorization.pathname === authorizationPath).toBe(true);
+        expect(
+          authorization.searchParams.get("redirect_uri") ===
+            `${applicationOrigin}/api/auth/callback`,
+        ).toBe(true);
+        const transaction = {
+          state: authorization.searchParams.get("state"),
+          nonce: authorization.searchParams.get("nonce"),
+          codeChallenge: authorization.searchParams.get("code_challenge"),
+        };
+        expect(
+          Object.values(transaction).every((value) => Boolean(value)),
+        ).toBe(true);
+        return transaction;
+      };
+      const completeNativeLogin = async (reauthentication = false) => {
+        if (reauthentication) {
+          await expect(page.locator("#username")).toHaveCount(0);
+          expect(
+            (await page.locator("#kc-attempted-username").inputValue()) ===
+              identity.username,
+          ).toBe(true);
+          await expect(page.locator("#kc-attempted-username")).toHaveAttribute(
+            "readonly",
+            "",
+          );
+        } else {
+          await page.locator("#username").fill(identity.username);
+        }
+        const callback = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).origin === applicationOrigin &&
+            new URL(response.url()).pathname === "/api/auth/callback",
+        );
+        await page.locator("#password").fill(identity.credentials[0].value);
+        await page.locator("#kc-login").click();
+        const callbackStatus = (await callback).status();
+        expect(callbackStatus).toBe(307);
+        await page.waitForURL(
+          (url) =>
+            url.origin === applicationOrigin &&
+            /^\/workspaces(?:\/[^?]+)?$/.test(url.pathname),
+        );
+        return callbackStatus;
+      };
+      const readSafeSession = async () => {
+        const response = await page.request.get("/api/auth/session");
+        expect(response.status()).toBe(200);
+        const body = (await response.json()) as {
+          session: {
+            subject: string;
+            capabilities: string[];
+            workspaceIds: string[];
+          } | null;
+        };
+        expect(body.session !== null).toBe(true);
+        const session = body.session!;
+        expect(
+          typeof session.subject === "string" && session.subject.length > 0,
+        ).toBe(true);
+        expect(Array.isArray(session.capabilities)).toBe(true);
+        expect(
+          Object.keys(session).sort().join(",") ===
+            "capabilities,subject,workspaceIds",
+        ).toBe(true);
+        return session;
+      };
+
+      await openFigmaLogin(page);
+      const normalTransaction = readTransaction();
+      const normalCallbackStatus = await completeNativeLogin();
+      const normalSession = await readSafeSession();
+
+      await page.goto(
+        "/api/auth/login?prompt=login&returnTo=https://untrusted.example",
+      );
+      await expect(page.locator("#kc-form-login")).toBeVisible();
+      await expect(page.locator("#password")).toBeVisible();
+      expect((await page.locator("#password").inputValue()).length === 0).toBe(
+        true,
+      );
+      const forcedTransaction = readTransaction();
+      const forcedAuthorization = new URL(page.url());
+      expect(forcedAuthorization.searchParams.get("prompt") === "login").toBe(
+        true,
+      );
+      expect(!forcedAuthorization.searchParams.has("returnTo")).toBe(true);
+      expect(
+        !forcedAuthorization.toString().includes("untrusted.example"),
+      ).toBe(true);
+      const freshTransaction = {
+        state: forcedTransaction.state !== normalTransaction.state,
+        nonce: forcedTransaction.nonce !== normalTransaction.nonce,
+        codeChallenge:
+          forcedTransaction.codeChallenge !== normalTransaction.codeChallenge,
+      };
+      expect(Object.values(freshTransaction).every(Boolean)).toBe(true);
+      const forcedNativeHorizontalOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      );
+      await captureIdentity(
+        page,
+        `${evidence}/forced-sign-in-${viewport.width}.png`,
+      );
+      const forcedCallbackStatus = await completeNativeLogin(true);
+      const forcedSession = await readSafeSession();
+      expect(forcedSession.subject === normalSession.subject).toBe(true);
+
+      await page.evaluate(() => {
+        sessionStorage.setItem(
+          "knora:conversation-panels:v1:test-scope",
+          "test",
+        );
+        sessionStorage.setItem("unrelated-preference", "retained");
+      });
+      await page
+        .getByRole("button", {
+          name: `Account: ${forcedSession.subject}`,
+          exact: true,
+        })
+        .click();
+      await expect(page.getByText("Signed in", { exact: true })).toBeVisible();
+      const logout = page.getByRole("menuitem", {
+        name: "Log out",
+        exact: true,
+      });
+      await expect(logout).toBeVisible();
+      await captureIdentity(
+        page,
+        `${evidence}/account-menu-${viewport.width}.png`,
+      );
+      const logoutResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).origin === applicationOrigin &&
+          new URL(response.url()).pathname === "/api/auth/logout",
+      );
+      await logout.focus();
+      await logout.press("Enter");
+      const logoutStatus = (await logoutResponse).status();
+      expect(logoutStatus).toBe(303);
+      await page.waitForURL(
+        (url) => url.origin === keycloakOrigin && url.pathname === logoutPath,
+      );
+      // Keycloak may require its native SSO termination confirmation.
+      const confirmation = page.locator("#kc-logout");
+      const nativeConfirmationShown = await confirmation.isVisible();
+      if (nativeConfirmationShown) await confirmation.click();
+      await page.waitForURL((url) => url.origin === applicationOrigin);
+      await expect(
+        page.getByRole("heading", { name: "Signed out", exact: true }),
+      ).toBeVisible();
+      const signIn = page.getByRole("link", { name: "Sign in", exact: true });
+      await expect(signIn).toBeVisible();
+      const preferences = await page.evaluate(() => ({
+        scopedRemoved:
+          sessionStorage.getItem("knora:conversation-panels:v1:test-scope") ===
+          null,
+        unrelatedRetained:
+          sessionStorage.getItem("unrelated-preference") === "retained",
+      }));
+      expect(preferences.scopedRemoved).toBe(true);
+      expect(preferences.unrelatedRetained).toBe(true);
+      const signedOutSession = await page.request.get("/api/auth/session");
+      expect(signedOutSession.status()).toBe(200);
+      expect((await signedOutSession.json()).session === null).toBe(true);
+      const protectedRead = await page.request.get("/api/v1/workspaces");
+      expect(protectedRead.status()).toBe(401);
+      await signIn.click();
+      await expect(page.locator("#kc-form-login")).toBeVisible();
+      await expect(page.locator("#password")).toBeVisible();
+      const freshAuthorization = new URL(page.url());
+      expect(freshAuthorization.origin === keycloakOrigin).toBe(true);
+      expect(freshAuthorization.pathname === authorizationPath).toBe(true);
+      expect(!freshAuthorization.searchParams.has("prompt")).toBe(true);
+      expect((await page.locator("#password").inputValue()).length === 0).toBe(
+        true,
+      );
+      await captureIdentity(
+        page,
+        `${evidence}/fresh-sign-in-${viewport.width}.png`,
+      );
+      expect(businessWrites).toHaveLength(0);
+      fs.writeFileSync(
+        `${evidence}/journey-${viewport.width}.json`,
+        JSON.stringify(
+          {
+            viewport,
+            authorizationPath,
+            callbackPath: "/api/auth/callback",
+            normalCallbackStatus,
+            forcedCallbackStatus,
+            forcedNativeFormShown: true,
+            forcedNativeUsernameLocked: true,
+            forcedNativeHorizontalOverflow,
+            promptLoginPreserved: true,
+            untrustedReturnAbsent: true,
+            fixedCallback: true,
+            freshTransaction,
+            safeSessionProjection: true,
+            sameSubject: true,
+            logoutStatus,
+            logoutPath,
+            nativeConfirmationShown,
+            signedOutHeadingShown: true,
+            preferences,
+            signedOutSessionStatus: signedOutSession.status(),
+            sessionNull: true,
+            protectedReadStatus: protectedRead.status(),
+            freshNativePasswordFormShown: true,
+            businessWrites,
+            naturalExpiryProved: false,
+            resetCompletionProved: false,
+          },
+          null,
+          2,
+        ),
+      );
+    });
+  }
   test("owned Workspace restores from the Conversation bottom bar while an archived Conversation stays archived", async ({
     page,
   }) => {
