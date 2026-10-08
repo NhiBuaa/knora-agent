@@ -165,7 +165,63 @@ the realm's reset flow. Offline Java translation tests and pinned parent FreeMar
 are separate from deployed recovery acceptance. Native password, replay, MFA preservation,
 shared Vault restart/rotation and visual browser checks remain required. The physical database
 outage proof remains blocked by automatic tool review; a lock timeout or reply-loss proof is not
-a substitute for it. Do not apply the OTP reset flow until the controller releases that gate.
+a substitute for it. This outstanding deployment-hardening proof is separate from the approved
+isolated native-runtime path below, which requires its own essential-safety preflight and review.
+
+### Guarded isolated native runtime source
+
+`docker-compose.figma-otp-runtime.yml` is an explicit override for the Figma harness. It builds
+the existing production Dockerfile, mounts operator-supplied file Vault read-only at
+`/opt/keycloak/vault`, and retains the base ports, databases, volumes and theme mounts. It contains
+no storage probe or proof secret. The ordinary Figma, daily and production Compose files remain
+independent. This runtime requires an existing owned Figma realm; it does not import a realm.
+
+Supply admin credentials through process-local `-AdminUsername` and `-AdminPassword` parameters
+on the following commands (omitted here), without logging them. Select an existing Vault directory;
+the preparer never generates or rotates its key. Within a Git repository, both the directory and
+the actual realm-ID-derived entry must be ignored and the entry must be untracked. An external
+directory must be outside Git. Neither directories nor entries may be links/junctions. The
+directory and entry must have protected Windows ACLs granting access only to the current operator,
+SYSTEM and Administrators; the operator must have read access. The preparer checks these boundaries
+before reading Base64 key material, and never prints the key or exports it into the environment.
+
+```powershell
+.\scripts\prepare-figma-otp-runtime.ps1 -CheckConfigurationOnly -VaultPath '<existing operator Vault directory>'
+# Runtime start requires the controller's separate essential-safety preflight and review.
+.\scripts\prepare-figma-otp-runtime.ps1 -VaultPath '<existing operator Vault directory>'
+.\scripts\configure-keycloak-email-otp.ps1 -Mode Inspect
+.\scripts\configure-keycloak-email-otp.ps1 -Mode Diff
+.\scripts\configure-keycloak-email-otp.ps1 -Mode Prepare
+# Binding is a separate explicit operation after essential-safety acceptance.
+.\scripts\configure-keycloak-email-otp.ps1 -Mode Bind -EnableIsolatedOtp
+.\scripts\configure-keycloak-email-otp.ps1 -Mode Restore -SnapshotPath '<saved snapshot>'
+```
+
+The exact target is realm name `knora-dev` at `http://127.0.0.1:8380`, Compose project
+`knora-figma-e2e`, with container ownership labels matching this script's resolved checkout.
+Both scripts reject ambient target selectors. Runtime check-only validates the actual existing
+realm ID, Vault filename/key, owned loopback exposure and rendered Compose graph without mutation.
+Actual runtime preparation builds/starts only owned Keycloak with `--no-deps`, checks discovery
+and provider availability, and verifies that the realm ID and reset binding remain unchanged.
+Active proof/proxy containers are rejected; stopped containers from the exact owned checkout are
+retained as historical evidence. No container or volume cleanup is performed.
+
+The flow script defaults to read-only Inspect. Prepare creates the custom basic flow
+`knora-email-otp-reset` with ownership description `Knora isolated email OTP recovery v1` and
+ordered REQUIRED executions `knora-reset-email-otp`, then native `reset-password`. An existing
+conflicting alias/order/requirement fails closed. Repeat Prepare is a no-op, and Prepare never
+changes the reset binding. Bind requires explicit opt-in, registered providers and enabled native
+UPDATE_PASSWORD. It saves the prior reset binding, email theme, reset-enabled flag and actual
+realm ID before changing only those three settings to the custom flow, `knora`, and true.
+Restore checks the exact target, checkout and actual realm ID, restores only the saved settings,
+and retains the custom unbound flow. Partial errors retain snapshots and report redacted codes;
+keep the snapshot until the change has an explicit disposition.
+
+These source commands and executable fake HTTP/Docker checks establish guarded configuration
+behavior only. Task 1 does not start/reload a provider, prepare/bind a live flow or update a password.
+Native recovery acceptance remains a separate controller-reviewed operation with essential-safety
+preflight; deferred deployment hardening, including the blocked outage proof, is not claimed by
+this source verification. The existing storage and offline source approvals remain scoped.
 
 Provision a cryptographically generated Base64 key containing at least 32 decoded bytes in
 Keycloak Vault. The application lookup entry is `knora-email-otp-hmac-` followed by lowercase

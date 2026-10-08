@@ -1,0 +1,22 @@
+# Opt-in native runtime only; combine with docker-compose.figma-e2e.yml.
+name: knora-figma-e2e
+services:
+  keycloak:
+    image: knora-figma-otp-runtime:26.3.3
+    build:
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
+    command:
+      - start-dev
+      - --vault=file
+      - --vault-dir=/opt/keycloak/vault
+      - --spi-theme--cache-themes=false
+      - --spi-theme--cache-templates=false
+      - --spi-theme--static-max-age=-1
+    volumes:
+      - type: bind
+        source: ${KNORA_FIGMA_OTP_VAULT_PATH:?operator Vault directory is required}
+        target: /opt/keycloak/vault
+        read_only: true
+        bind:
+          create_host_path: false
