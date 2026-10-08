@@ -8,7 +8,8 @@ import type {
   WorkspaceResponse,
 } from "../../generated/knora-openapi";
 
-const evidence = "../.superpowers/sdd/2026-10-05-figma-ui-operator/evidence";
+const evidence =
+  "../.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08";
 
 async function login(page: Page, username: string) {
   const identity = realm.users.find((user) => user.username === username);
@@ -38,6 +39,57 @@ async function select(page: Page, id: string) {
     data: { workspaceId: id },
   });
   expect(response.ok()).toBe(true);
+}
+
+async function expectWorkspace(page: Page, name: string) {
+  await expect(
+    page.getByRole("button", { name: `Switch workspace: ${name}` }),
+  ).toBeVisible();
+}
+
+async function expectOperations(page: Page, name: string) {
+  await expect(page).toHaveURL(/\/operator\/operations(?:\?.*)?$/);
+  await expect(
+    page.getByRole("heading", { name: "Operations", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "Runtime signals" }),
+  ).toBeVisible();
+  await expectWorkspace(page, name);
+}
+
+async function expectTraceLookup(page: Page, name: string) {
+  await expect(page).toHaveURL(/\/operator\/traces(?:\?.*)?$/);
+  await expect(
+    page.getByRole("heading", { name: "Question trace", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Trace ID", exact: true }),
+  ).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Open trace" })).toBeDisabled();
+  await expectWorkspace(page, name);
+}
+
+async function expectEvaluationLookup(page: Page, name: string) {
+  await expect(page).toHaveURL(/\/operator\/evaluations(?:\?.*)?$/);
+  await expect(
+    page.getByRole("heading", { name: "Evaluation report", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Report ID", exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByRole("button", { name: "Open report" }),
+  ).toBeDisabled();
+  await expectWorkspace(page, name);
+}
+
+async function clickTab(
+  page: Page,
+  name: "Operations" | "Traces" | "Evaluations",
+) {
+  await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+  await page.getByRole("link", { name, exact: true }).click();
 }
 
 test.describe("isolated Figma Operator journeys", () => {
@@ -81,24 +133,49 @@ test.describe("isolated Figma Operator journeys", () => {
     expect(result.trace_id.length).toBeGreaterThan(0);
 
     await page.goto("/operator/operations");
-    await expect(
-      page.getByRole("heading", { name: "Operations", exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("group", { name: "Runtime signals" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: `Switch workspace: ${observed.name}` }),
-    ).toBeVisible();
+    await expectOperations(page, observed.name);
     const content = await page.locator("main.operator-surface").boundingBox();
     expect(content).toMatchObject({ x: 120, y: 64, width: 1200 });
     await captureIdentity(page, `${evidence}/O1-live.png`);
 
-    await page.getByRole("link", { name: "Traces", exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "Open trace" }),
-    ).toBeDisabled();
+    // edge 54: Operations -> empty evaluation lookup.
+    await clickTab(page, "Evaluations");
+    await expectEvaluationLookup(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-54.png`);
+
+    // edge 60: empty evaluation lookup -> Operations.
+    await clickTab(page, "Operations");
+    await expectOperations(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-60.png`);
+
+    // Return to the named source state before exercising edge 61.
+    await clickTab(page, "Evaluations");
+    await expectEvaluationLookup(page, observed.name);
+    // edge 61: empty evaluation lookup -> empty trace lookup.
+    await clickTab(page, "Traces");
+    await expectTraceLookup(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-61.png`);
+
+    // edge 55: empty trace lookup -> Operations.
+    await clickTab(page, "Operations");
+    await expectOperations(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-55.png`);
+
+    await clickTab(page, "Traces");
+    await expectTraceLookup(page, observed.name);
     await captureIdentity(page, `${evidence}/O2-lookup-live.png`);
+
+    // edge 56: empty trace lookup -> empty evaluation lookup.
+    await clickTab(page, "Evaluations");
+    await expectEvaluationLookup(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-56.png`);
+
+    // The existing lookup capture is retained in the new task evidence directory.
+    await captureIdentity(page, `${evidence}/O3-lookup-live.png`);
+
+    // Open the real trace so the detail source can exercise edge 58.
+    await clickTab(page, "Traces");
+    await expectTraceLookup(page, observed.name);
     await page
       .getByRole("textbox", { name: "Trace ID", exact: true })
       .fill(result.trace_id);
@@ -120,11 +197,27 @@ test.describe("isolated Figma Operator journeys", () => {
     await page.getByText("Additional provenance", { exact: true }).click();
     await captureIdentity(page, `${evidence}/O2-detail-live.png`);
 
-    await page.getByRole("link", { name: "Evaluations", exact: true }).click();
+    // edge 58: actual trace detail -> Operations.
+    await clickTab(page, "Operations");
+    await expectOperations(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-58.png`);
+
+    // Reopen the real detail and retain the existing edge 59 into Evaluations.
+    await clickTab(page, "Traces");
+    await expectTraceLookup(page, observed.name);
+    await page
+      .getByRole("textbox", { name: "Trace ID", exact: true })
+      .fill(result.trace_id);
+    await page.getByRole("button", { name: "Open trace" }).click();
     await expect(
-      page.getByRole("button", { name: "Open report" }),
-    ).toBeDisabled();
-    await captureIdentity(page, `${evidence}/O3-lookup-live.png`);
+      page.getByRole("region", { name: "Trace context" }),
+    ).toContainText(result.trace_id);
+    await expect(
+      page.getByRole("heading", { name: "Trace summary" }),
+    ).toBeVisible();
+    await clickTab(page, "Evaluations");
+    await expectEvaluationLookup(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-59.png`);
     await page
       .getByRole("textbox", { name: "Report ID", exact: true })
       .fill("operator-no-persisted-report");
@@ -137,6 +230,40 @@ test.describe("isolated Figma Operator journeys", () => {
     ).toContainText("EVALUATION_REPORT_UNAVAILABLE");
     await expect(page.getByRole("link", { name: /download/i })).toHaveCount(0);
     await captureIdentity(page, `${evidence}/O3-unavailable-live.png`);
+
+    // edge 63: evaluation unavailable -> Operations.
+    await clickTab(page, "Operations");
+    await expectOperations(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-63.png`);
+
+    // edge 64: evaluation unavailable -> empty trace lookup.
+    await clickTab(page, "Evaluations");
+    await expectEvaluationLookup(page, observed.name);
+    await page
+      .getByRole("textbox", { name: "Report ID", exact: true })
+      .fill("operator-no-persisted-report");
+    await page.getByRole("button", { name: "Open report" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Evaluation report unavailable" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Report context" }),
+    ).toContainText("operator-no-persisted-report");
+    await expectWorkspace(page, observed.name);
+    await clickTab(page, "Traces");
+    await expectTraceLookup(page, observed.name);
+    await captureIdentity(page, `${evidence}/edge-64.png`);
+
+    // Return to the unavailable report for the existing refresh and observation assertions.
+    await clickTab(page, "Evaluations");
+    await expectEvaluationLookup(page, observed.name);
+    await page
+      .getByRole("textbox", { name: "Report ID", exact: true })
+      .fill("operator-no-persisted-report");
+    await page.getByRole("button", { name: "Open report" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Evaluation report unavailable" }),
+    ).toBeVisible();
 
     const refreshed = page.waitForResponse(
       (response) =>

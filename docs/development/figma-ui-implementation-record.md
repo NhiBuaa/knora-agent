@@ -302,3 +302,20 @@ No production code changed. New evidence is in `conversation-creation-2026-10-08
 runs of this journey use that folder. Earlier failed attempts had already overwritten some
 legacy restore captures, so no unchanged-hash claim is made for those artifacts.
 Other Conversation starting states, native expiry/OTP and whole-design parity remain open.
+
+## Oct8 Operator tab navigation
+
+The existing authorized live journey now exercises all eight previously unclicked tab directions
+(54,55,56,58,60,61,63,64) and retains the trace-detail → Evaluation lookup direction59.
+Each destination asserts its route, heading or lookup controls and selected Workspace. Empty
+lookups have empty fields and disabled submit controls. The trace comes from real ingestion and
+question processing; evaluation remains truthfully unavailable. Existing report refresh,
+Workspace switching, cross-Workspace denial and missing-capability denial still pass.
+
+The final scoped run passed2 cases in49.9s after format, format:check and typecheck (all exit0).
+The earlier version passed2 in40.7s before the evidence path correction and retained edge59.
+New captures use `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`;
+the first run's scratch captures remain in this task's ignored SDD folder. Historical Operator
+captures were not targeted. Representative real trace and empty-lookup captures were inspected.
+Routine existing NO_COLOR/FORCE_COLOR warnings were emitted. This test-only change proves bounded
+navigation and denial behavior; native OTP, full source parity and whole-head acceptance remain open.
