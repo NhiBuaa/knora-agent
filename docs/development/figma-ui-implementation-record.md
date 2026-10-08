@@ -387,3 +387,12 @@ Workspace scope. The live journey records destination states in
 `document-menu-destinations-2026-10-09/`; source/version identity, revision transitions,
 available→unavailable→available, null deletion and synchronous Markdown/null-job qualification
 remain explicit. The native OTP reference is source checkpoint `92d1f8d`.
+
+The reviewed correction at `b2b687f` requires exactly HTTP 200; 201/202/204 do not navigate.
+Focused Vitest passed 59 tests and the final live journey passed one case in 20.7s, after format,
+format:check and typecheck. Final captures use the separate `fix-http200-2026-10-09/` subfolder.
+Independent Spec/Quality rereview approved the scoped correction with the historical-evidence
+limitation retained: the initial Documents preflight was omitted. A historical manifest comparison
+found 365/366 unchanged and no missing files, with one legacy Workspace capture changed before
+this task. The fresh before/after audit proves all 436 prior Q1 files stayed unchanged during the
+correction and final journey. This does not establish full Figma parity or global pytest acceptance.
