@@ -557,6 +557,15 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
 }
 
 @media (max-width: 800px) {
+  /* Keep the native restart-login tooltip inside the narrow viewport. The
+     PatternFly default is positioned 76px to the right of its 48px trigger;
+     even hidden tooltips contribute to document scroll width. */
+  body:has(.knora-auth) .kc-login-tooltip .kc-tooltip-text {
+    left: auto;
+    right: 0;
+    top: 100%;
+  }
+
   .knora-brand-panel {
     position: absolute;
     width: 100%;

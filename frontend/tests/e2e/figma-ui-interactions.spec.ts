@@ -4146,6 +4146,7 @@ test.describe("guarded application journeys", () => {
       const forcedNativeHorizontalOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
       );
+      expect(forcedNativeHorizontalOverflow).toBe(false);
       await captureIdentity(
         page,
         `${evidence}/forced-sign-in-${viewport.width}.png`,
