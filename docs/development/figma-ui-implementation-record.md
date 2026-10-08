@@ -183,16 +183,37 @@ detail action allocation are now independently approved, as recorded below.
 - [Visual coverage](figma-ui-visual-coverage.md) remains partial: original51 screen/panel/response
   mappings and89 prototype edge classifications retain per-edge unexercised paths and deviations.
   Source mobile/dark references are absent; responsive checks prove adaptation only.
-- Native OTP reset flow is unbound. Real email→OTP→password update, replay/concurrency in the native
-  flow, stable Vault restart/rotation, enrolled MFA, CSP/browser behavior and completion/SSO gates
-  remain unproved. Physical database outage was rejected by automatic tool approval review; an
-  equivalent workaround is prohibited. See [Keycloak theme](keycloak-theme.md).
+- The isolated native OTP flow was exercised then restored. Desktop and mobile proved real
+  email→OTP→password recovery, replay/generation handling, completion CTA and fresh native
+  authorization; desktop also proved enrolled TOTP preservation and a required fresh TOTP login.
+  The existing BFF application session is distinct from provider-browser SSO; raw provider cookie
+  reuse is unverified. Restart/rotation, CSP/browser, upgrade/runbook and physical-outage evidence
+  remain deferred deployment hardening in Issue #152. See [Keycloak theme](keycloak-theme.md).
 - Live logout, expired-session journeys and remaining real-flow regression evidence are incomplete.
   Source/template/fixture tests cannot establish those service behaviors.
 - Full Q2 and final whole-branch review remain outstanding. Main integration requires the Frontend
   formatting workflow's passing Prettier status; no integration action is authorized by this record.
 
 Keep the goal active until the original requirements and their authoritative evidence are complete.
+
+## Oct9 native OTP runtime evidence
+
+Reviewed source HEAD `414a63c` contains the dedicated native OTP journey and its bounded
+non-reusable TOTP handling. The final desktop (`desktop1440x960`) and mobile (`mobile390x844`)
+runs each passed one case after guarded isolated Bind. They exercised transitions 65, 72, 74,
+76, 78, 79 and 81 in the visual ledger with real SMTP/native forms, including malformed and
+wrong OTP rejection, cooldown/resend, generation fencing, password policy/confirmation,
+completion and fresh login. Transitions 73, 75, 77, 80 and 82 remain unproved and are not
+marked complete. The completion capture was inspected against direct MCP source; its notice and
+native login composition differs from Figma node `250:841`, so completion parity remains open.
+
+The CTA test transfers only the observed BFF application session and requires a fresh native
+`prompt=login` transaction with new state, nonce and PKCE values. It records
+`existingBffSessionFreshLogin=true` and `providerBrowserSsoVerified=false`; the latter is
+explicit because no browser-visible Keycloak identity cookie was observed. Restore returned
+the saved realm settings and unset client origins after each run, and the custom flow/key/data
+were retained. Sanitized command logs and the transition evidence are under
+`.superpowers/sdd/2026-10-08-figma-otp-native-runtime/`.
 
 ## Oct8 Documents completion and refreshed frontend qualification
 

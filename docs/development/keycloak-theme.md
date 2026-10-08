@@ -276,3 +276,25 @@ value is never accepted as unset; nonempty prior values must match exactly. Earl
 snapshots remain compatible and leave the client untouched. Partial failures retain the snapshot.
 This amendment is source verified; a successful native completion CTA and subsequent fresh
 credential/MFA login still require the separately bounded runtime journey and review.
+
+### Task 2 native runtime evidence — 2026-10-09
+
+The guarded isolated runtime completed the approved desktop and mobile native journey from
+fresh synthetic identities. Real Mailpit delivery, malformed and wrong-code rejection,
+server cooldown, allowed resend, generation fencing, native password policy and confirmation
+errors, strong password update, detached completion, consumed replay rejection, unknown-account
+uniform/no-delivery behavior and exact application Workspace destinations were observed.
+Desktop additionally enrolled a native TOTP credential, verified its ID/type after recovery,
+and proved a subsequent login required TOTP. The test respects the realm's 30-second,
+non-reusable TOTP policy by waiting for a different server-valid code; it never fakes the clock
+or replays a code.
+
+The completion CTA carried an existing BFF application session into a fresh native
+`prompt=login` transaction with new state/nonce/PKCE. The BFF session boundary is the observed
+browser boundary: metadata showed `knora_session` and `knora_workspace_preference`, while no
+browser-visible `KEYCLOAK_IDENTITY` cookie was present. This proves fresh native authorization
+and password authority after completion; provider-side browser SSO-cookie reuse is explicitly
+unverified. The physical outage, restart/rotation, CSP and upgrade/runbook checks remain in
+Issue #152. The runtime was restored after each bounded journey and client origins returned
+to their saved unset state. See the sanitized report in
+`.superpowers/sdd/2026-10-08-figma-otp-native-runtime/recovery-agent-report.md`.
