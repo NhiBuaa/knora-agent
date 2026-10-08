@@ -240,6 +240,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
   let stage = "REGISTRATION";
   const ownedContexts: BrowserContext[] = [page.context()];
   const guards: (() => void)[] = [];
+  let ssoCookieMetadata: unknown[] = [];
   try {
     guards.push(await guardedContext(page.context()));
     const username = `figma-otp-${randomUUID()}`;
@@ -313,6 +314,24 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       expect(otpCredentials.length === 1).toBe(true);
       enrolled = otpCredentials[0];
     }
+
+    stage = "EXISTING_SSO_LOGIN";
+    const ssoContext = await browser.newContext({
+      baseURL: applicationOrigin,
+      viewport: test.info().project.use.viewport,
+    });
+    ownedContexts.push(ssoContext);
+    guards.push(await guardedContext(ssoContext));
+    const ssoPage = await ssoContext.newPage();
+    await openFigmaLogin(ssoPage);
+    await sensitive(stage, () =>
+      ssoPage.locator("#username").fill(identity.email),
+    );
+    await sensitive(stage, () =>
+      ssoPage.locator("#password").fill(identity.password),
+    );
+    await sensitive(stage, () => ssoPage.locator("#kc-login").click());
+    await ssoPage.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
 
     stage = "EMAIL";
     const recovery = await browser.newContext({
@@ -449,14 +468,29 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       ).toBe(true);
     }
 
-    stage = "COMPLETION_CTA";
-    await recovery.addCookies(await page.context().cookies(keycloakOrigin));
+    stage = "EXISTING_SSO_COOKIES";
+    // The BFF owns the browser session; Keycloak's SSO state is server-side.
+    const realmCookieUrl = `${keycloakOrigin}${realmPath}`;
+    const sourceCookies = await ssoContext.cookies(realmCookieUrl);
+    ssoCookieMetadata = (await ssoContext.cookies()).map(
+      ({ name, domain, path: cookiePath, secure, httpOnly, sameSite }) => ({
+        name,
+        domain,
+        path: cookiePath,
+        secure,
+        httpOnly,
+        sameSite,
+      }),
+    );
+    await recovery.addCookies(sourceCookies);
     expect(
-      (await recovery.cookies(keycloakOrigin)).some(
-        (cookie) => cookie.name === "KEYCLOAK_IDENTITY",
+      (await recovery.cookies(realmCookieUrl)).some(
+        (cookie) => cookie.name === "knora_session",
       ),
     ).toBe(true);
+    stage = "COMPLETION_CTA_CLICK";
     await sensitive(stage, () => completion.click());
+    stage = "FRESH_NATIVE_AUTHORIZATION";
     await expect(reset.locator("#kc-form-login")).toBeVisible();
     const freshAuthorization = new URL(reset.url()).searchParams;
     expect(freshAuthorization.get("prompt") === "login").toBe(true);
@@ -598,7 +632,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
         );
     await writeFile(
       path.join(evidenceDirectory, `failure-${test.info().project.name}.json`),
-      JSON.stringify({ stage, states }, null, 2),
+      JSON.stringify({ stage, states, ssoCookieMetadata }, null, 2),
     );
     for (const context of ownedContexts) await sanitizeFailure(context);
     throw new Error(`NATIVE_STAGE_${stage}`);
