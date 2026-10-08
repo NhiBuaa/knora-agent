@@ -489,7 +489,11 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       maxRedirects: 0,
     });
     const replayBody = await replay.text();
-    expect(!replayBody.includes('id="kc-passwd-update-form"')).toBe(true);
+    expect(replay.status()).toBe(200);
+    expect(replay.headers()["content-type"]).toMatch(/text\/html/i);
+    expect(replayBody.includes('id="code"')).toBe(true);
+    expect(replayBody.includes('id="otp-error"')).toBe(true);
+    expect(replayBody.includes('id="kc-passwd-update-form"')).toBe(false);
     if (enrolled) {
       const credentials = await adminCredentials(page, username);
       expect(
