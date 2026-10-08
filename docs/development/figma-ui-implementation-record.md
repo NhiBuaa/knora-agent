@@ -337,3 +337,15 @@ adds the query to its existing back link. No API scope or capability behavior ch
 RED/GREEN commands, revisions and source projections are recorded in the task report and
 `document-navigation-2026-10-08/`; processing-source, deletion, native OTP and full parity remain
 unproven.
+
+The isolated Documents journey completed after correcting the synchronous Markdown projection
+oracle. Its fresh run passed1 case in19.9s. The exact source `q1-navigation-af9d18e4-b30b-480e-88a2-4b584f0cfa74.md`
+was document `52efda78-cfc7-4c99-9376-83c899b39ddf` in Workspace
+`17113675-7bdc-4487-8b79-d94b6575c639`. Current/served version
+`67b99ee3-9a9a-4120-b14b-c2c56503812d` persisted through archive/restore. Revision advanced
+1→2→3; availability changed available→unavailable→available. The archived back link preserved
+`archived=true` and the checked local filter. Archive and restore returned200 using the observed
+revisions in If-Match. Final restored list and four detail/menu images were inspected. The upload
+created no ingestion job (`ingestion_job_id=null`, `ingestion_status=null`), while readiness is
+`ready` and serving is `current`. This is the observed synchronous Markdown contract, not a
+processing-row or asynchronous PDF claim. Synthetic data was retained.

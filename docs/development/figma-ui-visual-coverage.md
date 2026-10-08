@@ -715,3 +715,21 @@ detail links, archive/restore lifecycle and source identity. Archived detail now
 source version identities and limitations are recorded in
 `.superpowers/sdd/2026-10-08-figma-document-navigation/task-1-report.md` and the scoped journey
 folder. Processing-source proof, deletion, native OTP and full-frame parity remain open.
+
+### Live navigation qualification
+
+The named isolated1440×960 journey now passes (1 case,19.9s after the restored-list capture wait).
+It proves Ready row/back with the unchecked local filter, checked Ready row/back, Ready Actions
+View details, Ready and Archived trigger toggles, Archived row/detail/back retaining
+`?archived=true`, Archived Actions View details/back, and list-destination Archive/Restore.
+The latter two differ from the prototype's illustrated direct-detail destination. The scoped
+`document-navigation-2026-10-08/` folder contains five inspected desktop captures and
+`journey.json`. The restored-list capture shows a loaded Ready row and unchecked filter.
+
+The live Markdown upload is synchronous: persisted `ingestion_job_id` and `ingestion_status` are
+both null while `embedding_readiness=ready`, `serving_state=current`, and current/served version
+IDs match. This does not prove a processing-row source. Source identity and current/served version
+IDs remained fixed across revisions1→2→3; archive changed answer availability from available to
+unavailable, restore returned it to available. Deletion projection stayed null. Scoped POSTs returned
+200 with If-Match1 and2. No deletion request was submitted. Native OTP, full-frame parity and
+processing-source proof remain open.

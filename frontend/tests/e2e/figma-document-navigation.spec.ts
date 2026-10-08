@@ -57,9 +57,10 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   expect(created.status()).toBe(201);
   expect(selected.status()).toBe(200);
   const createdBody = (await created.json()) as { id: string };
-  const workspaceId = new URL(page.url()).pathname.split("/")[2];
-  expect(createdBody.id).toBe(workspaceId);
+  const workspaceId = createdBody.id;
+  expect(workspaceId).toBeTruthy();
   expect(selection.postDataJSON()).toMatchObject({ workspaceId });
+  await expect(page).toHaveURL(`/workspaces/${workspaceId}`);
   const listPath = `/workspaces/${workspaceId}/documents`;
   await page.goto(listPath);
 
@@ -116,7 +117,9 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   expect(source).toBeDefined();
   expect(source!.document_id).toBe(uploadBody.document_id);
   expect(source!.archived).toBe(false);
-  expect(source!.ingestion_status).toBe("succeeded");
+  // Markdown ingestion is synchronous and does not create an ingestion job.
+  expect(source!.ingestion_job_id).toBeNull();
+  expect(source!.ingestion_status).toBeNull();
   expect(source!.embedding_readiness).toBe("ready");
   expect(source!.serving_state).toBe("current");
   expect(source!.current_document_version_id).toBeTruthy();
@@ -251,9 +254,8 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     readyProjection.served_document_version_id,
   );
   expect(archivedProjection.serving_state).toBe(readyProjection.serving_state);
-  expect(archivedProjection.answer_availability).toBe(
-    readyProjection.answer_availability,
-  );
+  expect(readyProjection.answer_availability).toBe("available");
+  expect(archivedProjection.answer_availability).toBe("unavailable");
   expect(archivedProjection.deletion_request).toEqual(
     readyProjection.deletion_request,
   );
@@ -360,6 +362,16 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   await expectDetail(false);
   await page.getByRole("link", { name: "← Documents" }).click();
   await expect(page).toHaveURL(listPath);
+  await expect(
+    page.getByRole("link", { name: sourceName, exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: "Show archived" }),
+  ).not.toBeChecked();
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(Array.from(document.images, (image) => image.decode()));
+  });
   await captureIdentity(page, path.join(evidence, "restored-list.png"));
   observations.final = await observe(false);
   fs.writeFileSync(
