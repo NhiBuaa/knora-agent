@@ -331,6 +331,14 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       ssoPage.locator("#password").fill(identity.password),
     );
     await sensitive(stage, () => ssoPage.locator("#kc-login").click());
+    if (enrolled) {
+      await expect(ssoPage.locator("#otp")).toBeVisible();
+      await nativeForm(ssoPage, "#otp");
+      await sensitive(stage, () =>
+        ssoPage.locator("#otp").fill(totp(totpSecret)),
+      );
+      await sensitive(stage, () => ssoPage.locator("#kc-login").click());
+    }
     await ssoPage.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
 
     stage = "EMAIL";
