@@ -13,10 +13,15 @@ import type { DocumentResponse } from "@/generated/knora-openapi";
 import { DocumentList } from "@/components/documents/DocumentList";
 import { DocumentDetail } from "@/components/documents/DocumentDetail";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const navigation = vi.hoisted(() => ({
+  push: vi.fn(),
+  refresh: vi.fn(),
+  search: "",
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => navigation,
   usePathname: () => "/workspaces/ws-1/documents/doc-1",
+  useSearchParams: () => new URLSearchParams(navigation.search),
 }));
 
 const ready: DocumentResponse = {
@@ -65,6 +70,7 @@ beforeEach(() => {
   vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "intent-key") });
   navigation.push.mockClear();
   navigation.refresh.mockClear();
+  navigation.search = "";
 });
 afterEach(() => {
   cleanup();
@@ -72,6 +78,51 @@ afterEach(() => {
 });
 
 describe("Documents Figma lifecycle", () => {
+  it("initializes the archived filter from the URL and hides the row when unchecked", async () => {
+    navigation.search = "archived=true";
+    const archived: DocumentResponse = {
+      ...ready,
+      archived: true,
+      source_name: "archived.md",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json({ documents: [archived] })),
+    );
+
+    render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+
+    const documents = await screen.findByRole("region", { name: "Documents" });
+    const filter = within(documents).getByRole("checkbox", {
+      name: "Show archived",
+    });
+    expect(filter).toBeChecked();
+    expect(
+      within(documents).getByRole("link", { name: "archived.md" }),
+    ).toBeVisible();
+
+    await userEvent.click(filter);
+    expect(
+      within(documents).queryByRole("link", { name: "archived.md" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves the archived query on detail back navigation", async () => {
+    const archived = { ...ready, archived: true };
+    detail(archived);
+    const back = await screen.findByRole("link", { name: "← Documents" });
+    expect(back).toHaveAttribute(
+      "href",
+      "/workspaces/ws-1/documents?archived=true",
+    );
+  });
+
+  it("keeps the normal list URL for a Ready detail", async () => {
+    detail();
+    const back = await screen.findByRole("link", { name: "← Documents" });
+    expect(back).toHaveAttribute("href", "/workspaces/ws-1/documents");
+  });
+
   it.each(["unknown", "omitted"])(
     "renders %s answer availability independently of Ready in list rows",
     async (availability) => {

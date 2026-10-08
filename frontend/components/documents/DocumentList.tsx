@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type {
   DocumentDeletionRequestResponse,
   DocumentResponse,
@@ -43,9 +44,12 @@ export function DocumentList({
   capabilities?: string[];
   workspaceArchived?: boolean;
 }) {
+  const searchParams = useSearchParams();
   const [documents, setDocuments] = useState<DocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showArchived, setShowArchived] = useState(false);
+  const [showArchived, setShowArchived] = useState(
+    () => searchParams?.get("archived") === "true",
+  );
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -116,7 +120,7 @@ export function DocumentList({
     setUploadError(null);
     setDeletionError(null);
     setQuery("");
-    setShowArchived(false);
+    setShowArchived(searchParams?.get("archived") === "true");
     setUploadOpen(false);
     setFile(null);
     setUploadState(null);
@@ -136,6 +140,8 @@ export function DocumentList({
       ownedTimers.forEach(clearTimeout);
       ownedTimers.clear();
     };
+    // The query is an initialization preference; checkbox changes remain local state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
   const poll = useCallback(

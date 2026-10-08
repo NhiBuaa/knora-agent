@@ -340,7 +340,7 @@ export function DocumentDetail({
   return (
     <article className="m-0 flex min-w-0 flex-col gap-6 rounded-none border-0 bg-transparent p-0 text-text-primary">
       <Link
-        href={routes.documents(workspaceId)}
+        href={`${routes.documents(workspaceId)}${document?.archived ? "?archived=true" : ""}`}
         className="w-fit text-sm leading-5 font-medium text-action-text no-underline"
       >
         ← Documents

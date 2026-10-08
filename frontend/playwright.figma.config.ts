@@ -24,7 +24,10 @@ export function figmaTestSelection(
       mode === "fixture"
         ? ["figma-ui-visual.spec.ts", "figma-ui-interactions.spec.ts"]
         : mode === "application"
-          ? "figma-ui-interactions.spec.ts"
+          ? [
+              "figma-ui-interactions.spec.ts",
+              "figma-document-navigation.spec.ts",
+            ]
           : "figma-identity.spec.ts",
   };
 }

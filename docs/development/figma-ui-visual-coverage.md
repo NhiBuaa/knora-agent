@@ -705,3 +705,13 @@ browser GREEN passed2 cases;45 relevant component checks passed once. Final form
 typecheck and post-format scoped browser verification are recorded in
 `.superpowers/sdd/2026-10-08-figma-document-detail-action-height/task-1-report.md`.
 Independent Spec/Quality review belongs to the controller; full-goal acceptance remains open.
+
+## Oct8 Document navigation
+
+The bounded Documents navigation journey covers owned Ready and Archived rows, Actions menus,
+detail links, archive/restore lifecycle and source identity. Archived detail now returns to
+`/workspaces/{workspaceId}/documents?archived=true`; Ready detail retains the bare list URL.
+`DocumentList` initializes its local checkbox from that query preference. Live status, revisions,
+source version identities and limitations are recorded in
+`.superpowers/sdd/2026-10-08-figma-document-navigation/task-1-report.md` and the scoped journey
+folder. Processing-source proof, deletion, native OTP and full-frame parity remain open.

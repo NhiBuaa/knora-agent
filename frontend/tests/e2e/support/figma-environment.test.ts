@@ -33,9 +33,10 @@ describe("isolated Figma identity environment", () => {
     expect(figmaTestSelection(undefined, undefined).testMatch).toBe(
       "figma-identity.spec.ts",
     );
-    expect(figmaTestSelection("application", undefined).testMatch).toBe(
+    expect(figmaTestSelection("application", undefined).testMatch).toEqual([
       "figma-ui-interactions.spec.ts",
-    );
+      "figma-document-navigation.spec.ts",
+    ]);
     expect(figmaTestSelection("fixture", undefined).testMatch).toEqual([
       "figma-ui-visual.spec.ts",
       "figma-ui-interactions.spec.ts",

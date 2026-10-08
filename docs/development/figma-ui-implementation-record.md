@@ -328,3 +328,12 @@ format`, `npm --prefix frontend run format:check` and `npm --prefix frontend run
 exited 0. From `frontend`, `$env:FIGMA_TEST_MODE='application'; npm exec playwright test --
 --config=playwright.figma-operator.config.ts` passed both cases (50.6s, exit 0). The run refreshed
 the 14 captures in `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
+
+### Oct8 Documents back-filter owner correction
+
+Task 1 adds the live Documents row/menu/detail journey and focused component coverage. The local
+archived filter reads `archived=true` through Next search params, while the archived detail owner
+adds the query to its existing back link. No API scope or capability behavior changes. Evidence,
+RED/GREEN commands, revisions and source projections are recorded in the task report and
+`document-navigation-2026-10-08/`; processing-source, deletion, native OTP and full parity remain
+unproven.
