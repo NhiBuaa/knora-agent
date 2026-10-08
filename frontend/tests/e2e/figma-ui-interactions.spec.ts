@@ -1356,6 +1356,377 @@ test.describe("source fixtures", () => {
     "Dedicated fixture project required.",
   );
 
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`Documents local interactions ${viewport.width} verifies filters, menus and cancelled dialogs without mutations`, async ({
+      page,
+    }) => {
+      const evidence =
+        "../.superpowers/figma/q1/evidence/documents-local-interactions-2026-10-08";
+      fs.mkdirSync(evidence, { recursive: true });
+      const apiRequests: string[] = [];
+      const writes: string[] = [];
+      page.on("request", (request) => {
+        const pathname = new URL(request.url()).pathname;
+        if (!pathname.startsWith("/api/")) return;
+        const invocation = `${request.method()} ${pathname}`;
+        apiRequests.push(invocation);
+        if (request.method() !== "GET") writes.push(invocation);
+      });
+      await page.setViewportSize(viewport);
+      const unexpected = await prepareFixture(page, "128:120");
+      const fixtureURL = page.url();
+      const documents = page.getByRole("region", {
+        name: "Documents",
+        exact: true,
+      });
+      const rows = documents
+        .getByRole("list", { name: "Documents" })
+        .getByRole("listitem");
+      const readyName = "Teacher Manh – Guidelines 2024.pdf";
+      const archivedName = "Legacy handbook.pdf";
+      const row = (name: string) =>
+        rows.filter({ has: page.getByRole("link", { name, exact: true }) });
+      const readyTrigger = row(readyName).getByRole("button", {
+        name: `Actions for ${readyName}`,
+        exact: true,
+      });
+      const archivedTrigger = row(archivedName).getByRole("button", {
+        name: `Actions for ${archivedName}`,
+        exact: true,
+      });
+      const readyMenu = page.getByRole("menu", {
+        name: `Actions for ${readyName}`,
+        exact: true,
+      });
+      const archivedMenu = page.getByRole("menu", {
+        name: `Actions for ${archivedName}`,
+        exact: true,
+      });
+      const geometry: unknown[] = [];
+      const capture = async (state: string, selector: string) => {
+        await page.evaluate(() => document.fonts.ready);
+        await expect
+          .poll(() =>
+            page.locator("img").evaluateAll((images) =>
+              images.every((element) => {
+                const image = element as HTMLImageElement;
+                return image.complete && image.naturalWidth > 0;
+              }),
+            ),
+          )
+          .toBe(true);
+        const measured = await page.locator(selector).evaluate((surface) => {
+          const box = (element: Element) => {
+            const bounds = element.getBoundingClientRect();
+            return {
+              x: bounds.x,
+              y: bounds.y,
+              width: bounds.width,
+              height: bounds.height,
+            };
+          };
+          return {
+            surface: box(surface),
+            fits: surface.scrollWidth <= surface.clientWidth,
+            pageFits: document.documentElement.scrollWidth <= window.innerWidth,
+            controls: Array.from(
+              surface.querySelectorAll('button, [role="menuitem"]'),
+            ).map((control) => ({
+              text: control.textContent,
+              fits: control.scrollWidth <= control.clientWidth,
+              ...box(control),
+            })),
+            assets: Array.from(
+              document.querySelectorAll<HTMLImageElement>(
+                'img[src="/brand/knora-leaf.svg"], .documents-workspace-caret',
+              ),
+            ).map((asset) => ({
+              src: asset.getAttribute("src"),
+              loaded: asset.complete && asset.naturalWidth > 0,
+              ...box(asset),
+            })),
+          };
+        });
+        if (measured.surface.y + measured.surface.height > viewport.height) {
+          fs.writeFileSync(
+            `${evidence}/${state}-${viewport.width}-viewport-failure.json`,
+            JSON.stringify(measured, null, 2),
+          );
+          await page.screenshot({
+            path: `${evidence}/${state}-${viewport.width}-viewport-failure.png`,
+            fullPage: true,
+          });
+        }
+        expect(measured.fits).toBe(true);
+        expect(measured.pageFits).toBe(true);
+        expect(measured.surface.x).toBeGreaterThanOrEqual(0);
+        expect(measured.surface.y).toBeGreaterThanOrEqual(0);
+        expect(measured.surface.x + measured.surface.width).toBeLessThanOrEqual(
+          viewport.width,
+        );
+        expect(
+          measured.surface.y + measured.surface.height,
+        ).toBeLessThanOrEqual(viewport.height);
+        expect(measured.controls.every((control) => control.fits)).toBe(true);
+        expect(measured.assets).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              src: "/brand/knora-leaf.svg",
+              loaded: true,
+              width: 18,
+              height: 18,
+            }),
+            expect.objectContaining({
+              src: "/icons/figma/d9407.svg",
+              loaded: true,
+              width: 8,
+              height: 5,
+            }),
+          ]),
+        );
+        geometry.push({ state, ...measured });
+        await page.screenshot({
+          path: `${evidence}/${state}-${viewport.width}.png`,
+          fullPage: true,
+        });
+      };
+
+      await expect(rows).toHaveCount(5);
+      await expect(
+        documents.getByText("5 documents", { exact: true }),
+      ).toBeVisible();
+      const showArchived = documents.getByRole("checkbox", {
+        name: "Show archived",
+      });
+      await expect(showArchived).toBeChecked();
+      await expect(readyMenu).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(readyMenu).toBeHidden();
+      await expect(readyTrigger).toBeFocused();
+      await showArchived.uncheck();
+      await expect(rows).toHaveCount(4);
+      await expect(row(archivedName)).toHaveCount(0);
+      await expect(
+        documents.getByText("4 documents", { exact: true }),
+      ).toBeVisible();
+      // Edge 8 opens Ready actions with archived rows excluded.
+      await readyTrigger.press("ArrowDown");
+      await expect(readyMenu).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(readyTrigger).toBeFocused();
+      await showArchived.check();
+      await expect(rows).toHaveCount(5);
+      await expect(row(archivedName)).toBeVisible();
+      await expect(
+        documents.getByText("5 documents", { exact: true }),
+      ).toBeVisible();
+      const search = documents.getByRole("searchbox", {
+        name: "Search documents",
+      });
+      await search.fill("Reporting policy.pdf");
+      await expect(rows).toHaveCount(1);
+      await expect(row("Reporting policy.pdf")).toBeVisible();
+      await expect(row(readyName)).toHaveCount(0);
+      await expect(
+        documents.getByText("1 document", { exact: true }),
+      ).toBeVisible();
+      await search.fill("No matching document local interaction");
+      await expect(rows).toHaveCount(0);
+      await expect(
+        documents.getByText("No documents found.", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        documents.getByText("0 documents", { exact: true }),
+      ).toBeVisible();
+      await search.clear();
+      await expect(rows).toHaveCount(5);
+      await expect(
+        documents.getByText("5 documents", { exact: true }),
+      ).toBeVisible();
+
+      await readyTrigger.press("ArrowDown");
+      await expect(readyMenu.getByRole("menuitem")).toHaveText([
+        "View details",
+        "Reprocess document",
+        "Archive document",
+        "Request deletion",
+      ]);
+      const details = readyMenu.getByRole("menuitem", {
+        name: "View details",
+        exact: true,
+      });
+      const destination =
+        "/workspaces/fixture-workspace/documents/fixture-document";
+      await expect(details).toHaveAttribute("href", destination);
+      await expect(
+        row(readyName).getByRole("link", { name: readyName, exact: true }),
+      ).toHaveAttribute("href", destination);
+      await expect(details).toBeFocused();
+      await page.keyboard.press("ArrowDown");
+      await expect(
+        readyMenu.getByRole("menuitem", {
+          name: "Reprocess document",
+          exact: true,
+        }),
+      ).toBeFocused();
+      await page.keyboard.press("ArrowUp");
+      await expect(details).toBeFocused();
+      await capture("ready-menu", '[role="menu"]');
+      await page.keyboard.press("Escape");
+      await expect(readyTrigger).toBeFocused();
+
+      const deletion = page.getByRole("dialog", {
+        name: "Request document deletion",
+        exact: true,
+      });
+      await readyTrigger.press("ArrowUp");
+      await expect(
+        readyMenu.getByRole("menuitem", {
+          name: "Request deletion",
+          exact: true,
+        }),
+      ).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(deletion).toBeVisible();
+      await expect(
+        deletion.getByText(readyName, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        deletion.getByRole("button", { name: "Cancel", exact: true }),
+      ).toBeEnabled();
+      // This is the existing confirmation control; it is deliberately never invoked.
+      await expect(
+        deletion.getByRole("button", { name: "Request deletion", exact: true }),
+      ).toBeEnabled();
+      await deletion
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await expect(deletion).toBeHidden();
+      await expect(readyTrigger).toBeFocused();
+      await readyTrigger.press("ArrowUp");
+      await page.keyboard.press("Enter");
+      await expect(deletion).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(deletion).toBeHidden();
+      await expect(readyTrigger).toBeFocused();
+
+      await archivedTrigger.evaluate((trigger) =>
+        trigger.scrollIntoView({ block: "center" }),
+      );
+      await archivedTrigger.press("ArrowDown");
+      await expect(archivedMenu.getByRole("menuitem")).toHaveText([
+        "View details",
+        "Restore document",
+        "Request deletion",
+      ]);
+      await expect(
+        archivedMenu.getByRole("menuitem", {
+          name: "Reprocess document",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await capture("archived-menu", '[role="menu"]');
+      await page.keyboard.press("Escape");
+      await expect(archivedMenu).toBeHidden();
+      await expect(archivedTrigger).toBeFocused();
+      await archivedTrigger.press("ArrowUp");
+      await page.keyboard.press("Enter");
+      await expect(deletion).toBeVisible();
+      await expect(
+        deletion.getByText(archivedName, { exact: true }),
+      ).toBeVisible();
+      await expect(
+        deletion.getByRole("button", { name: "Request deletion", exact: true }),
+      ).toBeEnabled();
+      await capture("archived-deletion-confirm", "dialog[open]");
+      await deletion
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await expect(deletion).toBeHidden();
+      await expect(archivedTrigger).toBeFocused();
+
+      const uploadTrigger = documents.getByRole("button", {
+        name: "Upload document",
+        exact: true,
+      });
+      const uploadTriggerGeometry = await uploadTrigger.boundingBox();
+      const upload = page.getByRole("dialog", {
+        name: "Upload document",
+        exact: true,
+      });
+      await uploadTrigger.click();
+      await expect(upload).toBeVisible();
+      await expect(
+        upload.getByRole("button", { name: "Upload document", exact: true }),
+      ).toBeDisabled();
+      await upload.getByLabel("Document file", { exact: true }).setInputFiles({
+        name: "Reporting policy.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from(
+          "%PDF-1.4\nlocal selected-file presentation only; never submitted",
+        ),
+      });
+      await expect(
+        upload.getByText("Reporting policy.pdf", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        upload.getByRole("button", { name: "Upload document", exact: true }),
+      ).toBeEnabled();
+      await capture("upload-selected", "dialog[open]");
+      await upload.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(upload).toBeHidden();
+      await expect(uploadTrigger).toBeFocused();
+      await uploadTrigger.click();
+      await expect(upload).toBeVisible();
+      await expect(
+        upload.getByText("Reporting policy.pdf", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        upload.getByText("SELECTED FILE", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        upload.getByLabel("Document file", { exact: true }),
+      ).toHaveValue("");
+      await expect(
+        upload.getByRole("button", { name: "Upload document", exact: true }),
+      ).toBeDisabled();
+      await page.keyboard.press("Escape");
+      await expect(upload).toBeHidden();
+      await expect(uploadTrigger).toBeFocused();
+      await expect(rows).toHaveCount(5);
+      await expect(
+        documents.getByText("5 documents", { exact: true }),
+      ).toBeVisible();
+      // The state-driven host is never used to claim a production destination transition.
+      expect(page.url()).toBe(fixtureURL);
+      expect(unexpected).toEqual([]);
+      expect(writes).toEqual([]);
+      expect(apiRequests.length).toBeGreaterThan(0);
+      fs.writeFileSync(
+        `${evidence}/journey-${viewport.width}.json`,
+        JSON.stringify(
+          {
+            viewport,
+            state: "128:120",
+            geometry,
+            uploadTriggerGeometry,
+            apiRequests,
+            unexpected,
+            writes,
+            urlCheck: { destination, fixtureURL, navigationInvoked: false },
+            limits:
+              "Local controls only; no upload, reprocess, archive, restore or deletion submission, production destination, lifecycle or authorization acceptance.",
+          },
+          null,
+          2,
+        ),
+      );
+    });
+  }
+
   for (const prototype of [
     { state: "216:345", name: "Operations", route: "/operator/operations" },
     {

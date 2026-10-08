@@ -26,7 +26,7 @@ export function DocumentActionsMenu({
   onDelete: () => void;
 }) {
   return (
-    <div className="[&_.kn-menu\_\_panel]:mt-0 [&_.kn-menu\_\_panel]:min-w-[200px] [&_.kn-menu\_\_panel]:rounded-[10px] [&_.kn-menu\_\_trigger]:text-[13px] [&_.kn-menu\_\_trigger]:font-semibold [&_.kn-menu\_\_trigger]:text-text-muted">
+    <div className="[&_.kn-menu\_\_panel]:mt-0 [&_.kn-menu\_\_panel]:min-w-[200px] [&_.kn-menu\_\_panel]:rounded-[10px] [&_.kn-menu\_\_trigger]:text-[13px] [&_.kn-menu\_\_trigger]:font-semibold [&_.kn-menu\_\_trigger]:text-text-muted max-md:[&_.kn-menu\_\_panel]:bottom-full">
       <Menu label={`Actions for ${document.source_name}`}>
         <Link
           role="menuitem"
