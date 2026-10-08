@@ -628,7 +628,7 @@ describe("Documents Figma lifecycle", () => {
     );
   });
 
-  it("opens the row menu with keyboard and archives using the loaded revision", async () => {
+  it("opens the row menu and archives to the canonical detail after success", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(json({ documents: [ready] }))
@@ -649,10 +649,207 @@ describe("Documents Figma lifecycle", () => {
     await userEvent.click(
       screen.getByRole("menuitem", { name: "Archive document" }),
     );
-    await screen.findByText("No documents yet.");
+    await waitFor(() =>
+      expect(navigation.push).toHaveBeenCalledWith(
+        "/workspaces/ws-1/documents/doc-1",
+      ),
+    );
+    expect(fetcher.mock.calls[1][0]).toBe(
+      "/api/v1/workspaces/ws-1/documents/doc-1/archive",
+    );
     expect(new Headers(fetcher.mock.calls[1][1].headers).get("If-Match")).toBe(
       "7",
     );
+  });
+
+  it("restores an archived row to the canonical detail after success", async () => {
+    const archived = { ...ready, archived: true };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ documents: [archived] }))
+      .mockResolvedValueOnce(
+        json({ ...archived, archived: false, revision: 8 }),
+      )
+      .mockResolvedValueOnce(
+        json({ documents: [{ ...archived, archived: false }] }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+    await userEvent.click(
+      await screen.findByRole("checkbox", { name: "Show archived" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Actions for manual.pdf" }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Restore document" }),
+    );
+    await waitFor(() =>
+      expect(navigation.push).toHaveBeenCalledWith(
+        "/workspaces/ws-1/documents/doc-1",
+      ),
+    );
+    expect(fetcher.mock.calls[1][0]).toBe(
+      "/api/v1/workspaces/ws-1/documents/doc-1/unarchive",
+    );
+    expect(new Headers(fetcher.mock.calls[1][1].headers).get("If-Match")).toBe(
+      "7",
+    );
+  });
+
+  it("does not navigate or duplicate archive while the response is unresolved", async () => {
+    let resolveArchive!: (value: Response) => void;
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ documents: [ready] }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveArchive = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(
+        json({ documents: [{ ...ready, archived: true }] }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+    const trigger = await screen.findByRole("button", {
+      name: "Actions for manual.pdf",
+    });
+    await userEvent.click(trigger);
+    const action = screen.getByRole("menuitem", { name: "Archive document" });
+    await userEvent.click(action);
+    await userEvent.click(trigger);
+    expect(
+      screen.getByRole("menuitem", { name: "Archive document" }),
+    ).toBeDisabled();
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Archive document" }),
+    );
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(
+      fetcher.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(1);
+    resolveArchive(json({ ...ready, archived: true }));
+    await waitFor(() =>
+      expect(navigation.push).toHaveBeenCalledWith(
+        "/workspaces/ws-1/documents/doc-1",
+      ),
+    );
+  });
+
+  it.each([
+    [409, "This document changed. Reload and try again."],
+    [403, "Unable to update document (403)"],
+    [401, "Your session expired. Sign in again to continue."],
+  ])("does not navigate after archive HTTP %i", async (status, message) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ documents: [ready] }))
+      .mockResolvedValueOnce(json({ detail: "rejected" }, status));
+    if (status === 409)
+      fetcher.mockResolvedValueOnce(
+        json({ documents: [{ ...ready, revision: 8 }] }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Actions for manual.pdf" }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Archive document" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate after a rejected archive request", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ documents: [ready] }))
+      .mockRejectedValueOnce(new Error("offline"));
+    vi.stubGlobal("fetch", fetcher);
+    render(<DocumentList workspaceId="ws-1" capabilities={capabilities} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Actions for manual.pdf" }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Archive document" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to confirm the document change. Reload before retrying.",
+    );
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate when an archive response resolves after a Workspace change", async () => {
+    let resolveArchive!: (value: Response) => void;
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ documents: [ready] }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveArchive = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(
+        json({
+          documents: [
+            {
+              ...ready,
+              workspace_id: "ws-2",
+              source_name: "new-workspace.pdf",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    const view = render(
+      <DocumentList workspaceId="ws-1" capabilities={capabilities} />,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Actions for manual.pdf" }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Archive document" }),
+    );
+    view.rerender(
+      <DocumentList workspaceId="ws-2" capabilities={capabilities} />,
+    );
+    await screen.findByRole("link", { name: "new-workspace.pdf" });
+    resolveArchive(json({ ...ready, archived: true }));
+    await waitFor(() => expect(navigation.push).not.toHaveBeenCalled());
+    expect(
+      screen.getByRole("link", { name: "new-workspace.pdf" }),
+    ).toBeVisible();
+  });
+
+  it("does not navigate when a held archive response resolves after unmount", async () => {
+    let resolveArchive!: (value: Response) => void;
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(json({ documents: [ready] }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveArchive = resolve;
+          }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    const view = render(
+      <DocumentList workspaceId="ws-1" capabilities={capabilities} />,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Actions for manual.pdf" }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Archive document" }),
+    );
+    view.unmount();
+    resolveArchive(json({ ...ready, archived: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(navigation.push).not.toHaveBeenCalled();
   });
 
   it("confirms deletion and preserves real blocked/policy unavailable after reload", async () => {

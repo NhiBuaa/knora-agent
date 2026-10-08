@@ -11,6 +11,11 @@ import { cleanup } from "@testing-library/react";
 import { DocumentList } from "@/components/documents/DocumentList";
 import { DocumentDetail } from "@/components/documents/DocumentDetail";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 const document = {
   document_id: "doc-1",
   workspace_id: "ws-1",

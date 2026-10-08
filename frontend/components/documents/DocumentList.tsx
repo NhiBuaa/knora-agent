@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type {
   DocumentDeletionRequestResponse,
   DocumentResponse,
@@ -44,6 +44,7 @@ export function DocumentList({
   capabilities?: string[];
   workspaceArchived?: boolean;
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [documents, setDocuments] = useState<DocumentResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,7 +324,7 @@ export function DocumentList({
         setError(errorMessage("update document", response.status));
         return;
       }
-      await load(controller);
+      router.push(routes.document(workspaceId, id));
     } catch {
       if (!controller.signal.aborted)
         setError(

@@ -7,7 +7,7 @@ import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import type { DocumentResponse } from "../../generated/knora-openapi";
 
 const evidence =
-  "../.superpowers/figma/q1/evidence/document-navigation-2026-10-08";
+  "../.superpowers/figma/q1/evidence/document-menu-destinations-2026-10-09";
 
 test("Documents live navigation preserves owned source and menu lifecycle", async ({
   page,
@@ -244,6 +244,17 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   expect(archivedResponse.request().headers()["if-match"]).toBe(
     String(archiveRevision),
   );
+  await expectDetail(true);
+  await captureIdentity(
+    page,
+    path.join(evidence, "archived-after-menu-archive.png"),
+  );
+  await expect(page.getByRole("link", { name: "← Documents" })).toHaveAttribute(
+    "href",
+    `${listPath}?archived=true`,
+  );
+  await page.getByRole("link", { name: "← Documents" }).click();
+  await expect(page).toHaveURL(`${listPath}?archived=true`);
   await expect.poll(async () => (await observe(true)).archived).toBe(true);
   const archivedProjection = await observe(true, "archived-after-archive");
   expect(archivedProjection.revision).toBeGreaterThan(archiveRevision);
@@ -332,6 +343,17 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   expect(restoredResponse.request().headers()["if-match"]).toBe(
     String(restoreRevision),
   );
+  await expectDetail(false);
+  await captureIdentity(
+    page,
+    path.join(evidence, "ready-after-menu-restore.png"),
+  );
+  await expect(page.getByRole("link", { name: "← Documents" })).toHaveAttribute(
+    "href",
+    listPath,
+  );
+  await page.getByRole("link", { name: "← Documents" }).click();
+  await expect(page).toHaveURL(listPath);
   const restoredProjection = await expect
     .poll(async () => {
       const document = await observe(false);

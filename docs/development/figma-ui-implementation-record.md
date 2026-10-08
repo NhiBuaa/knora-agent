@@ -198,7 +198,7 @@ Keep the goal active until the original requirements and their authoritative evi
 
 ## Oct9 native OTP runtime evidence
 
-Reviewed source HEAD `414a63c` contains the dedicated native OTP journey and its bounded
+Reviewed source checkpoint `92d1f8d` contains the dedicated native OTP journey and its bounded
 non-reusable TOTP handling. The final desktop (`desktop1440x960`) and mobile (`mobile390x844`)
 runs each passed one case after guarded isolated Bind. They exercised transitions 65, 72, 74,
 76, 78, 79 and 81 in the visual ledger with real SMTP/native forms, including malformed and
@@ -375,3 +375,15 @@ revisions in If-Match. Final restored list and four detail/menu images were insp
 created no ingestion job (`ingestion_job_id=null`, `ingestion_status=null`), while readiness is
 `ready` and serving is `current`. This is the observed synchronous Markdown contract, not a
 processing-row or asynchronous PDF claim. Synthetic data was retained.
+
+### Oct9 Documents menu destinations
+
+Archive and restore menu actions now navigate only after the scoped POST returns 200. The
+canonical detail GET is authoritative: archived detail back preserves the checked
+`?archived=true` list, while restored detail back returns to the bare list. Focused component
+coverage records exact archive/unarchive paths and If-Match revisions, pending duplicate
+suppression, unresolved responses, rejected requests, HTTP 409/403/401 outcomes and stale
+Workspace scope. The live journey records destination states in
+`document-menu-destinations-2026-10-09/`; source/version identity, revision transitions,
+available→unavailable→available, null deletion and synchronous Markdown/null-job qualification
+remain explicit. The native OTP reference is source checkpoint `92d1f8d`.
