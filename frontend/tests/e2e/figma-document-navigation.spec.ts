@@ -43,12 +43,23 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
       response.request().method() === "POST" &&
       new URL(response.url()).pathname === "/api/workspace-selection",
   );
+  const selectionRequest = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/workspace-selection",
+  );
   await creation
     .getByRole("button", { name: "Create workspace", exact: true })
     .click();
-  expect((await workspaceResponse).status()).toBe(201);
-  expect((await selectionResponse).status()).toBe(200);
+  const created = await workspaceResponse;
+  const selected = await selectionResponse;
+  const selection = await selectionRequest;
+  expect(created.status()).toBe(201);
+  expect(selected.status()).toBe(200);
+  const createdBody = (await created.json()) as { id: string };
   const workspaceId = new URL(page.url()).pathname.split("/")[2];
+  expect(createdBody.id).toBe(workspaceId);
+  expect(selection.postDataJSON()).toMatchObject({ workspaceId });
   const listPath = `/workspaces/${workspaceId}/documents`;
   await page.goto(listPath);
 
@@ -83,6 +94,13 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     .click();
   const uploadResult = await uploadResponse;
   expect(uploadResult.ok()).toBe(true);
+  expect(new URL(uploadResult.url()).pathname).toBe(
+    `/api/v1/workspaces/${workspaceId}/documents`,
+  );
+  const uploadBody = (await uploadResult.json()) as {
+    document_id?: string;
+  };
+  expect(uploadBody.document_id).toBeTruthy();
   expect((await uploadRequest).headers()["idempotency-key"]).toBeTruthy();
 
   const listResponse = await page.request.get(
@@ -96,6 +114,7 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     (document) => document.source_name === sourceName,
   );
   expect(source).toBeDefined();
+  expect(source!.document_id).toBe(uploadBody.document_id);
   expect(source!.archived).toBe(false);
   expect(source!.ingestion_status).toBe("succeeded");
   expect(source!.embedding_readiness).toBe("ready");
@@ -110,8 +129,9 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     workspaceId,
     documentId,
     sourceName,
+    routes: [],
   };
-  const observe = async (archived: boolean) => {
+  const observe = async (archived: boolean, stage?: string) => {
     const response = await page.request.get(detailPath);
     expect(response.status()).toBe(200);
     const document = (await response.json()) as DocumentResponse;
@@ -119,12 +139,30 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     expect(document.workspace_id).toBe(workspaceId);
     expect(document.source_name).toBe(sourceName);
     expect(document.archived).toBe(archived);
+    expect(document.current_document_version_id).toBeTruthy();
+    expect(document.served_document_version_id).toBe(
+      document.current_document_version_id,
+    );
+    expect(document.serving_state).toBe("current");
+    expect(document.answer_availability).toBeTruthy();
+    if (stage) {
+      (observations.routes as unknown[]).push({
+        stage,
+        path: detailPath,
+        status: response.status(),
+        revision: document.revision,
+        archived: document.archived,
+        current_document_version_id: document.current_document_version_id,
+        served_document_version_id: document.served_document_version_id,
+        serving_state: document.serving_state,
+        answer_availability: document.answer_availability,
+        deletion_request: document.deletion_request,
+      });
+    }
     return document;
   };
   const expectDetail = async (archived: boolean) => {
-    await expect(page).toHaveURL(
-      new RegExp(`${listPath.replaceAll("/", "\\/")}/`),
-    );
+    await expect(page).toHaveURL(`${listPath}/${documentId}`);
     await expect(
       page.getByRole("heading", { name: sourceName, exact: true }),
     ).toBeVisible();
@@ -146,28 +184,78 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     page.getByRole("link", { name: sourceName, exact: true }),
   ).toBeVisible();
 
+  await page.getByRole("checkbox", { name: "Show archived" }).check();
+  await expect(
+    page.getByRole("link", { name: sourceName, exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: sourceName, exact: true }).click();
+  await expectDetail(false);
+  await page.getByRole("link", { name: "← Documents" }).click();
+  await expect(page).toHaveURL(listPath);
+  await expect(
+    page.getByRole("checkbox", { name: "Show archived" }),
+  ).not.toBeChecked();
+  await expect(
+    page.getByRole("link", { name: sourceName, exact: true }),
+  ).toBeVisible();
+  await page.getByRole("checkbox", { name: "Show archived" }).check();
+
   const row = page.getByRole("listitem").filter({ hasText: sourceName });
   await row.getByRole("button", { name: `Actions for ${sourceName}` }).click();
   await expect(
     page.getByRole("menuitem", { name: "View details" }),
   ).toBeVisible();
   await captureIdentity(page, path.join(evidence, "ready-menu.png"));
-  const archiveRevision = (await observe(false)).revision;
+  await page.getByRole("menuitem", { name: "View details" }).click();
+  await expectDetail(false);
+  await page.getByRole("link", { name: "← Documents" }).click();
+  await expect(page).toHaveURL(listPath);
+  await expect(
+    page.getByRole("checkbox", { name: "Show archived" }),
+  ).not.toBeChecked();
+  await page.getByRole("checkbox", { name: "Show archived" }).check();
+  await expect(
+    page.getByRole("link", { name: sourceName, exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: sourceName })
+    .getByRole("button", { name: `Actions for ${sourceName}` })
+    .click();
+  const readyProjection = await observe(false, "ready-before-archive");
+  const archiveRevision = readyProjection.revision;
   const archiveResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
       response.url().endsWith(`/documents/${documentId}/archive`),
   );
   await page.getByRole("menuitem", { name: "Archive document" }).click();
-  expect((await archiveResponse).status()).toBe(200);
-  expect((await archiveResponse).request().headers()["if-match"]).toBe(
+  const archivedResponse = await archiveResponse;
+  expect(archivedResponse.status()).toBe(200);
+  expect(archivedResponse.request().headers()["if-match"]).toBe(
     String(archiveRevision),
   );
-  const archived = await expect
-    .poll(async () => (await observe(true)).archived)
-    .toBe(true);
-  observations.ready = await observe(false).catch(() => null);
-  observations.archived = archived;
+  await expect.poll(async () => (await observe(true)).archived).toBe(true);
+  const archivedProjection = await observe(true, "archived-after-archive");
+  expect(archivedProjection.revision).toBeGreaterThan(archiveRevision);
+  expect(archivedProjection.current_document_version_id).toBe(
+    readyProjection.current_document_version_id,
+  );
+  expect(archivedProjection.served_document_version_id).toBe(
+    readyProjection.served_document_version_id,
+  );
+  expect(archivedProjection.serving_state).toBe(readyProjection.serving_state);
+  expect(archivedProjection.answer_availability).toBe(
+    readyProjection.answer_availability,
+  );
+  expect(archivedProjection.deletion_request).toEqual(
+    readyProjection.deletion_request,
+  );
+  observations.archive = {
+    status: archivedResponse.status(),
+    ifMatch: String(archiveRevision),
+    revision: archivedProjection.revision,
+  };
   await page.getByRole("checkbox", { name: "Show archived" }).check();
   await expect(
     page.getByRole("link", { name: sourceName, exact: true }),
@@ -208,11 +296,37 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
       response.url().endsWith(`/documents/${documentId}/unarchive`),
   );
   await page.getByRole("menuitem", { name: "Restore document" }).click();
-  expect((await restoreResponse).status()).toBe(200);
-  expect((await restoreResponse).request().headers()["if-match"]).toBe(
+  const restoredResponse = await restoreResponse;
+  expect(restoredResponse.status()).toBe(200);
+  expect(restoredResponse.request().headers()["if-match"]).toBe(
     String(restoreRevision),
   );
-  await expect.poll(async () => (await observe(false)).archived).toBe(false);
+  const restoredProjection = await expect
+    .poll(async () => {
+      const document = await observe(false);
+      return document.archived ? null : document;
+    })
+    .toBeTruthy()
+    .then(async () => observe(false, "ready-after-restore"));
+  expect(restoredProjection.revision).toBeGreaterThan(restoreRevision);
+  expect(restoredProjection.current_document_version_id).toBe(
+    readyProjection.current_document_version_id,
+  );
+  expect(restoredProjection.served_document_version_id).toBe(
+    readyProjection.served_document_version_id,
+  );
+  expect(restoredProjection.serving_state).toBe(readyProjection.serving_state);
+  expect(restoredProjection.answer_availability).toBe(
+    readyProjection.answer_availability,
+  );
+  expect(restoredProjection.deletion_request).toEqual(
+    readyProjection.deletion_request,
+  );
+  observations.restore = {
+    status: restoredResponse.status(),
+    ifMatch: String(restoreRevision),
+    revision: restoredProjection.revision,
+  };
   await page.getByRole("link", { name: sourceName, exact: true }).click();
   await expectDetail(false);
   await page.getByRole("link", { name: "← Documents" }).click();
