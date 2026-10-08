@@ -27,6 +27,10 @@ import org.keycloak.authentication.Authenticator;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.common.ClientConnection;
 import org.keycloak.email.EmailTemplateProvider;
+import org.keycloak.email.EmailException;
+import org.keycloak.email.freemarker.FreeMarkerEmailTemplateProvider;
+import org.keycloak.theme.Theme;
+import org.keycloak.theme.freemarker.FreeMarkerProvider;
 import org.keycloak.forms.login.LoginFormsProvider;
 import org.keycloak.http.HttpRequest;
 import org.keycloak.models.ClientModel;
@@ -347,6 +351,37 @@ class EmailOtpResetFlowIT {
         return output.toString();
     }
     @Test
+    void nativeEmailRendererCanEnrichSenderAttributesBeforeActivation() throws Exception {
+        var f = new Fixture();
+        f.nativeRendererMutations = true;
+        f.post("request", "email", "known@example.test");
+        assertEquals(List.of("reserve", "mail", "activate"), f.events);
+        assertNull(f.attachedUser);
+        assertFalse(f.succeeded);
+    }
+
+    /** Execute the pinned renderer through its first mutation, then stop before theme I/O. */
+    static final class NativeAttributeProbe extends FreeMarkerEmailTemplateProvider {
+        NativeAttributeProbe(KeycloakSession session) { super(session); }
+        @Override
+        protected Theme getTheme() throws java.io.IOException {
+            throw new java.io.IOException("NATIVE_ATTRIBUTE_ENRICHMENT_REACHED");
+        }
+        void accept(Map<String, Object> attributes) {
+            try {
+                processTemplate("knoraResetOtpSubject", List.of(), "knora-reset-otp.ftl", attributes);
+                throw new IllegalStateException("Unexpected theme I/O");
+            } catch (EmailException failure) {
+                Throwable cause = failure;
+                while (cause.getCause() != null) cause = cause.getCause();
+                if (!(cause instanceof java.io.IOException)
+                        || !"NATIVE_ATTRIBUTE_ENRICHMENT_REACHED".equals(cause.getMessage()))
+                    throw new IllegalStateException("Native attribute enrichment failed");
+            }
+        }
+    }
+
+    @Test
     void offlineRequestBindsNativeScopeAndTrustedIpAndClosesVault() throws Exception {
         var f = new Fixture();
         f.post("request", "email", " Known@Example.test ");
@@ -472,6 +507,7 @@ class EmailOtpResetFlowIT {
         boolean enabled = true;
         boolean known = true;
         boolean mailFails;
+        boolean nativeRendererMutations;
         String realmId = "realm-id";
         String remoteAddress = "192.0.2.5";
         String email = "known@example.test";
@@ -510,6 +546,7 @@ class EmailOtpResetFlowIT {
         final ClientConnection connection = fake(ClientConnection.class,
                 (method, args) -> "getRemoteAddr".equals(method) ? remoteAddress : unsupported(method));
         final KeycloakContext keycloakContext = fake(KeycloakContext.class, (method, args) -> switch (method) {
+            case "resolveLocale" -> java.util.Locale.ENGLISH;
             case "getRealm" -> realm;
             case "getConnection" -> connection;
             default -> unsupported(method);
@@ -536,6 +573,13 @@ class EmailOtpResetFlowIT {
                 assertEquals("knoraResetOtpSubject", args[0]);
                 assertEquals("knora-reset-otp.ftl", args[1]);
                 assertEquals("000042", ((Map<?, ?>) args[2]).get("code"));
+                if (nativeRendererMutations) {
+                    @SuppressWarnings("unchecked")
+                    var body = (Map<String, Object>) args[2];
+                    var renderer = new NativeAttributeProbe(this.session);
+                    renderer.setRealm(realm).setUser(user).setAuthenticationSession(auth);
+                    renderer.accept(body);
+                }
                 if (mailFails) throw new IllegalStateException("Offline mail unavailable");
                 return null;
             }
@@ -545,7 +589,8 @@ class EmailOtpResetFlowIT {
             case "getContext" -> keycloakContext;
             case "users" -> users;
             case "vault" -> vault;
-            case "getProvider" -> args[0] == EmailTemplateProvider.class ? mail : unsupported(method);
+            case "getProvider" -> args[0] == EmailTemplateProvider.class ? mail
+                    : args[0] == FreeMarkerProvider.class ? null : unsupported(method);
             default -> unsupported(method);
         });
         final LoginFormsProvider form = fake(LoginFormsProvider.class, (method, args) -> switch (method) {

@@ -223,10 +223,17 @@ function Invoke-RestMethod {
     if ($Method -eq 'Get') {
         switch ($Uri) {
             $realmUri { return $global:data.realm }
-            "$realmUri/authentication/authenticator-providers" { return $global:data.providers }
+            "$realmUri/authentication/authenticator-providers" {
+                if ($global:data.restCollectionShape) { return ,$global:data.providers }
+                return $global:data.providers
+            }
             "$realmUri/authentication/required-actions" { return $global:data.required }
-            "$realmUri/authentication/flows" { return $global:data.flows }
+            "$realmUri/authentication/flows" {
+                if ($global:data.restCollectionShape) { return ,$global:data.flows }
+                return $global:data.flows
+            }
             "$realmUri/authentication/flows/knora-email-otp-reset/executions" {
+                if ($global:data.restCollectionShape) { return ,$global:data.executions }
                 return $global:data.executions
             }
             default { throw 'Unexpected GET boundary' }
@@ -812,6 +819,34 @@ def test_runtime_prepare_starts_only_keycloak_and_preserves_binding(
     assert after["dockerMutations"][0][-5:] == ["up", "-d", "--build", "--no-deps", "keycloak"]
     assert after["mutations"] == []
     assert after["realm"] == data["realm"]
+
+
+def test_rest_collection_shape_preserves_exact_owned_flow_and_binding(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["flows"].insert(0, {"id": "built-in", "alias": "reset credentials", "builtIn": True})
+    data["restCollectionShape"] = True
+    result, after = run(tmp_path, data, "Prepare,BindOptIn,Restore")
+    assert result.returncode == 0, result.stderr
+    assert "OTP_FLOW_ALREADY_PREPARED" in result.stdout
+    assert "OTP_BIND_VERIFIED" in result.stdout
+    assert "OTP_RESTORE_VERIFIED" in result.stdout
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 2
+
+
+def test_runtime_accepts_required_providers_in_rest_collection_shape(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    data["restCollectionShape"] = True
+    result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_RUNTIME_PREPARED_BINDING_PRESERVED" in result.stdout
+    assert after["realm"] == data["realm"]
+    assert after["mutations"] == []
 
 
 @pytest.mark.parametrize(

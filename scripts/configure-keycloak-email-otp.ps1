@@ -23,7 +23,7 @@ function Invoke-OtpAdmin {
             $parameters.ContentType = 'application/json'
             $parameters.Body = $Payload | ConvertTo-Json -Depth 20
         }
-        Invoke-RestMethod @parameters
+        Invoke-RestMethod @parameters | ForEach-Object { $_ }
     } catch { throw 'OTP_ADMIN_REQUEST_FAILED' }
 }
 
@@ -169,14 +169,14 @@ try {
     if ($Mode -ne 'Restore') {
         $installed = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/authenticator-providers")
         foreach ($provider in $providers) {
-            if (@($installed | Where-Object id -eq $provider).Count -ne 1) { throw 'OTP_AUTHENTICATOR_REQUIRED' }
+            if (@($installed | Where-Object { $_.id -eq $provider }).Count -ne 1) { throw 'OTP_AUTHENTICATOR_REQUIRED' }
         }
         $actions = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/required-actions")
         if (@($actions | Where-Object { $_.alias -eq 'UPDATE_PASSWORD' -and
             $_.providerId -eq 'UPDATE_PASSWORD' -and $_.enabled -eq $true }).Count -ne 1) {
             throw 'OTP_NATIVE_UPDATE_PASSWORD_REQUIRED'
         }
-        $flows = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/flows" | Where-Object alias -eq $alias)
+        $flows = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/flows" | Where-Object { $_.alias -eq $alias })
         if ($flows.Count -gt 1) { throw 'OTP_FLOW_CONFLICT' }
         $executions = @()
         if ($flows.Count -eq 1) {
@@ -212,7 +212,7 @@ try {
                     id = $executions[$index].id; requirement = 'REQUIRED'; priority = (10 * ($index + 1))
                 }
             }
-            $flows = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/flows" | Where-Object alias -eq $alias)
+            $flows = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/flows" | Where-Object { $_.alias -eq $alias })
             if ($flows.Count -ne 1) { throw 'OTP_FLOW_CONFLICT' }
             Assert-OtpFlow $flows[0] @(Invoke-OtpAdmin -Uri "$realmUri/authentication/flows/$alias/executions")
             $verified = Invoke-OtpAdmin -Uri $realmUri

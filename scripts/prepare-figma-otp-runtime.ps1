@@ -222,7 +222,7 @@ try {
         $headers = New-OtpRuntimeHeaders
         $available = @(Invoke-OtpRuntimeAdmin "$realmUri/authentication/authenticator-providers")
         foreach ($provider in 'knora-reset-email-otp', 'reset-password') {
-            if (@($available | Where-Object id -eq $provider).Count -ne 1) { throw 'OTP_AUTHENTICATOR_REQUIRED' }
+            if (@($available | Where-Object { $_.id -eq $provider }).Count -ne 1) { throw 'OTP_AUTHENTICATOR_REQUIRED' }
         }
         $verified = Invoke-OtpRuntimeAdmin $realmUri
         if ($verified.id -ne $realmId -or $verified.resetCredentialsFlow -ne $binding) {

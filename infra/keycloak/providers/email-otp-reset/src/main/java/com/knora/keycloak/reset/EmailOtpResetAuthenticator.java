@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -134,7 +135,8 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
             try {
                 session.getProvider(EmailTemplateProvider.class).setRealm(realm).setUser(user)
                         .setAuthenticationSession(context.getAuthenticationSession())
-                        .send("knoraResetOtpSubject", "knora-reset-otp.ftl", Map.of("code", code, "expirationMinutes", 5));
+                        .send("knoraResetOtpSubject", "knora-reset-otp.ftl",
+                                new HashMap<>(Map.of("code", code, "expirationMinutes", 5)));
             } catch (EmailException failure) { throw new IllegalStateException("Recovery delivery unavailable"); }
         };
         return new OtpChallengeService(stores.apply(session), lookup, codes, digest, sender, clock,
