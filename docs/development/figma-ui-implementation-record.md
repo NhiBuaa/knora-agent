@@ -274,6 +274,9 @@ cases passing. At390px, document scrollWidth525 comes solely from the inherited 
 restart-login tooltip: x394.80, width130, right524.80. Its48px button fits atx318/right366;
 desktop has no overflow. The retained sanitized diagnosis is
 `.superpowers/sdd/2026-10-05-figma-ui-workflow/native-reauth-overflow-diagnosis.md`.
-Temporary diagnostic tests/config were removed; no production CSS fix is yet claimed.
+Temporary diagnostic tests/config were removed. Commit `decaab7` applies the bounded
+mobile-only tooltip placement and adds the no-overflow assertion; the live journeys passed
+at390px and1440px after the fix. This resolves the recorded adaptation defect only and does
+not change the still-open native OTP, parity or transition gates.
 OTP binding and the rejected physical outage proof remain held; equivalent workarounds
 are prohibited. Keep the goal active.
