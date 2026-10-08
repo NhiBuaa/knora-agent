@@ -232,6 +232,13 @@ test.describe("isolated Figma Operator journeys", () => {
     await captureIdentity(page, `${evidence}/O3-unavailable-live.png`);
 
     // edge 63: evaluation unavailable -> Operations.
+    await expect(
+      page.getByRole("region", { name: "Report context" }),
+    ).toContainText("operator-no-persisted-report");
+    await expect(
+      page.getByRole("region", { name: "Report context" }),
+    ).toContainText("EVALUATION_REPORT_UNAVAILABLE");
+    await expectWorkspace(page, observed.name);
     await clickTab(page, "Operations");
     await expectOperations(page, observed.name);
     await captureIdentity(page, `${evidence}/edge-63.png`);
@@ -249,6 +256,9 @@ test.describe("isolated Figma Operator journeys", () => {
     await expect(
       page.getByRole("region", { name: "Report context" }),
     ).toContainText("operator-no-persisted-report");
+    await expect(
+      page.getByRole("region", { name: "Report context" }),
+    ).toContainText("EVALUATION_REPORT_UNAVAILABLE");
     await expectWorkspace(page, observed.name);
     await clickTab(page, "Traces");
     await expectTraceLookup(page, observed.name);

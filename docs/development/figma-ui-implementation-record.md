@@ -319,3 +319,12 @@ the first run's scratch captures remain in this task's ignored SDD folder. Histo
 captures were not targeted. Representative real trace and empty-lookup captures were inspected.
 Routine existing NO_COLOR/FORCE_COLOR warnings were emitted. This test-only change proves bounded
 navigation and denial behavior; native OTP, full source parity and whole-head acceptance remain open.
+
+Independent review found that edges 63 and 64 did not both prove the unavailable report source
+before their tab clicks. The Operator journey now checks the requested
+`operator-no-persisted-report` ID, `EVALUATION_REPORT_UNAVAILABLE` code and selected Workspace
+immediately before each click. After this assertion-only correction, `npm --prefix frontend run
+format`, `npm --prefix frontend run format:check` and `npm --prefix frontend run typecheck` each
+exited 0. From `frontend`, `$env:FIGMA_TEST_MODE='application'; npm exec playwright test --
+--config=playwright.figma-operator.config.ts` passed both cases (50.6s, exit 0). The run refreshed
+the 14 captures in `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
