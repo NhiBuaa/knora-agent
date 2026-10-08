@@ -470,10 +470,13 @@ export function DocumentList({
         </div>
         {canWrite ? (
           <Button
-            className="h-[38px] min-h-[38px] px-3 py-0 text-[13px]"
+            className="h-[38px] min-h-[38px] w-[154px] shrink-0 !px-2.5 py-0 text-[13px]"
             onClick={() => setUploadOpen(true)}
           >
-            <span aria-hidden="true">+</span>Upload document
+            <span aria-hidden="true" className="text-[15px]">
+              +
+            </span>
+            Upload document
           </Button>
         ) : (
           <span className="rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-2.5 text-[13px] font-semibold text-signature">

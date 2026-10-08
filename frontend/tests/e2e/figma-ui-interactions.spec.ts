@@ -1595,11 +1595,162 @@ test.describe("source fixtures", () => {
     { width: 1440, height: 960 },
     { width: 390, height: 844 },
   ]) {
+    test(`Documents Upload trigger matches source allocation ${viewport.width} and retains dialog focus`, async ({
+      page,
+    }) => {
+      const evidence =
+        "../.superpowers/figma/q1/evidence/document-upload-trigger-2026-10-08";
+      fs.mkdirSync(evidence, { recursive: true });
+      const requests: string[] = [];
+      const writes: string[] = [];
+      page.on("request", (request) => {
+        const pathname = new URL(request.url()).pathname;
+        if (!pathname.startsWith("/api/")) return;
+        const invocation = `${request.method()} ${pathname}`;
+        requests.push(invocation);
+        if (request.method() !== "GET") writes.push(invocation);
+      });
+      await page.setViewportSize(viewport);
+      const unexpected = await prepareFixture(page, "128:120");
+      const documents = page.getByRole("region", {
+        name: "Documents",
+        exact: true,
+      });
+      const trigger = documents.getByRole("button", {
+        name: "Upload document",
+        exact: true,
+      });
+      await page.evaluate(() => document.fonts.ready);
+      await expect
+        .poll(() =>
+          page.locator("img").evaluateAll((images) =>
+            images.every((element) => {
+              const image = element as HTMLImageElement;
+              return image.complete && image.naturalWidth > 0;
+            }),
+          ),
+        )
+        .toBe(true);
+      const geometry = await trigger.evaluate((button) => {
+        const style = getComputedStyle(button);
+        const plus = button.querySelector("span")!;
+        const plusBox = plus.getBoundingClientRect();
+        const buttonBox = button.getBoundingClientRect();
+        const label = button.lastChild as Text;
+        const labelRange = document.createRange();
+        labelRange.selectNodeContents(label);
+        const labelBox = labelRange.getBoundingClientRect();
+        const labelLines = labelRange.getClientRects().length;
+        const images = Array.from(
+          document.querySelectorAll<HTMLImageElement>(
+            'img[src="/brand/knora-leaf.svg"], .documents-workspace-caret',
+          ),
+        ).map((image) => ({
+          src: image.getAttribute("src"),
+          width: image.getBoundingClientRect().width,
+          height: image.getBoundingClientRect().height,
+          loaded: image.complete && image.naturalWidth > 0,
+        }));
+        return {
+          width: buttonBox.width,
+          height: buttonBox.height,
+          radius: parseFloat(style.borderTopLeftRadius),
+          gap: parseFloat(style.columnGap),
+          paddingLeft: parseFloat(style.paddingLeft),
+          paddingRight: parseFloat(style.paddingRight),
+          plusFont: parseFloat(getComputedStyle(plus).fontSize),
+          labelFont: parseFloat(style.fontSize),
+          plusWidth: plusBox.width,
+          labelWidth: labelBox.width,
+          labelLines,
+          contentRequired:
+            plusBox.width + parseFloat(style.columnGap) + labelBox.width,
+          contentAvailable:
+            buttonBox.width -
+            parseFloat(style.paddingLeft) -
+            parseFloat(style.paddingRight) -
+            parseFloat(style.borderLeftWidth) -
+            parseFloat(style.borderRightWidth),
+          textFits:
+            plusBox.left >= buttonBox.left &&
+            labelBox.right <= buttonBox.right &&
+            button.scrollWidth <= button.clientWidth,
+          documentFits: document.documentElement.scrollWidth <= innerWidth,
+          images,
+        };
+      });
+      await captureIdentity(
+        page,
+        `${evidence}/header-128-120-${viewport.width}.png`,
+      );
+      fs.writeFileSync(
+        `${evidence}/geometry-${viewport.width}.json`,
+        JSON.stringify(
+          { viewport, geometry, requests, unexpected, writes },
+          null,
+          2,
+        ),
+      );
+      expect(geometry.width).toBe(154);
+      expect(geometry.height).toBe(38);
+      expect(geometry.plusFont).toBe(15);
+      expect(geometry.labelFont).toBe(13);
+      expect(geometry.gap).toBe(8);
+      expect(geometry.radius).toBe(8);
+      expect(geometry.contentRequired).toBeLessThanOrEqual(
+        geometry.contentAvailable,
+      );
+      expect(geometry.labelLines).toBe(1);
+      expect(geometry.paddingLeft).toBe(10);
+      expect(geometry.paddingRight).toBe(10);
+      expect(geometry.textFits).toBe(true);
+      expect(geometry.documentFits).toBe(true);
+      expect(geometry.images).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            src: "/brand/knora-leaf.svg",
+            width: 18,
+            height: 18,
+            loaded: true,
+          }),
+          expect.objectContaining({
+            src: "/icons/figma/d9407.svg",
+            width: 8,
+            height: 5,
+            loaded: true,
+          }),
+        ]),
+      );
+      const dialog = page.getByRole("dialog", {
+        name: "Upload document",
+        exact: true,
+      });
+      await trigger.click();
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: "Upload document", exact: true }),
+      ).toBeDisabled();
+      await captureIdentity(
+        page,
+        `${evidence}/dialog-128-120-${viewport.width}.png`,
+      );
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(trigger).toBeFocused();
+      await trigger.click();
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(trigger).toBeFocused();
+      expect(unexpected).toEqual([]);
+      expect(writes).toEqual([]);
+      expect(requests.length).toBeGreaterThan(0);
+    });
     test(`Documents local interactions ${viewport.width} verifies filters, menus and cancelled dialogs without mutations`, async ({
       page,
     }) => {
       const evidence =
-        "../.superpowers/figma/q1/evidence/documents-local-interactions-2026-10-08";
+        "../.superpowers/figma/q1/evidence/document-upload-trigger-2026-10-08/local-interactions";
       fs.mkdirSync(evidence, { recursive: true });
       const apiRequests: string[] = [];
       const writes: string[] = [];
