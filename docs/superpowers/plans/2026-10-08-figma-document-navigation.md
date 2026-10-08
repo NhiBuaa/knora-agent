@@ -30,12 +30,14 @@ Modify `frontend/tests/e2e/support/figma-environment.test.ts`: update the existi
 
 Modify `frontend/components/documents/DocumentDetail.tsx`: archived Document's actual back link includes `?archived=true`; non-archived detail retains the existing URL. Modify `frontend/components/documents/DocumentList.tsx`: initialize its existing local filter from that exact preference through existing Next searchParams API. No source state or permission is inferred from the query.
 
-Modify `docs/development/figma-ui-visual-coverage.md` and `docs/development/figma-ui-implementation-record.md`: record edge-specific results, source/destination IDs, actual backend statuses and retained limitations. Seven maintained files total, plus this preparation plan.
+Modify `frontend/tests/document-figma-states.test.tsx`: extend its existing Next navigation mock with searchParams and a focused archived-return test. Query defaults are empty for all pre-existing cases.
+
+Modify `docs/development/figma-ui-visual-coverage.md` and `docs/development/figma-ui-implementation-record.md`: record edge-specific results, source/destination IDs, actual backend statuses and retained limitations. Eight maintained files total, plus this preparation plan.
 
 ## Task 1: Prove live row, menu and back navigation
 
 **Create:** `frontend/tests/e2e/figma-document-navigation.spec.ts`.
-**Modify exactly:** the config, existing environment test, DocumentList, DocumentDetail and two development documents named above.
+**Modify exactly:** the config, existing environment test, existing document-figma-states test, DocumentList, DocumentDetail and two development documents named above.
 
 **Consumes:** `openFigmaLogin(page)`, `captureIdentity(page,path)`, realm `m5-delete-user`, native authenticated BFF and current Documents links/actions.
 **Produces:** named live journey `Documents live navigation preserves owned source and menu lifecycle`, scoped captures and JSON observation, explicit edge classifications.
@@ -73,7 +75,7 @@ expect(observed.archived).toBe(expectedArchived);
 // DocumentList, using the already installed Next hook:
 const searchParams = useSearchParams();
 const [showArchived, setShowArchived] = useState(
-  () => searchParams.get("archived") === "true",
+  () => searchParams?.get("archived") === "true",
 );
 // DocumentDetail's existing back Link:
 href={`${routes.documents(workspaceId)}${document?.archived ? "?archived=true" : ""}`}
@@ -82,5 +84,6 @@ href={`${routes.documents(workspaceId)}${document?.archived ? "?archived=true" :
 - [ ] Open/close Ready and Archived menus using their actual trigger click during the corresponding states, proving exact toggle sources for edges14/24 in addition to prior Escape evidence. No request-deletion confirmation or reprocess action.
 - [ ] Capture Ready detail, Ready menu, Archived detail, Archived menu and final restored list, waiting for loaded local fonts/images. Inspect relevant desktop images. Write `journey.json` containing edge evidence, scoped routes/IDs, statuses/revisions/source projections, actual destinations and limitations. Never write credentials/tokens/cookies/action URLs or substitute API bodies. Preserve all data; no cleanup.
 - [ ] Run only this named live journey from frontend with `$env:FIGMA_TEST_MODE='application'; npm exec playwright test -- --config=playwright.figma.config.ts --grep 'Documents live navigation preserves owned source and menu lifecycle'`. Remove the task-local selection environment afterward. Inspect command exit and output. Avoid rerunning existing broader lifecycle test because it overwrites historical evidence.
-- [ ] Run existing `tests/e2e/support/figma-environment.test.ts` focused Vitest selection; update its application selection expectation using `toEqual` for the exact two-element array. Preserve all environment guards and existing native/fixture/special-selection assertions. Run the relevant `document-figma-states.test.tsx` and `documents-management.test.tsx` regression because the owners changed; add a mock only if their existing Next hook seam needs one, and escalate the exact additional maintained path before editing it. Run sequential `npm --prefix frontend run format`, `format:check`, `typecheck`, `git diff --check`. If test/config code changes after the covering run, run the affected journey again.
-- [ ] Update only observed edge rows and the two documentation records. Claim no processing-source proof, deletion, native OTP, full-frame parity or full regression. Self-review scoped diff; commit exactly seven maintained files and write full task report with RED/GREEN commands/exits/captures and all limitations. Controller performs independent Spec and Quality review.
+- [ ] Extend the existing hoisted navigation mock in `document-figma-states.test.tsx` with `search: ""`, return `new URLSearchParams(navigation.search)` from `useSearchParams` and reset search in beforeEach. Add a focused test starting with `archived=true`, a real archived Document projection and authorized GET list fixture: checked filter displays its filename on initial render; uncheck hides it. Add assertions to the existing detail rendering cases for archived back URL versus normal Ready back URL. The optional query access handles absent search context in current non-router component tests. Keep all pre-existing assertions.
+- [ ] Run existing `tests/e2e/support/figma-environment.test.ts` focused Vitest selection; update its application selection expectation using `toEqual` for the exact two-element array. Preserve all environment guards and existing native/fixture/special-selection assertions. Run `document-figma-states.test.tsx` and `documents-management.test.tsx` focused regressions; no new shared setup/mock changes. Run sequential `npm --prefix frontend run format`, `format:check`, `typecheck`, `git diff --check`. If test/config code changes after the covering run, run the affected journey again.
+- [ ] Update only observed edge rows and the two documentation records. Claim no processing-source proof, deletion, native OTP, full-frame parity or full regression. Self-review scoped diff; commit exactly eight maintained files and write full task report with RED/GREEN commands/exits/captures and all limitations. Controller performs independent Spec and Quality review.
