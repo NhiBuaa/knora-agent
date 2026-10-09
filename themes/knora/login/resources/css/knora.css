@@ -452,10 +452,13 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
 
 .knora-notice-success {
   background: var(--knora-action-soft);
+  font: 400 12px/15px Inter, sans-serif;
 }
 
 .knora-notice-success strong {
   color: var(--knora-action);
+  display: block;
+  line-height: 16px;
 }
 
 .knora-auth input[aria-invalid="true"] {

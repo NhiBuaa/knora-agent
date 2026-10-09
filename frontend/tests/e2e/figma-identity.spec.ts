@@ -213,6 +213,9 @@ for (const completionAction of [
       await expect(
         reset.locator("#knora-password-updated-notice"),
       ).toContainText(/Password updated/i);
+      expect(
+        await reset.locator("#knora-password-updated-notice").boundingBox(),
+      ).toMatchObject({ x: 830, width: 420, height: 59 });
       const freshAuthorization = new URL(reset.url()).searchParams;
       expect(freshAuthorization.get("prompt")).toBe("login");
       for (const parameter of ["state", "nonce", "code_challenge"]) {
