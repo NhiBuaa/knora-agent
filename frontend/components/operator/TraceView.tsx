@@ -75,7 +75,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
   return (
     <article
       aria-labelledby="trace-summary-heading"
-      className="mt-5 mb-0 border-0 bg-transparent p-0"
+      className="mt-[15px] mb-0 border-0 bg-transparent p-0"
     >
       <h2 id="trace-summary-heading" className={heading}>
         Trace summary

@@ -21,7 +21,7 @@ export function EvaluationView({
   return (
     <section
       aria-labelledby="evaluation-heading"
-      className="mt-9 mb-0 grid grid-cols-[minmax(0,760px)_minmax(0,380px)] gap-[60px] border-0 bg-transparent p-0 max-lg:grid-cols-1 max-lg:gap-8"
+      className="mt-[33px] mb-0 grid grid-cols-[minmax(0,760px)_minmax(0,380px)] gap-[60px] border-0 bg-transparent p-0 max-lg:grid-cols-1 max-lg:gap-8"
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-[18px]">
