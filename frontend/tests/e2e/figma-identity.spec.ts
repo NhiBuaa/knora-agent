@@ -264,6 +264,39 @@ test("AU2 invalid credentials are a native Keycloak response", async ({
   await captureIdentity(page, `${evidence}/AU2-live.png`);
 });
 
+test("AU2 invalid credentials can enter the native recovery request", async ({
+  page,
+}) => {
+  await openFigmaLogin(page);
+  await page.locator("#username").fill("figma-invalid-recovery-user");
+  await page.locator("#password").fill(randomUUID());
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Invalid");
+  await page
+    .getByRole("link", { name: "Forgot Password?", exact: true })
+    .click();
+  await expect(page.locator("#email")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Forgot your password?", exact: true }),
+  ).toBeVisible();
+  await captureIdentity(page, `${evidence}/AU2-recovery-request-live.png`);
+});
+
+test("AU4 failed authentication starts a fresh native sign-in", async ({
+  page,
+}) => {
+  await page.goto("/auth/failed");
+  await expect(
+    page.getByRole("heading", { name: "Couldn’t sign you in", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Try signing in again", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/realms\/knora-dev\//);
+  await expect(page.locator("#kc-form-login")).toBeVisible();
+  await captureIdentity(page, `${evidence}/AU4-retry-sign-in-live.png`);
+});
+
 test("AU8 registration exposes exactly four approved native fields", async ({
   page,
 }) => {

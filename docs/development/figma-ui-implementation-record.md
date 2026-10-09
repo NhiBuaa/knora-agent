@@ -452,3 +452,8 @@ failure-origin checks. Fresh captures are under
 This requalifies the current native runtime and reset-success implementation. Provider browser
 SSO-cookie reuse, natural session expiry, deployment hardening Issue #152, whole-frame parity and
 the remaining unexercised Figma transitions remain open as recorded in the visual ledger.
+
+The identity follow-up also closes edges 83 and 86: invalid native credentials now enter the
+real OTP request form through Forgot Password, and the failed callback outcome retry link starts
+a fresh native Keycloak sign-in. Both focused Chromium cases passed (11.2s); captures are
+`AU2-recovery-request-live.png` and `AU4-retry-sign-in-live.png` in the identity evidence folder.
