@@ -46,6 +46,11 @@ The follow-up Evaluation value-slot correction was verified with all three Opera
 comparisons and the complete Figma fixture suite: 114 passed, 10 skipped. Frontend formatting,
 typecheck and production build also passed; existing Next image optimization warnings remain.
 
+Fresh exact-head backend qualification was rerun on the disposable `knora-figma-regression-postgres`
+container at loopback port 5544 (the retained Figma database at 5543 was not targeted):
+`pytest` passed **1640 tests with 16 skips and 28 warnings**, `ruff check .` passed, and
+`docker compose config --quiet` passed with only unset optional Minio credential warnings.
+
 The October 10 independent review found no Critical defects. It identified that the Evaluation
 geometry evidence was comparing a row container with a text node and that the long observation
 code was narrower than the direct Figma value slot. The comparison now keeps the row's measured
