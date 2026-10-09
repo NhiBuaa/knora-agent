@@ -4,6 +4,16 @@ Knora is an independent AI support and knowledge service. It turns workspace-sco
 documents into evidence that can support cited answers and, in later milestones, controlled tool
 proposals.
 
+## Planned Retrieval V3 architecture (not yet implemented)
+
+The project owner has chosen a **Qdrant-first Retrieval V3 direction**, with Qdrant Dense + BM25
+search, PostgreSQL retained as source of truth, and version-aware indexed search data.
+This is a **proposed architecture**, not the current deployment or an accepted release.
+Detailed choices and dependencies are recorded in [ADR 0016](docs/adr/0016-qdrant-first-retrieval-v3.md)
+and tracked by [Issue #153](https://github.com/NhiBuaa/knora-agent/issues/153).
+Legacy PostgreSQL FTS/pgvector behavior and immutable retrieval configurations remain unchanged
+until a separately approved implementation and release.
+
 ## Standalone identity and ownership
 
 Keycloak authenticates a user's validated issuer and subject. Knora persists private Workspace
