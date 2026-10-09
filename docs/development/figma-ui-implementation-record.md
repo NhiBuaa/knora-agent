@@ -481,11 +481,14 @@ The focused provider tests passed 22/22 plus 1/1 listener cases, and the live Id
 passed 12/12 including the generic profile action. This remains tied to the pinned Keycloak
 26.3.3 synchronous event/provider behavior; deployment hardening remains Issue #152.
 
-The subsequent application-mode Figma journey rerun passed 10 tests with 36 guarded skips.
+The subsequent application-mode Figma journey rerun passed 12 tests with 33 guarded skips when
+controller proof was enabled.
 It covers live account logout, workspace restore, archived Conversation/Workspace behavior,
 document lifecycle, lost-response recovery, and PDF job observation. The controller-backed
 answer/PDF/refusal journeys were preserved behind their explicit proof guard for the broad run;
-the answer and refusal cases were separately requalified in the current runtime below.
+all three were then requalified in the current runtime below. The PDF test is run after the host
+worker processes the newly created job because the browser batch does not start a worker between
+its upload and Ready assertions.
 
 ### Oct10 controller-backed transition requalification
 
@@ -499,5 +502,3 @@ required Linux cgroup memory limit and returned `PDF_EXTRACTOR_UNAVAILABLE`; the
 processed by the host Windows worker with the required Job Object limit and reached `succeeded`.
 The guarded PDF Ready browser journey passed, proving the detail route's Ready projection and
 source identity. No deletion was attempted.
-No deletion was attempted. This is a backend evidence/runtime gap, not a frontend implementation
-change.
