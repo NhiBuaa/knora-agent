@@ -20,6 +20,11 @@
             <p class="knora-brand-footnote">${msg("knoraSecureReturn")}</p>
         </aside>
 <div class="knora-auth">
+        <#assign resetMarkerKey = "knora:reset-success:" + ((realm.name)!"") + ":" + ((client.clientId)!"")>
+        <div id="knora-password-updated-notice" class="knora-notice knora-notice-success" data-knora-reset-success-key="${resetMarkerKey}" hidden>
+            <strong>${msg("knoraPasswordUpdated")}</strong>
+            <p>${msg("knoraPasswordUpdatedDescription")}</p>
+        </div>
         <p class="knora-auth-description">${msg("knoraLoginDescription")}</p>
 
         <#if message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
@@ -73,6 +78,7 @@
                 passwordInput.placeholder = "${msg('knoraPasswordPlaceholder')?js_string}";
             }
         </script>
+        <script src="${url.resourcesPath}/js/knora-login-transition.js" defer></script>
         </div>
     <#elseif section = "socialProviders" >
         <#if realm.password && social.providers?? && social.providers?has_content>

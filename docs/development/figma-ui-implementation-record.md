@@ -196,6 +196,31 @@ detail action allocation are now independently approved, as recorded below.
 
 Keep the goal active until the original requirements and their authoritative evidence are complete.
 
+## Oct9 reset-success and identity navigation follow-up
+
+The native reset-success path now keeps Keycloak's actual username/password form in the
+Figma R4 composition. A successful password update stamps only a short-lived per-tab cosmetic
+`sessionStorage` marker and replaces the page with the validated BFF
+`/api/auth/login?prompt=login` URL. The fresh native login consumes the marker once and reveals
+the green `Password updated` / `Sign in with your new password.` notice above the form. Pages marked
+`isAppInitiatedAction` retain their native action link; storage failure leaves the server CTA usable.
+No password, OTP, token, callback, or provider cookie is placed in the marker.
+
+The identity E2E suite passed 9/9 after adding both reset-success secondary destinations
+(Create account and Forgot Password). The native OTP runtime passed desktop and
+mobile recovery again, and a new native secondary-navigation journey passed at both viewports:
+Create account ↔ Sign in, registration validation → Sign in, reset request → Back to sign in,
+verify/rejected OTP → Use a different email. The full frontend Vitest suite passed 400 tests across
+45 files before the subsequent Conversation test additions; the reset-marker and callback-origin tests are included. A callback failure now
+uses the validated configured public callback origin when running behind a proxy and fails closed
+to the request origin for malformed or unsafe configuration. Fresh transition evidence is under
+`.superpowers/sdd/2026-10-09-figma-reset-success-native-login/`.
+
+These changes close the previously unproved identity secondary edges and replace the detached
+completion behavior with the approved native form composition. Exact whole-page parity, provider
+browser SSO-cookie reuse, natural expiry/account switching, and the remaining prototype/live
+coverage gates remain open.
+
 ## Oct9 native OTP runtime evidence
 
 Reviewed source checkpoint `92d1f8d` contains the dedicated native OTP journey and its bounded
@@ -396,3 +421,19 @@ limitation retained: the initial Documents preflight was omitted. A historical m
 found 365/366 unchanged and no missing files, with one legacy Workspace capture changed before
 this task. The fresh before/after audit proves all 436 prior Q1 files stayed unchanged during the
 correction and final journey. This does not establish full Figma parity or global pytest acceptance.
+
+### Oct9 Conversation creation from retained outcomes
+
+The application journey now exercises the real New Conversation control while the retained
+Conversation shows an answered Turn, a selected citation, an authoritative refusal, or an
+unsubmitted draft. Each case observes POST201 with an idempotency key, waits for browser
+navigation, verifies the new active Conversation through authenticated GETs, checks the new
+composer is empty, and hashes the source history before and after to prove it was not changed.
+The journey passed one Chromium case in 29.1s after the response-body assertion was corrected
+to read the persisted destination after navigation. Evidence is in
+`.superpowers/figma/q1/evidence/conversation-navigation-2026-10-09/`; the owning test is
+`frontend/tests/e2e/figma-conversation-navigation.spec.ts`.
+
+This closes the grounded-answer, selected-citation and refusal starting-state creation edges.
+It does not manufacture an interrupted backend state, close natural expiry, or establish
+whole-frame Figma parity or full 89-transition acceptance.

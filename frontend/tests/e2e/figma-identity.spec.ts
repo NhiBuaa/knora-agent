@@ -8,7 +8,8 @@ import {
   openFigmaRegistration,
 } from "./support/figma-auth";
 
-const evidence = "../.superpowers/sdd/2026-10-05-figma-ui-identity/evidence";
+const evidence =
+  "../.superpowers/sdd/2026-10-09-figma-reset-success-native-login/evidence/identity";
 
 test("AU1 native sign-in has the designed brand, fields and resource geometry", async ({
   page,
@@ -69,163 +70,147 @@ test("AU1 native sign-in has the designed brand, fields and resource geometry", 
   await captureIdentity(page, `${evidence}/AU1-live.png`);
 });
 
-test("native test-mail reset renders update password and information templates", async ({
-  page,
-  browser,
-}) => {
-  await openFigmaRegistration(page);
-  const username = `figma-${randomUUID()}`;
-  const identity = {
-    username,
-    email: `${username}@example.test`,
-    password: randomUUID(),
-  };
-  await fillRegistration(page, identity);
-  await page
-    .getByRole("button", { name: "Create account", exact: true })
-    .click();
-  await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/);
-  const context = await browser.newContext({
-    viewport: { width: 1440, height: 960 },
-  });
-  try {
-    const reset = await context.newPage();
-    await reset.goto("http://127.0.0.1:3300/api/auth/login");
-    const initialAuthorization = new URL(reset.url()).searchParams;
-    await reset.getByRole("link", { name: "Forgot Password?" }).click();
-    await reset.locator("#username").fill(identity.email);
-    await reset.getByRole("button", { name: "Submit", exact: true }).click();
-    await expect(reset.getByText(/receive an email shortly/i)).toBeVisible();
-    let messageId: string | undefined;
-    await expect
-      .poll(async () => {
-        const response = await page.request.get(
-          "http://127.0.0.1:8025/api/v1/messages",
-        );
-        const mailbox = await response.json();
-        const message = mailbox.messages.find(
-          (entry: { ID: string; To: { Address: string }[] }) =>
-            entry.To.some((to) => to.Address === identity.email),
-        );
-        messageId = message?.ID;
-        return Boolean(messageId);
-      })
-      .toBe(true);
-    const message = await (
-      await page.request.get(
-        `http://127.0.0.1:8025/api/v1/message/${messageId}`,
-      )
-    ).json();
-    const link = String(message.Text).match(
-      /http:\/\/127\.0\.0\.1:8380\/[^\s]+/,
-    );
-    expect(Boolean(link)).toBe(true);
-    await reset.goto(link![0]);
-    await expect(reset.locator("#kc-passwd-update-form")).toBeVisible();
-    await expect(
-      reset.getByRole("heading", { name: "Set a new password" }),
-    ).toBeVisible();
-    const icon = reset.locator("#password-new-show-password i");
-    expect(await icon.boundingBox()).toMatchObject({ width: 18, height: 18 });
-    expect(
-      await icon.evaluate(
-        (element) => getComputedStyle(element).backgroundImage,
-      ),
-    ).toContain("42cef.svg");
-    await captureIdentity(reset, `${evidence}/native-update-password-live.png`);
-    const changedPassword = randomUUID();
-    await reset.locator("#password-new").fill(changedPassword);
-    await reset.locator("#password-confirm").fill(changedPassword);
-    await reset.locator("#kc-submit").click();
-    await reset.waitForURL(/\/workspaces\/[0-9a-f-]+$/);
-    const tokenResponse = await page.request.post(
-      "http://127.0.0.1:8380/realms/master/protocol/openid-connect/token",
-      {
-        form: {
-          grant_type: "password",
-          client_id: "admin-cli",
-          username: "figma-test-admin",
-          password: "figma-test-admin-password",
-        },
-      },
-    );
-    expect(tokenResponse.ok()).toBe(true);
-    const token = (await tokenResponse.json()).access_token;
-    const headers = { Authorization: `Bearer ${token}` };
-    const usersResponse = await page.request.get(
-      `http://127.0.0.1:8380/admin/realms/knora-dev/users?username=${username}&exact=true`,
-      { headers },
-    );
-    expect(usersResponse.ok()).toBe(true);
-    const users = await usersResponse.json();
-    expect(users).toHaveLength(1);
-    const actionResponse = await page.request.put(
-      `http://127.0.0.1:8380/admin/realms/knora-dev/users/${users[0].id}/execute-actions-email?client_id=knora-web&redirect_uri=http%3A%2F%2F127.0.0.1%3A3300%2Fapi%2Fauth%2Fcallback`,
-      { headers, data: ["UPDATE_PASSWORD"] },
-    );
-    expect(actionResponse.ok()).toBe(true);
-    let actionMessageId: string | undefined;
-    await expect
-      .poll(async () => {
-        const response = await page.request.get(
-          "http://127.0.0.1:8025/api/v1/messages",
-        );
-        const mailbox = await response.json();
-        actionMessageId = mailbox.messages.find(
-          (entry: { ID: string; To: { Address: string }[] }) =>
-            entry.ID !== messageId &&
-            entry.To.some((to) => to.Address === identity.email),
-        )?.ID;
-        return Boolean(actionMessageId);
-      })
-      .toBe(true);
-    const actionMail = await (
-      await page.request.get(
-        `http://127.0.0.1:8025/api/v1/message/${actionMessageId}`,
-      )
-    ).json();
-    const actionLink = String(actionMail.Text).match(
-      /http:\/\/127\.0\.0\.1:8380\/[^\s]+/,
-    );
-    expect(Boolean(actionLink)).toBe(true);
-    await reset.goto(actionLink![0]);
-    await expect(reset.locator("#kc-info-message")).toBeVisible();
-    await captureIdentity(reset, `${evidence}/native-info-live.png`);
-    await reset.locator("#kc-info-message a").click();
-    await expect(reset.locator("#kc-passwd-update-form")).toBeVisible();
-    await reset.locator("#password-new").fill(changedPassword);
-    await reset.locator("#password-confirm").fill(changedPassword);
-    await reset.locator("#kc-submit").click();
-    await expect(reset.locator("#kc-info-message")).toBeVisible();
-    await expect(reset.locator("#kc-info-message")).toContainText(/updated/i);
-    // Prepared native gate: the deployed client still needs the approved source origin.
-    const completion = reset.getByRole("link", {
-      name: "Sign in",
-      exact: true,
+for (const completionAction of [
+  "Create account",
+  "Forgot Password?",
+] as const) {
+  test(`native test-mail reset renders update password and information templates then ${completionAction}`, async ({
+    page,
+    browser,
+  }) => {
+    await openFigmaRegistration(page);
+    const username = `figma-${randomUUID()}`;
+    const identity = {
+      username,
+      email: `${username}@example.test`,
+      password: randomUUID(),
+    };
+    await fillRegistration(page, identity);
+    await page
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
+    await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/);
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 960 },
     });
-    await expect(completion).toHaveAttribute(
-      "href",
-      "http://127.0.0.1:3300/api/auth/login?prompt=login",
-    );
-    const sso = await context.cookies("http://127.0.0.1:8380");
-    expect(sso.some((cookie) => cookie.name === "KEYCLOAK_IDENTITY")).toBe(
-      true,
-    );
-    await completion.click();
-    await expect(reset.locator("#kc-form-login")).toBeVisible();
-    const freshAuthorization = new URL(reset.url()).searchParams;
-    expect(freshAuthorization.get("prompt")).toBe("login");
-    for (const parameter of ["state", "nonce", "code_challenge"]) {
-      expect(Boolean(freshAuthorization.get(parameter))).toBe(true);
+    try {
+      const reset = await context.newPage();
+      await reset.goto("http://127.0.0.1:3300/api/auth/login");
+      const initialAuthorization = new URL(reset.url()).searchParams;
+      const changedPassword = randomUUID();
+      const tokenResponse = await page.request.post(
+        "http://127.0.0.1:8380/realms/master/protocol/openid-connect/token",
+        {
+          form: {
+            grant_type: "password",
+            client_id: "admin-cli",
+            username: "figma-test-admin",
+            password: "figma-test-admin-password",
+          },
+        },
+      );
+      expect(tokenResponse.ok()).toBe(true);
+      const token = (await tokenResponse.json()).access_token;
+      const headers = { Authorization: `Bearer ${token}` };
+      const usersResponse = await page.request.get(
+        `http://127.0.0.1:8380/admin/realms/knora-dev/users?username=${username}&exact=true`,
+        { headers },
+      );
+      expect(usersResponse.ok()).toBe(true);
+      const users = await usersResponse.json();
+      expect(users).toHaveLength(1);
+      const mailboxBeforeAction = await (
+        await page.request.get("http://127.0.0.1:8025/api/v1/messages")
+      ).json();
+      const priorMessageIds = new Set(
+        mailboxBeforeAction.messages.map((entry: { ID: string }) => entry.ID),
+      );
+      const actionResponse = await page.request.put(
+        `http://127.0.0.1:8380/admin/realms/knora-dev/users/${users[0].id}/execute-actions-email?client_id=knora-web&redirect_uri=http%3A%2F%2F127.0.0.1%3A3300%2Fapi%2Fauth%2Fcallback`,
+        { headers, data: ["UPDATE_PASSWORD"] },
+      );
+      expect(actionResponse.ok()).toBe(true);
+      let actionMessageId: string | undefined;
+      await expect
+        .poll(async () => {
+          const response = await page.request.get(
+            "http://127.0.0.1:8025/api/v1/messages",
+          );
+          const mailbox = await response.json();
+          actionMessageId = mailbox.messages.find(
+            (entry: { ID: string; To: { Address: string }[] }) =>
+              !priorMessageIds.has(entry.ID) &&
+              entry.To.some((to) => to.Address === identity.email),
+          )?.ID;
+          return Boolean(actionMessageId);
+        })
+        .toBe(true);
+      const actionMail = await (
+        await page.request.get(
+          `http://127.0.0.1:8025/api/v1/message/${actionMessageId}`,
+        )
+      ).json();
+      const actionLink = String(actionMail.Text).match(
+        /http:\/\/127\.0\.0\.1:8380\/[^\s]+/,
+      );
+      expect(Boolean(actionLink)).toBe(true);
+      await reset.goto(actionLink![0]);
+      await expect(reset.locator("#kc-info-message")).toBeVisible();
+      await captureIdentity(reset, `${evidence}/native-info-live.png`);
+      await reset.locator("#kc-info-message a").click();
+      await expect(reset.locator("#kc-passwd-update-form")).toBeVisible();
+      await expect(
+        reset.getByRole("heading", { name: "Choose a new password" }),
+      ).toBeVisible();
+      const icon = reset.locator("#password-new-show-password i");
+      expect(await icon.boundingBox()).toMatchObject({ width: 18, height: 18 });
       expect(
-        freshAuthorization.get(parameter) !==
-          initialAuthorization.get(parameter),
-      ).toBe(true);
+        await icon.evaluate(
+          (element) => getComputedStyle(element).backgroundImage,
+        ),
+      ).toContain("42cef.svg");
+      await captureIdentity(
+        reset,
+        `${evidence}/native-update-password-live.png`,
+      );
+      await reset.locator("#password-new").fill(changedPassword);
+      await reset.locator("#password-confirm").fill(changedPassword);
+      await reset.locator("#kc-submit").click();
+      await expect(reset.locator("#kc-form-login")).toBeVisible();
+      await expect(
+        reset.locator("#knora-password-updated-notice"),
+      ).toBeVisible();
+      await expect(
+        reset.locator("#knora-password-updated-notice"),
+      ).toContainText(/Password updated/i);
+      const freshAuthorization = new URL(reset.url()).searchParams;
+      expect(freshAuthorization.get("prompt")).toBe("login");
+      for (const parameter of ["state", "nonce", "code_challenge"]) {
+        expect(Boolean(freshAuthorization.get(parameter))).toBe(true);
+        expect(
+          freshAuthorization.get(parameter) !==
+            initialAuthorization.get(parameter),
+        ).toBe(true);
+      }
+      await reset
+        .getByRole("link", { name: completionAction, exact: true })
+        .click();
+      await expect(
+        reset.locator(
+          completionAction === "Create account"
+            ? "#kc-register-form"
+            : "#email",
+        ),
+      ).toBeVisible();
+      await captureIdentity(
+        reset,
+        `${evidence}/reset-success-${completionAction === "Create account" ? "create-account" : "forgot-password"}.png`,
+      );
+    } finally {
+      await context.close();
     }
-  } finally {
-    await context.close();
-  }
-});
+  });
+}
 
 test("AU3 and AU4 public outcomes have safe retry links and the original brand asset", async ({
   page,

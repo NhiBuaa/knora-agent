@@ -27,6 +27,7 @@ export function figmaTestSelection(
           ? [
               "figma-ui-interactions.spec.ts",
               "figma-document-navigation.spec.ts",
+              "figma-conversation-navigation.spec.ts",
             ]
           : "figma-identity.spec.ts",
   };

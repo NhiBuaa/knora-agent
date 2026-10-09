@@ -23,10 +23,13 @@
         <p class="instruction">${kcSanitize(message.summary)?no_esc}<#if requiredActions??><#list requiredActions>: <b><#items as reqActionItem>${kcSanitize(msg("requiredAction.${reqActionItem}"))?no_esc}<#sep>, </#items></b></#list><#else></#if></p>
         <#if skipLink??>
         <#else>
-            <#if message?? && message.type == "success" && message.summary == msg("accountUpdatedMessage")>
+            <#if message?? && message.type == "success" && message.summary == msg("accountUpdatedMessage") && !isAppInitiatedAction??>
                 <#-- Completion starts a new BFF transaction at the configured application origin.
                      Never carry native action/callback parameters into the new sign-in. -->
                 <#assign appBase = (client.baseUrl)!"">
+                <#assign realmName = (realm.name)!"">
+                <#assign clientId = (client.clientId)!"">
+                <#assign resetMarkerKey = "knora:reset-success:" + realmName + ":" + clientId>
                 <#assign ipv6 = "([A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}"
                     + "|([A-Fa-f0-9]{1,4}:){1,7}:"
                     + "|([A-Fa-f0-9]{1,4}:){1,6}:[A-Fa-f0-9]{1,4}"
@@ -43,7 +46,8 @@
                     <#assign appPort = appAuthority?starts_with("[")?then(
                         appAuthority?keep_after("]")?remove_beginning(":"), appAuthority?keep_after(":"))>
                     <#if !appPort?has_content || appPort?number lte 65535>
-                        <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
+                        <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" data-knora-reset-success-link data-knora-reset-success-key="${resetMarkerKey}" href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
+                        <script src="${url.resourcesPath}/js/knora-login-transition.js" defer></script>
                     </#if>
                 </#if>
             <#elseif pageRedirectUri?has_content>

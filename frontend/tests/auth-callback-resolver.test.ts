@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
@@ -51,6 +51,42 @@ import { resolveCurrentWorkspace } from "@/lib/auth/workspace";
 
 describe("safe browser callback failures", () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("returns failures to the configured public callback origin behind a proxy", async () => {
+    vi.stubEnv(
+      "KEYCLOAK_REDIRECT_URI",
+      "https://app.example/api/auth/callback",
+    );
+    const response = await GET(
+      new Request("http://localhost:3300/api/auth/callback?error=private", {
+        headers: { "x-forwarded-host": "untrusted.example" },
+      }),
+    );
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/auth/failed",
+    );
+    expect(response.cookies.get("knora_oidc_transaction")?.value).toBe("");
+    expect(exchangeCode).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "not-a-url",
+    "javascript:alert(1)",
+    "https://user:secret@app.example/callback",
+    "https://app.example/not-the-callback",
+  ])(
+    "uses the request origin when configured callback is invalid: %s",
+    async (configured) => {
+      vi.stubEnv("KEYCLOAK_REDIRECT_URI", configured);
+      const response = await GET(
+        new Request("https://app.example/api/auth/callback?error=private"),
+      );
+      expect(response.headers.get("location")).toBe(
+        "https://app.example/auth/failed",
+      );
+    },
+  );
   it.each([
     "?error=private-provider-error&error_description=private-detail&state=private-state",
     "?code=private-code",

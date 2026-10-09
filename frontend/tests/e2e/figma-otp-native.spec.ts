@@ -16,11 +16,92 @@ const applicationOrigin = "http://127.0.0.1:3300";
 const realmPath = "/realms/knora-dev/";
 const evidenceDirectory = path.resolve(
   process.cwd(),
-  "../.superpowers/sdd/2026-10-08-figma-otp-native-runtime/evidence/native-otp-runtime-2026-10-08",
+  "../.superpowers/sdd/2026-10-09-figma-reset-success-native-login/evidence/native-otp",
 );
 
 type Credential = { id: string; type: string };
 type MailMessage = { ID: string; To: { Address: string }[] };
+
+test("native identity secondary navigation returns to real forms", async ({
+  page,
+  context,
+}, info) => {
+  const evidence = path.join(
+    evidenceDirectory,
+    `secondary-${info.project.name}`,
+  );
+  await mkdir(evidence, { recursive: true });
+  try {
+    await openFigmaRegistration(page);
+    await page.getByRole("link", { name: "Sign in", exact: true }).click();
+    await expect(page.locator("#kc-form-login")).toBeVisible();
+    await page
+      .getByRole("link", { name: "Create account", exact: true })
+      .click();
+    await expect(page.locator("#kc-register-form")).toBeVisible();
+    await page
+      .locator("#kc-register-form")
+      .evaluate((form: HTMLFormElement) => {
+        form.noValidate = true;
+        form.requestSubmit();
+      });
+    await expect(
+      page.locator("#kc-register-form [aria-invalid=true]").first(),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Sign in", exact: true }).click();
+    await expect(page.locator("#kc-form-login")).toBeVisible();
+    await page.getByRole("link", { name: "Forgot Password?" }).click();
+    await expect(page.locator("#email")).toBeVisible();
+    await page.getByRole("link", { name: "Back to sign in" }).click();
+    await expect(page.locator("#kc-form-login")).toBeVisible();
+
+    for (const invalid of [false, true]) {
+      await page.getByRole("link", { name: "Forgot Password?" }).click();
+      await page
+        .locator("#email")
+        .fill(`navigation-${randomUUID()}@example.test`);
+      await submit(page, "#email", "request", "NAVIGATION_REQUEST");
+      await expect(page.locator("#code")).toBeVisible();
+      if (invalid) {
+        await page.locator("#code").fill("000042");
+        await submit(page, "#code", "verify", "NAVIGATION_REJECT");
+        await expect(page.locator("#otp-error")).toBeVisible();
+      }
+      await page.getByRole("button", { name: "Use a different email" }).click();
+      await expect(page.locator("#email")).toBeVisible();
+      await expect(page.locator("#email")).toHaveValue("");
+      await expect(page.locator("#code")).toHaveCount(0);
+      await captureIdentity(
+        page,
+        path.join(
+          evidence,
+          `change-email-${invalid ? "rejected" : "pending"}.png`,
+        ),
+      );
+      await page.getByRole("link", { name: "Back to sign in" }).click();
+      await expect(page.locator("#kc-form-login")).toBeVisible();
+    }
+    await writeFile(
+      path.join(evidence, "journey.json"),
+      JSON.stringify(
+        {
+          edges: [67, 69, 71, 73, 75, 77],
+          nativeForms: true,
+          accountCreated: false,
+          passwordChanged: false,
+          unknownEmailUniformFlow: true,
+        },
+        null,
+        2,
+      ),
+    );
+  } catch {
+    await sanitizeFailure(context);
+    throw new Error(
+      "Native secondary navigation failed; sensitive DOM removed.",
+    );
+  }
+});
 
 // Secrets stay inside the bounded callback. Replace the entire native DOM before a
 // failure reaches Playwright's reporter/error-context serializer.
@@ -460,26 +541,44 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     const logout = reset.locator('input[name="logout-sessions"]');
     stage = "PASSWORD_SESSION_OPTION";
     if (await logout.count()) await logout.uncheck();
+    // Transfer only application cookies before the completion page can start its
+    // automatic fresh-login transition. Provider cookies never leave ssoContext.
+    const realmCookieUrl = `${keycloakOrigin}${realmPath}`;
+    const bffCookieNames = new Set([
+      "knora_session",
+      "knora_workspace_preference",
+    ]);
+    const sourceCookies = (await ssoContext.cookies(realmCookieUrl)).filter(
+      (cookie) => bffCookieNames.has(cookie.name),
+    );
+    expect(
+      sourceCookies.every((cookie) => bffCookieNames.has(cookie.name)),
+    ).toBe(true);
+    expect(
+      sourceCookies.some((cookie) => cookie.name === "knora_session"),
+    ).toBe(true);
+    ssoCookieMetadata = (await ssoContext.cookies()).map(
+      ({ name, domain, path: cookiePath, secure, httpOnly, sameSite }) => ({
+        name,
+        domain,
+        path: cookiePath,
+        secure,
+        httpOnly,
+        sameSite,
+      }),
+    );
+    await recovery.addCookies(sourceCookies);
+    expect(
+      (await recovery.cookies(realmCookieUrl)).some(
+        (cookie) => cookie.name === "knora_session",
+      ),
+    ).toBe(true);
     stage = "PASSWORD_NATIVE_SUBMIT";
     await sensitive(stage, () => reset.locator("#kc-submit").click());
     stage = "PASSWORD_COMPLETION_INFO";
-    await expect(reset.locator("#kc-info-message")).toBeVisible();
-    expect(new URL(reset.url()).origin === keycloakOrigin).toBe(true);
-    stage = "PASSWORD_COMPLETION_CTA";
-    const completion = reset.locator("#kc-info-message a");
-    expect((await completion.count()) === 1).toBe(true);
-    const completionHref = await completion.getAttribute("href");
-    const normalizedCompletion = completionHref
-      ? new URL(completionHref, keycloakOrigin)
-      : undefined;
-    expect(
-      Boolean(normalizedCompletion) &&
-        normalizedCompletion!.origin === applicationOrigin &&
-        normalizedCompletion!.pathname === "/api/auth/login" &&
-        normalizedCompletion!.searchParams.get("prompt") === "login" &&
-        Array.from(normalizedCompletion!.searchParams.keys()).length === 1,
-    ).toBe(true);
-    await capture(reset, "detached-completion");
+    await expect(reset.locator("#kc-form-login")).toBeVisible();
+    await expect(reset.locator("#knora-password-updated-notice")).toBeVisible();
+    await capture(reset, "password-updated-login");
 
     stage = "CONSUMED_REPLAY";
     // Replay the exact prior native verification endpoint without exporting the URL/body.
@@ -555,40 +654,6 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       ).toBe(true);
     }
 
-    stage = "EXISTING_BFF_SESSION";
-    // The observed browser session is application-owned; transfer only BFF session cookies.
-    const realmCookieUrl = `${keycloakOrigin}${realmPath}`;
-    const bffCookieNames = new Set([
-      "knora_session",
-      "knora_workspace_preference",
-    ]);
-    const sourceCookies = (await ssoContext.cookies(realmCookieUrl)).filter(
-      (cookie) => bffCookieNames.has(cookie.name),
-    );
-    expect(
-      sourceCookies.every((cookie) => bffCookieNames.has(cookie.name)),
-    ).toBe(true);
-    expect(
-      sourceCookies.some((cookie) => cookie.name === "knora_session"),
-    ).toBe(true);
-    ssoCookieMetadata = (await ssoContext.cookies()).map(
-      ({ name, domain, path: cookiePath, secure, httpOnly, sameSite }) => ({
-        name,
-        domain,
-        path: cookiePath,
-        secure,
-        httpOnly,
-        sameSite,
-      }),
-    );
-    await recovery.addCookies(sourceCookies);
-    expect(
-      (await recovery.cookies(realmCookieUrl)).some(
-        (cookie) => cookie.name === "knora_session",
-      ),
-    ).toBe(true);
-    stage = "COMPLETION_CTA_CLICK";
-    await sensitive(stage, () => completion.click());
     stage = "FRESH_NATIVE_AUTHORIZATION";
     await expect(reset.locator("#kc-form-login")).toBeVisible();
     const freshAuthorization = new URL(reset.url()).searchParams;
@@ -672,7 +737,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
           consumedReplayRejected: true,
           policyRejected: true,
           confirmationRejected: true,
-          detachedCompletion: true,
+          passwordUpdatedNativeLogin: true,
           existingBffSessionFreshLogin: true,
           providerBrowserSsoVerified: false,
           transactionFreshness: true,

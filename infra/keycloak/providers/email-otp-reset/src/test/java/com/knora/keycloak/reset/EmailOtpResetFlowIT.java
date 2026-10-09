@@ -80,6 +80,50 @@ class EmailOtpResetFlowIT {
     }
 
     @Test
+    void offlineCompletedInfoOffersProgressiveFreshLoginWithoutCarryingSecrets() throws Exception {
+        var data = templateData();
+        data.put("realm", Map.of("name", "knora", "internationalizationEnabled", false, "displayName", "Knora"));
+        data.put("client", Map.of("clientId", "knora-web", "baseUrl", "https://app.example"));
+        data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
+        String html = render("login", "info.ftl", data);
+
+        assertTrue(html.contains("data-knora-reset-success-key=\"knora:reset-success:knora:knora-web\""));
+        assertTrue(html.contains("resources/js/knora-login-transition.js"));
+        assertTrue(html.contains("/api/auth/login?prompt=login"));
+        assertFalse(html.contains("password="));
+        assertFalse(html.contains("000042"));
+        assertFalse(html.contains("code=private"));
+
+        data.put("isAppInitiatedAction", true);
+        data.put("actionUri", "/native/update-password");
+        html = render("login", "info.ftl", data);
+        assertTrue(html.contains("href=\"/native/update-password\""));
+        assertFalse(html.contains("knora-login-transition.js"));
+    }
+
+    @Test
+    void offlineNativeLoginContainsOneShotPasswordUpdatedNoticeBeforeDescription() throws Exception {
+        var data = templateData();
+        data.put("realm", Map.of("name", "knora", "internationalizationEnabled", false, "displayName", "Knora",
+                "password", true, "loginWithEmailAllowed", true, "registrationEmailAsUsername", false,
+                "resetPasswordAllowed", true, "registrationAllowed", true, "rememberMe", false));
+        data.put("client", Map.of("clientId", "knora-web", "baseUrl", "https://app.example"));
+        String html = render("login", "login.ftl", data);
+
+        int notice = html.indexOf("id=\"knora-password-updated-notice\"");
+        int description = html.indexOf("knora-auth-description");
+        assertTrue(notice >= 0);
+        assertTrue(description > notice);
+        assertTrue(html.contains("Password updated"));
+        assertTrue(html.contains("Sign in with your new password."));
+        assertTrue(html.contains("data-knora-reset-success-key=\"knora:reset-success:knora:knora-web\""));
+        assertTrue(html.contains("id=\"kc-form-login\""));
+        assertTrue(html.contains("name=\"username\""));
+        assertTrue(html.contains("name=\"password\""));
+        assertTrue(html.contains("Sign in"));
+    }
+
+    @Test
     void offlineCompletedInfoFailsClosedWithoutSafeConfiguredAppOrigin() throws Exception {
         var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         for (String baseUrl : List.of("", "javascript:alert(1)", "//evil.example", "https://app.example@evil.example",
@@ -327,12 +371,23 @@ class EmailOtpResetFlowIT {
             return new java.text.MessageFormat(messages.getProperty(key, key), java.util.Locale.ENGLISH).format(values);
         });
         data.put("kcSanitize", (TemplateMethodModelEx) args -> args.get(0).toString());
-        data.put("realm", Map.of("internationalizationEnabled", false, "displayName", "Knora"));
-        data.put("url", Map.of("loginAction", "/native/action", "loginUrl", "/native/login", "resourcesPath", "/resources",
+        data.put("realm", Map.of("name", "knora", "internationalizationEnabled", false, "displayName", "Knora",
+                "password", true, "loginWithEmailAllowed", true, "registrationEmailAsUsername", false,
+                "resetPasswordAllowed", true, "registrationAllowed", true, "rememberMe", false));
+        data.put("url", Map.of("loginAction", "/native/action", "loginUrl", "/native/login",
+                "registrationAction", "/native/register", "registrationUrl", "/native/register",
+                "loginResetCredentialsUrl", "/native/reset", "resourcesPath", "/resources",
                 "resourcesCommonPath", "/common", "ssoLoginInOtherTabsUrl", "/session"));
         data.put("lang", "en");
         data.put("pageId", "offline-reset");
         data.put("darkMode", false);
+        data.put("client", Map.of("clientId", "knora-web", "baseUrl", "https://app.example"));
+        data.put("login", Map.of("username", ""));
+        TemplateMethodModelEx falseMethod = args -> false;
+        data.put("auth", Map.of("showUsername", falseMethod, "showResetCredentials", falseMethod,
+                "showTryAnotherWayLink", falseMethod));
+        data.put("social", Map.of("providers", List.of()));
+        data.put("messagesPerField", Map.of("getFirstError", (TemplateMethodModelEx) args -> ""));
         return data;
     }
     private static String render(String type, String name, Map<String, Object> data) throws Exception {

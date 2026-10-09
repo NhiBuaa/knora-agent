@@ -101,7 +101,22 @@ export async function GET(request: Request) {
 }
 
 function failedAuthorization(request: Request) {
-  const response = NextResponse.redirect(new URL("/auth/failed", request.url));
+  let origin = new URL(request.url).origin;
+  try {
+    const configured = new URL(process.env.KEYCLOAK_REDIRECT_URI ?? "");
+    if (
+      ["http:", "https:"].includes(configured.protocol) &&
+      !configured.username &&
+      !configured.password &&
+      configured.pathname === "/api/auth/callback" &&
+      !configured.search &&
+      !configured.hash
+    )
+      origin = configured.origin;
+  } catch {
+    // Without public callback configuration, retain the request origin.
+  }
+  const response = NextResponse.redirect(new URL("/auth/failed", origin));
   const cookie = clearAuthorizationTransactionCookie();
   response.cookies.set(cookie.name, cookie.value, cookie.options as never);
   return response;

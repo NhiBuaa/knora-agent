@@ -450,6 +450,14 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   margin: 4px 0 0;
 }
 
+.knora-notice-success {
+  background: var(--knora-action-soft);
+}
+
+.knora-notice-success strong {
+  color: var(--knora-action);
+}
+
 .knora-auth input[aria-invalid="true"] {
   outline: 1px solid var(--knora-signature);
 }

@@ -471,6 +471,68 @@ describe("durable Conversation view", () => {
     ).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["retrieving", "processing", false],
+    ["grounded-answer", "answered", false],
+    ["insufficient-evidence", "refused", false],
+    ["interrupted", "interrupted", false],
+    ["archived-read-only", "answered", true],
+  ])(
+    "starts independent Conversation creation from %s without submitting a Turn",
+    async (_name, status, archived) => {
+      const turn = {
+        ...answered,
+        status,
+        stage: status === "processing" ? "retrieving" : null,
+        result:
+          status === "answered"
+            ? answered.result
+            : status === "refused"
+              ? {
+                  ...answered.result,
+                  decision: "REFUSAL",
+                  answer: null,
+                  refusal_reason: "INSUFFICIENT_EVIDENCE",
+                }
+              : null,
+      };
+      const fetchMock = vi.fn(async (url: string, init: RequestInit = {}) => {
+        if (init.method === "POST") return new Response(null, { status: 503 });
+        return new Response(
+          JSON.stringify(
+            url.endsWith("/turns/t-1")
+              ? turn
+              : { items: [turn], next_cursor: null },
+          ),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      render(
+        <ConversationView
+          workspaceId="w-1"
+          conversation={{ ...conversation, archived }}
+        />,
+      );
+      await screen.findByText(turn.question);
+      if (status === "processing")
+        await screen.findByText("Retrieving evidence…");
+      if (status === "refused")
+        await screen.findByText("Refused: INSUFFICIENT_EVIDENCE");
+      if (status === "answered")
+        await screen.findByText(answered.result.answer);
+      fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
+      await screen.findByText(/Unable to confirm Conversation creation/);
+      const writes = fetchMock.mock.calls.filter(
+        ([, init]) => init?.method === "POST",
+      );
+      expect(writes).toHaveLength(1);
+      expect(writes[0][0]).toBe("/api/v1/workspaces/w-1/conversations");
+      expect(
+        new Headers(writes[0][1]?.headers).get("Idempotency-Key"),
+      ).toBeTruthy();
+    },
+  );
+
   it("paginates persisted Turns without posting a new question", async () => {
     const older = {
       ...answered,
