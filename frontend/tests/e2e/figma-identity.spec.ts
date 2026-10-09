@@ -9,7 +9,7 @@ import {
 } from "./support/figma-auth";
 
 const evidence =
-  "../.superpowers/sdd/2026-10-09-figma-reset-success-native-login/evidence/identity";
+  "../.superpowers/sdd/2026-10-09-figma-reset-success-native-login/evidence/password-event-identity";
 
 test("AU1 native sign-in has the designed brand, fields and resource geometry", async ({
   page,
@@ -73,6 +73,7 @@ test("AU1 native sign-in has the designed brand, fields and resource geometry", 
 for (const completionAction of [
   "Create account",
   "Forgot Password?",
+  "generic-profile",
 ] as const) {
   test(`native test-mail reset renders update password and information templates then ${completionAction}`, async ({
     page,
@@ -127,7 +128,14 @@ for (const completionAction of [
       );
       const actionResponse = await page.request.put(
         `http://127.0.0.1:8380/admin/realms/knora-dev/users/${users[0].id}/execute-actions-email?client_id=knora-web&redirect_uri=http%3A%2F%2F127.0.0.1%3A3300%2Fapi%2Fauth%2Fcallback`,
-        { headers, data: ["UPDATE_PASSWORD"] },
+        {
+          headers,
+          data: [
+            completionAction === "generic-profile"
+              ? "UPDATE_PROFILE"
+              : "UPDATE_PASSWORD",
+          ],
+        },
       );
       expect(actionResponse.ok()).toBe(true);
       let actionMessageId: string | undefined;
@@ -158,6 +166,28 @@ for (const completionAction of [
       await expect(reset.locator("#kc-info-message")).toBeVisible();
       await captureIdentity(reset, `${evidence}/native-info-live.png`);
       await reset.locator("#kc-info-message a").click();
+      if (completionAction === "generic-profile") {
+        await expect(reset.locator("#kc-update-profile-form")).toBeVisible();
+        await reset.locator('#kc-update-profile-form [type="submit"]').click();
+        await expect(reset.locator("#kc-info-message")).toBeVisible();
+        await expect(
+          reset.locator("[data-knora-reset-success-link]"),
+        ).toHaveCount(0);
+        await expect(
+          reset.locator("#knora-password-updated-notice"),
+        ).toHaveCount(0);
+        await captureIdentity(
+          reset,
+          `${evidence}/generic-profile-completed.png`,
+        );
+        await reset.locator("#kc-info-message a").click();
+        await expect(reset.locator("#kc-form-login")).toBeVisible();
+        await expect(
+          reset.locator("#knora-password-updated-notice"),
+        ).toBeHidden();
+        await captureIdentity(reset, `${evidence}/generic-profile-sign-in.png`);
+        return;
+      }
       await expect(reset.locator("#kc-passwd-update-form")).toBeVisible();
       await expect(
         reset.getByRole("heading", { name: "Choose a new password" }),

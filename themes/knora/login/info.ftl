@@ -46,8 +46,10 @@
                     <#assign appPort = appAuthority?starts_with("[")?then(
                         appAuthority?keep_after("]")?remove_beginning(":"), appAuthority?keep_after(":"))>
                     <#if !appPort?has_content || appPort?number lte 65535>
-                        <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" data-knora-reset-success-link data-knora-reset-success-key="${resetMarkerKey}" href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
-                        <script src="${url.resourcesPath}/js/knora-login-transition.js" defer></script>
+                        <p><a class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!} ${properties.kcButtonBlockClass!}" <#if knoraPasswordUpdated!false>data-knora-reset-success-link data-knora-reset-success-key="${resetMarkerKey}"</#if> href="${appOrigin}/api/auth/login?prompt=login">${kcSanitize(msg("doLogIn"))?no_esc}</a></p>
+                        <#if knoraPasswordUpdated!false>
+                            <script src="${url.resourcesPath}/js/knora-login-transition.js" defer></script>
+                        </#if>
                     </#if>
                 </#if>
             <#elseif pageRedirectUri?has_content>

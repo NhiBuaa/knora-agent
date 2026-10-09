@@ -457,3 +457,26 @@ The identity follow-up also closes edges 83 and 86: invalid native credentials n
 real OTP request form through Forgot Password, and the failed callback outcome retry link starts
 a fresh native Keycloak sign-in. Both focused Chromium cases passed (11.2s); captures are
 `AU2-recovery-request-live.png` and `AU4-retry-sign-in-live.png` in the identity evidence folder.
+
+Post-change qualification is green for the maintained frontend: Vitest `405/405`, fixture
+Playwright `114 passed, 10 skipped` across all `124` selected cases, the live Documents journey
+`1 passed`, the live Operator suite `2 passed`, and the live Conversation creation journey `1
+passed`. The fixture run includes the Figma visual states, responsive states, dark/reduced-motion
+states, OTP presentation and interaction regressions. The ten skips are guarded live journeys
+in fixture mode. The dedicated live suites above do not cover every skipped case; the remaining
+live cases retain their earlier evidence and were not requalified in this batch.
+
+Evidence preservation limit: the broad fixture reruns wrote to their established capture paths
+without a before-run hash inventory or copies. Those paths show the latest run, not immutable
+historical captures. Earlier task-specific hash audits remain scoped to their recorded runs.
+
+### Oct10 password completion discriminator
+
+Native Keycloak completion now distinguishes successful password events from generic account
+completion before enabling the Figma reset-success notice. A global event listener sets a
+request-scoped forms attribute only for successful `UPDATE_PASSWORD` or password
+`UPDATE_CREDENTIAL` events in the Knora realm; `UPDATE_PROFILE`, OTP credential changes,
+errors, another realm/theme and missing details retain the generic trusted sign-in CTA.
+The focused provider tests passed 22/22 plus 1/1 listener cases, and the live Identity suite
+passed 12/12 including the generic profile action. This remains tied to the pinned Keycloak
+26.3.3 synchronous event/provider behavior; deployment hardening remains Issue #152.

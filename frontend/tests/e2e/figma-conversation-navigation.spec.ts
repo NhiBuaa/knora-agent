@@ -3,13 +3,16 @@ import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import realm from "../../../test/fixtures/keycloak/figma-realm.json";
-import type { TurnResponse } from "../../generated/knora-openapi";
+import type {
+  ConversationResponse,
+  TurnResponse,
+} from "../../generated/knora-openapi";
 
 test("New Conversation leaves retained answers, citations, refusal and draft intact", async ({
   page,
 }) => {
   const evidence =
-    "../.superpowers/figma/q1/evidence/conversation-navigation-2026-10-09";
+    "../.superpowers/figma/q1/evidence/conversation-navigation-2026-10-09/distinct-destination";
   mkdirSync(evidence, { recursive: true });
   const observation = JSON.parse(
     readFileSync(
@@ -115,7 +118,13 @@ test("New Conversation leaves retained answers, citations, refusal and draft int
     const response = await created;
     expect(response.status()).toBe(201);
     expect(response.request().headers()["idempotency-key"]).toBeTruthy();
-    await expect(page).toHaveURL(/\/workspaces\/[^/]+\/conversations\/[^/]+$/);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname !== observation.conversationPath &&
+        new RegExp(
+          `^/workspaces/${observation.workspaceId}/conversations/[a-f0-9-]+$`,
+        ).test(url.pathname),
+    );
     const destinationPath = new URL(page.url()).pathname;
     expect(destinationPath).toMatch(
       new RegExp(
@@ -130,7 +139,10 @@ test("New Conversation leaves retained answers, citations, refusal and draft int
     await expect(page.getByLabel("Question", { exact: true })).toHaveValue("");
     const detail = await page.request.get(`/api/v1${destinationPath}`);
     expect(detail.status()).toBe(200);
-    expect((await detail.json()).id).toBe(destinationId);
+    const destination = (await detail.json()) as ConversationResponse;
+    expect(destination.id).toBe(destinationId);
+    expect(destination.workspace_id).toBe(observation.workspaceId);
+    expect(destination.archived).toBe(false);
     const empty = await page.request.get(`/api/v1${destinationPath}/turns`);
     expect(empty.status()).toBe(200);
     expect((await empty.json()).items).toEqual([]);

@@ -1,5 +1,6 @@
 (() => {
   const markerTtlMs = 120000;
+  const maxMarkerLifetimeMs = markerTtlMs;
 
   function consumeMarker(key) {
     if (!key) return false;
@@ -13,7 +14,8 @@
       return (
         marker &&
         Number.isFinite(marker.expiresAt) &&
-        marker.expiresAt > Date.now()
+        marker.expiresAt > Date.now() &&
+        marker.expiresAt <= Date.now() + maxMarkerLifetimeMs
       );
     } catch {
       return false;

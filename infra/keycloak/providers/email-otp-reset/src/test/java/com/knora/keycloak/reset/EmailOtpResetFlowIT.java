@@ -82,6 +82,7 @@ class EmailOtpResetFlowIT {
     @Test
     void offlineCompletedInfoOffersProgressiveFreshLoginWithoutCarryingSecrets() throws Exception {
         var data = templateData();
+        data.put("knoraPasswordUpdated", true);
         data.put("realm", Map.of("name", "knora", "internationalizationEnabled", false, "displayName", "Knora"));
         data.put("client", Map.of("clientId", "knora-web", "baseUrl", "https://app.example"));
         data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
@@ -99,6 +100,20 @@ class EmailOtpResetFlowIT {
         html = render("login", "info.ftl", data);
         assertTrue(html.contains("href=\"/native/update-password\""));
         assertFalse(html.contains("knora-login-transition.js"));
+    }
+
+    @Test
+    void offlineGenericAccountCompletionDoesNotClaimPasswordUpdated() throws Exception {
+        var data = templateData();
+        data.put("client", Map.of("clientId", "knora-web", "baseUrl", "https://app.example"));
+        data.put("message", Map.of("type", "success", "summary", "accountUpdatedMessage"));
+        for (boolean updated : List.of(false, true)) {
+            if (updated) data.put("knoraPasswordUpdated", false);
+            String html = render("login", "info.ftl", data);
+            assertTrue(html.contains("/api/auth/login?prompt=login"));
+            assertFalse(html.contains("data-knora-reset-success-link"));
+            assertFalse(html.contains("knora-login-transition.js"));
+        }
     }
 
     @Test

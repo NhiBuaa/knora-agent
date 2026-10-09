@@ -69,16 +69,19 @@ describe("native reset-success presentation", () => {
     expect(f.notice.hidden).toBe(true);
     expect(f.replace).not.toHaveBeenCalled();
   });
-  it.each(["{", "null", '{"expiresAt":1000}', '{"expiresAt":"2000"}'])(
-    "discards unusable marker %s without a success notice",
-    (marker) => {
-      const f = fixture();
-      f.storage.set(key, marker);
-      f.run();
-      expect(f.notice.hidden).toBe(true);
-      expect(f.storage.has(key)).toBe(false);
-    },
-  );
+  it.each([
+    "{",
+    "null",
+    '{"expiresAt":1000}',
+    '{"expiresAt":"2000"}',
+    '{"expiresAt":999999999}',
+  ])("discards unusable marker %s without a success notice", (marker) => {
+    const f = fixture();
+    f.storage.set(key, marker);
+    f.run();
+    expect(f.notice.hidden).toBe(true);
+    expect(f.storage.has(key)).toBe(false);
+  });
   it.each([true, false])(
     "retains fallback with blocked storage (completion=%s)",
     (completion) => {
