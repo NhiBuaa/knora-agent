@@ -3181,6 +3181,9 @@ test.describe("source fixtures", () => {
       const history = page
         .getByRole("region", { name: "Conversation workspace" })
         .locator("ol");
+      await expect(history).toContainText(
+        "How many chapters are in the report?",
+      );
       const retainedHistory = await history.textContent();
       if (width === 1440) {
         await page
