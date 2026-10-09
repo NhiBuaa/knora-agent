@@ -255,6 +255,13 @@ and change-email paths). The existing reset-success identity evidence covers tra
 82. The completion capture was inspected against direct MCP source; its notice and native login
 composition differs from Figma node `250:841`, so completion parity remains open.
 
+The current isolated native identity suite was rerun after the transition evidence update:
+**12/12 tests passed** against the running Figma Compose harness. This covers native sign-in,
+reset-success secondary destinations, invalid-credential and failed-outcome recovery, registration
+validation/policy behavior, and active/archived registration outcomes. It is runtime evidence for
+those identity transitions only; it does not bind the custom OTP provider or establish exact
+whole-frame parity.
+
 The consumed-replay oracle was verified against the native result: a second submission of the
 prior verification action returns HTTP 400 HTML with the native `#kc-error-message` page-expired
 marker, no redirect, and no OTP, login, or password form. Storage/service consume evidence
