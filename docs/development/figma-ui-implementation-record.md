@@ -458,7 +458,7 @@ real OTP request form through Forgot Password, and the failed callback outcome r
 a fresh native Keycloak sign-in. Both focused Chromium cases passed (11.2s); captures are
 `AU2-recovery-request-live.png` and `AU4-retry-sign-in-live.png` in the identity evidence folder.
 
-Post-change qualification is green for the maintained frontend: Vitest `405/405`, fixture
+Post-change qualification is green for the maintained frontend: Vitest `406/406`, fixture
 Playwright `114 passed, 10 skipped` across all `124` selected cases, the live Documents journey
 `1 passed`, the live Operator suite `2 passed`, and the live Conversation creation journey `1
 passed`. The fixture run includes the Figma visual states, responsive states, dark/reduced-motion
