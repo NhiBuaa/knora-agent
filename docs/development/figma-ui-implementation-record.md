@@ -480,3 +480,8 @@ errors, another realm/theme and missing details retain the generic trusted sign-
 The focused provider tests passed 22/22 plus 1/1 listener cases, and the live Identity suite
 passed 12/12 including the generic profile action. This remains tied to the pinned Keycloak
 26.3.3 synchronous event/provider behavior; deployment hardening remains Issue #152.
+
+The subsequent application-mode Figma journey rerun passed 10 tests with 36 guarded skips.
+It covers live account logout, workspace restore, archived Conversation/Workspace behavior,
+document lifecycle, lost-response recovery, and PDF job observation. The four controller-backed
+answer/PDF/refusal journeys remain skipped by the existing guard and retain their prior evidence.
