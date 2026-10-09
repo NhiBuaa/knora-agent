@@ -1,12 +1,12 @@
 # Figma UI implementation record — partial
 
-Updated October 8, 2026. The approved objective remains implementation of the complete Figma
+Updated October 10, 2026. The approved objective remains implementation of the complete Figma
 design. This is a continuity and evidence record, not Q1/Q2 or full-product acceptance.
 
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: OTP presentation `5583df8`.
+Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Operations geometry `0a07834`.
 Evaluation, Operations, shared Operator frame and Trace flow are independently approved.
 No merge, push, deployment, branch disposition or worktree removal has occurred.
 
@@ -36,6 +36,7 @@ its bounded scope; it does not promote fixture checks to native/live backend acc
 | `81ff9e9` | Operations accounting/bucket allocations, value slots and Alerts text regions | 46 component tests; four Operator cases passed and Operations passed after asset-readiness recovery; spec PASS / quality APPROVED |
 | `58d7290` | Shared Operator flow, source-specific tabs, separate divider and top-aligned lookup | Five desktop/mobile browser cases and13 focused component checks; spec PASS / quality APPROVED, no findings |
 | `86679dc` | Trace answer/citations/provenance and candidate text/disclosure flow | Browser geometry RED→GREEN at1440/390;24 relevant component checks; spec PASS / quality APPROVED, no Important finding |
+| `0a07834` | Operations vertical spacing and runtime/latency geometry aligned to direct MCP measurements | Figma fixture geometry `216:345`, full fixture suite 114 passed/10 skipped; frontend gates passed |
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
