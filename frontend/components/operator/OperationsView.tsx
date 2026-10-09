@@ -27,7 +27,7 @@ export function OperationsView({
       aria-labelledby="operations-heading"
       className="m-0 border-0 bg-transparent p-0"
     >
-      <p className="mt-5 mb-0 flex min-h-[34px] flex-wrap items-center gap-2 text-[13px] text-text-muted">
+      <p className="mt-[19px] mb-0 flex min-h-[34px] flex-wrap items-center gap-2 text-[13px] text-text-muted">
         Configuration version{" "}
         <strong className="font-semibold text-text-primary">
           {operations.configuration_version}
@@ -46,7 +46,7 @@ export function OperationsView({
       <dl
         role="group"
         aria-label="Runtime signals"
-        className="mt-6 mb-0 grid grid-cols-4 gap-0 border-y border-border max-md:grid-cols-2"
+        className="mt-[22px] mb-0 grid grid-cols-4 gap-0 border-y border-border max-md:grid-cols-2"
       >
         {SIGNALS.map(([key, label]) => {
           const raw = safeNumber(operations.metrics[key]);
@@ -58,7 +58,7 @@ export function OperationsView({
           return (
             <div
               key={key}
-              className="min-h-[106px] min-w-0 border-border px-5 pt-[22px] pb-4 max-md:px-1.5 [&:not(:first-child)]:border-l"
+              className="min-h-[106px] min-w-0 border-border px-5 pt-[21px] pb-4 max-md:px-1.5 [&:not(:first-child)]:border-l"
             >
               <dt className="text-[13px] leading-4 font-medium text-text-muted">
                 {label}
@@ -111,7 +111,7 @@ export function OperationsView({
             const projection = histogram as Record<string, unknown>;
             return (
               <div key={name} className="mb-3">
-                <p className="m-0 text-[13px] leading-5 text-text-muted">
+                <p className="mt-[2px] mb-0 text-[13px] leading-5 text-text-muted">
                   {name} · {presentMetric(safeNumber(projection.count)).value}{" "}
                   samples · {presentMetric(safeNumber(projection.sum)).value} s
                   total
@@ -154,7 +154,7 @@ export function OperationsView({
         </div>
         <div
           role="status"
-          className="mt-7 h-fit min-h-[70px] rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-3"
+          className="mt-[30px] h-fit min-h-[70px] rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-3"
         >
           <p className="m-0 text-[11px] leading-[15px] font-semibold text-signature">
             ALERTS
