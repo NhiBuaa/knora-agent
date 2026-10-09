@@ -6,9 +6,11 @@ design. This is a continuity and evidence record, not Q1/Q2 or full-product acce
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest source slice: Operator detail geometry `7bfba7b`.
-Evaluation, Operations, shared Operator frame and Trace flow are independently approved.
-No merge, push, deployment, branch disposition or worktree removal has occurred.
+Branch: `codex/figma-ui-identity`. Latest source slice: Operator detail geometry and Evaluation
+value-slot correction (working tree; commit recorded below).
+Evaluation, Operations, shared Operator frame and Trace flow have local verification; the latest
+read-only review found no Critical defects and identified one evidence/claim correction, which is
+recorded below. No merge, push, deployment, branch disposition or worktree removal has occurred.
 
 The stack includes Next.js15.5.24, React18.3.1, TypeScript and Tailwind CSS v4, with local fonts,
 semantic tokens, Vitest and Playwright. Canonical backend and Keycloak ownership remain binding.
@@ -39,6 +41,20 @@ its bounded scope; it does not promote fixture checks to native/live backend acc
 | `86679dc` | Trace answer/citations/provenance and candidate text/disclosure flow | Browser geometry RED→GREEN at1440/390;24 relevant component checks; spec PASS / quality APPROVED, no Important finding |
 | `0a07834` | Operations vertical spacing and runtime/latency geometry aligned to direct MCP measurements | Figma fixture geometry `216:345`, full fixture suite 114 passed/10 skipped; frontend gates passed |
 | `7bfba7b` | Trace and Evaluation detail content origins aligned to source | Three Operator fixture cases passed; 406 Vitest tests, format check, production build and typecheck passed |
+
+The follow-up Evaluation value-slot correction was verified with all three Operator prototype
+comparisons and the complete Figma fixture suite: 114 passed, 10 skipped. Frontend formatting,
+typecheck and production build also passed; existing Next image optimization warnings remain.
+
+The October 10 independent review found no Critical defects. It identified that the Evaluation
+geometry evidence was comparing a row container with a text node and that the long observation
+code was narrower than the direct Figma value slot. The comparison now keeps the row's measured
+padding and divider separate from its label/value measurements, and the desktop observation code
+uses the source's 300px value slot while remaining responsive below the desktop breakpoint.
+The Trace candidates retain the approved Retrieval details disclosure; its natural 128px row
+height and later phase offset are an intentional accessible-content adaptation to the source's
+102px visual slot, not an unreported exact-parity claim. Operations retains its measured 1px
+content-origin difference from the Figma outer border.
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
@@ -179,10 +195,12 @@ the offline exporter; toolchain warning cleanup is deferred outside this bounded
 Native recovery/CSP and whole-design acceptance remain open. Documents local controls and the
 detail action allocation are now independently approved, as recorded below.
 
-- Operator label typography, Trace badges and relative Trace content measures are independently
-  approved. Evaluation content measures and Operations accounting/bucket/Alerts measures are also
-  independently approved. Page coordinates, natural row growth, theme differences and supported extra
-  controls remain explicitly measured. Comparison test success does not imply whole-page parity.
+- Operator label typography, Trace badges and relative Trace content measures are verified locally.
+  Evaluation content measures and Operations accounting/bucket/Alerts measures are verified locally,
+  with the direct-source value-slot correction above. Page coordinates, natural row growth, theme
+  differences and supported extra controls remain explicitly measured. Comparison test success does
+  not imply whole-page parity; the retained disclosure and 1px Operations origin are documented
+  adaptations.
 - [Visual coverage](figma-ui-visual-coverage.md) remains partial: original51 screen/panel/response
   mappings and89 prototype edge classifications retain per-edge unexercised paths and deviations.
   Source mobile/dark references are absent; responsive checks prove adaptation only.

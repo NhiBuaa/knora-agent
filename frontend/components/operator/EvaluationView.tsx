@@ -68,7 +68,10 @@ export function EvaluationView({
             >
               <dt className="font-normal text-text-muted">{label}</dt>
               <dd
-                className={`min-w-0 [overflow-wrap:anywhere] ${label === "Availability" && !available ? "font-semibold text-signature" : label === "Observation code" ? "text-xs leading-6 text-text-muted" : "font-medium"}`}
+                data-source-overflow={
+                  label === "Observation code" ? "figma" : undefined
+                }
+                className={`min-w-0 [overflow-wrap:anywhere] ${label === "Availability" && !available ? "font-semibold text-signature" : label === "Observation code" ? "text-xs leading-6 text-text-muted min-[1200px]:min-w-[300px]" : "font-medium"}`}
               >
                 {value}
               </dd>

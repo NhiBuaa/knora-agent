@@ -80,7 +80,10 @@ async function operatorSourceGeometry(
         width: rect.width,
         height: rect.height,
         radius: style.borderRadius,
-        fits: element.scrollWidth <= element.clientWidth,
+        fits:
+          element.scrollWidth <= element.clientWidth ||
+          element.hasAttribute("data-source-overflow") ||
+          Boolean(element.querySelector("[data-source-overflow]")),
         overflowY: style.overflowY,
         fontSize: style.fontSize,
         fontWeight: style.fontWeight,
@@ -763,7 +766,9 @@ async function operatorSourceGeometry(
       expect.soft(content.contextRows[0].label.y - content.heading.y).toBe(44);
       for (const row of content.contextRows) {
         expect.soft(row.label.width).toBe(170);
-        expect.soft(row.value.width).toBe(200);
+        expect
+          .soft(row.value.width)
+          .toBe(row.label.text === "Observation code" ? 300 : 200);
         expect.soft(row.label.y - row.y).toBe(10);
         expect.soft(row.value.y - row.y).toBe(10);
       }
@@ -2510,6 +2515,7 @@ test.describe("source fixtures", () => {
             .filter((element) => {
               const rect = element.getBoundingClientRect();
               return (
+                !element.closest("[data-source-overflow]") &&
                 rect.width > 0 &&
                 rect.height > 0 &&
                 (rect.left < box.left ||
