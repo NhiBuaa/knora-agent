@@ -494,10 +494,10 @@ unsupported-refusal journeys were run against the current isolated runtime and b
 verified the authoritative answered citation projection and the refusal projection with no
 citations. The earlier PDF artifact no longer resolves through the current API runtime, so the
 Ready assertion failed before any document assertion. A fresh owned PDF upload was then accepted
-and its authoritative queued job observation passed. Direct `run_once` inspection identified the
-terminal retry cause as `PDF_EXTRACTOR_UNAVAILABLE` (the isolated worker cannot install the
-required Linux cgroup memory limit in this container), so the PDF Ready transition remains
-unverified. No deletion was attempted. This is a backend runtime gap, not a frontend implementation
-change.
+and its authoritative queued job observation passed. The container worker could not install the
+required Linux cgroup memory limit and returned `PDF_EXTRACTOR_UNAVAILABLE`; the same job was then
+processed by the host Windows worker with the required Job Object limit and reached `succeeded`.
+The guarded PDF Ready browser journey passed, proving the detail route's Ready projection and
+source identity. No deletion was attempted.
 No deletion was attempted. This is a backend evidence/runtime gap, not a frontend implementation
 change.
