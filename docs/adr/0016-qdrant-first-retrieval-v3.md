@@ -6,16 +6,16 @@ Tham chiếu: [#153 — BM25/Hybrid Retrieval](https://github.com/NhiBuaa/knora-
 
 ## Bối cảnh
 
-Knora hiện có PostgreSQL 16 + pgvector, PostgreSQL FTS/\`ts_rank_cd\`, versioned RRF và các retrieval configuration bất biến. #153 đã quyết định bắt buộc triển khai BM25 production-ready. Chủ dự án chọn **Qdrant** làm hướng triển khai search engine cho Retrieval V3, thay cho hướng **ParadeDB-first** trong bản nghiên cứu #153 trước đó.
+Knora hiện có PostgreSQL 16 + pgvector, PostgreSQL FTS/`ts_rank_cd`, versioned RRF và các retrieval configuration bất biến. #153 đã quyết định bắt buộc triển khai BM25 production-ready. Chủ dự án chọn **Qdrant** làm hướng triển khai search engine cho Retrieval V3, thay cho hướng **ParadeDB-first** trong bản nghiên cứu #153 trước đó.
 
-Tài liệu này **chỉ ghi định hướng đã chọn và đề xuất kỹ thuật đi kèm**. Nó không khẳng định Qdrant đã được triển khai, đã benchmark hoặc được phép bật production. Không thay đổi ý nghĩa các legacy configurations (\`retrieval-m3-rrf-v1/v2\` và các chính sách gắn với chúng).
+Tài liệu này **chỉ ghi định hướng đã chọn và đề xuất kỹ thuật đi kèm**. Nó không khẳng định Qdrant đã được triển khai, đã benchmark hoặc được phép bật production. Không thay đổi ý nghĩa các legacy configurations (`retrieval-m3-rrf-v1/v2` và các chính sách gắn với chúng).
 
 ## Quyết định nền tảng được lựa chọn
 
 1. **PostgreSQL vẫn là source of truth** cho Workspace, Document, Document Version, Chunk/Chunk Set, Embedding Set, current-source pointer, active-serving pointer, quyền truy cập, trạng thái ingestion, audit, traces và lifecycle. **Qdrant là search/index backend có thể dựng lại**, không là nguồn xác thực quyền hoặc nguồn xác định phiên bản đang phục vụ.
-2. **Qdrant là search engine mục tiêu của Retrieval V3**: dense vector search + **BM25 sparse retrieval** + hybrid search/fusion. Dùng \`qdrant-client\` ở backend Python. Không chạy đồng thời Qdrant, ParadeDB, pgvector và FTS như bốn production search engines độc lập. Giữ PostgreSQL legacy retrieval trong migration để đối chứng/rollback, sau đó quyết định loại bỏ dependency dư thừa.
+2. **Qdrant là search engine mục tiêu của Retrieval V3**: dense vector search + **BM25 sparse retrieval** + hybrid search/fusion. Dùng `qdrant-client` ở backend Python. Không chạy đồng thời Qdrant, ParadeDB, pgvector và FTS như bốn production search engines độc lập. Giữ PostgreSQL legacy retrieval trong migration để đối chứng/rollback, sau đó quyết định loại bỏ dependency dư thừa.
 3. **BM25-only, dense-only và BM25+dense hybrid** phải chạy được qua đường ứng dụng thực tế, có configuration IDs mới, trace, provenance và citation. BM25-only **không được buộc thành công ở bước query embedding**. Triển khai BM25 là quyết định đã chốt; tuning và release gating diễn ra sau implementation.
-4. **Embedding provider và generation provider thuộc Knora**. Không đổi embedding model/dimension chỉ để đổi vector DB; vẫn dùng \`EmbeddingConfiguration\` đã versioned. Giữ **Cloudflare Workers AI first / Ollama optional** theo #146; Qdrant không thay mô hình sinh trả lời.
+4. **Embedding provider và generation provider thuộc Knora**. Không đổi embedding model/dimension chỉ để đổi vector DB; vẫn dùng `EmbeddingConfiguration` đã versioned. Giữ **Cloudflare Workers AI first / Ollama optional** theo #146; Qdrant không thay mô hình sinh trả lời.
 5. **Search shape ban đầu:** shared Collection theo embedding/index profile, Point gắn với chunk + derivation/index generation, named dense và BM25 sparse vectors, indexed payload (Workspace, Document/Version, Chunk Set, Chunk, Embedding Set, generation, configuration metadata). Payload-filtered multitenancy là baseline; không tạo Collection cho từng người dùng mặc định.
 6. **Retrieval quality:** versioned lexical query processor, nhất quán index/query cho tiếng Việt; benchmark Unicode/multilingual và Vietnamese segmentation, dấu/không dấu, Anh–Việt, mã định danh, exact/phrase semantics. Không mặc nhiên sử dụng English stemming/stopwords. Dùng Qdrant Query API + RRF baseline, so sánh với RRF cũ trong Knora (k=60); không giả định RRF/weighted behavior của hai engine giống nhau. Weighted RRF, budgets và reranker chốt bằng evaluation.
 7. **Search Index Lifecycle:** định hướng **staged indexing + PostgreSQL durable outbox + idempotent worker + search index generation + reconciliation**. Index generation mới phải sẵn sàng trước activation; PostgreSQL giữ quyền quyết định active serving. Giữ V1 phục vụ khi V2 đang ingest hoặc thất bại. Archive, restore, revoke, reprocess và hard purge phải có kiểm thử retry/crash/recovery. Không giả định có transaction chung giữa PostgreSQL và Qdrant.
@@ -33,7 +33,7 @@ Tài liệu này **chỉ ghi định hướng đã chọn và đề xuất kỹ 
 
 ## Quan hệ với các ADR và issues hiện có
 
-- **ADR 0011:** giữ nguyên việc \`current_document_version_id\` tách khỏi \`active_embedding_set_id\`; search index generation chỉ là derivation có thể xây lại, không làm mất semantic này.
+- **ADR 0011:** giữ nguyên việc `current_document_version_id` tách khỏi `active_embedding_set_id`; search index generation chỉ là derivation có thể xây lại, không làm mất semantic này.
 - **#153:** là parent issue của Retrieval V3. Phải cập nhật thiết kế ParadeDB-first/SQL-first cũ thành Qdrant-first trước khi tạo implementation plan. Không xóa baseline hoặc các acceptance gates đã phê duyệt.
 - **#150:** bổ sung Qdrant Points purge, retention/snapshot và idempotent reconciliation.
 - **#148:** tenant/group knowledge filtering, current membership revocation và citation access; không thay UX/roles đã thống nhất.
