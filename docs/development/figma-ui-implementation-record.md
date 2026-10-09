@@ -6,7 +6,7 @@ design. This is a continuity and evidence record, not Q1/Q2 or full-product acce
 ## Current integration
 
 Worktree: `C:/Developer/Projects/knora-agent-worktree/figma-ui-identity`.
-Branch: `codex/figma-ui-identity`. Latest independently reviewed source slice: Operations geometry `0a07834`.
+Branch: `codex/figma-ui-identity`. Latest source slice: Operator detail geometry `7bfba7b`.
 Evaluation, Operations, shared Operator frame and Trace flow are independently approved.
 No merge, push, deployment, branch disposition or worktree removal has occurred.
 
@@ -17,7 +17,8 @@ The approved workflow's folder responsibilities are in
 
 ## Recent completed source slices
 
-Each source slice below received separate independent spec and quality approval. This records
+Earlier source slices received separate independent spec and quality approval. The October 10
+geometry follow-ups have local verification only; independent review remains outstanding. This records
 its bounded scope; it does not promote fixture checks to native/live backend acceptance.
 
 | Commit | Source change | Verified scope |
@@ -37,6 +38,7 @@ its bounded scope; it does not promote fixture checks to native/live backend acc
 | `58d7290` | Shared Operator flow, source-specific tabs, separate divider and top-aligned lookup | Five desktop/mobile browser cases and13 focused component checks; spec PASS / quality APPROVED, no findings |
 | `86679dc` | Trace answer/citations/provenance and candidate text/disclosure flow | Browser geometry RED→GREEN at1440/390;24 relevant component checks; spec PASS / quality APPROVED, no Important finding |
 | `0a07834` | Operations vertical spacing and runtime/latency geometry aligned to direct MCP measurements | Figma fixture geometry `216:345`, full fixture suite 114 passed/10 skipped; frontend gates passed |
+| `7bfba7b` | Trace and Evaluation detail content origins aligned to source | Three Operator fixture cases passed; 406 Vitest tests, format check, production build and typecheck passed |
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
