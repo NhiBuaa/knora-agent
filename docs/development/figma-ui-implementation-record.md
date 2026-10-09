@@ -483,5 +483,16 @@ passed 12/12 including the generic profile action. This remains tied to the pinn
 
 The subsequent application-mode Figma journey rerun passed 10 tests with 36 guarded skips.
 It covers live account logout, workspace restore, archived Conversation/Workspace behavior,
-document lifecycle, lost-response recovery, and PDF job observation. The four controller-backed
-answer/PDF/refusal journeys remain skipped by the existing guard and retain their prior evidence.
+document lifecycle, lost-response recovery, and PDF job observation. The controller-backed
+answer/PDF/refusal journeys were preserved behind their explicit proof guard for the broad run;
+the answer and refusal cases were separately requalified in the current runtime below.
+
+### Oct10 controller-backed transition requalification
+
+With `FIGMA_CONTROLLER_PROOF=1` and the preserved owned artifacts, the grounded-answer and
+unsupported-refusal journeys were run against the current isolated runtime and both passed. They
+verified the authoritative answered citation projection and the refusal projection with no
+citations. The preserved PDF artifact no longer resolves through the current API runtime: its
+ingestion-job GET returned a non-success response before any document assertion, so the PDF Ready
+transition remains unverified and no new upload or deletion was attempted. This is an evidence
+availability gap, not a frontend implementation change.
