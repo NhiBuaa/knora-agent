@@ -492,7 +492,8 @@ the answer and refusal cases were separately requalified in the current runtime 
 With `FIGMA_CONTROLLER_PROOF=1` and the preserved owned artifacts, the grounded-answer and
 unsupported-refusal journeys were run against the current isolated runtime and both passed. They
 verified the authoritative answered citation projection and the refusal projection with no
-citations. The preserved PDF artifact no longer resolves through the current API runtime: its
-ingestion-job GET returned a non-success response before any document assertion, so the PDF Ready
-transition remains unverified and no new upload or deletion was attempted. This is an evidence
-availability gap, not a frontend implementation change.
+citations. The earlier PDF artifact no longer resolves through the current API runtime, so the
+Ready assertion failed before any document assertion. A fresh owned PDF upload was then accepted
+and its authoritative queued job observation passed; no worker was started and the PDF Ready
+transition remains unverified. No deletion was attempted. This is a backend evidence/runtime gap,
+not a frontend implementation change.
