@@ -4820,7 +4820,7 @@ test.describe("guarded application journeys", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
     await expect(
-      page.getByText("This Conversation is read-only.", { exact: true }),
+      page.getByText("Archived conversation · Read-only", { exact: true }),
     ).toBeVisible();
     await captureIdentity(page, `${evidence}/live-conversation-archived.png`);
     await page
