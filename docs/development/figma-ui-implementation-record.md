@@ -249,9 +249,11 @@ non-reusable TOTP handling. The final desktop (`desktop1440x960`) and mobile (`m
 runs each passed one case after guarded isolated Bind. They exercised transitions 65, 72, 74,
 76, 78, 79 and 81 in the visual ledger with real SMTP/native forms, including malformed and
 wrong OTP rejection, cooldown/resend, generation fencing, password policy/confirmation,
-completion and fresh login. Transitions 73, 75, 77, 80 and 82 remain unproved and are not
-marked complete. The completion capture was inspected against direct MCP source; its notice and
-native login composition differs from Figma node `250:841`, so completion parity remains open.
+completion and fresh login. A follow-up native identity run passed both viewports and verified
+secondary transitions 67, 69, 71, 73, 75 and 77 (registration, sign-in, request-form return,
+and change-email paths). The existing reset-success identity evidence covers transitions 80 and
+82. The completion capture was inspected against direct MCP source; its notice and native login
+composition differs from Figma node `250:841`, so completion parity remains open.
 
 The consumed-replay oracle was verified against the native result: a second submission of the
 prior verification action returns HTTP 400 HTML with the native `#kc-error-message` page-expired
