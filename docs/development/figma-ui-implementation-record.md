@@ -437,3 +437,18 @@ to read the persisted destination after navigation. Evidence is in
 This closes the grounded-answer, selected-citation and refusal starting-state creation edges.
 It does not manufacture an interrupted backend state, close natural expiry, or establish
 whole-frame Figma parity or full 89-transition acceptance.
+
+### Oct9 native recovery requalification
+
+The owned OTP runtime was rebuilt from the isolated Keycloak image with the existing protected
+Vault and the realm binding was verified as already present. The focused `EmailOtpResetFlowIT`
+suite passed in the pinned Temurin 21 container. The complete native OTP browser file then passed
+all four cases: identity secondary navigation at desktop/mobile and recovery/resend/consume/fresh
+sign-in at desktop/mobile (2.6 minutes). The identity file passed all nine Chromium cases after
+the same runtime restart, including both reset-success secondary destinations and the callback
+failure-origin checks. Fresh captures are under
+`.superpowers/sdd/2026-10-09-figma-reset-success-native-login/evidence/{native-otp,identity}/`.
+
+This requalifies the current native runtime and reset-success implementation. Provider browser
+SSO-cookie reuse, natural session expiry, deployment hardening Issue #152, whole-frame parity and
+the remaining unexercised Figma transitions remain open as recorded in the visual ledger.
