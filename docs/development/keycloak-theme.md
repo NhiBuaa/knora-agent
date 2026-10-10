@@ -338,3 +338,12 @@ legacy resources: inspect their project, checkout labels and port ownership befo
 stopping only those exact containers, then use the new launchers. Keep their volumes;
 do not run `down -v`, `volume rm` or automatic orphan removal to migrate configuration.
 The refactor does not stop or remove existing containers automatically.
+
+## Primary email OTP migration
+
+The guarded migration targets only the owned primary runtime at
+`http://127.0.0.1:8180`, realm `knora-dev`, and Compose project `knora-dev` when invoked
+with `-EnablePrimaryOtp`. `Bind` refuses the primary target without that explicit opt-in.
+`Inspect` and `Diff` report SMTP metadata as configured/unconfigured and never emit the
+SMTP password. A primary snapshot records the realm ID, reset settings, and non-secret
+SMTP metadata; `Restore` requires the same realm ID and restores only those fields.
