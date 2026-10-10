@@ -6,6 +6,7 @@ param(
     [string]$AdminUsername,
     [string]$AdminPassword,
     [switch]$EnableIsolatedOtp,
+    [switch]$EnablePrimaryOtp,
     [string]$SnapshotPath
 )
 
@@ -14,6 +15,29 @@ $repositoryRoot = [IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $alias = 'knora-email-otp-reset'
 $description = 'Knora isolated email OTP recovery v1'
 $providers = @('knora-reset-email-otp', 'reset-password')
+$primaryTarget = $EnablePrimaryOtp.IsPresent
+$expectedPort = if ($primaryTarget) { '8180' } else { '8380' }
+$expectedService = if ($primaryTarget) { 'keycloak-dev' } else { 'figma-keycloak' }
+
+function Get-SmtpMetadata {
+    param($RealmRepresentation)
+    $smtp = $RealmRepresentation.smtpServer
+    if ($null -eq $smtp) { return @{ configured = $false } }
+    return @{ configured = [bool]($smtp.host -or $smtp.port -or $smtp.from -or $smtp.user -or $smtp.password)
+        host = if ($null -eq $smtp.host) { '' } else { [string]$smtp.host }
+        port = if ($null -eq $smtp.port) { '' } else { [string]$smtp.port }
+        from = if ($null -eq $smtp.from) { '' } else { [string]$smtp.from }
+        user = if ($null -eq $smtp.user) { '' } else { [string]$smtp.user }
+        auth = [bool]$smtp.auth; starttls = [bool]($smtp.starttls -or $smtp.startTls)
+        passwordConfigured = [bool]$smtp.password }
+}
+
+function Convert-SmtpRestoreValue {
+    param($Metadata)
+    if ($null -eq $Metadata -or -not $Metadata.configured) { return $null }
+    return @{ host = $Metadata.host; port = $Metadata.port; from = $Metadata.from; user = $Metadata.user
+        auth = [bool]$Metadata.auth; starttls = [bool]$Metadata.starttls }
+}
 
 function Invoke-OtpAdmin {
     param([string]$Method = 'Get', [string]$Uri, $Payload)
@@ -132,9 +156,9 @@ function Assert-OtpOwnership {
         }
         foreach ($port in $container.NetworkSettings.Ports.PSObject.Properties) {
             foreach ($mapping in @($port.Value)) {
-                if ($null -eq $mapping -or $mapping.HostPort -ne '8380') { continue }
+                if ($null -eq $mapping -or $mapping.HostPort -ne $expectedPort) { continue }
                 if ($labels.'com.docker.compose.project' -ne $Project -or
-                    $labels.'com.docker.compose.service' -ne 'figma-keycloak' -or
+                    $labels.'com.docker.compose.service' -ne $expectedService -or
                     -not $labels.'com.docker.compose.project.working_dir' -or
                     [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot) {
                     throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
@@ -148,7 +172,7 @@ function Assert-OtpOwnership {
             }
         }
         if ($isNamedTarget -and ($labels.'com.docker.compose.project' -ne $Project -or
-            $labels.'com.docker.compose.service' -ne 'figma-keycloak' -or
+            $labels.'com.docker.compose.service' -ne $expectedService -or
             -not $labels.'com.docker.compose.project.working_dir' -or
             [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot)) {
             throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
@@ -174,16 +198,21 @@ function Assert-OtpFlow {
 }
 
 try {
-    if ($BaseUrl -ne 'http://127.0.0.1:8380' -or $Realm -ne 'knora-dev' -or
-        $Project -ne 'knora-figma-e2e') {
-        throw 'OTP_EXACT_TARGET_REQUIRED'
-    }
-    foreach ($item in Get-ChildItem Env:) {
-        if ($item.Name -match '^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)' -and $item.Value.Trim()) {
-            throw 'OTP_AMBIENT_OVERRIDE_REJECTED'
+    if ($primaryTarget) {
+        if ($BaseUrl -ne 'http://127.0.0.1:8180' -or $Realm -ne 'knora-dev' -or $Project -ne 'knora-dev') {
+            throw 'OTP_PRIMARY_TARGET_REQUIRED'
+        }
+    } elseif ($BaseUrl -ne 'http://127.0.0.1:8380' -or $Realm -ne 'knora-dev' -or
+        $Project -ne 'knora-figma-e2e') { throw 'OTP_EXACT_TARGET_REQUIRED' }
+    if (-not $primaryTarget) {
+        foreach ($item in Get-ChildItem Env:) {
+            if ($item.Name -match '^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)' -and $item.Value.Trim()) {
+                throw 'OTP_AMBIENT_OVERRIDE_REJECTED'
+            }
         }
     }
-    if ($Mode -eq 'Bind' -and -not $EnableIsolatedOtp) { throw 'OTP_BIND_OPT_IN_REQUIRED' }
+    if ($Mode -eq 'Bind' -and -not $EnableIsolatedOtp -and -not $EnablePrimaryOtp) { throw 'OTP_BIND_OPT_IN_REQUIRED' }
+    if ($primaryTarget -and $EnableIsolatedOtp) { throw 'OTP_TARGET_MODE_CONFLICT' }
     if (-not $AdminUsername -or -not $AdminPassword) { throw 'OTP_ADMIN_CREDENTIALS_REQUIRED' }
     Assert-OtpOwnership
     try {
@@ -199,6 +228,7 @@ try {
         throw 'OTP_REALM_REPRESENTATION_REJECTED'
     }
     $realmId = $current.id
+    $smtpMetadata = Get-SmtpMetadata $current
     $desiredClient = $null
     if ($Mode -eq 'Bind') {
         $client = Get-OtpClient
@@ -231,8 +261,10 @@ try {
         }
         if ($Mode -in 'Inspect', 'Diff') {
             # Only approved settings and execution metadata leave the process.
-            @{ target = "$BaseUrl/realms/$Realm"; realmId = $realmId; project = $Project
-                flowPresent = ($flows.Count -eq 1); settings = $settings; desired = $desired } | ConvertTo-Json -Depth 10
+            $inspection = @{ target = "$BaseUrl/realms/$Realm"; realmId = $realmId; project = $Project
+                flowPresent = ($flows.Count -eq 1); settings = $settings; desired = $desired }
+            if ($primaryTarget) { $inspection.smtp = $smtpMetadata }
+            $inspection | ConvertTo-Json -Depth 10
             return
         }
         if ($Mode -eq 'Prepare') {
@@ -270,7 +302,7 @@ try {
         }
         if ($flows.Count -ne 1) { throw 'OTP_PREPARED_FLOW_REQUIRED' }
         # Standalone Bind must enforce the native activation contract itself, including no-op Bind.
-        Assert-OtpOwnership -RequireNativeRuntime
+        if (-not $primaryTarget) { Assert-OtpOwnership -RequireNativeRuntime }
         if ($current.resetCredentialsFlow -eq $alias -and $current.emailTheme -eq 'knora' -and
             $current.resetPasswordAllowed -eq $true -and
             $client.baseUrl -ceq $desiredClient.baseUrl -and $client.rootUrl -ceq $desiredClient.rootUrl) {
@@ -284,6 +316,7 @@ try {
         }
         $saved = @{ baseUrl = $BaseUrl; realm = $Realm; realmId = $realmId; project = $Project
             workingDirectory = $repositoryRoot; settings = $settings; clientId = $clientId; clientSettings = $clientSettings }
+        if ($primaryTarget) { $saved.smtp = $smtpMetadata }
         if (Test-Path -LiteralPath $SnapshotPath) { throw 'OTP_SNAPSHOT_ALREADY_EXISTS' }
         $stream = [IO.File]::Open($SnapshotPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         try {
@@ -299,6 +332,14 @@ try {
             (@($saved.settings.PSObject.Properties.Name | Sort-Object) -join ',') -ne 'emailTheme,resetCredentialsFlow,resetPasswordAllowed' -or
             -not $saved.settings.resetCredentialsFlow -or $saved.settings.resetCredentialsFlow -eq $alias -or
             $saved.settings.resetPasswordAllowed -isnot [bool]) { throw 'OTP_SNAPSHOT_TARGET_REJECTED' }
+        if ($primaryTarget) {
+            if (-not ($saved.PSObject.Properties.Name -contains 'smtp') -or
+                (@($saved.smtp.PSObject.Properties.Name | Sort-Object) -join ',') -ne
+                'auth,configured,from,host,passwordConfigured,port,starttls,user' -or
+                $saved.smtp.passwordConfigured -isnot [bool] -or $saved.smtp.configured -isnot [bool]) {
+                throw 'OTP_SNAPSHOT_TARGET_REJECTED'
+            }
+        }
         $hasClientId = $saved.PSObject.Properties.Name -contains 'clientId'
         $hasClientSettings = $saved.PSObject.Properties.Name -contains 'clientSettings'
         if ($hasClientId -ne $hasClientSettings) { throw 'OTP_SNAPSHOT_TARGET_REJECTED' }
@@ -321,16 +362,19 @@ try {
             emailTheme = if ($null -eq $saved.settings.emailTheme) { '' } else { $saved.settings.emailTheme }
             resetPasswordAllowed = $saved.settings.resetPasswordAllowed
         }
+        if ($primaryTarget -and $saved.PSObject.Properties.Name -contains 'smtp') {
+            $desired.smtpServer = Convert-SmtpRestoreValue $saved.smtp
+        }
     }
     try {
         $beforeWrite = Invoke-OtpAdmin -Uri $realmUri
         if ($beforeWrite.id -ne $realmId) { throw 'id' }
-        Assert-OtpOwnership -RequireNativeRuntime:($Mode -eq 'Bind')
+        Assert-OtpOwnership -RequireNativeRuntime:($Mode -eq 'Bind' -and -not $primaryTarget)
         if ($Mode -eq 'Bind') {
             Set-OtpClientOrigins $clientId $desiredClient
             $beforeWrite = Invoke-OtpAdmin -Uri $realmUri
             if ($beforeWrite.id -ne $realmId -or $beforeWrite.resetCredentialsFlow -ne $settings.resetCredentialsFlow) { throw 'id' }
-            Assert-OtpOwnership -RequireNativeRuntime
+            if (-not $primaryTarget) { Assert-OtpOwnership -RequireNativeRuntime }
         }
         $null = Invoke-OtpAdmin -Method Put -Uri $realmUri -Payload $desired
         $verified = Invoke-OtpAdmin -Uri $realmUri
