@@ -137,9 +137,9 @@ export async function loginAs(
       page.getByRole("button", { name: "Submit" }).click(),
     ]);
   }
-  await page.waitForURL(/\/workspaces(?:\/[^/?]+)?(?:\?.*)?$/);
+  await page.waitForURL(/\/workspaces(?:\?.*)?$/);
   await expect(
-    page.getByRole("navigation", { name: "Workspace navigation" }).first(),
+    page.getByRole("navigation", { name: "Primary navigation" }).first(),
   ).toBeVisible();
   const response = await page.request.get("/api/auth/session");
   expect(response).toBeOK();
@@ -151,4 +151,30 @@ export async function loginAs(
   expect([...(body.session?.capabilities as string[])].sort()).toEqual(
     [...expected.capabilities].sort(),
   );
+}
+
+/** Open an unsaved draft using the canonical header entry. */
+export async function openConversationDraft(page: Page): Promise<void> {
+  await page
+    .getByRole("link", { name: "Conversations", exact: true })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Grounded answers from your workspace" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "New Conversation", exact: true })
+    .click();
+}
+
+/** Persist a fixture target only for retained-history projection tests. */
+export async function openRetainedConversation(page: Page): Promise<void> {
+  await openConversationDraft(page);
+  const pathname = new URL(page.url()).pathname;
+  const response = await page.request.post(`/api/v1${pathname}`, {
+    headers: { "Idempotency-Key": crypto.randomUUID() },
+  });
+  expect(response.status()).toBe(201);
+  const conversation = await response.json();
+  await page.goto(`${pathname}/${conversation.id}`);
 }

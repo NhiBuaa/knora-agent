@@ -86,8 +86,13 @@ it("binds shell navigation to the route workspace instead of the first listed wo
   expect(
     within(navigation).getByRole("link", { name: "Documents" }),
   ).toHaveAttribute("href", "/workspaces/route-workspace/documents");
-  fireEvent.click(screen.getByRole("button", { name: "Menu" }));
-  expect(screen.getByRole("link", { name: "Another workspace" })).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Menu" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Knora" })).toHaveAttribute(
+    "href",
+    "/workspaces",
+  );
 });
 
 it.each([
@@ -105,7 +110,9 @@ it.each([
     render(<AppShell {...shellProps}>Content</AppShell>);
     expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute(
       "href",
-      "/workspaces",
+      pathname === "/workspaces"
+        ? "/workspaces/first-listed/documents"
+        : "/workspaces",
     );
   },
 );
@@ -121,18 +128,12 @@ it("renders supplied identity safely while preserving appearance and logout", ()
   ).toHaveAttribute("action", "/api/auth/logout");
   fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
   expect(screen.getByRole("dialog", { name: "Appearance" })).toBeVisible();
-  expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-    "system",
-  );
-  fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
-    target: { value: "dark" },
-  });
+  expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
+  fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
   fireEvent.click(screen.getByRole("button", { name: "Done" }));
   fireEvent.click(
     screen.getByRole("button", { name: "Account: <actual-user>" }),
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
-  expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-    "dark",
-  );
+  expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
 });

@@ -12,6 +12,8 @@ import type {
   ConversationResponse,
   TurnResponse,
 } from "@/generated/knora-openapi";
+import { useRouter } from "next/navigation";
+import { routes } from "@/lib/navigation/routes";
 import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
 import { ConversationPanels } from "./ConversationPanels";
 import { ConversationRail } from "./ConversationRail";
@@ -32,6 +34,7 @@ const pending = new Set(["queued", "processing", "pending"]);
 const emptyConversations: ConversationResponse[] = [];
 type ConversationViewProps = {
   workspaceId: string;
+  draftMode?: boolean;
   conversation: ConversationResponse;
   workspaceArchived?: boolean;
   workspaceRevision?: number;
@@ -51,6 +54,7 @@ export function ConversationView(props: ConversationViewProps) {
 }
 function ConversationViewState({
   workspaceId,
+  draftMode = false,
   conversation,
   workspaceArchived = false,
   workspaceRevision,
@@ -60,7 +64,13 @@ function ConversationViewState({
   initialConversations = emptyConversations,
   nextCursor = null,
 }: ConversationViewProps) {
+  const router = useRouter();
   const active = useRef(true);
+  const creationKey = useRef<string | null>(null);
+  const admittedConversation = useRef<ConversationResponse | null>(
+    draftMode ? null : conversation,
+  );
+  const submitBusy = useRef(false);
   const [projection, setProjection] = useState(conversation);
   const [selection, setSelection] = useState<EvidenceSelection | null>(null);
   const [restoring, setRestoring] = useState(false);
@@ -71,7 +81,7 @@ function ConversationViewState({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!draftMode);
   const [cursor, setCursor] = useState<string | null>(null);
   const [submissionUncertain, setSubmissionUncertain] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -82,7 +92,7 @@ function ConversationViewState({
   const authenticationGeneration = useRef(0);
   const submitKey = useRef<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const base = `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversation.id)}`;
+  const base = `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(projection.id)}`;
 
   const requireAuthentication = useCallback(() => {
     authenticationGeneration.current += 1;
@@ -99,7 +109,7 @@ function ConversationViewState({
       const generation = authenticationGeneration.current;
       try {
         const response = await browserRequest(
-          `${base}/turns/${encodeURIComponent(turnId)}`,
+          `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current?.id ?? projection.id)}/turns/${encodeURIComponent(turnId)}`,
         );
         if (!active.current || generation !== authenticationGeneration.current)
           return;
@@ -136,16 +146,45 @@ function ConversationViewState({
         );
       }
     },
-    [base, requireAuthentication],
+    [requireAuthentication, workspaceId, projection.id],
   );
 
   const load = useCallback(async () => {
     const generation = authenticationGeneration.current;
     const recoveringSession = authenticationRequired.current;
+    if (!admittedConversation.current?.id) {
+      if (recoveringSession) {
+        try {
+          const response = await browserRequest(
+            `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+          );
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current
+          )
+            return null;
+          if (response.status === 401) {
+            requireAuthentication();
+            return null;
+          }
+          if (!response.ok) throw new Error("authentication read failed");
+          authenticationRequired.current = false;
+          setSessionExpired(false);
+          setError(null);
+        } catch {
+          setError("Unable to verify your session. Retry.");
+          return null;
+        }
+      }
+      setLoading(false);
+      return [];
+    }
     setLoading(true);
     if (pollTimer.current) clearTimeout(pollTimer.current);
     try {
-      const response = await browserRequest(`${base}/turns?limit=50`);
+      const response = await browserRequest(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current.id)}/turns?limit=50`,
+      );
       if (!active.current) return null;
       if (response.status === 401) {
         requireAuthentication();
@@ -176,7 +215,7 @@ function ConversationViewState({
     } finally {
       setLoading(false);
     }
-  }, [base, pollTurn, requireAuthentication]);
+  }, [pollTurn, requireAuthentication, workspaceId]);
 
   async function loadMore() {
     if (!cursor || authenticationRequired.current) return;
@@ -223,17 +262,24 @@ function ConversationViewState({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const question = draft.trim();
+    await submitQuestion(draft);
+  }
+
+  async function submitQuestion(value: string) {
+    const question = value.trim();
     if (
       !question ||
       workspaceArchived ||
       projection.archived ||
       serverArchived ||
       authenticationRequired.current ||
+      submitBusy.current ||
       submitting ||
       submissionConflict
     )
       return;
+    submitBusy.current = true;
+    setDraft(question);
     setSubmitting(true);
     setError(null);
     submitKey.current ??= crypto.randomUUID();
@@ -242,11 +288,37 @@ function ConversationViewState({
         if (!(await load())) return;
       }
       if (!active.current || authenticationRequired.current) return;
-      const response = await browserRequest(`${base}/turns`, {
-        method: "POST",
-        headers: { "Idempotency-Key": submitKey.current },
-        body: JSON.stringify({ question }),
-      });
+      let target = admittedConversation.current;
+      if (!target) {
+        creationKey.current ??= crypto.randomUUID();
+        const created = await browserRequest(
+          `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations`,
+          {
+            method: "POST",
+            headers: { "Idempotency-Key": creationKey.current },
+          },
+        );
+        if (created.status === 401) {
+          setSubmissionUncertain(true);
+          requireAuthentication();
+          return;
+        }
+        if (!created.ok)
+          throw new Error("Unable to confirm conversation creation");
+        target = (await created.json()) as ConversationResponse;
+        if (target.workspace_id !== workspaceId || !target.id)
+          throw new Error("Creation scope mismatch");
+        if (!active.current || authenticationRequired.current) return;
+        admittedConversation.current = target;
+      }
+      const response = await browserRequest(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(target.id)}/turns`,
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": submitKey.current },
+          body: JSON.stringify({ question }),
+        },
+      );
       if (!active.current) return null;
       if (response.status === 401) {
         setSubmissionUncertain(true);
@@ -279,6 +351,13 @@ function ConversationViewState({
       }
       const turn = (await response.json()) as TurnResponse;
       if (!active.current) return;
+      if (draftMode && !projection.id) {
+        setProjection({
+          ...target,
+          title: question.replace(/\s+/g, " ").slice(0, 80),
+        });
+        router.replace(routes.conversation(workspaceId, target.id));
+      }
       submitKey.current = null;
       setSubmissionUncertain(false);
       setSubmissionConflict(false);
@@ -294,17 +373,22 @@ function ConversationViewState({
         "Submission status is uncertain. Check history, then retry with the same draft.",
       );
     } finally {
+      submitBusy.current = false;
       setSubmitting(false);
     }
   }
 
-  const railConversations = useMemo(
-    () => [
-      projection,
-      ...initialConversations.filter((item) => item.id !== projection.id),
-    ],
-    [initialConversations, projection],
-  );
+  const railConversations = useMemo(() => {
+    if (!projection.id || projection.archived) return initialConversations;
+    if (initialConversations.some((item) => item.id === projection.id))
+      return initialConversations.map((item) =>
+        item.id === projection.id ? projection : item,
+      );
+    return [...initialConversations, projection].sort(
+      (a, b) =>
+        b.updated_at.localeCompare(a.updated_at) || b.id.localeCompare(a.id),
+    );
+  }, [initialConversations, projection]);
   const readOnly = workspaceArchived || projection.archived || serverArchived;
   const selectedTurn = selection
     ? turns.find((turn) => turn.id === selection.turnId)
@@ -316,8 +400,7 @@ function ConversationViewState({
   }, [selection, selectedCitation]);
   function suggest(value: string) {
     if (!readOnly && !submissionUncertain && !submitting && !sessionExpired) {
-      setDraft(value);
-      document.getElementById("conversation-question")?.focus();
+      void submitQuestion(value);
     }
   }
   async function retry(turn: TurnResponse) {

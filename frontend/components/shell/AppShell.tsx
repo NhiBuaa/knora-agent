@@ -4,8 +4,6 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import type { WorkspaceResponse } from "@/generated/knora-openapi";
 import { AccountMenu } from "@/components/shell/AccountMenu";
-import { MobileDrawer } from "@/components/shell/MobileDrawer";
-import { WorkspaceSidebar } from "@/components/shell/WorkspaceSidebar";
 import type { ThemePreference } from "@/lib/theme";
 import { ProductHeader } from "./ProductHeader";
 
@@ -37,6 +35,11 @@ export function AppShell({
       /* A malformed route never becomes a workspace hint. */
     }
   }
+  const headerWorkspaceId =
+    workspaceId ??
+    (parts[0] === "workspaces" && parts.length === 1
+      ? (workspaces.find((workspace) => !workspace.archived)?.id ?? null)
+      : null);
   const activeSection =
     parts[0] === "operator"
       ? "operator"
@@ -45,14 +48,6 @@ export function AppShell({
         : "conversations";
   const conversationSurface = Boolean(
     workspaceId && parts[2] === "conversations",
-  );
-  const navigation = (
-    <WorkspaceSidebar
-      workspaceSelector={workspaceSelector}
-      workspaces={workspaces}
-      capabilities={capabilities}
-      nextCursor={nextCursor}
-    />
   );
   return (
     <div
@@ -63,11 +58,10 @@ export function AppShell({
     >
       <ProductHeader
         activeSection={activeSection}
-        workspaceId={workspaceId}
+        workspaceId={headerWorkspaceId}
         canOpenOperator={capabilities.includes("operator:read")}
         account={
           <>
-            <MobileDrawer>{navigation}</MobileDrawer>
             <AccountMenu subject={subject} themePreference={themePreference} />
           </>
         }

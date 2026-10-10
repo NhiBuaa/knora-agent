@@ -5,7 +5,7 @@ import { ThemeControl } from "@/components/ui/ThemeControl";
 import { Menu } from "@/components/ui/Menu";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { readThemePreference, type ThemePreference } from "@/lib/theme";
+import { type ThemePreference } from "@/lib/theme";
 import { clearConversationPanelPreferences } from "@/lib/conversations/panel-preferences";
 import "./account-menu.css";
 
@@ -66,15 +66,10 @@ export function AccountMenu({
         title="Appearance"
         onClose={() => setAppearanceOpen(false)}
       >
-        <div
-          className="kn-appearance-controls"
-          onChange={(event) => {
-            if (event.target instanceof HTMLSelectElement)
-              setAppearancePreference(readThemePreference(event.target.value));
-          }}
-        >
-          <ThemeControl initialPreference={appearancePreference} />
-        </div>
+        <ThemeControl
+          initialPreference={appearancePreference}
+          onPreferenceChange={setAppearancePreference}
+        />
         <div className="mt-6 flex justify-end">
           <Button variant="secondary" onClick={() => setAppearanceOpen(false)}>
             Done

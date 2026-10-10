@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { loginAs, newRoleContext } from "./support/auth";
+import {
+  loginAs,
+  newRoleContext,
+  openConversationDraft,
+  openRetainedConversation,
+} from "./support/auth";
 import { openFigmaLogin } from "./support/figma-auth";
 import realm from "../../../test/fixtures/keycloak/figma-realm.json";
 
@@ -12,8 +17,10 @@ test("a submitted Conversation Turn survives page reload without another POST", 
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
   await loginAs(page, "user");
-  await page.getByRole("button", { name: "New Conversation" }).first().click();
-  await expect(page.getByText("No questions yet.")).toBeVisible();
+  await openConversationDraft(page);
+  await expect(
+    page.getByRole("heading", { name: "Grounded answers from your workspace" }),
+  ).toBeVisible();
   const question = `Durable turn ${Date.now()}`;
   let submissions = 0;
   page.on("request", (request) => {
@@ -114,10 +121,7 @@ test("a persisted refusal remains a non-answer in the Conversation UI", async ({
     trace_id: "fixture-trace",
     workspace_id: "m5-workspace",
   });
-  await page
-    .getByRole("button", { name: /^New conversation$/i })
-    .first()
-    .click();
+  await openRetainedConversation(page);
   await expect(page.getByText(/^Refused:/).first()).toBeVisible();
   await expect(
     page.getByRole("heading", {
@@ -146,7 +150,7 @@ test("a persisted failed Turn has no answer or citation", async ({
 
   await loginAs(page, "user");
   await projectTerminalTurn(page, "failed", null, "PROVIDER_REQUEST_FAILED");
-  await page.getByRole("button", { name: "New Conversation" }).first().click();
+  await openRetainedConversation(page);
   await expect(
     page
       .getByRole("alert")
@@ -167,7 +171,7 @@ test("a persisted interrupted Turn remains visibly uncertain", async ({
 
   await loginAs(page, "user");
   await projectTerminalTurn(page, "interrupted", null);
-  await page.getByRole("button", { name: "New Conversation" }).first().click();
+  await openRetainedConversation(page);
   await expect(page.getByText("Outcome uncertain")).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Citations" }),

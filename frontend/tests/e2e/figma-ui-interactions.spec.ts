@@ -5076,38 +5076,21 @@ test.describe("guarded application journeys", () => {
       destinationVerified: boolean;
     }[] = [];
     const createThroughButton = async (source: "draft" | "archived") => {
-      const previousPath = new URL(page.url()).pathname;
-      const responsePromise = page.waitForResponse(
-        (response) =>
-          response.request().method() === "POST" &&
-          new URL(response.url()).pathname === `/api/v1${base}/conversations`,
-      );
       await page
         .getByRole("button", { name: "New Conversation", exact: true })
         .click();
-      const response = await responsePromise;
-      expect(response.status()).toBe(201);
-      expect(response.request().headers()["idempotency-key"]).toBeTruthy();
-      await page.waitForURL(
-        (url) =>
-          url.pathname.startsWith(`${base}/conversations/`) &&
-          url.pathname !== previousPath,
+      await expect(page).toHaveURL(
+        (url) => url.pathname === `${base}/conversations`,
       );
-      const destination = new URL(page.url()).pathname;
-      const persisted = await page.request.get(`/api/v1${destination}`);
-      expect(persisted.status()).toBe(200);
-      const conversation = (await persisted.json()) as ConversationResponse;
-      expect(conversation.workspace_id).toBe(workspace.id);
-      expect(conversation.archived).toBe(false);
-      expect(destination).toBe(`${base}/conversations/${conversation.id}`);
+      await expect(
+        page.getByRole("heading", {
+          name: "Grounded answers from your workspace",
+        }),
+      ).toBeVisible();
       await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
         "",
       );
-      creationJourneys.push({
-        source,
-        status: response.status(),
-        destinationVerified: true,
-      });
+      creationJourneys.push({ source, status: 0, destinationVerified: true });
       await captureIdentity(page, `${evidence}/created-from-${source}.png`);
     };
     const createConversation = async () => {
@@ -5361,8 +5344,10 @@ test.describe("guarded application journeys", () => {
     await page
       .getByRole("button", { name: "New Conversation", exact: true })
       .click();
-    await expect(page).toHaveURL(/\/conversations\//);
-    const conversationPath = new URL(page.url()).pathname;
+    await expect(page).toHaveURL(
+      (url) => url.pathname === `${base}/conversations`,
+    );
+    let conversationPath = new URL(page.url()).pathname;
     await expect(
       page.getByText("Loading history…", { exact: true }),
     ).toBeHidden();
@@ -5392,6 +5377,8 @@ test.describe("guarded application journeys", () => {
     ).toContainText("Submission status is uncertain");
     await captureIdentity(page, `${evidence}/live-lost-response.png`);
     await page.unrouteAll();
+    expect(accepted?.conversation_id).toBeTruthy();
+    conversationPath = `${base}/conversations/${accepted!.conversation_id}`;
     await page.goto(conversationPath);
     await expect(
       page.getByText("Loading history…", { exact: true }),
@@ -5420,8 +5407,15 @@ test.describe("guarded application journeys", () => {
     await captureIdentity(page, `${evidence}/live-history-recovered.png`);
     const actions = page.getByRole("button", { name: /^Actions for / }).first();
     await actions.click();
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Archive conversation" })
+      .getByRole("button", { name: "Archive conversation", exact: true })
+      .click();
+    await expect(page).toHaveURL(
+      (url) => url.pathname === `${base}/conversations`,
+    );
+    await page.goto(conversationPath);
     await expect(
       page.getByText("Archived conversation · Read-only", { exact: true }),
     ).toBeVisible();
@@ -5453,8 +5447,15 @@ test.describe("guarded application journeys", () => {
     ).toBeVisible();
     await captureIdentity(page, `${evidence}/live-workspace-restored.png`);
     await page.goto("/workspaces");
-    const rename = page.getByLabel(`Rename ${name}`, { exact: true });
-    for (let index = 0; index < 5 && (await rename.count()) === 0; index++) {
+    const workspaceActions = page.getByRole("button", {
+      name: `Actions for ${name}`,
+      exact: true,
+    });
+    for (
+      let index = 0;
+      index < 5 && (await workspaceActions.count()) === 0;
+      index++
+    ) {
       const more = page.getByRole("button", {
         name: "Load more Workspaces",
         exact: true,
@@ -5468,9 +5469,14 @@ test.describe("guarded application journeys", () => {
       await more.click();
       await response;
     }
-    await rename.fill(`${name} retained`);
+    await workspaceActions.click();
     await page
-      .getByRole("button", { name: `Save ${name} name`, exact: true })
+      .getByRole("menuitem", { name: "Rename workspace", exact: true })
+      .click();
+    const renameDialog = page.getByRole("dialog", { name: "Rename workspace" });
+    await renameDialog.getByRole("textbox").fill(`${name} retained`);
+    await renameDialog
+      .getByRole("button", { name: "Save name", exact: true })
       .click();
     await expect(
       page.getByRole("link", { name: `${name} retained`, exact: true }),

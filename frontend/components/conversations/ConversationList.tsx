@@ -1,106 +1,14 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Dialog } from "@/components/ui/Dialog";
+import { Button } from "@/components/ui/Button";
 import type { ConversationResponse } from "@/generated/knora-openapi";
 import { browserRequest } from "@/lib/api/browser-client";
 import { routes } from "@/lib/navigation/routes";
 import { Menu } from "@/components/ui/Menu";
-
-function useConversationCreation(workspaceId: string) {
-  const transaction = useRef({
-    workspaceId,
-    key: null as string | null,
-    busy: false,
-  });
-  if (transaction.current.workspaceId !== workspaceId)
-    transaction.current = { workspaceId, key: null, busy: false };
-  const [state, setState] = useState({
-    workspaceId,
-    creating: false,
-    error: null as string | null,
-  });
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  async function create() {
-    const current = transaction.current;
-    if (current.busy) return;
-    current.busy = true;
-    current.key ??= crypto.randomUUID();
-    setState({ workspaceId, creating: true, error: null });
-    try {
-      const response = await browserRequest(
-        `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations`,
-        { method: "POST", headers: { "Idempotency-Key": current.key } },
-      );
-      if (!response.ok) throw new Error("Conversation create failed");
-      const result = (await response.json()) as ConversationResponse;
-      if (!mounted.current || transaction.current !== current) return;
-      if (result.workspace_id !== workspaceId || !result.id)
-        throw new Error("creation scope mismatch");
-      current.key = null;
-      window.location.assign(routes.conversation(workspaceId, result.id));
-    } catch {
-      if (mounted.current && transaction.current === current)
-        setState({
-          workspaceId,
-          creating: false,
-          error:
-            "Unable to confirm Conversation creation. Retry New Conversation with the same request.",
-        });
-    } finally {
-      current.busy = false;
-      if (mounted.current && transaction.current === current)
-        setState((value) => ({ ...value, creating: false }));
-    }
-  }
-  return {
-    creating: state.workspaceId === workspaceId && state.creating,
-    error: state.workspaceId === workspaceId ? state.error : null,
-    create,
-  };
-}
-const ConversationCreation = createContext<ReturnType<
-  typeof useConversationCreation
-> | null>(null);
-/** Keeps an uncertain creation above conditional desktop rail and narrow drawer mounts. */
-export function ConversationCreationProvider({
-  workspaceId,
-  children,
-}: {
-  workspaceId: string;
-  children: React.ReactNode;
-}) {
-  const creation = useConversationCreation(workspaceId);
-  return (
-    <ConversationCreation.Provider value={creation}>
-      {children}
-    </ConversationCreation.Provider>
-  );
-}
-
-export function ConversationCreationAlert() {
-  const creation = useContext(ConversationCreation);
-  return creation?.error ? (
-    <p
-      role="alert"
-      className="px-5 py-2 text-xs text-status-error min-[960px]:px-11"
-    >
-      {creation.error}
-    </p>
-  ) : null;
-}
 
 export function ConversationList({
   workspaceId,
@@ -121,12 +29,14 @@ export function ConversationList({
   selectedId?: string;
   onChanged?: (conversation: ConversationResponse) => void;
 }) {
+  const router = useRouter();
+  const [archiveTarget, setArchiveTarget] =
+    useState<ConversationResponse | null>(null);
+  const [mutating, setMutating] = useState(false);
   const [conversations, setConversations] = useState(initialConversations);
   const [cursor, setCursor] = useState(nextCursor);
   const [error, setError] = useState<string | null>(null);
-  const localCreation = useConversationCreation(workspaceId);
-  const sharedCreation = useContext(ConversationCreation);
-  const creation = sharedCreation ?? localCreation;
+  const pathname = usePathname();
   const [titles, setTitles] = useState<Record<string, string>>({});
 
   const [query, setQuery] = useState("");
@@ -211,13 +121,8 @@ export function ConversationList({
     setError(null);
     const title = (titles[conversation.id] ?? conversation.title).trim();
     if (action === "rename" && (!title || title === conversation.title)) return;
-    if (
-      action === "archive" &&
-      !window.confirm(
-        "Archive this Conversation? Its history stays readable until restored.",
-      )
-    )
-      return;
+    if (mutating) return;
+    setMutating(true);
     try {
       const base = `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversation.id)}`;
       const response = await browserRequest(
@@ -233,6 +138,9 @@ export function ConversationList({
       if (currentScope.current !== scope) return;
       onChanged?.(updated);
       setRenaming(null);
+      setArchiveTarget(null);
+      if (action === "archive" && selectedId === updated.id)
+        router.push(routes.conversations(workspaceId));
       setConversations((current) =>
         action === "rename"
           ? current.map((item) => (item.id === updated.id ? updated : item))
@@ -240,6 +148,8 @@ export function ConversationList({
       );
     } catch {
       setError("Unable to update Conversation. Reload and retry.");
+    } finally {
+      setMutating(false);
     }
   }
 
@@ -290,8 +200,10 @@ export function ConversationList({
         <button
           type="button"
           aria-label="New Conversation"
-          disabled={creation.creating}
-          onClick={() => void creation.create()}
+          onClick={() => {
+            const destination = routes.conversations(workspaceId);
+            if (pathname !== destination) router.push(destination);
+          }}
           className={`m-0 flex h-9 shrink-0 items-center gap-2 rounded-lg border border-action bg-action/10 px-3 text-[13px] font-semibold text-action-text ${collapsed ? "w-10 justify-center" : "w-full"}`}
         >
           <span aria-hidden="true">+</span>
@@ -299,7 +211,7 @@ export function ConversationList({
         </button>
       )}
       {!collapsed && (
-        <label className="flex h-9 shrink-0 items-center gap-[7px] rounded-lg border border-border bg-surface px-[11px] text-text-muted">
+        <label className="kn-search-field flex h-9 shrink-0 items-center gap-[7px] rounded-lg border border-border bg-surface px-[11px] text-text-muted">
           <span aria-hidden="true">⌕</span>
           <span className="sr-only">Search conversations</span>
           <input
@@ -338,7 +250,7 @@ export function ConversationList({
             className={
               collapsed
                 ? "m-0"
-                : "m-0 flex min-h-11 items-center gap-1 rounded-lg pl-2.5 pr-2"
+                : "m-0 flex min-h-11 items-center gap-1 rounded-lg pl-2.5 pr-2 transition-colors hover:bg-surface-subtle focus-within:bg-surface-subtle"
             }
           >
             <div
@@ -384,7 +296,7 @@ export function ConversationList({
                       <button
                         role="menuitem"
                         type="button"
-                        onClick={() => void mutate(conversation, "archive")}
+                        onClick={() => setArchiveTarget(conversation)}
                       >
                         Archive
                       </button>
@@ -425,7 +337,7 @@ export function ConversationList({
                 </button>
                 <button
                   type="button"
-                  onClick={() => void mutate(conversation, "archive")}
+                  onClick={() => setArchiveTarget(conversation)}
                 >
                   Archive {conversation.title}
                 </button>
@@ -461,14 +373,6 @@ export function ConversationList({
             ? "View active Conversations"
             : "View archived Conversations"}
         </Link>
-      )}
-      {creation.error && (!collapsed || !sharedCreation) && (
-        <p
-          role="alert"
-          className="w-full text-xs text-status-error [overflow-wrap:anywhere]"
-        >
-          {creation.error}
-        </p>
       )}
       {error && (
         <p
@@ -518,6 +422,36 @@ export function ConversationList({
           </form>
         )}
       </div>
+      <Dialog
+        open={archiveTarget !== null}
+        title="Archive conversation"
+        onClose={() => {
+          if (!mutating) setArchiveTarget(null);
+        }}
+      >
+        <p>
+          Archive “{archiveTarget?.title}”? Its history remains available in
+          archived conversations.
+        </p>
+        {error && <p role="alert">{error}</p>}
+        <div className="mt-6 flex justify-end gap-3">
+          <Button
+            variant="secondary"
+            disabled={mutating}
+            onClick={() => setArchiveTarget(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={mutating}
+            onClick={() => {
+              if (archiveTarget) void mutate(archiveTarget, "archive");
+            }}
+          >
+            Archive conversation
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

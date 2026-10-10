@@ -50,3 +50,84 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+.kn-theme-choices {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  color: var(--text-primary);
+}
+.kn-theme-choices legend {
+  font-weight: 600;
+}
+.kn-theme-choices > p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-block: 8px 20px;
+}
+.kn-theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.kn-theme-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.kn-theme-option[data-selected="true"] {
+  border-color: var(--action);
+  background: var(--action-soft, var(--surface-subtle));
+  box-shadow: 0 0 0 1px var(--action);
+}
+.kn-theme-option:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.kn-theme-option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.kn-theme-preview {
+  display: flex;
+  min-height: 60px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 6px;
+  background: #effcfa;
+  border: 1px solid #d9e2de;
+}
+.kn-theme-preview span {
+  width: 75%;
+  height: 4px;
+  background: #1f3b36;
+  border-radius: 4px;
+}
+.kn-theme-preview span:first-child {
+  width: 45%;
+  background: #33a15b;
+}
+.kn-theme-preview--dark {
+  background: #12201c;
+  border-color: #2a3d36;
+}
+.kn-theme-preview--dark span {
+  background: #d7efe6;
+}
+.kn-theme-preview--system {
+  background: linear-gradient(90deg, #effcfa 50%, #12201c 50%);
+}
+.kn-theme-preview--system span {
+  background: #33a15b;
+}

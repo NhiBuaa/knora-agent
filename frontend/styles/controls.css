@@ -231,3 +231,22 @@
     }
   }
 }
+
+/* Composite fields own one focus edge around their existing border. */
+.kn-search-field:focus-within,
+.kn-composer-field:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+.kn-search-field input:focus-visible,
+.kn-composer-field textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.kn-composer-field textarea.kn-field__control {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  min-height: 44px;
+  resize: none;
+}

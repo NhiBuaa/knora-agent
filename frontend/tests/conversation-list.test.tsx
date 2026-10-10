@@ -9,6 +9,11 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationList } from "@/components/conversations/ConversationList";
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace: vi.fn() }),
+  usePathname: () => "/workspaces/w-1/conversations/c-1",
+}));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -25,12 +30,9 @@ const conversation = {
 };
 
 describe("Conversation lifecycle controls", () => {
-  it("announces uncertain creation in collapsed mode and preserves the retry key", async () => {
-    const keys: (string | null)[] = [];
-    vi.stubGlobal("fetch", async (_url: string, init: RequestInit = {}) => {
-      keys.push(new Headers(init.headers).get("Idempotency-Key"));
-      throw new Error("response lost");
-    });
+  it("opens an unsaved conversation from the collapsed rail without writing", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
     render(
       <ConversationList
         workspaceId="w-1"
@@ -39,12 +41,8 @@ describe("Conversation lifecycle controls", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /creation.*Retry/i,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-    await waitFor(() => expect(keys).toHaveLength(2));
-    expect(keys[1]).toBe(keys[0]);
+    expect(push).toHaveBeenCalledWith("/workspaces/w-1/conversations");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
   it("renames with the loaded revision and keeps history link", async () => {
     const fetchMock = vi.fn(

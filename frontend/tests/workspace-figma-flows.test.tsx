@@ -13,7 +13,7 @@ import { afterEach, expect, it, vi } from "vitest";
 const { push, refresh, pathname } = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
-  pathname: vi.fn(() => "/workspaces/ws"),
+  pathname: vi.fn(() => "/workspaces/ws/conversations"),
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh }),
@@ -36,7 +36,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
-  pathname.mockReturnValue("/workspaces/ws");
+  pathname.mockReturnValue("/workspaces/ws/conversations");
 });
 
 it.each([
@@ -77,7 +77,10 @@ it("confirms archive in a dialog and cancels without a mutation", async () => {
   const request = vi.fn();
   vi.stubGlobal("fetch", request);
   render(<WorkspaceManagement initialWorkspaces={[workspace]} />);
-  await user.click(screen.getByRole("button", { name: /archive workspace/i }));
+  await user.click(
+    screen.getByRole("button", { name: `Actions for ${workspace.name}` }),
+  );
+  await user.click(screen.getByRole("menuitem", { name: "Archive workspace" }));
   expect(
     screen.getByRole("dialog", { name: /archive workspace/i }),
   ).toBeVisible();
@@ -132,7 +135,9 @@ it("waits for validated creation selection before navigation without refreshing 
   expect(push).not.toHaveBeenCalled();
   expect(refresh).not.toHaveBeenCalled();
   await act(async () => finishSelection(json({ workspaceId: "created" })));
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/created"));
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith("/workspaces/created/conversations"),
+  );
   expect(refresh).not.toHaveBeenCalled();
 });
 
@@ -180,7 +185,9 @@ it("searches the entire workspace corpus through q and changes the signed select
   fireEvent.click(
     await screen.findByRole("button", { name: "Later-page workspace" }),
   );
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/later"));
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith("/workspaces/later/conversations"),
+  );
   expect(requests.some(([url]) => url.includes("q=Later"))).toBe(true);
   expect(
     requests.find(([url]) => url === "/api/workspace-selection")?.[1]?.body,
@@ -223,17 +230,8 @@ it("ignores a stale search response after a newer query", async () => {
 it("resolves an authorized name absent from page one and suppresses a denied cached name", async () => {
   vi.stubGlobal("fetch", async () => json(workspace));
   const view = render(
-    <WorkspaceShell
-      workspaces={[]}
-      nextCursor="more"
-      capabilities={[]}
-      subject="alice"
-      themePreference="light"
-    >
-      <p>Content</p>
-    </WorkspaceShell>,
+    <WorkspaceSelector workspaceId="ws" workspaceName={null} />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Menu" }));
   await screen.findAllByText(workspace.name);
   view.unmount();
   vi.stubGlobal("fetch", async () => json({}, 403));
@@ -285,7 +283,9 @@ it("restores with the authoritative revision and uses resolver before navigation
   fireEvent.click(
     screen.getByRole("button", { name: /restore research workspace/i }),
   );
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/ws"));
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith("/workspaces/ws/conversations"),
+  );
   expect(new Headers(calls[0][1].headers).get("If-Match")).toBe("4");
   expect(calls[1][0]).toBe("/api/v1/workspaces/resolve");
   expect(calls[2][0]).toBe("/api/workspace-selection");
@@ -337,7 +337,9 @@ it("selects a newly created workspace through the validated preference endpoint"
       name: /^create workspace$/i,
     }),
   );
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/ws"));
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith("/workspaces/ws/conversations"),
+  );
   expect(calls[1][0]).toBe("/api/workspace-selection");
 });
 
@@ -372,11 +374,16 @@ it("opens the backend-resolved next workspace after confirmed archive", async ()
         : json({ ok: true }),
   );
   render(<WorkspaceManagement initialWorkspaces={[workspace]} />);
-  fireEvent.click(screen.getByRole("button", { name: /archive workspace/i }));
+  fireEvent.click(
+    screen.getByRole("button", { name: `Actions for ${workspace.name}` }),
+  );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Archive workspace" }));
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", {
       name: /^archive workspace$/i,
     }),
   );
-  await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/next"));
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith("/workspaces/next/conversations"),
+  );
 });

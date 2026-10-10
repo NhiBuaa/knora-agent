@@ -16,7 +16,6 @@ import {
   preferenceCookie,
   WORKSPACE_PREFERENCE_COOKIE,
 } from "@/lib/auth/workspace-preference";
-import { destinationForResolution } from "@/lib/navigation/routes";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -57,7 +56,7 @@ export async function GET(request: Request) {
         },
         hint,
       );
-      destination = destinationForResolution(resolution);
+      destination = "/workspaces";
       selectedWorkspaceId =
         resolution.state === "ACTIVE"
           ? (resolution.workspace?.id ?? null)

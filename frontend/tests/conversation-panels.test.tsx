@@ -16,7 +16,7 @@ import type { TurnResponse } from "@/generated/knora-openapi";
 import userEvent from "@testing-library/user-event";
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, refresh: vi.fn() }),
+  useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => "/workspaces/w/conversations",
 }));
 beforeEach(() => push.mockReset());
@@ -342,23 +342,10 @@ describe("Conversation panel interactions", () => {
     expect(second).toHaveAttribute("aria-pressed", "false");
   });
   it.each(["desktop", "narrow"])(
-    "preserves an uncertain creation request across %s rail dismissal",
+    "does not create persisted drafts across %s rail dismissal",
     async (mode) => {
       history();
       if (mode === "narrow") window.innerWidth = 390;
-      const keys: (string | null)[] = [];
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async (_url: string, init: RequestInit = {}) => {
-          if (init.method === "POST") {
-            keys.push(new Headers(init.headers).get("Idempotency-Key"));
-            throw new Error("Response lost after accepted creation");
-          }
-          return new Response(
-            JSON.stringify({ items: [answered], next_cursor: null }),
-          );
-        }),
-      );
       render(<ConversationView workspaceId="w" conversation={conversation} />);
       await screen.findByText(answered.result.answer);
       if (mode === "narrow")
@@ -366,16 +353,22 @@ describe("Conversation panel interactions", () => {
           screen.getByRole("button", { name: "Show conversations" }),
         );
       fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-      await screen.findByText(/Unable to confirm Conversation creation/);
+      expect(
+        (fetch as any).mock.calls.some(
+          ([, init]: any[]) => init?.method === "POST",
+        ),
+      ).toBe(false);
       if (mode === "narrow") fireEvent.keyDown(document, { key: "Escape" });
       else fireEvent.click(screen.getByRole("button", { name: "Hide rail" }));
       fireEvent.click(
         screen.getByRole("button", { name: "Show conversations" }),
       );
       fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-      await waitFor(() => expect(keys).toHaveLength(2));
-      expect(keys[0]).toBeTruthy();
-      expect(keys[1]).toBe(keys[0]);
+      expect(
+        (fetch as any).mock.calls.some(
+          ([, init]: any[]) => init?.method === "POST",
+        ),
+      ).toBe(false);
     },
   );
   it("returns focus to the selected citation when desktop evidence closes", async () => {
@@ -484,7 +477,7 @@ describe("Conversation panel interactions", () => {
     ).toHaveAttribute("data-rail", "expanded");
     expect(Object.values(sessionStorage)).not.toContain(citation.excerpt);
   });
-  it("fills a suggested draft without sending until explicit Ask", async () => {
+  it("submits a suggestion directly", async () => {
     history([]);
     render(<ConversationView workspaceId="w" conversation={conversation} />);
     fireEvent.click(
@@ -497,7 +490,7 @@ describe("Conversation panel interactions", () => {
       (fetch as any).mock.calls.filter(
         (call: any[]) => call[1]?.method === "POST",
       ),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
   });
   it.each([
     ["processing", "retrieving", "Retrieving evidence…"],
@@ -882,7 +875,9 @@ describe("rail mutations and stale scope", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Restore workspace" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/w"));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/workspaces/w/conversations"),
+    );
     expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
     view.rerender(
       <ConversationView
@@ -1140,7 +1135,9 @@ describe("rail mutations and stale scope", () => {
         ),
       ),
     );
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/workspaces/w"));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/workspaces/w/conversations"),
+    );
     expect(
       JSON.parse(
         String(
@@ -1159,7 +1156,7 @@ describe("rail mutations and stale scope", () => {
     ).toEqual({ workspaceId: "w" });
     expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
   });
-  it("updates the current conversation to read-only when its rail action archives it", async () => {
+  it("returns to draft after archiving the selected conversation", async () => {
     history();
     vi.stubGlobal("confirm", () => true);
     vi.stubGlobal(
@@ -1183,7 +1180,14 @@ describe("rail mutations and stale scope", () => {
       }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
-    await screen.findByText("Archived conversation · Read-only");
+    fireEvent.click(
+      within(
+        screen.getByRole("dialog", { name: "Archive conversation" }),
+      ).getByRole("button", { name: "Archive conversation" }),
+    );
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/workspaces/w/conversations"),
+    );
     expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
   });
   it("ignores a pending poll from a previous conversation after switching routes", async () => {

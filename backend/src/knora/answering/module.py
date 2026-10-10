@@ -6,6 +6,7 @@ from time import get_clock_info, perf_counter
 from uuid import uuid4
 
 from knora.answering.evidence import EvidenceSelection, select_evidence
+from knora.answering.excerpt import citation_excerpt
 from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
 from knora.answering.interface import (
     CitationProjection,
@@ -389,7 +390,11 @@ class AnswerQuestion:
             heading_path=candidate.heading_path,
             start_line=candidate.start_line,
             end_line=candidate.end_line,
-            excerpt=candidate.content[:500],
+            excerpt=citation_excerpt(
+                candidate.content,
+                start_offset=candidate.start_offset,
+                end_offset=candidate.end_offset,
+            ),
             content_checksum=candidate.content_checksum,
             page_start=candidate.page_start,
             page_end=candidate.page_end,

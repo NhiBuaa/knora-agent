@@ -497,7 +497,7 @@ export function DocumentList({
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <label className="flex h-10 w-full max-w-[430px] items-center gap-2 rounded-lg border border-border px-3 text-text-muted">
+        <label className="kn-search-field flex h-10 w-full max-w-[430px] items-center gap-2 rounded-lg border border-border px-3 text-text-muted">
           <span aria-hidden="true">⌕</span>
           <input
             type="search"

@@ -62,12 +62,10 @@ describe("operator theme access", () => {
     render(await OperatorLayout({ children: <p>Operations</p> }));
     fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
-    expect(
-      screen.getAllByRole("combobox", { name: "Appearance" }),
-    ).toHaveLength(1);
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-      "dark",
+    expect(screen.getAllByRole("group", { name: "Appearance" })).toHaveLength(
+      1,
     );
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
     expect(
       within(
         screen.getByRole("navigation", { name: "Primary navigation" }),
@@ -92,9 +90,7 @@ describe("operator theme access", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch workspace" }));
     fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-      "dark",
-    );
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
   });
   it("denies operator capability before Workspace listing or preference lookup", async () => {
     vi.mocked(getSession).mockResolvedValueOnce({

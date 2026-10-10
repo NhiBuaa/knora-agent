@@ -62,7 +62,7 @@ describe("Workspace management", () => {
     render(<ArchivedWorkspaceList initialWorkspaces={[archived]} />);
     expect(
       screen.getByRole("link", { name: "Archived Workspace" }),
-    ).toHaveAttribute("href", "/workspaces/ws-archived");
+    ).toHaveAttribute("href", "/workspaces/ws-archived/conversations");
     fireEvent.click(
       screen.getByRole("button", { name: "Restore Archived Workspace" }),
     );
@@ -91,17 +91,22 @@ describe("Workspace management", () => {
     );
     render(<WorkspaceManagement initialWorkspaces={[active]} />);
 
-    fireEvent.change(screen.getByLabelText("Rename Team"), {
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Team" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename workspace" }));
+    fireEvent.change(screen.getByLabelText("Workspace name"), {
       target: { value: "Renamed" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Team name" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save name" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0][1].method).toBe("PATCH");
     expect(
       new Headers(fetchMock.mock.calls[0][1].headers).get("If-Match"),
     ).toBe("4");
     fireEvent.click(
-      screen.getByRole("button", { name: "Archive workspace Renamed" }),
+      screen.getByRole("button", { name: "Actions for Renamed" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Archive workspace" }),
     );
     expect(
       screen.getByRole("dialog", { name: "Archive workspace" }),
@@ -187,8 +192,9 @@ describe("Workspace management", () => {
       vi.fn(() => true),
     );
     render(<WorkspaceManagement initialWorkspaces={[active]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Active" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Archive workspace Active" }),
+      screen.getByRole("menuitem", { name: "Archive workspace" }),
     );
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
@@ -229,8 +235,9 @@ describe("Workspace management", () => {
       vi.fn(() => true),
     );
     render(<WorkspaceManagement initialWorkspaces={[active]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Active" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Archive workspace Active" }),
+      screen.getByRole("menuitem", { name: "Archive workspace" }),
     );
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {

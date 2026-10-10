@@ -158,7 +158,7 @@ describe("OIDC callback Workspace resolution", () => {
       ),
     );
     expect(response.headers.get("location")).toBe(
-      "https://app.example/workspaces/owned-workspace",
+      "https://app.example/workspaces",
     );
     expect(exchangeCode).toHaveBeenLastCalledWith(
       "one-time-code",

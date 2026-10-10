@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
-import { loginAs, newRoleContext } from "./support/auth";
+import { loginAs, newRoleContext, openConversationDraft } from "./support/auth";
 
 const SOURCE = "Teacher Manh - Guidelines 2024.pdf";
 
@@ -88,8 +88,10 @@ test("real Ollama Conversation answers from the verified page-one chunk", async 
   });
 
   await loginAs(page, "user");
-  await page.getByRole("button", { name: "New Conversation" }).first().click();
-  await expect(page.getByText("No questions yet.")).toBeVisible();
+  await openConversationDraft(page);
+  await expect(
+    page.getByRole("heading", { name: "Grounded answers from your workspace" }),
+  ).toBeVisible();
   await page
     .getByRole("textbox", { name: "Question" })
     .fill("cần trình bày báo cáo bao nhiêu chương?");
@@ -118,8 +120,10 @@ test("real Ollama Conversation refuses an absent deadline without a citation", a
   const context = await newRoleContext(browser, "user");
   const page = await context.newPage();
   await loginAs(page, "user");
-  await page.getByRole("button", { name: "New Conversation" }).first().click();
-  await expect(page.getByText("No questions yet.")).toBeVisible();
+  await openConversationDraft(page);
+  await expect(
+    page.getByRole("heading", { name: "Grounded answers from your workspace" }),
+  ).toBeVisible();
   await page
     .getByRole("textbox", { name: "Question" })
     .fill("Hạn cuối nộp báo cáo chính xác là ngày nào?");

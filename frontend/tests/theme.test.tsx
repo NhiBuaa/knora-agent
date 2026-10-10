@@ -75,8 +75,7 @@ describe("theme preference", () => {
   it("persists a choice for reload and returns to CSS system mode", () => {
     document.cookie = "theme_canary=not-a-theme; Path=/";
     const { unmount } = render(<ThemeControl initialPreference="system" />);
-    const control = screen.getByRole("combobox", { name: "Appearance" });
-    fireEvent.change(control, { target: { value: "dark" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=dark`);
     unmount();
@@ -90,21 +89,18 @@ describe("theme preference", () => {
         )}
       />,
     );
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-      "dark",
-    );
-    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
-      target: { value: "system" },
-    });
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "System" }));
     expect(document.documentElement).not.toHaveAttribute("data-theme");
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=system`);
   });
 
   it("never persists a value outside the visual preference allowlist", () => {
     render(<ThemeControl initialPreference="dark" />);
-    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
-      target: { value: "unknown" },
-    });
+    expect(
+      screen.queryByRole("radio", { name: "unknown" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "System" }));
     expect(document.cookie).toContain(`${THEME_COOKIE_NAME}=system`);
     expect(document.documentElement).not.toHaveAttribute("data-theme");
   });
@@ -112,16 +108,10 @@ describe("theme preference", () => {
   it("keeps an explicit root theme until system choice returns authority to CSS media", () => {
     render(<ThemeControl initialPreference="light" />);
     document.documentElement.dataset.theme = "light";
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-      "light",
-    );
+    expect(screen.getByRole("radio", { name: "Light" })).toBeChecked();
     expect(document.documentElement).toHaveAttribute("data-theme", "light");
-    fireEvent.change(screen.getByRole("combobox", { name: "Appearance" }), {
-      target: { value: "system" },
-    });
-    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveValue(
-      "system",
-    );
+    fireEvent.click(screen.getByRole("radio", { name: "System" }));
+    expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
     expect(document.documentElement).not.toHaveAttribute("data-theme");
   });
 
@@ -136,7 +126,7 @@ describe("theme preference", () => {
     await act(async () => {
       root = hydrateRoot(host, <ThemeControl initialPreference="dark" />);
     });
-    expect(host.querySelector("select")).toHaveValue("dark");
+    expect(host.querySelector('input[value="dark"]')).toBeChecked();
     expect(error).not.toHaveBeenCalled();
     await act(async () => root?.unmount());
     host.remove();

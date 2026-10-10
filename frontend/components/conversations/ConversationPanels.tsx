@@ -1,4 +1,5 @@
 "use client";
+import { ConversationView } from "./ConversationView";
 import React, { useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import {
@@ -16,24 +17,17 @@ import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
 import { WorkspaceSelector } from "@/components/workspaces/WorkspaceSelector";
 import { WorkspaceReadOnlyComposer } from "./ConversationComposer";
 import type { ConversationResponse } from "@/generated/knora-openapi";
-import {
-  ConversationCreationAlert,
-  ConversationCreationProvider,
-} from "./ConversationList";
-
 export function ConversationPanels(
   props: React.ComponentProps<typeof ConversationPanelLayout>,
 ) {
   return (
-    <ConversationCreationProvider
+    <ConversationPanelLayout
       key={
         panelPreferenceKey(props.identityScope, props.workspaceId) ??
         props.workspaceId
       }
-      workspaceId={props.workspaceId}
-    >
-      <ConversationPanelLayout {...props} />
-    </ConversationCreationProvider>
+      {...props}
+    />
   );
 }
 
@@ -334,9 +328,6 @@ function ConversationPanelLayout({
             Reset panels
           </button>
         </div>
-        {!narrow && preferences.rail === "collapsed" && (
-          <ConversationCreationAlert />
-        )}
         <div className="conversation-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-8 pt-5 min-[960px]:px-11">
           {children}
         </div>
@@ -402,6 +393,33 @@ export function ConversationHub({
   workspaceRevision?: number;
   identityScope?: PanelIdentityScope;
 }) {
+  if (!archived && !workspaceArchived)
+    return (
+      <ConversationView
+        workspaceId={workspaceId}
+        draftMode
+        conversation={{
+          id: "",
+          workspace_id: workspaceId,
+          title: "New conversation",
+          title_source: "auto",
+          archived: false,
+          revision: 0,
+          updated_at: "",
+        }}
+        workspaceName={workspaceName}
+        workspaceRevision={workspaceRevision}
+        identityScope={identityScope}
+        initialConversations={initialConversations}
+        nextCursor={nextCursor}
+        workspaceSelector={
+          <WorkspaceSelector
+            workspaceId={workspaceId}
+            workspaceName={workspaceName}
+          />
+        }
+      />
+    );
   return (
     <ConversationPanels
       workspaceId={workspaceId}

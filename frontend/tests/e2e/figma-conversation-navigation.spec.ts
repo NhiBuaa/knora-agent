@@ -277,7 +277,7 @@ test("real-time bounded session expiry preserves the draft and recovers through 
       .click();
     const popup = await popupPromise;
     try {
-      await popup.waitForURL(/\/workspaces\/[a-f0-9-]+$/);
+      await popup.waitForURL(/\/workspaces$/);
       const recovered = await (
         await popup.request.get("/api/auth/session")
       ).json();
@@ -428,51 +428,39 @@ test("New Conversation leaves retained answers, citations, refusal and draft int
         .getByLabel("Question", { exact: true })
         .fill("What is the late-submission policy?");
     await captureIdentity(page, `${evidence}/${state}-before.png`);
-    const created = page.waitForResponse(
-      (response) =>
-        response.request().method() === "POST" &&
-        new URL(response.url()).pathname ===
-          `/api/v1/workspaces/${observation.workspaceId}/conversations`,
-    );
+    const destinationPath = `/workspaces/${observation.workspaceId}/conversations`;
+    let admissions = 0;
+    const observe = (request: import("@playwright/test").Request) => {
+      if (
+        request.method() === "POST" &&
+        new URL(request.url()).pathname === `/api/v1${destinationPath}`
+      )
+        admissions++;
+    };
+    page.on("request", observe);
     await page
       .getByRole("button", { name: "New Conversation", exact: true })
       .click();
-    const response = await created;
-    expect(response.status()).toBe(201);
-    expect(response.request().headers()["idempotency-key"]).toBeTruthy();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname !== observation.conversationPath &&
-        new RegExp(
-          `^/workspaces/${observation.workspaceId}/conversations/[a-f0-9-]+$`,
-        ).test(url.pathname),
-    );
-    const destinationPath = new URL(page.url()).pathname;
-    expect(destinationPath).toMatch(
-      new RegExp(
-        `^/workspaces/${observation.workspaceId}/conversations/[a-f0-9-]+$`,
-      ),
-    );
-    expect(destinationPath).not.toBe(observation.conversationPath);
-    const destinationId = destinationPath.split("/").at(-1)!;
+    await expect(page).toHaveURL((url) => url.pathname === destinationPath);
+    await expect(
+      page.getByRole("heading", {
+        name: "Grounded answers from your workspace",
+      }),
+    ).toBeVisible();
     await expect(
       page.getByText("Loading history…", { exact: true }),
     ).toBeHidden();
     await expect(page.getByLabel("Question", { exact: true })).toHaveValue("");
-    const detail = await page.request.get(`/api/v1${destinationPath}`);
-    expect(detail.status()).toBe(200);
-    const destination = (await detail.json()) as ConversationResponse;
-    expect(destination.id).toBe(destinationId);
-    expect(destination.workspace_id).toBe(observation.workspaceId);
-    expect(destination.archived).toBe(false);
-    const empty = await page.request.get(`/api/v1${destinationPath}/turns`);
-    expect(empty.status()).toBe(200);
-    expect((await empty.json()).items).toEqual([]);
+    await page
+      .getByRole("button", { name: "New Conversation", exact: true })
+      .click();
+    expect(admissions).toBe(0);
+    page.off("request", observe);
     expect(digest(await readHistory())).toBe(before);
     await captureIdentity(page, `${evidence}/${state}-created.png`);
     journeys.push({
       state,
-      createStatus: 201,
+      createStatus: "unsaved-draft",
       destinationPath,
       sourceHistoryUnchanged: true,
     });

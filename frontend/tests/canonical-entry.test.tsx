@@ -59,40 +59,18 @@ describe("canonical entry", () => {
     expect(html).toContain("Unable to load this Workspace.");
     expect(html).not.toContain("Workspace unavailable");
   });
-  it("uses read-only owner selection for an authenticated user without provisioning", async () => {
-    await expect(HomePage({})).rejects.toThrow(
-      "REDIRECT:/workspaces/workspace-a",
-    );
-    expect(readEntryWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({ accessToken: "server-token" }),
-      null,
-    );
+  it("always opens workspace management after login even with existing workspaces", async () => {
+    await expect(HomePage({})).rejects.toThrow("REDIRECT:/workspaces");
+    expect(readEntryWorkspace).not.toHaveBeenCalled();
     expect(resolveCurrentWorkspace).not.toHaveBeenCalled();
   });
-
-  it("shows a signed-out state without silently starting a new login", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(null);
-    const html = renderToStaticMarkup(
-      await HomePage({ searchParams: Promise.resolve({ "signed-out": "1" }) }),
-    );
-    expect(html).toContain("Signed out");
-    expect(html).toContain("/api/auth/login");
-  });
-
-  it("shows the signed-out state after Keycloak returns from RP logout", async () => {
-    vi.mocked(getSession).mockResolvedValueOnce(null);
-    const html = renderToStaticMarkup(
-      await HomePage({
-        searchParams: Promise.resolve({ state: "knora-logout-complete" }),
-      }),
-    );
-    expect(html).toContain("Signed out");
-    expect(html).toContain("/api/auth/login");
-  });
-
-  it("does not claim a still-authenticated visitor has signed out", async () => {
-    await expect(
-      HomePage({ searchParams: Promise.resolve({ "signed-out": "1" }) }),
-    ).rejects.toThrow("REDIRECT:/workspaces/workspace-a");
-  });
+  it.each([{ "signed-out": "1" }, { state: "knora-logout-complete" }])(
+    "opens sign-in after logout",
+    async (query) => {
+      vi.mocked(getSession).mockResolvedValueOnce(null);
+      await expect(
+        HomePage({ searchParams: Promise.resolve(query) }),
+      ).rejects.toThrow("REDIRECT:/api/auth/login");
+    },
+  );
 });

@@ -145,6 +145,12 @@ export function ConversationComposer({
   restoreDisabled: boolean;
   onRestore?: () => void;
 }) {
+  const input = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!input.current) return;
+    input.current.style.height = "0px";
+    input.current.style.height = `${Math.min(160, Math.max(44, input.current.scrollHeight))}px`;
+  }, [draft]);
   return (
     <div className="flex min-h-[72px] items-center border-t border-border bg-surface px-4 py-[11px] min-[960px]:px-6">
       {archived ? (
@@ -176,26 +182,39 @@ export function ConversationComposer({
         <form
           aria-label="Question composer"
           onSubmit={onSubmit}
-          className="flex h-12 w-full items-center gap-2 rounded-[10px] border border-border bg-surface pl-3.5 pr-2"
+          className="kn-composer-field flex min-h-12 w-full items-end gap-2 rounded-[10px] border border-border bg-surface pl-3.5 pr-2"
         >
           <label htmlFor="conversation-question" className="sr-only">
             Question
           </label>
           <textarea
+            ref={input}
             id="conversation-question"
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing &&
+                event.keyCode !== 229
+              ) {
+                event.preventDefault();
+                if (!disabled && !readOnly)
+                  event.currentTarget.form?.requestSubmit();
+              }
+            }}
             rows={1}
             value={draft}
             readOnly={readOnly}
             onChange={(event) => onChange(event.target.value)}
             placeholder="Ask about the documents in this workspace…"
-            className="kn-field__control my-0 min-h-0 w-full resize-none border-0 bg-transparent px-0 py-3 text-[13px] leading-5 text-text-primary placeholder:text-text-muted"
+            className="kn-field__control my-0 max-h-40 overflow-y-auto min-h-0 w-full resize-none border-0 bg-transparent px-0 py-3 text-[13px] leading-5 text-text-primary placeholder:text-text-muted"
           />
           <button
             type="submit"
             aria-label="Ask"
             title="Send question"
             disabled={disabled}
-            className="m-0 flex size-[34px] shrink-0 items-center justify-center rounded-lg border border-action bg-action p-0 text-base font-semibold text-action-foreground disabled:border-border disabled:bg-surface-subtle disabled:text-text-muted"
+            className="m-0 mb-[7px] flex size-[34px] shrink-0 items-center justify-center rounded-lg border border-action bg-action p-0 text-base font-semibold text-action-foreground disabled:border-border disabled:bg-surface-subtle disabled:text-text-muted"
           >
             <span aria-hidden="true">↑</span>
           </button>
@@ -230,7 +249,7 @@ export function ConversationEmpty({
     <div className="flex min-h-full flex-col items-center justify-center gap-[15px] py-3 text-center">
       <div
         aria-hidden="true"
-        className="relative h-[350px] w-[520px] max-[650px]:-my-12 max-[650px]:scale-[0.62]"
+        className="relative h-[350px] w-[520px] shrink-0 max-[650px]:-my-12 max-[650px]:scale-[0.62]"
       >
         <img
           src="/brand/orbit-inner.png"

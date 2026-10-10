@@ -4,7 +4,8 @@ const segment = (value: string) => encodeURIComponent(value);
 
 export const routes = {
   archivedWorkspaces: "/workspaces/archived",
-  workspace: (workspaceId: string) => `/workspaces/${segment(workspaceId)}`,
+  workspace: (workspaceId: string) =>
+    `/workspaces/${segment(workspaceId)}/conversations`,
   documents: (workspaceId: string) =>
     `/workspaces/${segment(workspaceId)}/documents`,
   document: (workspaceId: string, documentId: string) =>

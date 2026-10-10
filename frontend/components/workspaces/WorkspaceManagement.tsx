@@ -7,6 +7,8 @@ import type { WorkspaceResponse } from "@/generated/knora-openapi";
 import { browserRequest } from "@/lib/api/browser-client";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import { ArchiveWorkspaceDialog } from "./ArchiveWorkspaceDialog";
+import { Menu } from "@/components/ui/Menu";
+import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import "./workspaces.css";
 import { routes } from "@/lib/navigation/routes";
@@ -25,6 +27,10 @@ export function WorkspaceManagement({
     setWorkspaces(initialWorkspaces);
     setCursor(nextCursor);
   }, [initialWorkspaces, nextCursor]);
+  const [renameTarget, setRenameTarget] = useState<WorkspaceResponse | null>(
+    null,
+  );
+  const [renameBusy, setRenameBusy] = useState(false);
   const [creating, setCreating] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<WorkspaceResponse | null>(
     null,
@@ -58,7 +64,12 @@ export function WorkspaceManagement({
 
   async function rename(workspace: WorkspaceResponse) {
     const proposed = (names[workspace.id] ?? workspace.name).trim();
-    if (!proposed || proposed === workspace.name) return;
+    if (!proposed || renameBusy) return;
+    if (proposed === workspace.name) {
+      setRenameTarget(null);
+      return;
+    }
+    setRenameBusy(true);
     setError(null);
     try {
       const response = await browserRequest(
@@ -77,8 +88,11 @@ export function WorkspaceManagement({
       setNames((current) => ({ ...current, [renamed.id]: renamed.name }));
       router.refresh();
       setMessage("Workspace renamed.");
+      setRenameTarget(null);
     } catch {
       setError("Unable to rename Workspace. Reload and retry.");
+    } finally {
+      setRenameBusy(false);
     }
   }
 
@@ -181,32 +195,36 @@ export function WorkspaceManagement({
             className="flex flex-wrap items-center gap-3 border-b border-border py-4"
             key={workspace.id}
           >
-            <Link href={routes.workspace(workspace.id)}>{workspace.name}</Link>
-            <label className="ml-auto">
-              Rename {workspace.name}
-              <input
-                value={names[workspace.id] ?? workspace.name}
-                onChange={(event) =>
-                  setNames((current) => ({
-                    ...current,
-                    [workspace.id]: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <button type="button" onClick={() => void rename(workspace)}>
-              Save {workspace.name} name
-            </button>
-            <button
-              type="button"
-              disabled={archiveBusy}
-              onClick={() => {
-                setError(null);
-                setArchiveTarget(workspace);
-              }}
+            <Link
+              href={routes.workspace(workspace.id)}
+              className="workspace-entry-link flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2 font-semibold text-action-text hover:bg-surface-subtle hover:underline focus-visible:underline"
             >
-              Archive workspace {workspace.name}
-            </button>
+              <span className="truncate">{workspace.name}</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Menu label={`Actions for ${workspace.name}`}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setError(null);
+                  setRenameTarget(workspace);
+                }}
+              >
+                Rename workspace
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={archiveBusy}
+                onClick={() => {
+                  setError(null);
+                  setArchiveTarget(workspace);
+                }}
+              >
+                Archive workspace
+              </button>
+            </Menu>
           </li>
         ))}
       </ul>
@@ -230,6 +248,53 @@ export function WorkspaceManagement({
           available again.
         </p>
       )}
+      <Dialog
+        open={renameTarget !== null}
+        title="Rename workspace"
+        onClose={() => {
+          if (!renameBusy) setRenameTarget(null);
+        }}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (renameTarget) void rename(renameTarget);
+          }}
+        >
+          <label className="kn-field">
+            Workspace name
+            <input
+              className="kn-field__control"
+              maxLength={200}
+              value={
+                renameTarget
+                  ? (names[renameTarget.id] ?? renameTarget.name)
+                  : ""
+              }
+              onChange={(event) => {
+                if (renameTarget)
+                  setNames((current) => ({
+                    ...current,
+                    [renameTarget.id]: event.target.value,
+                  }));
+              }}
+            />
+          </label>
+          {error && <p role="alert">{error}</p>}
+          <div className="mt-6 flex justify-end gap-3">
+            <Button
+              variant="secondary"
+              disabled={renameBusy}
+              onClick={() => setRenameTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={renameBusy}>
+              Save name
+            </Button>
+          </div>
+        </form>
+      </Dialog>
       <CreateWorkspaceDialog
         open={creating}
         onClose={() => setCreating(false)}

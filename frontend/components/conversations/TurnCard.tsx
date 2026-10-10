@@ -36,6 +36,16 @@ export function TurnCard({
   disabled?: boolean;
   sessionExpired?: boolean;
 }) {
+  const vietnamese =
+    /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
+      turn.question,
+    );
+  const evidencePrompt = vietnamese
+    ? "Tìm bằng chứng hỗ trợ"
+    : "Find supporting evidence";
+  const comparePrompt = vietnamese
+    ? "So sánh các tài liệu"
+    : "Compare the documents";
   const working = ["queued", "processing", "pending"].includes(turn.status);
   const interrupted = turn.status === "interrupted";
   const failed =
@@ -62,23 +72,14 @@ export function TurnCard({
             role="status"
             className="flex h-12 items-center gap-2 text-sm leading-[22px]"
           >
-            {turn.stage === null ? (
-              <div className="h-12 w-[37px] shrink-0 overflow-hidden">
-                <img
-                  src="/icons/figma/5b324.svg"
-                  alt=""
-                  width={888}
-                  height={48}
-                  className="block h-12 w-[888px] max-w-none"
-                />
-              </div>
-            ) : (
-              <div aria-hidden="true" className="flex shrink-0 gap-2">
-                <img src="/icons/figma/97a8a.svg" width={7} height={7} alt="" />
-                <img src="/icons/figma/cd6f9.svg" width={7} height={7} alt="" />
-                <img src="/icons/figma/832ce.svg" width={7} height={7} alt="" />
-              </div>
-            )}
+            <div
+              aria-hidden="true"
+              className="kn-processing-dots flex shrink-0 gap-2"
+            >
+              <span />
+              <span />
+              <span />
+            </div>
             {processingLabel(turn.stage)}
           </div>
         )}
@@ -112,10 +113,10 @@ export function TurnCard({
               <button
                 disabled={disabled}
                 type="button"
-                onClick={() => onSuggest("Find supporting evidence")}
+                onClick={() => onSuggest(evidencePrompt)}
                 className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
               >
-                Find supporting evidence
+                {evidencePrompt}
               </button>
             </div>
           </>
@@ -171,18 +172,18 @@ export function TurnCard({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onSuggest("Find supporting evidence")}
+              onClick={() => onSuggest(evidencePrompt)}
               className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
             >
-              Find supporting evidence
+              {evidencePrompt}
             </button>
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onSuggest("Compare the documents")}
+              onClick={() => onSuggest(comparePrompt)}
               className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
             >
-              Compare the documents
+              {comparePrompt}
             </button>
           </div>
         )}

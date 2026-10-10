@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useRef } from "react";
+import React, { useId, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { sourceKind } from "@/lib/documents/presentation";
@@ -23,6 +23,8 @@ export function UploadDocumentDialog({
   onUpload: () => void;
 }) {
   const id = useId();
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
   const picker = useRef<HTMLInputElement>(null);
   return (
     <Dialog
@@ -42,10 +44,31 @@ export function UploadDocumentDialog({
           Add a source to this workspace. Knora will process it before use.
         </p>
         <div
-          className="flex min-h-[116px] flex-col items-center justify-center gap-[5px] rounded-lg border border-border bg-surface-subtle px-4 py-2.5"
-          onDragOver={(event) => event.preventDefault()}
+          data-drag-active={dragging}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            if (
+              !busy &&
+              Array.from(event.dataTransfer.types).includes("Files")
+            ) {
+              dragDepth.current++;
+              setDragging(true);
+            }
+          }}
+          onDragLeave={(event) => {
+            event.preventDefault();
+            dragDepth.current = Math.max(0, dragDepth.current - 1);
+            if (!dragDepth.current) setDragging(false);
+          }}
+          className="transition-colors data-[drag-active=true]:border-action data-[drag-active=true]:bg-action/10 data-[drag-active=true]:ring-1 data-[drag-active=true]:ring-action flex min-h-[116px] flex-col items-center justify-center gap-[5px] rounded-lg border border-border bg-surface-subtle px-4 py-2.5"
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = busy ? "none" : "copy";
+          }}
           onDrop={(event) => {
             event.preventDefault();
+            setDragging(false);
+            dragDepth.current = 0;
             if (!busy) onFile(event.dataTransfer.files[0] ?? null);
           }}
         >
@@ -56,7 +79,7 @@ export function UploadDocumentDialog({
             ↑
           </span>
           <p className="m-0 text-[13px] leading-4 font-medium text-action-text">
-            Drop a file here
+            {dragging ? "Release to add this file" : "Drop a file here"}
           </p>
           <p className="m-0 text-[11px] leading-[14px] text-text-muted">
             PDF, Markdown, or text

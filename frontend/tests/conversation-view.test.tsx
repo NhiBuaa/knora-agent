@@ -1,5 +1,9 @@
 import React from "react";
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace: vi.fn() }),
+  usePathname: () => "/workspaces/w-1/conversations/c-1",
+}));
 import {
   cleanup,
   fireEvent,
@@ -160,7 +164,7 @@ describe("durable Conversation view", () => {
     },
   );
 
-  it("the actual refusal follow-up edits and focuses the draft without submitting", async () => {
+  it("the refusal follow-up submits its question directly", async () => {
     const refused = {
       ...answered,
       status: "refused",
@@ -172,7 +176,7 @@ describe("durable Conversation view", () => {
       },
     };
     const fetchMock = vi.fn(
-      async () =>
+      async (_url: string, _init?: RequestInit) =>
         new Response(JSON.stringify({ items: [refused], next_cursor: null })),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -185,8 +189,10 @@ describe("durable Conversation view", () => {
     expect(screen.getByLabelText("Question")).toHaveValue(
       "Find supporting evidence",
     );
-    expect(screen.getByLabelText("Question")).toHaveFocus();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({
+      question: "Find supporting evidence",
+    });
   });
 
   it("does not let an older history response clear a newer authentication failure", async () => {
@@ -623,7 +629,7 @@ describe("durable Conversation view", () => {
     ["interrupted", "interrupted", false],
     ["archived-read-only", "answered", true],
   ])(
-    "starts independent Conversation creation from %s without submitting a Turn",
+    "opens the unsaved conversation screen from %s without a write",
     async (_name, status, archived) => {
       const turn = {
         ...answered,
@@ -666,15 +672,10 @@ describe("durable Conversation view", () => {
       if (status === "answered")
         await screen.findByText(answered.result.answer);
       fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-      await screen.findByText(/Unable to confirm Conversation creation/);
-      const writes = fetchMock.mock.calls.filter(
-        ([, init]) => init?.method === "POST",
-      );
-      expect(writes).toHaveLength(1);
-      expect(writes[0][0]).toBe("/api/v1/workspaces/w-1/conversations");
+      expect(push).toHaveBeenCalledWith("/workspaces/w-1/conversations");
       expect(
-        new Headers(writes[0][1]?.headers).get("Idempotency-Key"),
-      ).toBeTruthy();
+        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toHaveLength(0);
     },
   );
 
