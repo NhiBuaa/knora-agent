@@ -7,6 +7,7 @@ param(
     [string]$AdminPassword,
     [switch]$EnableIsolatedOtp,
     [switch]$EnablePrimaryOtp,
+    [switch]$ConfigurePrimarySmtp,
     [string]$SnapshotPath
 )
 
@@ -40,6 +41,25 @@ function Convert-SmtpRestoreValue {
     if ($null -eq $Metadata -or -not $Metadata.configured) { return $null }
     return @{ host = $Metadata.host; port = $Metadata.port; from = $Metadata.from; user = $Metadata.user
         auth = [bool]$Metadata.auth; starttls = [bool]$Metadata.starttls }
+}
+
+function Get-PrimarySmtpContract {
+    if (-not $primaryTarget -or -not $ConfigurePrimarySmtp) { return $null }
+    $required = @('KC_SMTP_HOST', 'KC_SMTP_PORT', 'KC_SMTP_FROM', 'KC_SMTP_USER',
+        'KC_SMTP_PASSWORD', 'KC_SMTP_STARTTLS', 'KC_SMTP_AUTH')
+    foreach ($name in $required) {
+        $item = [Environment]::GetEnvironmentVariable($name)
+        if ($null -eq $item -or [string]::IsNullOrWhiteSpace($item)) {
+            throw 'OTP_SMTP_CONFIGURATION_REQUIRED'
+        }
+    }
+    if ($env:KC_SMTP_HOST -cne 'smtp.gmail.com' -or $env:KC_SMTP_PORT -cne '587' -or
+        $env:KC_SMTP_STARTTLS -notmatch '^(?i:true)$' -or $env:KC_SMTP_AUTH -notmatch '^(?i:true)$') {
+        throw 'OTP_SMTP_CONFIGURATION_INVALID'
+    }
+    return @{ host = 'smtp.gmail.com'; port = '587'; from = [string]$env:KC_SMTP_FROM
+        user = [string]$env:KC_SMTP_USER; password = [string]$env:KC_SMTP_PASSWORD
+        starttls = 'true'; auth = 'true' }
 }
 
 function Invoke-OtpAdmin {
@@ -215,7 +235,9 @@ try {
         }
     }
     if ($Mode -eq 'Bind' -and -not $EnableIsolatedOtp -and -not $EnablePrimaryOtp) { throw 'OTP_BIND_OPT_IN_REQUIRED' }
+    if ($ConfigurePrimarySmtp -and -not $primaryTarget) { throw 'OTP_PRIMARY_SMTP_OPT_IN_REQUIRED' }
     if ($primaryTarget -and $EnableIsolatedOtp) { throw 'OTP_TARGET_MODE_CONFLICT' }
+    $smtpContract = Get-PrimarySmtpContract
     if (-not $AdminUsername -or -not $AdminPassword) { throw 'OTP_ADMIN_CREDENTIALS_REQUIRED' }
     Assert-OtpOwnership
     try {
@@ -245,6 +267,9 @@ try {
         resetPasswordAllowed = $current.resetPasswordAllowed
     }
     $desired = @{ resetCredentialsFlow = $alias; emailTheme = 'knora'; resetPasswordAllowed = $true }
+    if ($null -ne $smtpContract -and $Mode -eq 'Bind') {
+        $desired.smtpServer = $smtpContract
+    }
     if ($Mode -ne 'Restore') {
         $installed = @(Invoke-OtpAdmin -Uri "$realmUri/authentication/authenticator-providers")
         foreach ($provider in $providers) {
