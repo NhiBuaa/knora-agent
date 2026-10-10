@@ -5,7 +5,6 @@ $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $composeFiles = @(
     '-p', 'knora-m5-e2e',
-    '-f', (Join-Path $repositoryRoot 'docker-compose.yml'),
     '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml')
 )
 
@@ -30,7 +29,7 @@ try {
 
 & docker compose @composeFiles config --quiet
 if ($LASTEXITCODE -ne 0) {
-    throw 'The base and dev Compose files must form a valid configuration.'
+    throw 'The standalone dev Compose file must form a valid configuration.'
 }
 
 $realmPath = Join-Path $repositoryRoot 'test\fixtures\keycloak\dev-realm.json'
@@ -40,7 +39,7 @@ if (-not (Test-Path -LiteralPath $realmPath -PathType Leaf)) {
 
 $config = (& docker compose @composeFiles config --format json | ConvertFrom-Json)
 if (-not $config.services.'keycloak-dev') {
-    throw 'The dev Compose overlay must define the keycloak-dev service.'
+    throw 'The dev Compose file must define the keycloak-dev service.'
 }
 if ($config.services.api.environment.KNORA_KEYCLOAK_ISSUER -ne $e2eValues.KNORA_KEYCLOAK_ISSUER) {
     throw 'The E2E API must use the bundled development realm.'
@@ -64,7 +63,7 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Could not inspect the daily development Compose project.'
 }
 if ($devServices.Count -gt 0) {
-    throw 'Stop daily development services before M5 E2E: docker compose -f docker-compose.yml -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev'
+    throw 'Stop daily development services before M5 E2E: docker compose -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev'
 }
 
 $keycloakVolume = 'knora-m5-e2e_keycloak_dev_data'

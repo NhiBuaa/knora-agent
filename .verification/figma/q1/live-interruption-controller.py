@@ -20,9 +20,9 @@ for key in ('workspaceId', 'turnId'):
 age = (datetime.now(timezone.utc) - datetime.fromisoformat(manifest['admittedAt'].replace('Z', '+00:00'))).total_seconds()
 assert 0 <= age <= 90, 'fresh browser admission required'
 assert manifest['workspaceName'].startswith('q1-interruption-')
-container = json.loads(subprocess.check_output(['docker', 'inspect', 'knora-figma-e2e-postgres-1'], text=True))[0]
+container = json.loads(subprocess.check_output(['docker', 'inspect', 'knora-figma-e2e-figma-postgres-1'], text=True))[0]
 assert container['Config']['Labels']['com.docker.compose.project'] == 'knora-figma-e2e'
-assert container['Config']['Labels']['com.docker.compose.service'] == 'postgres'
+assert container['Config']['Labels']['com.docker.compose.service'] == 'figma-postgres'
 assert container['State']['Running'] is True
 assert container['NetworkSettings']['Ports']['5432/tcp'] == [{'HostIp': '127.0.0.1', 'HostPort': '5543'}]
 env = dict(item.split('=', 1) for item in container['Config']['Env'] if '=' in item)

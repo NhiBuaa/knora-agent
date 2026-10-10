@@ -134,7 +134,9 @@ class Proxy:
                     if code != 196608:
                         raise ValueError("Only PostgreSQL protocol3 startup supported")
                     break
-                backend_reader, backend_writer = await asyncio.open_connection("keycloak-db", 5432)
+                backend_reader, backend_writer = await asyncio.open_connection(
+                    "figma-keycloak-db", 5432
+                )
                 backend_writer.write(length_bytes + startup)
                 await backend_writer.drain()
 

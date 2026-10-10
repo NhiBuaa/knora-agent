@@ -7,7 +7,7 @@ import next from "next";
 const support = path.dirname(fileURLToPath(import.meta.url));
 const frontend = path.resolve(support, "../../..");
 const repository = path.resolve(frontend, "..");
-const native = path.join(repository, ".superpowers/figma/q1/native");
+const native = path.join(repository, ".verification/figma/q1/native");
 const app = next({
   dev: true,
   hostname: "127.0.0.1",

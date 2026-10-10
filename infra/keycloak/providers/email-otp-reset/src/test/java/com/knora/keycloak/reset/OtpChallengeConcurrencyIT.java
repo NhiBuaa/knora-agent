@@ -26,7 +26,7 @@ class OtpChallengeConcurrencyIT {
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(3)).build();
     private static final String[] NODES = Boolean.getBoolean("proofDockerNetwork")
-            ? new String[] {"http://keycloak:8080", "http://keycloak-proof:8080"}
+            ? new String[] {"http://figma-keycloak-proof-main:8080", "http://figma-keycloak-proof:8080"}
             : new String[] {"http://127.0.0.1:8380", "http://127.0.0.1:8381"};
     private static final String PATH = "/realms/knora-dev/knora-otp-storage-proof";
     private static final String SECRET = System.getenv("KNORA_STORAGE_PROOF_SECRET");

@@ -8,7 +8,7 @@ const repository = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../..",
 );
-fs.mkdirSync(path.join(repository, ".superpowers/figma/q1/native"), {
+fs.mkdirSync(path.join(repository, ".verification/figma/q1/native"), {
   recursive: true,
 });
 const parentStyles = {
@@ -20,7 +20,7 @@ const parentStyles = {
 for (const [name, expected] of Object.entries(parentStyles)) {
   const target = path.join(
     repository,
-    ".superpowers/figma/q1/native/common/vendor/patternfly-v5",
+    ".verification/figma/q1/native/common/vendor/patternfly-v5",
     name,
   );
   if (process.argv.includes("--read-owned-parent-css")) {
@@ -28,7 +28,7 @@ for (const [name, expected] of Object.entries(parentStyles)) {
       "docker",
       [
         "inspect",
-        "knora-figma-e2e-keycloak-1",
+        "knora-figma-e2e-figma-keycloak-1",
         "--format",
         '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.compose.project.working_dir"}}|{{json .NetworkSettings.Ports}}',
       ],
@@ -38,7 +38,7 @@ for (const [name, expected] of Object.entries(parentStyles)) {
     const bindings = JSON.parse(fields[3])["8080/tcp"];
     if (
       fields[0] !== "knora-figma-e2e" ||
-      fields[1] !== "keycloak" ||
+      fields[1] !== "figma-keycloak" ||
       path.resolve(fields[2]) !== repository ||
       !bindings?.some(
         (binding) =>
@@ -85,7 +85,7 @@ execFileSync(
     "sh",
     "maven:3.9.9-eclipse-temurin-21",
     "-c",
-    "set -eu; fm=/root/.m2/repository/org/freemarker/freemarker/2.3.32/freemarker-2.3.32.jar; kc=/root/.m2/repository/org/keycloak/keycloak-themes/26.3.3/keycloak-themes-26.3.3.jar; javac -cp $fm -d /tmp frontend/tests/e2e/support/FigmaThemeRenderer.java; java -cp /tmp:$fm:$kc FigmaThemeRenderer /work /work/.superpowers/figma/q1/native $kc",
+    "set -eu; fm=/root/.m2/repository/org/freemarker/freemarker/2.3.32/freemarker-2.3.32.jar; kc=/root/.m2/repository/org/keycloak/keycloak-themes/26.3.3/keycloak-themes-26.3.3.jar; javac -cp $fm -d /tmp frontend/tests/e2e/support/FigmaThemeRenderer.java; java -cp /tmp:$fm:$kc FigmaThemeRenderer /work /work/.verification/figma/q1/native $kc",
   ],
   { stdio: "inherit" },
 );

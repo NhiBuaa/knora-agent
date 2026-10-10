@@ -74,9 +74,9 @@ function Assert-OtpNativeContainer {
         throw 'OTP_NATIVE_RUNTIME_REQUIRED'
     }
     $configFiles = @($Container.Config.Labels.'com.docker.compose.project.config_files' -split ',')
-    $expectedFiles = @('docker-compose.figma-e2e.yml', 'docker-compose.figma-otp-runtime.yml')
-    if ($configFiles.Count -ne 2) { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
-    for ($index = 0; $index -lt 2; $index++) {
+    $expectedFiles = @('docker-compose.dev.yml')
+    if ($configFiles.Count -ne 1) { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
+    for ($index = 0; $index -lt 1; $index++) {
         if (-not $configFiles[$index] -or
             [IO.Path]::GetFullPath($configFiles[$index]) -ne (Join-Path $repositoryRoot $expectedFiles[$index])) {
             throw 'OTP_NATIVE_RUNTIME_REQUIRED'
@@ -113,7 +113,7 @@ function Assert-OtpOwnership {
         if ($LASTEXITCODE -ne 0 -or $items.Count -ne 1) { throw 'OTP_DOCKER_INSPECTION_FAILED' }
         $container = $items[0]
         $labels = $container.Config.Labels
-        $isNamedTarget = $container.Name -eq '/knora-figma-e2e-keycloak-1'
+        $isNamedTarget = $container.Name -eq '/knora-figma-e2e-figma-keycloak-1'
         if ($RequireNativeRuntime -and ($labels.'com.docker.compose.project' -eq $Project -or
             $container.Name -like '/knora-figma-e2e-*')) {
             if ($labels.'com.docker.compose.project' -ne $Project -or
@@ -122,9 +122,11 @@ function Assert-OtpOwnership {
                 throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
             }
             $service = $labels.'com.docker.compose.service'
-            if ($service -in 'keycloak-proof', 'otp-commit-proxy') {
+            if ($service -in 'figma-keycloak-proof', 'figma-keycloak-proof-main', 'otp-commit-proxy', 'keycloak-proof') {
                 if ($container.State.Running -ne $false) { throw 'OTP_ACTIVE_PROOF_REJECTED' }
-            } elseif ($service -notin 'postgres', 'keycloak-db', 'keycloak', 'mail', 'minio', 'minio-init', 'api') {
+            } elseif ($service -in 'postgres', 'keycloak-db', 'keycloak', 'mail', 'minio', 'minio-init', 'api') {
+                if ($container.State.Running -ne $false) { throw 'OTP_NATIVE_RUNTIME_REQUIRED' }
+            } elseif ($service -notin 'figma-postgres', 'figma-keycloak-db', 'figma-keycloak', 'figma-mail', 'figma-minio', 'figma-minio-init', 'figma-api') {
                 throw 'OTP_NATIVE_RUNTIME_REQUIRED'
             }
         }
@@ -132,7 +134,7 @@ function Assert-OtpOwnership {
             foreach ($mapping in @($port.Value)) {
                 if ($null -eq $mapping -or $mapping.HostPort -ne '8380') { continue }
                 if ($labels.'com.docker.compose.project' -ne $Project -or
-                    $labels.'com.docker.compose.service' -ne 'keycloak' -or
+                    $labels.'com.docker.compose.service' -ne 'figma-keycloak' -or
                     -not $labels.'com.docker.compose.project.working_dir' -or
                     [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot) {
                     throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
@@ -146,7 +148,7 @@ function Assert-OtpOwnership {
             }
         }
         if ($isNamedTarget -and ($labels.'com.docker.compose.project' -ne $Project -or
-            $labels.'com.docker.compose.service' -ne 'keycloak' -or
+            $labels.'com.docker.compose.service' -ne 'figma-keycloak' -or
             -not $labels.'com.docker.compose.project.working_dir' -or
             [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot)) {
             throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'

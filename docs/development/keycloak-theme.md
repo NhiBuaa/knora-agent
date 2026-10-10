@@ -89,12 +89,12 @@ Daily SMTP remains operator configuration; enabling reset alone does not prove m
 
 ## Isolated Figma identity harness
 
-`docker-compose.figma-e2e.yml` is standalone. It uses project `knora-figma-e2e`, project-namespaced
-volumes, separate application and Keycloak PostgreSQL databases, and test SMTP only. All exposed
+`docker-compose.dev.yml` is standalone; its `figma` profile uses project
+`knora-figma-e2e`, project-namespaced volumes, separate application and Keycloak PostgreSQL databases, and test SMTP only. All exposed
 ports bind `127.0.0.1`: frontend 3300, API 8800, Keycloak 8380, PostgreSQL 5543, Minio 9900/9901,
 SMTP 1025 and mailbox 8025. The derived test realm has only the port-3300 client callback,
-logout and origin URLs; its reset SMTP host is the isolated `mail` service. The test-only native
-password policy is a minimum length of 12; development password policy is unchanged.
+logout and origin URLs; its reset SMTP host is the isolated `figma-mail` service
+(network alias `mail`). The test-only native password policy is a minimum length of 12; development password policy is unchanged.
 
 In a shell without ambient `COMPOSE_*`, `DOCKER_*`, `FIGMA_E2E_*`, `M5_E2E_*`, `KEYCLOAK_*`, `KNORA_*` or
 `SESSION_SECRET` overrides:
@@ -170,11 +170,13 @@ isolated native-runtime path below, which requires its own essential-safety pref
 
 ### Guarded isolated native runtime source
 
-`docker-compose.figma-otp-runtime.yml` is an explicit override for the Figma harness. It builds
-the existing production Dockerfile, mounts operator-supplied file Vault read-only at
+`prepare-figma-otp-runtime.ps1` configures the `figma-keycloak` service in
+`docker-compose.dev.yml`. It builds the existing production Dockerfile and mounts
+operator-supplied file Vault read-only at
 `/opt/keycloak/vault`, and retains the base ports, databases, volumes and theme mounts. It contains
-no storage probe or proof secret. The ordinary Figma, daily and production Compose files remain
-independent. This runtime requires an existing owned Figma realm; it does not import a realm.
+no storage probe or proof secret. Daily and Figma services have separate identities and
+volumes; production uses `docker-compose.yml`. OTP proof services require separate explicit
+profiles. This runtime requires an existing owned Figma realm; it does not import a realm.
 
 Supply admin credentials through process-local `-AdminUsername` and `-AdminPassword` parameters
 on the following commands (omitted here), without logging them. Select an existing Vault directory;
@@ -304,3 +306,35 @@ password completion. Keycloak returned an HTTP 400 `text/html` terminal page wit
 `#kc-error-message` and a page-expired marker, no redirect, OTP form, login form, or password
 form. This native terminal behavior is combined with the retained storage/service consume proof;
 the browser check does not reopen the password flow.
+
+## Compose entry points and retained resources
+
+Only two maintained Compose files remain. Daily development and application E2E use
+`docker-compose.dev.yml` alone. Use the preparation scripts above for Figma/OTP; their
+explicit service lists avoid starting daily services in the Figma project.
+
+- `figma`: `figma-postgres`, `figma-keycloak-db`, `figma-keycloak`, `figma-mail`,
+  `figma-minio`, `figma-minio-init`, `figma-api`.
+- `otp-proof`: `figma-keycloak-proof-main` (8380) and `figma-keycloak-proof` (8381).
+  These test nodes share the Figma Keycloak database and carry probe JARs. Stop the
+  owned ordinary `figma-keycloak` before starting proof nodes; stop both proof nodes
+  before preparing the ordinary runtime. Active proof nodes block native OTP binding.
+- `commit-reply-fault`: the private `otp-commit-proxy`, selected only by
+  `prepare-figma-otp-proof.ps1 -CommitReplyFault`.
+- `provider-test`: optional S3 acceptance services on loopback ports 9100/9101.
+
+The ordinary Figma startup does not enable file Vault; its placeholder directory is the
+non-secret realm fixture directory. The native-runtime preparer supplies the validated
+operator Vault directory and enables it explicitly.
+
+The launchers create an ephemeral random proof secret. The short Compose placeholder
+cannot authorize the probe and cannot start the proxy; profile selection alone does
+not create a usable proof endpoint. Ordinary graphs contain no proof secret or probe.
+
+Existing Figma volumes keep their original names under project `knora-figma-e2e`:
+`postgres_data`, `keycloak_database`, `minio_data`. The new service names do not delete
+or reinitialize those volumes. Containers created from the removed Compose files are
+legacy resources: inspect their project, checkout labels and port ownership before
+stopping only those exact containers, then use the new launchers. Keep their volumes;
+do not run `down -v`, `volume rm` or automatic orphan removal to migrate configuration.
+The refactor does not stop or remove existing containers automatically.

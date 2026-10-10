@@ -21,6 +21,7 @@ function Get-OtpCompose {
 
 function Assert-OtpRuntimeOwnership {
     param([array]$Services)
+    $runtimeServices = @($Services | Where-Object { $_ -like 'figma-*' })
     $owned = 0
     $ids = @(& docker ps -a --format '{{.ID}}')
     if ($LASTEXITCODE -ne 0) { throw 'OTP_DOCKER_INSPECTION_FAILED' }
@@ -31,10 +32,11 @@ function Assert-OtpRuntimeOwnership {
         $labels = $container.Config.Labels
         $belongs = $labels.'com.docker.compose.project' -eq $project
         if ($belongs -or $container.Name -like '/knora-figma-e2e-*') {
-            # Stopped, correctly owned historical proof containers are retained evidence.
-            $retainedProof = $labels.'com.docker.compose.service' -in 'keycloak-proof', 'otp-commit-proxy' -and
-                -not $container.State.Running
-            if (-not $belongs -or ($labels.'com.docker.compose.service' -notin $Services -and -not $retainedProof) -or
+            # Stopped legacy/proof containers are retained; ownership is still checked below.
+            $retainedResource = $labels.'com.docker.compose.service' -in 'figma-keycloak-proof', 'figma-keycloak-proof-main', 'otp-commit-proxy',
+                'postgres', 'keycloak-db', 'keycloak', 'mail', 'minio', 'minio-init', 'api', 'keycloak-proof' -and
+                $container.State.Running -eq $false
+            if (-not $belongs -or ($labels.'com.docker.compose.service' -notin $runtimeServices -and -not $retainedResource) -or
                 -not $labels.'com.docker.compose.project.working_dir' -or
                 [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot) {
                 throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
@@ -44,7 +46,7 @@ function Assert-OtpRuntimeOwnership {
         foreach ($port in $container.NetworkSettings.Ports.PSObject.Properties) {
             foreach ($mapping in @($port.Value)) {
                 if ($null -eq $mapping -or $mapping.HostPort -ne '8380') { continue }
-                if (-not $belongs -or $labels.'com.docker.compose.service' -ne 'keycloak' -or
+                if (-not $belongs -or $labels.'com.docker.compose.service' -ne 'figma-keycloak' -or
                     -not $labels.'com.docker.compose.project.working_dir' -or
                     [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repositoryRoot) {
                     throw 'OTP_RESOURCE_OWNERSHIP_REJECTED'
@@ -132,7 +134,7 @@ try {
     $vaultDirectory = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $VaultPath).Path)
     if (-not $AdminUsername -or -not $AdminPassword) { throw 'OTP_ADMIN_CREDENTIALS_REQUIRED' }
     $baseArguments = @('--project-name', $project, '--project-directory', $repositoryRoot,
-        '-f', (Join-Path $repositoryRoot 'docker-compose.figma-e2e.yml'))
+            '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'), '--profile', 'figma')
     $base = Get-OtpCompose $baseArguments
     $services = @($base.services.PSObject.Properties.Name)
     Assert-OtpRuntimeOwnership $services
@@ -166,9 +168,11 @@ try {
     }
     # Only the directory path enters Compose; no secret value is an environment variable.
     $previousVaultPath = $env:KNORA_FIGMA_OTP_VAULT_PATH
+    $previousCommand = $env:KNORA_FIGMA_KEYCLOAK_COMMAND
     $env:KNORA_FIGMA_OTP_VAULT_PATH = $vaultDirectory
+    $env:KNORA_FIGMA_KEYCLOAK_COMMAND = 'start-dev --vault=file --vault-dir=/opt/keycloak/vault --spi-theme--cache-themes=false --spi-theme--cache-templates=false --spi-theme--static-max-age=-1'
     try {
-        $compose = $baseArguments + @('-f', (Join-Path $repositoryRoot 'docker-compose.figma-otp-runtime.yml'))
+        $compose = $baseArguments
         $config = Get-OtpCompose $compose
         if ($config.name -ne $project -or
             (@($config.services.PSObject.Properties.Name | Sort-Object) -join ',') -ne (@($services | Sort-Object) -join ',') -or
@@ -177,14 +181,14 @@ try {
             throw 'OTP_RUNTIME_GRAPH_REJECTED'
         }
         foreach ($service in $services) {
-            if ($service -ne 'keycloak' -and
+            if ($service -ne 'figma-keycloak' -and
                 ($config.services.$service | ConvertTo-Json -Depth 50 -Compress) -ne
                 ($base.services.$service | ConvertTo-Json -Depth 50 -Compress)) { throw 'OTP_RUNTIME_GRAPH_REJECTED' }
         }
-        $node = $config.services.keycloak
+        $node = $config.services.'figma-keycloak'
         foreach ($property in 'ports', 'environment', 'depends_on') {
             if (($node.$property | ConvertTo-Json -Depth 30 -Compress) -ne
-                ($base.services.keycloak.$property | ConvertTo-Json -Depth 30 -Compress)) { throw 'OTP_RUNTIME_GRAPH_REJECTED' }
+                ($base.services.'figma-keycloak'.$property | ConvertTo-Json -Depth 30 -Compress)) { throw 'OTP_RUNTIME_GRAPH_REJECTED' }
         }
         $expectedCommand = @('start-dev', '--vault=file', '--vault-dir=/opt/keycloak/vault',
             '--spi-theme--cache-themes=false', '--spi-theme--cache-templates=false', '--spi-theme--static-max-age=-1')
@@ -198,7 +202,7 @@ try {
             [IO.Path]::GetFullPath($vaultMount[0].source) -ne $vaultDirectory) { throw 'OTP_VAULT_MOUNT_REJECTED' }
         $otherMounts = @($node.volumes | Where-Object target -ne '/opt/keycloak/vault')
         if (($otherMounts | ConvertTo-Json -Depth 30 -Compress) -ne
-            (@($base.services.keycloak.volumes) | ConvertTo-Json -Depth 30 -Compress)) { throw 'OTP_RUNTIME_GRAPH_REJECTED' }
+            (@($base.services.'figma-keycloak'.volumes | Where-Object target -ne '/opt/keycloak/vault') | ConvertTo-Json -Depth 30 -Compress)) { throw 'OTP_RUNTIME_GRAPH_REJECTED' }
         if ($CheckConfigurationOnly) { Write-Output 'OTP_RUNTIME_CONFIG_OK'; return }
         Assert-OtpRuntimeOwnership $services
         $beforeStart = Invoke-OtpRuntimeAdmin $realmUri
@@ -206,7 +210,7 @@ try {
             throw 'OTP_RUNTIME_REALM_CHANGED'
         }
         # No dependencies, migrations, flow preparation or reset binding changes.
-        $null = & docker compose @compose up -d --build --no-deps keycloak 2>$null
+        $null = & docker compose @compose up -d --build --no-deps figma-keycloak 2>$null
         if ($LASTEXITCODE -ne 0) { throw 'OTP_RUNTIME_START_FAILED' }
         $ready = $false
         for ($attempt = 0; $attempt -lt 60; $attempt++) {
@@ -229,7 +233,10 @@ try {
             throw 'OTP_RUNTIME_REALM_CHANGED'
         }
         Write-Output 'OTP_RUNTIME_PREPARED_BINDING_PRESERVED'
-    } finally { $env:KNORA_FIGMA_OTP_VAULT_PATH = $previousVaultPath }
+    } finally {
+        $env:KNORA_FIGMA_OTP_VAULT_PATH = $previousVaultPath
+        $env:KNORA_FIGMA_KEYCLOAK_COMMAND = $previousCommand
+    }
 } catch {
     $code = if ($_.Exception.Message -match '^(OTP_|FIGMA_)[A-Z_]+$') {
         $_.Exception.Message

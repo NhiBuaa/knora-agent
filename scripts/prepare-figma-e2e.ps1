@@ -19,14 +19,15 @@ if ($fixture.realm -ne 'knora-dev' -or $client.Count -ne 1 -or
     (@($client[0].webOrigins) -join '|') -ne 'http://127.0.0.1:3300' -or
     $client[0].attributes.'post.logout.redirect.uris' -ne 'http://127.0.0.1:3300/' -or
     $fixture.smtpServer.host -ne 'mail') { throw 'FIGMA_FIXTURE_REJECTED' }
-$compose = @('--project-name', $project, '--project-directory', $repositoryRoot, '-f', (Join-Path $repositoryRoot 'docker-compose.figma-e2e.yml'))
+$compose = @('--project-name', $project, '--project-directory', $repositoryRoot,
+    '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'), '--profile', 'figma')
 $configJson = (& docker compose @compose config --format json) -join "`n"
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_COMPOSE_CONFIG_FAILED' }
 $config = $configJson | ConvertFrom-Json
 if ($config.name -ne $project) { throw 'FIGMA_PROJECT_REJECTED' }
 $bindings = @{
-    postgres = @('5543:5432'); api = @('8800:8000'); keycloak = @('8380:8080')
-    minio = @('9900:9000', '9901:9001'); mail = @('1025:1025', '8025:8025')
+    'figma-postgres' = @('5543:5432'); 'figma-api' = @('8800:8000'); 'figma-keycloak' = @('8380:8080')
+    'figma-minio' = @('9900:9000', '9901:9001'); 'figma-mail' = @('1025:1025', '8025:8025')
 }
 foreach ($service in $bindings.Keys) {
     $ports = @($config.services.$service.ports)
@@ -36,8 +37,8 @@ foreach ($service in $bindings.Keys) {
         if (-not ($ports | Where-Object { $_.host_ip -eq '127.0.0.1' -and $_.published -eq $published -and $_.target -eq $target })) { throw 'FIGMA_PORTS_REJECTED' }
     }
 }
-if ($config.services.api.environment.KNORA_KEYCLOAK_ISSUER -ne $issuer -or
-    $config.services.keycloak.environment.KC_DB_URL -ne 'jdbc:postgresql://keycloak-db:5432/keycloak') { throw 'FIGMA_REALM_OR_DATABASE_REJECTED' }
+if ($config.services.'figma-api'.environment.KNORA_KEYCLOAK_ISSUER -ne $issuer -or
+    $config.services.'figma-keycloak'.environment.KC_DB_URL -ne 'jdbc:postgresql://figma-keycloak-db:5432/keycloak') { throw 'FIGMA_REALM_OR_DATABASE_REJECTED' }
 foreach ($volume in $config.volumes.PSObject.Properties) {
     if ($volume.Value.name -ne "${project}_$($volume.Name)") { throw 'FIGMA_VOLUME_REJECTED' }
 }
@@ -67,7 +68,7 @@ foreach ($port in 3300,8800,8380,5543,9900,9901,1025,8025) {
         # Connection refused is an available port.
     } finally { $listener.Dispose() }
 }
-& docker compose @compose up -d --build
+& docker compose @compose up -d --build figma-postgres figma-keycloak-db figma-keycloak figma-mail figma-minio figma-minio-init figma-api
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_START_FAILED' }
 foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8800/health', 'http://127.0.0.1:8025/api/v1/info') {
     $ready = $false
@@ -77,7 +78,7 @@ foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8
     }
     if (-not $ready) { throw 'FIGMA_HTTP_READINESS_FAILED' }
 }
-& docker compose @compose exec -T api alembic upgrade head
+& docker compose @compose exec -T figma-api alembic upgrade head
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_MIGRATIONS_FAILED' }
 & (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Apply -BaseUrl 'http://127.0.0.1:8380' -Project $project -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password'
 Write-Output 'FIGMA_PREPARED'

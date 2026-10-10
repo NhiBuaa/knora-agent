@@ -55,7 +55,7 @@ def state() -> dict:
         "mutations": [],
         "dockerMutations": [],
         "owner": "knora-figma-e2e",
-        "service": "keycloak",
+        "service": "figma-keycloak",
         "workingDir": str(ROOT),
         "hostIp": "127.0.0.1",
         "ignored": True,
@@ -71,9 +71,7 @@ def state() -> dict:
                 "--spi-theme--cache-templates=false",
                 "--spi-theme--static-max-age=-1",
             ],
-            "configFiles": str(ROOT / "docker-compose.figma-e2e.yml")
-            + ","
-            + str(ROOT / "docker-compose.figma-otp-runtime.yml"),
+            "configFiles": str(ROOT / "docker-compose.dev.yml"),
             "environment": ["KC_DB=postgres", "KC_HOSTNAME=http://127.0.0.1:8380"],
             "mounts": [
                 {
@@ -165,7 +163,7 @@ function docker {
             $containerEnvironment += 'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
         }
         return ConvertTo-Json -Depth 100 -InputObject @(@{
-            Name='/knora-figma-e2e-keycloak-1'; State=@{Running=$true}
+            Name='/knora-figma-e2e-figma-keycloak-1'; State=@{Running=$true}
             Config=@{Image=$runtime.image;Cmd=$runtime.command;Entrypoint=$runtime.entrypoint
                 Env=$containerEnvironment;Labels=@{
                 'com.docker.compose.project'=$global:data.owner
@@ -178,7 +176,7 @@ function docker {
         })
     }
     if ($args[0] -eq 'compose' -and 'config' -in $args) {
-        if (($args -join ' ') -match 'figma-otp-runtime') {
+        if ($env:KNORA_FIGMA_KEYCLOAK_COMMAND) {
             return $global:data.runtimeConfig | ConvertTo-Json -Depth 100
         }
         return $global:data.baseConfig | ConvertTo-Json -Depth 100
@@ -342,7 +340,7 @@ try {
             'RestoreWithProof' {
                 $global:data.nativeRuntime.environment +=
                     'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
-                $global:data | Add-Member -Force NoteProperty extraService 'keycloak-proof'
+                $global:data | Add-Member -Force NoteProperty extraService 'figma-keycloak-proof'
                 $global:data | Add-Member -Force NoteProperty extraRunning $true
                 & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
             }
@@ -420,7 +418,7 @@ def test_read_only_modes_never_create_flow_or_change_binding(tmp_path: Path, act
     "field,value,code",
     [
         ("owner", "knora-dev", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
-        ("service", "keycloak-proof", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
+        ("service", "figma-keycloak-proof", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
         ("workingDir", "C:/foreign-worktree", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
         ("hostIp", "0.0.0.0", "OTP_PORT_OWNERSHIP_REJECTED"),
         ("providers", [{"id": "reset-password"}], "OTP_AUTHENTICATOR_REQUIRED"),
@@ -684,9 +682,7 @@ def test_bind_rejects_proof_or_unreviewed_main_before_snapshot(tmp_path: Path, f
         runtime["entrypoint"] = ["/proof/wrapper.sh"]
     elif fault == "provenance":
         runtime["configFiles"] = (
-            str(ROOT / "docker-compose.figma-e2e.yml")
-            + ","
-            + str(ROOT / "docker-compose.figma-otp-proof.yml")
+            str(ROOT / "docker-compose.dev.yml") + "," + str(ROOT / "docker-compose.dev.yml")
         )
     elif fault == "missing_vault":
         runtime["mounts"].pop()
@@ -699,7 +695,9 @@ def test_bind_rejects_proof_or_unreviewed_main_before_snapshot(tmp_path: Path, f
     assert not (tmp_path / "snapshot.json").exists()
 
 
-@pytest.mark.parametrize("service", ["keycloak-proof", "otp-commit-proxy"])
+@pytest.mark.parametrize(
+    "service", ["figma-keycloak-proof-main", "figma-keycloak-proof", "otp-commit-proxy"]
+)
 @pytest.mark.parametrize("running", [True, False])
 def test_bind_rejects_active_proof_but_accepts_stopped_owned_residue(
     tmp_path: Path, service: str, running: bool
@@ -797,15 +795,22 @@ def compose_graphs(tmp_path_factory) -> tuple[dict, dict]:
         "--project-directory",
         str(ROOT),
         "-f",
-        str(ROOT / "docker-compose.figma-e2e.yml"),
+        str(ROOT / "docker-compose.dev.yml"),
+        "--profile",
+        "figma",
     ]
     base = subprocess.run(
         args + ["config", "--format", "json"], env=env, capture_output=True, text=True, check=False
     )
+    native_env = dict(env)
+    native_env["KNORA_FIGMA_KEYCLOAK_COMMAND"] = (
+        "start-dev --vault=file --vault-dir=/opt/keycloak/vault "
+        "--spi-theme--cache-themes=false --spi-theme--cache-templates=false "
+        "--spi-theme--static-max-age=-1"
+    )
     native = subprocess.run(
-        args
-        + ["-f", str(ROOT / "docker-compose.figma-otp-runtime.yml"), "config", "--format", "json"],
-        env=env,
+        args + ["config", "--format", "json"],
+        env=native_env,
         capture_output=True,
         text=True,
         check=False,
@@ -830,7 +835,7 @@ def runtime_state(graphs: tuple[dict, dict], vault: Path) -> dict:
     data["baseConfig"], data["runtimeConfig"] = json.loads(json.dumps(graphs))
     mount = next(
         m
-        for m in data["runtimeConfig"]["services"]["keycloak"]["volumes"]
+        for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
         if m["target"] == "/opt/keycloak/vault"
     )
     mount["source"] = str(vault)
@@ -842,11 +847,11 @@ def test_real_compose_graph_preserves_base_and_excludes_proof(compose_graphs) ->
     assert set(native["services"]) == set(base["services"])
     assert native["volumes"] == base["volumes"]
     for service in base["services"]:
-        if service != "keycloak":
+        if service != "figma-keycloak":
             assert native["services"][service] == base["services"][service]
-    keycloak = native["services"]["keycloak"]
-    assert keycloak["ports"] == base["services"]["keycloak"]["ports"]
-    assert keycloak["environment"] == base["services"]["keycloak"]["environment"]
+    keycloak = native["services"]["figma-keycloak"]
+    assert keycloak["ports"] == base["services"]["figma-keycloak"]["ports"]
+    assert keycloak["environment"] == base["services"]["figma-keycloak"]["environment"]
     assert keycloak["build"]["dockerfile"] == "infra/keycloak/Dockerfile"
     assert keycloak["build"]["context"] == str(ROOT)
     assert "--vault-dir=/opt/keycloak/vault" in keycloak["command"]
@@ -855,25 +860,12 @@ def test_real_compose_graph_preserves_base_and_excludes_proof(compose_graphs) ->
     assert next(m for m in keycloak["volumes"] if m["target"] == "/opt/keycloak/vault")["read_only"]
 
 
-def test_compose_requires_explicit_vault_directory() -> None:
-    result = subprocess.run(
-        [
-            "docker",
-            "compose",
-            "-f",
-            str(ROOT / "docker-compose.figma-e2e.yml"),
-            "-f",
-            str(ROOT / "docker-compose.figma-otp-runtime.yml"),
-            "config",
-            "--quiet",
-        ],
-        env=environment(),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode != 0
-    assert "KNORA_FIGMA_OTP_VAULT_PATH" in result.stderr
+def test_default_compose_does_not_activate_native_vault_or_proof(compose_graphs) -> None:
+    base, _ = compose_graphs
+    keycloak = base["services"]["figma-keycloak"]
+    assert "--vault=file" not in keycloak["command"]
+    assert "KNORA_STORAGE_PROOF" not in json.dumps(base)
+    assert "storage-probe" not in json.dumps(base)
 
 
 def test_runtime_check_is_read_only_and_validates_existing_key(
@@ -942,21 +934,23 @@ def test_runtime_guards_reject_before_start(
     elif fault == "mount":
         next(
             m
-            for m in data["runtimeConfig"]["services"]["keycloak"]["volumes"]
+            for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
             if m["target"] == "/opt/keycloak/vault"
         )["read_only"] = False
     elif fault == "mount_missing":
-        data["runtimeConfig"]["services"]["keycloak"]["volumes"] = [
+        data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"] = [
             mount
-            for mount in data["runtimeConfig"]["services"]["keycloak"]["volumes"]
+            for mount in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
             if mount["target"] != "/opt/keycloak/vault"
         ]
     elif fault == "foreign":
         data["owner"] = "knora-dev"
     elif fault == "proof":
-        data["runtimeConfig"]["services"]["keycloak-proof"] = {"image": "probe"}
+        data["runtimeConfig"]["services"]["figma-keycloak-proof"] = {"image": "probe"}
     else:
-        data["runtimeConfig"]["services"]["api"]["environment"]["KNORA_KEYCLOAK_ISSUER"] = "foreign"
+        data["runtimeConfig"]["services"]["figma-api"]["environment"]["KNORA_KEYCLOAK_ISSUER"] = (
+            "foreign"
+        )
     result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
     assert result.returncode != 0
     assert code in result.stderr
@@ -973,7 +967,13 @@ def test_runtime_prepare_starts_only_keycloak_and_preserves_binding(
     result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
     assert result.returncode == 0, result.stderr
     assert len(after["dockerMutations"]) == 1
-    assert after["dockerMutations"][0][-5:] == ["up", "-d", "--build", "--no-deps", "keycloak"]
+    assert after["dockerMutations"][0][-5:] == [
+        "up",
+        "-d",
+        "--build",
+        "--no-deps",
+        "figma-keycloak",
+    ]
     assert after["mutations"] == []
     assert after["realm"] == data["realm"]
 
@@ -1042,7 +1042,9 @@ def test_runtime_reauthenticates_after_build_before_provider_verification(
     assert len(after["dockerMutations"]) == 1
 
 
-@pytest.mark.parametrize("service", ["keycloak-proof", "otp-commit-proxy"])
+@pytest.mark.parametrize(
+    "service", ["figma-keycloak-proof-main", "figma-keycloak-proof", "otp-commit-proxy"]
+)
 @pytest.mark.parametrize("running", [False, True])
 def test_runtime_preserves_stopped_owned_proof_but_rejects_active_proof(
     tmp_path: Path, compose_graphs, service: str, running: bool
@@ -1058,3 +1060,45 @@ def test_runtime_preserves_stopped_owned_proof_but_rejects_active_proof(
     else:
         assert result.returncode == 0, result.stderr
     assert after["mutations"] == after["dockerMutations"] == []
+
+
+@pytest.mark.parametrize(
+    "service",
+    ["postgres", "keycloak-db", "keycloak", "mail", "minio", "minio-init", "api", "keycloak-proof"],
+)
+@pytest.mark.parametrize("running", [False, True])
+def test_native_bind_preserves_stopped_owned_legacy_containers(
+    tmp_path: Path, service: str, running: bool
+) -> None:
+    data = state()
+    prepared(data)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "BindOptIn")
+    if running:
+        assert result.returncode != 0
+        assert after["mutations"] == []
+    else:
+        assert result.returncode == 0, result.stderr
+        assert len(after["mutations"]) == 2
+
+
+@pytest.mark.parametrize(
+    "service",
+    ["postgres", "keycloak-db", "keycloak", "mail", "minio", "minio-init", "api", "keycloak-proof"],
+)
+@pytest.mark.parametrize("running", [False, True])
+def test_native_runtime_preserves_stopped_owned_legacy_containers(
+    tmp_path: Path, compose_graphs, service: str, running: bool
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    assert after["dockerMutations"] == []
+    assert after["mutations"] == []
+    if running:
+        assert result.returncode != 0
+        assert "OTP_RESOURCE_OWNERSHIP_REJECTED" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr

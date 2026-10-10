@@ -12,8 +12,7 @@ if (-not (Test-Path -LiteralPath $jar -PathType Leaf)) { throw 'OTP_PROBE_JAR_RE
 $providerJar = Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT.jar'
 if (-not (Test-Path -LiteralPath $providerJar -PathType Leaf)) { throw 'OTP_PROVIDER_JAR_REQUIRED' }
 $compose = @('--project-name', $project, '--project-directory', $repositoryRoot,
-    '-f', (Join-Path $repositoryRoot 'docker-compose.figma-e2e.yml'),
-    '-f', (Join-Path $repositoryRoot 'docker-compose.figma-otp-proof.yml'))
+    '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'), '--profile', 'figma', '--profile', 'otp-proof')
 $random = [Security.Cryptography.RandomNumberGenerator]::Create()
 $secretBytes = New-Object byte[] 32
 $random.GetBytes($secretBytes)
@@ -29,11 +28,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'OTP_COMPOSE_CONFIG_FAILED' }
     $config = $configText | ConvertFrom-Json
     if ($config.name -ne $project) { throw 'OTP_PROJECT_REJECTED' }
-    foreach ($node in 'keycloak', 'keycloak-proof') {
+    foreach ($node in 'figma-keycloak-proof-main', 'figma-keycloak-proof') {
         $service = $config.services.$node
-        $expectedDatabase = if ($CommitReplyFault -and $node -eq 'keycloak-proof') {
+        $expectedDatabase = if ($CommitReplyFault -and $node -eq 'figma-keycloak-proof') {
             'jdbc:postgresql://otp-commit-proxy:5432/keycloak?sslmode=disable'
-        } else { 'jdbc:postgresql://keycloak-db:5432/keycloak' }
+        } else { 'jdbc:postgresql://figma-keycloak-db:5432/keycloak' }
         if ($service.image -ne 'quay.io/keycloak/keycloak:26.3.3' -or
             $service.environment.KC_DB_URL -ne $expectedDatabase -or
             $service.environment.KC_HOSTNAME -ne 'http://127.0.0.1:8380' -or
@@ -47,7 +46,7 @@ try {
         if ($providerMount.Count -ne 1 -or -not $providerMount[0].read_only -or
             [IO.Path]::GetFullPath($providerMount[0].source) -ne [IO.Path]::GetFullPath($providerJar)) { throw 'OTP_PROVIDER_MOUNT_REJECTED' }
         $ports = @($service.ports)
-        $expectedPort = if ($node -eq 'keycloak') { '8380' } else { '8381' }
+        $expectedPort = if ($node -eq 'figma-keycloak-proof-main') { '8380' } else { '8381' }
         if ($ports.Count -ne 1 -or $ports[0].host_ip -ne '127.0.0.1' -or
             $ports[0].published -ne $expectedPort -or $ports[0].target -ne 8080) { throw 'OTP_PORT_REJECTED' }
     }
@@ -70,7 +69,7 @@ try {
     foreach ($id in $running) {
         $container = (& docker inspect $id | ConvertFrom-Json)[0]
         $labels = $container.Config.Labels
-        if ($container.Name -in "/${project}-keycloak-1", "/${project}-keycloak-proof-1", "/${project}-keycloak-db-1", "/${project}-otp-commit-proxy-1") {
+        if ($container.Name -in "/${project}-figma-keycloak-proof-main-1", "/${project}-figma-keycloak-proof-1", "/${project}-figma-keycloak-db-1", "/${project}-otp-commit-proxy-1") {
             if ($labels.'com.docker.compose.project' -ne $project -or
                 [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne [IO.Path]::GetFullPath($repositoryRoot)) { throw 'OTP_RESOURCE_OWNERSHIP_REJECTED' }
         }
@@ -78,7 +77,7 @@ try {
             foreach ($mapping in @($port.Value)) {
                 if ($null -ne $mapping -and [int]$mapping.HostPort -in 8380,8381) {
                     if ($labels.'com.docker.compose.project' -ne $project -or
-                        $labels.'com.docker.compose.service' -notin 'keycloak', 'keycloak-proof') { throw 'OTP_PORT_OWNERSHIP_REJECTED' }
+                        $labels.'com.docker.compose.service' -notin 'figma-keycloak-proof-main', 'figma-keycloak-proof') { throw 'OTP_PORT_OWNERSHIP_REJECTED' }
                     $ownedPorts += [int]$mapping.HostPort
                 }
             }
@@ -98,7 +97,7 @@ try {
         & docker compose @compose up -d --no-deps otp-commit-proxy
         if ($LASTEXITCODE -ne 0) { throw 'OTP_PROXY_START_FAILED' }
     }
-    & docker compose @compose up -d --no-deps keycloak keycloak-proof
+    & docker compose @compose up -d --no-deps figma-keycloak-proof-main figma-keycloak-proof
     if ($LASTEXITCODE -ne 0) { throw 'OTP_NODES_START_FAILED' }
     foreach ($port in 8380,8381) {
         $ready = $false

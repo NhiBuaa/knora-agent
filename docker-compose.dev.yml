@@ -1,12 +1,81 @@
+# Standalone development and test entry point. Use launchers for guarded Figma/OTP starts.
+# Optional profiles: provider-test, figma, otp-proof, commit-reply-fault.
 services:
-  api:
+  postgres:
+    image: pgvector/pgvector:pg16
     environment:
+      POSTGRES_DB: knora
+      POSTGRES_USER: knora
+      POSTGRES_PASSWORD: knora
+    ports:
+      - 127.0.0.1:${KNORA_EVAL_POSTGRES_HOST_PORT:-5432}:5432
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U knora -d knora
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_postgres_data:/var/lib/postgresql/data
+  minio:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
+    ports:
+      - 127.0.0.1:${KNORA_EVAL_MINIO_HOST_PORT:-9000}:9000
+      - 127.0.0.1:${KNORA_EVAL_MINIO_CONSOLE_PORT:-9001}:9001
+    healthcheck:
+      test:
+        - CMD
+        - mc
+        - ready
+        - local
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_minio_data:/data
+  minio-init:
+    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+    environment:
+      MINIO_ROOT_USER: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
+    command: '"mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc
+      mb --ignore-existing local/knora"'
+  api:
+    build:
+      context: ./backend
+    environment:
+      KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@postgres:5432/knora
+      KNORA_OBJECT_STORE_BACKEND: s3_compatible
+      KNORA_OBJECT_STORE_S3_ENDPOINT: http://minio:9000
+      KNORA_OBJECT_STORE_S3_BUCKET: knora
+      KNORA_OBJECT_STORE_S3_REGION: us-east-1
+      KNORA_OBJECT_STORE_S3_ACCESS_KEY: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
+      KNORA_OBJECT_STORE_S3_SECRET_KEY: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
       KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8180/realms/knora-dev
       KNORA_KEYCLOAK_AUDIENCE: knora-web
       KNORA_KEYCLOAK_JWKS_URL: http://keycloak-dev:8080/realms/knora-dev/protocol/openid-connect/certs
       KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS: ${KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS:-300}
       KNORA_M5_E2E_FAULTS_ENABLED: ${KNORA_M5_E2E_FAULTS_ENABLED:-false}
-
+    ports:
+      - 127.0.0.1:${KNORA_EVAL_API_HOST_PORT:-8000}:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
   keycloak-dev:
     image: quay.io/keycloak/keycloak:26.3.3
     command: start-dev --import-realm
@@ -14,12 +83,12 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KNORA_DEV_KEYCLOAK_ADMIN_USERNAME:-knora-dev-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD:-knora-dev-admin-password}
     ports:
-      - "127.0.0.1:8180:8080"
+      - 127.0.0.1:8180:8080
     healthcheck:
       test:
         - CMD-SHELL
-        - >-
-          exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/knora-dev/.well-known/openid-configuration HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && grep -q '200 OK' <&3
+        - 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf ''GET /realms/knora-dev/.well-known/openid-configuration
+          HTTP/1.0\r\nHost: localhost\r\n\r\n'' >&3 && grep -q ''200 OK'' <&3'
       interval: 5s
       timeout: 5s
       retries: 20
@@ -28,6 +97,251 @@ services:
       - ./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro
       - ./themes/knora:/opt/keycloak/themes/knora:ro
       - keycloak_dev_data:/opt/keycloak/data
-
+  s3-provider-test:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${KNORA_PROVIDER_TEST_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_PROVIDER_TEST_SECRET_KEY}
+    ports:
+      - 127.0.0.1:9100:9000
+      - 127.0.0.1:9101:9001
+    healthcheck:
+      test:
+        - CMD
+        - mc
+        - ready
+        - local
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_provider_test_data:/data
+    profiles:
+      - provider-test
+  s3-provider-test-init:
+    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    depends_on:
+      s3-provider-test:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+    environment:
+      MINIO_ROOT_USER: ${KNORA_PROVIDER_TEST_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${KNORA_PROVIDER_TEST_SECRET_KEY}
+    command: '"mc alias set provider http://s3-provider-test:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}
+      && mc mb --ignore-existing provider/knora-acceptance"'
+    profiles:
+      - provider-test
+  figma-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: knora
+      POSTGRES_USER: knora
+      POSTGRES_PASSWORD: figma-test-database
+    ports:
+      - 127.0.0.1:5543:5432
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U knora -d knora
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    profiles:
+      - figma
+  figma-keycloak-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: figma-test-keycloak-database
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U keycloak -d keycloak
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - keycloak_database:/var/lib/postgresql/data
+    profiles:
+      - figma
+  figma-keycloak:
+    image: knora-figma-otp-runtime:26.3.3
+    command: ${KNORA_FIGMA_KEYCLOAK_COMMAND:-start-dev --import-realm --spi-theme--cache-themes=false
+      --spi-theme--cache-templates=false --spi-theme--static-max-age=-1}
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: figma-test-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: figma-test-admin-password
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://figma-keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: figma-test-keycloak-database
+      KC_HOSTNAME: http://127.0.0.1:8380
+    ports:
+      - 127.0.0.1:8380:8080
+    depends_on:
+      figma-keycloak-db:
+        condition: service_healthy
+      figma-mail:
+        condition: service_started
+    volumes:
+      - ./test/fixtures/keycloak/figma-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro
+      - ./themes/knora:/opt/keycloak/themes/knora:ro
+      - type: bind
+        source: ${KNORA_FIGMA_OTP_VAULT_PATH:-./test/fixtures/keycloak}
+        target: /opt/keycloak/vault
+        read_only: true
+        bind:
+          create_host_path: false
+    profiles:
+      - figma
+    build:
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
+  figma-mail:
+    image: axllent/mailpit:v1.27.8
+    ports:
+      - 127.0.0.1:1025:1025
+      - 127.0.0.1:8025:8025
+    profiles:
+      - figma
+    networks:
+      default:
+        aliases:
+          - mail
+  figma-minio:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: figma-test-minio
+      MINIO_ROOT_PASSWORD: figma-test-minio-password
+    ports:
+      - 127.0.0.1:9900:9000
+      - 127.0.0.1:9901:9001
+    healthcheck:
+      test:
+        - CMD
+        - mc
+        - ready
+        - local
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - minio_data:/data
+    profiles:
+      - figma
+  figma-minio-init:
+    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    depends_on:
+      figma-minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - mc alias set local http://figma-minio:9000 figma-test-minio figma-test-minio-password >/dev/null
+        && mc mb --ignore-existing local/knora
+    profiles:
+      - figma
+  figma-api:
+    build:
+      context: ./backend
+    environment:
+      KNORA_DATABASE_URL: postgresql+psycopg://knora:figma-test-database@figma-postgres:5432/knora
+      KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8380/realms/knora-dev
+      KNORA_KEYCLOAK_AUDIENCE: knora-web
+      KNORA_KEYCLOAK_JWKS_URL: http://figma-keycloak:8080/realms/knora-dev/protocol/openid-connect/certs
+      KNORA_OBJECT_STORE_BACKEND: s3_compatible
+      KNORA_OBJECT_STORE_S3_ENDPOINT: http://figma-minio:9000
+      KNORA_OBJECT_STORE_S3_BUCKET: knora
+      KNORA_OBJECT_STORE_S3_REGION: us-east-1
+      KNORA_OBJECT_STORE_S3_ACCESS_KEY: figma-test-minio
+      KNORA_OBJECT_STORE_S3_SECRET_KEY: figma-test-minio-password
+    ports:
+      - 127.0.0.1:8800:8000
+    depends_on:
+      figma-postgres:
+        condition: service_healthy
+      figma-minio-init:
+        condition: service_completed_successfully
+      figma-keycloak:
+        condition: service_started
+    profiles:
+      - figma
+  figma-keycloak-proof:
+    image: quay.io/keycloak/keycloak:26.3.3
+    command: start-dev --spi-theme--cache-themes=false --spi-theme--cache-templates=false --spi-theme--static-max-age=-1
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: ${KNORA_STORAGE_PROOF_DB_URL:-jdbc:postgresql://figma-keycloak-db:5432/keycloak}
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: figma-test-keycloak-database
+      KC_HOSTNAME: http://127.0.0.1:8380
+      KC_CACHE: ispn
+      KC_CACHE_STACK: jdbc-ping
+      KNORA_STORAGE_PROOF: enabled
+      KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:-__proof_secret_required__}
+    ports:
+      - 127.0.0.1:8381:8080
+    depends_on:
+      figma-keycloak-db:
+        condition: service_healthy
+    volumes:
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT-storage-probe.jar:/opt/keycloak/providers/knora-storage-probe.jar:ro
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT.jar:/opt/keycloak/providers/knora-email-otp.jar:ro
+      - ./themes/knora:/opt/keycloak/themes/knora:ro
+    profiles:
+      - otp-proof
+  otp-commit-proxy:
+    profiles:
+      - commit-reply-fault
+    image: python:3.12.10-slim-bookworm
+    command: python -B /proof/figma-otp-pg-commit-proxy.py --serve
+    environment:
+      KNORA_STORAGE_PROOF: enabled
+      KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:-__proof_secret_required__}
+    volumes:
+      - ./scripts/figma-otp-pg-commit-proxy.py:/proof/figma-otp-pg-commit-proxy.py:ro
+    depends_on:
+      figma-keycloak-db:
+        condition: service_healthy
+    mem_limit: 128m
+    pids_limit: 64
+  figma-keycloak-proof-main:
+    image: quay.io/keycloak/keycloak:26.3.3
+    command: start-dev --spi-theme--cache-themes=false --spi-theme--cache-templates=false --spi-theme--static-max-age=-1
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://figma-keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: figma-test-keycloak-database
+      KC_HOSTNAME: http://127.0.0.1:8380
+      KC_CACHE: ispn
+      KC_CACHE_STACK: jdbc-ping
+      KNORA_STORAGE_PROOF: enabled
+      KNORA_STORAGE_PROOF_SECRET: ${KNORA_STORAGE_PROOF_SECRET:-__proof_secret_required__}
+    ports:
+      - 127.0.0.1:8380:8080
+    depends_on:
+      figma-keycloak-db:
+        condition: service_healthy
+    volumes:
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT-storage-probe.jar:/opt/keycloak/providers/knora-storage-probe.jar:ro
+      - ./infra/keycloak/providers/email-otp-reset/target/email-otp-reset-0.1.0-SNAPSHOT.jar:/opt/keycloak/providers/knora-email-otp.jar:ro
+      - ./themes/knora:/opt/keycloak/themes/knora:ro
+    profiles:
+      - otp-proof
 volumes:
-  keycloak_dev_data:
+  keycloak_dev_data: null
+  knora_postgres_data: null
+  knora_minio_data: null
+  knora_provider_test_data: null
+  postgres_data: {}
+  keycloak_database: {}
+  minio_data: {}
