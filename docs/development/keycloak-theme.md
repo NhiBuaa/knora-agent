@@ -347,3 +347,19 @@ with `-EnablePrimaryOtp`. `Bind` refuses the primary target without that explici
 `Inspect` and `Diff` report SMTP metadata as configured/unconfigured and never emit the
 SMTP password. A primary snapshot records the realm ID, reset settings, and non-secret
 SMTP metadata; `Restore` requires the same realm ID and restores only those fields.
+
+#### Task 2 migration fix verification — 2026-10-11
+
+The SMTP metadata snapshot shape is now stable for configured and unconfigured realms, with
+password redaction preserved through primary inspect, diff, bind and restore. Primary endpoint
+and realm-identity guards remain fail-closed before ownership checks. The four new primary test
+nodes (including their parameterizations, eight cases total) passed in 4.93 seconds under a
+PowerShell job bounded at 30 seconds:
+
+```text
+backend/test/config/test_keycloak_email_otp.py::test_primary_target_rejects_wrong_endpoint_before_ownership
+backend/test/config/test_keycloak_email_otp.py::test_primary_inspect_rejects_realm_mismatch
+backend/test/config/test_keycloak_email_otp.py::test_primary_read_only_modes_redact_and_stabilize_smtp_metadata
+backend/test/config/test_keycloak_email_otp.py::test_primary_restore_snapshot_has_full_smtp_shape
+8 passed in 4.93s
+```
