@@ -38,7 +38,8 @@ export function TurnCard({
 }) {
   const working = ["queued", "processing", "pending"].includes(turn.status);
   const interrupted = turn.status === "interrupted";
-  const failed = turn.status === "failed" || Boolean(turn.error_code);
+  const failed =
+    !interrupted && (turn.status === "failed" || Boolean(turn.error_code));
   const refused =
     !working && !interrupted && !failed && turn.result?.decision === "REFUSAL";
   const answer =

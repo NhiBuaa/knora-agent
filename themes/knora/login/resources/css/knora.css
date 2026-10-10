@@ -82,7 +82,7 @@ h2 {
 
 .pf-v5-c-button.pf-m-primary {
   background: var(--knora-action);
-  color: #0B1412;
+  color: #FFFFFF;
 }
 
 :where(a, button, input):focus-visible {
@@ -131,7 +131,7 @@ body:has(.knora-auth) .pf-v5-c-login__main {
   width: 420px;
   max-width: calc(100vw - 48px);
   margin: 0;
-  margin-left: calc(43.05556% + (56.94444% - 420px) / 2 + 10px);
+  margin-left: calc(43.05556% + (56.94444% - 420px) / 2 + 9px);
   padding: 175px 0 80px;
   border: 0;
   border-radius: 0;

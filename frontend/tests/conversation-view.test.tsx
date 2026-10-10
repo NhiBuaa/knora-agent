@@ -44,6 +44,151 @@ const answered = {
 };
 
 describe("durable Conversation view", () => {
+  it.each(["interrupted", "failed"])(
+    "renders authoritative %s with an error code as one distinct outcome",
+    async (status) => {
+      const turn = {
+        ...answered,
+        status,
+        result: null,
+        stage: "failure",
+        error_code: "EXECUTION_OUTCOME_UNKNOWN",
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ items: [turn], next_cursor: null })),
+        ),
+      );
+      render(
+        <ConversationView workspaceId="w-1" conversation={conversation} />,
+      );
+      await screen.findByRole("heading", {
+        name:
+          status === "interrupted"
+            ? "The answer was interrupted."
+            : "System error",
+      });
+      expect(
+        screen.queryByRole("heading", {
+          name:
+            status === "interrupted"
+              ? "System error"
+              : "The answer was interrupted.",
+        }),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(
+        1,
+      );
+    },
+  );
+  it.each(["interrupted", "queued", "processing", "answered", "refused"])(
+    "checks authoritative %s history before restoring an interrupted question without posting",
+    async (status) => {
+      const interrupted = { ...answered, status: "interrupted", result: null };
+      const latest = {
+        ...answered,
+        status,
+        result:
+          status === "answered"
+            ? answered.result
+            : status === "refused"
+              ? {
+                  ...answered.result,
+                  decision: "REFUSAL",
+                  answer: null,
+                  refusal_reason: "INSUFFICIENT_EVIDENCE",
+                }
+              : null,
+      };
+      let histories = 0;
+      const fetchMock = vi.fn(
+        async (url: string, _options?: RequestInit) =>
+          new Response(
+            JSON.stringify(
+              url.includes("/turns?")
+                ? {
+                    items: [histories++ === 0 ? interrupted : latest],
+                    next_cursor: null,
+                  }
+                : latest,
+            ),
+          ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      render(
+        <ConversationView workspaceId="w-1" conversation={conversation} />,
+      );
+      await screen.findByRole("button", { name: "Try again" });
+      fireEvent.change(screen.getByLabelText("Question"), {
+        target: { value: "Keep my other draft" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      if (status === "interrupted") {
+        await screen.findByText(
+          "History checked. Send the same question when ready.",
+        );
+        expect(screen.getByLabelText("Question")).toHaveValue(
+          interrupted.question,
+        );
+        expect(screen.getByLabelText("Question")).toHaveFocus();
+      } else {
+        await waitFor(() =>
+          expect(
+            screen.queryByRole("button", { name: "Try again" }),
+          ).not.toBeInTheDocument(),
+        );
+        expect(screen.getByLabelText("Question")).toHaveValue(
+          "Keep my other draft",
+        );
+        expect(
+          screen.queryByText(
+            "History checked. Send the same question when ready.",
+          ),
+        ).not.toBeInTheDocument();
+      }
+      expect(histories).toBe(2);
+      expect(
+        fetchMock.mock.calls.every((call) =>
+          String(call[0]).includes("/turns"),
+        ),
+      ).toBe(true);
+      expect(
+        fetchMock.mock.calls.every((call) => call[1]?.method !== "POST"),
+      ).toBe(true);
+    },
+  );
+
+  it("the actual refusal follow-up edits and focuses the draft without submitting", async () => {
+    const refused = {
+      ...answered,
+      status: "refused",
+      result: {
+        ...answered.result,
+        decision: "REFUSAL",
+        answer: null,
+        refusal_reason: "INSUFFICIENT_EVIDENCE",
+      },
+    };
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [refused], next_cursor: null })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Find supporting evidence",
+      }),
+    );
+    expect(screen.getByLabelText("Question")).toHaveValue(
+      "Find supporting evidence",
+    );
+    expect(screen.getByLabelText("Question")).toHaveFocus();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("does not let an older history response clear a newer authentication failure", async () => {
     let finishPage: (response: Response) => void = () => {};
     let finishHistory: (response: Response) => void = () => {};

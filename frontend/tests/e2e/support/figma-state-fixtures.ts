@@ -325,7 +325,13 @@ export function turnForState(state: string): TurnResponse {
       result: null,
     };
   if (["128:118", "4:201"].includes(state))
-    return { ...answered, status: "interrupted", result: null };
+    return {
+      ...answered,
+      status: "interrupted",
+      stage: "failure",
+      error_code: "EXECUTION_OUTCOME_UNKNOWN",
+      result: null,
+    };
   if (state === "4:212")
     return {
       ...answered,
@@ -355,6 +361,7 @@ export function statePath(state: string): string {
   if (state === "228:293") return "/auth/unavailable";
   if (state === "228:326") return "/auth/failed";
   if (["152:128"].includes(state)) return "/workspaces";
+  if (state === "183:490") return `/workspaces/${workspace.id}`;
   if (["154:431", "166:211", "166:290"].includes(state))
     return "/workspaces/archived";
   if (["194:194", "216:345"].includes(state)) return "/operator/operations";
@@ -515,7 +522,7 @@ export async function prepareFixture(page: Page, state: string) {
     return unexpected;
   }
   if (["228:293", "228:326"].includes(state)) return unexpected;
-  if (["128:107", "128:115"].includes(state))
+  if (["128:107", "128:115", "4:35", "4:67", "4:99"].includes(state))
     await page.getByRole("button", { name: /citation 1/i }).click();
   if (["128:108", "4:67", "4:126"].includes(state))
     await page.getByRole("button", { name: "Collapse rail" }).click();

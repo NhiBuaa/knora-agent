@@ -9,6 +9,18 @@ import type { DocumentResponse } from "../../generated/knora-openapi";
 const evidence =
   "../.superpowers/figma/q1/evidence/document-menu-destinations-2026-10-09/fix-http200-2026-10-09";
 
+// Keep projection reads in the authenticated browser. APIRequestContext omits
+// Secure cookies on http://127.0.0.1 while Chromium treats loopback as trustworthy.
+async function readProjection<T>(page: Page, pathname: string) {
+  return page.evaluate(async (url) => {
+    const response = await fetch(url, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    return { status: response.status, body: (await response.json()) as T };
+  }, pathname);
+}
+
 test("Documents live navigation preserves owned source and menu lifecycle", async ({
   page,
 }) => {
@@ -69,6 +81,7 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     name: "Upload document",
     exact: true,
   });
+  await expect(upload).toHaveCSS("color", "rgb(255, 255, 255)");
   await upload.click();
   const dialog = page.getByRole("dialog", { name: "Upload document" });
   await dialog.getByLabel("Document file").setInputFiles({
@@ -104,13 +117,12 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   expect(uploadBody.document_id).toBeTruthy();
   expect((await uploadRequest).headers()["idempotency-key"]).toBeTruthy();
 
-  const listResponse = await page.request.get(
+  const listResponse = await readProjection<{ documents: DocumentResponse[] }>(
+    page,
     `/api/v1/workspaces/${workspaceId}/documents`,
   );
-  expect(listResponse.status()).toBe(200);
-  const listed = (await listResponse.json()) as {
-    documents: DocumentResponse[];
-  };
+  expect(listResponse.status).toBe(200);
+  const listed = listResponse.body;
   const source = listed.documents.find(
     (document) => document.source_name === sourceName,
   );
@@ -135,9 +147,9 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     routes: [],
   };
   const observe = async (archived: boolean, stage?: string) => {
-    const response = await page.request.get(detailPath);
-    expect(response.status()).toBe(200);
-    const document = (await response.json()) as DocumentResponse;
+    const response = await readProjection<DocumentResponse>(page, detailPath);
+    expect(response.status).toBe(200);
+    const document = response.body;
     expect(document.document_id).toBe(documentId);
     expect(document.workspace_id).toBe(workspaceId);
     expect(document.source_name).toBe(sourceName);
@@ -152,7 +164,7 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
       (observations.routes as unknown[]).push({
         stage,
         path: detailPath,
-        status: response.status(),
+        status: response.status,
         revision: document.revision,
         archived: document.archived,
         current_document_version_id: document.current_document_version_id,
@@ -390,6 +402,41 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   await expect(
     page.getByRole("checkbox", { name: "Show archived" }),
   ).not.toBeChecked();
+  await page.getByRole("link", { name: sourceName, exact: true }).click();
+  await expectDetail(false);
+  await page
+    .getByRole("button", { name: "Request deletion", exact: true })
+    .click();
+  const deletionDialog = page.getByRole("dialog", {
+    name: /Request document deletion/i,
+  });
+  await expect(deletionDialog).toBeVisible();
+  const deletionResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith(`/documents/${documentId}/deletion-request`),
+  );
+  await deletionDialog
+    .getByRole("button", { name: /Request deletion/i })
+    .click();
+  const deletionResult = await deletionResponse;
+  expect(deletionResult.status()).toBe(202);
+  expect(deletionResult.request().headers()["idempotency-key"]).toBeTruthy();
+  await expect(
+    page.getByRole("region", { name: "Deletion request" }).first(),
+  ).toContainText(/pending|requested|blocked/i);
+  const deletionProjection = await observe(false, "deletion-blocked");
+  expect(deletionProjection.deletion_request).toBeTruthy();
+  observations.deletion = {
+    status: deletionResult.status(),
+    deletion_request: deletionProjection.deletion_request,
+  };
+  await captureIdentity(page, path.join(evidence, "deletion-requested.png"));
+  await page.getByRole("link", { name: "← Documents" }).click();
+  await expect(page).toHaveURL(listPath);
+  await expect(
+    page.getByRole("link", { name: sourceName, exact: true }),
+  ).toBeVisible();
   await page.evaluate(async () => {
     await document.fonts.ready;
     await Promise.all(Array.from(document.images, (image) => image.decode()));

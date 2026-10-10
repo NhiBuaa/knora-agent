@@ -154,7 +154,7 @@ export function OperationsView({
         </div>
         <div
           role="status"
-          className="mt-[30px] h-fit min-h-[70px] rounded-lg bg-[color-mix(in_srgb,var(--signature)_10%,var(--surface))] px-3.5 py-3"
+          className="mt-[30px] h-fit min-h-[70px] rounded-lg bg-[var(--operator-alert-surface)] px-3.5 py-3"
         >
           <p className="m-0 text-[11px] leading-[15px] font-semibold text-signature">
             ALERTS

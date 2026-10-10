@@ -6,6 +6,7 @@ import {
   fixtureStates,
   fixtureResponse,
   statePath,
+  conversation as referenceConversation,
 } from "./support/figma-state-fixtures";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -18,6 +19,389 @@ import type {
   ConversationResponse,
   TurnResponse,
 } from "../../generated/knora-openapi";
+
+for (const state of ["228:293", "228:326"]) {
+  test(`Authentication outcome ${state} renders readable tinted evidence cues`, async ({
+    page,
+  }) => {
+    const unexpected = await prepareFixture(page, state);
+    const evidence =
+      "../.superpowers/figma/q1/evidence/auth-outcome-cues-2026-10-10";
+    fs.mkdirSync(evidence, { recursive: true });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      const cues = await page
+        .locator(".kn-auth-outcome__cue--sources, .kn-auth-outcome__cue--pages")
+        .evaluateAll((elements) =>
+          elements.map((element) => {
+            const style = getComputedStyle(element);
+            return {
+              label: element.textContent!.trim(),
+              background: style.backgroundColor,
+              color: style.color,
+              height: element.getBoundingClientRect().height,
+              pages: element.classList.contains("kn-auth-outcome__cue--pages"),
+            };
+          }),
+        );
+      const present = cues.every(
+        (cue) => cue.background !== "rgba(0, 0, 0, 0)",
+      );
+      await page.screenshot({
+        path: `${evidence}/${present ? "green" : "red"}-${state.replace(":", "-")}-${theme}.png`,
+      });
+      fs.writeFileSync(
+        `${evidence}/${present ? "green" : "red"}-${state.replace(":", "-")}-${theme}.json`,
+        JSON.stringify(cues, null, 2),
+      );
+      expect(cues).toHaveLength(3);
+      for (const cue of cues) {
+        expect(cue.height).toBe(26);
+        expect(cue.background).toBe(
+          theme === "light"
+            ? cue.pages
+              ? "rgb(230, 245, 235)"
+              : "rgb(244, 234, 230)"
+            : cue.pages
+              ? "rgb(22, 62, 39)"
+              : "rgb(52, 37, 31)",
+        );
+        const luminance = (color: string) => {
+          const values = color
+            .match(/[\d.]+/g)!
+            .slice(0, 3)
+            .map((value) => Number(value) / 255)
+            .map((value) =>
+              value <= 0.04045
+                ? value / 12.92
+                : ((value + 0.055) / 1.055) ** 2.4,
+            );
+          return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+        };
+        const values = [luminance(cue.color), luminance(cue.background)].sort(
+          (a, b) => b - a,
+        );
+        expect((values[0] + 0.05) / (values[1] + 0.05)).toBeGreaterThanOrEqual(
+          4.5,
+        );
+      }
+    }
+    await expect(
+      page.getByRole("link", {
+        name: state === "228:293" ? "Try again" : "Try signing in again",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", "/api/auth/login");
+    expect(unexpected).toEqual([]);
+  });
+}
+
+for (const state of ["154:431", "166:211", "166:290", "183:490"]) {
+  test(`Workspace source ${state} preserves the desktop state origin`, async ({
+    page,
+  }) => {
+    const unexpected = await prepareFixture(page, state);
+    const block = page.locator(
+      state === "183:490" ? ".workspace-denied" : ".workspace-archives",
+    );
+    const box = (await block.boundingBox())!;
+    const evidence =
+      "../.superpowers/figma/q1/evidence/workspace-state-origin-2026-10-10";
+    fs.mkdirSync(evidence, { recursive: true });
+    const conforms =
+      state === "183:490"
+        ? Math.abs(box.y - 279) < 1 && Math.abs(box.height - 330) < 1
+        : Math.abs(box.y - 108) < 1;
+    await page.screenshot({
+      path: `${evidence}/${conforms ? "green" : "red"}-${state.replace(":", "-")}.png`,
+    });
+    fs.writeFileSync(
+      `${evidence}/${conforms ? "green" : "red"}-${state.replace(":", "-")}.json`,
+      JSON.stringify(box, null, 2),
+    );
+    if (state === "183:490") {
+      expect(box.x).toBeCloseTo(400, 0);
+      expect(box.y).toBeCloseTo(279, 0);
+      expect(box.width).toBe(640);
+      expect(box.height).toBe(330);
+      await expect(
+        block.getByRole("link", { name: "Choose another workspace" }),
+      ).toHaveAttribute("href", "/workspaces");
+      const action = block.getByRole("link", {
+        name: "Choose another workspace",
+      });
+      await expect(action).toHaveCSS("color", "rgb(255, 255, 255)");
+      expect((await action.boundingBox())!.height).toBe(40);
+      expect(
+        await action.evaluate((element) => {
+          const text = document.createRange();
+          text.selectNodeContents(element);
+          return text.getBoundingClientRect().height <= 20;
+        }),
+      ).toBe(true);
+    } else {
+      expect(box.x).toBeCloseTo(120, 0);
+      expect(box.y).toBeCloseTo(108, 0);
+      expect(box.width).toBe(1200);
+      if (state !== "154:431")
+        expect(
+          (await block.locator(".workspace-archives-empty").boundingBox())!
+            .height,
+        ).toBe(655);
+    }
+    expect(unexpected).toEqual([]);
+    await page.unrouteAll();
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileUnexpected = await prepareFixture(page, state);
+    const mobileBlock = page.locator(
+      state === "183:490" ? ".workspace-denied" : ".workspace-archives",
+    );
+    expect(
+      await mobileBlock.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    if (state === "183:490")
+      await expect(
+        mobileBlock.getByRole("link", { name: "Choose another workspace" }),
+      ).toBeInViewport();
+    await page.screenshot({
+      path: `${evidence}/mobile-${state.replace(":", "-")}.png`,
+    });
+    expect(mobileUnexpected).toEqual([]);
+  });
+}
+
+for (const width of [252, 200]) {
+  test(`Workspace Archive menu remains fully usable beside the ${width}px rail`, async ({
+    page,
+  }) => {
+    const unexpected = await prepareFixture(page, "154:134");
+    if (width === 200) {
+      await page
+        .getByRole("separator", {
+          name: "Resize conversation rail",
+          exact: true,
+        })
+        .press("Home");
+      await page
+        .getByRole("button", { name: "Workspace actions", exact: true })
+        .press("ArrowDown");
+    }
+    const item = page.getByRole("menuitem", {
+      name: "Archive workspace",
+      exact: true,
+    });
+    const usable = await item.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return [box.left + 2, box.right - 2].every((x) =>
+        element.contains(document.elementFromPoint(x, box.y + box.height / 2)),
+      );
+    });
+    const evidence =
+      "../.superpowers/figma/q1/evidence/rail-overflow-2026-10-10";
+    await page.screenshot({
+      path: `${evidence}/workspace-menu-${usable ? "green" : "red"}-${width}.png`,
+    });
+    expect(usable).toBe(true);
+    await item.click();
+    const dialog = page.getByRole("dialog", { name: /Archive workspace/i });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Workspace actions", exact: true }),
+    ).toBeFocused();
+    expect(unexpected).toEqual([]);
+  });
+}
+
+for (const railMode of [
+  "expanded",
+  "minimum",
+  "collapsed",
+  "mobile",
+] as const) {
+  test(`long ${railMode} Conversation rail scrolls without covering its footer`, async ({
+    page,
+  }) => {
+    const evidence = path.resolve(
+      process.cwd(),
+      "../.superpowers/figma/q1/evidence/rail-overflow-2026-10-10",
+    );
+    fs.mkdirSync(evidence, { recursive: true });
+    if (railMode === "mobile")
+      await page.setViewportSize({ width: 390, height: 844 });
+    const unexpected = await prepareFixture(page, "128:110");
+    await page.route(
+      "**/api/v1/workspaces/fixture-workspace/conversations?*",
+      async (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        const secondPage = new URL(route.request().url()).searchParams.has(
+          "cursor",
+        );
+        await route.fulfill({
+          json: {
+            items: Array.from(
+              { length: secondPage ? 10 : 20 },
+              (_, offset) => ({
+                ...referenceConversation,
+                id: `long-conversation-${secondPage ? offset + 20 : offset}`,
+                title: `Long conversation ${secondPage ? offset + 20 : offset}`,
+              }),
+            ),
+            next_cursor: secondPage ? null : "long-list-next-page",
+          },
+        });
+      },
+    );
+    await page.reload();
+    if (railMode === "mobile")
+      await page
+        .getByRole("button", { name: "Show conversations", exact: true })
+        .click();
+    const rail = page.getByRole("navigation", {
+      name: "Conversations",
+      exact: true,
+    });
+    if (railMode === "minimum")
+      await page
+        .getByRole("separator", {
+          name: "Resize conversation rail",
+          exact: true,
+        })
+        .press("Home");
+    await rail
+      .getByRole("searchbox", { name: "Search conversations", exact: true })
+      .fill("Long");
+    await expect(
+      rail.getByRole("link", { name: "Long conversation 19", exact: true }),
+    ).toHaveCount(1);
+    const more = rail.getByRole("button", {
+      name: "Load more Conversations",
+      exact: true,
+    });
+    await more.scrollIntoViewIfNeeded();
+    await expect(more).toBeInViewport();
+    await more.click();
+    await expect(
+      rail.getByRole("link", { name: "Long conversation 29", exact: true }),
+    ).toHaveCount(1);
+    await expect(more).toBeHidden();
+    if (railMode === "collapsed")
+      await rail
+        .getByRole("button", { name: "Collapse rail", exact: true })
+        .click();
+    const list = rail.getByRole("list");
+    const scrollArea = list.locator("..");
+    const geometry = await scrollArea.evaluate((element) => ({
+      overflowY: getComputedStyle(element).overflowY,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    }));
+    const phase = geometry.overflowY === "auto" ? "implemented" : "red";
+    await page.screenshot({
+      path: path.join(evidence, `${phase}-${railMode}.png`),
+    });
+    fs.writeFileSync(
+      path.join(evidence, `${phase}-${railMode}.json`),
+      JSON.stringify(geometry, null, 2),
+    );
+    expect(geometry.overflowY).toBe("auto");
+    expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+    const footer = rail.getByRole("button", {
+      name: railMode === "collapsed" ? "Expand rail" : "Collapse rail",
+      exact: true,
+    });
+    await expect(footer).toBeInViewport();
+    expect(
+      await footer.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return element.contains(
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ),
+        );
+      }),
+    ).toBe(true);
+    await scrollArea.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const last = rail.getByRole("link", {
+      name: "Long conversation 29",
+      exact: true,
+    });
+    await expect(last).toBeInViewport();
+    await last.focus();
+    await expect(last).toBeFocused();
+    if (railMode !== "collapsed") {
+      await expect(
+        rail.getByRole("link", {
+          name: "View archived Conversations",
+          exact: true,
+        }),
+      ).toBeInViewport();
+      const trigger = rail.getByRole("button", {
+        name: "Actions for Long conversation 29",
+        exact: true,
+      });
+      await trigger.press("ArrowDown");
+      await expect(
+        rail.getByRole("menuitem", { name: "Rename", exact: true }),
+      ).toBeInViewport();
+      for (const name of ["Rename", "Archive"]) {
+        const item = rail.getByRole("menuitem", { name, exact: true });
+        await expect(item).toBeInViewport();
+        expect(
+          await item.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            return element.contains(
+              document.elementFromPoint(box.x + 2, box.y + box.height / 2),
+            );
+          }),
+        ).toBe(true);
+      }
+      await page.screenshot({
+        path: path.join(evidence, `menu-${railMode}.png`),
+      });
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
+    }
+    await page.screenshot({
+      path: path.join(evidence, `scrolled-${railMode}.png`),
+    });
+    if (railMode === "mobile") {
+      const drawer = page.getByRole("dialog", {
+        name: "Conversations",
+        exact: true,
+      });
+      expect(
+        await drawer.evaluate(
+          (element) => element.scrollHeight <= element.clientHeight + 1,
+        ),
+      ).toBe(true);
+      await page
+        .getByRole("button", { name: "Close Conversations", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: "Show conversations", exact: true }),
+      ).toBeFocused();
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    expect(unexpected).toEqual([]);
+  });
+}
 
 function writeLookupGeometry(evidence: string, geometry: unknown) {
   fs.mkdirSync(path.dirname(evidence), { recursive: true });
@@ -727,6 +1111,9 @@ async function operatorSourceGeometry(
         expect.soft(row.label.y - row.y).toBe(7);
         expect.soft(row.value.y - row.y).toBe(7);
       }
+      const contextOrigin = content.headings[0].y;
+      expect.soft(content.headings[1].y - contextOrigin).toBe(205);
+      expect.soft(content.headings[2].y - contextOrigin).toBe(318);
     }
   }
   if (geometry.evaluationContent) {
@@ -815,6 +1202,7 @@ async function operatorSourceGeometry(
       .soft(alerts)
       .toMatchObject({ minHeight: "70px", radius: "8px", fits: true });
     expect.soft(alerts.height).toBeGreaterThanOrEqual(70);
+    expect.soft(alerts.backgroundColor).toBe("rgb(244, 234, 230)");
     expect.soft(alerts.label).toMatchObject({
       text: "ALERTS",
       fontSize: "11px",
@@ -1951,6 +2339,21 @@ test.describe("source fixtures", () => {
       });
       const destination =
         "/workspaces/fixture-workspace/documents/fixture-document";
+      const menuSlots = await readyMenu.evaluate((menu) => {
+        const bounds = menu.getBoundingClientRect();
+        const content = menu.closest('section[aria-label="Documents"]')!;
+        const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        return {
+          rightInset: content.getBoundingClientRect().right - bounds.right,
+          width: bounds.width,
+          itemGap:
+            items[1].getBoundingClientRect().top -
+            items[0].getBoundingClientRect().bottom,
+        };
+      });
+      expect.soft(menuSlots.width).toBe(200);
+      expect.soft(menuSlots.itemGap).toBe(2);
+      if (viewport.width === 1440) expect.soft(menuSlots.rightInset).toBe(5);
       await expect(details).toHaveAttribute("href", destination);
       await expect(
         row(readyName).getByRole("link", { name: readyName, exact: true }),
@@ -3605,6 +4008,93 @@ test.describe("source fixtures", () => {
     expect(unexpected).toEqual([]);
   });
 
+  test("Evaluation unavailable badge matches source tone and desktop position", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "216:755");
+    const badge = page.locator("#evaluation-heading + .kn-status-badge");
+    const measured = await badge.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const heading = element.previousElementSibling!.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        color: style.color,
+        background: style.backgroundColor,
+        radius: style.borderRadius,
+        width: box.width,
+        height: box.height,
+        left: box.left - heading.left,
+        top: box.top - heading.top,
+      };
+    });
+    expect(measured).toEqual({
+      color: "rgb(120, 65, 49)",
+      background: "rgb(242, 228, 223)",
+      radius: "8px",
+      width: 92,
+      height: 28,
+      left: 383,
+      top: 3,
+    });
+    await expect(badge.locator("span:last-child")).toHaveText("Unavailable");
+    await expect(badge.locator('[aria-hidden="true"]')).toBeHidden();
+  });
+
+  test("Workspace selector options retain borderless source rows and keyboard focus", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "140:104");
+    const popup = page.getByRole("region", { name: "Switch workspace" });
+    const options = popup.locator(".workspace-selector-options > button");
+    await expect(options).toHaveCount(3);
+    const rows = await options.evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const style = getComputedStyle(button);
+        return {
+          border: style.borderTopWidth,
+          margin: style.margin,
+          height: button.getBoundingClientRect().height,
+          lineHeight: style.lineHeight,
+          weight: style.fontWeight,
+        };
+      }),
+    );
+    for (const [index, row] of rows.entries()) {
+      expect(row.border).toBe("0px");
+      expect(row.margin).toBe("0px");
+      expect(row.height).toBe(40);
+      expect(row.lineHeight).toBe("16px");
+      expect(row.weight).toBe(index === 0 ? "600" : "500");
+    }
+    expect(
+      await options
+        .nth(1)
+        .evaluate(
+          (button) =>
+            button.getBoundingClientRect().top -
+            button.previousElementSibling!.getBoundingClientRect().bottom,
+        ),
+    ).toBe(2);
+    const create = popup.getByRole("button", { name: "+ Create workspace" });
+    expect(
+      await create.evaluate((button) => ({
+        border: getComputedStyle(button).borderTopWidth,
+        margin: getComputedStyle(button).margin,
+        height: button.getBoundingClientRect().height,
+      })),
+    ).toEqual({ border: "0px", margin: "0px", height: 40 });
+    await options.first().focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(options.nth(1)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("button", {
+        name: "Switch workspace: Research workspace",
+        exact: true,
+      }),
+    ).toBeFocused();
+  });
+
   test("workspace menu arrows and Escape retain keyboard context", async ({
     page,
   }) => {
@@ -4074,6 +4564,76 @@ test.describe("source fixtures", () => {
     }
   });
 
+  test("small text on signature notices meets contrast in both themes", async ({
+    page,
+  }) => {
+    for (const [state, selector] of [
+      [
+        "128:111",
+        'aside[aria-label="Evidence Inspector"] blockquote > p:first-child',
+      ],
+      [
+        "128:118",
+        'aside[aria-label="Evidence Inspector"] blockquote > p:first-child',
+      ],
+      [
+        "128:131",
+        'section[aria-label="Deletion request"] > div > p:nth-child(2)',
+      ],
+    ]) {
+      await prepareFixture(page, state);
+      for (const theme of ["light", "dark"]) {
+        await page.evaluate((value) => {
+          document.documentElement.dataset.theme = value;
+        }, theme);
+        const ratio = await page.locator(selector).evaluate((label) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 1;
+          const context = canvas.getContext("2d")!;
+          const pixel = (color: string) => {
+            context.clearRect(0, 0, 1, 1);
+            context.fillStyle = color;
+            context.fillRect(0, 0, 1, 1);
+            return Array.from(context.getImageData(0, 0, 1, 1).data);
+          };
+          const layers = [];
+          for (
+            let node: Element | null = label;
+            node;
+            node = node.parentElement
+          ) {
+            layers.push(pixel(getComputedStyle(node).backgroundColor));
+          }
+          let background = [255, 255, 255];
+          for (const layer of layers.reverse()) {
+            const alpha = layer[3] / 255;
+            background = background.map(
+              (value, index) => layer[index] * alpha + value * (1 - alpha),
+            );
+          }
+          const luminance = (rgb: number[]) => {
+            const linear = rgb.slice(0, 3).map((value) => {
+              const channel = value / 255;
+              return channel <= 0.04045
+                ? channel / 12.92
+                : ((channel + 0.055) / 1.055) ** 2.4;
+            });
+            return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+          };
+          const values = [
+            luminance(pixel(getComputedStyle(label).color)),
+            luminance(background),
+          ].sort((a, b) => b - a);
+          return (values[0] + 0.05) / (values[1] + 0.05);
+        });
+        expect(ratio, `${state} ${theme} notice text`).toBeGreaterThanOrEqual(
+          4.5,
+        );
+      }
+      await page.unrouteAll();
+    }
+  });
+
   test("light and dark text tokens meet contrast and reduced motion removes control transitions", async ({
     page,
   }) => {
@@ -4098,8 +4658,9 @@ test.describe("source fixtures", () => {
         return [
           ["--text-primary", "--surface"],
           ["--text-muted", "--surface"],
+          ["--text-muted", "--surface-subtle"],
+          ["--text-muted", "--page"],
           ["--action-text", "--page"],
-          ["--action-foreground", "--action"],
         ].map(([foreground, background]) => {
           const values = [luminance(foreground), luminance(background)].sort(
             (a, b) => b - a,
@@ -4155,20 +4716,56 @@ test.describe("source fixtures", () => {
   test("empty suggestions edit the draft without submission; archived history remains read only", async ({
     page,
   }) => {
-    const unexpected = await prepareFixture(page, "128:109");
-    await page
-      .getByRole("button", { name: "Summarize this workspace" })
-      .click();
-    await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
-      "Summarize this workspace",
-    );
-    expect(unexpected).toEqual([]);
-    await page.unrouteAll();
-    await prepareFixture(page, "128:119");
-    await expect(
-      page.getByText("Archived conversation · Read-only"),
-    ).toBeVisible();
-    await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
+      const unexpected = await prepareFixture(page, "128:109");
+      const question = page.getByLabel("Question", { exact: true });
+      await question.click();
+      await expect(question).toBeFocused();
+      await expect(question).toHaveValue("");
+      await expect(
+        page.getByRole("button", { name: "Ask", exact: true }),
+      ).toBeDisabled();
+      const focusEvidence =
+        "../.superpowers/figma/q1/evidence/composer-focus-2026-10-10";
+      fs.mkdirSync(focusEvidence, { recursive: true });
+      await page.screenshot({ path: `${focusEvidence}/${width}.png` });
+      const scroll = page.locator(".conversation-scroll");
+      expect(
+        await scroll.evaluate((area) => area.scrollWidth <= area.clientWidth),
+      ).toBe(true);
+      if (width === 390)
+        await page.getByRole("button", { name: "Open evidence" }).click();
+      const title = page.getByRole("heading", {
+        name: "Evidence will appear here",
+      });
+      const typography = await title.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          fontFamily: style.fontFamily.toLowerCase(),
+          fontSize: style.fontSize,
+          lineHeight: style.lineHeight,
+        };
+      });
+      expect.soft(typography.fontFamily).toContain("inter");
+      expect.soft(typography.fontSize).toBe("14px");
+      expect.soft(typography.lineHeight).toBe("20px");
+      if (width === 390) await page.keyboard.press("Escape");
+      await page
+        .getByRole("button", { name: "Summarize this workspace" })
+        .click();
+      await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
+        "Summarize this workspace",
+      );
+      expect(unexpected).toEqual([]);
+      await page.unrouteAll();
+      await prepareFixture(page, "128:119");
+      await expect(
+        page.getByText("Archived conversation · Read-only"),
+      ).toBeVisible();
+      await expect(page.getByLabel("Question", { exact: true })).toHaveCount(0);
+      await page.unrouteAll();
+    }
   });
 });
 

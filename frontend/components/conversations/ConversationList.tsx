@@ -269,8 +269,11 @@ export function ConversationList({
 
   return (
     <div
+      data-menu-boundary={rail ? "conversation" : undefined}
       className={
-        rail ? "flex min-h-0 flex-1 flex-col gap-3" : "flex flex-col gap-4"
+        rail
+          ? "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [&>*]:shrink-0"
+          : "flex flex-col gap-4"
       }
     >
       {!rail && (
@@ -365,7 +368,10 @@ export function ConversationList({
                   : conversation.title}
               </Link>
               {rail && !collapsed && !workspaceArchived && (
-                <Menu label={`Actions for ${conversation.title}`}>
+                <Menu
+                  label={`Actions for ${conversation.title}`}
+                  boundarySelector='[data-menu-boundary="conversation"]'
+                >
                   {!conversation.archived && (
                     <>
                       <button

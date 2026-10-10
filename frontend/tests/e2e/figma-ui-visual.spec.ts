@@ -19,6 +19,74 @@ for (const state of visualStates) {
   test(`source fixture ${state.id} ${state.name}`, async ({ page }, info) => {
     const unexpected = await prepareFixture(page, state.id);
     await expect(page.locator("body")).toBeVisible();
+    const solidActions = await page
+      .locator("button, a, input[type=submit]")
+      .evaluateAll((elements) => {
+        const root = getComputedStyle(document.documentElement);
+        const color = (token: string) => {
+          const hex = root.getPropertyValue(token).trim();
+          if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
+          return `rgb(${[1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)).join(", ")})`;
+        };
+        const surfaces = [
+          "--action",
+          "--signature",
+          "--knora-action",
+          "--knora-signature",
+        ].map(color);
+        return elements
+          .filter((element) => element.getClientRects().length > 0)
+          .map((element) => ({
+            label:
+              element.textContent?.trim() ||
+              element.getAttribute("value") ||
+              element.getAttribute("aria-label"),
+            background: getComputedStyle(element).backgroundColor,
+            foreground: getComputedStyle(element).color,
+          }))
+          .filter((control) => surfaces.includes(control.background));
+      });
+    for (const control of solidActions)
+      expect(control.foreground, `${state.id}: ${control.label}`).toBe(
+        "rgb(255, 255, 255)",
+      );
+    if (
+      [
+        "128:120",
+        "128:121",
+        "148:116",
+        "152:128",
+        "154:290",
+        "183:490",
+        "228:293",
+        "228:326",
+        "228:212",
+        "242:333",
+      ].includes(state.id)
+    )
+      expect(
+        solidActions.length,
+        `${state.id}: solid action present`,
+      ).toBeGreaterThan(0);
+    await info.attach("solid-action-colors", {
+      body: JSON.stringify(solidActions, null, 2),
+      contentType: "application/json",
+    });
+    if (["4:35", "4:67", "4:99"].includes(state.id)) {
+      await expect(
+        page.getByRole("button", { name: /citation 1/i }),
+      ).toHaveAttribute("aria-pressed", "true");
+      await expect(
+        page
+          .getByRole("complementary", { name: /evidence/i })
+          .getByText("Select a citation", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        page
+          .getByRole("complementary", { name: /evidence/i })
+          .getByRole("link", { name: /Open document/i }),
+      ).toBeVisible();
+    }
     expect(
       await page.evaluate(
         () =>
@@ -114,6 +182,29 @@ for (const state of ["128:110", "128:120", "152:128", "194:194", "242:333"]) {
         () => matchMedia("(prefers-reduced-motion: reduce)").matches,
       ),
     ).toBe(true);
+    for (const mode of ["explicit", "system"]) {
+      if (!nativeStates.has(state))
+        await page.evaluate((value) => {
+          if (value === "explicit")
+            document.documentElement.dataset.theme = "dark";
+          else document.documentElement.removeAttribute("data-theme");
+        }, mode);
+      for (const control of await page
+        .locator(
+          ".text-action-foreground:not(:disabled), .pf-v5-c-button.pf-m-primary:not(:disabled)",
+        )
+        .all()) {
+        if (!(await control.isVisible())) continue;
+        await expect(control).toHaveCSS("color", "rgb(255, 255, 255)");
+        await control.hover();
+        await expect(control).toHaveCSS("color", "rgb(255, 255, 255)");
+      }
+    }
+    await page.mouse.move(0, 0);
+    if (!nativeStates.has(state))
+      await page.evaluate(
+        () => (document.documentElement.dataset.theme = "dark"),
+      );
     await page.screenshot({
       path: capturePath(`${state.replace(":", "-")}-dark-reduced-motion.png`),
       animations: "disabled",

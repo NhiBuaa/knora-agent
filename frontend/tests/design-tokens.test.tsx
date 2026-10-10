@@ -78,15 +78,9 @@ describe("semantic visual tokens", () => {
       ]) {
         expect(theme[`--${role}`], `missing ${role}`).toMatch(/^#[0-9A-F]{6}$/);
       }
-      expect(
-        contrast(theme["--action"], theme["--action-foreground"]),
-      ).toBeGreaterThanOrEqual(4.5);
-      expect(
-        contrast(theme["--action-hover"], theme["--action-foreground"]),
-      ).toBeGreaterThanOrEqual(4.5);
-      expect(
-        contrast(theme["--action-active"], theme["--action-foreground"]),
-      ).toBeGreaterThanOrEqual(4.5);
+      // Owner requires Figma's white text on solid green controls. This pair
+      // is a source-color exception, not a claim of 4.5:1 text contrast.
+      expect(theme["--action-foreground"]).toBe("#FFFFFF");
       expect(
         contrast(theme["--signature"], theme["--signature-foreground"]),
       ).toBeGreaterThanOrEqual(4.5);
@@ -124,6 +118,17 @@ describe("semantic visual tokens", () => {
     expect(systemDarkDeclarations(css)).toEqual(tokens.dark);
   });
 
+  for (const themeName of ["light", "dark"] as const) {
+    for (const background of ["page", "surface", "surface-subtle"]) {
+      it(`keeps small muted text readable on ${themeName} ${background}`, () => {
+        const theme = tokens[themeName];
+        expect(
+          contrast(theme["--text-muted"], theme[`--${background}`]),
+        ).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+
   it("documents the CSS mapping instead of a second token object", () => {
     const guide = read("../docs/design/knora-visual-tokens.md");
     for (const [role, light, dark] of [
@@ -132,6 +137,7 @@ describe("semantic visual tokens", () => {
       ["action", "#33A15B", "#4DBB73"],
       ["signature", "#784131", "#C68F79"],
       ["text-primary", "#1F3B36", "#D7EFE6"],
+      ["text-muted", "#60756F", "#94B3A5"],
       ["border", "#D9E2DE", "#2A3D36"],
       ["control-border", "#788A82", "#60776C"],
     ]) {

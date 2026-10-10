@@ -535,7 +535,7 @@ export function DocumentDetail({
                 <p className="m-0 mb-2 text-[13px] font-semibold text-signature">
                   {status.label}
                 </p>
-                <p className="m-0 text-xs leading-[17px] text-text-muted">
+                <p className="m-0 text-xs leading-[17px] text-text-secondary">
                   {deletion?.state === "succeeded"
                     ? "The backend reports that this deletion request succeeded."
                     : "What happens next is governed by the deletion policy. This request is pending."}

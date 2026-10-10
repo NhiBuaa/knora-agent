@@ -322,7 +322,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
           </section>
           <section
             aria-labelledby="citation-mapping-heading"
-            className="mt-5 mb-0 border-0 bg-transparent p-0"
+            className="mt-[19px] mb-0 border-0 bg-transparent p-0"
           >
             <h3
               id="citation-mapping-heading"
@@ -330,7 +330,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             >
               Citation mapping
             </h3>
-            <dl className="mt-1 mb-0 block">
+            <dl className="mt-[5px] mb-0 block">
               {Object.entries(trace.alias_mapping).map(([alias, chunkId]) => {
                 const source = trace.candidates.find(
                   (candidate) => candidate.chunk_id === chunkId,
@@ -338,7 +338,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                 return (
                   <div
                     key={alias}
-                    className="grid grid-cols-[48px_minmax(0,1fr)] gap-2.5 py-1 text-[13px] leading-[18px]"
+                    className="grid grid-cols-[48px_minmax(0,1fr)] gap-2.5 pb-1.5 text-[13px] leading-[18px]"
                   >
                     <dt className="font-normal text-text-muted">{alias}</dt>
                     <dd className="min-w-0 [overflow-wrap:anywhere]">
@@ -361,7 +361,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
           </section>
           <section
             aria-labelledby="phase-timing-heading"
-            className="mt-2.5 mb-0 border-0 bg-transparent p-0"
+            className="mt-0 mb-0 border-0 bg-transparent p-0"
           >
             <h3
               id="phase-timing-heading"
@@ -369,7 +369,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
             >
               Phase timing
             </h3>
-            <dl className="mt-0 mb-0 block">
+            <dl className="mt-0.5 mb-0 block">
               {timing.phases.map((phase) => (
                 <div
                   key={phase.name}

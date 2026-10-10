@@ -307,7 +307,7 @@ export function WorkspaceSelector({
             onChange={(event) => setQuery(event.target.value)}
           />
           <div
-            className="workspace-selector-options max-h-[min(320px,40dvh)] overflow-auto"
+            className="workspace-selector-options grid max-h-[min(320px,40dvh)] gap-0.5 overflow-auto"
             onKeyDown={(event) => {
               if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
                 return;
@@ -334,7 +334,7 @@ export function WorkspaceSelector({
           >
             {items.map((workspace) => (
               <button
-                className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[7px] p-2.5 text-left text-[13px] text-text-primary [overflow-wrap:anywhere] hover:bg-surface-subtle aria-[current=true]:bg-[color-mix(in_srgb,var(--action)_12%,var(--surface))] aria-[current=true]:font-semibold aria-[current=true]:text-action-text"
+                className="m-0 flex min-h-10 w-full items-center justify-between gap-2 rounded-[7px] border-0 bg-transparent p-2.5 text-left text-[13px] font-medium leading-4 text-text-primary [overflow-wrap:anywhere] hover:bg-surface-subtle aria-[current=true]:bg-[color-mix(in_srgb,var(--action)_12%,var(--surface))] aria-[current=true]:font-semibold aria-[current=true]:text-action-text"
                 key={workspace.id}
                 type="button"
                 disabled={busy}
@@ -365,7 +365,7 @@ export function WorkspaceSelector({
           )}
           <div className="workspace-selector-footer mt-2 grid gap-2 border-t border-border pt-2 text-[13px]">
             <button
-              className="px-2.5 py-2 text-left text-action-text no-underline"
+              className="m-0 flex min-h-10 items-center rounded-[7px] border-0 bg-transparent px-2.5 py-2 text-left font-semibold leading-4 text-action-text no-underline"
               type="button"
               onClick={() => {
                 setOpen(false);

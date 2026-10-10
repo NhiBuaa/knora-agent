@@ -1,11 +1,21 @@
 "use client";
 
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { focusableControls } from "./focusable-controls";
 
-export type MenuProps = { label: string; children: React.ReactNode };
+export type MenuProps = {
+  label: string;
+  children: React.ReactNode;
+  boundarySelector?: string;
+};
 
-export function Menu({ label, children }: MenuProps) {
+export function Menu({ label, children, boundarySelector }: MenuProps) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -17,6 +27,37 @@ export function Menu({ label, children }: MenuProps) {
     setOpen(false);
     if (returnFocus) trigger.current?.focus();
   }
+
+  useLayoutEffect(() => {
+    if (!open || !boundarySelector || !panel.current || !root.current) return;
+    const boundary = root.current.closest<HTMLElement>(boundarySelector);
+    if (!boundary) return;
+    const menu = panel.current;
+    const bounds = boundary.getBoundingClientRect();
+    const anchor = root.current.getBoundingClientRect();
+    const left = bounds.left + boundary.clientLeft;
+    const top = bounds.top + boundary.clientTop;
+    const right = left + boundary.clientWidth;
+    const bottom = top + boundary.clientHeight;
+    menu.style.minWidth = "0";
+    menu.style.width = `${Math.min(208, boundary.clientWidth - 16)}px`;
+    menu.style.maxHeight = `${boundary.clientHeight - 4}px`;
+    menu.style.overflowY = "auto";
+    menu.style.marginTop = "0";
+    const size = menu.getBoundingClientRect();
+    const x = Math.max(
+      left + 2,
+      Math.min(anchor.right - size.width, right - size.width - 2),
+    );
+    const preferredY =
+      anchor.bottom + 8 + size.height <= bottom
+        ? anchor.bottom + 8
+        : anchor.top - size.height - 8;
+    const y = Math.max(top + 2, Math.min(preferredY, bottom - size.height - 2));
+    menu.style.right = "auto";
+    menu.style.left = `${x - anchor.left}px`;
+    menu.style.top = `${y - anchor.top}px`;
+  }, [open, boundarySelector]);
 
   useEffect(() => {
     if (!open) return;

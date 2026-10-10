@@ -744,6 +744,11 @@ describe("Figma operator data surfaces", () => {
       screen.queryByRole("link", { name: /download/i }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("region", { name: "Report context" })
+        .querySelector("dt"),
+    ).toHaveClass("text-[var(--evaluation-muted)]");
   });
   it.each([
     {

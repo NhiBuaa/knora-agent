@@ -26,7 +26,7 @@ export function DocumentActionsMenu({
   onDelete: () => void;
 }) {
   return (
-    <div className="[&_.kn-menu\_\_panel]:mt-0 [&_.kn-menu\_\_panel]:min-w-[200px] [&_.kn-menu\_\_panel]:rounded-[10px] [&_.kn-menu\_\_trigger]:text-[13px] [&_.kn-menu\_\_trigger]:font-semibold [&_.kn-menu\_\_trigger]:text-text-muted max-md:[&_.kn-menu\_\_panel]:bottom-full">
+    <div className="[&_.kn-menu\_\_panel]:mt-0 [&_.kn-menu\_\_panel]:flex [&_.kn-menu\_\_panel]:min-w-[200px] [&_.kn-menu\_\_panel]:flex-col [&_.kn-menu\_\_panel]:gap-0.5 [&_.kn-menu\_\_panel]:rounded-[10px] [&_.kn-menu\_\_trigger]:text-[13px] [&_.kn-menu\_\_trigger]:font-semibold [&_.kn-menu\_\_trigger]:text-text-muted max-md:[&_.kn-menu\_\_panel]:bottom-full md:[&_.kn-menu\_\_panel]:-right-2">
       <Menu label={`Actions for ${document.source_name}`}>
         <Link
           role="menuitem"
@@ -59,7 +59,7 @@ export function DocumentActionsMenu({
         )}
         {canDelete && (
           <>
-            <div role="separator" className="my-0.5 h-px bg-border" />
+            <div role="separator" className="h-px bg-border" />
             <button
               role="menuitem"
               type="button"

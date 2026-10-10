@@ -127,7 +127,7 @@ export function ArchivedWorkspaceList({
     }
   }
   return (
-    <section className="workspace-archives mx-auto w-full max-w-[1200px]">
+    <section className="workspace-archives mx-auto -mt-1 mb-0 w-full max-w-[1200px] max-md:mt-0">
       <Link
         className="workspace-back mb-6 inline-block text-sm leading-[18px] text-action-text no-underline"
         href={backHref}
@@ -196,11 +196,13 @@ export function ArchivedWorkspaceList({
         </Button>
       )}
       {!loading && !error && !items.length && (
-        <div className="workspace-archives-empty flex flex-col items-center justify-center gap-2.5 pt-[270px] text-center max-md:pt-40">
+        <div
+          className={`workspace-archives-empty flex min-h-[655px] flex-col items-center justify-center text-center max-md:min-h-[380px] ${query.trim() ? "gap-2.5" : "gap-2"}`}
+        >
           {query.trim() && (
             // eslint-disable-next-line @next/next/no-img-element -- Render the byte-preserved local Figma SVG at its original 48px geometry; no raster optimization is needed.
             <img
-              className="mb-1.5 h-12 w-12"
+              className="h-12 w-12"
               src="/icons/figma/ed1ac.svg"
               alt=""
               width={48}

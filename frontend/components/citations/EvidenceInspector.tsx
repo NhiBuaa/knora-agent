@@ -79,7 +79,7 @@ export function EvidenceInspector({
         <p className="text-[10px] font-semibold text-text-muted">
           {citation ? "SELECTED SOURCE" : "EVIDENCE"}
         </p>
-        <h3 className="break-words text-sm font-semibold leading-5">
+        <h3 className="break-words font-sans text-sm font-semibold leading-5">
           {heading}
         </h3>
         {citation ? (
@@ -105,7 +105,9 @@ export function EvidenceInspector({
         <blockquote
           className={`m-0 flex flex-col gap-2 rounded-lg border border-border px-3.5 py-[13px] ${retainedAnswerContext ? "min-h-[96px] w-[340px] max-w-[calc(100%+2px)]" : "min-h-[146px]"} ${refused || interrupted ? "bg-signature/10" : "bg-surface-subtle"}`}
         >
-          <p className="text-[10px] font-semibold uppercase text-text-muted">
+          <p
+            className={`text-[10px] font-semibold uppercase ${refused || interrupted ? "text-text-secondary" : "text-text-muted"}`}
+          >
             {label}
           </p>
           <p className="whitespace-pre-wrap break-words text-[13px] leading-5">

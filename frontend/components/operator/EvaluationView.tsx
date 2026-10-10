@@ -27,7 +27,7 @@ export function EvaluationView({
         <div className="flex flex-wrap items-center gap-[18px]">
           <h2
             id="evaluation-heading"
-            className="m-0 font-sans text-[26px] leading-8 font-semibold"
+            className={`m-0 font-sans text-[26px] leading-8 font-semibold ${available ? "" : "min-[1200px]:min-w-[365px]"}`}
           >
             Evaluation report {available ? "available" : "unavailable"}
           </h2>
@@ -36,13 +36,13 @@ export function EvaluationView({
             className={
               available
                 ? undefined
-                : "h-7 w-[92px] shrink-0 justify-center rounded-lg px-2 font-semibold whitespace-nowrap [&_[aria-hidden]]:hidden"
+                : "h-7 w-[92px] shrink-0 justify-center rounded-lg bg-[var(--evaluation-status-surface)] px-2 font-semibold text-[var(--evaluation-status-foreground)] whitespace-nowrap min-[1200px]:mt-[3px] min-[1200px]:self-start [&_[aria-hidden]]:hidden"
             }
           >
             {available ? "Available" : "Unavailable"}
           </StatusBadge>
         </div>
-        <p className="mt-3 mb-0 min-h-[70px] max-w-[680px] text-base leading-5 text-text-muted">
+        <p className="mt-3 mb-0 min-h-[70px] max-w-[680px] text-base leading-5 text-[var(--evaluation-muted)]">
           {contractUnavailable
             ? "Persisted evaluation reports are not available in the current Operator contract. Knora does not invent quality scores, pass/fail results, or other evaluation metrics when the backend has no report to expose."
             : available
@@ -66,12 +66,14 @@ export function EvaluationView({
               key={label}
               className="grid min-h-10 grid-cols-[minmax(0,170px)_minmax(0,1fr)] items-start gap-2.5 border-b border-border pt-2.5 pb-[5px] text-sm leading-6 max-sm:grid-cols-1"
             >
-              <dt className="font-normal text-text-muted">{label}</dt>
+              <dt className="font-normal text-[var(--evaluation-muted)]">
+                {label}
+              </dt>
               <dd
                 data-source-overflow={
                   label === "Observation code" ? "figma" : undefined
                 }
-                className={`min-w-0 [overflow-wrap:anywhere] ${label === "Availability" && !available ? "font-semibold text-signature" : label === "Observation code" ? "text-xs leading-6 text-text-muted min-[1200px]:min-w-[300px]" : "font-medium"}`}
+                className={`min-w-0 [overflow-wrap:anywhere] ${label === "Availability" && !available ? "font-semibold text-signature" : label === "Observation code" ? "text-xs leading-6 text-[var(--evaluation-muted)] min-[1200px]:min-w-[300px]" : "font-medium"}`}
               >
                 {value}
               </dd>

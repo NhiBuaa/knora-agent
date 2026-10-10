@@ -13,13 +13,13 @@ import { routes } from "@/lib/navigation/routes";
 export function WorkspaceUnavailable() {
   return (
     <section
-      className="workspace-state workspace-denied flex flex-col items-center px-4 pt-[240px] text-center [.workspace-shell-main>&]:pt-[222px] max-md:pt-[140px] max-md:[.workspace-shell-main>&]:pt-[140px]"
+      className="workspace-state workspace-denied mx-auto mt-[215px] mb-0 flex min-h-[330px] w-full max-w-[640px] flex-col items-center justify-center px-4 text-center [.workspace-shell-main>&]:mt-[167px] max-md:mt-[116px] max-md:[.workspace-shell-main>&]:mt-[116px]"
       role="alert"
     >
-      <p className="workspace-eyebrow m-0 mb-[18px] max-w-[560px] text-[11px] leading-6 text-text-muted uppercase">
+      <p className="workspace-eyebrow m-0 mb-[18px] max-w-[560px] text-[11px] leading-[normal] font-semibold text-text-muted uppercase">
         Workspace unavailable
       </p>
-      <h1 className="m-0 mb-4 font-display text-[32px] leading-[42px] max-md:text-[28px]">
+      <h1 className="m-0 mb-[14px] font-display text-[32px] leading-[42px] font-semibold max-md:text-[28px]">
         Workspace unavailable
       </h1>
       <p className="m-0 max-w-[560px] leading-6 text-text-muted">
@@ -27,7 +27,7 @@ export function WorkspaceUnavailable() {
       </p>
       <div className="workspace-state-actions mt-7 flex flex-wrap justify-center gap-2.5">
         <Link
-          className="inline-flex min-h-10 items-center rounded-md border border-border bg-action px-6 py-2 text-sm font-semibold text-action-foreground no-underline"
+          className="inline-flex min-h-10 w-[236px] max-w-full items-center justify-center rounded-[7px] border-0 bg-action px-4 py-2 text-sm font-semibold text-action-foreground no-underline"
           href="/workspaces"
         >
           Choose another workspace
@@ -91,15 +91,22 @@ export function WorkspaceHome({
   }
 
   return (
-    <section>
-      <h1>{workspace.name}</h1>
+    <section className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="m-0 font-display text-[32px] leading-10 font-semibold">
+          {workspace.name}
+        </h1>
+        <p className="m-0 text-sm leading-6 text-text-muted">
+          Manage this Workspace&apos;s documents and Conversations.
+        </p>
+      </header>
       {workspace.archived && (
         <div
-          className="workspace-readonly rounded-lg bg-surface-subtle px-3 py-2.5 text-[13px] text-signature"
+          className="workspace-readonly flex flex-col items-start gap-2 rounded-lg bg-surface-subtle px-3 py-2.5 text-[13px] text-signature"
           role="status"
         >
           <strong>Archived workspace · Read-only</strong>
-          <p>Restore the workspace to make changes again.</p>
+          <p className="m-0">Restore the workspace to make changes again.</p>
           <Button
             variant="secondary"
             disabled={restoring}
@@ -110,18 +117,29 @@ export function WorkspaceHome({
         </div>
       )}
       {!capabilities.includes("documents:write") && (
-        <p className="workspace-readonly rounded-lg bg-surface-subtle px-3 py-2.5 text-[13px] text-signature">
+        <p className="workspace-readonly m-0 rounded-lg bg-surface-subtle px-3 py-2.5 text-[13px] text-signature">
           Limited permissions
         </p>
       )}
-      <p>Manage this Workspace&apos;s documents and Conversations.</p>
-      <Link href={routes.documents(workspace.id)}>Documents</Link>{" "}
-      <Link href={routes.conversations(workspace.id)}>Conversations</Link>
-      {!workspace.archived && (
-        <button type="button" onClick={() => void createConversation()}>
-          New Conversation
-        </button>
-      )}
+      <nav aria-label="Workspace actions" className="flex flex-wrap gap-3">
+        <Link
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-control-border bg-surface px-3.5 py-2 text-sm font-semibold text-text-primary no-underline hover:bg-surface-subtle"
+          href={routes.documents(workspace.id)}
+        >
+          Documents
+        </Link>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-control-border bg-surface px-3.5 py-2 text-sm font-semibold text-text-primary no-underline hover:bg-surface-subtle"
+          href={routes.conversations(workspace.id)}
+        >
+          Conversations
+        </Link>
+        {!workspace.archived && (
+          <Button onClick={() => void createConversation()}>
+            New Conversation
+          </Button>
+        )}
+      </nav>
       {capabilities.includes("operator:read") && (
         <ToolLifecycleDisplay workspaceId={workspace.id} />
       )}
