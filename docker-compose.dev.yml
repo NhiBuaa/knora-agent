@@ -77,11 +77,20 @@ services:
       minio-init:
         condition: service_completed_successfully
   keycloak-dev:
-    image: quay.io/keycloak/keycloak:26.3.3
+    build:
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
     command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KNORA_DEV_KEYCLOAK_ADMIN_USERNAME:-knora-dev-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD:-knora-dev-admin-password}
+      KC_SMTP_HOST:
+      KC_SMTP_PORT:
+      KC_SMTP_FROM:
+      KC_SMTP_USER:
+      KC_SMTP_PASSWORD:
+      KC_SMTP_STARTTLS:
+      KC_SMTP_AUTH:
     ports:
       - 127.0.0.1:8180:8080
     healthcheck:

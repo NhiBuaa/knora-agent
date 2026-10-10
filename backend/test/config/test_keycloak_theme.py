@@ -28,6 +28,68 @@ def test_dev_compose_mounts_theme_read_only() -> None:
     assert "./themes/knora:/opt/keycloak/themes/knora:ro" in volumes
 
 
+def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_runtime() -> None:
+    compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text())
+    services = compose["services"]
+    primary = services["keycloak-dev"]
+
+    assert primary["build"] == {
+        "context": ".",
+        "dockerfile": "infra/keycloak/Dockerfile",
+    }
+    assert primary["ports"] == ["127.0.0.1:8180:8080"]
+    assert primary["volumes"] == [
+        "./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro",
+        "./themes/knora:/opt/keycloak/themes/knora:ro",
+        "keycloak_dev_data:/opt/keycloak/data",
+    ]
+    smtp_variables = {
+        "KC_SMTP_HOST",
+        "KC_SMTP_PORT",
+        "KC_SMTP_FROM",
+        "KC_SMTP_USER",
+        "KC_SMTP_PASSWORD",
+        "KC_SMTP_STARTTLS",
+        "KC_SMTP_AUTH",
+    }
+    assert smtp_variables <= primary["environment"].keys()
+    assert all(primary["environment"][name] is None for name in smtp_variables)
+
+    isolated = services["figma-keycloak"]
+    assert isolated["image"] == "knora-figma-otp-runtime:26.3.3"
+    assert isolated["build"] == {
+        "context": ".",
+        "dockerfile": "infra/keycloak/Dockerfile",
+    }
+    assert isolated["profiles"] == ["figma"]
+    assert smtp_variables.isdisjoint(isolated["environment"])
+    assert services["figma-mail"] == {
+        "image": "axllent/mailpit:v1.27.8",
+        "ports": ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"],
+        "profiles": ["figma"],
+        "networks": {"default": {"aliases": ["mail"]}},
+    }
+
+
+def test_smtp_example_declares_names_without_credentials() -> None:
+    entries = dict(
+        line.split("=", 1)
+        for line in (ROOT / ".env.example").read_text().splitlines()
+        if line and not line.startswith("#") and "=" in line
+    )
+
+    for name in (
+        "KC_SMTP_HOST",
+        "KC_SMTP_PORT",
+        "KC_SMTP_FROM",
+        "KC_SMTP_USER",
+        "KC_SMTP_PASSWORD",
+        "KC_SMTP_STARTTLS",
+        "KC_SMTP_AUTH",
+    ):
+        assert entries[name] == ""
+
+
 def test_theme_inherits_inspected_keycloak_v2_resources() -> None:
     properties = dict(
         line.split("=", 1)
