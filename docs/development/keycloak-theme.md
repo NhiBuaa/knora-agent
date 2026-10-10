@@ -373,6 +373,7 @@ The guarded launcher maps these values into the primary realm only when both opt
 
 ```powershell
 ./scripts/configure-keycloak-email-otp.ps1 -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp `
+  -BaseUrl http://127.0.0.1:8180 -Project knora-dev `
   -AdminUsername $env:KNORA_DEV_KEYCLOAK_ADMIN_USERNAME `
   -AdminPassword $env:KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD
 ```
@@ -383,6 +384,36 @@ contain only `passwordConfigured`, never the password. The command configures re
 does not prove delivery. For a connectivity check, use a synthetic recipient owned by the
 operator, record only success/failure and status, and delete the test message. Never test with a
 real user account or claim delivery without a credential and an observed synthetic message.
+
+The primary provider requires PostgreSQL and a file vault. Set `KNORA_PRIMARY_OTP_VAULT_PATH`
+to an existing local directory outside Git before resolving or starting Compose. The directory is
+mounted read-only at `/opt/keycloak/vault`. It must contain the provider's realm-bound HMAC entry;
+the required entry name and Base64 key format are the same as the isolated provider contract
+documented above. Compose does not create or populate this secret directory.
+
+Rollback snapshots record only whether an SMTP password existed. When replacing an existing SMTP
+configuration, set `KC_SMTP_RESTORE_PASSWORD` to the prior password before rollback so it can
+restore it; `KC_SMTP_PASSWORD` remains the new Gmail App Password. Restore fails closed with
+`OTP_SMTP_RESTORE_SECRET_REQUIRED` when a configured snapshot has no process-local prior password.
+For a snapshot that was unconfigured, Restore sends an empty SMTP map, which is the verified
+Keycloak 26.3.3 clear operation; JSON null is not used because that version retains the setting.
+Neither password is written to the snapshot or emitted in command output.
+
+After configuration, an operator can request one bounded synthetic delivery check to an address
+they own. This operation returns only a stable success or failure status and does not print the
+recipient, message content, username or password:
+
+```powershell
+./scripts/configure-keycloak-email-otp.ps1 -Mode Inspect -EnablePrimaryOtp `
+  -ConfigurePrimarySmtp -TestPrimarySmtpRecipient $env:KC_SMTP_TEST_RECIPIENT `
+  -BaseUrl http://127.0.0.1:8180 -Project knora-dev `
+  -AdminUsername $env:KNORA_DEV_KEYCLOAK_ADMIN_USERNAME `
+  -AdminPassword $env:KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD
+```
+
+Use only a synthetic recipient owned by the operator. A successful command reports
+`OTP_SMTP_CONNECTION_VERIFIED`; failure reports `OTP_SMTP_CONNECTION_FAILED` without raw provider
+details. No synthetic delivery was performed as part of repository verification.
 
 #### Task 2 migration fix verification — 2026-10-11
 
