@@ -80,17 +80,15 @@ services:
     build:
       context: .
       dockerfile: infra/keycloak/Dockerfile
-    command: start-dev --import-realm
+    command: start-dev --import-realm --vault=file --vault-dir=/opt/keycloak/vault
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KNORA_DEV_KEYCLOAK_ADMIN_USERNAME:-knora-dev-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD:-knora-dev-admin-password}
-      KC_SMTP_HOST:
-      KC_SMTP_PORT:
-      KC_SMTP_FROM:
-      KC_SMTP_USER:
-      KC_SMTP_PASSWORD:
-      KC_SMTP_STARTTLS:
-      KC_SMTP_AUTH:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-dev-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KNORA_PRIMARY_KEYCLOAK_DB_PASSWORD:-knora-primary-keycloak-database}
+      KC_HOSTNAME: http://127.0.0.1:8180
     ports:
       - 127.0.0.1:8180:8080
     healthcheck:
@@ -106,6 +104,30 @@ services:
       - ./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro
       - ./themes/knora:/opt/keycloak/themes/knora:ro
       - keycloak_dev_data:/opt/keycloak/data
+      - type: bind
+        source: ${KNORA_PRIMARY_OTP_VAULT_PATH:-./test/fixtures/keycloak}
+        target: /opt/keycloak/vault
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      keycloak-dev-db:
+        condition: service_healthy
+  keycloak-dev-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KNORA_PRIMARY_KEYCLOAK_DB_PASSWORD:-knora-primary-keycloak-database}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U keycloak -d keycloak
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - keycloak_dev_database:/var/lib/postgresql/data
   s3-provider-test:
     image: minio/minio:RELEASE.2025-02-28T09-55-16Z
     command: server /data --console-address ":9001"
@@ -348,6 +370,7 @@ services:
       - otp-proof
 volumes:
   keycloak_dev_data: null
+  keycloak_dev_database: null
   knora_postgres_data: null
   knora_minio_data: null
   knora_provider_test_data: null

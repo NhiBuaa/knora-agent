@@ -8,6 +8,7 @@ param(
     [switch]$EnableIsolatedOtp,
     [switch]$EnablePrimaryOtp,
     [switch]$ConfigurePrimarySmtp,
+    [string]$TestPrimarySmtpRecipient,
     [string]$SnapshotPath
 )
 
@@ -20,6 +21,13 @@ $primaryTarget = $EnablePrimaryOtp.IsPresent
 $expectedPort = if ($primaryTarget) { '8180' } else { '8380' }
 $expectedService = if ($primaryTarget) { 'keycloak-dev' } else { 'figma-keycloak' }
 
+function Convert-KeycloakBoolean {
+    param($Value)
+    if ($Value -is [bool]) { return $Value }
+    if ($null -eq $Value) { return $false }
+    return ([string]$Value).Trim().ToLowerInvariant() -eq 'true'
+}
+
 function Get-SmtpMetadata {
     param($RealmRepresentation)
     $smtp = $RealmRepresentation.smtpServer
@@ -27,20 +35,31 @@ function Get-SmtpMetadata {
         return @{ configured = $false; host = ''; port = ''; from = ''; user = ''
             auth = $false; starttls = $false; passwordConfigured = $false }
     }
+    $starttls = if ($null -ne $smtp.starttls) { $smtp.starttls } else { $smtp.startTls }
     return @{ configured = [bool]($smtp.host -or $smtp.port -or $smtp.from -or $smtp.user -or $smtp.password)
         host = if ($null -eq $smtp.host) { '' } else { [string]$smtp.host }
         port = if ($null -eq $smtp.port) { '' } else { [string]$smtp.port }
         from = if ($null -eq $smtp.from) { '' } else { [string]$smtp.from }
         user = if ($null -eq $smtp.user) { '' } else { [string]$smtp.user }
-        auth = [bool]$smtp.auth; starttls = [bool]($smtp.starttls -or $smtp.startTls)
-        passwordConfigured = [bool]$smtp.password }
+        auth = Convert-KeycloakBoolean $smtp.auth
+        starttls = Convert-KeycloakBoolean $starttls
+        passwordConfigured = ($null -ne $smtp.password -and [string]$smtp.password -ne '') }
 }
 
 function Convert-SmtpRestoreValue {
     param($Metadata)
-    if ($null -eq $Metadata -or -not $Metadata.configured) { return $null }
-    return @{ host = $Metadata.host; port = $Metadata.port; from = $Metadata.from; user = $Metadata.user
-        auth = [bool]$Metadata.auth; starttls = [bool]$Metadata.starttls }
+    if ($null -eq $Metadata -or -not $Metadata.configured) { return @{} }
+    $value = @{ host = $Metadata.host; port = $Metadata.port; from = $Metadata.from; user = $Metadata.user
+        auth = if (Convert-KeycloakBoolean $Metadata.auth) { 'true' } else { 'false' }
+        starttls = if (Convert-KeycloakBoolean $Metadata.starttls) { 'true' } else { 'false' } }
+    if (Convert-KeycloakBoolean $Metadata.passwordConfigured) {
+        $password = [Environment]::GetEnvironmentVariable('KC_SMTP_RESTORE_PASSWORD')
+        if ($null -eq $password -or [string]::IsNullOrWhiteSpace($password)) {
+            throw 'OTP_SMTP_RESTORE_SECRET_REQUIRED'
+        }
+        $value.password = $password
+    }
+    return $value
 }
 
 function Get-PrimarySmtpContract {
@@ -150,6 +169,23 @@ function Assert-OtpNativeContainer {
     }
 }
 
+function Assert-OtpPrimaryContainer {
+    param($Container)
+    $expectedCommand = @('start-dev', '--import-realm', '--vault=file', '--vault-dir=/opt/keycloak/vault')
+    $command = @($Container.Config.Cmd) -join '|'
+    if ((@($Container.Config.Entrypoint) -join '|') -ne '/opt/keycloak/bin/kc.sh' -or
+        $command -ne ($expectedCommand -join '|') -or
+        'KC_DB=postgres' -notin @($Container.Config.Env) -or
+        'KC_DB_URL=jdbc:postgresql://keycloak-dev-db:5432/keycloak' -notin @($Container.Config.Env) -or
+        'KC_HOSTNAME=http://127.0.0.1:8180' -notin @($Container.Config.Env)) {
+        throw 'OTP_PRIMARY_RUNTIME_REQUIRED'
+    }
+    $vault = @($Container.Mounts | Where-Object Destination -eq '/opt/keycloak/vault')
+    if ($vault.Count -ne 1 -or $vault[0].Type -ne 'bind' -or $vault[0].RW -ne $false) {
+        throw 'OTP_PRIMARY_RUNTIME_REQUIRED'
+    }
+}
+
 function Assert-OtpOwnership {
     param([switch]$RequireNativeRuntime)
     $owned = 0
@@ -161,7 +197,8 @@ function Assert-OtpOwnership {
         $container = $items[0]
         $labels = $container.Config.Labels
         $isNamedTarget = $container.Name -eq '/knora-figma-e2e-figma-keycloak-1'
-        if ($RequireNativeRuntime -and ($labels.'com.docker.compose.project' -eq $Project -or
+        if ($RequireNativeRuntime -and -not $primaryTarget -and
+            ($labels.'com.docker.compose.project' -eq $Project -or
             $container.Name -like '/knora-figma-e2e-*')) {
             if ($labels.'com.docker.compose.project' -ne $Project -or
                 -not $labels.'com.docker.compose.project.working_dir' -or
@@ -190,7 +227,10 @@ function Assert-OtpOwnership {
                     throw 'OTP_PORT_OWNERSHIP_REJECTED'
                 }
                 if (-not $container.State.Running) { throw 'OTP_RUNNING_KEYCLOAK_REQUIRED' }
-                if ($RequireNativeRuntime) { Assert-OtpNativeContainer $container }
+                if ($RequireNativeRuntime) {
+                    if ($primaryTarget) { Assert-OtpPrimaryContainer $container }
+                    else { Assert-OtpNativeContainer $container }
+                }
                 $owned++
             }
         }
@@ -254,12 +294,33 @@ try {
     }
     $realmId = $current.id
     $smtpMetadata = Get-SmtpMetadata $current
+    if ($TestPrimarySmtpRecipient) {
+        if ($Mode -ne 'Inspect' -or $null -eq $smtpContract) {
+            throw 'OTP_SMTP_TEST_CONTRACT_REQUIRED'
+        }
+        try {
+            $recipient = [Net.Mail.MailAddress]::new($TestPrimarySmtpRecipient)
+            $sender = [Net.Mail.MailAddress]::new([string]$smtpContract.from)
+            $message = [Net.Mail.MailMessage]::new($sender, $recipient)
+            $message.Subject = 'Knora synthetic SMTP connection check'
+            $message.Body = 'Synthetic operator-owned delivery check. No user data.'
+            $client = [Net.Mail.SmtpClient]::new([string]$smtpContract.host, [int]$smtpContract.port)
+            $client.EnableSsl = $true
+            $client.Credentials = [Net.NetworkCredential]::new(
+                [string]$smtpContract.user, [string]$smtpContract.password)
+            try { $client.Send($message) }
+            finally { $message.Dispose(); $client.Dispose() }
+        } catch { throw 'OTP_SMTP_CONNECTION_FAILED' }
+        Write-Output 'OTP_SMTP_CONNECTION_VERIFIED'
+        return
+    }
     $desiredClient = $null
     if ($Mode -eq 'Bind') {
         $client = Get-OtpClient
         $clientId = $client.id
         $clientSettings = @{ baseUrl = $client.baseUrl; rootUrl = $client.rootUrl }
-        $desiredClient = @{ baseUrl = 'http://127.0.0.1:3300'; rootUrl = 'http://127.0.0.1:3300' }
+        $clientPort = if ($primaryTarget) { '3000' } else { '3300' }
+        $desiredClient = @{ baseUrl = "http://127.0.0.1:$clientPort"; rootUrl = "http://127.0.0.1:$clientPort" }
     }
     $settings = @{
         resetCredentialsFlow = $current.resetCredentialsFlow
@@ -330,13 +391,25 @@ try {
         }
         if ($flows.Count -ne 1) { throw 'OTP_PREPARED_FLOW_REQUIRED' }
         # Standalone Bind must enforce the native activation contract itself, including no-op Bind.
-        if (-not $primaryTarget) { Assert-OtpOwnership -RequireNativeRuntime }
+        Assert-OtpOwnership -RequireNativeRuntime
+        $smtpAlreadySet = $true
+        if ($null -ne $smtpContract) {
+            $smtpAlreadySet = ((Get-SmtpMetadata $current | ConvertTo-Json -Compress) -ceq
+                (Get-SmtpMetadata @{ smtpServer = $smtpContract } | ConvertTo-Json -Compress))
+        }
         if ($current.resetCredentialsFlow -eq $alias -and $current.emailTheme -eq 'knora' -and
             $current.resetPasswordAllowed -eq $true -and
-            $client.baseUrl -ceq $desiredClient.baseUrl -and $client.rootUrl -ceq $desiredClient.rootUrl) {
+            $client.baseUrl -ceq $desiredClient.baseUrl -and $client.rootUrl -ceq $desiredClient.rootUrl -and
+            $smtpAlreadySet) {
             Write-Output 'OTP_BIND_ALREADY_SET'; return
         }
-        if ($current.resetCredentialsFlow -eq $alias) { throw 'OTP_BOUND_SETTINGS_CONFLICT' }
+        if ($null -ne $smtpContract -and $smtpMetadata.passwordConfigured -and
+            [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('KC_SMTP_RESTORE_PASSWORD'))) {
+            throw 'OTP_SMTP_RESTORE_SECRET_REQUIRED'
+        }
+        if ($current.resetCredentialsFlow -eq $alias -and $null -eq $smtpContract) {
+            throw 'OTP_BOUND_SETTINGS_CONFLICT'
+        }
         if (-not $SnapshotPath) {
             $folderName = if ($primaryTarget) {
                 '.superpowers/sdd/2026-10-10-main-runtime-email-otp-gmail-smtp/snapshots'
@@ -394,7 +467,12 @@ try {
             resetPasswordAllowed = $saved.settings.resetPasswordAllowed
         }
         if ($primaryTarget -and $saved.PSObject.Properties.Name -contains 'smtp') {
-            $desired.smtpServer = Convert-SmtpRestoreValue $saved.smtp
+            if ($saved.smtp.configured) {
+                $desired.smtpServer = Convert-SmtpRestoreValue $saved.smtp
+            } else {
+                # Keycloak 26.3.3 ignores null here; an empty map clears SMTP configuration.
+                $desired.smtpServer = @{}
+            }
         }
     }
     try {

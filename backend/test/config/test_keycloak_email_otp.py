@@ -136,11 +136,19 @@ $ErrorActionPreference = 'Stop'
 $global:data = Get-Content -Raw -LiteralPath $StatePath | ConvertFrom-Json
 $global:tokenCount = 0
 $global:ownershipChecks = 0
-$global:targetBaseUrl = if ($global:data.targetParameters) { $global:data.targetParameters.baseUrl } else { 'http://127.0.0.1:8380' }
-$global:targetRealm = if ($global:data.targetParameters) { $global:data.targetParameters.realm } else { 'knora-dev' }
-$global:targetProject = if ($global:data.targetParameters) { $global:data.targetParameters.project } else { $global:data.owner }
+$global:targetBaseUrl = if ($global:data.targetParameters) {
+    $global:data.targetParameters.baseUrl
+} else { 'http://127.0.0.1:8380' }
+$global:targetRealm = if ($global:data.targetParameters) {
+    $global:data.targetParameters.realm
+} else { 'knora-dev' }
+$global:targetProject = if ($global:data.targetParameters) {
+    $global:data.targetParameters.project
+} else { $global:data.owner }
 $global:targetPort = if ($global:data.targetParameters) { '8180' } else { '8380' }
-$global:targetService = if ($global:data.targetParameters) { 'keycloak-dev' } else { $global:data.service }
+$global:targetService = if ($global:data.targetParameters) {
+    'keycloak-dev'
+} else { $global:data.service }
 function docker {
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'ps') {
@@ -168,7 +176,10 @@ function docker {
             $containerEnvironment += 'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
         }
         return ConvertTo-Json -Depth 100 -InputObject @(@{
-            Name=if ($global:data.targetParameters) { '/keycloak-dev-1' } else { '/knora-figma-e2e-figma-keycloak-1' }; State=@{Running=$true}
+            Name=if ($global:data.targetParameters) {
+                '/keycloak-dev-1'
+            } else { '/knora-figma-e2e-figma-keycloak-1' }
+            State=@{Running=$true}
             Config=@{Image=$runtime.image;Cmd=$runtime.command;Entrypoint=$runtime.entrypoint
                 Env=$containerEnvironment;Labels=@{
                 'com.docker.compose.project'=$global:targetProject
@@ -222,7 +233,9 @@ function Invoke-RestMethod {
         $global:tokenCount++
         return @{access_token="NEVER_PRINT_TOKEN_$global:tokenCount"}
     }
-    if ($Uri -eq "$global:targetBaseUrl/realms/$global:targetRealm/.well-known/openid-configuration") {
+    $discovery = "$global:targetBaseUrl/realms/$global:targetRealm/.well-known/" +
+        'openid-configuration'
+    if ($Uri -eq $discovery) {
         return @{issuer="$global:targetBaseUrl/realms/$global:targetRealm"}
     }
     if ($Headers.Authorization -ne "Bearer NEVER_PRINT_TOKEN_$global:tokenCount") {
@@ -349,10 +362,18 @@ try {
                 & $ScriptPath -Mode Bind -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
             }
             'PrimaryBindSmtp' {
-                & $ScriptPath -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp @parameters -SnapshotPath $SnapshotPath
+                & $ScriptPath -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp @parameters `
+                    -SnapshotPath $SnapshotPath
             }
             'PrimaryRestore' {
-                & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
+                & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters `
+                    -SnapshotPath $SnapshotPath
+            }
+            'PrimaryRestoreWithoutSmtp' {
+                Remove-Item Env:KC_SMTP_PASSWORD -ErrorAction SilentlyContinue
+                Remove-Item Env:KC_SMTP_RESTORE_PASSWORD -ErrorAction SilentlyContinue
+                & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters `
+                    -SnapshotPath $SnapshotPath
             }
             'RestoreWrongId' {
                 $global:data.realm.id='recreated-realm'
@@ -447,6 +468,30 @@ def primary_data(*, smtp_server: dict | None = None) -> dict:
         "project": "knora-dev",
     }
     data["realm"]["smtpServer"] = smtp_server
+    data["nativeRuntime"] = {
+        "image": "knora-dev-keycloak-dev",
+        "entrypoint": ["/opt/keycloak/bin/kc.sh"],
+        "command": [
+            "start-dev",
+            "--import-realm",
+            "--vault=file",
+            "--vault-dir=/opt/keycloak/vault",
+        ],
+        "configFiles": str(ROOT / "docker-compose.dev.yml"),
+        "environment": [
+            "KC_DB=postgres",
+            "KC_DB_URL=jdbc:postgresql://keycloak-dev-db:5432/keycloak",
+            "KC_HOSTNAME=http://127.0.0.1:8180",
+        ],
+        "mounts": [
+            {
+                "Type": "bind",
+                "Source": "C:/operator-vault",
+                "Destination": "/opt/keycloak/vault",
+                "RW": False,
+            }
+        ],
+    }
     return data
 
 
@@ -469,7 +514,9 @@ def test_primary_inspect_rejects_realm_mismatch(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("action", ["PrimaryInspect", "PrimaryDiff"])
-@pytest.mark.parametrize("smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}])
+@pytest.mark.parametrize(
+    "smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}]
+)
 def test_primary_read_only_modes_redact_and_stabilize_smtp_metadata(
     tmp_path: Path, action: str, smtp_server: dict | None
 ) -> None:
@@ -490,13 +537,27 @@ def test_primary_read_only_modes_redact_and_stabilize_smtp_metadata(
     assert after["mutations"] == []
 
 
-@pytest.mark.parametrize("smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}])
+def test_primary_smtp_string_booleans_are_normalized(tmp_path: Path) -> None:
+    smtp = {"host": "mail", "auth": "false", "starttls": "true"}
+    result, _ = run(tmp_path, primary_data(smtp_server=smtp), "PrimaryInspect")
+    assert result.returncode == 0, result.stderr
+    metadata = json.loads(result.stdout)["smtp"]
+    assert metadata["auth"] is False
+    assert metadata["starttls"] is True
+
+
+@pytest.mark.parametrize(
+    "smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}]
+)
 def test_primary_restore_snapshot_has_full_smtp_shape(
     tmp_path: Path, smtp_server: dict | None
 ) -> None:
     data = primary_data(smtp_server=smtp_server)
     prepared(data)
-    result, after = run(tmp_path, data, "PrimaryBind,PrimaryRestore")
+    restore_env = {"KC_SMTP_RESTORE_PASSWORD": "RESTORE_TEST_PASSWORD"} if smtp_server else None
+    result, after = run(
+        tmp_path, data, "PrimaryBind,PrimaryRestore", extra_env=restore_env
+    )
     assert result.returncode == 0, result.stderr
     saved = json.loads((tmp_path / "snapshot.json").read_text(encoding="utf-8-sig"))
     assert set(saved["smtp"]) == {
@@ -510,15 +571,40 @@ def test_primary_restore_snapshot_has_full_smtp_shape(
         "user",
     }
     assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
-    expected_smtp = None if smtp_server is None else {
+    expected_smtp = {} if smtp_server is None else {
         "host": "mail",
         "port": "",
         "from": "",
         "user": "",
-        "auth": False,
-        "starttls": False,
+        "auth": "false",
+        "starttls": "false",
+        "password": "RESTORE_TEST_PASSWORD",
     }
     assert after["realm"]["smtpServer"] == expected_smtp
+
+
+def test_primary_restore_requires_process_local_secret_for_configured_smtp(
+    tmp_path: Path,
+) -> None:
+    data = primary_data(smtp_server={"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"})
+    prepared(data)
+    restore, after = run(tmp_path, data, "PrimaryBind,PrimaryRestoreWithoutSmtp")
+    assert restore.returncode != 0
+    assert "OTP_SMTP_RESTORE_SECRET_REQUIRED" in restore.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_primary_restore_does_not_use_new_smtp_password_as_prior_secret(tmp_path: Path) -> None:
+    data = primary_data(smtp_server={"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"})
+    prepared(data)
+    result, _ = run(
+        tmp_path,
+        data,
+        "PrimaryBind,PrimaryRestore",
+        extra_env={"KC_SMTP_PASSWORD": "NEW_TEST_PASSWORD"},
+    )
+    assert result.returncode != 0
+    assert "OTP_SMTP_RESTORE_SECRET_REQUIRED" in result.stderr
 
 
 def test_primary_smtp_opt_in_fails_closed_when_required_values_are_missing(tmp_path: Path) -> None:
@@ -526,6 +612,102 @@ def test_primary_smtp_opt_in_fails_closed_when_required_values_are_missing(tmp_p
     assert result.returncode != 0
     assert "OTP_SMTP_CONFIGURATION_REQUIRED" in result.stderr
     assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+
+
+def test_primary_bound_flow_still_applies_changed_smtp_contract(tmp_path: Path) -> None:
+    data = primary_data(smtp_server={"host": "old.example", "auth": "false"})
+    prepared(data)
+    data["realm"].update(
+        resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True
+    )
+    data["client"].update(baseUrl="http://127.0.0.1:3000", rootUrl="http://127.0.0.1:3000")
+    smtp_env = {
+        "KC_SMTP_HOST": "smtp.gmail.com",
+        "KC_SMTP_PORT": "587",
+        "KC_SMTP_FROM": "synthetic@example.com",
+        "KC_SMTP_USER": "synthetic@example.com",
+        "KC_SMTP_PASSWORD": "RESTORE_TEST_PASSWORD",
+        "KC_SMTP_RESTORE_PASSWORD": "PRIOR_TEST_PASSWORD",
+        "KC_SMTP_STARTTLS": "true",
+        "KC_SMTP_AUTH": "true",
+    }
+    result, after = run(tmp_path, data, "PrimaryBindSmtp", extra_env=smtp_env)
+    assert result.returncode == 0, result.stderr
+    assert after["realm"]["smtpServer"]["host"] == "smtp.gmail.com"
+    assert after["realm"]["smtpServer"]["password"] == "RESTORE_TEST_PASSWORD"
+
+
+def test_primary_matching_smtp_contract_is_noop_without_prior_secret(tmp_path: Path) -> None:
+    data = primary_data(
+        smtp_server={
+            "host": "smtp.gmail.com",
+            "port": "587",
+            "from": "synthetic@example.com",
+            "user": "synthetic@example.com",
+            "password": "**********",
+            "starttls": "true",
+            "auth": "true",
+        }
+    )
+    prepared(data)
+    data["realm"].update(
+        resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True
+    )
+    data["client"].update(baseUrl="http://127.0.0.1:3000", rootUrl="http://127.0.0.1:3000")
+    smtp_env = {
+        "KC_SMTP_HOST": "smtp.gmail.com",
+        "KC_SMTP_PORT": "587",
+        "KC_SMTP_FROM": "synthetic@example.com",
+        "KC_SMTP_USER": "synthetic@example.com",
+        "KC_SMTP_PASSWORD": "NEW_TEST_PASSWORD",
+        "KC_SMTP_STARTTLS": "true",
+        "KC_SMTP_AUTH": "true",
+    }
+    result, after = run(tmp_path, data, "PrimaryBindSmtp", extra_env=smtp_env)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_BIND_ALREADY_SET" in result.stdout
+    assert after["mutations"] == []
+
+
+def test_primary_bind_rejects_extra_runtime_command_arguments(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    prepared(data)
+    data["nativeRuntime"]["command"].append("--features=unreviewed")
+    result, after = run(tmp_path, data, "PrimaryBind")
+    assert result.returncode != 0
+    assert "OTP_PRIMARY_RUNTIME_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+
+
+def test_primary_compose_uses_postgres_and_read_only_operator_vault(tmp_path: Path) -> None:
+    vault = tmp_path / "primary-vault"
+    vault.mkdir()
+    env = environment()
+    env["KNORA_PRIMARY_OTP_VAULT_PATH"] = str(vault)
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(ROOT / "docker-compose.dev.yml"),
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=ROOT, env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    graph = json.loads(result.stdout)
+    keycloak = graph["services"]["keycloak-dev"]
+    database = graph["services"]["keycloak-dev-db"]
+    assert keycloak["environment"]["KC_DB"] == "postgres"
+    assert keycloak["environment"]["KC_DB_URL"] == "jdbc:postgresql://keycloak-dev-db:5432/keycloak"
+    assert keycloak["environment"]["KC_HOSTNAME"] == "http://127.0.0.1:8180"
+    assert "--vault=file" in keycloak["command"]
+    mount = next(item for item in keycloak["volumes"] if item["target"] == "/opt/keycloak/vault")
+    assert Path(mount["source"]) == vault
+    assert mount["read_only"] is True
+    assert database["image"] == "postgres:16"
 
 
 def test_primary_smtp_contract_source_redacts_password_and_requires_gmail_tls() -> None:
@@ -536,6 +718,8 @@ def test_primary_smtp_contract_source_redacts_password_and_requires_gmail_tls() 
     assert "smtp.gmail.com" in source
     assert "KC_SMTP_PORT -cne '587'" in source
     assert "passwordConfigured" in source
+    assert "TestPrimarySmtpRecipient" in source
+    assert "OTP_SMTP_CONNECTION_VERIFIED" in source
 
 
 @pytest.mark.parametrize(
