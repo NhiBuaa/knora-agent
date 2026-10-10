@@ -30,6 +30,37 @@ const conversation = {
 };
 
 describe("Conversation lifecycle controls", () => {
+  it("distinguishes retained automatic empty records from the single unsaved draft", () => {
+    render(
+      <ConversationList
+        workspaceId="w-1"
+        presentation="rail"
+        initialConversations={[
+          {
+            ...conversation,
+            id: "old-1",
+            title: "New conversation",
+            title_source: "auto",
+          },
+          {
+            ...conversation,
+            id: "old-2",
+            title: "New conversation",
+            title_source: "auto",
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.queryAllByRole("link", { name: "New conversation" }),
+    ).toHaveLength(0);
+    expect(
+      screen.getByRole("link", { name: "Untitled conversation · old-1" }),
+    ).toHaveAttribute("href", "/workspaces/w-1/conversations/old-1");
+    expect(
+      screen.getByRole("button", { name: "New Conversation" }),
+    ).toBeVisible();
+  });
   it("opens an unsaved conversation from the collapsed rail without writing", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

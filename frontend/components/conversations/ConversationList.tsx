@@ -10,6 +10,13 @@ import { browserRequest } from "@/lib/api/browser-client";
 import { routes } from "@/lib/navigation/routes";
 import { Menu } from "@/components/ui/Menu";
 
+function conversationLabel(conversation: ConversationResponse): string {
+  return conversation.title_source === "auto" &&
+    conversation.title.toLocaleLowerCase() === "new conversation"
+    ? `Untitled conversation · ${conversation.id.slice(0, 8)}`
+    : conversation.title;
+}
+
 export function ConversationList({
   workspaceId,
   initialConversations,
@@ -267,8 +274,8 @@ export function ConversationList({
                 aria-current={
                   selectedId === conversation.id ? "page" : undefined
                 }
-                aria-label={conversation.title}
-                title={conversation.title}
+                aria-label={conversationLabel(conversation)}
+                title={conversationLabel(conversation)}
                 className={
                   collapsed
                     ? "flex size-10 items-center justify-center rounded-lg text-xs font-medium"
@@ -277,11 +284,11 @@ export function ConversationList({
               >
                 {collapsed
                   ? conversation.title.trim().charAt(0).toLocaleUpperCase()
-                  : conversation.title}
+                  : conversationLabel(conversation)}
               </Link>
               {rail && !collapsed && !workspaceArchived && (
                 <Menu
-                  label={`Actions for ${conversation.title}`}
+                  label={`Actions for ${conversationLabel(conversation)}`}
                   boundarySelector='[data-menu-boundary="conversation"]'
                 >
                   {!conversation.archived && (

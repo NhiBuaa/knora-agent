@@ -49,8 +49,14 @@ function uniqueDocumentName(): string {
   return `m5-live-user-${Date.now()}-${Math.random().toString(36).slice(2)}.md`;
 }
 
-function workspacePath(page: import("@playwright/test").Page): string {
-  const pathname = new URL(page.url()).pathname;
+async function workspacePath(
+  page: import("@playwright/test").Page,
+): Promise<string> {
+  const href = await page
+    .getByRole("link", { name: "Documents", exact: true })
+    .first()
+    .getAttribute("href");
+  const pathname = new URL(href ?? page.url(), page.url()).pathname;
   const matched = pathname.match(/^\/workspaces\/[^/]+/);
   if (!matched) throw new Error("No active Workspace route after login");
   return matched[0];
@@ -187,7 +193,7 @@ test("a user uploads a document and observes its authoritative lifecycle through
   const sourceName = uniqueDocumentName();
 
   await loginAs(page, "user");
-  await page.goto(`${workspacePath(page)}/documents`);
+  await page.goto(`${await workspacePath(page)}/documents`);
   await page.locator("#document-file").setInputFiles({
     name: sourceName,
     mimeType: "text/markdown",
@@ -214,7 +220,7 @@ test("a user archives then restores a document through the document UI", async (
   const sourceName = uniqueDocumentName();
 
   await loginAs(page, "user");
-  await page.goto(`${workspacePath(page)}/documents`);
+  await page.goto(`${await workspacePath(page)}/documents`);
   await page.locator("#document-file").setInputFiles({
     name: sourceName,
     mimeType: "text/plain",
@@ -240,7 +246,7 @@ test("a delete-capable user requests deletion through document UI", async ({
   const sourceName = uniqueDocumentName();
 
   await loginAs(page, "delete-user");
-  await page.goto(`${workspacePath(page)}/documents`);
+  await page.goto(`${await workspacePath(page)}/documents`);
   await page.locator("#document-file").setInputFiles({
     name: sourceName,
     mimeType: "text/plain",
