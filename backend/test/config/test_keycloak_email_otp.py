@@ -348,6 +348,9 @@ try {
             'PrimaryBind' {
                 & $ScriptPath -Mode Bind -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
             }
+            'PrimaryBindSmtp' {
+                & $ScriptPath -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp @parameters -SnapshotPath $SnapshotPath
+            }
             'PrimaryRestore' {
                 & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
             }
@@ -384,13 +387,17 @@ try {
 
 
 def run(
-    tmp_path: Path, data: dict, actions: str, *, runtime: bool = False, vault: Path | None = None
+    tmp_path: Path, data: dict, actions: str, *, runtime: bool = False, vault: Path | None = None,
+    extra_env: dict[str, str] | None = None
 ) -> tuple[subprocess.CompletedProcess, dict]:
     fixture = tmp_path / "state.json"
     fixture.write_text(json.dumps(data))
     wrapper = tmp_path / "run.ps1"
     wrapper.write_text(WRAPPER)
     script = "prepare-figma-otp-runtime.ps1" if runtime else "configure-keycloak-email-otp.ps1"
+    child_env = environment()
+    if extra_env:
+        child_env.update(extra_env)
     result = subprocess.run(
         [
             POWERSHELL,
@@ -405,7 +412,7 @@ def run(
             str(vault or tmp_path / "missing-vault"),
         ],
         cwd=ROOT,
-        env=environment(),
+        env=child_env,
         capture_output=True,
         text=True,
         check=False,
@@ -512,6 +519,23 @@ def test_primary_restore_snapshot_has_full_smtp_shape(
         "starttls": False,
     }
     assert after["realm"]["smtpServer"] == expected_smtp
+
+
+def test_primary_smtp_opt_in_fails_closed_when_required_values_are_missing(tmp_path: Path) -> None:
+    result, _ = run(tmp_path, primary_data(smtp_server=None), "PrimaryBindSmtp")
+    assert result.returncode != 0
+    assert "OTP_SMTP_CONFIGURATION_REQUIRED" in result.stderr
+    assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+
+
+def test_primary_smtp_contract_source_redacts_password_and_requires_gmail_tls() -> None:
+    source = (ROOT / "scripts/configure-keycloak-email-otp.ps1").read_text()
+    assert "ConfigurePrimarySmtp" in source
+    assert "OTP_PRIMARY_SMTP_OPT_IN_REQUIRED" in source
+    assert "OTP_SMTP_CONFIGURATION_REQUIRED" in source
+    assert "smtp.gmail.com" in source
+    assert "KC_SMTP_PORT -cne '587'" in source
+    assert "passwordConfigured" in source
 
 
 @pytest.mark.parametrize(

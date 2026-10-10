@@ -348,6 +348,42 @@ with `-EnablePrimaryOtp`. `Bind` refuses the primary target without that explici
 SMTP password. A primary snapshot records the realm ID, reset settings, and non-secret
 SMTP metadata; `Restore` requires the same realm ID and restores only those fields.
 
+### Gmail SMTP operator contract
+
+The primary runtime accepts Gmail settings only from the process environment. Keep them in the
+ignored repository-root `.env` (or an external deployment secret store); never put an App
+Password in a tracked file, snapshot, command argument, log, or issue. The required values are:
+
+```dotenv
+KC_SMTP_HOST=smtp.gmail.com
+KC_SMTP_PORT=587
+KC_SMTP_FROM=operator@gmail.com
+KC_SMTP_USER=operator@gmail.com
+KC_SMTP_PASSWORD=<Google App Password>
+KC_SMTP_STARTTLS=true
+KC_SMTP_AUTH=true
+```
+
+Enable Google 2-Step Verification, then create a dedicated App Password under Google Account →
+Security → App passwords. The sender address must be the Gmail account (or an address that
+account is allowed to send as). Port 587 uses STARTTLS and SMTP authentication. Do not use a
+normal Google account password.
+
+The guarded launcher maps these values into the primary realm only when both opt-ins are present:
+
+```powershell
+./scripts/configure-keycloak-email-otp.ps1 -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp `
+  -AdminUsername $env:KNORA_DEV_KEYCLOAK_ADMIN_USERNAME `
+  -AdminPassword $env:KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD
+```
+
+It fails closed when any value is missing or does not match the Gmail contract. The App Password
+is accepted only as a process-local environment value; inspect output and rollback snapshots
+contain only `passwordConfigured`, never the password. The command configures realm metadata but
+does not prove delivery. For a connectivity check, use a synthetic recipient owned by the
+operator, record only success/failure and status, and delete the test message. Never test with a
+real user account or claim delivery without a credential and an observed synthetic message.
+
 #### Task 2 migration fix verification — 2026-10-11
 
 The SMTP metadata snapshot shape is now stable for configured and unconfigured realms, with

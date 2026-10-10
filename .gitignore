@@ -1,4 +1,5 @@
 .env
+.env.gmail.local
 .env.minio-local
 .venv/
 __pycache__/
