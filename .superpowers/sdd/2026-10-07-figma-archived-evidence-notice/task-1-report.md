@@ -10,7 +10,7 @@ This implements the missing W5A notice only; full Q1/Q2 and native identity acce
 Read the owning plan's global constraints/directory interfaces, brief and progress. Used the
 executing-plans, test-driven-development, Figma design-to-code, systematic-debugging and
 verification-before-completion workflows. The full cached MCP structure at foundations
-`.superpowers/figma/2026-10-05/workspaces/183-176.md`, node183:304, specifies:
+`.verification/figma/2026-10-05/workspaces/183-176.md`, node183:304, specifies:
 
 - `READ-ONLY WORKSPACE`.
 - `Workspace archived. Restore it to ask new questions or make changes.`
@@ -52,7 +52,7 @@ $env:FIGMA_TEST_MODE='fixture'
 Remove-Item Env:FIGMA_TEST_CASE -ErrorAction SilentlyContinue
 npm --prefix frontend run test:e2e -- --config=playwright.figma.config.ts figma-ui-visual.spec.ts figma-ui-interactions.spec.ts --grep 'source fixture 183:176|archived Workspace evidence notice'
 
-& C:/Users/NhiBuaa/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe .superpowers/figma/q1/refresh-refusal-comparisons.py
+& C:/Users/NhiBuaa/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe .verification/figma/q1/refresh-refusal-comparisons.py
 ```
 
 Unit assertions exercise actual inspector/View/Hub: selected historical excerpt, version, source
@@ -83,7 +83,7 @@ or full-page contrast acceptance. Desktop source height remains82; no mobile Fig
 
 ## Captures, comparison and remaining differences
 
-Ignored durable artifacts under `.superpowers/figma/q1/evidence/`:
+Ignored durable artifacts under `.verification/figma/q1/evidence/`:
 
 - `archived-evidence-notice-1440.png`, `archived-evidence-notice-390.png`: selected historical source
   with the independent notice; explicit app captures only.

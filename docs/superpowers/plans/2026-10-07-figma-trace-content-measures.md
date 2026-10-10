@@ -32,7 +32,7 @@ absolute whole-page origins remain separately measured rather than guessed.
 | `docs/development/figma-ui-visual-coverage.md` | Addressed source measures and truthful remaining geometry |
 
 No changes to OperatorFrame, selector or shared StatusBadge. Source cache:
-`.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/216-573.md` plus full screenshot
+`.verification/figma/q1/evidence/operator-prototypes-2026-10-07/216-573.md` plus full screenshot
 and current desktop/mobile measurementJSONs. No redundant Figma request required.
 
 ## Task 1: Correct Trace internal measures

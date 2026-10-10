@@ -25,7 +25,7 @@ navigation, Workspace authority and backend observation contracts remain their c
 
 On Oct7 user reconnected Figma. MCP get_design_context returned complete structures and screenshots
 for216:345,216:448,216:573,216:698,216:755, none sparse. Local ignored source root:
-`.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/` (source-index.json, five.md/five.png).
+`.verification/figma/q1/evidence/operator-prototypes-2026-10-07/` (source-index.json, five.md/five.png).
 This task implements only216:448 trace lookup and216:698 report lookup, specifically221:212 and
 221:227 guidance. Remaining three prototype comparisons are subsequent coverage work.
 

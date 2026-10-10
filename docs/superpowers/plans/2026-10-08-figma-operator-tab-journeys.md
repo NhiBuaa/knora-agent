@@ -17,7 +17,7 @@
 - Every maintained frontend change requires format, then format:check.
 - No production data, SMTP credentials or real accounts in screenshot fixtures.
 - Use the existing guarded Figma harness only; no realm import, password changes, OTP binding or physical outage attempts.
-- Preserve prior evidence. New captures go to `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
+- Preserve prior evidence. New captures go to `.verification/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
 - This bounded verification does not accept whole-design parity or native identity gates.
 
 ## File structure

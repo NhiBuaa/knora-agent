@@ -105,7 +105,7 @@ NO_COLOR/FORCE_COLOR and existing build image warnings are reported without supp
 
 ## Captures and source comparison
 
-All artifacts below are under ignored `.superpowers/figma/q1/evidence/`:
+All artifacts below are under ignored `.verification/figma/q1/evidence/`:
 
 - Current A7: `128-115-1440x960.png`, `128-115-comparison.png`.
 - Toggle destination: `parity-citation-deselected.png`.

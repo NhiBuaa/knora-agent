@@ -28,7 +28,7 @@ with10 application-only skips in2.1m. A further five dark/reduced-motion cases p
 checking enabled primary foregrounds in explicit/system dark and hover. These are fixture
 presentation checks, not new backend authorization or native credential proofs.
 Current full Vitest passed418/418 across45files; format/check and typecheck passed.
-Logs: `.superpowers/figma/q1/evidence/solid-action-colors-2026-10-10-{fixture,dark}.log`.
+Logs: `.verification/figma/q1/evidence/solid-action-colors-2026-10-10-{fixture,dark}.log`.
 Source pairs and source/current hashes were refreshed in `source-review-2026-10-10/`.
 
 ### Individual source dispositions
@@ -147,7 +147,7 @@ composition is preserved with minor control-border raster differences, not byte 
 global source/transition acceptance remains open. No additional scope is deferred.
 
 - `V:<id>` is the individually named `source fixture <id> <name>` case in `frontend/tests/e2e/figma-ui-visual.spec.ts`; all 51 rows captured at 1440×960.
-- Durable captures and side-by-side comparisons live under ignored `.superpowers/figma/q1/evidence/`. The original51 screen comparisons crop only the34px annotation strip from their1440×994 Figma PNGs. Original full MCP structures and source-index manifest remain unchanged in the foundations worktree cache. The separate Oct7 Operator prototype sources have1440×960 frames and1024×683 MCP PNGs with no annotation strip; their whole frames are compared proportionally without cropping.
+- Durable captures and side-by-side comparisons live under ignored `.verification/figma/q1/evidence/`. The original51 screen comparisons crop only the34px annotation strip from their1440×994 Figma PNGs. Original full MCP structures and source-index manifest remain unchanged in the foundations worktree cache. The separate Oct7 Operator prototype sources have1440×960 frames and1024×683 MCP PNGs with no annotation strip; their whole frames are compared proportionally without cropping.
 - Cached structure is the geometry authority; PNG comparison checks the actual composition, assets, text hierarchy, borders, colors and selected/disabled/error state. RGB differences in `source-comparisons.json` are descriptive only, never an acceptance threshold.
 - Fixture host composes actual modules, production CSS, local Inter/Roboto Slab and actual Next hooks/providers. Browser clock fixed to2026-10-05T12:00Z. API interception rejects unexpected paths/methods; it proves no backend authorization. Native fixtures render maintained FTL with pinned FreeMarker2.3.32/Keycloak26.3.3 parent assets and block submissions.
 - The ten panel/response references are compact schematics. Their captures demonstrate actual module state, not full-screen pixel parity. Responsive/dark references are absent: tested adaptations cannot be described as Figma geometry acceptance.
@@ -213,7 +213,7 @@ global source/transition acceptance remains open. No additional scope is deferre
 
 The two named `Documents local interactions {1440,390} verifies filters, menus and cancelled dialogs without mutations` cases exercise actual DocumentList/Menu/Dialog controls at1440×960 and390×844. Exact Reporting policy.pdf search shows one row/count1; an unmatched query shows the empty state/count0; clearing restores five/count5. The state-driven fixture host stays on its original URL: Ready row and View details href agree with `/workspaces/fixture-workspace/documents/fixture-document`, but destination edges7/10/15 remain unexercised. Archived detail-button edge23 also remains unexercised; menu edge26 is separate.
 
-Durable evidence is confined to `.superpowers/figma/q1/evidence/documents-local-interactions-2026-10-08/`: four final states at each width (`ready-menu`, `archived-menu`, `archived-deletion-confirm`, `upload-selected`), two journey JSON records, and retained mobile Archived menu RED geometry/PNG. Saved browser RED reports bottom924.421875 against844; the approved single `max-md:[&_.kn-menu\_\_panel]:bottom-full` rule in DocumentActionsMenu changes mobile placement only. Saved GREEN reruns both original journeys (2 passed); existing scoped document component regressions report45 passed across2 files. Mobile menu bottom is475px Ready and779.28125px Archived. Desktop menus remain downward, at200×155 Ready and200×121 Archived. Dialogs measure560×327/560×423 desktop and352×379/352×443 mobile (deletion/upload). All measured surfaces and menuitems fit the viewport with no horizontal overflow; captures were viewed for readable text and controls. No mobile Figma reference exists, so this is responsive usability evidence only.
+Durable evidence is confined to `.verification/figma/q1/evidence/documents-local-interactions-2026-10-08/`: four final states at each width (`ready-menu`, `archived-menu`, `archived-deletion-confirm`, `upload-selected`), two journey JSON records, and retained mobile Archived menu RED geometry/PNG. Saved browser RED reports bottom924.421875 against844; the approved single `max-md:[&_.kn-menu\_\_panel]:bottom-full` rule in DocumentActionsMenu changes mobile placement only. Saved GREEN reruns both original journeys (2 passed); existing scoped document component regressions report45 passed across2 files. Mobile menu bottom is475px Ready and779.28125px Archived. Desktop menus remain downward, at200×155 Ready and200×121 Archived. Dialogs measure560×327/560×423 desktop and352×379/352×443 mobile (deletion/upload). All measured surfaces and menuitems fit the viewport with no horizontal overflow; captures were viewed for readable text and controls. No mobile Figma reference exists, so this is responsive usability evidence only.
 
 Both journey records contain only the two intercepted Workspace/Documents GETs, no unexpected API paths/methods and no writes. The test-only selected file is never submitted or parsed; archive/restore/reprocess/deletion confirmation and native identity actions remain uninvoked. No backend authorization or lifecycle acceptance is added. Assets remain the loaded18×18 local Knora leaf in the header and8×5 local Workspace caret in its selector slot; normal page scrolling moves header assets above the mobile viewport without resizing them. All340 prior Q1 hashes are unchanged; the12 additions belong solely to this evidence directory, excluding the existing root regression-preflight from inventory.
 
@@ -223,7 +223,7 @@ At this prior checkpoint, the header Upload trigger measured158.234375×38 again
 
 Complete direct MCP128:120 nodes54:193–195 allocate154×38 to the Upload trigger, with8px gap,8px radius,15px plus and13px label. The maintained trigger now has that exact allocation at1440×960 and390×844. Loaded Inter requires10.078125px for the plus and111.484375px for “Upload document”; with8px gap, the129.5625px content fits the132px inner width left by local10px horizontal padding and1px borders. The label renders on one line. The local `!px-2.5` overrides shared Button padding; its first non-important form retained14px, caused a two-line wrap, and was rejected by the strengthened browser assertion. No shared primitive or asset changed.
 
-Dedicated source fixture cases at both widths capture the current header and empty Upload dialog, verify disabled submission, Cancel and reopened Escape, and check focus returns to the trigger. Loaded header assets remain18×18 leaf and8×5 caret. Page width and button content fit; unexpected API requests and writes are empty. Existing Documents local interaction cases were rerun unchanged except for their output path, preserving all filter, menu, selected-file, cancellation and focus assertions. New evidence is `.superpowers/figma/q1/evidence/document-upload-trigger-2026-10-08/`: header/dialog PNGs, geometry JSONs, retained RED captures, and `local-interactions/` journey/capture outputs. Historical `documents-local-interactions-2026-10-08/` files remain in place.
+Dedicated source fixture cases at both widths capture the current header and empty Upload dialog, verify disabled submission, Cancel and reopened Escape, and check focus returns to the trigger. Loaded header assets remain18×18 leaf and8×5 caret. Page width and button content fit; unexpected API requests and writes are empty. Existing Documents local interaction cases were rerun unchanged except for their output path, preserving all filter, menu, selected-file, cancellation and focus assertions. New evidence is `.verification/figma/q1/evidence/document-upload-trigger-2026-10-08/`: header/dialog PNGs, geometry JSONs, retained RED captures, and `local-interactions/` journey/capture outputs. Historical `documents-local-interactions-2026-10-08/` files remain in place.
 
 The source-white foreground differs from the maintained accessible action-foreground token; menu origin, status/copy, whole-frame and native differences remain open. Mobile has no Figma geometry reference and proves responsive fit only. This local correction does not accept complete design parity or a live upload lifecycle.
 
@@ -337,7 +337,7 @@ Classification describes the product relationship, not automatic test acceptance
 
 Figma was reconnected on Oct7. Complete, non-sparse MCP structures and screenshots for216:345,
 216:448,216:573,216:698 and216:755 are cached in
-`.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/`, with a five-entry source index.
+`.verification/figma/q1/evidence/operator-prototypes-2026-10-07/`, with a five-entry source index.
 These are separate from the original51-state inventory, captures and comparison artifacts.
 The two lookup prototypes are registered in a separate fixtureStates union for the guarded host.
 
@@ -582,9 +582,9 @@ and mobile Unavailable is a complete readable word. At390px accounting is358×29
 single-column49px rows; buckets358×178 with four40px rows and6px gaps; Alerts358×70. Full
 observations remain readable with no horizontal overflow. Mobile has no supplied Figma source
 and records responsive adaptation only. Exhaustive residuals and text-region measurements are
-in [desktop JSON](../../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-216-345-1440-geometry.json)
-and [mobile JSON](../../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-216-345-390-geometry.json);
-[whole-frame comparison](../../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/remaining-operator-comparisons.html)
+in [desktop JSON](../../.verification/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-216-345-1440-geometry.json)
+and [mobile JSON](../../.verification/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-216-345-390-geometry.json);
+[whole-frame comparison](../../.verification/figma/q1/evidence/operator-prototypes-2026-10-07/remaining-operator-comparisons.html)
 retains uncropped source/current frames.
 
 Actual-browser RED caught allocation, bucket text-slot and Alerts region mismatches. Focused
@@ -760,7 +760,7 @@ The existing JS cooldown and no-JavaScript cases pass, including visible native5
 hidden mirrors, enabled native resend with00:30 and blocked fixture actions. Existing four-state
 source-copy checks also pass for request/password copy, toggles,18px exact assets and native forms.
 Their capture paths and the no-JS capture now use the separate task evidence namespace to preserve
-all historical files. Current evidence is `.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08/`:
+all historical files. Current evidence is `.verification/figma/q1/evidence/otp-input-presentation-2026-10-08/`:
 four dedicated OTP empty PNG/JSON pairs, eight source-copy PNG/JSON pairs and one no-JS PNG.
 Only copied native CSS changes among315 prior Q1 files; nine native HTMLs and all assets/modules/
 historical captures retain hashes. Detailed source map, transition geometry, commands and inventory

@@ -7,7 +7,7 @@ import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import type { DocumentResponse } from "../../generated/knora-openapi";
 
 const evidence =
-  "../.superpowers/figma/q1/evidence/document-menu-destinations-2026-10-09/fix-http200-2026-10-09";
+  "../.verification/figma/q1/evidence/document-menu-destinations-2026-10-09/fix-http200-2026-10-09";
 
 // Keep projection reads in the authenticated browser. APIRequestContext omits
 // Secure cookies on http://127.0.0.1 while Chromium treats loopback as trustworthy.

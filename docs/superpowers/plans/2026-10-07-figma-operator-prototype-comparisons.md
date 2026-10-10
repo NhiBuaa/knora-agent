@@ -30,7 +30,7 @@ differences individually; confirmed product defects receive separate scoped impl
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Three focused source-comparison cases and desktop/mobile fit checks |
 | `docs/development/figma-ui-visual-coverage.md` | Per-prototype observed match, deviation and remaining implementation action |
 
-Ignored source/capture root `.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/` contains
+Ignored source/capture root `.verification/figma/q1/evidence/operator-prototypes-2026-10-07/` contains
 full216-345.md/216-573.md/216-755.md, MCP screenshots and source-index hashes. Source frames1440×960,
 returned PNGs1024×683, no annotation strip. Preserve source and previous lookup artifacts.
 No production component changes in this comparison task; amend a separate implementation plan

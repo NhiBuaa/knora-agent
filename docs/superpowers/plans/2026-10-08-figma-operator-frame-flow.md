@@ -30,7 +30,7 @@ flow. Keep authoritative data, responsive growth and existing controls. Do not a
 
 No changes to OperationsView, TraceView, EvaluationView, WorkspaceSelector, guidance or shared styles.
 Sources: five complete structures in `operator-prototypes-2026-10-07`; fresh direct MCP216:467 in
-`.superpowers/figma/q1/evidence/operator-flow-source-2026-10-08/216-467.md`. Metadata confirms text
+`.verification/figma/q1/evidence/operator-flow-source-2026-10-08/216-467.md`. Metadata confirms text
 dimensions omitted by `normal` in original generated JSX. Root retained full screenshot response.
 
 ## Task 1: Correct shared Operator flow and lookup slots

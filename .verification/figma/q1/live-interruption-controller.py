@@ -13,7 +13,7 @@ from knora.adapters.postgres.conversation_store import PostgresConversationStore
 from knora.adapters.postgres.tables import WorkspaceTable
 
 root = Path.cwd()
-evidence = root / '.superpowers/figma/q1/evidence/live-interruption-2026-10-10'
+evidence = root / '.verification/figma/q1/evidence/live-interruption-2026-10-10'
 manifest = json.loads((evidence / 'admission.json').read_text(encoding='utf-8'))
 for key in ('workspaceId', 'turnId'):
     UUID(manifest[key])

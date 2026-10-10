@@ -18,7 +18,7 @@ test("live interrupted Turn reconciles history before an explicit retry", async 
   );
   test.setTimeout(150_000);
   const evidence =
-    "../.superpowers/figma/q1/evidence/live-interruption-2026-10-10";
+    "../.verification/figma/q1/evidence/live-interruption-2026-10-10";
   mkdirSync(evidence, { recursive: true });
   const identity = realm.users.find(
     (user) => user.username === "m5-delete-user",
@@ -181,11 +181,11 @@ test("real-time bounded session expiry preserves the draft and recovers through 
 }) => {
   try {
     const evidence =
-      "../.superpowers/figma/q1/evidence/session-expiry-2026-10-10";
+      "../.verification/figma/q1/evidence/session-expiry-2026-10-10";
     mkdirSync(evidence, { recursive: true });
     const observation = JSON.parse(
       readFileSync(
-        "../.superpowers/figma/q1/evidence/live-turn-terminal.json",
+        "../.verification/figma/q1/evidence/live-turn-terminal.json",
         "utf8",
       ),
     ) as { workspaceId: string; conversationPath: string; turnId: string };
@@ -334,11 +334,11 @@ test("New Conversation leaves retained answers, citations, refusal and draft int
   page,
 }) => {
   const evidence =
-    "../.superpowers/figma/q1/evidence/conversation-navigation-2026-10-09/distinct-destination";
+    "../.verification/figma/q1/evidence/conversation-navigation-2026-10-09/distinct-destination";
   mkdirSync(evidence, { recursive: true });
   const observation = JSON.parse(
     readFileSync(
-      "../.superpowers/figma/q1/evidence/live-turn-terminal.json",
+      "../.verification/figma/q1/evidence/live-turn-terminal.json",
       "utf8",
     ),
   ) as {
@@ -348,7 +348,7 @@ test("New Conversation leaves retained answers, citations, refusal and draft int
   };
   const refusal = JSON.parse(
     readFileSync(
-      "../.superpowers/figma/q1/evidence/live-refusal-terminal.json",
+      "../.verification/figma/q1/evidence/live-refusal-terminal.json",
       "utf8",
     ),
   ) as typeof observation;

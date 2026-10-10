@@ -12,4 +12,4 @@ build/
 evals/reports/*.json
 !evals/reports/.gitkeep
 minio-smoke.txt
-.superpowers/figma/q1/
+.verification/figma/q1/

@@ -26,7 +26,7 @@ for (const state of ["228:293", "228:326"]) {
   }) => {
     const unexpected = await prepareFixture(page, state);
     const evidence =
-      "../.superpowers/figma/q1/evidence/auth-outcome-cues-2026-10-10";
+      "../.verification/figma/q1/evidence/auth-outcome-cues-2026-10-10";
     fs.mkdirSync(evidence, { recursive: true });
     for (const theme of ["light", "dark"]) {
       await page.evaluate((value) => {
@@ -108,7 +108,7 @@ for (const state of ["154:431", "166:211", "166:290", "183:490"]) {
     );
     const box = (await block.boundingBox())!;
     const evidence =
-      "../.superpowers/figma/q1/evidence/workspace-state-origin-2026-10-10";
+      "../.verification/figma/q1/evidence/workspace-state-origin-2026-10-10";
     fs.mkdirSync(evidence, { recursive: true });
     const conforms =
       state === "183:490"
@@ -206,7 +206,7 @@ for (const width of [252, 200]) {
       );
     });
     const evidence =
-      "../.superpowers/figma/q1/evidence/rail-overflow-2026-10-10";
+      "../.verification/figma/q1/evidence/rail-overflow-2026-10-10";
     await page.screenshot({
       path: `${evidence}/workspace-menu-${usable ? "green" : "red"}-${width}.png`,
     });
@@ -233,7 +233,7 @@ for (const railMode of [
   }) => {
     const evidence = path.resolve(
       process.cwd(),
-      "../.superpowers/figma/q1/evidence/rail-overflow-2026-10-10",
+      "../.verification/figma/q1/evidence/rail-overflow-2026-10-10",
     );
     fs.mkdirSync(evidence, { recursive: true });
     if (railMode === "mobile")
@@ -418,7 +418,7 @@ type SourceMeasurement = {
   expected: Record<string, number | string>;
 };
 const prototypeEvidence =
-  "../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07";
+  "../.verification/figma/q1/evidence/operator-prototypes-2026-10-07";
 const sha256 = (filename: string) =>
   createHash("sha256").update(fs.readFileSync(filename)).digest("hex");
 
@@ -1758,7 +1758,7 @@ test.describe("source fixtures", () => {
     }) => {
       await page.setViewportSize(viewport);
       const evidence =
-        "../.superpowers/figma/q1/evidence/document-detail-action-height-2026-10-08";
+        "../.verification/figma/q1/evidence/document-detail-action-height-2026-10-08";
       fs.mkdirSync(evidence, { recursive: true });
       const requests: string[] = [];
       const writes: string[] = [];
@@ -1992,7 +1992,7 @@ test.describe("source fixtures", () => {
       page,
     }) => {
       const evidence =
-        "../.superpowers/figma/q1/evidence/document-upload-trigger-2026-10-08";
+        "../.verification/figma/q1/evidence/document-upload-trigger-2026-10-08";
       fs.mkdirSync(evidence, { recursive: true });
       const requests: string[] = [];
       const writes: string[] = [];
@@ -2143,7 +2143,7 @@ test.describe("source fixtures", () => {
       page,
     }) => {
       const evidence =
-        "../.superpowers/figma/q1/evidence/document-upload-trigger-2026-10-08/local-interactions";
+        "../.verification/figma/q1/evidence/document-upload-trigger-2026-10-08/local-interactions";
       fs.mkdirSync(evidence, { recursive: true });
       const apiRequests: string[] = [];
       const writes: string[] = [];
@@ -3262,7 +3262,7 @@ test.describe("source fixtures", () => {
             ),
           ).toBe(true);
         }
-        const evidence = `../.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-${lookup.state.replace(":", "-")}-${width}`;
+        const evidence = `../.verification/figma/q1/evidence/operator-prototypes-2026-10-07/implemented-${lookup.state.replace(":", "-")}-${width}`;
         writeLookupGeometry(evidence, {
           ...geometry,
           assets,
@@ -3404,7 +3404,7 @@ test.describe("source fixtures", () => {
         expect(geometry.notice.width).toBe(340);
         expect(geometry.notice.height).toBe(82);
       }
-      const evidence = `../.superpowers/figma/q1/evidence/archived-inspector-context-${width}`;
+      const evidence = `../.verification/figma/q1/evidence/archived-inspector-context-${width}`;
       writeLookupGeometry(evidence, geometry);
       await page.screenshot({
         path: `${evidence}.png`,
@@ -3517,7 +3517,7 @@ test.describe("source fixtures", () => {
         ).toBe(true);
       }
       await page.screenshot({
-        path: `../.superpowers/figma/q1/evidence/archived-evidence-notice-${width}.png`,
+        path: `../.verification/figma/q1/evidence/archived-evidence-notice-${width}.png`,
         animations: "disabled",
       });
       if (width === 1440)
@@ -3564,7 +3564,7 @@ test.describe("source fixtures", () => {
       page.getByRole("heading", { name: "Select a citation" }),
     ).toBeVisible();
     await page.screenshot({
-      path: "../.superpowers/figma/q1/evidence/parity-citation-deselected.png",
+      path: "../.verification/figma/q1/evidence/parity-citation-deselected.png",
       animations: "disabled",
     });
     await citation.focus();
@@ -3718,7 +3718,7 @@ test.describe("source fixtures", () => {
       await expect(button).not.toBeFocused();
       await page.keyboard.press("Tab");
       await expect(button).toBeFocused();
-      const evidence = `../.superpowers/figma/q1/evidence/archived-conversation-bar-2026-10-08/collapsed-128-119-${width}`;
+      const evidence = `../.verification/figma/q1/evidence/archived-conversation-bar-2026-10-08/collapsed-128-119-${width}`;
       writeLookupGeometry(evidence, {
         source: "128:119",
         composition: "collapsed",
@@ -3809,7 +3809,7 @@ test.describe("source fixtures", () => {
             document.documentElement.scrollWidth <= innerWidth,
         };
       });
-      const evidence = `../.superpowers/figma/q1/evidence/archived-conversation-bar-2026-10-08/implemented-128-119-${width}`;
+      const evidence = `../.verification/figma/q1/evidence/archived-conversation-bar-2026-10-08/implemented-128-119-${width}`;
       writeLookupGeometry(evidence, {
         source: "128:119",
         viewport: { width, height },
@@ -3919,7 +3919,7 @@ test.describe("source fixtures", () => {
         expect((await button.boundingBox())!.height).toBe(40);
       }
       await page.screenshot({
-        path: `../.superpowers/figma/q1/evidence/parity-workspace-${width}.png`,
+        path: `../.verification/figma/q1/evidence/parity-workspace-${width}.png`,
         animations: "disabled",
       });
       const restore = page.waitForRequest((request) =>
@@ -4116,7 +4116,7 @@ test.describe("source fixtures", () => {
     page,
   }) => {
     const evidence =
-      "../.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08";
+      "../.verification/figma/q1/evidence/otp-input-presentation-2026-10-08";
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
       for (const state of ["242:389", "242:272", "242:333", "246:311"]) {
@@ -4298,7 +4298,7 @@ test.describe("source fixtures", () => {
     context,
   }) => {
     const evidence =
-      "../.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08";
+      "../.verification/figma/q1/evidence/otp-input-presentation-2026-10-08";
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
@@ -4556,7 +4556,7 @@ test.describe("source fixtures", () => {
       );
       await input.fill("");
       await page.screenshot({
-        path: "../.superpowers/figma/q1/evidence/otp-input-presentation-2026-10-08/otp-resend-no-js-enabled.png",
+        path: "../.verification/figma/q1/evidence/otp-input-presentation-2026-10-08/otp-resend-no-js-enabled.png",
         animations: "disabled",
       });
     } finally {
@@ -4727,7 +4727,7 @@ test.describe("source fixtures", () => {
         page.getByRole("button", { name: "Ask", exact: true }),
       ).toBeDisabled();
       const focusEvidence =
-        "../.superpowers/figma/q1/evidence/composer-focus-2026-10-10";
+        "../.verification/figma/q1/evidence/composer-focus-2026-10-10";
       fs.mkdirSync(focusEvidence, { recursive: true });
       await page.screenshot({ path: `${focusEvidence}/${width}.png` });
       const scroll = page.locator(".conversation-scroll");
@@ -4786,7 +4786,7 @@ test.describe("guarded application journeys", () => {
     }) => {
       await page.setViewportSize(viewport);
       const evidence =
-        "../.superpowers/figma/q1/evidence/live-logout-prompt-2026-10-08";
+        "../.verification/figma/q1/evidence/live-logout-prompt-2026-10-08";
       fs.mkdirSync(evidence, { recursive: true });
       const identity = realm.users.find((user) => user.username === "m5-user");
       if (!identity) throw new Error("Owned synthetic identity missing.");
@@ -5054,7 +5054,7 @@ test.describe("guarded application journeys", () => {
     page,
   }) => {
     const evidence =
-      "../.superpowers/figma/q1/evidence/conversation-creation-2026-10-08";
+      "../.verification/figma/q1/evidence/conversation-creation-2026-10-08";
     fs.mkdirSync(evidence, { recursive: true });
     const identity = realm.users.find((user) => user.username === "m5-user");
     if (!identity) throw new Error("Owned synthetic identity missing.");
@@ -5290,7 +5290,7 @@ test.describe("guarded application journeys", () => {
       await expect(page).toHaveURL(/\/workspaces\/[^/]+$/);
     } finally {
       fs.writeFileSync(
-        "../.superpowers/figma/q1/evidence/live-create-navigation.json",
+        "../.verification/figma/q1/evidence/live-create-navigation.json",
         JSON.stringify(
           {
             creationStatus: 201,
@@ -5305,7 +5305,7 @@ test.describe("guarded application journeys", () => {
     }
     const workspaceId = new URL(page.url()).pathname.split("/")[2];
     const base = `/workspaces/${workspaceId}`;
-    const evidence = "../.superpowers/figma/q1/evidence";
+    const evidence = "../.verification/figma/q1/evidence";
     await page.goto(`${base}/documents`);
     await page
       .getByRole("button", { name: "Upload document", exact: true })
@@ -5547,7 +5547,7 @@ test.describe("guarded application journeys", () => {
     const observation = (await job.json()) as IngestionJobStatusResponse;
     const classification = classifyPDFObservation(observation);
     fs.writeFileSync(
-      "../.superpowers/figma/q1/evidence/live-pdf-observation.json",
+      "../.verification/figma/q1/evidence/live-pdf-observation.json",
       JSON.stringify(
         {
           workspaceId: workspace.id,
@@ -5568,7 +5568,7 @@ test.describe("guarded application journeys", () => {
     ).toBeVisible();
     await captureIdentity(
       page,
-      "../.superpowers/figma/q1/evidence/live-pdf-job.png",
+      "../.verification/figma/q1/evidence/live-pdf-job.png",
     );
   });
 
@@ -5580,10 +5580,10 @@ test.describe("guarded application journeys", () => {
       "Controller-processed preserved records required; no worker is started by this suite.",
     );
     const artifact = fs.existsSync(
-      "../.superpowers/figma/q1/evidence/live-turn-terminal.json",
+      "../.verification/figma/q1/evidence/live-turn-terminal.json",
     )
-      ? "../.superpowers/figma/q1/evidence/live-turn-terminal.json"
-      : "../.superpowers/figma/q1/evidence/live-turn-observation.json";
+      ? "../.verification/figma/q1/evidence/live-turn-terminal.json"
+      : "../.verification/figma/q1/evidence/live-turn-observation.json";
     test.skip(
       !fs.existsSync(artifact),
       "Requires the preserved owned Q1 Turn processed by the controller.",
@@ -5628,10 +5628,10 @@ test.describe("guarded application journeys", () => {
     ).toContainText("q1-report-structure.md");
     await captureIdentity(
       page,
-      "../.superpowers/figma/q1/evidence/live-answer-evidence.png",
+      "../.verification/figma/q1/evidence/live-answer-evidence.png",
     );
     fs.writeFileSync(
-      "../.superpowers/figma/q1/evidence/live-turn-terminal.json",
+      "../.verification/figma/q1/evidence/live-turn-terminal.json",
       JSON.stringify(
         {
           ...observation,
@@ -5646,7 +5646,7 @@ test.describe("guarded application journeys", () => {
     );
     if (
       !fs.existsSync(
-        "../.superpowers/figma/q1/evidence/live-refusal-pending.json",
+        "../.verification/figma/q1/evidence/live-refusal-pending.json",
       )
     ) {
       await page
@@ -5662,7 +5662,7 @@ test.describe("guarded application journeys", () => {
       expect(submitted.ok()).toBe(true);
       const pending = (await submitted.json()) as TurnResponse;
       fs.writeFileSync(
-        "../.superpowers/figma/q1/evidence/live-refusal-pending.json",
+        "../.verification/figma/q1/evidence/live-refusal-pending.json",
         JSON.stringify(
           {
             workspaceId: observation.workspaceId,
@@ -5685,7 +5685,7 @@ test.describe("guarded application journeys", () => {
       "Controller-processed preserved PDF required.",
     );
     const artifact =
-      "../.superpowers/figma/q1/evidence/live-pdf-observation.json";
+      "../.verification/figma/q1/evidence/live-pdf-observation.json";
     test.skip(
       !fs.existsSync(artifact),
       "Preserved owned PDF observation required.",
@@ -5726,10 +5726,10 @@ test.describe("guarded application journeys", () => {
     );
     await captureIdentity(
       page,
-      "../.superpowers/figma/q1/evidence/live-pdf-ready.png",
+      "../.verification/figma/q1/evidence/live-pdf-ready.png",
     );
     fs.writeFileSync(
-      "../.superpowers/figma/q1/evidence/live-pdf-terminal.json",
+      "../.verification/figma/q1/evidence/live-pdf-terminal.json",
       JSON.stringify({ ...ids, observation }, null, 2),
     );
   });
@@ -5742,7 +5742,7 @@ test.describe("guarded application journeys", () => {
       "Controller-processed preserved refusal required.",
     );
     const artifact =
-      "../.superpowers/figma/q1/evidence/live-refusal-pending.json";
+      "../.verification/figma/q1/evidence/live-refusal-pending.json";
     test.skip(
       !fs.existsSync(artifact),
       "Preserved owned refusal observation required.",
@@ -5787,10 +5787,10 @@ test.describe("guarded application journeys", () => {
     ).toBeVisible();
     await captureIdentity(
       page,
-      "../.superpowers/figma/q1/evidence/live-refusal.png",
+      "../.verification/figma/q1/evidence/live-refusal.png",
     );
     fs.writeFileSync(
-      "../.superpowers/figma/q1/evidence/live-refusal-terminal.json",
+      "../.verification/figma/q1/evidence/live-refusal-terminal.json",
       JSON.stringify(
         {
           ...ids,

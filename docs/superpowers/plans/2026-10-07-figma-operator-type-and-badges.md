@@ -33,7 +33,7 @@ dynamic provenance, disclosures and navigation. No shared primitive redesign.
 | `docs/development/figma-ui-visual-coverage.md` | Addressed typography/badges and truthful remaining gaps |
 
 No shared StatusBadge/Menu or stylesheet edit. Fresh five-source cache remains authoritative at
-`.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/`; original51 sources remain intact.
+`.verification/figma/q1/evidence/operator-prototypes-2026-10-07/`; original51 sources remain intact.
 
 ## Task 1: Match measured Operator typography and Trace badges
 

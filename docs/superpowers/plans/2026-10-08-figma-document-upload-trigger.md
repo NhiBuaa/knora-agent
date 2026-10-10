@@ -17,7 +17,7 @@
 - Every maintained frontend change requires format, then format:check.
 - No manual generated OpenAPI edits; no shared Button/CSS/token changes.
 - Only local fixture interactions, no API writes. Mobile is adaptation because no source mobile frame exists.
-- Preserve prior captures; all captures for this task use `.superpowers/figma/q1/evidence/document-upload-trigger-2026-10-08/`.
+- Preserve prior captures; all captures for this task use `.verification/figma/q1/evidence/document-upload-trigger-2026-10-08/`.
 
 ## File structure
 

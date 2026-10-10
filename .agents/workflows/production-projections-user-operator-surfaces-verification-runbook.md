@@ -1,6 +1,6 @@
-# M5 Codex-Skills Workflow
+# Production projections, user and operator surfaces: implementation and verification runbook
 
-Purpose: a local runbook for coordinating Milestone 5 with agents. This workflow uses the installed skills under C:/Users/NhiBuaa/.codex/skills, according to the skill policy in AGENTS.md.
+Purpose: coordinate implementation of backend document/chat projections and public contracts, the user interface, the operator interface, and end-to-end verification of authorization, ownership and regression behavior. This scope is recorded historically as Milestone 5 (M5). Use the installed skills according to the skill policy in AGENTS.md.
 
 ## M5 scope
 

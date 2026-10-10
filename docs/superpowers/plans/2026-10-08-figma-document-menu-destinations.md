@@ -15,7 +15,7 @@
 - Execute after native OTP functional work, in the existing Figma worktree with clean tracked source; record fresh BASE. One implementer, no children.
 - No backend/API/permission/lifecycle/schema/shared Menu/fixture changes. No artificial archive projection or navigation before server success.
 - Preserve If-Match, scope abort, duplicate submission guard and safe errors. No deletion confirmation, purge, outage or container cleanup.
-- Preserve all prior evidence; new evidence goes under `.superpowers/figma/q1/evidence/document-menu-destinations-2026-10-08/`.
+- Preserve all prior evidence; new evidence goes under `.verification/figma/q1/evidence/document-menu-destinations-2026-10-08/`.
 - Maintained frontend edits require format → format:check → typecheck. Exact originalBASE →finalHEAD review.
 
 ## Task 1: Navigate only after acknowledged Archive/Restore

@@ -10,7 +10,7 @@ import {
 // Keep review evidence when a subsequent focused Playwright invocation clears outputDir.
 const evidence = path.resolve(
   process.cwd(),
-  "../.superpowers/figma/q1/evidence",
+  "../.verification/figma/q1/evidence",
 );
 fs.mkdirSync(evidence, { recursive: true });
 const capturePath = (name: string) => path.join(evidence, name);

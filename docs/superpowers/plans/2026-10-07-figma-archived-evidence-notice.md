@@ -11,7 +11,7 @@ No restore action, backend mutation, new state owner or API client is needed.
 **Tech Stack:** React 18.3.1, TypeScript, Tailwind CSS v4, Vitest and Playwright.
 **Spec:** [Approved integration design](../specs/2026-10-05-figma-ui-integration-design.md).
 **Reference:** Figma 183:176, node183:304 read-only workspace notice, cached full MCP structure
-under foundations `.superpowers/figma/2026-10-05/workspaces/183-176.md`.
+under foundations `.verification/figma/2026-10-05/workspaces/183-176.md`.
 
 ## Global Constraints
 

@@ -16,7 +16,7 @@ identity, outcome or ownership changes are needed.
 **Spec:** [Approved Figma integration design](../specs/2026-10-05-figma-ui-integration-design.md).
 **Source:** Figma file BOVOx0bt1qYJFg9nBq6EaQ, prototype edge44 and archived Workspace screen
 183:176. Full cached MCP structures are retained in the foundations worktree under
-`.superpowers/figma/2026-10-05/`; read structure before comparing PNGs.
+`.verification/figma/2026-10-05/`; read structure before comparing PNGs.
 **Diagnosis:** Q1 coverage document records both unimplemented behaviors. Repeated citation
 selection flows directly to `setSelection`; the composer only receives a Conversation restore
 callback when the Conversation itself is archived. Workspace archive also makes it read-only,

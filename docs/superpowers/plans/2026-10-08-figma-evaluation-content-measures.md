@@ -30,7 +30,7 @@ relative measures determine presentation; backend projections remain unchanged.
 | `docs/development/figma-ui-visual-coverage.md` | Addressed relative geometry and residuals |
 
 Source: complete cached216:755 and current geometry under
-`.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/`. No redundant source retrieval.
+`.verification/figma/q1/evidence/operator-prototypes-2026-10-07/`. No redundant source retrieval.
 No OperatorFrame/selector/Trace/sharedBadge edits; existing assets and dimensions remain invariants.
 
 ## Task 1: Match Evaluation relative content measures

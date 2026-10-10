@@ -63,7 +63,7 @@ content-origin difference from the Figma outer border.
 
 Fresh five Operator contexts were read directly through Figma MCP. Their complete structures,
 uncropped whole-frame screenshots and measurements are cached under
-`.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/`. Source frames are1440×960;
+`.verification/figma/q1/evidence/operator-prototypes-2026-10-07/`. Source frames are1440×960;
 returned screenshots1024×683 have no annotation strip. Original51 sources remain preserved.
 The missing caret was exported through MCP, then fetched using its explicit download instruction.
 Local `bab86.svg` is331bytes, intrinsic11.4×6.4, SHA256
@@ -105,7 +105,7 @@ The generated storage-proof classifier removed by `clean` was rebuilt with the e
 passing full-Maven or native reset gate. No maintained dependency or cache change was made.
 
 Detailed root logs and exit files are preserved at
-`.superpowers/figma/q1/evidence/regression-preflight/`; owning task reports/reviews are retained
+`.verification/figma/q1/evidence/regression-preflight/`; owning task reports/reviews are retained
 in the respective ignored SDD directories. Geometry task preserved239 unrelated artifact hashes
 with zero drift; its five affected comparison captures were updated deliberately.
 
@@ -425,7 +425,7 @@ Workspace switching, cross-Workspace denial and missing-capability denial still 
 
 The final scoped run passed2 cases in49.9s after format, format:check and typecheck (all exit0).
 The earlier version passed2 in40.7s before the evidence path correction and retained edge59.
-New captures use `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`;
+New captures use `.verification/figma/q1/evidence/operator-tab-journeys-2026-10-08/`;
 the first run's scratch captures remain in this task's ignored SDD folder. Historical Operator
 captures were not targeted. Representative real trace and empty-lookup captures were inspected.
 Routine existing NO_COLOR/FORCE_COLOR warnings were emitted. This test-only change proves bounded
@@ -438,7 +438,7 @@ immediately before each click. After this assertion-only correction, `npm --pref
 format`, `npm --prefix frontend run format:check` and `npm --prefix frontend run typecheck` each
 exited 0. From `frontend`, `$env:FIGMA_TEST_MODE='application'; npm exec playwright test --
 --config=playwright.figma-operator.config.ts` passed both cases (50.6s, exit 0). The run refreshed
-the 14 captures in `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
+the 14 captures in `.verification/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
 
 ### Oct8 Documents back-filter owner correction
 
@@ -491,7 +491,7 @@ navigation, verifies the new active Conversation through authenticated GETs, che
 composer is empty, and hashes the source history before and after to prove it was not changed.
 The journey passed one Chromium case in 29.1s after the response-body assertion was corrected
 to read the persisted destination after navigation. Evidence is in
-`.superpowers/figma/q1/evidence/conversation-navigation-2026-10-09/`; the owning test is
+`.verification/figma/q1/evidence/conversation-navigation-2026-10-09/`; the owning test is
 `frontend/tests/e2e/figma-conversation-navigation.spec.ts`.
 
 This closes the grounded-answer, selected-citation and refusal starting-state creation edges.
@@ -570,7 +570,7 @@ The live account logout and forced sign-in journey was rerun against the retaine
 BFF logout, native Keycloak confirmation, null session/protected Workspace rejection, fresh
 password-empty sign-in, scoped preference clearing and the mobile no-horizontal-overflow check.
 The run adds fresh captures and sanitized journey records under
-`.superpowers/figma/q1/evidence/live-logout-prompt-2026-10-08/`. This strengthens transitions
+`.verification/figma/q1/evidence/live-logout-prompt-2026-10-08/`. This strengthens transitions
 88/89 live evidence; it does not prove natural session expiry, provider SSO-cookie reuse or
 whole-design parity.
 
@@ -588,7 +588,7 @@ fixtures. Both Chromium journeys passed (32.3s): the five-state authorized journ
 real workspace, document and answered question, then verified Operations, Trace lookup/detail,
 Evaluation unavailable, tab transitions 54–64, workspace switching and source provenance; the
 denial journey verified cross-Workspace 403 and missing-operator capability denial with no trace
-content. New captures are under `.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
+content. New captures are under `.verification/figma/q1/evidence/operator-tab-journeys-2026-10-08/`.
 This confirms the Operator interactions remain live; exact Figma source parity differences stay
 recorded in the coverage ledger.
 
@@ -699,7 +699,7 @@ The live `Documents live navigation preserves owned source and menu lifecycle` j
 passed1/1 using the isolated test identity/runtime, confirming real upload, Ready row/detail,
 menu navigation, archive/restore and truthful blocked deletion projection. Relevant Documents
 and Menu component tests passed70/70; format, format check, typecheck and diff check passed.
-Fresh structure is cached at `.superpowers/figma/q1/evidence/documents-source-2026-10-10/128-120.md`.
+Fresh structure is cached at `.verification/figma/q1/evidence/documents-source-2026-10-10/128-120.md`.
 No native/backend behavior was changed. Existing action foreground and status colors retain the
 approved accessible semantic palette; example filenames/state copy do not override backend facts.
 
@@ -711,7 +711,7 @@ explicitly uses `font-sans`. The browser test first failed on inherited Roboto S
 then passed. Five focused browser cases cover empty suggestions, retained and archived evidence,
 mobile sheet Escape and composer context;75 relevant component tests passed. The Inspector build
 exited0 before the subsequent token correction. Cached complete source is under
-`.superpowers/figma/q1/evidence/inspector-source-2026-10-10/`.
+`.verification/figma/q1/evidence/inspector-source-2026-10-10/`.
 
 Independent review found one P2 contrast regression in shared muted text. The Figma sample
 `#657A74` passes on white but falls below4.5:1 on page and subtle surfaces used by small Documents
@@ -820,7 +820,7 @@ available after the user's startup message.
 ## Oct10 current source comparison refresh
 
 Created51 dated source/current pairs and seven overview sheets under
-`.superpowers/figma/q1/evidence/source-review-2026-10-10/`, with original/current SHA256 values
+`.verification/figma/q1/evidence/source-review-2026-10-10/`, with original/current SHA256 values
 and unchanged cached context hashes. Original comparisons, sources and manifest are preserved.
 The refresh only crops the source's34px annotation strip for full screens; the10 compact
 panel/response schematics retain their intrinsic geometry and do not define full-screen parity.
@@ -895,7 +895,7 @@ and returns HTTP200 history exactly equal to the pre-expiry HTTP200 answered-his
 No retry submission or backend mutation is performed. Captures before/after recovery were inspected.
 
 Final sanitized/assertion-strengthened case passed1/1 in19.2s. Evidence lives in
-`.superpowers/figma/q1/evidence/session-expiry-2026-10-10/`. This covers browser interaction with
+`.verification/figma/q1/evidence/session-expiry-2026-10-10/`. This covers browser interaction with
 real elapsed BFF expiry under a shortened fixture lifetime. It does not measure default TTL,
 provider refresh-token expiry, or successful retry submission; those are not implied by the result.
 
@@ -938,7 +938,7 @@ scrolling, footer pointer accessibility, loaded last-row reachability/focus, bot
 left-edge hit targets, Escape focus return, mobile outer containment/close focus return, no page
 horizontal overflow and no unexpected fixture API writes. All four cases passed in15.2s.
 Evidence, menu captures and retained RED artifacts are under
-`.superpowers/figma/q1/evidence/rail-overflow-2026-10-10/`.
+`.verification/figma/q1/evidence/rail-overflow-2026-10-10/`.
 
 The final minimum-width and mobile open-menu captures were individually inspected. Five historical
 short-list captures were preserved in `short-list-before/`; comparison differences are confined to
@@ -1022,7 +1022,7 @@ skips in2.1m. All51source cases audit visible solid action computed foregrounds 
 presence. Five further dark/reduced-motion cases passed9.9s, checking enabled primary white text
 in explicit/system dark, default and hover. Complete current Vitest passed418/418 across45files;
 format→format:check and TypeScript passed. Durable fixture/dark/build logs use
-`.superpowers/figma/q1/evidence/solid-action-colors-2026-10-10-*.log`.
+`.verification/figma/q1/evidence/solid-action-colors-2026-10-10-*.log`.
 The current production build then completed with exit0; existing Next image warnings remain.
 
 ### Independent review and current classification
@@ -1071,7 +1071,7 @@ declare the full objective complete or authorize integration.
   diagnostic source was removed; diagnostic JSON and failed/green logs are retained.
 - Fresh full pytest completed1640passed,16skipped,28warnings in336.00s, exit0, against only the
   owned disposable regression PostgreSQL5544. Durable log and result JSON are in
-  `.superpowers/figma/q1/evidence/completion-audit-2026-10-10/`.
+  `.verification/figma/q1/evidence/completion-audit-2026-10-10/`.
 - The ledger now uses the approved owners U1Workspace/U2Documents/U3Conversation/O1Operator.
   Ten incomplete evidence paths were repaired. All51reference rows,89unique transition rows
   and159named artifacts exist; all16production asset entries are nonempty and match manifest
@@ -1082,7 +1082,7 @@ declare the full objective complete or authorize integration.
   This is recorded as a first-run timeout followed by a passing rerun, not an80/80 clean run.
   Fresh token tests passed10/10 and formatting check passed.
 
-Production evidence: `.superpowers/figma/q1/evidence/production-smoke-2026-10-10/`, including
+Production evidence: `.verification/figma/q1/evidence/production-smoke-2026-10-10/`, including
 `green-run.log`, `request-context-diagnostic.json`, `document-journey-green/journey.json` and native
 outcome captures. Composer evidence: `composer-focus-2026-10-10/{1440,390}.png` and its green log.
 
@@ -1121,7 +1121,7 @@ Final green live and affected source checks remain pending at this checkpoint.
 ## Oct10 follow-up evidence reconciliation
 
 The preceding pending statement is superseded by the retained sequential run in
-`.superpowers/figma/q1/evidence/live-interruption-2026-10-10/`:
+`.verification/figma/q1/evidence/live-interruption-2026-10-10/`:
 `browser-after-build.log` reports **1 passed (2.1m)**; `controller-after-build.log`
 confirms actual lease-expiry recovery. The matching Workspace and Turn IDs in
 `controller.json` and `journey.json` establish an interrupted Turn, Retry without

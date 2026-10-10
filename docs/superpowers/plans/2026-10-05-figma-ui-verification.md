@@ -65,11 +65,11 @@ processes and preserve fixed environment/ownership guards.
 For native identity source visuals, use frontend/tests/e2e/support/FigmaThemeRenderer.java and
 figma-theme-export.mjs to render actual maintained FTL using pinned FreeMarker 2.3.32 and
 Keycloak 26.3.3 parent theme resources. Export deterministic HTML/build classes only to ignored
-.superpowers/figma/q1/native artifacts; serve production theme assets unchanged. Block native
+.verification/figma/q1/native artifacts; serve production theme assets unchanged. Block native
 form submission in fixtures. Disposable offline Maven/JDK image plus the existing owned cache
 may compile/render this test-only source; no provider/POM changes or runtime recovery deployment.
 These renders prove source appearance and input behaviour, not actual password/Vault/MFA gates.
-Modify the repository .gitignore to ignore only .superpowers/figma/q1/ generated source-render
+Modify the repository .gitignore to ignore only .verification/figma/q1/ generated source-render
 and comparison artifacts. Keep the maintained renderer/host/test sources tracked; do not add
 generated native HTML, resource copies, Java classes or screenshot outputs to the source commit.
 The diagnosed OTP cascade discrepancy may modify themes/knora/login/resources/css/knora.css:

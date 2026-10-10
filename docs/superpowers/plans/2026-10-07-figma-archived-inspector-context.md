@@ -29,7 +29,7 @@ All selected historical excerpts and other outcome states keep their existing ev
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | W5A unselected context desktop/mobile geometry and content-fit checks |
 | `docs/development/figma-ui-visual-coverage.md` | Correct W5A context-height status and retain other differences |
 
-Source: foundations cache `.superpowers/figma/2026-10-05/workspaces/183-176.md`, nodes187:218
+Source: foundations cache `.verification/figma/2026-10-05/workspaces/183-176.md`, nodes187:218
 and183:304. Inspector376wide; content padding18, gap14; context340×96, padding14/13, gap8,
 radius8; following archived notice340×82. Ordinary conversation sources retain146px contexts.
 

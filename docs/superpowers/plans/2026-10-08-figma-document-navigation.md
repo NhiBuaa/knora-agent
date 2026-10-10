@@ -17,7 +17,7 @@
 - Use owned isolated `knora-figma-e2e` runtime through `openFigmaLogin`; no environment overrides.
 - Synthetic data may be created and archived/restored through the existing authorized application; retain it after testing. No deletion submission, cleanup, worker, outage or credential configuration changes.
 - Every maintained frontend change requires format followed by format:check; run typecheck sequentially.
-- Preserve historical captures. This task writes only `.superpowers/figma/q1/evidence/document-navigation-2026-10-08/`.
+- Preserve historical captures. This task writes only `.verification/figma/q1/evidence/document-navigation-2026-10-08/`.
 - Execution follows Upload trigger independent approval, with a fresh clean tracked BASE. One implementer, no children.
 
 ## File structure and interfaces

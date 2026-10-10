@@ -51,7 +51,7 @@ Repository domain, issue-tracker, acceptance and Git rules apply throughout thes
 Record confirmed domain decisions in `CONTEXT.md` and relevant ADRs. Record session progress and
 next steps in repository documents when continuity is needed. These tasks do not require a
 separate skill. For Milestone 5, also follow
-[the M5 runbook](.agents/workflows/m5-codex-skills-workflow.md).
+[the M5 runbook](.agents/workflows/production-projections-user-operator-surfaces-verification-runbook.md).
 
 Do not install, activate, trust, or grant permissions to additional skills without explicit user
 authorization.

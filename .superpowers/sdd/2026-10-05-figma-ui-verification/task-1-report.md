@@ -21,7 +21,7 @@ unexercised transitions remain explicit below and in the coverage ledger.
 - Durable visual coverage: 51 desktop captures at 1440×960, 24 responsive captures across
   1024×768, 768×1024 and 390×844, and five dark captures. Affected captures were replaced
   after fixes. All 51 hashes now match current captures; affected sheets were regenerated.
-- Ignored evidence directory: `.superpowers/figma/q1/evidence/`. Important artifacts:
+- Ignored evidence directory: `.verification/figma/q1/evidence/`. Important artifacts:
   `source-comparisons.json`, `<id>-comparison.png`, seven `<group>-source-review.png` sheets,
   `live-create-navigation.json`, `live-turn-terminal.json`, `live-pdf-terminal.json`,
   `live-refusal-terminal.json`, and explicit `live-*.png` / `O*-live.png` images.

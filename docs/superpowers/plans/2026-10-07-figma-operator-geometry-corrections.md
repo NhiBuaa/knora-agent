@@ -37,7 +37,7 @@ metrics, candidate provenance, routing and all existing feature actions retain t
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Focused actual-component desktop geometry RED/GREEN/mobile preservation |
 | `docs/development/figma-ui-visual-coverage.md` | Correct addressed geometry statuses, preserve remaining gaps |
 
-Source cache `.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/` has five full MCP
+Source cache `.verification/figma/q1/evidence/operator-prototypes-2026-10-07/` has five full MCP
 contexts and comparison measurements. Local `frontend/public/icons/figma/a4e11.svg` exists.
 No shared Menu/StatusBadge primitive or stylesheet change. Amend scope before touching extra files.
 

@@ -87,7 +87,7 @@ if ($Mode -eq 'Rollback') {
     $profile = $saved.profile
 } else {
     if (-not $SnapshotPath) {
-        $folder = Join-Path (Split-Path $PSScriptRoot -Parent) '.superpowers/figma/keycloak-rollback'
+        $folder = Join-Path (Split-Path $PSScriptRoot -Parent) '.verification/figma/keycloak-rollback'
         $null = New-Item -ItemType Directory -Force -Path $folder
         $SnapshotPath = Join-Path $folder "$Project-$([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff')).json"
     }

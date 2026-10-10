@@ -30,7 +30,7 @@ natural layout with minimum regions and responsive growth. Canonical IDs and evi
 
 No edits to OperatorFrame, guidance, selectors, other Operator views or shared styles.
 Source: complete fresh direct MCP `216:635` and returned render at
-`.superpowers/figma/q1/evidence/trace-content-source-2026-10-08/216-635.md` and `216-635.png`.
+`.verification/figma/q1/evidence/trace-content-source-2026-10-08/216-635.md` and `216-635.png`.
 Complete prior frame source remains `operator-prototypes-2026-10-07/216-573.md`.
 No new assets in this inner region.
 

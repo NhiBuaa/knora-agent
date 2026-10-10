@@ -29,7 +29,7 @@
 | `frontend/tests/e2e/figma-ui-interactions.spec.ts` | Actual Operations browser geometry, mobile fit and capture |
 | `docs/development/figma-ui-visual-coverage.md` | Corrected measures and remaining deviations |
 
-Source: `.superpowers/figma/q1/evidence/operator-prototypes-2026-10-07/216-345.md` and matching
+Source: `.verification/figma/q1/evidence/operator-prototypes-2026-10-07/216-345.md` and matching
 current desktop/mobile JSON. Do not retrieve unchanged source again. This task follows Evaluation
 review because tests and coverage are shared files; do not dispatch implementations concurrently.
 

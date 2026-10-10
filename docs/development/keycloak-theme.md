@@ -82,7 +82,7 @@ credentials, verifies the result, and makes a repeated identical apply a no-op. 
 .\scripts\configure-keycloak-auth-flow.ps1 -Mode Rollback -SnapshotPath '<saved snapshot>'
 ```
 
-Snapshot files belong to local `.superpowers/figma/keycloak-rollback` continuity evidence and
+Snapshot files belong to local `.verification/figma/keycloak-rollback` continuity evidence and
 must be retained until the realm change has an explicit disposition. They contain profile
 configuration and realm flags, not credentials, user records, tokens or password values.
 Daily SMTP remains operator configuration; enabling reset alone does not prove mail delivery.

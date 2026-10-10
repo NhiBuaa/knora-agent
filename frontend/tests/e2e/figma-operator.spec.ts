@@ -9,7 +9,7 @@ import type {
 } from "../../generated/knora-openapi";
 
 const evidence =
-  "../.superpowers/figma/q1/evidence/operator-tab-journeys-2026-10-08";
+  "../.verification/figma/q1/evidence/operator-tab-journeys-2026-10-08";
 
 async function login(page: Page, username: string) {
   const identity = realm.users.find((user) => user.username === username);
