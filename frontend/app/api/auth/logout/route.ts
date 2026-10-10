@@ -28,11 +28,36 @@ export async function POST(request: Request) {
     .map((value) => value.trim())
     .find((value) => value.startsWith(`${SESSION_COOKIE_NAME}=`))
     ?.slice(SESSION_COOKIE_NAME.length + 1);
-  invalidateSession(await decodeSession(sessionValue));
-  const response = NextResponse.redirect(
-    logoutDestination(expectedOrigin),
-    303,
-  );
+  const session = await decodeSession(sessionValue);
+  invalidateSession(session);
+  let destination = logoutDestination(expectedOrigin);
+  if (
+    session?.refreshToken &&
+    session.issuer === process.env.KEYCLOAK_ISSUER &&
+    destination.pathname.endsWith("/protocol/openid-connect/logout")
+  ) {
+    const endpoint = new URL(destination);
+    endpoint.search = "";
+    const body = new URLSearchParams({
+      client_id: process.env.KEYCLOAK_CLIENT_ID ?? "knora-web",
+      refresh_token: session.refreshToken,
+    });
+    if (process.env.KEYCLOAK_CLIENT_SECRET)
+      body.set("client_secret", process.env.KEYCLOAK_CLIENT_SECRET);
+    try {
+      const result = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
+      if (result.ok) destination = new URL("/", expectedOrigin);
+    } catch {
+      // Browser logout remains available when server logout cannot be confirmed.
+    }
+  }
+  const response = NextResponse.redirect(destination, 303);
   const cookie = clearSessionCookie();
   response.cookies.set(cookie.name, cookie.value, cookie.options as never);
   const preference = clearPreferenceCookie();
