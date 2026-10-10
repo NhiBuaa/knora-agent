@@ -52,13 +52,67 @@ afterEach(() => {
 });
 
 describe("document management", () => {
+  it("explains a terminal PDF text failure on initial detail load", async () => {
+    vi.stubGlobal("fetch", async (url: string) =>
+      jsonResponse(
+        url.includes("/ingestion-jobs/")
+          ? {
+              status: "failed",
+              failure_reason: "terminal_input",
+              error_code: "PDF_TEXT_INSUFFICIENT",
+            }
+          : {
+              ...document,
+              ingestion_job_id: "failed-job",
+              ingestion_status: "failed",
+              serving_state: "unavailable",
+              answer_availability: "unavailable",
+            },
+      ),
+    );
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-1"
+        capabilities={["documents:write"]}
+      />,
+    );
+    expect(
+      await screen.findByText(
+        /This PDF does not contain enough extractable text/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/OCR/)).toBeInTheDocument();
+  });
+  it("archives on the list and reloads its authoritative contents", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [document] }))
+      .mockResolvedValueOnce(jsonResponse({ ...document, archived: true }))
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }));
+    vi.stubGlobal("fetch", request);
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByRole("link", { name: "guide.pdf" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for guide.pdf" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive document" }));
+    await screen.findByText("No documents yet.");
+    expect(
+      screen.queryByRole("link", { name: "guide.pdf" }),
+    ).not.toBeInTheDocument();
+  });
   it("does not show an empty state while documents are still loading", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise(() => {})),
     );
     render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
-    expect(screen.getByText("Loading documents…")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Loading documents" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("No documents yet.")).not.toBeInTheDocument();
   });
 

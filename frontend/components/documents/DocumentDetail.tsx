@@ -20,6 +20,7 @@ import {
   statusClasses,
 } from "@/lib/documents/presentation";
 import { Button } from "@/components/ui/Button";
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import { DeletionRequestDialog } from "./DeletionRequestDialog";
 import "./documents.css";
 
@@ -79,13 +80,26 @@ export function DocumentDetail({
         setDocument(loaded);
         if (loaded.ingestion_job_id && jobIsActive(loaded.ingestion_status))
           setJobId(loaded.ingestion_job_id);
-        else setJobId(null);
+        else {
+          setJobId(null);
+          if (loaded.ingestion_job_id && loaded.ingestion_status === "failed") {
+            const diagnostic = await browserRequest(
+              `${path}/ingestion-jobs/${encodeURIComponent(loaded.ingestion_job_id)}`,
+              { signal: controller.signal },
+            );
+            if (!controller.signal.aborted && diagnostic.ok) {
+              const status =
+                (await diagnostic.json()) as IngestionJobStatusResponse;
+              if (!controller.signal.aborted) setJobStatus(status);
+            }
+          }
+        }
       } catch {
         if (!controller.signal.aborted)
           setError("Unable to load document. Reload to try again.");
       }
     },
-    [documentPath],
+    [documentPath, path],
   );
 
   useEffect(() => {
@@ -299,7 +313,7 @@ export function DocumentDetail({
         )}
       </p>
     ) : (
-      <p>Loading document…</p>
+      <LeafLoading label="Loading document" />
     );
   const observed =
     jobStatus && jobId
@@ -471,7 +485,9 @@ export function DocumentDetail({
             )}
             {jobStatus?.failure_reason && (
               <p role="alert" className="mt-3 mb-0 text-sm text-signature">
-                Ingestion failure: {jobStatus.failure_reason}
+                {jobStatus.error_code === "PDF_TEXT_INSUFFICIENT"
+                  ? "This PDF does not contain enough extractable text. For scanned or image-based pages, apply OCR and upload a searchable PDF. Reprocessing the same source with the same extractor will not add missing text."
+                  : `Ingestion failure: ${jobStatus.error_code ?? jobStatus.failure_reason}`}
               </p>
             )}
             {jobStatus?.status === "retry_scheduled" &&

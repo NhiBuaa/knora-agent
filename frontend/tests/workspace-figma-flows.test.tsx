@@ -164,6 +164,29 @@ it("states limited document management access from capabilities without inventin
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status });
 }
+it("archives from management without leaving the workspace list", async () => {
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url.endsWith("/archive")) return json({ ...workspace, archived: true });
+    if (url.endsWith("/resolve"))
+      return json({
+        state: "ACTIVE",
+        workspace: { ...workspace, id: "other" },
+      });
+    return json({ ok: true });
+  });
+  render(<WorkspaceManagement initialWorkspaces={[workspace]} />);
+  fireEvent.click(
+    screen.getByRole("button", { name: `Actions for ${workspace.name}` }),
+  );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Archive workspace" }));
+  fireEvent.click(screen.getByRole("button", { name: "Archive workspace" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
+  expect(push).not.toHaveBeenCalled();
+  expect(screen.getByRole("status")).toHaveClass("sr-only");
+});
 it("searches the entire workspace corpus through q and changes the signed selection only on action", async () => {
   const later = { ...workspace, id: "later", name: "Later-page workspace" };
   const requests: Array<[string, RequestInit | undefined]> = [];
@@ -364,7 +387,7 @@ it("keeps restored state truthful when resolution fails", async () => {
   expect(push).not.toHaveBeenCalled();
 });
 
-it("opens the backend-resolved next workspace after confirmed archive", async () => {
+it("reconciles selection after archive while staying on management", async () => {
   const next = { ...workspace, id: "next" };
   vi.stubGlobal("fetch", async (url: string) =>
     url.endsWith("/archive")
@@ -383,7 +406,6 @@ it("opens the backend-resolved next workspace after confirmed archive", async ()
       name: /^archive workspace$/i,
     }),
   );
-  await waitFor(() =>
-    expect(push).toHaveBeenCalledWith("/workspaces/next/conversations"),
-  );
+  await waitFor(() => expect(refresh).toHaveBeenCalled());
+  expect(push).not.toHaveBeenCalled();
 });

@@ -42,12 +42,14 @@ export function ArchiveWorkspaceDialog({
   onConfirm,
   busy = false,
   error,
+  stayOnList = false,
 }: {
   workspace: WorkspaceResponse | null;
   onClose: () => void;
   onConfirm: () => void;
   busy?: boolean;
   error?: string | null;
+  stayOnList?: boolean;
 }) {
   return (
     <Dialog
@@ -67,17 +69,22 @@ export function ArchiveWorkspaceDialog({
         </span>
       </div>
       <p className="workspace-archive-explanation mt-4 text-xs leading-[18px] text-text-muted">
-        Its documents and conversations become read-only. If another active
-        workspace is available, Knora will switch to it. If none remain, you’ll
-        see the no-active-workspace state.
+        {stayOnList
+          ? "Its documents and conversations become read-only. You’ll remain on the workspace list."
+          : "Its documents and conversations become read-only. If another active workspace is available, Knora will switch to it. If none remain, you’ll see the no-active-workspace state."}
       </p>
       {error && <p role="alert">{error}</p>}
       <div className="workspace-dialog-actions mt-6 flex flex-wrap justify-end gap-2.5">
         <Button variant="secondary" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="signature" disabled={busy} onClick={onConfirm}>
-          {busy ? "Archiving…" : "Archive workspace"}
+        <Button
+          variant="signature"
+          disabled={busy}
+          loading={busy}
+          onClick={onConfirm}
+        >
+          Archive workspace
         </Button>
       </div>
     </Dialog>

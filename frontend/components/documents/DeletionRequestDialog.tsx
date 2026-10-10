@@ -81,10 +81,11 @@ export function DeletionRequestDialog({
             <Button
               variant="signature"
               disabled={busy}
+              loading={busy}
               onClick={onConfirm}
               className="h-[38px] min-h-[38px] px-5 py-0 text-[13px]"
             >
-              {busy ? "Requesting…" : "Request deletion"}
+              Request deletion
             </Button>
           </div>
         </div>

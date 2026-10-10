@@ -5,6 +5,7 @@ import type { TurnResponse } from "@/generated/knora-openapi";
 import { CitationViewer } from "@/components/citations/CitationViewer";
 import { routes } from "@/lib/navigation/routes";
 import type { EvidenceSelection } from "@/lib/conversations/panel-preferences";
+import { isVietnameseQuestion } from "@/lib/conversations/question-language";
 export function processingLabel(stage: string | null) {
   switch (stage) {
     case "retrieving":
@@ -36,10 +37,7 @@ export function TurnCard({
   disabled?: boolean;
   sessionExpired?: boolean;
 }) {
-  const vietnamese =
-    /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(
-      turn.question,
-    );
+  const vietnamese = isVietnameseQuestion(turn.question);
   const evidencePrompt = vietnamese
     ? "Tìm bằng chứng hỗ trợ"
     : "Find supporting evidence";
@@ -92,23 +90,34 @@ export function TurnCard({
           <>
             <h2 className="font-display text-2xl font-semibold leading-8">
               {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
-                ? "I don’t have enough evidence to answer that."
-                : "I can’t answer that from the available evidence."}
+                ? vietnamese
+                  ? "Tôi chưa có đủ bằng chứng để trả lời câu hỏi này."
+                  : "I don’t have enough evidence to answer that."
+                : vietnamese
+                  ? "Tôi không thể trả lời câu hỏi này dựa trên bằng chứng hiện có."
+                  : "I can’t answer that from the available evidence."}
             </h2>
             <p className="text-sm leading-[22px]">
-              Refused: {turn.result?.refusal_reason}
+              {vietnamese ? "Lý do từ chối" : "Refused"}:{" "}
+              {turn.result?.refusal_reason}
             </p>
             <span className="m-0 w-fit rounded-full border border-signature bg-signature/10 px-2 py-1 text-[11px] text-signature">
               {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
-                ? "Insufficient evidence"
-                : "Controlled refusal"}
+                ? vietnamese
+                  ? "Chưa đủ bằng chứng"
+                  : "Insufficient evidence"
+                : vietnamese
+                  ? "Từ chối có kiểm soát"
+                  : "Controlled refusal"}
             </span>
             <div className="flex flex-wrap gap-2">
               <Link
                 href={routes.documents(workspaceId)}
                 className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
               >
-                Review indexed documents
+                {vietnamese
+                  ? "Xem tài liệu đã lập chỉ mục"
+                  : "Review indexed documents"}
               </Link>
               <button
                 disabled={disabled}

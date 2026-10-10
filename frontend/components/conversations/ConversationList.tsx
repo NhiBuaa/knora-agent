@@ -1,5 +1,6 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -241,9 +242,7 @@ export function ConversationList({
         </p>
       )}
       {searching && !collapsed && (
-        <p role="status" className="text-xs text-text-muted">
-          Searching…
-        </p>
+        <LeafLoading compact label="Searching conversations" />
       )}
       {!conversations.length && !searching && !collapsed && (
         <p className="text-xs text-text-muted">
