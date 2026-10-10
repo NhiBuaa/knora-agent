@@ -136,6 +136,11 @@ $ErrorActionPreference = 'Stop'
 $global:data = Get-Content -Raw -LiteralPath $StatePath | ConvertFrom-Json
 $global:tokenCount = 0
 $global:ownershipChecks = 0
+$global:targetBaseUrl = if ($global:data.targetParameters) { $global:data.targetParameters.baseUrl } else { 'http://127.0.0.1:8380' }
+$global:targetRealm = if ($global:data.targetParameters) { $global:data.targetParameters.realm } else { 'knora-dev' }
+$global:targetProject = if ($global:data.targetParameters) { $global:data.targetParameters.project } else { $global:data.owner }
+$global:targetPort = if ($global:data.targetParameters) { '8180' } else { '8380' }
+$global:targetService = if ($global:data.targetParameters) { 'keycloak-dev' } else { $global:data.service }
 function docker {
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'ps') {
@@ -163,16 +168,16 @@ function docker {
             $containerEnvironment += 'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
         }
         return ConvertTo-Json -Depth 100 -InputObject @(@{
-            Name='/knora-figma-e2e-figma-keycloak-1'; State=@{Running=$true}
+            Name=if ($global:data.targetParameters) { '/keycloak-dev-1' } else { '/knora-figma-e2e-figma-keycloak-1' }; State=@{Running=$true}
             Config=@{Image=$runtime.image;Cmd=$runtime.command;Entrypoint=$runtime.entrypoint
                 Env=$containerEnvironment;Labels=@{
-                'com.docker.compose.project'=$global:data.owner
-                'com.docker.compose.service'=$global:data.service
+                'com.docker.compose.project'=$global:targetProject
+                'com.docker.compose.service'=$global:targetService
                 'com.docker.compose.project.working_dir'=$global:data.workingDir
                 'com.docker.compose.project.config_files'=$runtime.configFiles
             }}
             Mounts=$runtime.mounts
-            NetworkSettings=@{Ports=@{'8080/tcp'=@(@{HostIp=$global:data.hostIp;HostPort='8380'})}}
+            NetworkSettings=@{Ports=@{'8080/tcp'=@(@{HostIp=$global:data.hostIp;HostPort=$global:targetPort})}}
         })
     }
     if ($args[0] -eq 'compose' -and 'config' -in $args) {
@@ -211,14 +216,14 @@ function Get-Acl {
 }
 function Invoke-RestMethod {
     param($Method='Get', $Uri, $Headers, $ContentType, $Body, $TimeoutSec)
-    $realmUri = 'http://127.0.0.1:8380/admin/realms/knora-dev'
-    if ($Uri -eq 'http://127.0.0.1:8380/realms/master/protocol/openid-connect/token' -and
+    $realmUri = "$global:targetBaseUrl/admin/realms/$global:targetRealm"
+    if ($Uri -eq "$global:targetBaseUrl/realms/master/protocol/openid-connect/token" -and
         $Method -eq 'Post') {
         $global:tokenCount++
         return @{access_token="NEVER_PRINT_TOKEN_$global:tokenCount"}
     }
-    if ($Uri -eq 'http://127.0.0.1:8380/realms/knora-dev/.well-known/openid-configuration') {
-        return @{issuer='http://127.0.0.1:8380/realms/knora-dev'}
+    if ($Uri -eq "$global:targetBaseUrl/realms/$global:targetRealm/.well-known/openid-configuration") {
+        return @{issuer="$global:targetBaseUrl/realms/$global:targetRealm"}
     }
     if ($Headers.Authorization -ne "Bearer NEVER_PRINT_TOKEN_$global:tokenCount") {
         throw 'Incorrect authorization boundary'
@@ -306,6 +311,13 @@ function Invoke-RestMethod {
 try {
     foreach ($action in ($Actions -split ',')) {
         $parameters = @{AdminUsername='NEVER_PRINT_USERNAME';AdminPassword='NEVER_PRINT_PASSWORD'}
+        if ($global:data.targetParameters) {
+            $parameters += @{
+                BaseUrl=$global:data.targetParameters.baseUrl
+                Realm=$global:data.targetParameters.realm
+                Project=$global:data.targetParameters.project
+            }
+        }
         switch ($action) {
             'BreakClientOrigin' { $global:data.client.baseUrl=$null }
             'RecreateClient' { $global:data.client.id='recreated-client' }
@@ -326,6 +338,18 @@ try {
             'default' { & $ScriptPath @parameters }
             'BindOptIn' {
                 & $ScriptPath -Mode Bind -EnableIsolatedOtp @parameters -SnapshotPath $SnapshotPath
+            }
+            'PrimaryInspect' {
+                & $ScriptPath -Mode Inspect -EnablePrimaryOtp @parameters
+            }
+            'PrimaryDiff' {
+                & $ScriptPath -Mode Diff -EnablePrimaryOtp @parameters
+            }
+            'PrimaryBind' {
+                & $ScriptPath -Mode Bind -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
+            }
+            'PrimaryRestore' {
+                & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
             }
             'RestoreWrongId' {
                 $global:data.realm.id='recreated-realm'
@@ -349,13 +373,6 @@ try {
             }
             'RuntimePrepare' { & $ScriptPath -VaultPath $VaultPath @parameters }
             default {
-                if ($global:data.targetParameters) {
-                    $parameters += @{
-                        BaseUrl=$global:data.targetParameters.baseUrl
-                        Realm=$global:data.targetParameters.realm
-                        Project=$global:data.targetParameters.project
-                    }
-                }
                 & $ScriptPath -Mode $action @parameters -SnapshotPath $SnapshotPath
             }
         }
@@ -400,6 +417,7 @@ def run(
         "NEVER_PRINT_USERNAME",
         "NEVER_PRINT_ERROR_BODY_PASSWORD",
         "NEVER_PRINT_PROOF_SECRET",
+        "NEVER_PRINT_SMTP_PASSWORD",
     ):
         assert secret not in result.stdout + result.stderr
     return result, after
@@ -412,6 +430,88 @@ def test_read_only_modes_never_create_flow_or_change_binding(tmp_path: Path, act
     assert after["mutations"] == []
     assert after["realm"]["resetCredentialsFlow"] == "reset credentials"
     assert not (tmp_path / "snapshot.json").exists()
+
+
+def primary_data(*, smtp_server: dict | None = None) -> dict:
+    data = state()
+    data["targetParameters"] = {
+        "baseUrl": "http://127.0.0.1:8180",
+        "realm": "knora-dev",
+        "project": "knora-dev",
+    }
+    data["realm"]["smtpServer"] = smtp_server
+    return data
+
+
+def test_primary_target_rejects_wrong_endpoint_before_ownership(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    data["targetParameters"]["baseUrl"] = "http://127.0.0.1:8380"
+    result, after = run(tmp_path, data, "PrimaryInspect")
+    assert result.returncode != 0
+    assert "OTP_PRIMARY_TARGET_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+
+
+def test_primary_inspect_rejects_realm_mismatch(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    data["realm"]["realm"] = "foreign-realm"
+    result, after = run(tmp_path, data, "PrimaryInspect")
+    assert result.returncode != 0
+    assert "OTP_REALM_REPRESENTATION_REJECTED" in result.stderr
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize("action", ["PrimaryInspect", "PrimaryDiff"])
+@pytest.mark.parametrize("smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}])
+def test_primary_read_only_modes_redact_and_stabilize_smtp_metadata(
+    tmp_path: Path, action: str, smtp_server: dict | None
+) -> None:
+    result, after = run(tmp_path, primary_data(smtp_server=smtp_server), action)
+    assert result.returncode == 0, result.stderr
+    inspection = json.loads(result.stdout.strip())
+    assert set(inspection["smtp"]) == {
+        "auth",
+        "configured",
+        "from",
+        "host",
+        "passwordConfigured",
+        "port",
+        "starttls",
+        "user",
+    }
+    assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize("smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}])
+def test_primary_restore_snapshot_has_full_smtp_shape(
+    tmp_path: Path, smtp_server: dict | None
+) -> None:
+    data = primary_data(smtp_server=smtp_server)
+    prepared(data)
+    result, after = run(tmp_path, data, "PrimaryBind,PrimaryRestore")
+    assert result.returncode == 0, result.stderr
+    saved = json.loads((tmp_path / "snapshot.json").read_text(encoding="utf-8-sig"))
+    assert set(saved["smtp"]) == {
+        "auth",
+        "configured",
+        "from",
+        "host",
+        "passwordConfigured",
+        "port",
+        "starttls",
+        "user",
+    }
+    assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+    expected_smtp = None if smtp_server is None else {
+        "host": "mail",
+        "port": "",
+        "from": "",
+        "user": "",
+        "auth": False,
+        "starttls": False,
+    }
+    assert after["realm"]["smtpServer"] == expected_smtp
 
 
 @pytest.mark.parametrize(

@@ -22,7 +22,10 @@ $expectedService = if ($primaryTarget) { 'keycloak-dev' } else { 'figma-keycloak
 function Get-SmtpMetadata {
     param($RealmRepresentation)
     $smtp = $RealmRepresentation.smtpServer
-    if ($null -eq $smtp) { return @{ configured = $false } }
+    if ($null -eq $smtp) {
+        return @{ configured = $false; host = ''; port = ''; from = ''; user = ''
+            auth = $false; starttls = $false; passwordConfigured = $false }
+    }
     return @{ configured = [bool]($smtp.host -or $smtp.port -or $smtp.from -or $smtp.user -or $smtp.password)
         host = if ($null -eq $smtp.host) { '' } else { [string]$smtp.host }
         port = if ($null -eq $smtp.port) { '' } else { [string]$smtp.port }
@@ -310,7 +313,10 @@ try {
         }
         if ($current.resetCredentialsFlow -eq $alias) { throw 'OTP_BOUND_SETTINGS_CONFLICT' }
         if (-not $SnapshotPath) {
-            $folder = Join-Path $repositoryRoot '.superpowers/sdd/2026-10-08-figma-otp-native-runtime/snapshots'
+            $folderName = if ($primaryTarget) {
+                '.superpowers/sdd/2026-10-10-main-runtime-email-otp-gmail-smtp/snapshots'
+            } else { '.superpowers/sdd/2026-10-08-figma-otp-native-runtime/snapshots' }
+            $folder = Join-Path $repositoryRoot $folderName
             $null = New-Item -ItemType Directory -Force -Path $folder
             $SnapshotPath = Join-Path $folder "binding-$([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff')).json"
         }
@@ -380,6 +386,13 @@ try {
         $verified = Invoke-OtpAdmin -Uri $realmUri
         if ($verified.id -ne $realmId) { throw 'id' }
         foreach ($name in $desired.Keys) {
+            if ($name -eq 'smtpServer' -and $primaryTarget) {
+                $actualSmtp = Get-SmtpMetadata $verified
+                $expectedSmtp = Get-SmtpMetadata @{ smtpServer = $desired[$name] }
+                if (($actualSmtp | ConvertTo-Json -Compress) -cne
+                    ($expectedSmtp | ConvertTo-Json -Compress)) { throw 'setting' }
+                continue
+            }
             if ($verified.$name -ne $desired[$name] -and -not
                 ($name -eq 'emailTheme' -and -not $verified.$name -and -not $desired[$name])) { throw 'setting' }
         }
