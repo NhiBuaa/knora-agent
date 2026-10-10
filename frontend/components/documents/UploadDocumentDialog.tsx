@@ -169,10 +169,11 @@ export function UploadDocumentDialog({
           <Button
             type="submit"
             disabled={!file || busy}
+            loading={busy}
             className="h-[38px] min-h-[38px] px-3 py-0 text-[13px]"
           >
             <span aria-hidden="true">↑</span>
-            {busy ? "Uploading…" : "Upload document"}
+            Upload document
           </Button>
         </div>
       </form>

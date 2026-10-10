@@ -110,6 +110,7 @@ export function WorkspaceHome({
           <Button
             variant="secondary"
             disabled={restoring}
+            loading={restoring}
             onClick={() => void restore()}
           >
             Restore workspace

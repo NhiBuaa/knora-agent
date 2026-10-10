@@ -1,5 +1,6 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -237,7 +238,7 @@ export function WorkspaceSelector({
         <button
           ref={trigger}
           type="button"
-          className="workspace-selector-trigger flex min-w-0 items-center gap-1.5 border-0 bg-transparent p-0 text-sm font-semibold text-text-primary"
+          className="workspace-selector-trigger flex min-w-0 items-center gap-1.5 rounded-md border-0 bg-transparent px-2 py-1 text-sm transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-action font-semibold text-text-primary"
           aria-label={`Switch workspace${current ? `: ${current.name}` : ""}`}
           aria-expanded={open}
           disabled={disabled}
@@ -245,11 +246,13 @@ export function WorkspaceSelector({
         >
           <span className="truncate">
             {current?.name ??
-              (unavailable
-                ? "Workspace unavailable"
-                : workspaceId
-                  ? "Loading workspace…"
-                  : "Choose workspace")}
+              (unavailable ? (
+                "Workspace unavailable"
+              ) : workspaceId ? (
+                <LeafLoading compact label="Loading workspace" />
+              ) : (
+                "Choose workspace"
+              ))}
           </span>
           <span
             className={
@@ -348,7 +351,7 @@ export function WorkspaceSelector({
               </button>
             ))}
           </div>
-          {loading && <p role="status">Loading workspaces…</p>}
+          {loading && <LeafLoading label="Loading workspaces" />}
           {!loading && !error && !items.length && (
             <p>
               {query.trim() ? "No workspaces found" : "No active workspace"}

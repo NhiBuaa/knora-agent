@@ -1,5 +1,6 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, {
   FormEvent,
   useCallback,
@@ -535,7 +536,7 @@ function ConversationViewState({
       }
     >
       <h1 className="sr-only">{projection.title}</h1>
-      {loading && <p className="text-sm text-text-muted">Loading history…</p>}
+      {loading && <LeafLoading label="Loading conversation history" />}
       {!loading && !turns.length && !error && !sessionExpired && (
         <ConversationEmpty
           onSuggest={suggest}

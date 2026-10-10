@@ -91,8 +91,9 @@ export function CreateWorkspaceDialog({
             className="min-h-[38px] min-w-[158px] text-[13px]"
             type="submit"
             disabled={busy || !name.trim()}
+            loading={busy}
           >
-            {busy ? "Creating…" : "Create workspace"}
+            Create workspace
           </Button>
         </div>
       </form>

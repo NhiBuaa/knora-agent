@@ -1,5 +1,6 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -324,7 +325,8 @@ export function DocumentList({
         setError(errorMessage("update document", response.status));
         return;
       }
-      router.push(routes.document(workspaceId, id));
+      if (document.archived) router.push(routes.document(workspaceId, id));
+      else await load(controller);
     } catch {
       if (!controller.signal.aborted)
         setError(
@@ -549,7 +551,7 @@ export function DocumentList({
           )}
         </p>
       )}
-      {loading && <p className="m-0">Loading documents…</p>}
+      {loading && <LeafLoading label="Loading documents" />}
       {!loading && !visible.length && !error && (
         <p className="m-0">
           {query.trim() ? "No documents found." : "No documents yet."}
@@ -632,6 +634,7 @@ export function DocumentList({
                         className="min-h-8 border-0 px-0 py-0 text-xs !text-action-text"
                         aria-label={`${document.ingestion_status === "failed" ? "Try again" : "Re-index"} ${document.source_name}`}
                         disabled={busy.includes(document.document_id)}
+                        loading={busy.includes(document.document_id)}
                         onClick={() => void reprocess(document)}
                       >
                         {document.ingestion_status === "failed"

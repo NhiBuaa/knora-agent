@@ -1,5 +1,6 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, { useEffect, useState } from "react";
 import type {
   ToolLifecycleItemResponse,
@@ -60,7 +61,9 @@ export function ToolLifecycleDisplay({ workspaceId }: { workspaceId: string }) {
   return (
     <section aria-label="Tool lifecycle" className="tool-lifecycle-secondary">
       <h2>Tool lifecycle</h2>
-      {state.kind === "loading" && <p role="status">Loading tool lifecycle…</p>}
+      {state.kind === "loading" && (
+        <LeafLoading label="Loading tool lifecycle" />
+      )}
       {state.kind === "unavailable" && (
         <Notice
           kind="warning"

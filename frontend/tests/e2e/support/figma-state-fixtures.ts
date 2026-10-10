@@ -585,10 +585,10 @@ export async function prepareFixture(page: Page, state: string) {
       .click();
   await page.locator("[data-fixture-state]").waitFor();
   await page
-    .getByText("Loading history…", { exact: true })
+    .getByRole("status", { name: "Loading conversation history" })
     .waitFor({ state: "hidden" });
   await page
-    .getByText("Loading documents…", { exact: true })
+    .getByRole("status", { name: "Loading documents" })
     .waitFor({ state: "hidden" });
   return unexpected;
 }

@@ -1,6 +1,9 @@
 /* Original Figma SVGs overhang their smaller layout slots. Preserve the source
    dimensions and negative insets rather than resizing or redrawing the assets. */
 @layer components {
+  .workspace-selector-trigger img {
+    pointer-events: none;
+  }
   .workspace-caret-small {
     position: relative;
     display: inline-block;

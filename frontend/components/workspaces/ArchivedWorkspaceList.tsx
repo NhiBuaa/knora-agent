@@ -1,5 +1,6 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -154,9 +155,11 @@ export function ArchivedWorkspaceList({
           }}
         />
         <span>
-          {loading
-            ? "Searching…"
-            : `${items.length}${cursor ? "+ loaded" : ""} ${query.trim() ? "matches" : "archived workspaces"}`}
+          {loading ? (
+            <LeafLoading compact label="Searching archived workspaces" />
+          ) : (
+            `${items.length}${cursor ? "+ loaded" : ""} ${query.trim() ? "matches" : "archived workspaces"}`
+          )}
         </span>
       </div>
       <ul className="workspace-archives-list m-0 list-none p-0">
@@ -221,7 +224,11 @@ export function ArchivedWorkspaceList({
           </p>
         </div>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && (
+        <p role="status" className="sr-only">
+          {message}
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
     </section>
   );

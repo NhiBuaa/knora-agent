@@ -146,7 +146,7 @@ export function WorkspaceManagement({
           setError(
             "Workspace archived. Reload to select another active Workspace.",
           );
-        } else router.push(routes.workspace(resolution.workspace.id));
+        } else router.refresh();
       } else {
         const cleared = await fetch("/api/workspace-selection", {
           method: "DELETE",
@@ -155,7 +155,7 @@ export function WorkspaceManagement({
           setError(
             "Workspace archived. Reload to clear the previous selection.",
           );
-        } else router.push("/workspaces");
+        } else router.refresh();
       }
     } catch {
       setError(
@@ -289,7 +289,7 @@ export function WorkspaceManagement({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={renameBusy}>
+            <Button type="submit" disabled={renameBusy} loading={renameBusy}>
               Save name
             </Button>
           </div>
@@ -315,6 +315,7 @@ export function WorkspaceManagement({
         }}
       />
       <ArchiveWorkspaceDialog
+        stayOnList
         workspace={archiveTarget}
         busy={archiveBusy}
         error={archiveTarget ? error : null}
@@ -323,7 +324,11 @@ export function WorkspaceManagement({
           if (archiveTarget) void archive(archiveTarget);
         }}
       />
-      {message && <p role="status">{message}</p>}
+      {message && (
+        <p role="status" className="sr-only">
+          {message}
+        </p>
+      )}
       {error && !archiveTarget && <p role="alert">{error}</p>}
     </section>
   );

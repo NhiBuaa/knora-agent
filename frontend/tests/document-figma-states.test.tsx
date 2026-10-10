@@ -628,7 +628,7 @@ describe("Documents Figma lifecycle", () => {
     );
   });
 
-  it("opens the row menu and archives to the canonical detail after success", async () => {
+  it("opens the row menu and archives without leaving the list", async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(json({ documents: [ready] }))
@@ -649,11 +649,11 @@ describe("Documents Figma lifecycle", () => {
     await userEvent.click(
       screen.getByRole("menuitem", { name: "Archive document" }),
     );
-    await waitFor(() =>
-      expect(navigation.push).toHaveBeenCalledWith(
-        "/workspaces/ws-1/documents/doc-1",
-      ),
-    );
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("link", { name: "manual.pdf" }),
+    ).not.toBeInTheDocument();
     expect(fetcher.mock.calls[1][0]).toBe(
       "/api/v1/workspaces/ws-1/documents/doc-1/archive",
     );
@@ -731,11 +731,11 @@ describe("Documents Figma lifecycle", () => {
       fetcher.mock.calls.filter(([, init]) => init?.method === "POST"),
     ).toHaveLength(1);
     resolveArchive(json({ ...ready, archived: true }));
-    await waitFor(() =>
-      expect(navigation.push).toHaveBeenCalledWith(
-        "/workspaces/ws-1/documents/doc-1",
-      ),
-    );
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("link", { name: "manual.pdf" }),
+    ).not.toBeInTheDocument();
   });
 
   it.each([

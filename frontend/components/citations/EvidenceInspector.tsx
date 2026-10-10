@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CitationResponse, TurnResponse } from "@/generated/knora-openapi";
 import { routes } from "@/lib/navigation/routes";
 import { processingLabel } from "@/components/conversations/TurnCard";
+import { isVietnameseQuestion } from "@/lib/conversations/question-language";
 export function EvidenceInspector({
   workspaceId,
   citation,
@@ -15,6 +16,7 @@ export function EvidenceInspector({
   turn?: TurnResponse | null;
   workspaceArchived?: boolean;
 }) {
+  const vietnamese = isVietnameseQuestion(turn?.question ?? "");
   const working =
     turn && ["queued", "processing", "pending"].includes(turn.status);
   const interrupted = turn?.status === "interrupted";
@@ -33,7 +35,9 @@ export function EvidenceInspector({
       : interrupted || failed
         ? "Evidence unavailable"
         : refused
-          ? "No supporting citation"
+          ? vietnamese
+            ? "Không có trích dẫn hỗ trợ"
+            : "No supporting citation"
           : turn?.result?.decision === "ANSWER"
             ? "Select a citation"
             : "Evidence will appear here";
@@ -46,9 +50,13 @@ export function EvidenceInspector({
         : failed
           ? "SYSTEM ERROR"
           : insufficient
-            ? "INSUFFICIENT EVIDENCE"
+            ? vietnamese
+              ? "CHƯA ĐỦ BẰNG CHỨNG"
+              : "INSUFFICIENT EVIDENCE"
             : refused
-              ? "CONTROLLED REFUSAL"
+              ? vietnamese
+                ? "TỪ CHỐI CÓ KIỂM SOÁT"
+                : "CONTROLLED REFUSAL"
               : turn
                 ? "VERIFY THE ANSWER"
                 : "READY FOR VERIFICATION";
@@ -61,7 +69,9 @@ export function EvidenceInspector({
         : failed
           ? "The request could not be completed. Reload history to check its status."
           : refused
-            ? "Knora did not generate an unsupported answer."
+            ? vietnamese
+              ? "Knora không tạo câu trả lời thiếu bằng chứng."
+              : "Knora did not generate an unsupported answer."
             : turn
               ? "Choose a citation in the answer to inspect the exact supporting passage and its source context."
               : "When Knora uses a document to answer, the supporting passage will appear here for you to inspect.";
@@ -99,7 +109,9 @@ export function EvidenceInspector({
           </div>
         ) : refused ? (
           <p className="w-fit rounded-full border border-border bg-surface-subtle px-2 py-1 text-[11px] text-text-muted">
-            Available evidence reviewed
+            {vietnamese
+              ? "Đã xem xét bằng chứng hiện có"
+              : "Available evidence reviewed"}
           </p>
         ) : null}
         <blockquote
