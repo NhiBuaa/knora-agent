@@ -289,7 +289,7 @@ export function WorkspaceManagement({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={renameBusy}>
+            <Button type="submit" disabled={renameBusy} loading={renameBusy}>
               Save name
             </Button>
           </div>

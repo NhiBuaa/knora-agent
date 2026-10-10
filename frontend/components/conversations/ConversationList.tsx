@@ -450,6 +450,7 @@ export function ConversationList({
           </Button>
           <Button
             disabled={mutating}
+            loading={mutating}
             onClick={() => {
               if (archiveTarget) void mutate(archiveTarget, "archive");
             }}

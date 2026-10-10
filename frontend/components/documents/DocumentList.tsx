@@ -634,6 +634,7 @@ export function DocumentList({
                         className="min-h-8 border-0 px-0 py-0 text-xs !text-action-text"
                         aria-label={`${document.ingestion_status === "failed" ? "Try again" : "Re-index"} ${document.source_name}`}
                         disabled={busy.includes(document.document_id)}
+                        loading={busy.includes(document.document_id)}
                         onClick={() => void reprocess(document)}
                       >
                         {document.ingestion_status === "failed"

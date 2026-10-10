@@ -224,7 +224,11 @@ export function ArchivedWorkspaceList({
           </p>
         </div>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && (
+        <p role="status" className="sr-only">
+          {message}
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
     </section>
   );
