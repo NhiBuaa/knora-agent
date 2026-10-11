@@ -4112,6 +4112,79 @@ test.describe("source fixtures", () => {
     ).toBeFocused();
   });
 
+  test("native auth offers persistent explicit and system themes", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await prepareFixture(page, "228:212");
+    const light = page.getByRole("radio", { name: "Light", exact: true });
+    await light.check();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    expect(
+      await page
+        .locator("body")
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+    ).toBe("rgb(255, 255, 255)");
+    await page.reload();
+    await expect(light).toBeChecked();
+    await page.getByRole("radio", { name: "Dark", exact: true }).check();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await page.getByRole("radio", { name: "System", exact: true }).check();
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme");
+    expect(
+      await page
+        .locator("body")
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+    ).toBe("rgb(18, 32, 28)");
+    await page.emulateMedia({ colorScheme: "light" });
+    expect(
+      await page
+        .locator("body")
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+    ).toBe("rgb(255, 255, 255)");
+  });
+
+  test("native auth centers forms and portrait branding without clipping tall forms", async ({
+    page,
+  }) => {
+    for (const [width, height] of [
+      [1440, 960],
+      [1060, 890],
+      [390, 844],
+      [390, 500],
+    ]) {
+      await page.setViewportSize({ width, height });
+      for (const state of [
+        "228:212",
+        "237:251",
+        "242:272",
+        "242:333",
+        "242:389",
+        "246:404",
+      ]) {
+        await prepareFixture(page, state);
+        const main = await page.locator(".pf-v5-c-login__main").boundingBox();
+        expect(main).not.toBeNull();
+        const headerHeight = width <= 1100 ? 72 : 0;
+        if (main!.height <= height - headerHeight - 64) {
+          expect(
+            Math.abs(main!.y + main!.height / 2 - (height + headerHeight) / 2),
+          ).toBeLessThan(10);
+        }
+        expect(main!.y).toBeGreaterThanOrEqual(headerHeight + 24);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBeLessThanOrEqual(width);
+        if (headerHeight) {
+          const brand = await page.locator(".knora-brand").boundingBox();
+          expect(
+            Math.abs(brand!.y + brand!.height / 2 - headerHeight / 2),
+          ).toBeLessThan(2);
+        }
+      }
+    }
+  });
+
   test("native FTL reset presentation uses source labels and preserves accessible controls", async ({
     page,
   }) => {
