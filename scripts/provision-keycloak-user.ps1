@@ -38,6 +38,15 @@ try {
         }
     $headers = @{ Authorization = "Bearer $($token.access_token)" }
     $realmUri = "$BaseUrl/admin/realms/$Realm"
+    $profile = Invoke-RestMethod -Uri "$realmUri/users/profile" -Headers $headers
+    if (-not (@($profile.attributes) | Where-Object { $_.name -eq 'capabilities' })) {
+        $profile.attributes = @($profile.attributes) + @([pscustomobject]@{
+                name = 'capabilities'; displayName = 'capabilities'; multivalued = $true
+                permissions = @{ view = @('admin'); edit = @('admin') }; validations = @{}
+            })
+        Invoke-RestMethod -Method Put -Uri "$realmUri/users/profile" -Headers $headers `
+            -ContentType 'application/json' -Body ($profile | ConvertTo-Json -Depth 20) | Out-Null
+    }
     $encodedUsername = [Uri]::EscapeDataString($Username)
     $users = @(Invoke-RestMethod -Uri "$realmUri/users?username=$encodedUsername&exact=true" -Headers $headers)
 } catch {

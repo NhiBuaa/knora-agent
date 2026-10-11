@@ -37,6 +37,7 @@ $global:user = [pscustomobject]@{
     id = 'user-1'; username = 'alice';
     attributes = [pscustomobject]@{ department = @('research'); capabilities = @('operator') }
 }
+$global:profile = [pscustomobject]@{ attributes = @([pscustomobject]@{ name = 'email' }) }
 function docker {
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'ps') { return 'fixture-container' }
@@ -45,6 +46,10 @@ function docker {
 function Invoke-RestMethod {
     param($Method, $Uri, $Headers, $ContentType, $Body)
     if ($Method -eq 'Post') { return @{ access_token = 'test-only' } }
+    if ($Uri -like '*/users/profile') {
+        if ($Method -eq 'Put') { $global:profile = $Body | ConvertFrom-Json }
+        return $global:profile
+    }
     if ($Uri -like '*users?username=*') { return @($global:user) }
     if ($Method -eq 'Put') {
         $global:user.attributes = ($Body | ConvertFrom-Json).attributes
