@@ -1,6 +1,6 @@
 # Research: kiến trúc hiện tại và các boundary của Knora
 
-Ngày khảo sát: **2026-10-05**, múi giờ **Asia/Saigon**.  
+Ngày khảo sát: **2026-10-05**, múi giờ **Asia/Saigon**.
 Phạm vi: answering, ingestion, retrieval, evidence, generation, Conversations, tools, auth,
 Operator, provider ports, quyền sở hữu DB và tình trạng issue.
 
@@ -576,4 +576,3 @@ Câu hỏi chưa thể trả lời từ static inspection:
 
 Các câu hỏi này nên đi vào các research/acceptance track có số liệu. Báo cáo này cung cấp
 **bản đồ ownership và ứng viên seam cần cải thiện**, chưa tuyên bố Knora production-ready.
-
