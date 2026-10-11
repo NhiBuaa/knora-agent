@@ -42,6 +42,13 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
         "./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro",
         "./themes/knora:/opt/keycloak/themes/knora:ro",
         "keycloak_dev_data:/opt/keycloak/data",
+        {
+            "type": "bind",
+            "source": "${KNORA_PRIMARY_OTP_VAULT_PATH:-./test/fixtures/keycloak}",
+            "target": "/opt/keycloak/vault",
+            "read_only": True,
+            "bind": {"create_host_path": False},
+        },
     ]
     smtp_variables = {
         "KC_SMTP_HOST",
