@@ -192,6 +192,17 @@ body:has(.knora-auth) #kc-page-title {
   font: 600 22px/30px "Roboto Slab", serif;
 }
 
+.knora-brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.knora-brand-link:focus-visible {
+  outline: 3px solid var(--knora-focus);
+  outline-offset: 8px;
+  border-radius: 6px;
+}
+
 .knora-brand img {
   display: block;
   flex: none;
