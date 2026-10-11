@@ -313,7 +313,7 @@ body:has(.knora-auth) .pf-v5-c-login__main-header {
   display: none;
 }
 
-.knora-auth input:not([type="checkbox"]):not([type="hidden"]):not([type="submit"]) {
+.knora-auth input:not([type="checkbox"]):not([type="hidden"]):not([type="submit"]):not(.knora-otp-digit) {
   width: 100%;
   height: 40px;
   padding: 0 14px;

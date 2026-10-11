@@ -4299,7 +4299,13 @@ test.describe("source fixtures", () => {
     const evidence =
       "../.verification/figma/q1/evidence/otp-input-presentation-2026-10-08";
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    for (const width of [1440, 390]) {
+    for (const [width, colorScheme] of [
+      [1440, "light"],
+      [390, "light"],
+      [1440, "dark"],
+      [390, "dark"],
+    ] as const) {
+      await page.emulateMedia({ colorScheme });
       await page.setViewportSize({ width, height: width === 1440 ? 960 : 844 });
       for (const state of ["242:333", "246:311"]) {
         await page.route("**/native/blocked-action", (route) => route.abort());
@@ -4349,6 +4355,7 @@ test.describe("source fixtures", () => {
               fields: fields.map((field) => ({
                 ...box(field),
                 value: field.value,
+                border: getComputedStyle(field).border,
               })),
               gridColumns: getComputedStyle(grid).gridTemplateColumns,
               gap: getComputedStyle(grid).columnGap,
@@ -4359,7 +4366,7 @@ test.describe("source fixtures", () => {
               },
             };
           });
-        const target = `${evidence}/otp-empty-${state.replace(":", "-")}-${width}`;
+        const target = `${evidence}/otp-empty-${state.replace(":", "-")}-${width}-${colorScheme}`;
         writeLookupGeometry(target, geometry);
         await page.screenshot({
           path: `${target}.png`,
@@ -4375,6 +4382,11 @@ test.describe("source fixtures", () => {
             (field) => field.height === (width === 1440 ? 56 : 52),
           ),
         ).toBe(true);
+        expect(
+          geometry.fields.every((field) =>
+            field.border.startsWith("1px solid "),
+          ),
+        ).toBe(true);
         expect(geometry.gap).toBe(width === 1440 ? "10px" : "6px");
         expect(geometry.pageFits).toBe(true);
         expect(geometry.brand).toMatchObject({ loaded: true });
@@ -4383,10 +4395,18 @@ test.describe("source fixtures", () => {
         await digits.first().focus();
         await digits.first().press("Control+V");
         await expect(page.locator("#code")).toHaveValue("000042");
-        await expect(digits).toHaveValues(["0", "0", "0", "0", "4", "2"]);
+        expect(
+          await digits.evaluateAll((inputs) =>
+            inputs.map((input) => (input as HTMLInputElement).value),
+          ),
+        ).toEqual(["0", "0", "0", "0", "4", "2"]);
         for (const digit of await digits.all()) await digit.fill("");
         await expect(page.locator("#code")).toHaveValue("");
-        await expect(digits).toHaveValues(["", "", "", "", "", ""]);
+        expect(
+          await digits.evaluateAll((inputs) =>
+            inputs.map((input) => (input as HTMLInputElement).value),
+          ),
+        ).toEqual(["", "", "", "", "", ""]);
         writeLookupGeometry(target, {
           ...geometry,
           inputTransitions: { pasted: "000042", cleared: "" },
