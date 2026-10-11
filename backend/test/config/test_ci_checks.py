@@ -158,6 +158,9 @@ def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:
         ("backend/test/adapters/cli/test_dev_launcher.py::test_launcher", "windows"),
         ("backend/test/adapters/cli/test_ollama_launcher.py::test_launcher", "windows"),
         ("backend/test/config/test_keycloak_email_otp.py::test_acl", "windows"),
+        ("backend/test/adapters/pdf/test_pypdf.py::test_child_eof", "windows"),
+        ("evals/test/test_process_probe.py::test_probe", "windows"),
+        ("evals/test/test_ollama_process_probe.py::test_probe", "windows"),
         (
             "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_blocks_a_child_that_exceeds_256_mib",
             "windows",
