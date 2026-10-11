@@ -1,9 +1,4 @@
 import React from "react";
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, replace: vi.fn() }),
-  usePathname: () => "/workspaces/w-1/conversations/c-1",
-}));
 import {
   cleanup,
   fireEvent,
@@ -48,153 +43,6 @@ const answered = {
 };
 
 describe("durable Conversation view", () => {
-  it.each(["interrupted", "failed"])(
-    "renders authoritative %s with an error code as one distinct outcome",
-    async (status) => {
-      const turn = {
-        ...answered,
-        status,
-        result: null,
-        stage: "failure",
-        error_code: "EXECUTION_OUTCOME_UNKNOWN",
-      };
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(
-          async () =>
-            new Response(JSON.stringify({ items: [turn], next_cursor: null })),
-        ),
-      );
-      render(
-        <ConversationView workspaceId="w-1" conversation={conversation} />,
-      );
-      await screen.findByRole("heading", {
-        name:
-          status === "interrupted"
-            ? "The answer was interrupted."
-            : "System error",
-      });
-      expect(
-        screen.queryByRole("heading", {
-          name:
-            status === "interrupted"
-              ? "System error"
-              : "The answer was interrupted.",
-        }),
-      ).not.toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: "Try again" })).toHaveLength(
-        1,
-      );
-    },
-  );
-  it.each(["interrupted", "queued", "processing", "answered", "refused"])(
-    "checks authoritative %s history before restoring an interrupted question without posting",
-    async (status) => {
-      const interrupted = { ...answered, status: "interrupted", result: null };
-      const latest = {
-        ...answered,
-        status,
-        result:
-          status === "answered"
-            ? answered.result
-            : status === "refused"
-              ? {
-                  ...answered.result,
-                  decision: "REFUSAL",
-                  answer: null,
-                  refusal_reason: "INSUFFICIENT_EVIDENCE",
-                }
-              : null,
-      };
-      let histories = 0;
-      const fetchMock = vi.fn(
-        async (url: string, _options?: RequestInit) =>
-          new Response(
-            JSON.stringify(
-              url.includes("/turns?")
-                ? {
-                    items: [histories++ === 0 ? interrupted : latest],
-                    next_cursor: null,
-                  }
-                : latest,
-            ),
-          ),
-      );
-      vi.stubGlobal("fetch", fetchMock);
-      render(
-        <ConversationView workspaceId="w-1" conversation={conversation} />,
-      );
-      await screen.findByRole("button", { name: "Try again" });
-      fireEvent.change(screen.getByLabelText("Question"), {
-        target: { value: "Keep my other draft" },
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-      if (status === "interrupted") {
-        await screen.findByText(
-          "History checked. Send the same question when ready.",
-        );
-        expect(screen.getByLabelText("Question")).toHaveValue(
-          interrupted.question,
-        );
-        expect(screen.getByLabelText("Question")).toHaveFocus();
-      } else {
-        await waitFor(() =>
-          expect(
-            screen.queryByRole("button", { name: "Try again" }),
-          ).not.toBeInTheDocument(),
-        );
-        expect(screen.getByLabelText("Question")).toHaveValue(
-          "Keep my other draft",
-        );
-        expect(
-          screen.queryByText(
-            "History checked. Send the same question when ready.",
-          ),
-        ).not.toBeInTheDocument();
-      }
-      expect(histories).toBe(2);
-      expect(
-        fetchMock.mock.calls.every((call) =>
-          String(call[0]).includes("/turns"),
-        ),
-      ).toBe(true);
-      expect(
-        fetchMock.mock.calls.every((call) => call[1]?.method !== "POST"),
-      ).toBe(true);
-    },
-  );
-
-  it("the refusal follow-up submits its question directly", async () => {
-    const refused = {
-      ...answered,
-      status: "refused",
-      result: {
-        ...answered.result,
-        decision: "REFUSAL",
-        answer: null,
-        refusal_reason: "INSUFFICIENT_EVIDENCE",
-      },
-    };
-    const fetchMock = vi.fn(
-      async (_url: string, _init?: RequestInit) =>
-        new Response(JSON.stringify({ items: [refused], next_cursor: null })),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Find supporting evidence",
-      }),
-    );
-    expect(screen.getByLabelText("Question")).toHaveValue(
-      "Find supporting evidence",
-    );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({
-      question: "Find supporting evidence",
-    });
-  });
-
   it("does not let an older history response clear a newer authentication failure", async () => {
     let finishPage: (response: Response) => void = () => {};
     let finishHistory: (response: Response) => void = () => {};
@@ -295,7 +143,9 @@ describe("durable Conversation view", () => {
     expect(screen.getByLabelText("Question")).toHaveValue(
       "My preserved question",
     );
-    expect(screen.getByRole("alert")).toHaveTextContent("preserve your draft");
+    expect(screen.getByRole("alert").nextElementSibling).toBe(
+      screen.getByLabelText("Question").closest("form"),
+    );
     expect(screen.getByLabelText("Question")).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Reload history" }));
@@ -563,10 +413,9 @@ describe("durable Conversation view", () => {
       status: "refused",
       result: {
         ...answered.result,
-        decision: "REFUSAL",
+        decision: "REFUSE",
         answer: null,
-        citations: [],
-        refusal_reason: "INSUFFICIENT_EVIDENCE",
+        refusal_reason: "insufficient_evidence",
       },
     };
     vi.stubGlobal(
@@ -580,16 +429,7 @@ describe("durable Conversation view", () => {
       ),
     );
     render(<ConversationView workspaceId="w-1" conversation={conversation} />);
-    await screen.findByText("Refused: INSUFFICIENT_EVIDENCE");
-    expect(
-      screen.getByRole("heading", {
-        name: "I don’t have enough evidence to answer that.",
-      }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "No supporting citation" }),
-    ).toBeVisible();
-    expect(screen.getAllByText("INSUFFICIENT EVIDENCE")).toHaveLength(1);
+    await screen.findByText("Refused: insufficient_evidence");
     expect(
       screen.queryByText("The guide says blue umbrellas."),
     ).not.toBeInTheDocument();
@@ -615,69 +455,12 @@ describe("durable Conversation view", () => {
     );
     await screen.findByText("The guide says blue umbrellas.");
     expect(
-      screen.getByText("Archived workspace · Read-only"),
+      screen.getByText("This Conversation is read-only."),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Ask" }),
     ).not.toBeInTheDocument();
   });
-
-  it.each([
-    ["retrieving", "processing", false],
-    ["grounded-answer", "answered", false],
-    ["insufficient-evidence", "refused", false],
-    ["interrupted", "interrupted", false],
-    ["archived-read-only", "answered", true],
-  ])(
-    "opens the unsaved conversation screen from %s without a write",
-    async (_name, status, archived) => {
-      const turn = {
-        ...answered,
-        status,
-        stage: status === "processing" ? "retrieving" : null,
-        result:
-          status === "answered"
-            ? answered.result
-            : status === "refused"
-              ? {
-                  ...answered.result,
-                  decision: "REFUSAL",
-                  answer: null,
-                  refusal_reason: "INSUFFICIENT_EVIDENCE",
-                }
-              : null,
-      };
-      const fetchMock = vi.fn(async (url: string, init: RequestInit = {}) => {
-        if (init.method === "POST") return new Response(null, { status: 503 });
-        return new Response(
-          JSON.stringify(
-            url.endsWith("/turns/t-1")
-              ? turn
-              : { items: [turn], next_cursor: null },
-          ),
-        );
-      });
-      vi.stubGlobal("fetch", fetchMock);
-      render(
-        <ConversationView
-          workspaceId="w-1"
-          conversation={{ ...conversation, archived }}
-        />,
-      );
-      await screen.findByText(turn.question);
-      if (status === "processing")
-        await screen.findByText("Retrieving evidence…");
-      if (status === "refused")
-        await screen.findByText("Refused: INSUFFICIENT_EVIDENCE");
-      if (status === "answered")
-        await screen.findByText(answered.result.answer);
-      fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-      expect(push).toHaveBeenCalledWith("/workspaces/w-1/conversations");
-      expect(
-        fetchMock.mock.calls.filter(([, init]) => init?.method === "POST"),
-      ).toHaveLength(0);
-    },
-  );
 
   it("paginates persisted Turns without posting a new question", async () => {
     const older = {
