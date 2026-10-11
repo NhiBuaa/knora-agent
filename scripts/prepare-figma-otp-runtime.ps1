@@ -90,6 +90,19 @@ function Assert-OtpVaultBoundary {
             $ancestor = $ancestor.Parent
         }
     } else { throw 'OTP_VAULT_GIT_BOUNDARY_REJECTED' }
+    if (-not $IsWindows) {
+        foreach ($path in $Directory, $EntryPath) {
+            $item = Get-Item -Force -LiteralPath $path
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'OTP_VAULT_ACCESS_REJECTED' }
+            $mode = [int]$item.UnixFileMode
+            $required = if ($item -is [IO.DirectoryInfo]) { 0x1C0 } else { 0x180 }
+            $identity = (& stat -c '%u:%g' -- $path).Trim()
+            if ($LASTEXITCODE -ne 0 -or $identity -cne '1000:0' -or $mode -ne $required) {
+                throw 'OTP_VAULT_ACCESS_REJECTED'
+            }
+        }
+        return
+    }
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $allowed = @($identity, 'S-1-5-18', 'S-1-5-32-544')
     foreach ($path in $Directory, $EntryPath) {
