@@ -28,6 +28,7 @@ import org.keycloak.sessions.AuthenticationSessionModel;
 /** Translates native reset POSTs. Policy, budgets, activation and consume belong to the service/store. */
 public final class EmailOtpResetAuthenticator implements Authenticator {
     private static final String PREFIX = "knora.emailOtp.";
+    private static final int CODE_TTL_SECONDS = 300;
     private final Function<KeycloakSession, OtpChallengeStore> stores;
     private final OtpChallengeService.CodeGenerator codes;
     private final Clock clock;
@@ -105,14 +106,20 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
             result = "resend".equals(intent) ? service.resend(scope, reference) : service.request(scope, email);
             var renderedReference = result.reference() != null ? result.reference() : reference;
             if (renderedReference == null) renderedReference = new OtpChallengeStore.ChallengeReference(UUID.randomUUID().toString(), 1);
+            long expiry = result.displayExpiresAt();
+            long currentExpiry = noteLong(auth, "expiresAt");
+            if ("resend".equals(intent) && reference != null
+                    && renderedReference.id().equals(reference.id())
+                    && renderedReference.generation() == reference.generation()
+                    && currentExpiry > 0) expiry = currentExpiry;
             remember(auth, email, renderedReference,
-                    result.retryAfterSeconds(), result.displayExpiresAt());
+                    result.retryAfterSeconds(), expiry);
             render(context, false, false);
         } catch (RuntimeException unavailable) {
             // Missing key/provider or transport failure never permits success or store/SMTP fallback.
             if ("request".equals(intent))
                 remember(auth, email, new OtpChallengeStore.ChallengeReference(UUID.randomUUID().toString(), 1),
-                        30, clock.millis() + 300_000);
+                        CODE_TTL_SECONDS, clock.millis() + CODE_TTL_SECONDS * 1000L);
             render(context, "verify".equals(intent), false);
         }
     }
@@ -207,10 +214,11 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
     private void render(AuthenticationFlowContext context, boolean invalid, boolean emailInvalid) {
         var auth = context.getAuthenticationSession();
         boolean otp = reference(auth) != null && validEmail(normalize(auth.getAuthNote(PREFIX + "email")));
-        long retry = noteLong(auth, "retryAt");
-        int seconds = (int) Math.max(0, Math.min(30, (retry - clock.millis() + 999) / 1000));
+        long expiry = noteLong(auth, "expiresAt");
+        int seconds = (int) Math.max(0, Math.min(CODE_TTL_SECONDS, (expiry - clock.millis() + 999) / 1000));
         var form = context.form().setAttribute("otpInvalid", otp && invalid).setAttribute("emailInvalid", emailInvalid)
                 .setAttribute("maskedEmail", mask(auth.getAuthNote(PREFIX + "email")))
+                .setAttribute("otpExpiresInSeconds", seconds)
                 .setAttribute("retryAfterSeconds", seconds);
         context.challenge(form.createForm(otp ? "knora-reset-otp.ftl" : "knora-reset-email.ftl"));
     }

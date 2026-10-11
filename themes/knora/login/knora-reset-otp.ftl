@@ -29,11 +29,11 @@
                         </#list>
                     </div>
                 </div>
-                <button class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit" name="intent" value="verify">${msg("knoraOtpVerify")}</button>
+                <button id="otp-verify" class="${properties.kcButtonClass!} ${properties.kcButtonPrimaryClass!}" type="submit" name="intent" value="verify">${msg("knoraOtpVerify")}</button>
                 <div class="knora-otp-utilities">
                     <button class="knora-text-button" type="submit" name="intent" value="change-email" formnovalidate>${msg("knoraOtpChangeEmail")}</button>
-                    <#assign retry = retryAfterSeconds!0>
-                    <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate data-ready-label="${msg("knoraOtpResend")}"><span id="otp-resend-label"><#if retry gt 0>${msg("knoraOtpResendPending")}<#else>${msg("knoraOtpResend")}</#if></span><#if retry gt 0> <span id="otp-retry" data-seconds="${retry?c}">${(retry / 60)?floor?string("00")}:${(retry % 60)?string("00")}</span></#if></button>
+                    <#assign expiry = otpExpiresInSeconds!retryAfterSeconds!0>
+                    <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate data-ready-label="${msg("knoraOtpResend")}"><span id="otp-resend-label"><#if expiry gt 0>${msg("knoraOtpResendPending")}<#else>${msg("knoraOtpResend")}</#if></span><#if expiry gt 0> <span id="otp-retry" data-seconds="${expiry?c}">${(expiry / 60)?floor?string("00")}:${(expiry % 60)?string("00")}</span></#if></button>
                 </div>
                 <p id="otp-expiry" class="knora-disclaimer">${msg("knoraOtpExpires")}</p>
             </form>
@@ -43,33 +43,58 @@
                 const code = document.getElementById('code');
                 const digits = Array.from(document.querySelectorAll('.knora-otp-digit'));
                 const form = code.closest('form');
+                const verify = document.getElementById('otp-verify');
+                let submitting = false;
+                let movingFocus = false;
                 const syncCode = () => {
                     code.value = digits.map((digit) => digit.value).join('');
                 };
-                const focusDigit = (index) => {
+                const submitWhenComplete = () => {
+                    if (submitting || !verify || digits.length !== 6 || digits.some((digit) => !/^[0-9]$/.test(digit.value))) return;
+                    submitting = true;
+                    form.requestSubmit(verify);
+                };
+                const focusDigit = (index, select = false) => {
                     const digit = digits[Math.max(0, Math.min(index, digits.length - 1))];
+                    movingFocus = true;
                     digit.focus();
-                    digit.select();
+                    movingFocus = false;
+                    if (select) digit.select();
                 };
                 const applyDigits = (value, start = 0) => {
                     const clean = value.replace(/\D/g, '').slice(0, digits.length - start);
+                    digits.slice(start).forEach((digit) => { digit.value = ''; });
                     clean.split('').forEach((character, offset) => {
                         digits[start + offset].value = character;
                     });
                     syncCode();
-                    focusDigit(Math.min(start + clean.length, digits.length - 1));
+                    if (clean.length) focusDigit(Math.min(start + clean.length, digits.length - 1));
+                    submitWhenComplete();
                 };
                 digits.forEach((digit, index) => {
-                    digit.addEventListener('input', () => {
-                        const raw = digit.value;
+                    digit.addEventListener('focus', () => {
+                        if (!movingFocus && digit.value) digit.select();
+                    });
+                    let composing = false;
+                    const acceptInput = (event) => {
+                        const raw = event.inputType === 'insertText' && /^[0-9]$/.test(event.data || '')
+                            ? event.data : digit.value;
                         if (raw.length > 1) {
-                            digit.value = '';
                             applyDigits(raw, index);
                             return;
                         }
                         digit.value = raw.replace(/\D/g, '').slice(-1);
                         syncCode();
                         if (digit.value && index < digits.length - 1) focusDigit(index + 1);
+                        submitWhenComplete();
+                    };
+                    digit.addEventListener('compositionstart', () => { composing = true; });
+                    digit.addEventListener('compositionend', (event) => {
+                        composing = false;
+                        acceptInput(event);
+                    });
+                    digit.addEventListener('input', (event) => {
+                        if (!composing && !event.isComposing) acceptInput(event);
                     });
                     digit.addEventListener('keydown', (event) => {
                         if (event.key === 'Backspace' && !digit.value && index > 0) {
@@ -78,10 +103,10 @@
                             syncCode();
                         } else if (event.key === 'ArrowLeft' && index > 0) {
                             event.preventDefault();
-                            focusDigit(index - 1);
+                            focusDigit(index - 1, true);
                         } else if (event.key === 'ArrowRight' && index < digits.length - 1) {
                             event.preventDefault();
-                            focusDigit(index + 1);
+                            focusDigit(index + 1, true);
                         }
                     });
                     digit.addEventListener('paste', (event) => {

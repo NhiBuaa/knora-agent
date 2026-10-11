@@ -30,7 +30,7 @@ class OtpChallengeServiceTest {
             public SendResult reserve(SendRequest request) {
                 events.add("durable-reservation");
                 captured = request;
-                return new SendResult(sendOutcome, request.reference(), 17);
+                return new SendResult(sendOutcome, request.reference(), 17, Instant.parse("2026-10-06T00:04:50Z").toEpochMilli());
             }
             public VerifyResult verify(ChallengeScope scope, ChallengeReference reference, String digest) {
                 events.add("consume");
@@ -68,6 +68,7 @@ class OtpChallengeServiceTest {
         assertEquals(List.of("durable-reservation", "mail", "activate"), events);
         assertEquals("keyed-digest", captured.codeDigest());
         assertEquals(reference, result.reference());
+        assertEquals(Instant.parse("2026-10-06T00:04:50Z").toEpochMilli(), result.displayExpiresAt());
         assertFalse(result.toString().contains("000042"));
     }
 

@@ -476,7 +476,7 @@ public final class StorageProbeResource implements RealmResourceProvider {
                         .setParameter("id", ids[1]).getSingleResult();
                 return Map.of("anchor", state[0], "attempts", state[1], "sends", state[2], "ipSends", ipSends);
             }
-            case "cooldown-past" -> em.createNativeQuery("update KNORA_OTP_RECOVERY_WINDOW set LAST_SEND_MS=LAST_SEND_MS-31000 where ID=:id")
+            case "cooldown-past" -> em.createNativeQuery("update KNORA_OTP_RECOVERY_WINDOW set LAST_SEND_MS=LAST_SEND_MS-301000 where ID=:id")
                     .setParameter("id", account).executeUpdate();
             case "expired" -> em.createNativeQuery("update KNORA_OTP_CHALLENGE set EXPIRES_MS=floor(extract(epoch from clock_timestamp())*1000)::bigint where ID=:id")
                     .setParameter("id", request.challenge()).executeUpdate();

@@ -159,6 +159,23 @@ selection. It does not verify the new I1 native templates or the current registr
 
 ## Email OTP provider source and operator provisioning
 
+### OTP entry and expiry (2026-10-11)
+
+Six labelled inputs advance after a committed digit, support leading-zero paste and manual
+arrow-key correction, and automatically POST `intent=verify` once all six digits are present.
+Composition input waits until composition ends; automatic focus movement does not select the
+final digit. The Verify button remains available as the native fallback.
+
+The visible countdown uses the persisted challenge expiry, with a five-minute lifetime from
+server issuance. SMTP delivery time and re-rendering do not restart that lifetime. Resend is
+disabled until expiry in JavaScript, and the store independently enforces the five-minute wait.
+Without JavaScript, the native resend button remains usable but an early POST is rejected by
+the same server policy. A rejected resend does not extend the previous generation's expiry.
+
+Smoke test: start a fresh forgot-password flow; type or paste all six digits and expect automatic
+verification. In another fresh flow, confirm the countdown decreases, resend stays disabled
+until zero, and resend starts a new countdown only after a new code is issued.
+
 The image packages `knora-reset-email-otp` before Keycloak augmentation and enables the pinned
 file Vault provider. The execution is currently **unbound**: this source build does not replace
 the realm's reset flow. Offline Java translation tests and pinned parent FreeMarker rendering
