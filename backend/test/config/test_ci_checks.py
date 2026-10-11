@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,7 @@ assert spec and spec.loader
 plugin = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(plugin)
 ci_route = plugin.ci_route
+RUNTIME_NODES = plugin.RUNTIME_NODES
 JOBS = ("format", "frontend", "backend", "database", "keycloak")
 
 
@@ -155,6 +157,7 @@ def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:
         ("backend/test/tools/test_reconciliation_postgres.py::test_tool", "database"),
         ("backend/test/adapters/cli/test_dev_launcher.py::test_launcher", "windows"),
         ("backend/test/adapters/cli/test_ollama_launcher.py::test_launcher", "windows"),
+        ("backend/test/config/test_keycloak_email_otp.py::test_acl", "windows"),
         (
             "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_blocks_a_child_that_exceeds_256_mib",
             "windows",
@@ -193,3 +196,63 @@ def test_jobs_cli_accepts_only_complete_success_object() -> None:
         check=False,
     )
     assert result.returncode == 0
+
+
+def test_collected_ci_partitions_cover_default_collection(tmp_path: Path) -> None:
+    """Every collected node must be in one PR suite or an explicit runtime set."""
+
+    def collect(*args: str) -> set[str]:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "--rootdir=.", "--collect-only", "-q", *args],
+            cwd=ROOT,
+            env={**os.environ, "PYTHONPATH": str(ROOT / "backend/src")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        return {
+            line
+            for line in result.stdout.splitlines()
+            if re.match(r"^(?:backend|evals)/.+::", line)
+        }
+
+    full = collect("backend/test", "evals/test")
+    selected: dict[str, set[str]] = {}
+    for suite in ("backend", "windows", "database"):
+        selection = tmp_path / f"{suite}.json"
+        assert not selection.exists()
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--rootdir=.",
+                "--collect-only",
+                "-q",
+                "backend/test",
+                "evals/test",
+                f"--ci-suite={suite}",
+                f"--ci-selection={selection}",
+            ],
+            cwd=ROOT,
+            env={**os.environ, "PYTHONPATH": str(ROOT / "backend/src")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(selection.read_text(encoding="utf-8"))
+        assert data["suite"] == suite
+        selected[suite] = set(data["selected"])
+        assert selected[suite].isdisjoint(data["deselected"])
+        assert selected[suite] | set(data["deselected"]) == full
+
+    assert set.union(*selected.values()).isdisjoint(RUNTIME_NODES)
+    assert set.union(*selected.values(), RUNTIME_NODES) == full
+    assert all(
+        selected[left].isdisjoint(selected[right])
+        for left in selected
+        for right in selected
+        if left != right
+    )

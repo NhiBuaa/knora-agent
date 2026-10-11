@@ -19,6 +19,7 @@ DATABASE_FILES = {
 WINDOWS_FILES = {
     "backend/test/adapters/cli/test_dev_launcher.py",
     "backend/test/adapters/cli/test_ollama_launcher.py",
+    "backend/test/config/test_keycloak_email_otp.py",
 }
 WINDOWS_NODES = {
     "backend/test/adapters/cli/test_ingestion_worker.py::test_cli_preflight_proves_pdf_child_memory_limit",
