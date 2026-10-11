@@ -353,6 +353,12 @@ body:has(.knora-auth) .pf-v5-c-login__main-header {
   font: 400 14px/20px Inter, sans-serif;
 }
 
+/* Keep the browser's native reveal control from duplicating Knora's toggle. */
+.knora-auth input[type="password"]::-ms-reveal,
+.knora-auth input[type="password"]::-ms-clear {
+  display: none;
+}
+
 .knora-auth .pf-v5-c-input-group {
   position: relative;
   display: block;
