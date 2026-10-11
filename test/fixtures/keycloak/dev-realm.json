@@ -260,5 +260,9 @@
         }
       }
     ]
-  }
+  },
+  "eventsListeners": [
+    "jboss-logging",
+    "knora-default-capabilities"
+  ]
 }

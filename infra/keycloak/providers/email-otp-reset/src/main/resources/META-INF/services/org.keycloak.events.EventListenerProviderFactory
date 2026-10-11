@@ -1,1 +1,2 @@
 com.knora.keycloak.reset.PasswordUpdatedNoticeFactory
+com.knora.keycloak.reset.DefaultCapabilitiesFactory

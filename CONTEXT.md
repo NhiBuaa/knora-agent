@@ -11,6 +11,11 @@ ownership in its own database using that issuer/subject identity; bearer Workspa
 browser hints are not ownership authority. KittaChat retains its separate conversations/messages
 bounded context and database, while Knora owns standalone Workspaces and Conversations.
 
+Knora self-registration assigns the fixed baseline capabilities `documents:read`,
+`documents:write` and `questions:ask` through a server-side Keycloak registration listener.
+Workspace ownership is still created and checked by Knora's database; registration never grants
+admin or cross-workspace access, and client-submitted capability values are ignored.
+
 ## Current Model
 
 ### Knowledge ownership

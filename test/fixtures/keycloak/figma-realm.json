@@ -271,5 +271,9 @@
     "host": "mail",
     "ssl": "false"
   },
-  "passwordPolicy": "length(12)"
+  "passwordPolicy": "length(12)",
+  "eventsListeners": [
+    "jboss-logging",
+    "knora-default-capabilities"
+  ]
 }

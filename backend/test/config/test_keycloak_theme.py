@@ -38,11 +38,13 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
         "dockerfile": "infra/keycloak/Dockerfile",
     }
     assert primary["ports"] == ["127.0.0.1:8180:8080"]
-    assert primary["volumes"] == [
+    assert primary["volumes"][:3] == [
         "./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro",
         "./themes/knora:/opt/keycloak/themes/knora:ro",
         "keycloak_dev_data:/opt/keycloak/data",
     ]
+    assert primary["volumes"][3]["target"] == "/opt/keycloak/vault"
+    assert primary["volumes"][3]["read_only"] is True
     smtp_variables = {
         "KC_SMTP_HOST",
         "KC_SMTP_PORT",
@@ -52,8 +54,7 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
         "KC_SMTP_STARTTLS",
         "KC_SMTP_AUTH",
     }
-    assert smtp_variables <= primary["environment"].keys()
-    assert all(primary["environment"][name] is None for name in smtp_variables)
+    assert smtp_variables.isdisjoint(primary.get("environment", {}))
 
     isolated = services["figma-keycloak"]
     assert isolated["image"] == "knora-figma-otp-runtime:26.3.3"
@@ -211,6 +212,26 @@ def test_registration_profile_keeps_native_validations_and_optional_names() -> N
     assert realm["verifyEmail"] is False
 
 
+def test_registration_event_assigns_backend_owned_default_capabilities() -> None:
+    expected = ["documents:read", "documents:write", "questions:ask"]
+    for fixture_name in ("dev-realm.json", "figma-realm.json"):
+        realm = json.loads((ROOT / "test/fixtures/keycloak" / fixture_name).read_text())
+        assert "knora-default-capabilities" in realm["eventsListeners"]
+
+    listener = (
+        ROOT
+        / "infra/keycloak/providers/email-otp-reset/src/main/java/"
+        "com/knora/keycloak/reset/DefaultCapabilitiesFactory.java"
+    ).read_text()
+    assert 'event.getType() != EventType.REGISTER' in listener
+    assert 'user.setAttribute(CAPABILITIES_ATTRIBUTE, DEFAULT_CAPABILITIES)' in listener
+    assert all(f'"{capability}"' in listener for capability in expected)
+    assert "registration input is never trusted" in listener.lower()
+
+    configure = (ROOT / "scripts/configure-keycloak-auth-flow.ps1").read_text()
+    assert "knora-default-capabilities" in configure
+
+
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
 def test_profile_diff_preserves_custom_metadata_and_admin_name_requirement(tmp_path: Path) -> None:
     profile = {
@@ -329,7 +350,8 @@ $global:profileFixture = [pscustomobject]@{ attributes = @(
 $global:realmFixture = [pscustomobject]@{
     realm='knora-dev';verifyEmail=$true;loginTheme='keycloak.v2'
     registrationAllowed=$false;resetPasswordAllowed=$false
-    loginWithEmailAllowed=$false;registrationEmailAsUsername=$false;duplicateEmailsAllowed=$false
+        loginWithEmailAllowed=$false;registrationEmailAsUsername=$false;duplicateEmailsAllowed=$false
+        eventsListeners=@('jboss-logging')
 }
 $global:putCount = 0
 function docker {

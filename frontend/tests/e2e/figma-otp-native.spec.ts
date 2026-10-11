@@ -61,16 +61,16 @@ test("native identity secondary navigation returns to real forms", async ({
         .locator("#email")
         .fill(`navigation-${randomUUID()}@example.test`);
       await submit(page, "#email", "request", "NAVIGATION_REQUEST");
-      await expect(page.locator("#code")).toBeVisible();
+      await expect(page.locator(".knora-otp-digits")).toBeVisible();
       if (invalid) {
-        await page.locator("#code").fill("000042");
+        await fillOtpCode(page, "000042");
         await submit(page, "#code", "verify", "NAVIGATION_REJECT");
         await expect(page.locator("#otp-error")).toBeVisible();
       }
       await page.getByRole("button", { name: "Use a different email" }).click();
       await expect(page.locator("#email")).toBeVisible();
       await expect(page.locator("#email")).toHaveValue("");
-      await expect(page.locator("#code")).toHaveCount(0);
+      await expect(page.locator(".knora-otp-digits")).toHaveCount(0);
       await captureIdentity(
         page,
         path.join(
@@ -137,6 +137,14 @@ async function nativeForm(page: Page, input: string) {
   return form;
 }
 
+async function fillOtpCode(page: Page, value: string) {
+  const digits = page.locator(".knora-otp-digit");
+  await expect(digits).toHaveCount(6);
+  for (const [index, character] of [...value].entries()) {
+    await digits.nth(index).fill(character);
+  }
+}
+
 async function submit(
   page: Page,
   input: string,
@@ -191,8 +199,10 @@ async function guardedContext(context: BrowserContext) {
 
 async function capture(page: Page, state: string) {
   await sensitive("CAPTURE", async () => {
-    // Clearing fires the template's paint handler, removing digits from six cells.
-    for (const input of await page.locator("#code, #otp, #totp").all())
+    // Clear each visible field before capturing evidence.
+    for (const input of await page
+      .locator(".knora-otp-digit, #otp, #totp")
+      .all())
       await input.fill("");
     expect(await page.locator("#kc-totp-settings").count()).toBe(0);
     await mkdir(evidenceDirectory, { recursive: true });
@@ -464,7 +474,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await capture(reset, "empty-email");
     await sensitive(stage, () => reset.locator("#email").fill(identity.email));
     await submit(reset, "#email", "request", stage);
-    await expect(reset.locator("#code")).toBeVisible();
+    await expect(reset.locator(".knora-otp-digits")).toBeVisible();
     await capture(reset, "empty-otp");
     const knownChallengeHeading = await reset
       .locator("#kc-page-title")
@@ -474,12 +484,12 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     const firstCode = await deliveredCode(page, identity.email, seen);
 
     stage = "OTP_MALFORMED";
-    await sensitive(stage, () => reset.locator("#code").fill("abc"));
+    await sensitive(stage, () => fillOtpCode(reset, "abc"));
     await submit(reset, "#code", "verify", stage, true);
     await expect(reset.locator("#otp-error")).toBeVisible();
     stage = "OTP_WRONG";
     const wrong = firstCode === "000000" ? "000001" : "000000";
-    await sensitive(stage, () => reset.locator("#code").fill(wrong));
+    await sensitive(stage, () => fillOtpCode(reset, wrong));
     await submit(reset, "#code", "verify", stage);
     await expect(reset.locator("#otp-error")).toBeVisible();
     await capture(reset, "rejected-otp");
@@ -487,7 +497,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     stage = "RESEND_COOLDOWN";
     expect(await reset.locator("#otp-resend").isDisabled()).toBe(true);
     await submit(reset, "#code", "resend", stage, true);
-    await expect(reset.locator("#code")).toBeVisible();
+    await expect(reset.locator(".knora-otp-digits")).toBeVisible();
     expect((await messages(page, identity.email)).length === 1).toBe(true);
     // Real elapsed server cooldown; no native clock or database fixture changes.
     await expect(reset.locator("#otp-resend")).toBeEnabled({ timeout: 35_000 });
@@ -495,7 +505,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     const nextCode = await deliveredCode(page, identity.email, seen);
     expect(nextCode !== firstCode).toBe(true);
     stage = "OLD_GENERATION";
-    await sensitive(stage, () => reset.locator("#code").fill(firstCode));
+    await sensitive(stage, () => fillOtpCode(reset, firstCode));
     await submit(reset, "#code", "verify", stage);
     await expect(reset.locator("#otp-error")).toBeVisible();
 
@@ -503,7 +513,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     const verifyAction = await (
       await nativeForm(reset, "#code")
     ).getAttribute("action");
-    await sensitive(stage, () => reset.locator("#code").fill(nextCode));
+    await sensitive(stage, () => fillOtpCode(reset, nextCode));
     await submit(reset, "#code", "verify", stage);
     await expect(reset.locator("#kc-passwd-update-form")).toBeVisible();
     await capture(reset, "native-password");
@@ -714,7 +724,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     );
     await sensitive(stage, () => unknown.locator("#email").fill(unknownEmail));
     await submit(unknown, "#email", "request", stage);
-    await expect(unknown.locator("#code")).toBeVisible();
+    await expect(unknown.locator(".knora-otp-digits")).toBeVisible();
     expect(
       (await unknown.locator("#kc-page-title").innerText()) ===
         knownChallengeHeading,
