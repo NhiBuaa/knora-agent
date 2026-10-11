@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 import { fixtureResponse } from "./figma-state-fixtures";
 
 describe("Figma fixture boundary", () => {
+  it("admits one synthetic suggestion Turn only in the empty Conversation state", () => {
+    const path =
+      "/api/v1/workspaces/fixture-workspace/conversations/fixture-conversation/turns";
+    expect(
+      fixtureResponse("128:109", path, "POST", {
+        question: "Summarize this workspace",
+      }),
+    ).toMatchObject({
+      question: "Summarize this workspace",
+      status: "answered",
+    });
+    expect(() =>
+      fixtureResponse("128:119", path, "POST", {
+        question: "Summarize this workspace",
+      }),
+    ).toThrow("Unrecognized fixture request");
+    expect(() =>
+      fixtureResponse("128:109", path, "POST", { question: "Other" }),
+    ).toThrow("Unrecognized fixture request");
+  });
   it("provides a complete deterministic Document projection at the approved fixture path", () => {
     expect(
       fixtureResponse(

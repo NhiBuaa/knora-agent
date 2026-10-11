@@ -53,6 +53,11 @@ describe("isolated Figma identity environment", () => {
       ),
     ).toBe(false);
     expect(
+      figmaTestSelection("fixture", undefined).grepInvert?.test(
+        "source fixtures Operator prototype comparison 216:345 Operations",
+      ),
+    ).toBe(true);
+    expect(
       figmaTestSelection("application", undefined).grepInvert?.test(
         "source fixtures Document detail action height",
       ),

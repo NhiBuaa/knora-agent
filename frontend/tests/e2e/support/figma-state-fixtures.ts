@@ -383,6 +383,7 @@ export function fixtureResponse(
   state: string,
   path: string,
   method: string,
+  requestBody?: unknown,
 ): unknown {
   if (!fixtureStates.some((item) => item.id === state))
     throw new Error("Unrecognized fixture request");
@@ -413,6 +414,20 @@ export function fixtureResponse(
         revision: workspace.revision + 1,
       },
     };
+  if (
+    state === "128:109" &&
+    method === "POST" &&
+    url.pathname === `${base}/conversations/${conversation.id}/turns`
+  ) {
+    if (
+      typeof requestBody !== "object" ||
+      requestBody === null ||
+      !("question" in requestBody) ||
+      requestBody.question !== "Summarize this workspace"
+    )
+      throw new Error("Unrecognized fixture request");
+    return { ...turnForState(state), question: requestBody.question };
+  }
   if (
     state === "183:176" &&
     method === "POST" &&
@@ -472,7 +487,12 @@ export async function prepareFixture(page: Page, state: string) {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     try {
-      const body = fixtureResponse(state, request.url(), request.method());
+      const body = fixtureResponse(
+        state,
+        request.url(),
+        request.method(),
+        request.postDataJSON(),
+      );
       await route.fulfill({
         status: 200,
         contentType: "application/json",

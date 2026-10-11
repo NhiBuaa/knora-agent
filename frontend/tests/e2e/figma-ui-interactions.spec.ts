@@ -3930,7 +3930,9 @@ test.describe("source fixtures", () => {
       const request = await restore;
       expect(request.method()).toBe("POST");
       expect(request.headers()["if-match"]).toBe("4");
-      await expect(page).toHaveURL(/\/workspaces\/fixture-workspace$/);
+      await expect(page).toHaveURL(
+        /\/workspaces\/fixture-workspace\/conversations$/,
+      );
       expect(unexpected).toEqual([]);
     });
   }
@@ -4888,7 +4890,7 @@ test.describe("source fixtures", () => {
     });
   });
 
-  test("empty suggestions edit the draft without submission; archived history remains read only", async ({
+  test("empty suggestions submit one Turn; archived history remains read only", async ({
     page,
   }) => {
     for (const width of [1440, 390]) {
@@ -4926,11 +4928,22 @@ test.describe("source fixtures", () => {
       expect.soft(typography.fontSize).toBe("14px");
       expect.soft(typography.lineHeight).toBe("20px");
       if (width === 390) await page.keyboard.press("Escape");
+      const submission = page.waitForRequest(
+        (request) =>
+          request.url().endsWith("/fixture-conversation/turns") &&
+          request.method() === "POST",
+      );
       await page
         .getByRole("button", { name: "Summarize this workspace" })
         .click();
+      expect((await submission).postDataJSON()).toEqual({
+        question: "Summarize this workspace",
+      });
+      await expect(
+        page.locator("ol").getByText("Summarize this workspace"),
+      ).toBeVisible();
       await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
-        "Summarize this workspace",
+        "",
       );
       expect(unexpected).toEqual([]);
       await page.unrouteAll();

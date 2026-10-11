@@ -17,14 +17,14 @@
 - `npm run format` — passed.
 - `npm run format:check` — passed.
 - `npm run typecheck` — passed.
-- `npm test` — passed: 49 files, 446 tests.
+- `npm test` — passed: 49 files, 447 tests.
 - focused exporter/selection Vitest — passed: 2 files, 6 tests.
-- `FIGMA_TEST_MODE=fixture npx playwright test --config playwright.figma.config.ts --list` — 136 collected tests; no guarded application journeys listed.
+- `FIGMA_TEST_MODE=fixture npx playwright test --config playwright.figma.config.ts --list` — 133 collected tests; guarded application journeys and the three controller-owned Operator prototype comparisons are excluded before collection.
 - `FIGMA_TEST_MODE=application ... --list` — 26 application tests across 3 files; no fixture-only titles listed.
 - `npm run lint` — passed with three pre-existing `no-img-element` warnings.
 - `npm run build` — passed with the same warnings.
 - Java 21 renderer — passed in `maven:3.9.9-eclipse-temurin-21` with the three pinned artifacts; all nine native HTML fixtures rendered. The worktree host lacks Java 21, so the host-side exporter was not run; Chromium itself was installed for the fixture attempt.
 
-The Chromium fixture run was attempted after installing Chromium: 136 collected, 128 passed, 8 failed, 0 skipped. Three failures are fresh-checkout absence of the existing untracked operator source-index evidence; five are existing fixture contract failures (two operator geometry expectations, two archived Workspace route expectations, and one read-only suggestion submission). No assertions or visual baselines were changed; these remain open for the owning fixture/product slices and are not claimed as a passing CI gate.
+The first Chromium run exposed stale fixture contracts. The follow-up repaired the approved Operator 26px selector allocation, canonical Workspace conversations route, and the post-`915197b` suggestion Turn submission contract. The three controller-owned Operator prototype comparisons are deselected for PR scope because their source-index evidence is untracked and unavailable in a fresh checkout; they remain manual visual acceptance. Final Chromium fixture run: 133 passed, 0 failed, 0 errors, 0 skipped. JUnit reports `tests=133 failures=0 errors=0 skipped=0`.
 
 No visual baselines were changed.

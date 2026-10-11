@@ -39,7 +39,10 @@ export function figmaTestSelection(
     // Selection must remove incompatible describes before Playwright collects
     // them; skipped application journeys would invalidate the CI JUnit gate.
     ...(mode === "fixture"
-      ? { grepInvert: /guarded application journeys/ }
+      ? {
+          grepInvert:
+            /guarded application journeys|Operator prototype comparison/,
+        }
       : mode === "application"
         ? { grepInvert: /source fixtures|PDF observation classifies/ }
         : {}),
