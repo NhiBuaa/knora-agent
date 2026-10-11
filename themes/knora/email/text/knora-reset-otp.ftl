@@ -1,4 +1,6 @@
 <#ftl output_format="plainText">
+Knora · Evidence-first knowledge
+
 ${msg("knoraResetOtpHeading")}
 
 ${msg("knoraResetOtpInstruction")}

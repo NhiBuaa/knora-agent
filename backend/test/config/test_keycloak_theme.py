@@ -131,6 +131,43 @@ def test_theme_bundles_licensed_fonts_and_app_colors() -> None:
     assert (resources / "fonts/LICENSE-RobotoSlab.txt").is_file()
 
 
+def test_otp_form_uses_six_real_digit_fields_and_a_synced_keycloak_code_field() -> None:
+    template = (ROOT / "themes/knora/login/knora-reset-otp.ftl").read_text()
+    css = (ROOT / "themes/knora/login/resources/css/knora.css").read_text()
+
+    assert 'id="code" name="code" type="hidden"' in template
+    assert '<#list 0..5 as index>' in template
+    assert template.count('class="knora-otp-digit"') == 1
+    assert 'data-otp-index="${index}"' in template
+    assert "syncCode" in template
+    assert "paste" in template
+    assert "Backspace" in template
+    assert ".knora-otp-digit:focus" in css
+    assert ".knora-otp-cells" not in css
+
+
+def test_password_update_wraps_native_logout_option_with_knora_theme_hook() -> None:
+    template = (ROOT / "themes/knora/login/login-update-password.ftl").read_text()
+    css = (ROOT / "themes/knora/login/resources/css/knora.css").read_text()
+
+    assert '<div class="knora-session-option">' in template
+    assert "logoutOtherSessions" in template
+    assert ".knora-session-option input[type=\"checkbox\"]" in css
+    assert ".knora-session-option label" in css
+
+
+def test_otp_email_is_branded_and_keeps_plain_text_fallback() -> None:
+    html = (ROOT / "themes/knora/email/html/knora-reset-otp.ftl").read_text()
+    text = (ROOT / "themes/knora/email/text/knora-reset-otp.ftl").read_text()
+
+    assert 'class="knora-email"' in html
+    assert 'role="presentation"' in html
+    assert "#33A15B" in html
+    assert '${msg("knoraResetOtpHeading")}' in html
+    assert "${code}" in html
+    assert '${msg("knoraResetOtpExpiry", expirationMinutes)}' in text
+
+
 def test_four_native_forms_retain_keycloak_actions_and_escape_messages() -> None:
     theme = ROOT / "themes/knora/login"
     login = (theme / "login.ftl").read_text()

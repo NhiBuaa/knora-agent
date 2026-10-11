@@ -33,7 +33,9 @@
             <@field.password name="password-confirm" label=msg("knoraConfirmNewPassword") autocomplete="new-password" />
 
             <div class="${properties.kcFormGroupClass!}">
-                <@passwordCommons.logoutOtherSessions/>
+                <div class="knora-session-option">
+                    <@passwordCommons.logoutOtherSessions/>
+                </div>
             </div>
 
             <@buttons.actionGroup horizontal=true>

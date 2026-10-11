@@ -420,6 +420,48 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   transform: translateX(-32px);
 }
 
+.knora-session-option {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--knora-text);
+}
+
+.knora-session-option .pf-v5-c-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.knora-session-option input[type="checkbox"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1px solid var(--knora-border);
+  border-radius: 4px;
+  background: var(--knora-surface);
+  cursor: pointer;
+}
+
+.knora-session-option input[type="checkbox"]:checked {
+  border-color: var(--knora-action);
+  background: var(--knora-action);
+  box-shadow: inset 0 0 0 3px var(--knora-surface);
+}
+
+.knora-session-option input[type="checkbox"]:focus-visible {
+  outline: 3px solid var(--knora-focus);
+  outline-offset: 2px;
+}
+
+.knora-session-option label {
+  color: var(--knora-text);
+  font: 500 14px/20px Inter, sans-serif;
+  cursor: pointer;
+}
+
 .knora-disclaimer {
   margin: 0;
   color: var(--knora-muted);
@@ -466,7 +508,7 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   outline: 1px solid var(--knora-signature);
 }
 
-/* AU10/AU11/AU11B: one native text field preserves paste and leading zeroes. */
+/* AU10/AU11/AU11B: six native fields keep focus and the caret in each OTP cell. */
 .knora-visually-hidden {
   position: absolute;
   width: 1px;
@@ -478,56 +520,52 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
 }
 
 .knora-auth .knora-otp-entry {
-  position: relative;
   width: 420px;
   max-width: 100%;
-  height: 56px;
   margin: 0 auto;
 }
 
-.knora-auth .knora-otp-entry #code {
-  height: 56px;
-  border: 1px solid var(--knora-border);
-  text-align: center;
-  font: 600 22px/28px Inter, sans-serif;
-  letter-spacing: 0.5em;
-}
-
-.knora-otp-cells {
-  display: none;
-}
-
-.knora-otp-enhanced .knora-otp-cells {
-  position: absolute;
-  inset: 0;
+.knora-otp-digits {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 54px));
-  justify-content: center;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
-  pointer-events: none;
 }
 
-.knora-otp-cells span {
-  display: grid;
-  place-items: center;
+.knora-auth .knora-otp-digit {
+  width: 100%;
+  height: 56px;
+  padding: 0;
   border: 1px solid var(--knora-border);
   border-radius: 8px;
   background: var(--knora-surface);
   color: var(--knora-text);
+  text-align: center;
   font: 600 22px/28px Inter, sans-serif;
 }
 
-.knora-otp-cells span:empty::before {
-  content: "—";
-  color: var(--knora-muted);
+.knora-auth .knora-otp-digit:focus {
+  border-color: var(--knora-focus);
+  outline: 3px solid color-mix(in srgb, var(--knora-focus) 28%, transparent);
+  outline-offset: 1px;
 }
 
-.knora-auth .knora-otp-enhanced #code {
-  position: relative;
-  z-index: 1;
-  color: transparent;
-  caret-color: var(--knora-text);
-  border-color: transparent;
+.knora-auth .knora-otp-digit[aria-invalid="true"] {
+  border-color: var(--knora-signature);
+}
+
+.knora-auth .knora-otp-entry #code {
+  position: absolute;
+}
+
+@media (max-width: 460px) {
+  .knora-otp-digits {
+    gap: 6px;
+  }
+
+  .knora-auth .knora-otp-digit {
+    height: 52px;
+    font-size: 20px;
+  }
 }
 
 .knora-otp-utilities {
