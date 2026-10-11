@@ -16,26 +16,19 @@ import {
   preferenceCookie,
   WORKSPACE_PREFERENCE_COOKIE,
 } from "@/lib/auth/workspace-preference";
-import { destinationForResolution } from "@/lib/navigation/routes";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state)
-    return NextResponse.json(
-      { error: "INVALID_AUTHORIZATION_CALLBACK" },
-      { status: 400 },
-    );
+  if (!code || !state || url.searchParams.has("error"))
+    return failedAuthorization(request);
   try {
     const transaction = await decodeAuthorizationTransaction(
       (await cookies()).get(AUTH_TRANSACTION_COOKIE_NAME)?.value,
     );
     if (!transaction || transaction.state !== state)
-      return NextResponse.json(
-        { error: "INVALID_AUTHORIZATION_CALLBACK" },
-        { status: 400 },
-      );
+      return failedAuthorization(request);
     const session = await exchangeCode(
       code,
       transaction.redirectUri,
@@ -63,7 +56,7 @@ export async function GET(request: Request) {
         },
         hint,
       );
-      destination = destinationForResolution(resolution);
+      destination = "/workspaces";
       selectedWorkspaceId =
         resolution.state === "ACTIVE"
           ? (resolution.workspace?.id ?? null)
@@ -102,9 +95,28 @@ export async function GET(request: Request) {
     );
     return response;
   } catch {
-    return NextResponse.json(
-      { error: "AUTHENTICATION_FAILED" },
-      { status: 401 },
-    );
+    return failedAuthorization(request);
   }
+}
+
+function failedAuthorization(request: Request) {
+  let origin = new URL(request.url).origin;
+  try {
+    const configured = new URL(process.env.KEYCLOAK_REDIRECT_URI ?? "");
+    if (
+      ["http:", "https:"].includes(configured.protocol) &&
+      !configured.username &&
+      !configured.password &&
+      configured.pathname === "/api/auth/callback" &&
+      !configured.search &&
+      !configured.hash
+    )
+      origin = configured.origin;
+  } catch {
+    // Without public callback configuration, retain the request origin.
+  }
+  const response = NextResponse.redirect(new URL("/auth/failed", origin));
+  const cookie = clearAuthorizationTransactionCookie();
+  response.cookies.set(cookie.name, cookie.value, cookie.options as never);
+  return response;
 }

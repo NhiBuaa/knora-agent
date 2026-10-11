@@ -4,7 +4,7 @@ import type {
   WorkspaceListResponse,
   WorkspaceResponse,
 } from "@/generated/knora-openapi";
-import { AppShell } from "@/components/shell/AppShell";
+import { WorkspaceShell } from "@/components/workspaces/WorkspaceShell";
 import { knoraRequest } from "@/lib/api/client";
 import { getSession } from "@/lib/auth/session";
 import { cookies } from "next/headers";
@@ -32,7 +32,7 @@ export default async function WorkspacesLayout({
     );
   }
   return (
-    <AppShell
+    <WorkspaceShell
       workspaces={firstPage.items as WorkspaceResponse[]}
       nextCursor={firstPage.next_cursor}
       capabilities={session.capabilities}
@@ -42,6 +42,6 @@ export default async function WorkspacesLayout({
       )}
     >
       {children}
-    </AppShell>
+    </WorkspaceShell>
   );
 }

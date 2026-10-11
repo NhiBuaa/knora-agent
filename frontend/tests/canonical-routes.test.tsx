@@ -3,7 +3,7 @@ import { routes, destinationForResolution } from "@/lib/navigation/routes";
 
 describe("canonical Workspace routes", () => {
   it("encodes each identity without creating a Conversation on navigation", () => {
-    expect(routes.workspace("w /1")).toBe("/workspaces/w%20%2F1");
+    expect(routes.workspace("w /1")).toBe("/workspaces/w%20%2F1/conversations");
     expect(routes.documents("w")).toBe("/workspaces/w/documents");
     expect(routes.conversations("w")).toBe("/workspaces/w/conversations");
     expect(routes.conversation("w", "c")).toBe("/workspaces/w/conversations/c");

@@ -66,6 +66,10 @@ def test_document_list_and_archive_routes_are_workspace_scoped():
     assert listed.json()["documents"][0]["archived"] is False
     assert listed.json()["documents"][0]["embedding_readiness"] == "not_indexed"
     assert listed.json()["documents"][0]["reprocess_supported"] is False
+    assert listed.json()["documents"][0]["served_document_version_id"] is None
+    assert listed.json()["documents"][0]["last_processed_at"] is None
+    assert listed.json()["documents"][0]["answer_availability"] == "unknown"
+    assert listed.json()["documents"][0]["deletion_request"] is None
 
     archived = client.post(
         "/v1/workspaces/workspace-a/documents/d1/archive",

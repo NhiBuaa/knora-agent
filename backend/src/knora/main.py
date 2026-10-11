@@ -163,16 +163,16 @@ def create_app(
         else workspace_admission_store
     )
     application.state.workspace_admission_store = workspace_admissions
+    deployed_retrieval_configuration = resolve_retrieval_configuration(
+        settings.retrieval_configuration_id, vector_min_similarity=settings.vector_min_similarity
+    )
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider,
         generation_provider=providers.generation_provider,
         store=answering_store,
         embedding_configuration=selected_embedding_configuration,
         retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
-            resolve_retrieval_configuration(
-                settings.retrieval_configuration_id,
-                vector_min_similarity=settings.vector_min_similarity,
-            )
+            deployed_retrieval_configuration
         ),
         admission_store=workspace_admissions,
     )
@@ -283,7 +283,9 @@ def create_app(
         credentials_from_json(settings.api_credentials_json)
     )
     selected_document_reader = document_reader or PostgresDocumentReader(
-        SessionFactory, deployed_embedding_configuration=selected_embedding_configuration
+        SessionFactory,
+        deployed_embedding_configuration=selected_embedding_configuration,
+        deployed_retrieval_configuration=deployed_retrieval_configuration,
     )
     application.state.document_reader = selected_document_reader
     application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
@@ -388,9 +390,11 @@ def create_app(
             "INVALID_WORKSPACE_NAME": 422,
             "INVALID_WORKSPACE_CURSOR": 422,
             "INVALID_WORKSPACE_LIMIT": 422,
+            "INVALID_WORKSPACE_QUERY": 422,
             "INVALID_CONVERSATION_TITLE": 422,
             "INVALID_CONVERSATION_CURSOR": 422,
             "INVALID_CONVERSATION_LIMIT": 422,
+            "INVALID_CONVERSATION_QUERY": 422,
             "INVALID_TURN_CURSOR": 422,
             "INVALID_TURN_LIMIT": 422,
             "INVALID_TURN_STAGE": 422,

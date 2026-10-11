@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Knora leaf artwork">
+<path id="LeafLeft" d="M26.04 48.45C15.51 47.07 7.65 40.89 5.52 31.38C4.59 27.24 4.74 22.89 5.76 18.69C10.17 18.66 14.46 19.77 18.09 22.05C24.66 26.19 27.84 33.81 26.04 48.45Z" fill="#1F3B36"/>
+<path id="LeafRight" d="M27.48 44.25C27.42 32.16 30.84 22.11 37.77 14.79C40.83 11.55 44.52 9.06 48.63 7.38C49.68 12.03 49.65 16.77 48.48 21.24C45.93 30.96 38.97 38.64 27.48 44.25Z" fill="#1F3B36"/>
+<path id="Stem" d="M25.05 48.15C26.34 37.65 29.73 28.02 35.58 19.95" stroke="#1F3B36" stroke-width="4.05" stroke-linecap="round"/>
+<path id="VeinLeft" d="M24.54 40.68C20.13 33.6 15.3 28.98 10.08 26.58" stroke="white" stroke-width="2.85" stroke-linecap="round"/>
+<path id="VeinRight" d="M30.18 34.68C33.54 26.52 38.28 19.98 44.25 15.06" stroke="white" stroke-width="2.85" stroke-linecap="round"/>
+</g>
+</svg>

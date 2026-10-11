@@ -1,0 +1,13 @@
+/* The owning Documents heading adapts the approved selector's caret slot to
+   the exact original export. Ordinary feature presentation uses static utilities. */
+@layer components {
+  .documents-workspace-caret {
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 25px;
+    width: 8px;
+    height: 5px;
+    max-width: none;
+  }
+}

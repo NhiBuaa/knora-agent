@@ -29,10 +29,18 @@ class WorkspaceServiceFake:
     def read(self, identity, workspace_id):
         return self.items[workspace_id]
 
-    def list(self, identity, archived=None, cursor=None, limit=20):
+    def list(self, identity, archived=None, cursor=None, limit=20, q=None):
         from knora.workspaces.types import WorkspacePage
 
-        return WorkspacePage(tuple(self.items.values()), None)
+        return WorkspacePage(
+            tuple(
+                item
+                for item in self.items.values()
+                if (archived is None or item.archived == archived)
+                and (q is None or q.strip().lower() in item.name.lower())
+            )[:limit],
+            None,
+        )
 
     def archive(self, identity, workspace_id, expected_revision):
         value = self.items[workspace_id]
@@ -118,3 +126,24 @@ def test_workspace_routes_do_not_accept_api_key_as_identity():
     http, _ = client()
     response = http.post("/v1/workspaces/resolve", headers={"X-API-Key": "legacy"})
     assert response.status_code == 401
+
+
+def test_workspace_http_search_propagates_query_and_enforces_length():
+    http, service = client()
+    from knora.access.identity import Identity
+
+    identity = Identity("https://issuer", "alice")
+    service.create(identity, "Unrelated", "one")
+    service.create(identity, "Budget 100%_ Final", "two")
+    response = http.get(
+        "/v1/workspaces",
+        params={"q": "100%_", "limit": 1},
+        headers={"Authorization": "Bearer token"},
+    )
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == ["two"]
+    assert response.headers["Cache-Control"] == "no-store"
+    too_long = http.get(
+        "/v1/workspaces", params={"q": "x" * 201}, headers={"Authorization": "Bearer token"}
+    )
+    assert too_long.status_code == 422

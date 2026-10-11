@@ -1,8 +1,28 @@
-// @vitest-environment node
-
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/operator",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+vi.mock("@/lib/api/browser-client", () => ({
+  browserRequest: vi.fn(
+    async () => new Response(JSON.stringify({ items: [], next_cursor: null })),
+  ),
+}));
 
 vi.mock("@/lib/auth/session", () => ({
   getSession: vi.fn(async () => ({
@@ -35,14 +55,22 @@ vi.mock("next/headers", () => ({
 
 import OperatorLayout from "@/app/operator/layout";
 import { knoraRequest, KnoraApiError } from "@/lib/api/client";
+import { getSession } from "@/lib/auth/session";
 
 describe("operator theme access", () => {
-  it("retains one Appearance control after root theme control moves into product shells", async () => {
-    const markup = renderToStaticMarkup(
-      await OperatorLayout({ children: <p>Operations</p> }),
+  it("opens one Appearance control with the server supplied theme from the account menu", async () => {
+    render(await OperatorLayout({ children: <p>Operations</p> }));
+    fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
+    expect(screen.getAllByRole("group", { name: "Appearance" })).toHaveLength(
+      1,
     );
-    expect(markup).toContain("Appearance");
-    expect(markup).toContain('value="dark" selected=""');
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Primary navigation" }),
+      ).getByRole("link", { name: "Operator" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("keeps Workspace selection available when a signed hint is no longer owned", async () => {
@@ -51,10 +79,31 @@ describe("operator theme access", () => {
         return { items: [], next_cursor: null } as never;
       throw new KnoraApiError(403, null);
     });
-    const markup = renderToStaticMarkup(
-      await OperatorLayout({ children: <p>Operations</p> }),
+    render(await OperatorLayout({ children: <p>Operations</p> }));
+    expect(
+      screen.getByRole("button", { name: "Switch workspace" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Switch workspace" }));
+    expect(
+      screen.getByRole("region", { name: "Switch workspace" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Switch workspace" }));
+    fireEvent.click(screen.getByRole("button", { name: "Account: operator" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Appearance" }));
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+  });
+  it("denies operator capability before Workspace listing or preference lookup", async () => {
+    vi.mocked(getSession).mockResolvedValueOnce({
+      issuer: "https://id.example/realm",
+      subject: "viewer",
+      capabilities: [],
+      accessToken: "server-token",
+    } as never);
+    render(await OperatorLayout({ children: <p>Private evidence</p> }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Operator access denied.",
     );
-    expect(markup).toContain("Select a workspace");
-    expect(markup).toContain("Appearance");
+    expect(screen.queryByText("Private evidence")).not.toBeInTheDocument();
+    expect(knoraRequest).not.toHaveBeenCalled();
   });
 });

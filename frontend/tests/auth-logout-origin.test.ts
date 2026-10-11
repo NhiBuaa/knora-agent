@@ -1,7 +1,54 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/auth/logout/route";
+import { encodeSession } from "@/lib/auth/session";
+
+it.each([204, 503])(
+  "uses server logout, with browser fallback on failure (%s)",
+  async (status) => {
+    vi.stubEnv("KEYCLOAK_ISSUER", "https://id.example/realms/knora");
+    vi.stubEnv("KEYCLOAK_POST_LOGOUT_REDIRECT_URI", "https://app.example/");
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status }));
+    vi.stubGlobal("fetch", fetcher);
+    try {
+      const cookie = await encodeSession({
+        issuer: "https://id.example/realms/knora",
+        subject: "fixture",
+        accessToken: "test-access",
+        refreshToken: "test-refresh",
+        workspaceIds: [],
+        capabilities: [],
+      });
+      const response = await POST(
+        new Request("https://app.example/api/auth/logout", {
+          method: "POST",
+          headers: {
+            host: "app.example",
+            origin: "https://app.example",
+            cookie: `knora_session=${cookie}`,
+          },
+        }),
+      );
+      expect(fetcher).toHaveBeenCalledOnce();
+      const [url, options] = fetcher.mock.calls[0];
+      expect(String(url)).toBe(
+        "https://id.example/realms/knora/protocol/openid-connect/logout",
+      );
+      expect(options.method).toBe("POST");
+      expect(options.body.get("refresh_token")).toBe("test-refresh");
+      const location = new URL(response.headers.get("location")!);
+      expect(location.origin).toBe(
+        status === 204 ? "https://app.example" : "https://id.example",
+      );
+      expect(location.href).not.toContain("test-refresh");
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  },
+);
 
 describe("logout mutation", () => {
   it("accepts a browser same-origin POST when Next represents its internal URL as localhost", async () => {

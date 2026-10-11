@@ -1,0 +1,279 @@
+{
+  "realm": "knora-dev",
+  "enabled": true,
+  "displayName": "Knora Local Development",
+  "loginTheme": "knora",
+  "registrationAllowed": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "registrationEmailAsUsername": false,
+  "duplicateEmailsAllowed": false,
+  "clients": [
+    {
+      "clientId": "knora-web",
+      "name": "Knora Web Local Development",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "rootUrl": "http://127.0.0.1:3300",
+      "baseUrl": "http://127.0.0.1:3300",
+      "redirectUris": [
+        "http://127.0.0.1:3300/api/auth/callback"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:3300"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://127.0.0.1:3300/"
+      },
+      "protocolMappers": [
+        {
+          "name": "workspace_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "workspace_id",
+            "claim.name": "workspace_id",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "workspace_ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "workspace_ids",
+            "claim.name": "workspace_ids",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "capabilities",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "capabilities",
+            "claim.name": "capabilities",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "knora-web audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "knora-web",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "operator",
+        "description": "M5 E2E operator role (test only)",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "m5-user",
+      "firstName": "M5",
+      "lastName": "User",
+      "email": "m5-user@example.test",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "workspace_id": [
+          "m5-workspace"
+        ],
+        "workspace_ids": [
+          "m5-workspace"
+        ],
+        "capabilities": [
+          "documents:read",
+          "documents:write",
+          "questions:ask"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "m5-user-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "m5-operator",
+      "firstName": "M5",
+      "lastName": "Operator",
+      "email": "m5-operator@example.test",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "workspace_id": [
+          "m5-workspace"
+        ],
+        "workspace_ids": [
+          "m5-workspace"
+        ],
+        "capabilities": [
+          "documents:read",
+          "documents:write",
+          "questions:ask",
+          "operator:read"
+        ]
+      },
+      "realmRoles": [
+        "operator"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "m5-operator-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "m5-other-workspace",
+      "firstName": "M5",
+      "lastName": "Other Workspace",
+      "email": "m5-other-workspace@example.test",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "workspace_id": [
+          "m5-other-workspace"
+        ],
+        "workspace_ids": [
+          "m5-other-workspace"
+        ],
+        "capabilities": [
+          "documents:read",
+          "documents:write",
+          "questions:ask",
+          "operator:read"
+        ]
+      },
+      "realmRoles": [
+        "operator"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "m5-other-workspace-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "m5-delete-user",
+      "firstName": "M5",
+      "lastName": "Delete User",
+      "email": "m5-delete-user@example.test",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "workspace_id": [
+          "m5-workspace"
+        ],
+        "workspace_ids": [
+          "m5-workspace"
+        ],
+        "capabilities": [
+          "documents:read",
+          "documents:write",
+          "documents:delete",
+          "questions:ask"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "m5-delete-user-password",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "m5-no-operator",
+      "firstName": "M5",
+      "lastName": "No Operator",
+      "email": "m5-no-operator@example.test",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "workspace_id": [
+          "m5-workspace"
+        ],
+        "workspace_ids": [
+          "m5-workspace"
+        ],
+        "capabilities": [
+          "documents:read",
+          "documents:write",
+          "questions:ask"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "m5-no-operator-password",
+          "temporary": false
+        }
+      ]
+    }
+  ],
+  "resetPasswordAllowed": true,
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "name": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}}},{\"name\":\"email\",\"displayName\":\"${email}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  },
+  "smtpServer": {
+    "from": "identity@example.test",
+    "port": "1025",
+    "starttls": "false",
+    "auth": "false",
+    "host": "mail",
+    "ssl": "false"
+  },
+  "passwordPolicy": "length(12)",
+  "eventsListeners": [
+    "jboss-logging",
+    "knora-default-capabilities"
+  ]
+}

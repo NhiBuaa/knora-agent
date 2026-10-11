@@ -1,0 +1,6 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Magnifier icon">
+<circle id="Magnifier ring" cx="20" cy="20" r="12.5" stroke="#657A74" stroke-width="3"/>
+<path id="Magnifier handle" d="M29 29L41 41" stroke="#657A74" stroke-width="3" stroke-linecap="round"/>
+</g>
+</svg>

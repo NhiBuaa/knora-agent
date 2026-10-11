@@ -1,5 +1,4 @@
 import React, { type HTMLAttributes, type ReactNode } from "react";
-import "../../styles/controls.css";
 
 export type NoticeProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
   kind: "info" | "warning" | "error" | "system";

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 from knora.access.identity import Identity
 from knora.access.keycloak import KeycloakAuthenticator
@@ -94,9 +94,18 @@ def list_workspaces(
     archived: bool | None = None,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    q: Annotated[
+        str | None,
+        Query(max_length=200),
+        BeforeValidator(lambda value: value.strip() if isinstance(value, str) else value),
+    ] = None,
 ) -> WorkspaceListResponse:
     private(response)
-    page = service.list(identity, archived, cursor, limit)
+    page = (
+        service.list(identity, archived, cursor, limit, q=q)
+        if q
+        else service.list(identity, archived, cursor, limit)
+    )
     return WorkspaceListResponse(
         items=[WorkspaceResponse.model_validate(item) for item in page.items],
         next_cursor=page.next_cursor,

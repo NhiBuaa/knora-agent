@@ -312,6 +312,16 @@
             ],
             "title": "Active Embedding Configuration Id"
           },
+          "answer_availability": {
+            "default": "unknown",
+            "enum": [
+              "available",
+              "unavailable",
+              "unknown"
+            ],
+            "title": "Answer Availability",
+            "type": "string"
+          },
           "archived": {
             "title": "Archived",
             "type": "boolean"
@@ -326,6 +336,16 @@
               }
             ],
             "title": "Current Document Version Id"
+          },
+          "deletion_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentDeletionRequestResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "document_id": {
             "title": "Document Id",
@@ -363,6 +383,18 @@
             ],
             "title": "Ingestion Status"
           },
+          "last_processed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Processed At"
+          },
           "reprocess_supported": {
             "default": false,
             "title": "Reprocess Supported",
@@ -371,6 +403,17 @@
           "revision": {
             "title": "Revision",
             "type": "integer"
+          },
+          "served_document_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served Document Version Id"
           },
           "serving_state": {
             "enum": [
@@ -2046,6 +2089,23 @@
             }
           },
           {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
             "in": "header",
             "name": "Authorization",
             "required": false,
@@ -2466,6 +2526,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           },
           {

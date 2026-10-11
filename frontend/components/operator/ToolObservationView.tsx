@@ -23,8 +23,16 @@ export function ToolObservationView({
     ? (LABELS[state] ?? "Observation unavailable")
     : "M4 observation unavailable";
   return (
-    <section aria-labelledby="tool-observation-heading">
-      <h2 id="tool-observation-heading">M4 tool observation</h2>
+    <section
+      aria-labelledby="tool-observation-heading"
+      className="m-0 border-0 bg-transparent p-0 text-sm"
+    >
+      <h2
+        id="tool-observation-heading"
+        className="my-3 font-display text-lg font-semibold"
+      >
+        M4 tool observation
+      </h2>
       <StatusBadge
         kind={
           state === "succeeded"
@@ -37,13 +45,15 @@ export function ToolObservationView({
         {label}
       </StatusBadge>
       {detail ? (
-        <p>{detail}</p>
+        <p className="my-2 leading-5">{detail}</p>
       ) : (
         !state && (
-          <p>No authorized lifecycle relation was supplied by the backend.</p>
+          <p className="my-2 text-text-muted">
+            No authorized lifecycle relation was supplied by the backend.
+          </p>
         )
       )}
-      <p>
+      <p className="my-2 text-xs text-text-muted">
         Read-only observation; approvals and execution remain backend-owned.
       </p>
     </section>

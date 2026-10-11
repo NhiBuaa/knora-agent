@@ -31,9 +31,6 @@ def _run_export(*args: str) -> subprocess.CompletedProcess[str]:
     environment = {
         **__import__("os").environ,
         "KNORA_PROVIDER_MODE": "deterministic-local",
-        "KNORA_DATABASE_URL": (
-            "postgresql+psycopg://knora:knora@127.0.0.1:5432/knora?connect_timeout=3"
-        ),
     }
     return subprocess.run(
         [sys.executable, str(EXPORT_SCRIPT), *args],
@@ -77,9 +74,9 @@ def test_openapi_export_is_deterministic_and_matches_checked_artifacts() -> None
     assert manifest["sha256"] == digest
     assert manifest["typescript_client"] == "frontend/generated/knora-openapi.ts"
     assert manifest["typescript_client_generator"] == "knora-openapi-local@1.0.0"
-    assert manifest["typescript_client_sha256"] == hashlib.sha256(
-        CLIENT_PATH.read_bytes()
-    ).hexdigest()
+    assert (
+        manifest["typescript_client_sha256"] == hashlib.sha256(CLIENT_PATH.read_bytes()).hexdigest()
+    )
     client = CLIENT_PATH.read_text(encoding="utf-8")
     assert "export interface KnoraClient" in client
     assert "/v1/questions/stream" in client
@@ -87,3 +84,27 @@ def test_openapi_export_is_deterministic_and_matches_checked_artifacts() -> None
     second = _run_export("--check")
     assert second.returncode == 0, second.stderr or second.stdout
     assert OPENAPI_PATH.read_bytes() == contract_bytes
+
+
+def test_openapi_exposes_document_display_fields_and_scoped_list_search():
+    contract = app.openapi()
+    document = contract["components"]["schemas"]["DocumentResponse"]["properties"]
+    assert document.keys() >= {
+        "served_document_version_id",
+        "last_processed_at",
+        "answer_availability",
+        "deletion_request",
+    }
+    assert document["answer_availability"]["enum"] == ["available", "unavailable", "unknown"]
+    assert document["last_processed_at"]["anyOf"][0]["format"] == "date-time"
+    assert document["deletion_request"]["anyOf"][0]["$ref"].endswith(
+        "/DocumentDeletionRequestResponse"
+    )
+    for path in ("/v1/workspaces", "/v1/workspaces/{workspace_id}/conversations"):
+        query = next(
+            parameter
+            for parameter in contract["paths"][path]["get"]["parameters"]
+            if parameter["name"] == "q"
+        )
+        assert query["required"] is False
+        assert query["schema"]["anyOf"][0]["maxLength"] == 200

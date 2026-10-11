@@ -9,6 +9,11 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConversationList } from "@/components/conversations/ConversationList";
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace: vi.fn() }),
+  usePathname: () => "/workspaces/w-1/conversations/c-1",
+}));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -25,6 +30,51 @@ const conversation = {
 };
 
 describe("Conversation lifecycle controls", () => {
+  it("distinguishes retained automatic empty records from the single unsaved draft", () => {
+    render(
+      <ConversationList
+        workspaceId="w-1"
+        presentation="rail"
+        initialConversations={[
+          {
+            ...conversation,
+            id: "old-1",
+            title: "New conversation",
+            title_source: "auto",
+          },
+          {
+            ...conversation,
+            id: "old-2",
+            title: "New conversation",
+            title_source: "auto",
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.queryAllByRole("link", { name: "New conversation" }),
+    ).toHaveLength(0);
+    expect(
+      screen.getByRole("link", { name: "Untitled conversation · old-1" }),
+    ).toHaveAttribute("href", "/workspaces/w-1/conversations/old-1");
+    expect(
+      screen.getByRole("button", { name: "New Conversation" }),
+    ).toBeVisible();
+  });
+  it("opens an unsaved conversation from the collapsed rail without writing", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ConversationList
+        workspaceId="w-1"
+        initialConversations={[conversation]}
+        presentation="collapsed"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
+    expect(push).toHaveBeenCalledWith("/workspaces/w-1/conversations");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("renames with the loaded revision and keeps history link", async () => {
     const fetchMock = vi.fn(
       async (_url: string, _init: RequestInit) =>
@@ -89,5 +139,46 @@ describe("Conversation lifecycle controls", () => {
     expect(
       new Headers(fetchMock.mock.calls[0][1].headers).get("If-Match"),
     ).toBe("3");
+  });
+});
+
+describe("backend conversation search", () => {
+  it("debounces backend q and keeps query-bound pagination", async () => {
+    const searched = {
+      ...conversation,
+      id: "c-search",
+      title: "Remote result",
+    };
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify({
+            items: url.includes("cursor=")
+              ? [{ ...searched, id: "c-page", title: "Remote next" }]
+              : [searched],
+            next_cursor: url.includes("cursor=") ? null : "q-next",
+          }),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ConversationList
+        workspaceId="w-1"
+        initialConversations={[conversation]}
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search conversations" }),
+      { target: { value: "  remote & policy  " } },
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    await screen.findByRole("link", { name: "Remote result" });
+    expect(fetchMock.mock.calls[0][0]).toContain("q=remote%20%26%20policy");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load more Conversations" }),
+    );
+    await screen.findByRole("link", { name: "Remote next" });
+    expect(fetchMock.mock.calls[1][0]).toContain("q=remote%20%26%20policy");
+    expect(fetchMock.mock.calls[1][0]).toContain("cursor=q-next");
   });
 });

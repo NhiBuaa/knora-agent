@@ -8,12 +8,19 @@ import {
 export async function GET(request: Request) {
   const authorize = process.env.KEYCLOAK_AUTHORIZATION_URL;
   if (!authorize)
-    return NextResponse.json({ error: "OIDC_NOT_CONFIGURED" }, { status: 503 });
+    return NextResponse.redirect(new URL("/auth/unavailable", request.url));
+  let url: URL;
+  try {
+    url = new URL(authorize);
+    if (!["http:", "https:"].includes(url.protocol))
+      return NextResponse.redirect(new URL("/auth/unavailable", request.url));
+  } catch {
+    return NextResponse.redirect(new URL("/auth/unavailable", request.url));
+  }
   const redirectUri =
     process.env.KEYCLOAK_REDIRECT_URI ??
     new URL("/api/auth/callback", request.url).toString();
   const transaction = createAuthorizationTransaction(redirectUri);
-  const url = new URL(authorize);
   url.searchParams.set(
     "client_id",
     process.env.KEYCLOAK_CLIENT_ID ?? "knora-web",
@@ -25,6 +32,8 @@ export async function GET(request: Request) {
   url.searchParams.set("nonce", transaction.nonce);
   url.searchParams.set("code_challenge", transaction.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
+  const requestedPrompt = new URL(request.url).searchParams.get("prompt");
+  if (requestedPrompt === "login") url.searchParams.set("prompt", "login");
   const response = NextResponse.redirect(url);
   const cookie = authorizationTransactionCookie(
     await encodeAuthorizationTransaction(transaction),

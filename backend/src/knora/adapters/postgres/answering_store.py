@@ -16,6 +16,7 @@ from knora.adapters.postgres.tables import (
     QuestionTraceTable,
     RetrievalV2CutoverTable,
 )
+from knora.answering.excerpt import citation_excerpt
 from knora.answering.generation_validation import validate_generation
 from knora.answering.interface import CitationProjection, QuestionResult
 from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2_details
@@ -792,7 +793,11 @@ class PostgresAnsweringStore(AnsweringStore):
                         heading_path=tuple(chunk.heading_path),
                         start_line=chunk.start_line,
                         end_line=chunk.end_line,
-                        excerpt=chunk.content[:500],
+                        excerpt=citation_excerpt(
+                            chunk.content,
+                            start_offset=chunk.start_offset,
+                            end_offset=chunk.end_offset,
+                        ),
                         content_checksum=chunk.content_checksum,
                         page_start=chunk.page_start,
                         page_end=chunk.page_end,

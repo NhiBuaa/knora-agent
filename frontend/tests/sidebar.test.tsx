@@ -9,6 +9,8 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceSidebar } from "@/components/shell/WorkspaceSidebar";
 import { MobileDrawer } from "@/components/shell/MobileDrawer";
+import { Dialog } from "@/components/ui/Dialog";
+import userEvent from "@testing-library/user-event";
 
 afterEach(() => {
   cleanup();
@@ -24,6 +26,41 @@ const workspace = {
 };
 
 describe("Workspace sidebar", () => {
+  it("leaves the drawer open when a feature dialog handles Escape and restores its own focus", async () => {
+    function NestedFeature() {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <MobileDrawer>
+          <button onClick={() => setOpen(true)}>Create workspace</button>
+          <Dialog
+            open={open}
+            onClose={() => setOpen(false)}
+            title="Create workspace"
+          >
+            <input aria-label="Workspace name" />
+            <button onClick={() => setOpen(false)}>Cancel</button>
+          </Dialog>
+        </MobileDrawer>
+      );
+    }
+    const user = userEvent.setup();
+    render(<NestedFeature />);
+    await user.click(screen.getByRole("button", { name: "Menu" }));
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
+    await user.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("dialog", { name: "Create workspace" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Workspace navigation" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Create workspace" }),
+    ).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveFocus();
+  });
   it("expands independently and fetches only five recent Conversations", async () => {
     const fetchMock = vi.fn(
       async (_url: string) =>
@@ -54,7 +91,7 @@ describe("Workspace sidebar", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("limit=5");
     expect(screen.getByRole("link", { name: "Workspace A" })).toHaveAttribute(
       "href",
-      "/workspaces/ws-a",
+      "/workspaces/ws-a/conversations",
     );
     expect(screen.getByRole("link", { name: "View all" })).toHaveAttribute(
       "href",
@@ -90,21 +127,13 @@ describe("Workspace sidebar", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("cursor=page-two");
   });
 
-  it("creates a Conversation only when New Conversation is clicked", async () => {
+  it("opens new conversation without creating a record from sidebar", async () => {
     const navigate = vi.fn();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ items: [], next_cursor: null }), {
-          status: 200,
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: "conversation-new" }), {
-          status: 201,
-        }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    const request = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [], next_cursor: null })),
+    );
+    vi.stubGlobal("fetch", request);
     render(
       <WorkspaceSidebar
         workspaces={[workspace]}
@@ -113,19 +142,12 @@ describe("Workspace sidebar", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Expand Workspace A" }));
-    await screen.findByRole("button", { name: "New Conversation" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "New Conversation" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls[1][0]).toBe(
-      "/api/v1/workspaces/ws-a/conversations",
+    fireEvent.click(
+      await screen.findByRole("button", { name: "New Conversation" }),
     );
-    expect(fetchMock.mock.calls[1][1].method).toBe("POST");
-    expect(navigate).toHaveBeenCalledWith(
-      "/workspaces/ws-a/conversations/conversation-new",
-    );
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/workspaces/ws-a/conversations");
   });
-
   it("returns focus to the menu trigger when Escape closes the drawer", () => {
     render(
       <MobileDrawer>
@@ -143,49 +165,83 @@ describe("Workspace sidebar", () => {
     expect(trigger).toHaveFocus();
   });
 
-  it("reuses one creation key after an ambiguous Conversation response", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ items: [], next_cursor: null }), {
-          status: 200,
-        }),
-      )
-      .mockRejectedValueOnce(new Error("connection lost"))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: "conversation-new" }), {
-          status: 200,
-        }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("crypto", {
-      randomUUID: vi.fn().mockReturnValueOnce("stable-key"),
-    });
+  it("dismisses the drawer backdrop and restores its trigger", () => {
+    render(
+      <MobileDrawer>
+        <a href="/workspaces">Workspaces</a>
+      </MobileDrawer>,
+    );
+    const trigger = screen.getByRole("button", { name: "Menu" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(
+      screen.getByRole("dialog", { name: "Workspace navigation" }),
+      { clientX: -1, clientY: -1 },
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("skips hidden and disabled controls when trapping drawer focus", () => {
+    render(
+      <MobileDrawer>
+        <a href="/workspaces">Workspaces</a>
+        <button disabled>Disabled</button>
+        <button hidden>Hidden</button>
+      </MobileDrawer>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("link", { name: "Workspaces" })).toHaveFocus();
+  });
+
+  it("skips controls in CSS-hidden ancestors at the drawer focus boundary", () => {
+    render(
+      <MobileDrawer>
+        <style>{`.hidden-drawer-actions { display: none; }`}</style>
+        <a href="/workspaces">Visible workspace</a>
+        <div className="hidden-drawer-actions">
+          <button>Hidden workspace</button>
+        </div>
+      </MobileDrawer>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(
+      screen.getByRole("link", { name: "Visible workspace" }),
+    ).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Close menu" })).toHaveFocus();
+  });
+
+  it("repeated New Conversation navigation does not create records", async () => {
+    const navigate = vi.fn();
+    const request = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ items: [], next_cursor: null })),
+    );
+    vi.stubGlobal("fetch", request);
     render(
       <WorkspaceSidebar
         workspaces={[workspace]}
         capabilities={[]}
-        onNavigate={vi.fn()}
+        onNavigate={navigate}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Expand Workspace A" }));
-    const create = await screen.findByRole("button", {
+    const button = await screen.findByRole("button", {
       name: "New Conversation",
     });
-    fireEvent.click(create);
-    await screen.findByRole("alert");
-    fireEvent.click(create);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    const first = new Headers(fetchMock.mock.calls[1][1].headers);
-    const second = new Headers(fetchMock.mock.calls[2][1].headers);
-    expect(first.get("Idempotency-Key")).toBe("stable-key");
-    expect(second.get("Idempotency-Key")).toBe("stable-key");
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenLastCalledWith("/workspaces/ws-a/conversations");
   });
 
   it("closes the mobile drawer after a navigation link is selected", () => {
     render(
       <MobileDrawer>
-        <a href="/workspaces/ws-a">Workspace A</a>
+        <a href="/workspaces/ws-a/conversations">Workspace A</a>
       </MobileDrawer>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Menu" }));
@@ -227,6 +283,6 @@ describe("Workspace sidebar", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock.mock.calls[0][0]).toBe("/api/workspace-selection");
     expect(fetchMock.mock.calls[0][1].method).toBe("POST");
-    expect(navigate).toHaveBeenCalledWith("/workspaces/ws-a");
+    expect(navigate).toHaveBeenCalledWith("/workspaces/ws-a/conversations");
   });
 });

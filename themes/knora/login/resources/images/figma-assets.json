@@ -1,0 +1,49 @@
+{
+  "assets": [
+    {
+      "file": "ad252.svg",
+      "bytes": 956,
+      "sha256": "FDA63DFBB12011B92EB338979D40482A202F6486D07231D339D42DCE778B72B3",
+      "rootWidth": "18",
+      "rootHeight": "18",
+      "sourceNodeIds": [
+        "228:212",
+        "228:251",
+        "237:251",
+        "237:313"
+      ],
+      "sourceFileKey": "BOVOx0bt1qYJFg9nBq6EaQ",
+      "originalCachePath": "C:\\Developer\\Projects\\knora-agent-worktree\\figma-ui-foundations\\.superpowers\\figma\\2026-10-05\\assets\\ad252.svg",
+      "capturedOn": "2026-10-05"
+    },
+    {
+      "file": "bf7a4.svg",
+      "bytes": 697,
+      "sha256": "A934C1CD7392A3AB17205E33297FD51BB7C478BD413839D4F5DCA660FDF63FAF",
+      "rootWidth": "18",
+      "rootHeight": "18",
+      "sourceNodeIds": [
+        "228:212",
+        "228:251",
+        "237:251",
+        "237:313"
+      ],
+      "sourceFileKey": "BOVOx0bt1qYJFg9nBq6EaQ",
+      "originalCachePath": "C:\\Developer\\Projects\\knora-agent-worktree\\figma-ui-foundations\\.superpowers\\figma\\2026-10-05\\assets\\bf7a4.svg",
+      "capturedOn": "2026-10-05"
+    },
+    {
+      "file": "42cef.svg",
+      "bytes": 697,
+      "sha256": "BCD8A752F8C0DB8E0D9B4DB1E0081FA8848FFBA81E9BE76A835BF6BC979CBC65",
+      "rootWidth": "18",
+      "rootHeight": "18",
+      "sourceNodeIds": [
+        "242:389"
+      ],
+      "sourceFileKey": "BOVOx0bt1qYJFg9nBq6EaQ",
+      "originalCachePath": "C:\\Developer\\Projects\\knora-agent-worktree\\figma-ui-foundations\\.superpowers\\figma\\2026-10-05\\assets\\42cef.svg",
+      "capturedOn": "2026-10-05"
+    }
+  ]
+}

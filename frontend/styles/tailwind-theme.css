@@ -1,0 +1,25 @@
+/* CSS variables are the sole color authority, including system/explicit dark. */
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-active: var(--action-active);
+  --color-action-foreground: var(--action-foreground);
+  --color-action-text: var(--action-text);
+  --color-signature: var(--signature);
+  --color-signature-foreground: var(--signature-foreground);
+  --color-border: var(--border);
+  --color-control-border: var(--control-border);
+  --color-focus: var(--focus);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-status-info: var(--status-info);
+  --font-display: var(--font-roboto-slab), var(--font-heading);
+  --font-sans: var(--font-inter), var(--font-control);
+}

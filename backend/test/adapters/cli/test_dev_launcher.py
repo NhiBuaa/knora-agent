@@ -95,8 +95,6 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
             "docker",
             "compose",
             "-f",
-            str(root / "docker-compose.yml"),
-            "-f",
             str(root / "docker-compose.dev.yml"),
             "config",
             "--format",
@@ -130,8 +128,6 @@ def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
         [
             "docker",
             "compose",
-            "-f",
-            str(root / "docker-compose.yml"),
             "-f",
             str(root / "docker-compose.dev.yml"),
             "config",

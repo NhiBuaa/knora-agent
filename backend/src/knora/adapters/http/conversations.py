@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 
 from knora.access.identity import Identity
 from knora.adapters.http.workspaces import require_identity
@@ -146,9 +146,18 @@ def list_conversations(
     archived: bool = False,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    q: Annotated[
+        str | None,
+        Query(max_length=200),
+        BeforeValidator(lambda value: value.strip() if isinstance(value, str) else value),
+    ] = None,
 ) -> ConversationListResponse:
     private(response)
-    page = service.list(identity, workspace_id, archived, cursor, limit)
+    page = (
+        service.list(identity, workspace_id, archived, cursor, limit, q=q)
+        if q
+        else service.list(identity, workspace_id, archived, cursor, limit)
+    )
     return ConversationListResponse(
         items=[ConversationResponse.model_validate(item) for item in page.items],
         next_cursor=page.next_cursor,
@@ -318,7 +327,6 @@ def submit_turn(
     else:
         response.status_code = 202
     response.headers["Location"] = (
-        f"/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns/"
-        f"{admission.turn.id}"
+        f"/v1/workspaces/{workspace_id}/conversations/{conversation_id}/turns/{admission.turn.id}"
     )
     return _turn_response(admission.turn)

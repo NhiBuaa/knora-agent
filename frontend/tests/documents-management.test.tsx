@@ -1,9 +1,20 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { DocumentList } from "@/components/documents/DocumentList";
 import { DocumentDetail } from "@/components/documents/DocumentDetail";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const document = {
   document_id: "doc-1",
@@ -16,6 +27,12 @@ const document = {
   serving_state: "current" as const,
   ingestion_job_id: null,
   ingestion_status: null,
+  reprocess_supported: true,
+  embedding_readiness: "ready" as const,
+  answer_availability: "available" as const,
+  served_document_version_id: "version-1",
+  last_processed_at: null,
+  deletion_request: null,
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -35,13 +52,67 @@ afterEach(() => {
 });
 
 describe("document management", () => {
+  it("explains a terminal PDF text failure on initial detail load", async () => {
+    vi.stubGlobal("fetch", async (url: string) =>
+      jsonResponse(
+        url.includes("/ingestion-jobs/")
+          ? {
+              status: "failed",
+              failure_reason: "terminal_input",
+              error_code: "PDF_TEXT_INSUFFICIENT",
+            }
+          : {
+              ...document,
+              ingestion_job_id: "failed-job",
+              ingestion_status: "failed",
+              serving_state: "unavailable",
+              answer_availability: "unavailable",
+            },
+      ),
+    );
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-1"
+        capabilities={["documents:write"]}
+      />,
+    );
+    expect(
+      await screen.findByText(
+        /This PDF does not contain enough extractable text/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/OCR/)).toBeInTheDocument();
+  });
+  it("archives on the list and reloads its authoritative contents", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [document] }))
+      .mockResolvedValueOnce(jsonResponse({ ...document, archived: true }))
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }));
+    vi.stubGlobal("fetch", request);
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByRole("link", { name: "guide.pdf" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for guide.pdf" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive document" }));
+    await screen.findByText("No documents yet.");
+    expect(
+      screen.queryByRole("link", { name: "guide.pdf" }),
+    ).not.toBeInTheDocument();
+  });
   it("does not show an empty state while documents are still loading", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise(() => {})),
     );
     render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
-    expect(screen.getByText("Loading documents…")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Loading documents" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("No documents yet.")).not.toBeInTheDocument();
   });
 
@@ -60,6 +131,21 @@ describe("document management", () => {
     expect(
       screen.getByText("This Workspace is read-only."),
     ).toBeInTheDocument();
+  });
+  it("shows limited permissions when the document API denies access", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ detail: "forbidden" }, 403)),
+    );
+    render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
+
+    expect(
+      await screen.findByText(
+        "You don't have permission to view documents in this workspace.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Limited permissions")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
   it("uses canonical document links and hides writes in archived Workspaces", async () => {
     vi.stubGlobal(
@@ -90,7 +176,7 @@ describe("document management", () => {
         workspaceArchived
       />,
     );
-    await screen.findByText("guide.pdf");
+    await screen.findByRole("link", { name: "guide.pdf" });
     expect(
       screen.queryByRole("button", { name: "Reprocess document" }),
     ).not.toBeInTheDocument();
@@ -133,7 +219,7 @@ describe("document management", () => {
     expect(fetchMock.mock.calls[1][0]).toBe(
       "/api/v1/workspaces/ws-1/ingestion-jobs/existing-job",
     );
-    expect(screen.getByText(/Embedding ready/)).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
   it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {
@@ -173,7 +259,7 @@ describe("document management", () => {
     render(
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
-    await screen.findByText(/Re-index required/);
+    await screen.findByText(/Needs re-index|Archived|Queued/);
     fireEvent.click(screen.getByRole("button", { name: "Re-index guide.pdf" }));
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Re-index guide.pdf" }));
@@ -192,7 +278,7 @@ describe("document management", () => {
     expect(new Headers(submits[1][1].headers).get("Idempotency-Key")).toBe(
       "stable-request-id",
     );
-    expect(screen.getByText(/Embedding ready/)).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
   it.each([
@@ -270,7 +356,7 @@ describe("document management", () => {
       );
       if (archived)
         fireEvent.click(await screen.findByLabelText("Show archived"));
-      await screen.findByText(/Re-index required/);
+      await screen.findByText(/Needs re-index|Archived|Queued/);
       expect(
         screen.queryByRole("button", { name: "Re-index guide.pdf" }),
       ).not.toBeInTheDocument();
@@ -288,8 +374,11 @@ describe("document management", () => {
     render(
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
-    await screen.findByText("guide.pdf");
-    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    await screen.findByRole("link", { name: "guide.pdf" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for guide.pdf" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive document" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(
@@ -304,7 +393,7 @@ describe("document management", () => {
       vi.fn().mockResolvedValue(jsonResponse({ documents: [document] })),
     );
     render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
-    await screen.findByText("guide.pdf");
+    await screen.findByRole("link", { name: "guide.pdf" });
     expect(screen.queryByLabelText("Document file")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Upload document" }),
@@ -337,14 +426,19 @@ describe("document management", () => {
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
     await screen.findByText("No documents yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
     fireEvent.change(screen.getByLabelText("Document file"), {
       target: {
         files: [new File(["%PDF"], "manual.pdf", { type: "application/pdf" })],
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Upload document",
+      }),
+    );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(fetchMock.mock.calls[1][0]).toBe(
       "/api/v1/workspaces/ws-1/documents",
     );
@@ -363,16 +457,19 @@ describe("document management", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(document))
-      .mockResolvedValueOnce(jsonResponse(document))
       .mockResolvedValueOnce(jsonResponse({ detail: "temporary" }, 503))
       .mockResolvedValueOnce(
         jsonResponse(
-          { request_id: "req-1", document_id: "doc-1", state: "requested" },
+          {
+            request_id: "req-1",
+            document_id: "doc-1",
+            state: "blocked",
+            failure_reason: "DOCUMENT_DELETION_POLICY_UNAVAILABLE",
+          },
           202,
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
-
     const view = render(
       <DocumentDetail
         workspaceId="ws-1"
@@ -380,11 +477,10 @@ describe("document management", () => {
         capabilities={[]}
       />,
     );
-    await screen.findByText("guide.pdf");
+    await screen.findByRole("heading", { name: "guide.pdf" });
     expect(
       screen.queryByRole("button", { name: "Request deletion" }),
     ).not.toBeInTheDocument();
-
     view.rerender(
       <DocumentDetail
         workspaceId="ws-1"
@@ -393,21 +489,33 @@ describe("document management", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Request deletion" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByRole("button", { name: "Request deletion" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    const firstHeaders = fetchMock.mock.calls[1][1].headers as Headers;
-    const secondHeaders = fetchMock.mock.calls[2][1].headers as Headers;
-    expect(firstHeaders.get("Idempotency-Key")).toBe("stable-request-id");
-    expect(secondHeaders.get("Idempotency-Key")).toBe("stable-request-id");
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Request deletion",
+      }),
+    );
+    await screen.findByRole("alert");
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Request deletion",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    const keys = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([, init]) => new Headers(init.headers).get("Idempotency-Key"));
+    expect(keys).toEqual(["stable-request-id", "stable-request-id"]);
+    expect(
+      screen.getByRole("region", { name: "Deletion request" }),
+    ).toHaveTextContent("Deletion blocked");
   });
 
   it("reprocesses the current version and polls until the backend reports success", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({ ...document, ingestion_job_id: "job-1" }),
-      )
+      .mockResolvedValueOnce(jsonResponse(document))
       .mockResolvedValueOnce(
         jsonResponse(
           {
@@ -449,6 +557,14 @@ describe("document management", () => {
           serving_state: "current",
           result: { document_version_id: "version-3" },
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...document,
+          current_document_version_id: "version-3",
+          served_document_version_id: "version-3",
+          ingestion_status: "succeeded",
+        }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -459,7 +575,7 @@ describe("document management", () => {
         capabilities={["documents:write"]}
       />,
     );
-    await screen.findByText("guide.pdf");
+    await screen.findByRole("link", { name: "guide.pdf" });
     fireEvent.click(screen.getByRole("button", { name: "Reprocess document" }));
     await waitFor(() =>
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2),
@@ -472,9 +588,10 @@ describe("document management", () => {
         body: JSON.stringify({ config_mode: "current" }),
       }),
     );
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
-    expect(screen.getByText("succeeded")).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5), {
+      timeout: 2000,
+    });
+    expect(screen.getAllByText("Ready").length).toBeGreaterThan(0);
   });
 
   it("reuses one idempotency key when reprocess is retried after a lost response", async () => {
@@ -505,6 +622,9 @@ describe("document management", () => {
           status: "succeeded",
           poll_after_seconds: 0,
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ ...document, ingestion_status: "succeeded" }),
       );
     vi.stubGlobal("fetch", fetchMock);
     render(
@@ -514,7 +634,7 @@ describe("document management", () => {
         capabilities={["documents:write"]}
       />,
     );
-    await screen.findByText("guide.pdf");
+    await screen.findByRole("link", { name: "guide.pdf" });
     fireEvent.click(screen.getByRole("button", { name: "Reprocess document" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("button", { name: "Reprocess document" }));

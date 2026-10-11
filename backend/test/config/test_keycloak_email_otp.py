@@ -1,0 +1,1464 @@
+"""Execute isolated OTP configuration at its HTTP, Docker and filesystem boundaries."""
+
+import base64
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[3]
+POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
+pytestmark = pytest.mark.skipif(POWERSHELL is None, reason="PowerShell unavailable")
+ALIAS = "knora-email-otp-reset"
+OWNER = "Knora isolated email OTP recovery v1"
+
+
+def environment() -> dict[str, str]:
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if not re.match(
+            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|KC_SMTP_|SESSION_SECRET$)",
+            key,
+        )
+    }
+
+
+def state() -> dict:
+    return {
+        "realm": {
+            "id": "actual-isolated-realm-id",
+            "realm": "knora-dev",
+            "resetCredentialsFlow": "reset credentials",
+            "emailTheme": "keycloak",
+            "resetPasswordAllowed": False,
+            "verifyEmail": True,
+            "smtpServer": {"host": "mail"},
+        },
+        "client": {
+            "id": "client-id",
+            "baseUrl": None,
+            "rootUrl": None,
+            "redirectUris": ["http://127.0.0.1:3300/api/auth/callback"],
+            "webOrigins": ["http://127.0.0.1:3300"],
+        },
+        "providers": [{"id": "knora-reset-email-otp"}, {"id": "reset-password"}],
+        "required": [
+            {"alias": "UPDATE_PASSWORD", "providerId": "UPDATE_PASSWORD", "enabled": True}
+        ],
+        "flows": [],
+        "executions": [],
+        "mutations": [],
+        "dockerMutations": [],
+        "owner": "knora-figma-e2e",
+        "service": "figma-keycloak",
+        "workingDir": str(ROOT),
+        "hostIp": "127.0.0.1",
+        "ignored": True,
+        "restricted": True,
+        "nativeRuntime": {
+            "image": "knora-figma-otp-runtime:26.3.3",
+            "entrypoint": ["/opt/keycloak/bin/kc.sh"],
+            "command": [
+                "start-dev",
+                "--vault=file",
+                "--vault-dir=/opt/keycloak/vault",
+                "--spi-theme--cache-themes=false",
+                "--spi-theme--cache-templates=false",
+                "--spi-theme--static-max-age=-1",
+            ],
+            "configFiles": str(ROOT / "docker-compose.dev.yml"),
+            "environment": ["KC_DB=postgres", "KC_HOSTNAME=http://127.0.0.1:8380"],
+            "mounts": [
+                {
+                    "Type": "bind",
+                    "Source": str(ROOT / "test/fixtures/keycloak/figma-realm.json"),
+                    "Destination": "/opt/keycloak/data/import/knora-dev-realm.json",
+                    "RW": False,
+                },
+                {
+                    "Type": "bind",
+                    "Source": str(ROOT / "themes/knora"),
+                    "Destination": "/opt/keycloak/themes/knora",
+                    "RW": False,
+                },
+                {
+                    "Type": "bind",
+                    "Source": "C:/operator-vault",
+                    "Destination": "/opt/keycloak/vault",
+                    "RW": False,
+                },
+            ],
+        },
+    }
+
+
+def prepared(data: dict) -> None:
+    data["flows"] = [
+        {
+            "id": "owned-flow",
+            "alias": ALIAS,
+            "description": OWNER,
+            "providerId": "basic-flow",
+            "topLevel": True,
+            "builtIn": False,
+        }
+    ]
+    data["executions"] = [
+        {
+            "id": "otp",
+            "providerId": "knora-reset-email-otp",
+            "requirement": "REQUIRED",
+            "priority": 10,
+            "index": 0,
+            "level": 0,
+            "authenticationFlow": None,
+        },
+        {
+            "id": "password",
+            "providerId": "reset-password",
+            "requirement": "REQUIRED",
+            "priority": 20,
+            "index": 1,
+            "level": 0,
+            "authenticationFlow": None,
+        },
+    ]
+
+
+WRAPPER = r"""
+param($StatePath, $ScriptPath, $RootPath, $Actions, $SnapshotPath, $VaultPath)
+$ErrorActionPreference = 'Stop'
+$global:data = Get-Content -Raw -LiteralPath $StatePath | ConvertFrom-Json
+$global:tokenCount = 0
+$global:ownershipChecks = 0
+$global:targetBaseUrl = if ($global:data.targetParameters) {
+    $global:data.targetParameters.baseUrl
+} else { 'http://127.0.0.1:8380' }
+$global:targetRealm = if ($global:data.targetParameters) {
+    $global:data.targetParameters.realm
+} else { 'knora-dev' }
+$global:targetProject = if ($global:data.targetParameters) {
+    $global:data.targetParameters.project
+} else { $global:data.owner }
+$global:targetPort = if ($global:data.targetParameters) { '8180' } else { '8380' }
+$global:targetService = if ($global:data.targetParameters) {
+    'keycloak-dev'
+} else { $global:data.service }
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'ps') {
+        $global:ownershipChecks++
+        if ($global:data.extraService) { return @('owned-keycloak', 'retained-proof') }
+        return 'owned-keycloak'
+    }
+    if ($args[0] -eq 'inspect') {
+        if ($args[1] -eq 'retained-proof') {
+            return ConvertTo-Json -Depth 100 -InputObject @(@{
+                Name="/knora-figma-e2e-$($global:data.extraService)-1"
+                State=@{Running=$global:data.extraRunning}
+                Config=@{Labels=@{
+                    'com.docker.compose.project'='knora-figma-e2e'
+                    'com.docker.compose.service'=$global:data.extraService
+                    'com.docker.compose.project.working_dir'=$global:data.workingDir
+                }}
+                NetworkSettings=@{Ports=@{}}
+            })
+        }
+        $runtime = $global:data.nativeRuntime
+        $containerEnvironment = @($runtime.environment)
+        if ($global:data.proofAfterCheck -and
+            $global:ownershipChecks -ge $global:data.proofAfterCheck) {
+            $containerEnvironment += 'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
+        }
+        return ConvertTo-Json -Depth 100 -InputObject @(@{
+            Name=if ($global:data.targetParameters) {
+                '/keycloak-dev-1'
+            } else { '/knora-figma-e2e-figma-keycloak-1' }
+            State=@{Running=$true}
+            Config=@{Image=$runtime.image;Cmd=$runtime.command;Entrypoint=$runtime.entrypoint
+                Env=$containerEnvironment;Labels=@{
+                'com.docker.compose.project'=$global:targetProject
+                'com.docker.compose.service'=$global:targetService
+                'com.docker.compose.project.working_dir'=$global:data.workingDir
+                'com.docker.compose.project.config_files'=$runtime.configFiles
+            }}
+            Mounts=$runtime.mounts
+            NetworkSettings=@{Ports=@{'8080/tcp'=@(@{HostIp=$global:data.hostIp;HostPort=$global:targetPort})}}
+        })
+    }
+    if ($args[0] -eq 'compose' -and 'config' -in $args) {
+        if ($env:KNORA_FIGMA_KEYCLOAK_COMMAND) {
+            return $global:data.runtimeConfig | ConvertTo-Json -Depth 100
+        }
+        return $global:data.baseConfig | ConvertTo-Json -Depth 100
+    }
+    $global:data.dockerMutations += ,@($args)
+    if ($global:data.failStart) { $global:LASTEXITCODE = 1 }
+}
+function git {
+    if ('check-ignore' -in $args) {
+        $global:LASTEXITCODE = if ($global:data.ignored) { 0 } else { 1 }
+        return
+    }
+    if ('ls-files' -in $args) { $global:LASTEXITCODE = 0; return }
+    if ('rev-parse' -in $args) {
+        if ($global:data.gitFailure) { $global:LASTEXITCODE = 128; return }
+        $global:LASTEXITCODE = 0; return $RootPath
+    }
+    $global:LASTEXITCODE = 128
+}
+function Get-Acl {
+    param($LiteralPath)
+    $acl = [pscustomobject]@{AreAccessRulesProtected=$global:data.restricted}
+    $acl | Add-Member ScriptMethod GetAccessRules {
+        param($Explicit, $Inherited, $TargetType)
+        $sid = if ($global:data.restricted) {
+            [Security.Principal.WindowsIdentity]::GetCurrent().User
+        } else { [Security.Principal.SecurityIdentifier]::new('S-1-1-0') }
+        return @([pscustomobject]@{IdentityReference=$sid;AccessControlType='Allow';
+            FileSystemRights=[Security.AccessControl.FileSystemRights]::FullControl})
+    }
+    return $acl
+}
+function Invoke-RestMethod {
+    param($Method='Get', $Uri, $Headers, $ContentType, $Body, $TimeoutSec)
+    $realmUri = "$global:targetBaseUrl/admin/realms/$global:targetRealm"
+    if ($Uri -eq "$global:targetBaseUrl/realms/master/protocol/openid-connect/token" -and
+        $Method -eq 'Post') {
+        $global:tokenCount++
+        return @{access_token="NEVER_PRINT_TOKEN_$global:tokenCount"}
+    }
+    $discovery = "$global:targetBaseUrl/realms/$global:targetRealm/.well-known/" +
+        'openid-configuration'
+    if ($Uri -eq $discovery) {
+        return @{issuer="$global:targetBaseUrl/realms/$global:targetRealm"}
+    }
+    if ($Headers.Authorization -ne "Bearer NEVER_PRINT_TOKEN_$global:tokenCount") {
+        throw 'Incorrect authorization boundary'
+    }
+    if ($global:data.requireFreshToken -and $global:data.dockerMutations.Count -gt 0 -and
+        $global:tokenCount -lt 2) { throw 'Preflight token expired during build' }
+    if ($Method -eq 'Get') {
+        if ($Uri -eq "$realmUri/clients?clientId=knora-web") {
+            return @([pscustomobject]@{
+                id=$global:data.client.id;clientId='knora-web'
+                baseUrl=$global:data.client.baseUrl;rootUrl=$global:data.client.rootUrl
+                redirectUris=$global:data.client.redirectUris;webOrigins=$global:data.client.webOrigins
+            })
+        }
+        switch ($Uri) {
+            $realmUri { return $global:data.realm }
+            "$realmUri/authentication/authenticator-providers" {
+                if ($global:data.restCollectionShape) { return ,$global:data.providers }
+                return $global:data.providers
+            }
+            "$realmUri/authentication/required-actions" { return $global:data.required }
+            "$realmUri/authentication/flows" {
+                if ($global:data.restCollectionShape) { return ,$global:data.flows }
+                return $global:data.flows
+            }
+            "$realmUri/authentication/flows/knora-email-otp-reset/executions" {
+                if ($global:data.restCollectionShape) { return ,$global:data.executions }
+                return $global:data.executions
+            }
+            default { throw 'Unexpected GET boundary' }
+        }
+    }
+    $payload = $Body | ConvertFrom-Json
+    $global:data.mutations += ,@{method=$Method;uri=$Uri;payload=$payload}
+    if ($global:data.failMutation -and $global:data.mutations.Count -eq $global:data.failMutation) {
+        throw 'NEVER_PRINT_ERROR_BODY_PASSWORD'
+    }
+    if ($Method -eq 'Post' -and $Uri -eq "$realmUri/authentication/flows") {
+        $payload | Add-Member NoteProperty id 'owned-flow'
+        $global:data.flows += $payload; return
+    }
+    $executionUri = "$realmUri/authentication/flows/knora-email-otp-reset/executions"
+    if ($Method -eq 'Post' -and $Uri -eq "$executionUri/execution") {
+        $global:data.executions += [pscustomobject]@{
+            id="exec-$($global:data.executions.Count)";providerId=$payload.provider
+            priority=$payload.priority;index=$global:data.executions.Count;level=0
+            authenticationFlow=$null;requirement='DISABLED'
+        }
+        return
+    }
+    if ($Method -eq 'Put' -and $Uri -eq $executionUri) {
+        $execution = @($global:data.executions | Where-Object id -eq $payload.id)
+        if ($execution.Count -ne 1) { throw 'Wrong execution update' }
+        $execution[0].requirement=$payload.requirement; $execution[0].priority=$payload.priority
+        return
+    }
+    if ($Method -eq 'Put' -and $Uri -eq $realmUri) {
+        foreach ($property in $payload.PSObject.Properties) {
+            $global:data.realm.($property.Name)=$property.Value
+        }
+        return
+    }
+    if ($Method -eq 'Put' -and $Uri -eq "$realmUri/clients/client-id") {
+        foreach ($property in $payload.PSObject.Properties) {
+            # Pinned Keycloak updateClientProperties retains the current value for JSON null.
+            if ($null -ne $property.Value) {
+                $global:data.client.($property.Name)=$property.Value
+                if ($property.Value -ceq '' -and
+                    $global:data.PSObject.Properties.Name -contains 'unsetReadback') {
+                    $global:data.client.($property.Name)=$global:data.unsetReadback
+                }
+                if ($property.Value -ceq 'https://prior.example/path' -and
+                    $global:data.PSObject.Properties.Name -contains 'nonemptyReadback') {
+                    $global:data.client.($property.Name)=$global:data.nonemptyReadback
+                }
+            }
+        }
+        if ($global:data.corruptClientOrigins) {
+            $global:data.client.webOrigins=@('http://unrelated.invalid')
+        }
+        return
+    }
+    throw 'Unexpected mutation boundary'
+}
+try {
+    foreach ($action in ($Actions -split ',')) {
+        $parameters = @{AdminUsername='NEVER_PRINT_USERNAME';AdminPassword='NEVER_PRINT_PASSWORD'}
+        if ($global:data.targetParameters) {
+            $parameters += @{
+                BaseUrl=$global:data.targetParameters.baseUrl
+                Realm=$global:data.targetParameters.realm
+                Project=$global:data.targetParameters.project
+            }
+        }
+        switch ($action) {
+            'BreakClientOrigin' { $global:data.client.baseUrl=$null }
+            'RecreateClient' { $global:data.client.id='recreated-client' }
+            'LegacySnapshot' {
+                $saved=Get-Content -Raw -LiteralPath $SnapshotPath | ConvertFrom-Json
+                $saved.PSObject.Properties.Remove('clientId')
+                $saved.PSObject.Properties.Remove('clientSettings')
+                $saved | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $SnapshotPath
+            }
+            'PartialBindRecover' {
+                try {
+                    & $ScriptPath -Mode Bind -EnableIsolatedOtp @parameters `
+                        -SnapshotPath $SnapshotPath
+                } catch {}
+                $global:data.failMutation=0
+                & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
+            }
+            'default' { & $ScriptPath @parameters }
+            'BindOptIn' {
+                & $ScriptPath -Mode Bind -EnableIsolatedOtp @parameters -SnapshotPath $SnapshotPath
+            }
+            'PrimaryInspect' {
+                & $ScriptPath -Mode Inspect -EnablePrimaryOtp @parameters
+            }
+            'PrimaryDiff' {
+                & $ScriptPath -Mode Diff -EnablePrimaryOtp @parameters
+            }
+            'PrimaryBind' {
+                & $ScriptPath -Mode Bind -EnablePrimaryOtp @parameters -SnapshotPath $SnapshotPath
+            }
+            'PrimaryBindSmtp' {
+                & $ScriptPath -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp @parameters `
+                    -SnapshotPath $SnapshotPath
+            }
+            'PrimaryRestore' {
+                & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters `
+                    -SnapshotPath $SnapshotPath
+            }
+            'PrimaryRestoreWithoutSmtp' {
+                Remove-Item Env:KC_SMTP_PASSWORD -ErrorAction SilentlyContinue
+                Remove-Item Env:KC_SMTP_RESTORE_PASSWORD -ErrorAction SilentlyContinue
+                & $ScriptPath -Mode Restore -EnablePrimaryOtp @parameters `
+                    -SnapshotPath $SnapshotPath
+            }
+            'RestoreWrongId' {
+                $global:data.realm.id='recreated-realm'
+                & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
+            }
+            'RestoreWrongTarget' {
+                $saved = Get-Content -Raw -LiteralPath $SnapshotPath | ConvertFrom-Json
+                $saved.($global:data.snapshotField) = 'wrong-target'
+                $saved | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $SnapshotPath
+                & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
+            }
+            'RestoreWithProof' {
+                $global:data.nativeRuntime.environment +=
+                    'KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET'
+                $global:data | Add-Member -Force NoteProperty extraService 'figma-keycloak-proof'
+                $global:data | Add-Member -Force NoteProperty extraRunning $true
+                & $ScriptPath -Mode Restore @parameters -SnapshotPath $SnapshotPath
+            }
+            'RuntimeCheck' {
+                & $ScriptPath -VaultPath $VaultPath -CheckConfigurationOnly @parameters
+            }
+            'RuntimePrepare' { & $ScriptPath -VaultPath $VaultPath @parameters }
+            default {
+                & $ScriptPath -Mode $action @parameters -SnapshotPath $SnapshotPath
+            }
+        }
+    }
+} finally {
+    $global:data | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath "$StatePath.result"
+}
+"""
+
+
+def run(
+    tmp_path: Path, data: dict, actions: str, *, runtime: bool = False, vault: Path | None = None,
+    extra_env: dict[str, str] | None = None, dotenv: str | None = None
+) -> tuple[subprocess.CompletedProcess, dict]:
+    script_root = ROOT
+    if not runtime:
+        # Exercise the real root .env lookup without accessing developer credentials.
+        script_root = tmp_path / "repository"
+        (script_root / "scripts").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(
+            ROOT / "scripts/configure-keycloak-email-otp.ps1",
+            script_root / "scripts/configure-keycloak-email-otp.ps1",
+        )
+        data = json.loads(
+            json.dumps(data).replace(
+                json.dumps(str(ROOT))[1:-1], json.dumps(str(script_root))[1:-1]
+            )
+        )
+        if dotenv is not None:
+            (script_root / ".env").write_text(dotenv, encoding="utf-8")
+    fixture = tmp_path / "state.json"
+    fixture.write_text(json.dumps(data))
+    wrapper = tmp_path / "run.ps1"
+    wrapper.write_text(WRAPPER)
+    script = "prepare-figma-otp-runtime.ps1" if runtime else "configure-keycloak-email-otp.ps1"
+    child_env = environment()
+    if extra_env:
+        child_env.update(extra_env)
+    result = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(wrapper),
+            str(fixture),
+            str(script_root / "scripts" / script),
+            str(script_root),
+            actions,
+            str(tmp_path / "snapshot.json"),
+            str(vault or tmp_path / "missing-vault"),
+        ],
+        cwd=ROOT,
+        env=child_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    after = json.loads(Path(str(fixture) + ".result").read_text())
+    for secret in (
+        "NEVER_PRINT_TOKEN",
+        "NEVER_PRINT_PASSWORD",
+        "NEVER_PRINT_USERNAME",
+        "NEVER_PRINT_ERROR_BODY_PASSWORD",
+        "NEVER_PRINT_PROOF_SECRET",
+        "NEVER_PRINT_SMTP_PASSWORD",
+    ):
+        assert secret not in result.stdout + result.stderr
+    return result, after
+
+
+@pytest.mark.parametrize("actions", ["default", "Inspect", "Diff"])
+def test_read_only_modes_never_create_flow_or_change_binding(tmp_path: Path, actions: str) -> None:
+    result, after = run(tmp_path, state(), actions)
+    assert result.returncode == 0, result.stderr
+    assert after["mutations"] == []
+    assert after["realm"]["resetCredentialsFlow"] == "reset credentials"
+    assert not (tmp_path / "snapshot.json").exists()
+
+
+def primary_data(*, smtp_server: dict | None = None) -> dict:
+    data = state()
+    data["targetParameters"] = {
+        "baseUrl": "http://127.0.0.1:8180",
+        "realm": "knora-dev",
+        "project": "knora-dev",
+    }
+    data["realm"]["smtpServer"] = smtp_server
+    data["nativeRuntime"] = {
+        "image": "knora-dev-keycloak-dev",
+        "entrypoint": ["/opt/keycloak/bin/kc.sh"],
+        "command": [
+            "start-dev",
+            "--import-realm",
+            "--vault=file",
+            "--vault-dir=/opt/keycloak/vault",
+        ],
+        "configFiles": str(ROOT / "docker-compose.dev.yml"),
+        "environment": [
+            "KC_DB=postgres",
+            "KC_DB_URL=jdbc:postgresql://keycloak-dev-db:5432/keycloak",
+            "KC_HOSTNAME=http://127.0.0.1:8180",
+        ],
+        "mounts": [
+            {
+                "Type": "bind",
+                "Source": "C:/operator-vault",
+                "Destination": "/opt/keycloak/vault",
+                "RW": False,
+            }
+        ],
+    }
+    return data
+
+
+def test_primary_target_rejects_wrong_endpoint_before_ownership(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    data["targetParameters"]["baseUrl"] = "http://127.0.0.1:8380"
+    result, after = run(tmp_path, data, "PrimaryInspect")
+    assert result.returncode != 0
+    assert "OTP_PRIMARY_TARGET_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+
+
+def test_primary_inspect_rejects_realm_mismatch(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    data["realm"]["realm"] = "foreign-realm"
+    result, after = run(tmp_path, data, "PrimaryInspect")
+    assert result.returncode != 0
+    assert "OTP_REALM_REPRESENTATION_REJECTED" in result.stderr
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize("action", ["PrimaryInspect", "PrimaryDiff"])
+@pytest.mark.parametrize(
+    "smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}]
+)
+def test_primary_read_only_modes_redact_and_stabilize_smtp_metadata(
+    tmp_path: Path, action: str, smtp_server: dict | None
+) -> None:
+    result, after = run(tmp_path, primary_data(smtp_server=smtp_server), action)
+    assert result.returncode == 0, result.stderr
+    inspection = json.loads(result.stdout.strip())
+    assert set(inspection["smtp"]) == {
+        "auth",
+        "configured",
+        "from",
+        "host",
+        "passwordConfigured",
+        "port",
+        "starttls",
+        "user",
+    }
+    assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+    assert after["mutations"] == []
+
+
+def test_primary_smtp_string_booleans_are_normalized(tmp_path: Path) -> None:
+    smtp = {"host": "mail", "auth": "false", "starttls": "true"}
+    result, _ = run(tmp_path, primary_data(smtp_server=smtp), "PrimaryInspect")
+    assert result.returncode == 0, result.stderr
+    metadata = json.loads(result.stdout)["smtp"]
+    assert metadata["auth"] is False
+    assert metadata["starttls"] is True
+
+
+@pytest.mark.parametrize(
+    "smtp_server", [None, {"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"}]
+)
+def test_primary_restore_snapshot_has_full_smtp_shape(
+    tmp_path: Path, smtp_server: dict | None
+) -> None:
+    data = primary_data(smtp_server=smtp_server)
+    prepared(data)
+    restore_env = {"KC_SMTP_RESTORE_PASSWORD": "RESTORE_TEST_PASSWORD"} if smtp_server else None
+    result, after = run(
+        tmp_path, data, "PrimaryBind,PrimaryRestore", extra_env=restore_env
+    )
+    assert result.returncode == 0, result.stderr
+    saved = json.loads((tmp_path / "snapshot.json").read_text(encoding="utf-8-sig"))
+    assert set(saved["smtp"]) == {
+        "auth",
+        "configured",
+        "from",
+        "host",
+        "passwordConfigured",
+        "port",
+        "starttls",
+        "user",
+    }
+    assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+    expected_smtp = {} if smtp_server is None else {
+        "host": "mail",
+        "port": "",
+        "from": "",
+        "user": "",
+        "auth": "false",
+        "starttls": "false",
+        "password": "RESTORE_TEST_PASSWORD",
+    }
+    assert after["realm"]["smtpServer"] == expected_smtp
+
+
+def test_primary_restore_requires_process_local_secret_for_configured_smtp(
+    tmp_path: Path,
+) -> None:
+    data = primary_data(smtp_server={"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"})
+    prepared(data)
+    restore, after = run(tmp_path, data, "PrimaryBind,PrimaryRestoreWithoutSmtp")
+    assert restore.returncode != 0
+    assert "OTP_SMTP_RESTORE_SECRET_REQUIRED" in restore.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_primary_restore_does_not_use_new_smtp_password_as_prior_secret(tmp_path: Path) -> None:
+    data = primary_data(smtp_server={"host": "mail", "password": "NEVER_PRINT_SMTP_PASSWORD"})
+    prepared(data)
+    result, _ = run(
+        tmp_path,
+        data,
+        "PrimaryBind,PrimaryRestore",
+        extra_env={"KC_SMTP_PASSWORD": "NEW_TEST_PASSWORD"},
+    )
+    assert result.returncode != 0
+    assert "OTP_SMTP_RESTORE_SECRET_REQUIRED" in result.stderr
+
+
+def test_primary_smtp_opt_in_fails_closed_when_required_values_are_missing(tmp_path: Path) -> None:
+    result, _ = run(tmp_path, primary_data(smtp_server=None), "PrimaryBindSmtp")
+    assert result.returncode != 0
+    assert "OTP_SMTP_CONFIGURATION_REQUIRED" in result.stderr
+    assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("process_password", [None, "PROCESS_TEST_PASSWORD"])
+def test_primary_smtp_reads_repository_dotenv_with_process_precedence(
+    tmp_path: Path, process_password: str | None,
+) -> None:
+    dotenv = "\n".join(
+        [
+            "# Local SMTP configuration",
+            "KC_SMTP_HOST=smtp.gmail.com",
+            "KC_SMTP_PORT=587",
+            "KC_SMTP_FROM=synthetic@example.com",
+            "KC_SMTP_USER=synthetic@example.com",
+            'KC_SMTP_PASSWORD="DOTENV_TEST_PASSWORD"',
+            "KC_SMTP_STARTTLS=true",
+            "KC_SMTP_AUTH=true",
+            "KNORA_GENERATION_PROVIDER=unrelated-value",
+        ]
+    )
+    data = primary_data(smtp_server=None)
+    prepared(data)
+    result, after = run(
+        tmp_path,
+        data,
+        "PrimaryBindSmtp",
+        dotenv=dotenv,
+        extra_env={"KC_SMTP_PASSWORD": process_password} if process_password else None,
+    )
+    assert result.returncode == 0, result.stderr
+    assert after["realm"]["smtpServer"]["host"] == "smtp.gmail.com"
+    assert after["realm"]["smtpServer"]["password"] == (
+        process_password or "DOTENV_TEST_PASSWORD"
+    )
+    assert "DOTENV_TEST_PASSWORD" not in result.stdout + result.stderr
+    assert "PROCESS_TEST_PASSWORD" not in result.stdout + result.stderr
+
+
+def test_primary_bound_flow_still_applies_changed_smtp_contract(tmp_path: Path) -> None:
+    data = primary_data(smtp_server={"host": "old.example", "auth": "false"})
+    prepared(data)
+    data["realm"].update(
+        resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True
+    )
+    data["client"].update(baseUrl="http://127.0.0.1:3000", rootUrl="http://127.0.0.1:3000")
+    smtp_env = {
+        "KC_SMTP_HOST": "smtp.gmail.com",
+        "KC_SMTP_PORT": "587",
+        "KC_SMTP_FROM": "synthetic@example.com",
+        "KC_SMTP_USER": "synthetic@example.com",
+        "KC_SMTP_PASSWORD": "RESTORE_TEST_PASSWORD",
+        "KC_SMTP_RESTORE_PASSWORD": "PRIOR_TEST_PASSWORD",
+        "KC_SMTP_STARTTLS": "true",
+        "KC_SMTP_AUTH": "true",
+    }
+    result, after = run(tmp_path, data, "PrimaryBindSmtp", extra_env=smtp_env)
+    assert result.returncode == 0, result.stderr
+    assert after["realm"]["smtpServer"]["host"] == "smtp.gmail.com"
+    assert after["realm"]["smtpServer"]["password"] == "RESTORE_TEST_PASSWORD"
+
+
+def test_primary_matching_smtp_contract_is_noop_without_prior_secret(tmp_path: Path) -> None:
+    data = primary_data(
+        smtp_server={
+            "host": "smtp.gmail.com",
+            "port": "587",
+            "from": "synthetic@example.com",
+            "user": "synthetic@example.com",
+            "password": "**********",
+            "starttls": "true",
+            "auth": "true",
+        }
+    )
+    prepared(data)
+    data["realm"].update(
+        resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True
+    )
+    data["client"].update(baseUrl="http://127.0.0.1:3000", rootUrl="http://127.0.0.1:3000")
+    smtp_env = {
+        "KC_SMTP_HOST": "smtp.gmail.com",
+        "KC_SMTP_PORT": "587",
+        "KC_SMTP_FROM": "synthetic@example.com",
+        "KC_SMTP_USER": "synthetic@example.com",
+        "KC_SMTP_PASSWORD": "NEW_TEST_PASSWORD",
+        "KC_SMTP_STARTTLS": "true",
+        "KC_SMTP_AUTH": "true",
+    }
+    result, after = run(tmp_path, data, "PrimaryBindSmtp", extra_env=smtp_env)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_BIND_ALREADY_SET" in result.stdout
+    assert after["mutations"] == []
+
+
+def test_primary_bind_rejects_extra_runtime_command_arguments(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    prepared(data)
+    data["nativeRuntime"]["command"].append("--features=unreviewed")
+    result, after = run(tmp_path, data, "PrimaryBind")
+    assert result.returncode != 0
+    assert "OTP_PRIMARY_RUNTIME_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+
+
+def test_primary_compose_uses_postgres_and_read_only_operator_vault(tmp_path: Path) -> None:
+    vault = tmp_path / "primary-vault"
+    vault.mkdir()
+    env = environment()
+    env["KNORA_PRIMARY_OTP_VAULT_PATH"] = str(vault)
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(ROOT / "docker-compose.dev.yml"),
+            "config",
+            "--format",
+            "json",
+        ],
+        cwd=ROOT, env=env, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    graph = json.loads(result.stdout)
+    keycloak = graph["services"]["keycloak-dev"]
+    database = graph["services"]["keycloak-dev-db"]
+    assert keycloak["environment"]["KC_DB"] == "postgres"
+    assert keycloak["environment"]["KC_DB_URL"] == "jdbc:postgresql://keycloak-dev-db:5432/keycloak"
+    assert keycloak["environment"]["KC_HOSTNAME"] == "http://127.0.0.1:8180"
+    assert "--vault=file" in keycloak["command"]
+    mount = next(item for item in keycloak["volumes"] if item["target"] == "/opt/keycloak/vault")
+    assert Path(mount["source"]) == vault
+    assert mount["read_only"] is True
+    assert database["image"] == "postgres:16"
+
+
+def test_primary_smtp_contract_source_redacts_password_and_requires_gmail_tls() -> None:
+    source = (ROOT / "scripts/configure-keycloak-email-otp.ps1").read_text()
+    assert "ConfigurePrimarySmtp" in source
+    assert "OTP_PRIMARY_SMTP_OPT_IN_REQUIRED" in source
+    assert "OTP_SMTP_CONFIGURATION_REQUIRED" in source
+    assert "smtp.gmail.com" in source
+    assert "KC_SMTP_PORT -cne '587'" in source
+    assert "passwordConfigured" in source
+    assert "TestPrimarySmtpRecipient" in source
+    assert "OTP_SMTP_CONNECTION_VERIFIED" in source
+
+
+@pytest.mark.parametrize(
+    "field,value,code",
+    [
+        ("owner", "knora-dev", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
+        ("service", "figma-keycloak-proof", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
+        ("workingDir", "C:/foreign-worktree", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
+        ("hostIp", "0.0.0.0", "OTP_PORT_OWNERSHIP_REJECTED"),
+        ("providers", [{"id": "reset-password"}], "OTP_AUTHENTICATOR_REQUIRED"),
+        ("required", [], "OTP_NATIVE_UPDATE_PASSWORD_REQUIRED"),
+        (
+            "required",
+            [{"alias": "UPDATE_PASSWORD", "providerId": "UPDATE_PASSWORD", "enabled": False}],
+            "OTP_NATIVE_UPDATE_PASSWORD_REQUIRED",
+        ),
+    ],
+)
+def test_configuration_guards_fail_before_mutation(
+    tmp_path: Path, field: str, value, code: str
+) -> None:
+    data = state()
+    data[field] = value
+    result, after = run(tmp_path, data, "Prepare")
+    assert result.returncode != 0
+    assert code in result.stderr
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("baseUrl", "http://localhost:8380"), ("realm", "knora-figma-e2e"), ("project", "knora-dev")],
+)
+def test_configuration_rejects_inexact_targets(tmp_path: Path, field: str, value: str) -> None:
+    data = state()
+    data["targetParameters"] = {
+        "baseUrl": "http://127.0.0.1:8380",
+        "realm": "knora-dev",
+        "project": "knora-figma-e2e",
+        field: value,
+    }
+    result, after = run(tmp_path, data, "Prepare")
+    assert result.returncode != 0
+    assert "OTP_EXACT_TARGET_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize("conflict", ["foreign", "builtIn", "order", "requirement", "subflow"])
+def test_conflicting_existing_alias_fails_closed(tmp_path: Path, conflict: str) -> None:
+    data = state()
+    prepared(data)
+    if conflict == "foreign":
+        data["flows"][0]["description"] = "Foreign administrator flow"
+    elif conflict == "builtIn":
+        data["flows"][0]["builtIn"] = True
+    elif conflict == "order":
+        data["executions"].reverse()
+    elif conflict == "requirement":
+        data["executions"][1]["requirement"] = "DISABLED"
+    else:
+        data["executions"][0]["authenticationFlow"] = True
+    result, after = run(tmp_path, data, "Prepare")
+    assert result.returncode != 0
+    assert "OTP_FLOW_CONFLICT" in result.stderr
+    assert after["mutations"] == []
+
+
+def test_prepare_creates_ordered_required_executions_and_repeat_is_noop(tmp_path: Path) -> None:
+    data = state()
+    result, after = run(tmp_path, data, "Prepare,Prepare")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 5
+    assert after["flows"][0]["alias"] == ALIAS
+    assert after["flows"][0]["description"] == OWNER
+    assert [(e["providerId"], e["requirement"], e["priority"]) for e in after["executions"]] == [
+        ("knora-reset-email-otp", "REQUIRED", 10),
+        ("reset-password", "REQUIRED", 20),
+    ]
+    assert all(
+        ALIAS in m["uri"] or m["uri"].endswith("/authentication/flows") for m in after["mutations"]
+    )
+
+
+def test_bind_requires_explicit_opt_in(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "Bind")
+    assert result.returncode != 0
+    assert "OTP_BIND_OPT_IN_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize("prior", [None, "", "https://prior.example/path", " "])
+def test_bind_saves_exact_prior_fields_and_restore_retains_unbound_flow(
+    tmp_path: Path, prior: str | None
+) -> None:
+    data = state()
+    prepared(data)
+    data["client"].update(baseUrl=prior, rootUrl=prior)
+    result, after = run(tmp_path, data, "BindOptIn,BindOptIn,Restore")
+    assert result.returncode == 0, result.stderr
+    saved = json.loads((tmp_path / "snapshot.json").read_text(encoding="utf-8-sig"))
+    assert saved["realmId"] == "actual-isolated-realm-id"
+    assert saved["settings"] == {
+        "resetCredentialsFlow": "reset credentials",
+        "emailTheme": "keycloak",
+        "resetPasswordAllowed": False,
+    }
+    assert saved["clientSettings"] == {"baseUrl": prior, "rootUrl": prior}
+    assert after["realm"] == data["realm"]
+    assert after["flows"] == data["flows"]
+    assert len(after["mutations"]) == 4
+    assert after["mutations"][0]["payload"] == {
+        "baseUrl": "http://127.0.0.1:3300",
+        "rootUrl": "http://127.0.0.1:3300",
+    }
+    assert after["mutations"][1]["payload"] == {
+        "resetCredentialsFlow": ALIAS,
+        "emailTheme": "knora",
+        "resetPasswordAllowed": True,
+    }
+    assert all(
+        set(after["mutations"][index]["payload"]) == set(saved["settings"]) for index in (1, 2)
+    )
+    assert all(
+        set(after["mutations"][index]["payload"]) == {"baseUrl", "rootUrl"} for index in (0, 3)
+    )
+    expected = data["client"] | {
+        "baseUrl": prior if prior is not None else "",
+        "rootUrl": prior if prior is not None else "",
+    }
+    assert after["client"] == expected
+    assert after["mutations"][3]["payload"] == {
+        "baseUrl": prior if prior is not None else "",
+        "rootUrl": prior if prior is not None else "",
+    }
+
+
+def test_client_noop_bind_requires_completion_origin(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,BreakClientOrigin,BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_BOUND_SETTINGS_CONFLICT" in result.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_client_verification_failure_never_binds_realm(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["corruptClientOrigins"] = True
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 1
+    assert (tmp_path / "snapshot.json").exists()
+
+
+def test_client_restore_rejects_recreated_identity_before_writes(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,RecreateClient,Restore")
+    assert result.returncode != 0
+    assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_client_legacy_snapshot_restore_does_not_mutate_client(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,LegacySnapshot,Restore")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 3
+    assert after["client"]["baseUrl"] == "http://127.0.0.1:3300"
+
+
+@pytest.mark.parametrize("failure", [1, 2])
+def test_client_partial_bind_retains_snapshot_and_restore_recovers(
+    tmp_path: Path, failure: int
+) -> None:
+    data = state()
+    prepared(data)
+    data["failMutation"] = failure
+    result, after = run(tmp_path, data, "PartialBindRecover")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert after["client"] == data["client"] | {"baseUrl": "", "rootUrl": ""}
+    assert (tmp_path / "snapshot.json").exists()
+
+
+@pytest.mark.parametrize(
+    "readback,accepted", [(None, True), ("", True), (" ", False), ("http://127.0.0.1:3300", False)]
+)
+def test_client_unset_restore_accepts_only_null_or_empty(
+    tmp_path: Path, readback: str | None, accepted: bool
+) -> None:
+    data = state()
+    prepared(data)
+    data["unsetReadback"] = readback
+    result, after = run(tmp_path, data, "BindOptIn,Restore")
+    assert (result.returncode == 0) is accepted
+    assert after["realm"] == data["realm"]
+    if not accepted:
+        assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+
+
+@pytest.mark.parametrize("readback", ["", "https://PRIOR.example/path"])
+def test_client_nonempty_restore_requires_exact_value(tmp_path: Path, readback: str) -> None:
+    data = state()
+    prepared(data)
+    data["client"].update(
+        baseUrl="https://prior.example/path", rootUrl="https://prior.example/path"
+    )
+    data["nonemptyReadback"] = readback
+    result, after = run(tmp_path, data, "BindOptIn,Restore")
+    assert result.returncode != 0
+    assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+    assert after["realm"] == data["realm"]
+
+
+def test_restore_rejects_recreated_realm(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,RestoreWrongId")
+    assert result.returncode != 0
+    assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
+    assert len(after["mutations"]) == 2
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "proof_env",
+        "probe_mount",
+        "renamed_provider_mount",
+        "image",
+        "command",
+        "entrypoint",
+        "provenance",
+        "missing_vault",
+        "writable_vault",
+    ],
+)
+def test_bind_rejects_proof_or_unreviewed_main_before_snapshot(tmp_path: Path, fault: str) -> None:
+    data = state()
+    prepared(data)
+    runtime = data["nativeRuntime"]
+    if fault == "proof_env":
+        runtime["environment"].append("KNORA_STORAGE_PROOF_SECRET=NEVER_PRINT_PROOF_SECRET")
+    elif fault in ("probe_mount", "renamed_provider_mount"):
+        runtime["mounts"].append(
+            {
+                "Type": "bind",
+                "Source": "C:/artifact.jar",
+                "Destination": "/opt/keycloak/providers/"
+                + ("knora-storage-probe.jar" if fault == "probe_mount" else "renamed.jar"),
+                "RW": False,
+            }
+        )
+    elif fault == "image":
+        runtime["image"] = "quay.io/keycloak/keycloak:26.3.3"
+    elif fault == "command":
+        runtime["command"].append("--import-realm")
+    elif fault == "entrypoint":
+        runtime["entrypoint"] = ["/proof/wrapper.sh"]
+    elif fault == "provenance":
+        runtime["configFiles"] = (
+            str(ROOT / "docker-compose.dev.yml") + "," + str(ROOT / "docker-compose.dev.yml")
+        )
+    elif fault == "missing_vault":
+        runtime["mounts"].pop()
+    else:
+        runtime["mounts"][-1]["RW"] = True
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_NATIVE_RUNTIME_REQUIRED" in result.stderr
+    assert after["mutations"] == []
+    assert not (tmp_path / "snapshot.json").exists()
+
+
+@pytest.mark.parametrize(
+    "service", ["figma-keycloak-proof-main", "figma-keycloak-proof", "otp-commit-proxy"]
+)
+@pytest.mark.parametrize("running", [True, False])
+def test_bind_rejects_active_proof_but_accepts_stopped_owned_residue(
+    tmp_path: Path, service: str, running: bool
+) -> None:
+    data = state()
+    prepared(data)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "BindOptIn")
+    if running:
+        assert result.returncode != 0
+        assert "OTP_ACTIVE_PROOF_REJECTED" in result.stderr
+        assert after["mutations"] == []
+        assert not (tmp_path / "snapshot.json").exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        assert len(after["mutations"]) == 2
+        assert after["realm"]["resetCredentialsFlow"] == ALIAS
+
+
+def test_bind_rechecks_native_runtime_before_realm_put(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["proofAfterCheck"] = 3
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert after["mutations"] == []
+    assert (tmp_path / "snapshot.json").exists()
+    assert after["realm"]["resetCredentialsFlow"] == "reset credentials"
+
+
+def test_restore_remains_available_with_main_and_sibling_proof_exposure(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    result, after = run(tmp_path, data, "BindOptIn,RestoreWithProof")
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 4
+    assert after["flows"] == data["flows"]
+
+
+@pytest.mark.parametrize("field", ["baseUrl", "realm", "project", "workingDirectory"])
+def test_restore_rejects_snapshot_for_different_target(tmp_path: Path, field: str) -> None:
+    data = state()
+    prepared(data)
+    data["snapshotField"] = field
+    result, after = run(tmp_path, data, "BindOptIn,RestoreWrongTarget")
+    assert result.returncode != 0
+    assert "OTP_SNAPSHOT_TARGET_REJECTED" in result.stderr
+    assert len(after["mutations"]) == 2
+
+
+def test_bind_requires_nonempty_actual_realm_id(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["realm"]["id"] = ""
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_REALM_REPRESENTATION_REJECTED" in result.stderr
+    assert after["mutations"] == []
+
+
+def test_prepare_partial_failure_retains_custom_flow_without_cleanup(tmp_path: Path) -> None:
+    data = state()
+    data["failMutation"] = 2
+    result, after = run(tmp_path, data, "Prepare")
+    assert result.returncode != 0
+    assert "OTP_ADMIN_REQUEST_FAILED" in result.stderr
+    assert after["flows"][0]["alias"] == ALIAS
+    assert len(after["mutations"]) == 2
+    assert all(m["method"] == "Post" for m in after["mutations"])
+    assert after["realm"] == data["realm"]
+
+
+def test_partial_bind_failure_preserves_snapshot_and_redacts_error_body(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["failMutation"] = 1
+    result, after = run(tmp_path, data, "BindOptIn")
+    assert result.returncode != 0
+    assert "OTP_UPDATE_OR_VERIFICATION_FAILED" in result.stderr
+    assert (tmp_path / "snapshot.json").exists()
+    assert len(after["mutations"]) == 1
+
+
+@pytest.fixture(scope="module")
+def compose_graphs(tmp_path_factory) -> tuple[dict, dict]:
+    vault = tmp_path_factory.mktemp("synthetic-compose-vault")
+    env = environment()
+    env["KNORA_FIGMA_OTP_VAULT_PATH"] = str(vault)
+    args = [
+        "docker",
+        "compose",
+        "--project-name",
+        "knora-figma-e2e",
+        "--project-directory",
+        str(ROOT),
+        "-f",
+        str(ROOT / "docker-compose.dev.yml"),
+        "--profile",
+        "figma",
+    ]
+    base = subprocess.run(
+        args + ["config", "--format", "json"], env=env, capture_output=True, text=True, check=False
+    )
+    native_env = dict(env)
+    native_env["KNORA_FIGMA_KEYCLOAK_COMMAND"] = (
+        "start-dev --vault=file --vault-dir=/opt/keycloak/vault "
+        "--spi-theme--cache-themes=false --spi-theme--cache-templates=false "
+        "--spi-theme--static-max-age=-1"
+    )
+    native = subprocess.run(
+        args + ["config", "--format", "json"],
+        env=native_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert base.returncode == 0, base.stderr
+    assert native.returncode == 0, native.stderr
+    return json.loads(base.stdout), json.loads(native.stdout)
+
+
+def vault_file(vault: Path, value: bytes | None = None) -> Path:
+    vault.mkdir()
+    digest = hashlib.sha256(b"actual-isolated-realm-id").hexdigest()
+    key = vault / ("knora-dev_knora-email-otp-hmac-" + digest)
+    key.write_bytes(
+        value if value is not None else base64.b64encode(b"synthetic-test-only-material-32byte")
+    )
+    return key
+
+
+def runtime_state(graphs: tuple[dict, dict], vault: Path) -> dict:
+    data = state()
+    data["baseConfig"], data["runtimeConfig"] = json.loads(json.dumps(graphs))
+    mount = next(
+        m
+        for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+        if m["target"] == "/opt/keycloak/vault"
+    )
+    mount["source"] = str(vault)
+    return data
+
+
+def test_real_compose_graph_preserves_base_and_excludes_proof(compose_graphs) -> None:
+    base, native = compose_graphs
+    assert set(native["services"]) == set(base["services"])
+    assert native["volumes"] == base["volumes"]
+    for service in base["services"]:
+        if service != "figma-keycloak":
+            assert native["services"][service] == base["services"][service]
+    keycloak = native["services"]["figma-keycloak"]
+    assert keycloak["ports"] == base["services"]["figma-keycloak"]["ports"]
+    assert keycloak["environment"] == base["services"]["figma-keycloak"]["environment"]
+    assert keycloak["build"]["dockerfile"] == "infra/keycloak/Dockerfile"
+    assert keycloak["build"]["context"] == str(ROOT)
+    assert "--vault-dir=/opt/keycloak/vault" in keycloak["command"]
+    assert "storage-probe" not in json.dumps(native)
+    assert "KNORA_STORAGE_PROOF" not in json.dumps(native)
+    assert next(m for m in keycloak["volumes"] if m["target"] == "/opt/keycloak/vault")["read_only"]
+
+
+def test_default_compose_does_not_activate_native_vault_or_proof(compose_graphs) -> None:
+    base, _ = compose_graphs
+    keycloak = base["services"]["figma-keycloak"]
+    assert "--vault=file" not in keycloak["command"]
+    assert "KNORA_STORAGE_PROOF" not in json.dumps(base)
+    assert "storage-probe" not in json.dumps(base)
+
+
+def test_runtime_check_is_read_only_and_validates_existing_key(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    key = vault_file(vault)
+    before = key.read_bytes()
+    data = runtime_state(compose_graphs, vault)
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_RUNTIME_CONFIG_OK" in result.stdout
+    assert after["mutations"] == after["dockerMutations"] == []
+    assert key.read_bytes() == before
+    assert before.decode() not in result.stdout + result.stderr
+
+
+def test_git_failure_inside_repository_cannot_bypass_exclusion(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    (vault / ".git").mkdir()
+    data = runtime_state(compose_graphs, vault)
+    data["gitFailure"] = True
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    assert result.returncode != 0
+    assert "OTP_VAULT_GIT_BOUNDARY_REJECTED" in result.stderr
+    assert after["mutations"] == after["dockerMutations"] == []
+
+
+@pytest.mark.parametrize(
+    "fault,code",
+    [
+        ("missing", "OTP_VAULT_PATH_REQUIRED"),
+        ("key_missing", "OTP_VAULT_ENTRY_REQUIRED"),
+        ("invalid", "OTP_VAULT_KEY_INVALID"),
+        ("short", "OTP_VAULT_KEY_INVALID"),
+        ("tracked", "OTP_VAULT_GIT_BOUNDARY_REJECTED"),
+        ("wide_acl", "OTP_VAULT_ACCESS_REJECTED"),
+        ("mount", "OTP_VAULT_MOUNT_REJECTED"),
+        ("mount_missing", "OTP_VAULT_MOUNT_REJECTED"),
+        ("foreign", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
+        ("proof", "OTP_RUNTIME_GRAPH_REJECTED"),
+        ("base_drift", "OTP_RUNTIME_GRAPH_REJECTED"),
+    ],
+)
+def test_runtime_guards_reject_before_start(
+    tmp_path: Path, compose_graphs, fault: str, code: str
+) -> None:
+    vault = tmp_path / "vault"
+    key = vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    if fault == "missing":
+        vault = tmp_path / "missing"
+    elif fault == "key_missing":
+        key.rename(vault / "wrong-name")
+    elif fault == "invalid":
+        key.write_text("private-invalid-value")
+    elif fault == "short":
+        key.write_bytes(base64.b64encode(b"short"))
+    elif fault == "tracked":
+        data["ignored"] = False
+    elif fault == "wide_acl":
+        data["restricted"] = False
+    elif fault == "mount":
+        next(
+            m
+            for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+            if m["target"] == "/opt/keycloak/vault"
+        )["read_only"] = False
+    elif fault == "mount_missing":
+        data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"] = [
+            mount
+            for mount in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+            if mount["target"] != "/opt/keycloak/vault"
+        ]
+    elif fault == "foreign":
+        data["owner"] = "knora-dev"
+    elif fault == "proof":
+        data["runtimeConfig"]["services"]["figma-keycloak-proof"] = {"image": "probe"}
+    else:
+        data["runtimeConfig"]["services"]["figma-api"]["environment"]["KNORA_KEYCLOAK_ISSUER"] = (
+            "foreign"
+        )
+    result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
+    assert result.returncode != 0
+    assert code in result.stderr
+    assert after["mutations"] == after["dockerMutations"] == []
+    assert "private-invalid-value" not in result.stdout + result.stderr
+
+
+def test_runtime_prepare_starts_only_keycloak_and_preserves_binding(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert len(after["dockerMutations"]) == 1
+    assert after["dockerMutations"][0][-5:] == [
+        "up",
+        "-d",
+        "--build",
+        "--no-deps",
+        "figma-keycloak",
+    ]
+    assert after["mutations"] == []
+    assert after["realm"] == data["realm"]
+
+
+def test_rest_collection_shape_preserves_exact_owned_flow_and_binding(tmp_path: Path) -> None:
+    data = state()
+    prepared(data)
+    data["flows"].insert(0, {"id": "built-in", "alias": "reset credentials", "builtIn": True})
+    data["restCollectionShape"] = True
+    result, after = run(tmp_path, data, "Prepare,BindOptIn,Restore")
+    assert result.returncode == 0, result.stderr
+    assert "OTP_FLOW_ALREADY_PREPARED" in result.stdout
+    assert "OTP_BIND_VERIFIED" in result.stdout
+    assert "OTP_RESTORE_VERIFIED" in result.stdout
+    assert after["realm"] == data["realm"]
+    assert len(after["mutations"]) == 4
+
+
+def test_runtime_accepts_required_providers_in_rest_collection_shape(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    data["restCollectionShape"] = True
+    result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_RUNTIME_PREPARED_BINDING_PRESERVED" in result.stdout
+    assert after["realm"] == data["realm"]
+    assert after["mutations"] == []
+
+
+@pytest.mark.parametrize(
+    "fault,code",
+    [("start", "OTP_RUNTIME_START_FAILED"), ("provider", "OTP_AUTHENTICATOR_REQUIRED")],
+)
+def test_runtime_failure_never_changes_reset_binding(
+    tmp_path: Path, compose_graphs, fault: str, code: str
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    if fault == "start":
+        data["failStart"] = True
+    else:
+        data["providers"] = [{"id": "reset-password"}]
+    result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
+    assert result.returncode != 0
+    assert code in result.stderr
+    assert len(after["dockerMutations"]) == 1
+    assert after["mutations"] == []
+    assert after["realm"] == data["realm"]
+
+
+def test_runtime_reauthenticates_after_build_before_provider_verification(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    data["requireFreshToken"] = True
+    result, after = run(tmp_path, data, "RuntimePrepare", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert after["realm"] == data["realm"]
+    assert after["mutations"] == []
+    assert len(after["dockerMutations"]) == 1
+
+
+@pytest.mark.parametrize(
+    "service", ["figma-keycloak-proof-main", "figma-keycloak-proof", "otp-commit-proxy"]
+)
+@pytest.mark.parametrize("running", [False, True])
+def test_runtime_preserves_stopped_owned_proof_but_rejects_active_proof(
+    tmp_path: Path, compose_graphs, service: str, running: bool
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    if running:
+        assert result.returncode != 0
+        assert "OTP_RESOURCE_OWNERSHIP_REJECTED" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+    assert after["mutations"] == after["dockerMutations"] == []
+
+
+@pytest.mark.parametrize(
+    "service",
+    ["postgres", "keycloak-db", "keycloak", "mail", "minio", "minio-init", "api", "keycloak-proof"],
+)
+@pytest.mark.parametrize("running", [False, True])
+def test_native_bind_preserves_stopped_owned_legacy_containers(
+    tmp_path: Path, service: str, running: bool
+) -> None:
+    data = state()
+    prepared(data)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "BindOptIn")
+    if running:
+        assert result.returncode != 0
+        assert after["mutations"] == []
+    else:
+        assert result.returncode == 0, result.stderr
+        assert len(after["mutations"]) == 2
+
+
+@pytest.mark.parametrize(
+    "service",
+    ["postgres", "keycloak-db", "keycloak", "mail", "minio", "minio-init", "api", "keycloak-proof"],
+)
+@pytest.mark.parametrize("running", [False, True])
+def test_native_runtime_preserves_stopped_owned_legacy_containers(
+    tmp_path: Path, compose_graphs, service: str, running: bool
+) -> None:
+    vault = tmp_path / "vault"
+    vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    data.update(extraService=service, extraRunning=running)
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    assert after["dockerMutations"] == []
+    assert after["mutations"] == []
+    if running:
+        assert result.returncode != 0
+        assert "OTP_RESOURCE_OWNERSHIP_REJECTED" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr

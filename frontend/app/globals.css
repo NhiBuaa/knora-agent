@@ -1,58 +1,80 @@
+@import "tailwindcss";
 @import "../styles/tokens.css";
+@import "../styles/tailwind-theme.css";
 @import "../styles/typography.css";
+@import "../styles/controls.css";
 
-* {
-  box-sizing: border-box;
+@layer base {
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--text-primary);
+  }
+  :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  button:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  dt {
+    font-weight: 700;
+  }
+  dd {
+    margin: 0;
+  }
 }
-body {
-  margin: 0;
-  background: var(--page);
-  color: var(--text-primary);
-}
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: clamp(1rem, 4vw, 2rem);
-}
-nav {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-textarea {
-  display: block;
-  width: 100%;
-  min-height: 6rem;
-  margin: 0.5rem 0;
-}
-button {
-  margin: 0.5rem 0.5rem 0.5rem 0;
-  padding: 0.4rem 0.8rem;
-}
-li {
-  margin: 0.8rem 0;
-}
-section,
-article {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
-}
-dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.35rem 1rem;
-}
-dt {
-  font-weight: 700;
-}
-dd {
-  margin: 0;
-}
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+/* Defaults for legacy domain pages; shared navigation and overlays own their layout. */
+@layer components {
+  main:not(.workspace-shell-main) {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: clamp(1rem, 4vw, 2rem);
+  }
+  main :where(nav:not(.workspace-sidebar)) {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  main :where(textarea:not(.kn-field__control)) {
+    display: block;
+    width: 100%;
+    min-height: 6rem;
+    margin: 0.5rem 0;
+  }
+  main
+    :where(
+      button:not(.kn-button):not(.kn-menu__trigger):not(.kn-menu__panel button)
+    ) {
+    margin: 0.5rem 0.5rem 0.5rem 0;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--control-border);
+    border-radius: 6px;
+    background: var(--surface);
+  }
+  main :where(li) {
+    margin: 0.8rem 0;
+  }
+  main :where(section, article) {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  main :where(dl) {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1rem;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 }

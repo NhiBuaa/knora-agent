@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { Field } from "@/components/ui/Field";
-import { PageHeader } from "@/components/ui/PageHeader";
+import React from "react";
+import { OperatorLookup } from "@/components/operator/OperatorFrame";
+import { OperatorLookupGuidance } from "@/components/operator/OperatorLookupGuidance";
 
 export default async function EvaluationsPage({
   searchParams,
@@ -14,16 +15,8 @@ export default async function EvaluationsPage({
     );
   return (
     <>
-      <PageHeader title="Evaluations" />
-      <form action="/operator/evaluations" method="get">
-        <Field id="report-id" label="Report ID">
-          <input name="reportId" required />
-        </Field>
-        <Field id="report-workspace-id" label="Workspace ID">
-          <input name="workspaceId" />
-        </Field>
-        <button type="submit">Open report</button>
-      </form>
+      <OperatorLookup kind="report" workspaceId={workspaceId} />
+      <OperatorLookupGuidance kind="report" />
     </>
   );
 }

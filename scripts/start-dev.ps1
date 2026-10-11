@@ -19,7 +19,6 @@ $backendWatchRoot = 'backend\src\knora'
 $workerRestartExitCode = 75
 $composeProject = 'knora-dev'
 $composeFiles = @(
-    '-f', (Join-Path $repoRoot 'docker-compose.yml'),
     '-f', (Join-Path $repoRoot 'docker-compose.dev.yml')
 )
 

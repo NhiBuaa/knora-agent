@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import type {
   ConversationResponse,
@@ -11,11 +11,13 @@ import { routes } from "@/lib/navigation/routes";
 
 export function WorkspaceSidebar({
   workspaces,
+  workspaceSelector,
   capabilities,
   nextCursor = null,
   onNavigate = (path: string) => window.location.assign(path),
 }: {
   workspaces: WorkspaceResponse[];
+  workspaceSelector?: React.ReactNode;
   capabilities: string[];
   nextCursor?: string | null;
   onNavigate?: (path: string) => void;
@@ -32,7 +34,6 @@ export function WorkspaceSidebar({
   );
   const [hasMore, setHasMore] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  const createKeys = useRef<Map<string, string>>(new Map());
 
   async function loadMoreWorkspaces() {
     if (!cursor) return;
@@ -56,28 +57,8 @@ export function WorkspaceSidebar({
     }
   }
 
-  async function createConversation(workspace: WorkspaceResponse) {
-    setError(null);
-    let key = createKeys.current.get(workspace.id);
-    if (!key) {
-      key = crypto.randomUUID();
-      createKeys.current.set(workspace.id, key);
-    }
-    try {
-      const response = await browserRequest(
-        `/v1/workspaces/${encodeURIComponent(workspace.id)}/conversations`,
-        {
-          method: "POST",
-          headers: { "Idempotency-Key": key },
-        },
-      );
-      if (!response.ok) throw new Error("Conversation create failed");
-      const created = (await response.json()) as ConversationResponse;
-      createKeys.current.delete(workspace.id);
-      onNavigate(routes.conversation(workspace.id, created.id));
-    } catch {
-      setError("Unable to create Conversation. Retry.");
-    }
+  function createConversation(workspace: WorkspaceResponse) {
+    onNavigate(routes.conversations(workspace.id));
   }
 
   async function selectWorkspace(workspace: WorkspaceResponse) {
@@ -121,10 +102,15 @@ export function WorkspaceSidebar({
 
   return (
     <nav aria-label="Workspace navigation" className="workspace-sidebar">
-      <Link href="/workspaces" className="workspace-sidebar-brand">
-        Knora
-      </Link>
-      <Link href="/workspaces">New Workspace</Link>
+      {workspaceSelector}
+      {!workspaceSelector && (
+        <>
+          <Link href="/workspaces" className="workspace-sidebar-brand">
+            Knora
+          </Link>
+          <Link href="/workspaces">New Workspace</Link>
+        </>
+      )}
       {error && <p role="alert">{error}</p>}
       <ul>
         {owned

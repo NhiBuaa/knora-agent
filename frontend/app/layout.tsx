@@ -20,6 +20,7 @@ const robotoSlab = localFont({
 
 export const metadata: Metadata = {
   title: "Knora",
+  icons: { icon: { url: "/brand/knora-leaf.svg", type: "image/svg+xml" } },
   description: "Workspace knowledge assistant",
 };
 export default async function RootLayout({

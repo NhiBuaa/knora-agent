@@ -1,0 +1,38 @@
+/* Original Figma SVGs overhang their smaller layout slots. Preserve the source
+   dimensions and negative insets rather than resizing or redrawing the assets. */
+@layer components {
+  .workspace-selector-trigger img {
+    pointer-events: none;
+  }
+  .workspace-caret-small {
+    position: relative;
+    display: inline-block;
+    flex: 0 0 6px;
+    width: 6px;
+    height: 3px;
+  }
+  .workspace-caret-small img {
+    position: absolute;
+    width: 6.98995px;
+    height: 4.48492px;
+    max-width: none;
+    left: -0.494975px;
+    top: -0.98995px;
+  }
+  .workspace-selector-trigger[aria-expanded="false"]
+    .workspace-caret-small
+    img {
+    top: -0.494975px;
+  }
+  .workspace-caret-context {
+    display: inline-flex;
+    flex: 0 0 10px;
+    width: 10px;
+    height: 6px;
+  }
+  .workspace-caret-context img {
+    width: 10px;
+    height: 6px;
+    max-width: none;
+  }
+}

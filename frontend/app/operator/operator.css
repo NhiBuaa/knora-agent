@@ -1,80 +1,41 @@
-.operator-surface {
-  display: grid;
-  gap: 1.5rem;
-  min-width: 0;
-}
-
-.operator-context {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-.operator-surface h1 {
-  margin: 0;
-  font-size: 1.7rem;
-}
-
-.operator-surface article,
-.operator-surface section {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.operator-surface form {
-  display: grid;
-  gap: 0.85rem;
-  max-width: 34rem;
-}
-
-.operator-surface form button {
-  justify-self: start;
-}
-
-.operator-surface dl {
-  grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--border);
-}
-
-.operator-surface dd,
-.operator-surface li,
-.operator-surface code {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.operator-surface details {
-  max-width: 100%;
-  margin: 0.75rem 0;
-}
-
-.operator-surface summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.operator-surface ol {
-  padding-left: 1.25rem;
-}
-
-.operator-surface ol > li {
-  margin: 0;
-  padding: 0.8rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-@media (max-width: 36rem) {
-  .operator-surface dl {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.2rem;
+@layer components {
+  .operator-surface :where(code, dd, li) {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
-
-  .operator-surface dd {
-    margin-bottom: 0.55rem;
+  .operator-surface summary {
+    cursor: pointer;
+  }
+  .operator-surface .workspace-selector-label {
+    font-size: 11px;
+    line-height: 13px;
+  }
+  .operator-surface .workspace-selector-trigger {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .operator-surface form[aria-label$="lookup"] {
+    position: relative;
+  }
+  .operator-workspace-override {
+    position: absolute;
+    top: 18px;
+    right: 0;
+    max-width: 380px;
+  }
+  .operator-workspace-override[open] {
+    z-index: 5;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  @media (max-width: 64rem) {
+    .operator-workspace-override {
+      position: static;
+      max-width: 100%;
+    }
   }
 }

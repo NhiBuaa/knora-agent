@@ -538,6 +538,19 @@ Do not point the launcher at another checkout's default `knora` database without
 
 For the complete workflow, failure modes, CPU-only Ollama fallback, existing-storage rules and shutdown procedure, see [Local Ollama PDF re-index on Windows](docs/runbooks/local-ollama.md).
 
+### Docker Compose entry points
+
+Use `docker-compose.dev.yml` alone for local development and testing; it is not an
+overlay on production. The development launcher selects the daily services explicitly.
+Figma and OTP preparation scripts select optional profiles and validate target ownership.
+See [Keycloak/Figma harness](docs/development/keycloak-theme.md#compose-entry-points-and-retained-resources).
+S3 provider acceptance services are opt-in with `--profile provider-test` in the dev file.
+
+`docker-compose.yml` is the production deployment entry point for the backend and storage.
+It excludes development Keycloak, test SMTP, fixture APIs and proof instrumentation.
+This file consolidation does not qualify a production deployment: configure deployment
+credentials, identity/provider settings and infrastructure using the existing runbooks.
+
 ### Deterministic development mode
 
 Ollama is not required for deterministic tests and structural development. When both independent provider selectors are absent, the existing legacy provider mode remains available; the default `deterministic-local` path is intended for reproducible tests, not evidence of real semantic model quality.
@@ -545,7 +558,7 @@ Ollama is not required for deterministic tests and structural development. When 
 A minimal backend test setup remains:
 
 ```powershell
-docker compose up -d --wait postgres
+docker compose -f docker-compose.dev.yml up -d --wait postgres
 
 Push-Location .\backend
 ..\.venv\Scripts\alembic upgrade head
@@ -644,7 +657,8 @@ knora-agent/
 ├── docs/                # Architecture, ADRs, designs, completed specs and OpenAPI contract
 ├── evals/               # Versioned datasets, corpora, runners, calibration and reports
 ├── scripts/             # Stable demo + daily-dev launchers and verification utilities
-├── docker-compose.yml   # PostgreSQL/pgvector, MinIO and API-oriented local infrastructure
+├── docker-compose.yml   # Production deployment entry point
+├── docker-compose.dev.yml # Standalone development and optional test profiles
 ├── CONTEXT.md           # Current project world model and domain vocabulary
 └── AGENTS.md            # Repository contribution / governed-delivery guidance
 ```
