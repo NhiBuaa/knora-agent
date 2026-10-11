@@ -4284,11 +4284,20 @@ test.describe("source fixtures", () => {
             const input = page.locator(`#${id}`);
             await expect(input).toHaveAttribute("autocomplete", "new-password");
             await expect(input).toHaveValue("");
+            await expect(page.locator(`#${id}-show-password`)).toHaveCount(1);
             await page.locator(`#${id}-show-password`).click();
             await expect(input).toHaveAttribute("type", "text");
             await page.locator(`#${id}-show-password`).click();
             await expect(input).toHaveAttribute("type", "password");
           }
+          const stylesheet = await page
+            .locator('link[href*="knora.css"]')
+            .evaluate(async (link) =>
+              fetch((link as HTMLLinkElement).href).then((response) =>
+                response.text(),
+              ),
+            );
+          expect(stylesheet).toContain('input[type="password"]::-ms-reveal');
         } else {
           await expect(page.locator(".knora-auth-description")).toHaveText(
             "If an account exists, we sent a 6-digit verification code to n***@example.test.",
