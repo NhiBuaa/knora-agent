@@ -177,7 +177,10 @@ class OtpChallengeConcurrencyIT {
         String first = key();
         assertEquals("SENT", store(0, "send", account, first, 1, "session-a", "digest-good", false).path("outcome").asText());
         long anchor = post(1, "/jpa-fixture", Map.of("challenge", first, "operation", "state")).path("anchor").asLong();
-        assertEquals("COOLDOWN", store(1, "resend", account, first, 2, "session-a", "digest-next", false).path("outcome").asText());
+        var cooldown = store(1, "resend", account, first, 2, "session-a", "digest-next", false);
+        assertEquals("COOLDOWN", cooldown.path("outcome").asText());
+        assertTrue(cooldown.path("retryAfter").asInt() > 290);
+        assertTrue(cooldown.path("retryAfter").asInt() <= 300);
         post(0, "/jpa-fixture", Map.of("challenge", first, "operation", "cooldown-past"));
         String second = key();
         assertEquals("SENT", store(1, "send", account, second, 1, "session-b", "digest-good", false).path("outcome").asText());

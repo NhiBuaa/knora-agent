@@ -13,6 +13,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 /** Recovery policy and mail ordering; the native Authenticator only translates its protocol. */
 public final class OtpChallengeService {
+    private static final int CODE_TTL_SECONDS = 300;
+    private static final long CODE_TTL_MS = CODE_TTL_SECONDS * 1000L;
     public record Recipient(String id, String email, boolean enabled) { }
     public record RenderResult(String messageKey, OtpChallengeStore.ChallengeReference reference,
                                int retryAfterSeconds, long displayExpiresAt, String verifiedUserId) { }
@@ -65,7 +67,7 @@ public final class OtpChallengeService {
 
     public RenderResult resend(OtpChallengeStore.ChallengeScope scope, OtpChallengeStore.ChallengeReference previous) {
         if (previous == null || previous.generation() < 1 || previous.generation() == Long.MAX_VALUE)
-            return generic(previous, 30);
+            return generic(previous, CODE_TTL_SECONDS);
         return send(scope, currentEmail,
                 new OtpChallengeStore.ChallengeReference(previous.id(), previous.generation() + 1), previous);
     }
@@ -79,25 +81,26 @@ public final class OtpChallengeService {
             String identity = recipient == null ? "decoy:" + email : "user:" + recipient.id();
             String accountDigest = digest.account(scope.realmId(), identity);
             String code = generator.generate();
-            if (code == null || !code.matches("[0-9]{6}")) return generic(reference, 30);
+            if (code == null || !code.matches("[0-9]{6}")) return generic(reference, CODE_TTL_SECONDS);
             boolean deliverable = recipient != null && recipient.enabled();
             var request = new OtpChallengeStore.SendRequest(scope, reference, previous, accountDigest,
                     trustedIpDigest, deliverable ? recipient.id() : null, digest.code(scope, reference, identity, code));
             var reserved = store.reserve(request);
-            int retry = reserved.retryAfterSeconds() > 0 ? reserved.retryAfterSeconds() : 30;
+            int retry = reserved.retryAfterSeconds() > 0 ? reserved.retryAfterSeconds() : CODE_TTL_SECONDS;
+            long expiry = reserved.expiresAtMs() > 0 ? reserved.expiresAtMs() : clock.millis() + CODE_TTL_MS;
             if (reserved.outcome() == OtpChallengeStore.SendOutcome.SENT && deliverable) {
                 try { mail.send(recipient, code); }
-                catch (RuntimeException deliveryFailure) { return generic(reference, retry); }
+                catch (RuntimeException deliveryFailure) { return generic(reference, retry, expiry); }
                 String activationId = java.util.UUID.randomUUID().toString();
                 var activation = store.activate(scope, reference, activationId);
                 if (activation == OtpChallengeStore.ActivationOutcome.UNAVAILABLE)
                     activation = store.reconcileActivation(scope, reference, activationId);
-                if (activation != OtpChallengeStore.ActivationOutcome.ACTIVE) return generic(reference, retry);
+                if (activation != OtpChallengeStore.ActivationOutcome.ACTIVE) return generic(reference, retry, expiry);
             }
             // No reserve success is inferred from delivery, exception, timeout or an ambiguous outcome.
             return generic(reserved.outcome() == OtpChallengeStore.SendOutcome.SENT ? reference : previous,
-                    retry);
-        } catch (RuntimeException unavailable) { return generic(previous, 30); }
+                    retry, expiry);
+        } catch (RuntimeException unavailable) { return generic(previous, CODE_TTL_SECONDS); }
     }
 
     public RenderResult verify(OtpChallengeStore.ChallengeScope scope,
@@ -118,7 +121,11 @@ public final class OtpChallengeService {
     }
 
     private RenderResult generic(OtpChallengeStore.ChallengeReference reference, int retry) {
-        return new RenderResult("knoraOtpGenericSent", reference, retry, clock.millis() + 300_000, null);
+        return generic(reference, retry, clock.millis() + CODE_TTL_MS);
+    }
+
+    private RenderResult generic(OtpChallengeStore.ChallengeReference reference, int retry, long expiry) {
+        return new RenderResult("knoraOtpGenericSent", reference, retry, expiry, null);
     }
 
     public static CodeGenerator secureGenerator(SecureRandom random) {

@@ -16,7 +16,7 @@ import org.keycloak.models.utils.KeycloakModelUtils;
 public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
     private static final long WINDOW_MS = 900_000;
     private static final long CODE_MS = 300_000;
-    private static final long COOLDOWN_MS = 30_000;
+    private static final long RESEND_WAIT_MS = CODE_MS;
     private static final long RETENTION_MS = 86_400_000;
     private final KeycloakSession caller;
 
@@ -48,7 +48,7 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
                 }
                 if (account.attempts() >= 5 || account.sends() >= 3 || ip.sends() >= 20)
                     return send(SendOutcome.EXHAUSTED, request, 0);
-                long remaining = account.lastSendMs() + COOLDOWN_MS - now;
+                long remaining = account.lastSendMs() + RESEND_WAIT_MS - now;
                 if (remaining > 0) return send(SendOutcome.COOLDOWN, request, (int) ((remaining + 999) / 1000));
                 em.createNativeQuery("update KNORA_OTP_RECOVERY_WINDOW set SENDS=SENDS+1,LAST_SEND_MS=:now where ID=:id")
                         .setParameter("now", now).setParameter("id", accountId).executeUpdate();
@@ -72,7 +72,7 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
                             .setParameter("expires", now + CODE_MS).setParameter("ip", ipId).setParameter("user", request.userId())
                             .setParameter("id", request.reference().id()).executeUpdate();
                 }
-                return send(SendOutcome.SENT, request, 0);
+                return new SendResult(SendOutcome.SENT, request.reference(), 0, now + CODE_MS);
             });
         } catch (RuntimeException unavailable) {
             // Includes ambiguous commit/resume. No permission to mail is returned.
@@ -296,7 +296,7 @@ public final class KeycloakOtpChallengeStore implements OtpChallengeStore {
     }
     private static long number(Object value) { return ((Number) value).longValue(); }
     private static SendResult send(SendOutcome outcome, SendRequest request, int retry) {
-        return new SendResult(outcome, request.reference(), retry);
+        return new SendResult(outcome, request.reference(), retry, 0);
     }
     private static VerifyResult verified(VerifyOutcome outcome, String user) { return new VerifyResult(outcome, user); }
     private record WindowRow(String id, long anchorMs, int attempts, int sends, long lastSendMs) { }

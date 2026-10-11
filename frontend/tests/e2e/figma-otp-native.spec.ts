@@ -327,7 +327,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
   page,
   browser,
 }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(480_000);
   let stage = "REGISTRATION";
   const ownedContexts: BrowserContext[] = [page.context()];
   const guards: (() => void)[] = [];
@@ -500,7 +500,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await expect(reset.locator(".knora-otp-digits")).toBeVisible();
     expect((await messages(page, identity.email)).length === 1).toBe(true);
     // Real elapsed server cooldown; no native clock or database fixture changes.
-    await expect(reset.locator("#otp-resend")).toBeEnabled({ timeout: 35_000 });
+    await expect(reset.locator("#otp-resend")).toBeEnabled({
+      timeout: 310_000,
+    });
     await submit(reset, "#code", "resend", "RESEND_ALLOWED");
     const nextCode = await deliveredCode(page, identity.email, seen);
     expect(nextCode !== firstCode).toBe(true);

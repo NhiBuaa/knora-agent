@@ -9,7 +9,7 @@ public interface OtpChallengeStore {
     enum ActivationOutcome { ACTIVE, INVALID, UNAVAILABLE }
     record SendRequest(ChallengeScope scope, ChallengeReference reference, ChallengeReference previous,
                        String accountDigest, String ipDigest, String userId, String codeDigest) { }
-    record SendResult(SendOutcome outcome, ChallengeReference reference, int retryAfterSeconds) { }
+    record SendResult(SendOutcome outcome, ChallengeReference reference, int retryAfterSeconds, long expiresAtMs) { }
     record VerifyResult(VerifyOutcome outcome, String verifiedUserId) { }
 
     SendResult reserve(SendRequest request);

@@ -33,7 +33,7 @@ public class FigmaThemeRenderer {
         var attributes = new ArrayList<Map<String, Object>>();
         for (String name : List.of("username", "email")) attributes.add(Map.of("name", name, "displayName", name, "required", true, "readOnly", false, "multivalued", false, "annotations", Map.of(), "html5DataAnnotations", Map.of(), "validators", Map.of(), "value", ""));
         data.put("profile", Map.of("attributes", attributes, "html5DataAnnotations", Map.of()));
-        data.put("maskedEmail", "n***@example.test"); data.put("retryAfterSeconds", 30);
+        data.put("maskedEmail", "n***@example.test"); data.put("otpExpiresInSeconds", 300); data.put("retryAfterSeconds", 300);
         data.put("otpInvalid", error); data.put("emailInvalid", false);
         if (error) data.put("message", Map.of("type", "error", "summary", "Please check your details and try again."));
         return data;

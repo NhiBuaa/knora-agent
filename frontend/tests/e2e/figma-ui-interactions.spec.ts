@@ -4196,7 +4196,7 @@ test.describe("source fixtures", () => {
             page.locator(".knora-otp-digit").first(),
           ).toHaveAttribute("autocomplete", "one-time-code");
           await expect(page.locator(".knora-otp-digit")).toHaveCount(6);
-          await expect(page.locator("#otp-retry")).toHaveText("00:30");
+          await expect(page.locator("#otp-retry")).toHaveText("05:00");
           await expect(page.locator("#otp-resend-label")).toHaveText(
             "Resend code in",
           );
@@ -4426,13 +4426,13 @@ test.describe("source fixtures", () => {
     await page.clock.pauseAt(now);
     const resend = page.locator("#otp-resend");
     await expect(resend).toBeDisabled();
-    await expect(page.locator("#otp-retry")).toHaveText("00:30");
+    await expect(page.locator("#otp-retry")).toHaveText("05:00");
     await expect(page.locator("#otp-resend-label")).toHaveText(
       "Resend code in",
     );
     await expect(page.locator("#otp-retry")).toHaveAttribute(
       "data-seconds",
-      "30",
+      "300",
     );
     const code = page.locator(".knora-otp-digit").first();
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -4448,19 +4448,18 @@ test.describe("source fixtures", () => {
       await code.evaluate((input) => getComputedStyle(input).color),
     ).not.toBe("rgba(0, 0, 0, 0)");
     await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.locator(".knora-otp-digit")).toHaveValues([
-      "0",
-      "0",
-      "0",
-      "0",
-      "4",
-      "2",
-    ]);
-    await page.clock.setFixedTime(new Date(now.getTime() + 29_000));
+    expect(
+      await page
+        .locator(".knora-otp-digit")
+        .evaluateAll((inputs) =>
+          inputs.map((input) => (input as HTMLInputElement).value),
+        ),
+    ).toEqual(["0", "0", "0", "0", "4", "2"]);
+    await page.clock.setFixedTime(new Date(now.getTime() + 299_000));
     await page.clock.runFor(250);
     await expect(resend).toBeDisabled();
     await expect(page.locator("#otp-retry")).toHaveText("00:01");
-    await page.clock.setFixedTime(new Date(now.getTime() + 30_000));
+    await page.clock.setFixedTime(new Date(now.getTime() + 300_000));
     await page.clock.runFor(250);
     await expect(resend).toBeEnabled();
     await expect(page.locator("#otp-retry")).toHaveCount(0);
@@ -4469,6 +4468,118 @@ test.describe("source fixtures", () => {
     await expect(resend).toHaveAttribute("value", "resend");
     await expect(resend).toHaveAttribute("formnovalidate", "");
     expect(unexpected).toEqual([]);
+  });
+
+  test("native FTL OTP typing advances cleanly and verifies after six digits", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "242:333");
+    await page.evaluate(() => {
+      let submits = 0;
+      document.querySelector("form")?.addEventListener("submit", (event) => {
+        document.body.dataset.otpSubmitCount = String(++submits);
+        const payload = new FormData(
+          event.target as HTMLFormElement,
+          event.submitter,
+        );
+        document.body.dataset.otpIntent = String(payload.get("intent"));
+        document.body.dataset.otpCode = String(payload.get("code"));
+      });
+    });
+    const digits = page.locator(".knora-otp-digit");
+    await digits.first().focus();
+    await page.keyboard.type("123456");
+    expect(
+      await digits.evaluateAll((inputs) =>
+        inputs.map((input) => (input as HTMLInputElement).value),
+      ),
+    ).toEqual(["1", "2", "3", "4", "5", "6"]);
+    await expect(page.locator("body")).toHaveAttribute(
+      "data-otp-submit-count",
+      "1",
+    );
+    const selection = await digits.last().evaluate((input) => ({
+      start: (input as HTMLInputElement).selectionStart,
+      end: (input as HTMLInputElement).selectionEnd,
+    }));
+    expect(selection.start).toBe(selection.end);
+    await expect(page.locator("body")).toHaveAttribute(
+      "data-otp-intent",
+      "verify",
+    );
+    await expect(page.locator("body")).toHaveAttribute(
+      "data-otp-code",
+      "123456",
+    );
+  });
+
+  test("native FTL OTP waits for composition before advancing", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "242:333");
+    const digits = page.locator(".knora-otp-digit");
+    await digits.first().focus();
+    await digits.first().dispatchEvent("compositionstart");
+    await digits.first().evaluate((element) => {
+      (element as HTMLInputElement).value = "1";
+    });
+    await digits.first().dispatchEvent("input", {
+      data: "1",
+      inputType: "insertCompositionText",
+      isComposing: true,
+    });
+    await expect(digits.first()).toBeFocused();
+    await digits.first().dispatchEvent("compositionend", { data: "1" });
+    await expect(digits.nth(1)).toBeFocused();
+    await page.keyboard.type("2");
+    await expect(page.locator("#code")).toHaveValue("12");
+    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.type("9");
+    await expect(page.locator("#code")).toHaveValue("19");
+  });
+
+  test("native FTL OTP does not duplicate an accumulated input value", async ({
+    page,
+  }) => {
+    await prepareFixture(page, "242:333");
+    const digits = page.locator(".knora-otp-digit");
+    await digits.first().fill("1");
+    await digits.nth(1).evaluate((element) => {
+      (element as HTMLInputElement).value = "12";
+      element.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          inputType: "insertText",
+          data: "2",
+        }),
+      );
+    });
+    await expect(page.locator("#code")).toHaveValue("12");
+    await expect(digits.nth(2)).toBeFocused();
+  });
+
+  test("native FTL OTP resend waits for the five-minute code expiry", async ({
+    page,
+  }) => {
+    const now = new Date("2026-10-05T12:00:00Z");
+    await page.clock.install({ time: now });
+    await prepareFixture(page, "242:333");
+    await page.clock.pauseAt(now);
+    const resend = page.locator("#otp-resend");
+    await expect(resend).toBeDisabled();
+    await expect(page.locator("#otp-retry")).toHaveText("05:00");
+    await expect(page.locator("#otp-retry")).toHaveAttribute(
+      "data-seconds",
+      "300",
+    );
+    await page.clock.setFixedTime(new Date(now.getTime() + 299_000));
+    await page.clock.runFor(250);
+    await expect(resend).toBeDisabled();
+    await expect(page.locator("#otp-retry")).toHaveText("00:01");
+    await page.clock.setFixedTime(new Date(now.getTime() + 300_000));
+    await page.clock.runFor(250);
+    await expect(resend).toBeEnabled();
+    await expect(page.locator("#otp-retry")).toHaveCount(0);
   });
 
   test("native FTL OTP remains six labelled fields with enabled resend without JavaScript", async ({
@@ -4492,7 +4603,7 @@ test.describe("source fixtures", () => {
       await expect(resend).toHaveAttribute("name", "intent");
       await expect(resend).toHaveAttribute("value", "resend");
       await expect(resend).toHaveAttribute("formnovalidate", "");
-      await expect(page.locator("#otp-retry")).toHaveText("00:30");
+      await expect(page.locator("#otp-retry")).toHaveText("05:00");
       await expect(page.locator("#otp-resend-label")).toHaveText(
         "Resend code in",
       );

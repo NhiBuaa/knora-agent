@@ -243,7 +243,7 @@ class EmailOtpResetFlowIT {
             data.put("otpInvalid", error);
             data.put("emailInvalid", error);
             data.put("maskedEmail", "<script>alert(1)</script>@example.test");
-            data.put("retryAfterSeconds", error ? 0 : 30);
+            data.put("retryAfterSeconds", error ? 0 : 300);
             String request = render("login", "knora-reset-email.ftl", data);
             assertTrue(request.contains("action=\"/native/action\" method=\"post\""));
             assertTrue(request.contains("name=\"email\""));
@@ -253,6 +253,7 @@ class EmailOtpResetFlowIT {
             assertTrue(otp.contains("name=\"code\""));
             assertTrue(otp.contains("autocomplete=\"one-time-code\""));
             assertTrue(otp.contains("inputmode=\"numeric\""));
+            assertTrue(otp.contains("id=\"otp-verify\""));
             assertFalse(otp.contains("type=\"number\""));
             assertFalse(otp.contains("<script>alert(1)</script>"));
             assertTrue(otp.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
@@ -319,7 +320,7 @@ class EmailOtpResetFlowIT {
 
     @Test
     void offlineOtpResendRemainsUsableWithoutJavaScriptDuringAndAfterCooldown() throws Exception {
-        for (int retry : List.of(30, 61, 0)) {
+        for (int retry : List.of(300, 301, 0)) {
             var data = templateData();
             data.put("retryAfterSeconds", retry);
             String html = render("login", "knora-reset-otp.ftl", data);
@@ -339,7 +340,7 @@ class EmailOtpResetFlowIT {
                     "Positive server cooldown remains visible without JavaScript");
             assertTrue(button.contains("data-ready-label=\"Resend code\""));
             if (retry > 0) {
-                String display = retry == 30 ? "00:30" : "01:01";
+                String display = retry == 300 ? "05:00" : "05:01";
                 assertTrue(html.contains("<span id=\"otp-resend-label\">Resend code in</span>"));
                 assertTrue(html.contains("<span id=\"otp-retry\" data-seconds=\"" + retry + "\">" + display + "</span>"));
             } else {
@@ -552,6 +553,23 @@ class EmailOtpResetFlowIT {
     }
 
     @Test
+    void offlineCooldownResendDoesNotExtendTheCurrentCodeExpiry() throws Exception {
+        var f = new Fixture();
+        f.post("request", "email", "known@example.test");
+        String expiry = f.notes.get("knora.emailOtp.expiresAt");
+        f.now = f.now.plusSeconds(31);
+        f.sendOutcome = OtpChallengeStore.SendOutcome.COOLDOWN;
+        f.post("resend", "generation", "1");
+        assertEquals(expiry, f.notes.get("knora.emailOtp.expiresAt"));
+        assertEquals(269, f.attributes.get("otpExpiresInSeconds"));
+        f.now = f.now.plusSeconds(270);
+        f.sendOutcome = OtpChallengeStore.SendOutcome.UNAVAILABLE;
+        f.post("resend", "generation", "1");
+        assertEquals(expiry, f.notes.get("knora.emailOtp.expiresAt"));
+        assertEquals(0, f.attributes.get("otpExpiresInSeconds"));
+    }
+
+    @Test
     void offlineMalformedNotesAndDuplicateIntentCannotAuthorizeWork() throws Exception {
         var f = new Fixture();
         f.post("request", "email", "known@example.test");
@@ -566,6 +584,7 @@ class EmailOtpResetFlowIT {
     }
 
     static final class Fixture {
+        Instant now = Instant.parse("2026-10-06T00:00:00Z");
         final Map<String, String> notes = new HashMap<>();
         final Map<String, Object> attributes = new HashMap<>();
         final List<String> events = new ArrayList<>();
@@ -686,7 +705,7 @@ class EmailOtpResetFlowIT {
             public SendResult reserve(SendRequest request) {
                 sent = request; events.add("reserve");
                 return new SendResult(sendOutcome, sendOutcome == SendOutcome.SENT ? request.reference() : request.previous(),
-                        sendOutcome == SendOutcome.COOLDOWN ? 30 : 0);
+                        sendOutcome == SendOutcome.COOLDOWN ? 300 : 0, now.plusSeconds(300).toEpochMilli());
             }
             public ActivationOutcome activate(ChallengeScope scope, ChallengeReference ref, String op) {
                 events.add("activate"); return ActivationOutcome.ACTIVE;
@@ -708,7 +727,11 @@ class EmailOtpResetFlowIT {
             var constructor = type.getDeclaredConstructor(Function.class, OtpChallengeService.CodeGenerator.class, Clock.class);
             constructor.setAccessible(true);
             authenticator = (Authenticator) constructor.newInstance((Function<KeycloakSession, OtpChallengeStore>) ignored -> store,
-                    (OtpChallengeService.CodeGenerator) () -> "000042", Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneOffset.UTC));
+                    (OtpChallengeService.CodeGenerator) () -> "000042", new Clock() {
+                        public java.time.ZoneId getZone() { return ZoneOffset.UTC; }
+                        public Clock withZone(java.time.ZoneId zone) { return this; }
+                        public Instant instant() { return now; }
+                    });
         }
         void post(String intent, String field, String value) {
             parameters.clear(); attributes.clear(); events.clear();
