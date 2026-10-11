@@ -4192,11 +4192,10 @@ test.describe("source fixtures", () => {
             }),
           ).toBeVisible();
           await expect(page.locator("#code")).toHaveValue("");
-          await expect(page.locator("#code")).toHaveAttribute(
-            "autocomplete",
-            "one-time-code",
-          );
-          await expect(page.locator(".knora-otp-cells span")).toHaveCount(6);
+          await expect(
+            page.locator(".knora-otp-digit").first(),
+          ).toHaveAttribute("autocomplete", "one-time-code");
+          await expect(page.locator(".knora-otp-digit")).toHaveCount(6);
           await expect(page.locator("#otp-retry")).toHaveText("00:30");
           await expect(page.locator("#otp-resend-label")).toHaveText(
             "Resend code in",
@@ -4293,7 +4292,7 @@ test.describe("source fixtures", () => {
     }
   });
 
-  test("native FTL OTP allocation and empty marks preserve one native input", async ({
+  test("native FTL OTP fields keep focus and expose one field per digit", async ({
     page,
     context,
   }) => {
@@ -4305,31 +4304,21 @@ test.describe("source fixtures", () => {
       for (const state of ["242:333", "246:311"]) {
         await page.route("**/native/blocked-action", (route) => route.abort());
         const unexpected = await prepareFixture(page, state);
-        const input = page.getByRole("textbox", {
-          name: "Six-digit reset code",
-        });
-        await expect(input).toHaveCount(1);
-        await expect(input).toHaveValue("");
-        for (const [attribute, value] of Object.entries({
-          name: "code",
-          type: "text",
-          inputmode: "numeric",
-          pattern: "[0-9]{6}",
-          minlength: "6",
-          maxlength: "6",
-          autocomplete: "one-time-code",
-          required: "",
-          "aria-invalid": state === "246:311" ? "true" : "false",
-          "aria-describedby":
-            state === "246:311" ? "otp-error otp-expiry" : "otp-expiry",
-        })) {
-          await expect(input).toHaveAttribute(attribute, value);
+        const digits = page.locator(".knora-otp-digit");
+        await expect(digits).toHaveCount(6);
+        for (const digit of await digits.all()) {
+          await expect(digit).toHaveValue("");
+          await expect(digit).toHaveAttribute(
+            "aria-invalid",
+            state === "246:311" ? "true" : "false",
+          );
         }
-        await expect(page.locator(".knora-otp-cells")).toHaveAttribute(
-          "aria-hidden",
-          "true",
+        await expect(digits.first()).toHaveAttribute("inputmode", "numeric");
+        await expect(digits.first()).toHaveAttribute(
+          "autocomplete",
+          "one-time-code",
         );
-        await expect(page.locator(".knora-otp-cells span")).toHaveCount(6);
+        await expect(page.locator("#code")).toBeHidden();
         await expect(page.locator("form")).toHaveAttribute("method", "post");
         await expect(page.locator("form")).toHaveAttribute(
           "action",
@@ -4347,36 +4336,26 @@ test.describe("source fixtures", () => {
                 height: rect.height,
               };
             };
-            const cells = Array.from(entry.querySelectorAll("span"));
-            const grid = entry.querySelector(".knora-otp-cells")!;
-            const input = entry.querySelector("input")!;
-            const style = getComputedStyle(grid);
+            const grid = entry.querySelector(".knora-otp-digits")!;
+            const fields = Array.from(
+              entry.querySelectorAll<HTMLInputElement>(".knora-otp-digit"),
+            );
             const brand =
               document.querySelector<HTMLImageElement>(".knora-brand img")!;
             return {
               viewport: { width: innerWidth, height: innerHeight },
               wrapper: box(entry),
               form: box(entry.closest("form")!),
-              input: box(input),
-              cells: cells.map((cell) => ({
-                ...box(cell),
-                text: cell.textContent,
-                mark: getComputedStyle(cell, "::before").content,
-                markColor: getComputedStyle(cell, "::before").color,
-                fontSize: getComputedStyle(cell).fontSize,
-                fontWeight: getComputedStyle(cell).fontWeight,
+              fields: fields.map((field) => ({
+                ...box(field),
+                value: field.value,
               })),
-              gridColumns: style.gridTemplateColumns,
-              gap: style.columnGap,
-              pointerEvents: style.pointerEvents,
-              mutedColor: getComputedStyle(
-                document.querySelector(".knora-auth-description")!,
-              ).color,
+              gridColumns: getComputedStyle(grid).gridTemplateColumns,
+              gap: getComputedStyle(grid).columnGap,
               pageFits: document.documentElement.scrollWidth <= innerWidth,
               brand: {
                 ...box(brand),
                 loaded: brand.complete && brand.naturalWidth > 0,
-                src: brand.getAttribute("src"),
               },
             };
           });
@@ -4387,81 +4366,30 @@ test.describe("source fixtures", () => {
           fullPage: true,
           animations: "disabled",
         });
-        expect
-          .soft(geometry.wrapper.width)
-          .toBe(width === 1440 ? 420 : geometry.form.width);
-        expect(geometry.wrapper.height).toBe(56);
-        expect(geometry.input.height).toBe(56);
-        expect(geometry.input.width).toBe(geometry.wrapper.width);
-        expect(geometry.gap).toBe("10px");
-        expect(geometry.pointerEvents).toBe("none");
-        expect(geometry.pageFits).toBe(true);
-        expect(geometry.brand).toMatchObject({
-          width: 18,
-          height: 18,
-          loaded: true,
-          src: "/resources/images/ad252.svg",
-        });
-        for (const [index, cell] of geometry.cells.entries()) {
-          expect(cell.height).toBe(56);
-          expect(cell.fontSize).toBe("22px");
-          expect(cell.fontWeight).toBe("600");
-          expect.soft(cell.mark).toBe('"—"');
-          expect.soft(cell.markColor).toBe(geometry.mutedColor);
-          expect(cell.text).toBe("");
-          if (width === 1440) {
-            expect(cell.width).toBe(54);
-            expect.soft(cell.x - geometry.wrapper.x).toBe(23 + index * 64);
-          } else {
-            expect(cell.width).toBeGreaterThan(0);
-            expect(cell.width).toBeLessThan(54);
-            expect(cell.x).toBeGreaterThanOrEqual(geometry.wrapper.x);
-            expect(cell.x + cell.width).toBeLessThanOrEqual(
-              geometry.wrapper.x + geometry.wrapper.width + 0.1,
-            );
-          }
-          if (index > 0)
-            expect(
-              cell.x -
-                (geometry.cells[index - 1].x + geometry.cells[index - 1].width),
-            ).toBeCloseTo(10, 1);
-        }
-        await page.evaluate(() => navigator.clipboard.writeText("000042"));
-        await input.focus();
-        await expect(input).toBeFocused();
-        await input.press("Control+V");
-        await expect(input).toHaveValue("000042");
-        await expect(page.locator(".knora-otp-cells")).toHaveText("000042");
-        const pasted = await page
-          .locator(".knora-otp-entry")
-          .evaluate((entry) => ({
-            value: entry.querySelector<HTMLInputElement>("input")!.value,
-            cells: Array.from(entry.querySelectorAll("span")).map((cell) => ({
-              text: cell.textContent,
-              mark: getComputedStyle(cell, "::before").content,
-            })),
-          }));
-        expect(pasted.cells.map((cell) => cell.mark)).toEqual(
-          Array(6).fill("none"),
+        expect(geometry.wrapper.width).toBe(
+          width === 1440 ? 420 : geometry.form.width,
         );
-        await input.fill("");
-        await expect(input).toHaveValue("");
-        await expect(page.locator(".knora-otp-cells")).toHaveText("");
-        const cleared = await page
-          .locator(".knora-otp-entry")
-          .evaluate((entry) => ({
-            value: entry.querySelector<HTMLInputElement>("input")!.value,
-            cells: Array.from(entry.querySelectorAll("span")).map((cell) => ({
-              text: cell.textContent,
-              mark: getComputedStyle(cell, "::before").content,
-            })),
-          }));
-        expect
-          .soft(cleared.cells.map((cell) => cell.mark))
-          .toEqual(Array(6).fill('"—"'));
+        expect(geometry.fields).toHaveLength(6);
+        expect(
+          geometry.fields.every(
+            (field) => field.height === (width === 1440 ? 56 : 52),
+          ),
+        ).toBe(true);
+        expect(geometry.gap).toBe(width === 1440 ? "10px" : "6px");
+        expect(geometry.pageFits).toBe(true);
+        expect(geometry.brand).toMatchObject({ loaded: true });
+
+        await page.evaluate(() => navigator.clipboard.writeText("000042"));
+        await digits.first().focus();
+        await digits.first().press("Control+V");
+        await expect(page.locator("#code")).toHaveValue("000042");
+        await expect(digits).toHaveValues(["0", "0", "0", "0", "4", "2"]);
+        for (const digit of await digits.all()) await digit.fill("");
+        await expect(page.locator("#code")).toHaveValue("");
+        await expect(digits).toHaveValues(["", "", "", "", "", ""]);
         writeLookupGeometry(target, {
           ...geometry,
-          inputTransitions: { pasted, cleared },
+          inputTransitions: { pasted: "000042", cleared: "" },
         });
         expect(unexpected).toEqual([]);
       }
@@ -4486,21 +4414,28 @@ test.describe("source fixtures", () => {
       "data-seconds",
       "30",
     );
-    const code = page.getByRole("textbox", { name: "Six-digit reset code" });
+    const code = page.locator(".knora-otp-digit").first();
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.evaluate(() => navigator.clipboard.writeText("000042"));
     await code.focus();
     await code.press("Control+V");
-    await expect(code).toHaveValue("000042");
+    await expect(page.locator("#code")).toHaveValue("000042");
     await expect(code).toHaveAttribute("aria-invalid", "true");
     expect(await code.evaluate((input) => getComputedStyle(input).height)).toBe(
       "56px",
     );
-    expect(await code.evaluate((input) => getComputedStyle(input).color)).toBe(
-      "rgba(0, 0, 0, 0)",
-    );
+    expect(
+      await code.evaluate((input) => getComputedStyle(input).color),
+    ).not.toBe("rgba(0, 0, 0, 0)");
     await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.locator(".knora-otp-cells")).toHaveText("000042");
+    await expect(page.locator(".knora-otp-digit")).toHaveValues([
+      "0",
+      "0",
+      "0",
+      "0",
+      "4",
+      "2",
+    ]);
     await page.clock.setFixedTime(new Date(now.getTime() + 29_000));
     await page.clock.runFor(250);
     await expect(resend).toBeDisabled();
@@ -4516,7 +4451,7 @@ test.describe("source fixtures", () => {
     expect(unexpected).toEqual([]);
   });
 
-  test("native FTL OTP remains a visible labelled single input with enabled resend without JavaScript", async ({
+  test("native FTL OTP remains six labelled fields with enabled resend without JavaScript", async ({
     browser,
     baseURL,
   }) => {
@@ -4526,20 +4461,12 @@ test.describe("source fixtures", () => {
       // Source fixtures never submit recovery actions, including with scripts blocked.
       await page.route("**/native/blocked-action", (route) => route.abort());
       await page.goto(`${baseURL}/native/242-333.html`);
-      const input = page.getByRole("textbox", { name: "Six-digit reset code" });
-      await expect(input).toBeVisible();
-      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-      await page.evaluate(() => navigator.clipboard.writeText("000042"));
-      await input.focus();
-      await input.press("Control+V");
-      await expect(input).toHaveValue("000042");
-      expect(
-        await input.evaluate((element) => getComputedStyle(element).height),
-      ).toBe("56px");
-      expect(
-        await input.evaluate((element) => getComputedStyle(element).color),
-      ).not.toBe("rgba(0, 0, 0, 0)");
-      await expect(page.locator(".knora-otp-cells")).toBeHidden();
+      const inputs = page.locator(".knora-otp-digit");
+      await expect(inputs).toHaveCount(6);
+      await expect(inputs.first()).toBeVisible();
+      await inputs.first().fill("4");
+      await expect(inputs.first()).toHaveValue("4");
+      await expect(page.locator("#code")).toHaveValue("");
       const resend = page.locator("#otp-resend");
       await expect(resend).toBeEnabled();
       await expect(resend).toHaveAttribute("name", "intent");
@@ -4554,7 +4481,7 @@ test.describe("source fixtures", () => {
         "action",
         "/native/blocked-action",
       );
-      await input.fill("");
+      await inputs.first().fill("");
       await page.screenshot({
         path: "../.verification/figma/q1/evidence/otp-input-presentation-2026-10-08/otp-resend-no-js-enabled.png",
         animations: "disabled",

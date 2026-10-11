@@ -225,6 +225,21 @@ Restore checks the exact target, checkout and actual realm ID, restores only the
 and retains the custom unbound flow. Partial errors retain snapshots and report redacted codes;
 keep the snapshot until the change has an explicit disposition.
 
+The Knora realm enables the `knora-default-capabilities` event listener. During successful
+self-registration it assigns every newly registered account the normal baseline capabilities
+`documents:read`, `documents:write` and `questions:ask`; the browser cannot submit these
+values and workspace ownership remains enforced by the API. Accounts created before the
+listener was enabled can be repaired once in the local realm with the guarded command below.
+It preserves all existing user attributes and changes only `capabilities`:
+
+```powershell
+.\scripts\provision-keycloak-user.ps1 -Username 'nhibuaa'
+```
+
+The command accepts only the owned local `knora-dev` target, requires an exact single
+username match, and never prints the administrator password or access token. A fresh login
+is required after provisioning so Keycloak issues a token containing the new capabilities.
+
 These source commands and executable fake HTTP/Docker checks establish guarded configuration
 behavior only. Task 1 does not start/reload a provider, prepare/bind a live flow or update a password.
 Native recovery acceptance remains a separate controller-reviewed operation with essential-safety

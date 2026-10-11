@@ -38,7 +38,7 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
         "dockerfile": "infra/keycloak/Dockerfile",
     }
     assert primary["ports"] == ["127.0.0.1:8180:8080"]
-    assert primary["volumes"] == [
+    assert primary["volumes"][:3] == [
         "./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro",
         "./themes/knora:/opt/keycloak/themes/knora:ro",
         "keycloak_dev_data:/opt/keycloak/data",
@@ -50,6 +50,8 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
             "bind": {"create_host_path": False},
         },
     ]
+    assert primary["volumes"][3]["target"] == "/opt/keycloak/vault"
+    assert primary["volumes"][3]["read_only"] is True
     smtp_variables = {
         "KC_SMTP_HOST",
         "KC_SMTP_PORT",
@@ -59,8 +61,7 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
         "KC_SMTP_STARTTLS",
         "KC_SMTP_AUTH",
     }
-    assert smtp_variables <= primary["environment"].keys()
-    assert all(primary["environment"][name] is None for name in smtp_variables)
+    assert smtp_variables.isdisjoint(primary.get("environment", {}))
 
     isolated = services["figma-keycloak"]
     assert isolated["image"] == "knora-figma-otp-runtime:26.3.3"
@@ -138,6 +139,43 @@ def test_theme_bundles_licensed_fonts_and_app_colors() -> None:
     assert (resources / "fonts/LICENSE-RobotoSlab.txt").is_file()
 
 
+def test_otp_form_uses_six_real_digit_fields_and_a_synced_keycloak_code_field() -> None:
+    template = (ROOT / "themes/knora/login/knora-reset-otp.ftl").read_text()
+    css = (ROOT / "themes/knora/login/resources/css/knora.css").read_text()
+
+    assert 'id="code" name="code" type="hidden"' in template
+    assert '<#list 0..5 as index>' in template
+    assert template.count('class="knora-otp-digit"') == 1
+    assert 'data-otp-index="${index}"' in template
+    assert "syncCode" in template
+    assert "paste" in template
+    assert "Backspace" in template
+    assert ".knora-otp-digit:focus" in css
+    assert ".knora-otp-cells" not in css
+
+
+def test_password_update_wraps_native_logout_option_with_knora_theme_hook() -> None:
+    template = (ROOT / "themes/knora/login/login-update-password.ftl").read_text()
+    css = (ROOT / "themes/knora/login/resources/css/knora.css").read_text()
+
+    assert '<div class="knora-session-option">' in template
+    assert "logoutOtherSessions" in template
+    assert ".knora-session-option input[type=\"checkbox\"]" in css
+    assert ".knora-session-option label" in css
+
+
+def test_otp_email_is_branded_and_keeps_plain_text_fallback() -> None:
+    html = (ROOT / "themes/knora/email/html/knora-reset-otp.ftl").read_text()
+    text = (ROOT / "themes/knora/email/text/knora-reset-otp.ftl").read_text()
+
+    assert 'class="knora-email"' in html
+    assert 'role="presentation"' in html
+    assert "#33A15B" in html
+    assert '${msg("knoraResetOtpHeading")}' in html
+    assert "${code}" in html
+    assert '${msg("knoraResetOtpExpiry", expirationMinutes)}' in text
+
+
 def test_four_native_forms_retain_keycloak_actions_and_escape_messages() -> None:
     theme = ROOT / "themes/knora/login"
     login = (theme / "login.ftl").read_text()
@@ -179,6 +217,26 @@ def test_registration_profile_keeps_native_validations_and_optional_names() -> N
         assert "person-name-prohibited-characters" in attributes[name]["validations"]
     assert attributes["email"]["required"] == {"roles": ["user"]}
     assert realm["verifyEmail"] is False
+
+
+def test_registration_event_assigns_backend_owned_default_capabilities() -> None:
+    expected = ["documents:read", "documents:write", "questions:ask"]
+    for fixture_name in ("dev-realm.json", "figma-realm.json"):
+        realm = json.loads((ROOT / "test/fixtures/keycloak" / fixture_name).read_text())
+        assert "knora-default-capabilities" in realm["eventsListeners"]
+
+    listener = (
+        ROOT
+        / "infra/keycloak/providers/email-otp-reset/src/main/java/"
+        "com/knora/keycloak/reset/DefaultCapabilitiesFactory.java"
+    ).read_text()
+    assert 'event.getType() != EventType.REGISTER' in listener
+    assert 'user.setAttribute(CAPABILITIES_ATTRIBUTE, DEFAULT_CAPABILITIES)' in listener
+    assert all(f'"{capability}"' in listener for capability in expected)
+    assert "registration input is never trusted" in listener.lower()
+
+    configure = (ROOT / "scripts/configure-keycloak-auth-flow.ps1").read_text()
+    assert "knora-default-capabilities" in configure
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
@@ -299,7 +357,8 @@ $global:profileFixture = [pscustomobject]@{ attributes = @(
 $global:realmFixture = [pscustomobject]@{
     realm='knora-dev';verifyEmail=$true;loginTheme='keycloak.v2'
     registrationAllowed=$false;resetPasswordAllowed=$false
-    loginWithEmailAllowed=$false;registrationEmailAsUsername=$false;duplicateEmailsAllowed=$false
+        loginWithEmailAllowed=$false;registrationEmailAsUsername=$false;duplicateEmailsAllowed=$false
+        eventsListeners=@('jboss-logging')
 }
 $global:putCount = 0
 function docker {

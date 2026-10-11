@@ -304,6 +304,12 @@ function ConversationViewState({
           requireAuthentication();
           return;
         }
+        if (created.status === 403) {
+          setError(
+            "You don't have permission to ask questions in this workspace.",
+          );
+          return;
+        }
         if (!created.ok)
           throw new Error("Unable to confirm conversation creation");
         target = (await created.json()) as ConversationResponse;
@@ -342,6 +348,12 @@ function ConversationViewState({
           setSubmissionConflict(true);
           setError(body.error?.code ?? "TURN_CONFLICT");
         }
+        return;
+      }
+      if (response.status === 403) {
+        setError(
+          "You don't have permission to ask questions in this workspace.",
+        );
         return;
       }
       if (!response.ok) {

@@ -42,11 +42,12 @@ try {
 } catch { throw 'KEYCLOAK_INSPECTION_FAILED' }
 $settings = @{}
 foreach ($name in 'loginTheme', 'registrationAllowed', 'resetPasswordAllowed', 'loginWithEmailAllowed', 'registrationEmailAsUsername', 'duplicateEmailsAllowed', 'verifyEmail') { $settings[$name] = $currentRealm.$name }
+$settings.eventsListeners = @($currentRealm.eventsListeners)
 if ($Mode -eq 'Inspect') {
     @{ target = "$BaseUrl/realms/$Realm"; project = $Project; settings = $settings; profile = $currentProfile } | ConvertTo-Json -Depth 100
     return
 }
-$desired = @{ loginTheme = 'knora'; registrationAllowed = $true; resetPasswordAllowed = $true; loginWithEmailAllowed = $true; registrationEmailAsUsername = $false; duplicateEmailsAllowed = $false }
+$desired = @{ loginTheme = 'knora'; registrationAllowed = $true; resetPasswordAllowed = $true; loginWithEmailAllowed = $true; registrationEmailAsUsername = $false; duplicateEmailsAllowed = $false; eventsListeners = @(@($currentRealm.eventsListeners) + 'knora-default-capabilities' | Select-Object -Unique) }
 $profile = $currentProfile | ConvertTo-Json -Depth 100 | ConvertFrom-Json
 $conflicts = @()
 foreach ($attribute in $profile.attributes) {
@@ -70,9 +71,10 @@ if ($Mode -eq 'Diff') {
 }
 if ($Mode -eq 'Apply') {
     $settingsChanged = $false
-    foreach ($name in $desired.Keys) {
+    foreach ($name in $desired.Keys | Where-Object { $_ -ne 'eventsListeners' }) {
         if ($currentRealm.$name -ne $desired[$name]) { $settingsChanged = $true }
     }
+    if ((@($currentRealm.eventsListeners) -join '|') -ne (@($desired.eventsListeners) -join '|')) { $settingsChanged = $true }
     $profileChanged = ($profile | ConvertTo-Json -Depth 100 -Compress) -ne ($currentProfile | ConvertTo-Json -Depth 100 -Compress)
     if (-not $settingsChanged -and -not $profileChanged) {
         Write-Output 'KEYCLOAK_AUTH_FLOW_ALREADY_SET'
@@ -84,6 +86,10 @@ if ($Mode -eq 'Rollback') {
     $saved = Get-Content -Raw -LiteralPath $SnapshotPath | ConvertFrom-Json
     if ($saved.baseUrl -ne $BaseUrl -or $saved.realm -ne $Realm -or $saved.project -ne $Project) { throw 'KEYCLOAK_SNAPSHOT_TARGET_REJECTED' }
     $desired = $saved.settings
+    if (-not $desired.PSObject.Properties['eventsListeners']) {
+        # Older snapshots predate the opt-in listener; leave current listeners untouched.
+        $desired.PSObject.Properties.Remove('eventsListeners')
+    }
     $profile = $saved.profile
 } else {
     if (-not $SnapshotPath) {
@@ -102,7 +108,9 @@ try {
     $verified = Invoke-RestMethod -Uri $realmUri -Headers $headers
     $verifiedProfile = Invoke-RestMethod -Uri "$realmUri/users/profile" -Headers $headers
     foreach ($property in ($desired | ConvertTo-Json | ConvertFrom-Json).PSObject.Properties) {
-        if ($verified.($property.Name) -ne $property.Value) { throw 'settings' }
+        if ($property.Name -eq 'eventsListeners') {
+            if ((@($verified.eventsListeners) -join '|') -ne (@($property.Value) -join '|')) { throw 'settings' }
+        } elseif ($verified.($property.Name) -ne $property.Value) { throw 'settings' }
     }
     if ($Mode -eq 'Apply' -and $verified.verifyEmail -ne $settings.verifyEmail) { throw 'verifyEmail' }
     if (($verifiedProfile | ConvertTo-Json -Depth 100 -Compress) -ne ($profile | ConvertTo-Json -Depth 100 -Compress)) { throw 'profile' }
