@@ -87,7 +87,7 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
             var service = service(context, email, ip, digest);
             OtpChallengeService.RenderResult result;
             if ("verify".equals(intent)) {
-                String code = single(parameters, "code", 64);
+                String code = submittedCode(parameters);
                 result = service.verify(scope, reference, code);
                 if (result.verifiedUserId() != null) {
                     UserModel user = context.getSession().users().getUserById(context.getRealm(), result.verifiedUserId());
@@ -231,6 +231,18 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
         var values = parameters.get(name);
         return values != null && values.size() == 1 && values.get(0) != null && values.get(0).length() <= max
                 ? values.get(0) : null;
+    }
+
+    static String submittedCode(jakarta.ws.rs.core.MultivaluedMap<String, String> parameters) {
+        String code = single(parameters, "code", 64);
+        if (code != null && !code.isBlank()) return code;
+        StringBuilder digits = new StringBuilder(6);
+        for (int index = 0; index < 6; index++) {
+            String digit = single(parameters, "code-digit-" + index, 1);
+            if (digit == null || !digit.matches("[0-9]")) return null;
+            digits.append(digit);
+        }
+        return digits.toString();
     }
 
     private static String normalize(String email) { return email == null ? "" : email.strip().toLowerCase(Locale.ROOT); }

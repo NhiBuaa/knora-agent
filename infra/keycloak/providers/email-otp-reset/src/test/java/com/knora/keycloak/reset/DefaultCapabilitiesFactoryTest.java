@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import jakarta.ws.rs.core.MultivaluedHashMap;
 import org.junit.jupiter.api.Test;
 import org.keycloak.events.Event;
 import org.keycloak.events.EventType;
@@ -19,6 +20,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultCapabilitiesFactoryTest {
+    @Test
+    void noScriptOtpFieldsStillSubmitOneSixDigitCode() {
+        var parameters = new MultivaluedHashMap<String, String>();
+        parameters.add("code", "");
+        for (int index = 0; index < 6; index++) {
+            parameters.add("code-digit-" + index, index == 4 ? "4" : index == 5 ? "2" : "0");
+        }
+
+        assertEquals("000042", EmailOtpResetAuthenticator.submittedCode(parameters));
+    }
+
     @Test
     void listenerIsOptInThroughRealmEventsConfiguration() {
         assertEquals(false, new DefaultCapabilitiesFactory().isGlobal());
