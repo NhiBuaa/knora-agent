@@ -22,7 +22,7 @@
                 <label class="knora-visually-hidden" for="code">${msg("knoraOtpLabel")}</label>
                 <div class="knora-otp-entry">
                     <input id="code" name="code" type="hidden" value="" required />
-                    <div class="knora-otp-digits" role="group" aria-labelledby="code-label" aria-describedby="otp-expiry">
+                    <div class="knora-otp-digits" role="group" aria-labelledby="code-label">
                         <span id="code-label" class="knora-visually-hidden">${msg("knoraOtpLabel")}</span>
                         <#list 0..5 as index>
                             <input class="knora-otp-digit" name="code-digit-${index}" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="<#if index == 0>one-time-code<#else>off</#if>" aria-label="${msg("knoraOtpDigit", index + 1)}" data-otp-index="${index}" <#if index == 0>autofocus</#if> aria-invalid="${(otpInvalid!false)?c}" />
@@ -35,7 +35,6 @@
                     <#assign expiry = otpExpiresInSeconds!retryAfterSeconds!0>
                     <button id="otp-resend" class="knora-text-button" type="submit" name="intent" value="resend" formnovalidate data-ready-label="${msg("knoraOtpResend")}"><span id="otp-resend-label"><#if expiry gt 0>${msg("knoraOtpResendPending")}<#else>${msg("knoraOtpResend")}</#if></span><#if expiry gt 0> <span id="otp-retry" data-seconds="${expiry?c}">${(expiry / 60)?floor?string("00")}:${(expiry % 60)?string("00")}</span></#if></button>
                 </div>
-                <p id="otp-expiry" class="knora-disclaimer">${msg("knoraOtpExpires")}</p>
             </form>
         </div>
         <script>

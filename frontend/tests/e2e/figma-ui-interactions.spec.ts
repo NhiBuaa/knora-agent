@@ -4200,9 +4200,6 @@ test.describe("source fixtures", () => {
           await expect(page.locator("#otp-resend-label")).toHaveText(
             "Resend code in",
           );
-          await expect(page.locator("#otp-expiry")).toHaveText(
-            "The code expires after 5 minutes.",
-          );
           if (state === "246:311")
             await expect(page.getByRole("alert")).toContainText(
               "Check the code or request a new one, then try again.",
