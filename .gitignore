@@ -14,3 +14,9 @@ evals/reports/*.json
 !evals/reports/.gitkeep
 minio-smoke.txt
 .verification/figma/q1/
+
+# Local verification outputs; durable verification source stays tracked separately.
+.verification/dev/
+.verification/*-issue-body.md
+.verification/*.jar
+.verification/task2-pytest.*
