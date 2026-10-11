@@ -26,7 +26,7 @@ Không nên cài nguyên bộ hoặc thay các workflow có quản trị bằng 
 
 ## Vấn đề cần đối chiếu trước khi bổ sung
 
-**Knora:** AGENTS.md vẫn liệt kê `feature-delivery`, `domain-modeling`, `manual-acceptance`, `implement`, `code-review`, `session-continuity` và các workflow khác. Những tên này không có trong 16 thư mục skill người dùng vừa kiểm tra. Tuy nhiên [runbook M5](C:/Developer/Projects/knora-agent/.agents/workflows/m5-codex-skills-workflow.md) chủ đích dùng 13 skill dưới `.codex/skills` và cấm `feature-delivery`. Vì vậy đây là chênh lệch giữa nguồn workflow và phạm vi được phép dùng, cần xác định theo từng nhiệm vụ; chưa đủ bằng chứng kết luận tất cả tham chiếu cũ đều bị xóa nhầm.
+**Knora:** AGENTS.md vẫn liệt kê `feature-delivery`, `domain-modeling`, `manual-acceptance`, `implement`, `code-review`, `session-continuity` và các workflow khác. Những tên này không có trong 16 thư mục skill người dùng vừa kiểm tra. Tuy nhiên [runbook M5](C:/Developer/Projects/knora-agent/.agents/workflows/production-projections-user-operator-surfaces-verification-runbook.md) chủ đích dùng 13 skill dưới `.codex/skills` và cấm `feature-delivery`. Vì vậy đây là chênh lệch giữa nguồn workflow và phạm vi được phép dùng, cần xác định theo từng nhiệm vụ; chưa đủ bằng chứng kết luận tất cả tham chiếu cũ đều bị xóa nhầm.
 
 **KittaChat:** [working agreement](C:/Developer/Projects/kitta-chat/.agents/AGENTS.md) chọn `~/.agents/skills` làm nguồn chính và nêu nhiều tên không còn tìm thấy ở đó: `triage`, `teach`, `to-prd`, `to-issues`, `test-craft`... Trong khi [triage-labels.md](C:/Developer/Projects/kitta-chat/docs/agents/triage-labels.md) đã có bảng năm trạng thái. Đó là cấu hình sẵn và tham chiếu workflow, không phải bằng chứng skill được cài.
 

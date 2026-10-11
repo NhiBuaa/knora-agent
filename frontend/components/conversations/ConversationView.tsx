@@ -1,9 +1,11 @@
 "use client";
 
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import React, {
   FormEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -11,25 +13,76 @@ import type {
   ConversationResponse,
   TurnResponse,
 } from "@/generated/knora-openapi";
-import { CitationViewer } from "@/components/citations/CitationViewer";
+import { useRouter } from "next/navigation";
+import { routes } from "@/lib/navigation/routes";
+import { EvidenceInspector } from "@/components/citations/EvidenceInspector";
+import { ConversationPanels } from "./ConversationPanels";
+import { ConversationRail } from "./ConversationRail";
+import { TurnCard } from "./TurnCard";
+import {
+  ConversationComposer,
+  ConversationEmpty,
+  WorkspaceReadOnlyComposer,
+} from "./ConversationComposer";
+import type {
+  EvidenceSelection,
+  PanelIdentityScope,
+} from "@/lib/conversations/panel-preferences";
 import { browserRequest } from "@/lib/api/browser-client";
 
 const pending = new Set(["queued", "processing", "pending"]);
 
-export function ConversationView({
-  workspaceId,
-  conversation,
-  workspaceArchived = false,
-}: {
+const emptyConversations: ConversationResponse[] = [];
+type ConversationViewProps = {
   workspaceId: string;
+  draftMode?: boolean;
   conversation: ConversationResponse;
   workspaceArchived?: boolean;
-}) {
+  workspaceRevision?: number;
+  identityScope?: PanelIdentityScope;
+  workspaceName?: string;
+  workspaceSelector?: React.ReactNode;
+  initialConversations?: ConversationResponse[];
+  nextCursor?: string | null;
+};
+export function ConversationView(props: ConversationViewProps) {
+  return (
+    <ConversationViewState
+      key={`${props.workspaceId}:${props.conversation.id}`}
+      {...props}
+    />
+  );
+}
+function ConversationViewState({
+  workspaceId,
+  draftMode = false,
+  conversation,
+  workspaceArchived = false,
+  workspaceRevision,
+  identityScope,
+  workspaceName,
+  workspaceSelector,
+  initialConversations = emptyConversations,
+  nextCursor = null,
+}: ConversationViewProps) {
+  const router = useRouter();
+  const active = useRef(true);
+  const creationKey = useRef<string | null>(null);
+  const admittedConversation = useRef<ConversationResponse | null>(
+    draftMode ? null : conversation,
+  );
+  const submitBusy = useRef(false);
+  const [projection, setProjection] = useState(conversation);
+  const [selection, setSelection] = useState<EvidenceSelection | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    setProjection(conversation);
+  }, [conversation]);
   const [turns, setTurns] = useState<TurnResponse[]>([]);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!draftMode);
   const [cursor, setCursor] = useState<string | null>(null);
   const [submissionUncertain, setSubmissionUncertain] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +93,7 @@ export function ConversationView({
   const authenticationGeneration = useRef(0);
   const submitKey = useRef<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const base = `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(conversation.id)}`;
+  const base = `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(projection.id)}`;
 
   const requireAuthentication = useCallback(() => {
     authenticationGeneration.current += 1;
@@ -53,18 +106,27 @@ export function ConversationView({
 
   const pollTurn = useCallback(
     async function pollTurn(turnId: string) {
-      if (authenticationRequired.current) return;
+      if (!active.current || authenticationRequired.current) return;
+      const generation = authenticationGeneration.current;
       try {
         const response = await browserRequest(
-          `${base}/turns/${encodeURIComponent(turnId)}`,
+          `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current?.id ?? projection.id)}/turns/${encodeURIComponent(turnId)}`,
         );
+        if (!active.current || generation !== authenticationGeneration.current)
+          return;
         if (response.status === 401) {
           requireAuthentication();
           return;
         }
         if (!response.ok) throw new Error("Turn status unavailable");
         const turn = (await response.json()) as TurnResponse;
-        if (authenticationRequired.current) return;
+        if (!active.current) return;
+        if (
+          !active.current ||
+          authenticationRequired.current ||
+          generation !== authenticationGeneration.current
+        )
+          return;
         setTurns((current) => {
           const others = current.filter((item) => item.id !== turn.id);
           return [...others, turn].sort((a, b) => a.sequence - b.sequence);
@@ -79,22 +141,52 @@ export function ConversationView({
           setNotice(null);
         }
       } catch {
-        if (authenticationRequired.current) return;
+        if (!active.current || authenticationRequired.current) return;
         setNotice(
           "Unable to confirm this Turn. Reload history before retrying.",
         );
       }
     },
-    [base, requireAuthentication],
+    [requireAuthentication, workspaceId, projection.id],
   );
 
   const load = useCallback(async () => {
     const generation = authenticationGeneration.current;
     const recoveringSession = authenticationRequired.current;
+    if (!admittedConversation.current?.id) {
+      if (recoveringSession) {
+        try {
+          const response = await browserRequest(
+            `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+          );
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current
+          )
+            return null;
+          if (response.status === 401) {
+            requireAuthentication();
+            return null;
+          }
+          if (!response.ok) throw new Error("authentication read failed");
+          authenticationRequired.current = false;
+          setSessionExpired(false);
+          setError(null);
+        } catch {
+          setError("Unable to verify your session. Retry.");
+          return null;
+        }
+      }
+      setLoading(false);
+      return [];
+    }
     setLoading(true);
     if (pollTimer.current) clearTimeout(pollTimer.current);
     try {
-      const response = await browserRequest(`${base}/turns?limit=50`);
+      const response = await browserRequest(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current.id)}/turns?limit=50`,
+      );
+      if (!active.current) return null;
       if (response.status === 401) {
         requireAuthentication();
         return null;
@@ -104,7 +196,8 @@ export function ConversationView({
         items: TurnResponse[];
         next_cursor: string | null;
       };
-      if (generation !== authenticationGeneration.current) return null;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       setTurns(page.items);
       setCursor(page.next_cursor);
       authenticationRequired.current = false;
@@ -116,19 +209,23 @@ export function ConversationView({
       setError(null);
       return page.items;
     } catch {
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       setError("Unable to load Conversation history. Retry this page.");
       return null;
     } finally {
       setLoading(false);
     }
-  }, [base, pollTurn, requireAuthentication]);
+  }, [pollTurn, requireAuthentication, workspaceId]);
 
   async function loadMore() {
     if (!cursor || authenticationRequired.current) return;
+    const generation = authenticationGeneration.current;
     try {
       const response = await browserRequest(
         `${base}/turns?limit=50&cursor=${encodeURIComponent(cursor)}`,
       );
+      if (!active.current) return null;
       if (response.status === 401) {
         requireAuthentication();
         return;
@@ -138,6 +235,8 @@ export function ConversationView({
         items: TurnResponse[];
         next_cursor: string | null;
       };
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       setTurns((current) => {
         const seen = new Set(current.map((turn) => turn.id));
         return [
@@ -147,30 +246,41 @@ export function ConversationView({
       });
       setCursor(page.next_cursor);
     } catch {
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       setError("Unable to load more Turns. Retry.");
     }
   }
 
   useEffect(() => {
+    active.current = true;
     void load();
     return () => {
+      active.current = false;
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, [load]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const question = draft.trim();
+    await submitQuestion(draft);
+  }
+
+  async function submitQuestion(value: string) {
+    const question = value.trim();
     if (
       !question ||
       workspaceArchived ||
-      conversation.archived ||
+      projection.archived ||
       serverArchived ||
       authenticationRequired.current ||
+      submitBusy.current ||
       submitting ||
       submissionConflict
     )
       return;
+    submitBusy.current = true;
+    setDraft(question);
     setSubmitting(true);
     setError(null);
     submitKey.current ??= crypto.randomUUID();
@@ -178,12 +288,45 @@ export function ConversationView({
       if (submitKey.current && error) {
         if (!(await load())) return;
       }
-      if (authenticationRequired.current) return;
-      const response = await browserRequest(`${base}/turns`, {
-        method: "POST",
-        headers: { "Idempotency-Key": submitKey.current },
-        body: JSON.stringify({ question }),
-      });
+      if (!active.current || authenticationRequired.current) return;
+      let target = admittedConversation.current;
+      if (!target) {
+        creationKey.current ??= crypto.randomUUID();
+        const created = await browserRequest(
+          `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations`,
+          {
+            method: "POST",
+            headers: { "Idempotency-Key": creationKey.current },
+          },
+        );
+        if (created.status === 401) {
+          setSubmissionUncertain(true);
+          requireAuthentication();
+          return;
+        }
+        if (created.status === 403) {
+          setError(
+            "You don't have permission to ask questions in this workspace.",
+          );
+          return;
+        }
+        if (!created.ok)
+          throw new Error("Unable to confirm conversation creation");
+        target = (await created.json()) as ConversationResponse;
+        if (target.workspace_id !== workspaceId || !target.id)
+          throw new Error("Creation scope mismatch");
+        if (!active.current || authenticationRequired.current) return;
+        admittedConversation.current = target;
+      }
+      const response = await browserRequest(
+        `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(target.id)}/turns`,
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": submitKey.current },
+          body: JSON.stringify({ question }),
+        },
+      );
+      if (!active.current) return null;
       if (response.status === 401) {
         setSubmissionUncertain(true);
         requireAuthentication();
@@ -207,6 +350,12 @@ export function ConversationView({
         }
         return;
       }
+      if (response.status === 403) {
+        setError(
+          "You don't have permission to ask questions in this workspace.",
+        );
+        return;
+      }
       if (!response.ok) {
         setError(
           `Unable to submit question (${response.status}). Retry with the same draft.`,
@@ -214,6 +363,14 @@ export function ConversationView({
         return;
       }
       const turn = (await response.json()) as TurnResponse;
+      if (!active.current) return;
+      if (draftMode && !projection.id) {
+        setProjection({
+          ...target,
+          title: question.replace(/\s+/g, " ").slice(0, 80),
+        });
+        router.replace(routes.conversation(workspaceId, target.id));
+      }
       submitKey.current = null;
       setSubmissionUncertain(false);
       setSubmissionConflict(false);
@@ -229,102 +386,223 @@ export function ConversationView({
         "Submission status is uncertain. Check history, then retry with the same draft.",
       );
     } finally {
+      submitBusy.current = false;
       setSubmitting(false);
     }
   }
 
+  const railConversations = useMemo(() => {
+    if (!projection.id || projection.archived) return initialConversations;
+    if (initialConversations.some((item) => item.id === projection.id))
+      return initialConversations.map((item) =>
+        item.id === projection.id ? projection : item,
+      );
+    return [...initialConversations, projection].sort(
+      (a, b) =>
+        b.updated_at.localeCompare(a.updated_at) || b.id.localeCompare(a.id),
+    );
+  }, [initialConversations, projection]);
+  const readOnly = workspaceArchived || projection.archived || serverArchived;
+  const selectedTurn = selection
+    ? turns.find((turn) => turn.id === selection.turnId)
+    : null;
+  const selectedCitation =
+    selectedTurn?.result?.citations[selection?.citationIndex ?? -1] ?? null;
+  useEffect(() => {
+    if (selection && !selectedCitation) setSelection(null);
+  }, [selection, selectedCitation]);
+  function suggest(value: string) {
+    if (!readOnly && !submissionUncertain && !submitting && !sessionExpired) {
+      void submitQuestion(value);
+    }
+  }
+  async function retry(turn: TurnResponse) {
+    const history = await load();
+    if (!history || !active.current || authenticationRequired.current) return;
+    const latest = history.find((item) => item.id === turn.id);
+    if (
+      latest &&
+      (pending.has(latest.status) ||
+        latest.status === "answered" ||
+        latest.status === "refused")
+    )
+      return;
+    if (!submissionUncertain) setDraft(turn.question);
+    setNotice("History checked. Send the same question when ready.");
+    document.getElementById("conversation-question")?.focus();
+  }
+  async function restore() {
+    if (workspaceArchived || restoring || sessionExpired) return;
+    setRestoring(true);
+    try {
+      const response = await browserRequest(`${base}/restore`, {
+        method: "POST",
+        headers: { "If-Match": String(projection.revision) },
+      });
+      if (!active.current) return;
+      if (response.status === 401) {
+        requireAuthentication();
+        return;
+      }
+      if (!response.ok) throw new Error("restore failed");
+      const updated = (await response.json()) as ConversationResponse;
+      if (!active.current) return;
+      if (updated.id !== projection.id || updated.workspace_id !== workspaceId)
+        throw new Error("scope mismatch");
+      setProjection(updated);
+      setServerArchived(false);
+      setError(null);
+    } catch {
+      if (active.current)
+        setError("Unable to restore Conversation. Reload and retry.");
+    } finally {
+      if (active.current) setRestoring(false);
+    }
+  }
   return (
-    <section>
-      <h1>{conversation.title}</h1>
-      {(workspaceArchived || conversation.archived || serverArchived) && (
-        <p role="status">This Conversation is read-only.</p>
+    <ConversationPanels
+      workspaceId={workspaceId}
+      identityScope={identityScope}
+      selection={selection}
+      rail={(mode, onChange, overlay) => (
+        <ConversationRail
+          workspaceId={workspaceId}
+          workspaceName={workspaceName}
+          workspaceSelector={workspaceSelector}
+          conversations={railConversations}
+          nextCursor={nextCursor}
+          selectedId={projection.id}
+          onChanged={(updated) => {
+            if (updated.id === projection.id) setProjection(updated);
+          }}
+          workspaceArchived={workspaceArchived}
+          mode={mode}
+          onChange={onChange}
+          overlay={overlay}
+        />
       )}
-      {loading && <p>Loading history…</p>}
+      inspector={
+        <EvidenceInspector
+          workspaceId={workspaceId}
+          workspaceArchived={workspaceArchived}
+          citation={selectedCitation}
+          turn={selectedTurn ?? turns.at(-1)}
+        />
+      }
+      composer={
+        <>
+          {sessionExpired && (
+            <div role="alert" className="px-6 py-3 text-sm">
+              <p>
+                Your session has expired. Keep this tab open to preserve your
+                draft. Sign in in a new tab, then return here and reload history
+                before retrying.
+              </p>
+              <a
+                href="/api/auth/login"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mr-3 text-action-text underline"
+              >
+                Sign in again
+              </a>
+              <button
+                type="button"
+                disabled={loading || submitting}
+                onClick={() => void load()}
+              >
+                Reload history
+              </button>
+            </div>
+          )}
+          {workspaceArchived ? (
+            <WorkspaceReadOnlyComposer
+              key={`${workspaceId}:${workspaceRevision}`}
+              workspaceId={workspaceId}
+              workspaceRevision={workspaceRevision}
+              sessionExpired={sessionExpired}
+              onAuthenticationRequired={requireAuthentication}
+            />
+          ) : (
+            <ConversationComposer
+              draft={draft}
+              onChange={(value) => {
+                if (!submissionUncertain && !submitting && !sessionExpired)
+                  setDraft(value);
+              }}
+              onSubmit={(event) => void submit(event)}
+              readOnly={submissionUncertain || submitting || sessionExpired}
+              disabled={
+                !draft.trim() ||
+                submissionConflict ||
+                submitting ||
+                sessionExpired ||
+                loading
+              }
+              archived={readOnly}
+              restoreDisabled={workspaceArchived || restoring || sessionExpired}
+              onRestore={projection.archived ? () => void restore() : undefined}
+            />
+          )}
+        </>
+      }
+    >
+      <h1 className="sr-only">{projection.title}</h1>
+      {loading && <LeafLoading label="Loading conversation history" />}
       {!loading && !turns.length && !error && !sessionExpired && (
-        <p>No questions yet.</p>
+        <ConversationEmpty
+          onSuggest={suggest}
+          disabled={readOnly || submissionUncertain || submitting}
+        />
       )}
-      <ol>
+      <ol className="m-0 flex flex-col gap-8 p-0">
         {turns.map((turn) => (
-          <li key={turn.id}>
-            <h2>Question {turn.sequence}</h2>
-            <p>{turn.question}</p>
-            {turn.result?.decision === "ANSWER" && turn.result.answer && (
-              <p>{turn.result.answer}</p>
-            )}
-            {turn.result?.decision !== "ANSWER" &&
-              turn.result?.refusal_reason && (
-                <p>Refused: {turn.result.refusal_reason}</p>
-              )}
-            {turn.result?.citations && (
-              <CitationViewer
-                citations={turn.result.citations}
-                workspaceId={workspaceId}
-              />
-            )}
-            {pending.has(turn.status) && !sessionExpired && (
-              <p role="status">Processing question…</p>
-            )}
-            {turn.status === "interrupted" && <p>Outcome uncertain</p>}
-            {turn.error_code && <p role="alert">{turn.error_code}</p>}
-          </li>
+          <TurnCard
+            key={turn.id}
+            turn={turn}
+            workspaceId={workspaceId}
+            selection={selection}
+            onSelect={(next) =>
+              setSelection((current) =>
+                current?.turnId === next.turnId &&
+                current.citationIndex === next.citationIndex
+                  ? null
+                  : next,
+              )
+            }
+            onSuggest={suggest}
+            onRetry={() => void retry(turn)}
+            disabled={
+              readOnly ||
+              submitting ||
+              loading ||
+              sessionExpired ||
+              submissionConflict
+            }
+            sessionExpired={sessionExpired}
+          />
         ))}
       </ol>
       {cursor && (
         <button
           type="button"
+          className="mt-4 w-fit text-xs text-text-muted"
           disabled={sessionExpired || loading}
           onClick={() => void loadMore()}
         >
           Load more Turns
         </button>
       )}
-      {sessionExpired && (
-        <div role="alert">
-          <p>
-            Your session has expired. Keep this tab open to preserve your draft.
-            Sign in in a new tab, then return here and reload history before
-            retrying.
-          </p>
-          <a href="/api/auth/login" target="_blank" rel="noopener noreferrer">
-            Sign in again
-          </a>
-          <button
-            type="button"
-            disabled={loading || submitting}
-            onClick={() => void load()}
-          >
-            Reload history
-          </button>
-        </div>
+      {notice && (
+        <p role="status" className="mt-4 text-sm text-text-muted">
+          {notice}
+        </p>
       )}
-      {!workspaceArchived && !conversation.archived && !serverArchived && (
-        <form onSubmit={(event) => void submit(event)}>
-          <label htmlFor="conversation-question">Question</label>
-          <textarea
-            id="conversation-question"
-            value={draft}
-            readOnly={submissionUncertain || submitting || sessionExpired}
-            onChange={(event) => {
-              if (!submissionUncertain && !submitting && !sessionExpired)
-                setDraft(event.target.value);
-            }}
-          />
-          <button
-            type="submit"
-            disabled={
-              !draft.trim() ||
-              submissionConflict ||
-              submitting ||
-              sessionExpired ||
-              loading
-            }
-          >
-            Ask
-          </button>
-        </form>
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-status-error">
+          {error}
+        </p>
       )}
-      {notice && <p role="status">{notice}</p>}
-      {error && <p role="alert">{error}</p>}
-    </section>
+    </ConversationPanels>
   );
 }
