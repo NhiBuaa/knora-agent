@@ -4144,6 +4144,37 @@ test.describe("source fixtures", () => {
     ).toBe("rgb(255, 255, 255)");
   });
 
+  test("native auth brand returns to login with pointer and keyboard", async ({
+    page,
+  }) => {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 960 });
+      for (const state of [
+        "228:212",
+        "237:251",
+        "242:272",
+        "242:333",
+        "242:389",
+        "246:311",
+        "246:404",
+      ]) {
+        await prepareFixture(page, state);
+        const brand = page.getByRole("link", { name: "Knora", exact: true });
+        await expect(brand).toHaveAttribute("href", "/native/228-212.html");
+        if (width === 390) {
+          await brand.focus();
+          await page.keyboard.press("Enter");
+        } else {
+          await brand.locator("img").click();
+        }
+        await expect(page).toHaveURL(/\/native\/228-212\.html$/);
+        await expect(
+          page.getByRole("heading", { name: "Sign in to Knora" }),
+        ).toBeVisible();
+      }
+    }
+  });
+
   test("native auth centers forms and portrait branding without clipping tall forms", async ({
     page,
   }) => {
@@ -4207,6 +4238,10 @@ test.describe("source fixtures", () => {
             exact: true,
           }),
         ).toBeVisible();
+        await expect(page.locator(".knora-brand-link")).toHaveAttribute(
+          "href",
+          "/native/228-212.html",
+        );
         if (request) {
           await expect(page.locator(".knora-auth-description")).toHaveText(
             "Enter the email for your account. If an account exists, we’ll send a 6-digit verification code.",

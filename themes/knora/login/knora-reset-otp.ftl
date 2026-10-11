@@ -4,7 +4,7 @@
         ${msg("knoraOtpTitle")}
     <#elseif section = "form">
         <aside class="knora-brand-panel" aria-label="Knora">
-            <div class="knora-brand"><img src="${url.resourcesPath}/images/ad252.svg" width="18" height="18" alt="" /><span>Knora</span></div>
+            <a class="knora-brand knora-brand-link" href="${url.loginUrl}"><img src="${url.resourcesPath}/images/ad252.svg" width="18" height="18" alt="" /><span>Knora</span></a>
             <div class="knora-brand-copy">
                 <p class="knora-eyebrow">${msg("knoraEvidenceFirst")}</p>
                 <h2><span>${msg("knoraGroundedAnswers")}</span><span>${msg("knoraVerifiedEvidence")}</span></h2>
