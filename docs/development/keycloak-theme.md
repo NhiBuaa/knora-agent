@@ -350,8 +350,12 @@ SMTP metadata; `Restore` requires the same realm ID and restores only those fiel
 
 ### Gmail SMTP operator contract
 
-The primary runtime accepts Gmail settings only from the process environment. Keep them in the
-ignored repository-root `.env` (or an external deployment secret store); never put an App
+For local development, put Gmail settings in the ignored repository-root `.env`.
+With `-EnablePrimaryOtp -ConfigurePrimarySmtp`, the migration script automatically loads only
+the seven SMTP values below from that file. Existing process environment values take precedence.
+Blank lines, full-line comments and surrounding single or double quotes are supported; values are
+never executed as PowerShell. DPAPI files and a separate credential directory are not required.
+Deployment can continue to supply process environment values from its secret store; never put an App
 Password in a tracked file, snapshot, command argument, log, or issue. The required values are:
 
 ```dotenv
@@ -379,7 +383,7 @@ The guarded launcher maps these values into the primary realm only when both opt
 ```
 
 It fails closed when any value is missing or does not match the Gmail contract. The App Password
-is accepted only as a process-local environment value; inspect output and rollback snapshots
+is loaded from local `.env` or supplied through the process environment; inspect output and rollback snapshots
 contain only `passwordConfigured`, never the password. The command configures realm metadata but
 does not prove delivery. For a connectivity check, use a synthetic recipient owned by the
 operator, record only success/failure and status, and delete the test message. Never test with a

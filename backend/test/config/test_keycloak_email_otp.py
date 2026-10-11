@@ -23,7 +23,8 @@ def environment() -> dict[str, str]:
         key: value
         for key, value in os.environ.items()
         if not re.match(
-            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)", key
+            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|KC_SMTP_|SESSION_SECRET$)",
+            key,
         )
     }
 
@@ -409,8 +410,24 @@ try {
 
 def run(
     tmp_path: Path, data: dict, actions: str, *, runtime: bool = False, vault: Path | None = None,
-    extra_env: dict[str, str] | None = None
+    extra_env: dict[str, str] | None = None, dotenv: str | None = None
 ) -> tuple[subprocess.CompletedProcess, dict]:
+    script_root = ROOT
+    if not runtime:
+        # Exercise the real root .env lookup without accessing developer credentials.
+        script_root = tmp_path / "repository"
+        (script_root / "scripts").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(
+            ROOT / "scripts/configure-keycloak-email-otp.ps1",
+            script_root / "scripts/configure-keycloak-email-otp.ps1",
+        )
+        data = json.loads(
+            json.dumps(data).replace(
+                json.dumps(str(ROOT))[1:-1], json.dumps(str(script_root))[1:-1]
+            )
+        )
+        if dotenv is not None:
+            (script_root / ".env").write_text(dotenv, encoding="utf-8")
     fixture = tmp_path / "state.json"
     fixture.write_text(json.dumps(data))
     wrapper = tmp_path / "run.ps1"
@@ -426,8 +443,8 @@ def run(
             "-File",
             str(wrapper),
             str(fixture),
-            str(ROOT / "scripts" / script),
-            str(ROOT),
+            str(script_root / "scripts" / script),
+            str(script_root),
             actions,
             str(tmp_path / "snapshot.json"),
             str(vault or tmp_path / "missing-vault"),
@@ -612,6 +629,41 @@ def test_primary_smtp_opt_in_fails_closed_when_required_values_are_missing(tmp_p
     assert result.returncode != 0
     assert "OTP_SMTP_CONFIGURATION_REQUIRED" in result.stderr
     assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("process_password", [None, "PROCESS_TEST_PASSWORD"])
+def test_primary_smtp_reads_repository_dotenv_with_process_precedence(
+    tmp_path: Path, process_password: str | None,
+) -> None:
+    dotenv = "\n".join(
+        [
+            "# Local SMTP configuration",
+            "KC_SMTP_HOST=smtp.gmail.com",
+            "KC_SMTP_PORT=587",
+            "KC_SMTP_FROM=synthetic@example.com",
+            "KC_SMTP_USER=synthetic@example.com",
+            'KC_SMTP_PASSWORD="DOTENV_TEST_PASSWORD"',
+            "KC_SMTP_STARTTLS=true",
+            "KC_SMTP_AUTH=true",
+            "KNORA_GENERATION_PROVIDER=unrelated-value",
+        ]
+    )
+    data = primary_data(smtp_server=None)
+    prepared(data)
+    result, after = run(
+        tmp_path,
+        data,
+        "PrimaryBindSmtp",
+        dotenv=dotenv,
+        extra_env={"KC_SMTP_PASSWORD": process_password} if process_password else None,
+    )
+    assert result.returncode == 0, result.stderr
+    assert after["realm"]["smtpServer"]["host"] == "smtp.gmail.com"
+    assert after["realm"]["smtpServer"]["password"] == (
+        process_password or "DOTENV_TEST_PASSWORD"
+    )
+    assert "DOTENV_TEST_PASSWORD" not in result.stdout + result.stderr
+    assert "PROCESS_TEST_PASSWORD" not in result.stdout + result.stderr
 
 
 def test_primary_bound_flow_still_applies_changed_smtp_contract(tmp_path: Path) -> None:
