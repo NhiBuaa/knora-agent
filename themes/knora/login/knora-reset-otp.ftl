@@ -25,7 +25,7 @@
                     <div class="knora-otp-digits" role="group" aria-labelledby="code-label" aria-describedby="otp-expiry">
                         <span id="code-label" class="knora-visually-hidden">${msg("knoraOtpLabel")}</span>
                         <#list 0..5 as index>
-                            <input class="knora-otp-digit" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="<#if index == 0>one-time-code<#else>off</#if>" aria-label="${msg("knoraOtpDigit", index + 1)}" data-otp-index="${index}" <#if index == 0>autofocus</#if> aria-invalid="${(otpInvalid!false)?c}" />
+                            <input class="knora-otp-digit" name="code-digit-${index}" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="<#if index == 0>one-time-code<#else>off</#if>" aria-label="${msg("knoraOtpDigit", index + 1)}" data-otp-index="${index}" <#if index == 0>autofocus</#if> aria-invalid="${(otpInvalid!false)?c}" />
                         </#list>
                     </div>
                 </div>
