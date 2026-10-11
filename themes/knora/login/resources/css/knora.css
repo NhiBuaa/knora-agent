@@ -25,8 +25,19 @@
   color-scheme: light;
 }
 
+:root[data-theme="dark"] {
+    --knora-page: #0B1412;
+    --knora-surface: #12201C;
+    --knora-action: #4DBB73;
+    --knora-signature: #C68F79;
+    --knora-text: #D7EFE6;
+    --knora-border: #2A3D36;
+    --knora-focus: #9CE3B5;
+    color-scheme: dark;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
     --knora-page: #0B1412;
     --knora-surface: #12201C;
     --knora-action: #4DBB73;
@@ -98,8 +109,15 @@ h2 {
   --knora-action-soft: #E6F5EB;
 }
 
+:root[data-theme="dark"] {
+    --knora-muted: #94B3A5;
+    --knora-subtle: #1B2B25;
+    --knora-signature-soft: #34251F;
+    --knora-action-soft: #163E27;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
     --knora-muted: #94B3A5;
     --knora-subtle: #1B2B25;
     --knora-signature-soft: #34251F;
@@ -132,8 +150,8 @@ body:has(.knora-auth) .pf-v5-c-login__main {
   width: 420px;
   max-width: calc(100vw - 48px);
   margin: 0;
-  margin-left: calc(43.05556vw + (56.94444vw - 420px) / 2);
-  padding: 175px 0 80px;
+  margin: auto;
+  padding: 0;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -626,10 +644,12 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   .knora-brand-panel {
     position: fixed;
     width: 100%;
-    height: 100px;
+    height: 72px;
+    z-index: 2;
   }
   .knora-brand {
-    top: 24px;
+    top: 50%;
+    transform: translateY(-50%);
     left: 24px;
   }
   .knora-brand-copy,
@@ -638,7 +658,7 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   }
   body:has(.knora-auth) .pf-v5-c-login__main {
     margin: 0 auto;
-    padding-top: 140px;
+    padding: 0;
   }
 }
 
@@ -654,4 +674,56 @@ body:has(.knora-auth) .pf-v5-c-login__main-body {
     max-width: calc(100vw - 48px);
     margin-inline: auto;
   }
+}
+
+/* Auto margins center short forms and allow long forms to scroll safely. */
+body:has(.knora-auth) .pf-v5-c-login__container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 80px 24px 80px calc(43.05556% + 24px);
+}
+.knora-theme-choices {
+  position: fixed;
+  top: 42px;
+  right: 24px;
+  z-index: 3;
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--knora-border);
+  border-radius: 12px;
+  background: var(--knora-subtle);
+  color: var(--knora-text);
+  font: 500 12px/20px Inter, sans-serif;
+}
+.knora-theme-choices label { position: relative; cursor: pointer; }
+.knora-theme-choices input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.knora-theme-choices span { display: block; padding: 5px 10px; border-radius: 8px; }
+.knora-theme-choices input:checked + span {
+  background: var(--knora-surface);
+  box-shadow: 0 0 0 1px var(--knora-border);
+  color: var(--knora-text);
+}
+.knora-theme-choices label:hover span { background: var(--knora-action-soft); }
+.knora-theme-choices input:focus-visible + span { outline: 2px solid var(--knora-focus); outline-offset: 2px; }
+@media (max-width: 1100px), (orientation: portrait) {
+  body:has(.knora-auth) .pf-v5-c-login__container { padding: 104px 24px 32px; }
+  .knora-theme-choices { top: 16px; }
+}
+@media (max-width: 380px) {
+  .knora-brand { left: 16px; gap: 8px; }
+  .knora-theme-choices { right: 16px; }
+  .knora-theme-choices span { padding-inline: 7px; }
 }
