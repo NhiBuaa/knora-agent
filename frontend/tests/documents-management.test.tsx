@@ -132,6 +132,21 @@ describe("document management", () => {
       screen.getByText("This Workspace is read-only."),
     ).toBeInTheDocument();
   });
+  it("shows limited permissions when the document API denies access", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ detail: "forbidden" }, 403)),
+    );
+    render(<DocumentList workspaceId="ws-1" capabilities={[]} />);
+
+    expect(
+      await screen.findByText(
+        "You don't have permission to view documents in this workspace.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Limited permissions")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
   it("uses canonical document links and hides writes in archived Workspaces", async () => {
     vi.stubGlobal(
       "fetch",

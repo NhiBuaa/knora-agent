@@ -54,6 +54,7 @@ export function DocumentList({
   );
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [limitedPermissions, setLimitedPermissions] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -89,9 +90,16 @@ export function DocumentList({
         });
         if (controller.signal.aborted) return;
         if (!response.ok) {
+          if (response.status === 403) {
+            setLimitedPermissions(true);
+            setError(null);
+            return;
+          }
+          setLimitedPermissions(false);
           setError(errorMessage("load documents", response.status));
           return;
         }
+        setLimitedPermissions(false);
         const body = (await response.json()) as {
           documents: DocumentResponse[];
         };
@@ -119,6 +127,7 @@ export function DocumentList({
     scope.current = controller;
     setDocuments([]);
     setError(null);
+    setLimitedPermissions(false);
     setUploadError(null);
     setDeletionError(null);
     setQuery("");
@@ -477,7 +486,7 @@ export function DocumentList({
               : "Sources Knora can use when answering questions in this workspace."}
           </p>
         </div>
-        {canWrite ? (
+        {canWrite && !limitedPermissions ? (
           <Button
             className="h-[38px] min-h-[38px] w-[154px] shrink-0 !px-2.5 py-0 text-[13px]"
             onClick={() => setUploadOpen(true)}
@@ -493,6 +502,11 @@ export function DocumentList({
           </span>
         )}
       </header>
+      {limitedPermissions && !workspaceArchived && (
+        <p role="status" className="m-0 text-sm text-signature">
+          You don&apos;t have permission to view documents in this workspace.
+        </p>
+      )}
       {workspaceArchived && (
         <p role="status" className="m-0 text-sm text-signature">
           This Workspace is read-only.

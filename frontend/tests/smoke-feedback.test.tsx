@@ -240,6 +240,38 @@ describe("smoke feedback", () => {
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBe(keys[0]);
   });
+  it("reports missing question permission instead of an uncertain submission", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && url.endsWith("/conversations"))
+        return new Response(JSON.stringify(conversation));
+      if (init?.method === "POST" && url.endsWith("/turns"))
+        return new Response(JSON.stringify({ detail: "forbidden" }), {
+          status: 403,
+        });
+      return new Response(JSON.stringify({ items: [], next_cursor: null }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ConversationHub
+        workspaceId="w"
+        workspaceName="Workspace"
+        initialConversations={[]}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Hello" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+
+    expect(
+      await screen.findByText(
+        "You don't have permission to ask questions in this workspace.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Submission status is uncertain/),
+    ).not.toBeInTheDocument();
+  });
   it("recovers a draft authentication failure with an authorized read before retry", async () => {
     let expired = true;
     vi.stubGlobal(
