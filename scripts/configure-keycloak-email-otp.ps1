@@ -21,6 +21,33 @@ $primaryTarget = $EnablePrimaryOtp.IsPresent
 $expectedPort = if ($primaryTarget) { '8180' } else { '8380' }
 $expectedService = if ($primaryTarget) { 'keycloak-dev' } else { 'figma-keycloak' }
 
+function Import-PrimaryDotEnv {
+    if (-not $primaryTarget -or -not $ConfigurePrimarySmtp) { return }
+    $path = Join-Path $repositoryRoot '.env'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return }
+    foreach ($rawLine in Get-Content -LiteralPath $path) {
+        $line = $rawLine.Trim()
+        if (-not $line -or $line.StartsWith('#')) { continue }
+        $separator = $line.IndexOf('=')
+        if ($separator -le 0) {
+            if ($line -match '^KC_SMTP_') { throw 'OTP_DOTENV_ENTRY_INVALID' }
+            continue
+        }
+        $name = $line.Substring(0, $separator).Trim()
+        if ($name -notmatch '^KC_SMTP_(HOST|PORT|FROM|USER|PASSWORD|STARTTLS|AUTH)$') { continue }
+        if ($null -ne [Environment]::GetEnvironmentVariable($name, [EnvironmentVariableTarget]::Process)) {
+            continue
+        }
+        $value = $line.Substring($separator + 1).Trim()
+        if ($value.Length -ge 2 -and
+            (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+            ($value.StartsWith("'") -and $value.EndsWith("'")))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        [Environment]::SetEnvironmentVariable($name, $value, [EnvironmentVariableTarget]::Process)
+    }
+}
+
 function Convert-KeycloakBoolean {
     param($Value)
     if ($Value -is [bool]) { return $Value }
@@ -261,6 +288,7 @@ function Assert-OtpFlow {
 }
 
 try {
+    Import-PrimaryDotEnv
     if ($primaryTarget) {
         if ($BaseUrl -ne 'http://127.0.0.1:8180' -or $Realm -ne 'knora-dev' -or $Project -ne 'knora-dev') {
             throw 'OTP_PRIMARY_TARGET_REQUIRED'
