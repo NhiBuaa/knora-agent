@@ -4488,7 +4488,10 @@ test.describe("source fixtures", () => {
     });
     const digits = page.locator(".knora-otp-digit");
     await digits.first().focus();
-    await page.keyboard.type("123456");
+    for (let index = 0; index < 6; index += 1) {
+      await page.keyboard.type(String(index + 1));
+      await expect(digits.nth(Math.min(index + 1, 5))).toBeFocused();
+    }
     expect(
       await digits.evaluateAll((inputs) =>
         inputs.map((input) => (input as HTMLInputElement).value),
