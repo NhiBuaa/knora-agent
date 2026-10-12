@@ -5369,7 +5369,7 @@ test.describe("guarded application journeys", () => {
     expect(restored.archived).toBe(false);
     expect(restored.revision).toBeGreaterThan(archivedWorkspace.revision);
     expect((await selection).status()).toBe(200);
-    await expect(page).toHaveURL(new RegExp(`${base}$`));
+    await expect(page).toHaveURL(new RegExp(`${base}/conversations$`));
     await page.goto(`${base}/conversations/${second.id}`);
     await expect(
       page.getByText("Archived conversation · Read-only", { exact: true }),
