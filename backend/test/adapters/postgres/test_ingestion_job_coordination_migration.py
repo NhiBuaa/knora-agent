@@ -176,8 +176,7 @@ def test_migration_preserves_known_queued_legacy_job_without_attempt_history(
             ).one()
             attempt_count = connection.execute(
                 text(
-                    "SELECT count(*) FROM ingestion_job_attempts "
-                    "WHERE ingestion_job_id = :job_id"
+                    "SELECT count(*) FROM ingestion_job_attempts WHERE ingestion_job_id = :job_id"
                 ),
                 {"job_id": job_id},
             ).scalar_one()

@@ -1,12 +1,14 @@
 package com.knora.keycloak.reset;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 /** Service policy doubles do not stand in for the real relational acceptance tests. */
 class OtpChallengeServiceTest {
@@ -16,50 +18,86 @@ class OtpChallengeServiceTest {
             new OtpChallengeStore.ChallengeReference("generated-challenge", 1);
     private final List<String> events = new ArrayList<>();
     private OtpChallengeStore.SendOutcome sendOutcome = OtpChallengeStore.SendOutcome.SENT;
-    private OtpChallengeStore.VerifyOutcome verifyOutcome = OtpChallengeStore.VerifyOutcome.VERIFIED;
+    private OtpChallengeStore.VerifyOutcome verifyOutcome =
+            OtpChallengeStore.VerifyOutcome.VERIFIED;
     private boolean deliveryThrows;
-    private OtpChallengeStore.ActivationOutcome activationOutcome = OtpChallengeStore.ActivationOutcome.ACTIVE;
-    private OtpChallengeStore.ActivationOutcome reconciliationOutcome = OtpChallengeStore.ActivationOutcome.UNAVAILABLE;
+    private OtpChallengeStore.ActivationOutcome activationOutcome =
+            OtpChallengeStore.ActivationOutcome.ACTIVE;
+    private OtpChallengeStore.ActivationOutcome reconciliationOutcome =
+            OtpChallengeStore.ActivationOutcome.UNAVAILABLE;
     private OtpChallengeService.Recipient recipient =
             new OtpChallengeService.Recipient("user", "known@example.test", true);
     private OtpChallengeStore.SendRequest captured;
-    private OtpChallengeService.KeyedDigest keyedDigest = (boundScope, ref, account, code) -> "keyed-digest";
+    private OtpChallengeService.KeyedDigest keyedDigest =
+            (boundScope, ref, account, code) -> "keyed-digest";
 
     private OtpChallengeService service() {
-        var store = new OtpChallengeStore() {
-            public SendResult reserve(SendRequest request) {
-                events.add("durable-reservation");
-                captured = request;
-                return new SendResult(sendOutcome, request.reference(), 17, Instant.parse("2026-10-06T00:04:50Z").toEpochMilli());
-            }
-            public VerifyResult verify(ChallengeScope scope, ChallengeReference reference, String digest) {
-                events.add("consume");
-                assertEquals("keyed-digest", digest);
-                return new VerifyResult(verifyOutcome, verifyOutcome == VerifyOutcome.VERIFIED ? "user" : null);
-            }
-            public boolean deliveryFailed(ChallengeScope scope, ChallengeReference reference) {
-                events.add("conditional-delivery-failure");
-                return true;
-            }
-            public ActivationOutcome activate(ChallengeScope scope, ChallengeReference reference, String operationId) {
-                events.add("activate");
-                return activationOutcome;
-            }
-            public ActivationOutcome reconcileActivation(ChallengeScope scope, ChallengeReference reference, String operationId) {
-                events.add("reconcile");
-                return reconciliationOutcome;
-            }
-        };
-        return new OtpChallengeService(store, new OtpChallengeService.AccountLookup() {
-            public OtpChallengeService.Recipient byEmail(String email) { return recipient; }
-            public OtpChallengeService.Recipient byId(String id) { return recipient; }
-        }, () -> "000042", keyedDigest,
+        var store =
+                new OtpChallengeStore() {
+                    public SendResult reserve(SendRequest request) {
+                        events.add("durable-reservation");
+                        captured = request;
+                        return new SendResult(
+                                sendOutcome,
+                                request.reference(),
+                                17,
+                                Instant.parse("2026-10-06T00:04:50Z").toEpochMilli());
+                    }
+
+                    public VerifyResult verify(
+                            ChallengeScope scope, ChallengeReference reference, String digest) {
+                        events.add("consume");
+                        assertEquals("keyed-digest", digest);
+                        return new VerifyResult(
+                                verifyOutcome,
+                                verifyOutcome == VerifyOutcome.VERIFIED ? "user" : null);
+                    }
+
+                    public boolean deliveryFailed(
+                            ChallengeScope scope, ChallengeReference reference) {
+                        events.add("conditional-delivery-failure");
+                        return true;
+                    }
+
+                    public ActivationOutcome activate(
+                            ChallengeScope scope,
+                            ChallengeReference reference,
+                            String operationId) {
+                        events.add("activate");
+                        return activationOutcome;
+                    }
+
+                    public ActivationOutcome reconcileActivation(
+                            ChallengeScope scope,
+                            ChallengeReference reference,
+                            String operationId) {
+                        events.add("reconcile");
+                        return reconciliationOutcome;
+                    }
+                };
+        return new OtpChallengeService(
+                store,
+                new OtpChallengeService.AccountLookup() {
+                    public OtpChallengeService.Recipient byEmail(String email) {
+                        return recipient;
+                    }
+
+                    public OtpChallengeService.Recipient byId(String id) {
+                        return recipient;
+                    }
+                },
+                () -> "000042",
+                keyedDigest,
                 (user, code) -> {
                     assertEquals("000042", code);
                     events.add("mail");
-                    if (deliveryThrows) throw new IllegalStateException("controlled delivery failure");
-                }, Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneOffset.UTC),
-                () -> reference.id(), "trusted-ip-digest", "known@example.test");
+                    if (deliveryThrows)
+                        throw new IllegalStateException("controlled delivery failure");
+                },
+                Clock.fixed(Instant.parse("2026-10-06T00:00:00Z"), ZoneOffset.UTC),
+                () -> reference.id(),
+                "trusted-ip-digest",
+                "known@example.test");
     }
 
     @Test
@@ -68,14 +106,18 @@ class OtpChallengeServiceTest {
         assertEquals(List.of("durable-reservation", "mail", "activate"), events);
         assertEquals("keyed-digest", captured.codeDigest());
         assertEquals(reference, result.reference());
-        assertEquals(Instant.parse("2026-10-06T00:04:50Z").toEpochMilli(), result.displayExpiresAt());
+        assertEquals(
+                Instant.parse("2026-10-06T00:04:50Z").toEpochMilli(), result.displayExpiresAt());
         assertFalse(result.toString().contains("000042"));
     }
 
     @Test
     void unavailableStoreAndCooldownNeverAuthorizeMail() {
-        for (var outcome : List.of(OtpChallengeStore.SendOutcome.UNAVAILABLE,
-                OtpChallengeStore.SendOutcome.COOLDOWN, OtpChallengeStore.SendOutcome.EXHAUSTED)) {
+        for (var outcome :
+                List.of(
+                        OtpChallengeStore.SendOutcome.UNAVAILABLE,
+                        OtpChallengeStore.SendOutcome.COOLDOWN,
+                        OtpChallengeStore.SendOutcome.EXHAUSTED)) {
             events.clear();
             sendOutcome = outcome;
             var result = service().request(scope, "known@example.test");
@@ -123,10 +165,17 @@ class OtpChallengeServiceTest {
         java.util.Arrays.fill(key, (byte) 7);
         keyedDigest = OtpChallengeService.hmacSha256(key);
         String original = keyedDigest.code(scope, reference, "user:user", "000042");
-        assertNotEquals(original, keyedDigest.code(scope,
-                new OtpChallengeStore.ChallengeReference(reference.id(), 2), "user:user", "000042"));
+        assertNotEquals(
+                original,
+                keyedDigest.code(
+                        scope,
+                        new OtpChallengeStore.ChallengeReference(reference.id(), 2),
+                        "user:user",
+                        "000042"));
         assertNotEquals(original, keyedDigest.code(scope, reference, "user:user", "42"));
-        var otherScope = new OtpChallengeStore.ChallengeScope("realm", "client", "other-auth", "tab", "changed-email");
+        var otherScope =
+                new OtpChallengeStore.ChallengeScope(
+                        "realm", "client", "other-auth", "tab", "changed-email");
         assertNotEquals(original, keyedDigest.code(otherScope, reference, "user:user", "000042"));
         service().request(scope, "known@example.test");
         String firstAccount = captured.accountDigest();
@@ -134,7 +183,8 @@ class OtpChallengeServiceTest {
         service().request(otherScope, "changed@example.test");
         assertEquals(firstAccount, captured.accountDigest());
         assertNull(captured.userId());
-        assertThrows(IllegalArgumentException.class, () -> OtpChallengeService.hmacSha256(new byte[31]));
+        assertThrows(
+                IllegalArgumentException.class, () -> OtpChallengeService.hmacSha256(new byte[31]));
     }
 
     @Test

@@ -383,6 +383,7 @@ export function fixtureResponse(
   state: string,
   path: string,
   method: string,
+  requestBody?: unknown,
 ): unknown {
   if (!fixtureStates.some((item) => item.id === state))
     throw new Error("Unrecognized fixture request");
@@ -413,6 +414,20 @@ export function fixtureResponse(
         revision: workspace.revision + 1,
       },
     };
+  if (
+    state === "128:109" &&
+    method === "POST" &&
+    url.pathname === `${base}/conversations/${conversation.id}/turns`
+  ) {
+    if (
+      typeof requestBody !== "object" ||
+      requestBody === null ||
+      !("question" in requestBody) ||
+      requestBody.question !== "Summarize this workspace"
+    )
+      throw new Error("Unrecognized fixture request");
+    return { ...turnForState(state), question: requestBody.question };
+  }
   if (
     state === "183:176" &&
     method === "POST" &&
@@ -472,7 +487,12 @@ export async function prepareFixture(page: Page, state: string) {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     try {
-      const body = fixtureResponse(state, request.url(), request.method());
+      const body = fixtureResponse(
+        state,
+        request.url(),
+        request.method(),
+        request.postDataJSON(),
+      );
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -522,6 +542,13 @@ export async function prepareFixture(page: Page, state: string) {
     return unexpected;
   }
   if (["228:293", "228:326"].includes(state)) return unexpected;
+  await page.locator("[data-fixture-state]").waitFor();
+  await page
+    .getByRole("status", { name: "Loading conversation history" })
+    .waitFor({ state: "hidden" });
+  await page
+    .getByRole("status", { name: "Loading documents" })
+    .waitFor({ state: "hidden" });
   if (["128:107", "128:115", "4:35", "4:67", "4:99"].includes(state))
     await page.getByRole("button", { name: /citation 1/i }).click();
   if (["128:108", "4:67", "4:126"].includes(state))
@@ -583,12 +610,5 @@ export async function prepareFixture(page: Page, state: string) {
     await page
       .getByRole("button", { name: "Request deletion", exact: true })
       .click();
-  await page.locator("[data-fixture-state]").waitFor();
-  await page
-    .getByRole("status", { name: "Loading conversation history" })
-    .waitFor({ state: "hidden" });
-  await page
-    .getByRole("status", { name: "Loading documents" })
-    .waitFor({ state: "hidden" });
   return unexpected;
 }

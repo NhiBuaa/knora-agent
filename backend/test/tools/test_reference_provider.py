@@ -636,9 +636,12 @@ def test_sqlite_provider_precommit_fault_rolls_back_ledger_and_effect(tmp_path: 
     )
 
     assert isinstance(outcome, ProviderUnavailable)
-    assert provider.get_execution_outcome(
-        scope="scope-a", logical_execution_id="logical-precommit-fault"
-    ) is None
+    assert (
+        provider.get_execution_outcome(
+            scope="scope-a", logical_execution_id="logical-precommit-fault"
+        )
+        is None
+    )
     assert provider.provider_effect_count("logical-precommit-fault") == 0
     provider.close()
 

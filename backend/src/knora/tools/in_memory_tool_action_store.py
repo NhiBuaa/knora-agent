@@ -502,6 +502,7 @@ class InMemoryToolActionStore:
                 ),
             )
             return TakeoverApplied(taken_over)
+
     def read_execution_recovery_seed(
         self, workspace_id: str, proposal_id: str
     ) -> ExecutionRecoverySeed | None:

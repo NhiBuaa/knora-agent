@@ -83,10 +83,8 @@ class OpenAICompatibleGenerationProvider:
                 if isinstance(value, int)
             }
             amount = (
-                Decimal(usage.get("prompt_tokens", 0))
-                * self._input_cost_per_million_tokens
-                + Decimal(usage.get("completion_tokens", 0))
-                * self._output_cost_per_million_tokens
+                Decimal(usage.get("prompt_tokens", 0)) * self._input_cost_per_million_tokens
+                + Decimal(usage.get("completion_tokens", 0)) * self._output_cost_per_million_tokens
             ) / Decimal(1_000_000)
             return GenerationResult(
                 decision=structured["decision"],

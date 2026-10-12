@@ -41,6 +41,20 @@ public class FigmaThemeRenderer {
     public static void main(String[] args) throws Exception {
         repository = Path.of(args[0]); Path output = Path.of(args[1]); Files.createDirectories(output);
         Path jarPath = Path.of(args[2]);
+        try (var vendor = new JarFile(Path.of(args[3]).toFile())) {
+            for (var pinned : Map.of(
+                    "patternfly.min.css", "60d06da3e8d411c4263558546527ddf294b821fbad5dc777f3c338b47d3cb744",
+                    "patternfly-addons.css", "048733a7b0de85495862f45957a223779d7d0c68d7ad6b32b824b815c6790551").entrySet()) {
+                var resource = vendor.getJarEntry("theme/keycloak/common/resources/vendor/patternfly-v5/" + pinned.getKey());
+                if (resource == null) throw new IllegalStateException("Pinned parent CSS missing: " + pinned.getKey());
+                byte[] content;
+                try (var input = vendor.getInputStream(resource)) { content = input.readAllBytes(); }
+                String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content));
+                if (!hash.equals(pinned.getValue())) throw new IllegalStateException("Pinned parent CSS changed: " + pinned.getKey());
+                Path target = output.resolve("common/vendor/patternfly-v5/" + pinned.getKey());
+                Files.createDirectories(target.getParent()); Files.write(target, content);
+            }
+        }
         try (var jar = new JarFile(jarPath.toFile())) {
             // This exact inherited module is referenced by the pinned login parent.
             // Keep base resources explicit to avoid changing resource precedence.

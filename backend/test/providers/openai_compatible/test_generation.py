@@ -152,9 +152,7 @@ async def test_openai_compatible_generation_normalizes_failures_without_retry(
             200,
             json={
                 "model": "compatible-chat-model",
-                "choices": [
-                    {"finish_reason": "stop", "message": {"content": "not-json"}}
-                ],
+                "choices": [{"finish_reason": "stop", "message": {"content": "not-json"}}],
             },
         )
 
@@ -171,14 +169,10 @@ async def test_openai_compatible_generation_normalizes_failures_without_retry(
     with pytest.raises(KnoraError) as captured:
         await provider.generate(
             question="What is the refund policy?",
-            evidence=(
-                GenerationEvidence(evidence_id="E1", content="Refunds last thirty days."),
-            ),
+            evidence=(GenerationEvidence(evidence_id="E1", content="Refunds last thirty days."),),
         )
 
-    expected = (
-        "GENERATION_OUTPUT_INVALID" if failure == "malformed" else "PROVIDER_REQUEST_FAILED"
-    )
+    expected = "GENERATION_OUTPUT_INVALID" if failure == "malformed" else "PROVIDER_REQUEST_FAILED"
     assert captured.value.code == expected
     assert str(captured.value) == expected
     assert "secret-canary" not in str(captured.value)

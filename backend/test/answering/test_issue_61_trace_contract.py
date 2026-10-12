@@ -80,9 +80,7 @@ class ResultStore:
     retrieval: RetrievalResult
     traces: list[QuestionTraceRecord]
 
-    def require_compatible_corpus(
-        self, workspace_id: str, embedding_configuration_id: str
-    ) -> None:
+    def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str) -> None:
         del workspace_id, embedding_configuration_id
 
     def retrieve_candidates(self, **kwargs):
@@ -218,9 +216,7 @@ async def test_trace_uses_closed_token_budget_reason() -> None:
 async def test_trace_uses_closed_chunk_count_reason() -> None:
     first = _candidate()
     second = replace(first, chunk_id="chunk-2", chunk_ordinal=1, content="unrelated words")
-    store = ResultStore(
-        retrieval=RetrievalResult(candidates=(first, second)), traces=[]
-    )
+    store = ResultStore(retrieval=RetrievalResult(candidates=(first, second)), traces=[])
     service = AnswerQuestion(
         embedding_provider=EmbeddingProvider(),
         generation_provider=GenerationProvider(),
@@ -252,9 +248,7 @@ async def test_trace_uses_closed_chunk_count_reason() -> None:
 async def test_trace_retains_redundant_overlap_as_observation() -> None:
     first = _candidate()
     second = replace(first, chunk_id="chunk-2", chunk_ordinal=1)
-    store = ResultStore(
-        retrieval=RetrievalResult(candidates=(first, second)), traces=[]
-    )
+    store = ResultStore(retrieval=RetrievalResult(candidates=(first, second)), traces=[])
     service = AnswerQuestion(
         embedding_provider=EmbeddingProvider(),
         generation_provider=GenerationProvider(),

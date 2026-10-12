@@ -355,9 +355,7 @@ def test_human_decision_requires_explicit_current_approval_authority() -> None:
         ("Title", "Trailing "),
     ],
 )
-def test_proposal_parameters_reject_surrounding_whitespace(
-    title: str, description: str
-) -> None:
+def test_proposal_parameters_reject_surrounding_whitespace(title: str, description: str) -> None:
     service, _, _ = workflow()
 
     with pytest.raises(KnoraError) as error:
@@ -415,9 +413,7 @@ def test_description_accepts_10000_scalars_and_rejects_10001() -> None:
         ("Title", "Bad\udfff"),
     ],
 )
-def test_proposal_parameters_reject_non_scalar_surrogates(
-    title: str, description: str
-) -> None:
+def test_proposal_parameters_reject_non_scalar_surrogates(title: str, description: str) -> None:
     service, _, _ = workflow()
 
     with pytest.raises(KnoraError) as error:
@@ -690,9 +686,7 @@ def test_projection_reports_exact_capability_and_binding_stale_reason(
         ("digest", "policy_digest_mismatch"),
     ],
 )
-def test_projection_reports_exact_policy_stale_reason(
-    change: str, expected_reason: str
-) -> None:
+def test_projection_reports_exact_policy_stale_reason(change: str, expected_reason: str) -> None:
     service, resolver, _ = workflow(execution_authorized=True)
     created = propose(service)
     service.handle(

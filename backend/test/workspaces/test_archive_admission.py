@@ -172,9 +172,7 @@ class ArchiveAfterClosedAdmission(RecordingAdmission):
     def admit(self, *, principal, operation: str, operation_id: str) -> WorkspaceAdmission:
         if self.archived:
             raise KnoraError("WORKSPACE_ARCHIVED")
-        return super().admit(
-            principal=principal, operation=operation, operation_id=operation_id
-        )
+        return super().admit(principal=principal, operation=operation, operation_id=operation_id)
 
     def close(self, *, admission_id: str, terminal_at: datetime | None = None) -> None:
         super().close(admission_id=admission_id, terminal_at=terminal_at)

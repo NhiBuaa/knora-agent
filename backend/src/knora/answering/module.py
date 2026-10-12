@@ -58,9 +58,11 @@ class AnswerQuestion:
             else clock_resolution_ms
         )
         self._admission_store = admission_store
-        if not isinstance(self._clock_resolution_ms, (int, float)) or not isfinite(
-            float(self._clock_resolution_ms)
-        ) or self._clock_resolution_ms <= 0:
+        if (
+            not isinstance(self._clock_resolution_ms, (int, float))
+            or not isfinite(float(self._clock_resolution_ms))
+            or self._clock_resolution_ms <= 0
+        ):
             raise ValueError("clock resolution must be a finite positive number")
 
     async def execute(
@@ -147,9 +149,7 @@ class AnswerQuestion:
         )
         if isinstance(retrieval, RetrievalResult):
             candidates = retrieval.candidates
-            branch_observations = tuple(
-                item.as_mapping() for item in retrieval.branch_observations
-            )
+            branch_observations = tuple(item.as_mapping() for item in retrieval.branch_observations)
             retrieval_embedding_set_ids = retrieval.embedding_set_ids
             retrieval_chunk_set_ids = retrieval.chunk_set_ids
         else:
@@ -200,8 +200,7 @@ class AnswerQuestion:
             )
 
         alias_to_candidate = {
-            f"E{index}": item.candidate
-            for index, item in enumerate(selection.selected, start=1)
+            f"E{index}": item.candidate for index, item in enumerate(selection.selected, start=1)
         }
         if stage_callback is not None:
             stage_callback("generating")
@@ -238,8 +237,7 @@ class AnswerQuestion:
                     embedding=query_batch,
                     retrieval_latency_ms=retrieval_latency_ms,
                     alias_mapping={
-                        alias: candidate.chunk_id
-                        for alias, candidate in alias_to_candidate.items()
+                        alias: candidate.chunk_id for alias, candidate in alias_to_candidate.items()
                     },
                     parsed_markers=(
                         tuple(MARKER_PATTERN.findall(generation.answer))
@@ -403,9 +401,7 @@ class AnswerQuestion:
         )
 
     @staticmethod
-    def _generation_question(
-        question: str, context: ConversationContext | None
-    ) -> str:
+    def _generation_question(question: str, context: ConversationContext | None) -> str:
         if context is None or not context.transcript:
             return question
         return (
@@ -509,9 +505,7 @@ class AnswerQuestion:
                 )
             ),
             chunk_set_ids=tuple(
-                dict.fromkeys(
-                    (*retrieval_chunk_set_ids, *(c.chunk_set_id for c in retrieved))
-                )
+                dict.fromkeys((*retrieval_chunk_set_ids, *(c.chunk_set_id for c in retrieved)))
             ),
             decision=decision,
             answer=answer,

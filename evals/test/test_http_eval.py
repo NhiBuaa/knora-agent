@@ -62,7 +62,7 @@ async def test_scoring_receives_only_the_public_observation_projection() -> None
 
 def test_manifest_checksum_hashes_raw_committed_bytes(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
-    manifest.write_bytes(b"{\r\n  \"version\": \"v1\"\r\n}\r\n")
+    manifest.write_bytes(b'{\r\n  "version": "v1"\r\n}\r\n')
 
     expected = "sha256:" + hashlib.sha256(manifest.read_bytes()).hexdigest()
 

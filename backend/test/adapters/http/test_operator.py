@@ -90,9 +90,7 @@ def test_operator_routes_use_typed_workspace_scoped_projections() -> None:
     client, raw_key = _client()
     headers = {"X-API-Key": raw_key}
 
-    trace = client.get(
-        "/v1/workspaces/workspace-a/operator/traces/trace-a", headers=headers
-    )
+    trace = client.get("/v1/workspaces/workspace-a/operator/traces/trace-a", headers=headers)
     assert trace.status_code == 200
     assert trace.json()["workspace_id"] == "workspace-a"
     assert "api_key" not in trace.text
@@ -108,9 +106,7 @@ def test_operator_routes_use_typed_workspace_scoped_projections() -> None:
         "observation_failure": "EVALUATION_REPORT_UNAVAILABLE",
     }
 
-    operations = client.get(
-        "/v1/workspaces/workspace-a/operator/operations", headers=headers
-    )
+    operations = client.get("/v1/workspaces/workspace-a/operator/operations", headers=headers)
     assert operations.status_code == 200
     assert operations.json()["workspace_id"] == "workspace-a"
 

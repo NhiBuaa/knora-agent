@@ -44,16 +44,10 @@ class ObjectLifecycleRetryPolicyV1:
             or not isinstance(attempt_number, int)
             or attempt_number not in self._WINDOWS
         ):
-            raise ValueError(
-                "retry scheduling is valid only for attempts one through three"
-            )
+            raise ValueError("retry scheduling is valid only for attempts one through three")
         upper_bound = self._WINDOWS[attempt_number]
         delay = self._random_source.sample(upper_bound)
-        if (
-            isinstance(delay, bool)
-            or not isinstance(delay, int)
-            or not 0 <= delay <= upper_bound
-        ):
+        if isinstance(delay, bool) or not isinstance(delay, int) or not 0 <= delay <= upper_bound:
             raise ValueError("random source returned a sample outside the retry window")
         return LifecycleRetryDecision(
             delay_microseconds=delay,
@@ -65,9 +59,8 @@ class SystemLifecycleRandomSource:
     """Process-local source for production full-jitter samples."""
 
     def sample(self, upper_bound_microseconds: int) -> int:
-        if (
-            isinstance(upper_bound_microseconds, bool)
-            or not isinstance(upper_bound_microseconds, int)
+        if isinstance(upper_bound_microseconds, bool) or not isinstance(
+            upper_bound_microseconds, int
         ):
             raise ValueError("random-source upper bound must be an integer")
         if upper_bound_microseconds < 0:
@@ -228,9 +221,7 @@ class ObjectLifecycleMaintenance(Protocol):
         work_id: str | None = None,
     ) -> ObjectLifecycleWorkItem | None: ...
 
-    def prepare_delete(
-        self, *, claim: LifecycleClaim, operation_id: str | None = None
-    ) -> str: ...
+    def prepare_delete(self, *, claim: LifecycleClaim, operation_id: str | None = None) -> str: ...
 
     def revalidate_delete(self, *, claim: LifecycleClaim, delete_generation: str) -> None: ...
 
@@ -339,9 +330,8 @@ class InMemoryObjectLifecycleMaintenance:
                 )
                 if replay_attempt is None:
                     continue
-                if (
-                    replay_attempt.get("worker_id") != worker_id
-                    or (work_id is not None and replay_work_id != work_id)
+                if replay_attempt.get("worker_id") != worker_id or (
+                    work_id is not None and replay_work_id != work_id
                 ):
                     raise PermissionError("lifecycle claim operation belongs to another owner")
                 return self._work[replay_work_id]
@@ -401,9 +391,7 @@ class InMemoryObjectLifecycleMaintenance:
             return claimed
         return None
 
-    def prepare_delete(
-        self, *, claim: LifecycleClaim, operation_id: str | None = None
-    ) -> str:
+    def prepare_delete(self, *, claim: LifecycleClaim, operation_id: str | None = None) -> str:
         item = self._current_claim(claim)
         if item.eligible_at is not None and item.eligible_at > self._now:
             raise LifecycleRetentionPending("lifecycle retention window has not expired")

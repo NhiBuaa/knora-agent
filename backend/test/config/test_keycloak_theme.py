@@ -137,7 +137,7 @@ def test_otp_form_uses_six_real_digit_fields_and_a_synced_keycloak_code_field() 
     css = (ROOT / "themes/knora/login/resources/css/knora.css").read_text()
 
     assert 'id="code" name="code" type="hidden"' in template
-    assert '<#list 0..5 as index>' in template
+    assert "<#list 0..5 as index>" in template
     assert template.count('class="knora-otp-digit"') == 1
     assert 'data-otp-index="${index}"' in template
     assert "syncCode" in template
@@ -153,7 +153,7 @@ def test_password_update_wraps_native_logout_option_with_knora_theme_hook() -> N
 
     assert '<div class="knora-session-option">' in template
     assert "logoutOtherSessions" in template
-    assert ".knora-session-option input[type=\"checkbox\"]" in css
+    assert '.knora-session-option input[type="checkbox"]' in css
     assert ".knora-session-option label" in css
 
 
@@ -219,12 +219,11 @@ def test_registration_event_assigns_backend_owned_default_capabilities() -> None
         assert "knora-default-capabilities" in realm["eventsListeners"]
 
     listener = (
-        ROOT
-        / "infra/keycloak/providers/email-otp-reset/src/main/java/"
+        ROOT / "infra/keycloak/providers/email-otp-reset/src/main/java/"
         "com/knora/keycloak/reset/DefaultCapabilitiesFactory.java"
     ).read_text()
-    assert 'event.getType() != EventType.REGISTER' in listener
-    assert 'user.setAttribute(CAPABILITIES_ATTRIBUTE, DEFAULT_CAPABILITIES)' in listener
+    assert "event.getType() != EventType.REGISTER" in listener
+    assert "user.setAttribute(CAPABILITIES_ATTRIBUTE, DEFAULT_CAPABILITIES)" in listener
     assert all(f'"{capability}"' in listener for capability in expected)
     assert "registration input is never trusted" in listener.lower()
 

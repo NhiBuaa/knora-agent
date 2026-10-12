@@ -120,9 +120,7 @@ def test_cli_ingestion_preserves_active_workspace_processing(
         def embed_documents(self, texts, configuration) -> EmbeddingBatch:
             self.embedded.append(texts)
             return EmbeddingBatch(
-                vectors=tuple(
-                    tuple(0.0 for _ in range(configuration.dimensions)) for _ in texts
-                ),
+                vectors=tuple(tuple(0.0 for _ in range(configuration.dimensions)) for _ in texts),
                 provider=configuration.provider,
                 model=configuration.model,
             )

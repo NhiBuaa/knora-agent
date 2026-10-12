@@ -107,10 +107,7 @@ def test_parallel_same_key_different_payload_has_one_conflict(workspace_store):
         return workspace_store.create(owner, name, "collision")
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [
-            executor.submit(create, name)
-            for name in ("One", "Two")
-        ]
+        futures = [executor.submit(create, name) for name in ("One", "Two")]
         outcomes = []
         for future in futures:
             try:

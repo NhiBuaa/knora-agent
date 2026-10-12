@@ -90,6 +90,19 @@ function Assert-OtpVaultBoundary {
             $ancestor = $ancestor.Parent
         }
     } else { throw 'OTP_VAULT_GIT_BOUNDARY_REJECTED' }
+    if (-not $IsWindows) {
+        foreach ($path in $Directory, $EntryPath) {
+            $item = Get-Item -Force -LiteralPath $path
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'OTP_VAULT_ACCESS_REJECTED' }
+            $mode = [int]$item.UnixFileMode
+            $required = if ($item -is [IO.DirectoryInfo]) { 0x1C0 } else { 0x180 }
+            $identity = (& stat -c '%u:%g' -- $path).Trim()
+            if ($LASTEXITCODE -ne 0 -or $identity -cne '1000:0' -or $mode -ne $required) {
+                throw 'OTP_VAULT_ACCESS_REJECTED'
+            }
+        }
+        return
+    }
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $allowed = @($identity, 'S-1-5-18', 'S-1-5-32-544')
     foreach ($path in $Directory, $EntryPath) {
@@ -198,7 +211,8 @@ try {
             (@($node.command) -join '|') -ne ($expectedCommand -join '|')) { throw 'OTP_RUNTIME_GRAPH_REJECTED' }
         $vaultMount = @($node.volumes | Where-Object target -eq '/opt/keycloak/vault')
         if ($vaultMount.Count -ne 1 -or $vaultMount[0].type -ne 'bind' -or
-            -not $vaultMount[0].read_only -or $vaultMount[0].bind.create_host_path -ne $false -or
+            -not $vaultMount[0].read_only -or
+            ($null -ne $vaultMount[0].bind.create_host_path -and $vaultMount[0].bind.create_host_path -ne $false) -or
             [IO.Path]::GetFullPath($vaultMount[0].source) -ne $vaultDirectory) { throw 'OTP_VAULT_MOUNT_REJECTED' }
         $otherMounts = @($node.volumes | Where-Object target -ne '/opt/keycloak/vault')
         if (($otherMounts | ConvertTo-Json -Depth 30 -Compress) -ne

@@ -96,9 +96,7 @@ def _install_windows_memory_limit_for_pid(
     close_handle.restype = ctypes.c_int
 
     process_handle = open_process(
-        _PROCESS_SET_QUOTA
-        | _PROCESS_TERMINATE
-        | _PROCESS_QUERY_LIMITED_INFORMATION,
+        _PROCESS_SET_QUOTA | _PROCESS_TERMINATE | _PROCESS_QUERY_LIMITED_INFORMATION,
         False,
         process_id,
     )

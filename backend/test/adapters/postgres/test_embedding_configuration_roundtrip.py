@@ -89,15 +89,20 @@ def test_persisted_profile_roundtrips_through_job_and_worker() -> None:
         row = session.get(EmbeddingConfigurationTable, profile.id)
         job = session.get(IngestionJobTable, result.ingestion_job_id)
         assert configuration_from_row(row) == profile
-        assert PostgresPdfSubmissionStore._configuration_from_job(
-            session, job
-        ).embedding_configuration == profile
-        work = type("ClaimedWork", (), {
-            "parser_configuration_id": job.parser_configuration_id,
-            "normalizer_configuration_id": job.normalizer_configuration_id,
-            "chunking_configuration_id": job.chunking_configuration_id,
-            "embedding_configuration_id": job.embedding_configuration_id,
-        })()
+        assert (
+            PostgresPdfSubmissionStore._configuration_from_job(session, job).embedding_configuration
+            == profile
+        )
+        work = type(
+            "ClaimedWork",
+            (),
+            {
+                "parser_configuration_id": job.parser_configuration_id,
+                "normalizer_configuration_id": job.normalizer_configuration_id,
+                "chunking_configuration_id": job.chunking_configuration_id,
+                "embedding_configuration_id": job.embedding_configuration_id,
+            },
+        )()
 
     assert store.pdf_profile_for_work(work).embedding_configuration == profile
     context = store.read_reprocess_context(

@@ -122,32 +122,80 @@ def upgrade() -> None:
     op.create_table(
         "original_source_objects",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("workspace_id", sa.String(100), sa.ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("document_version_id", sa.String(36), sa.ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "workspace_id",
+            sa.String(100),
+            sa.ForeignKey("workspaces.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
+        sa.Column(
+            "document_version_id",
+            sa.String(36),
+            sa.ForeignKey("document_versions.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("object_key", sa.String(255), nullable=False),
         sa.Column("raw_sha256", sa.String(64), nullable=False),
         sa.Column("byte_size", sa.Integer(), nullable=False),
         sa.Column("media_type", sa.String(100), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.UniqueConstraint("document_version_id", name="uq_original_source_objects_document_version"),
+        sa.UniqueConstraint(
+            "document_version_id", name="uq_original_source_objects_document_version"
+        ),
         sa.UniqueConstraint("object_key", name="uq_original_source_objects_object_key"),
     )
-    op.create_index("ix_original_source_objects_workspace_id", "original_source_objects", ["workspace_id"])
-    op.create_index("ix_original_source_objects_document_version_id", "original_source_objects", ["document_version_id"])
+    op.create_index(
+        "ix_original_source_objects_workspace_id", "original_source_objects", ["workspace_id"]
+    )
+    op.create_index(
+        "ix_original_source_objects_document_version_id",
+        "original_source_objects",
+        ["document_version_id"],
+    )
 
     op.create_table(
         "ingestion_jobs",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("workspace_id", sa.String(100), sa.ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "workspace_id",
+            sa.String(100),
+            sa.ForeignKey("workspaces.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("operation", sa.String(50), nullable=False),
-        sa.Column("document_id", sa.String(36), sa.ForeignKey("documents.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("target_document_version_id", sa.String(36), sa.ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("source_object_id", sa.String(36), sa.ForeignKey("original_source_objects.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "document_id",
+            sa.String(36),
+            sa.ForeignKey("documents.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
+        sa.Column(
+            "target_document_version_id",
+            sa.String(36),
+            sa.ForeignKey("document_versions.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
+        sa.Column(
+            "source_object_id",
+            sa.String(36),
+            sa.ForeignKey("original_source_objects.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("content_fingerprint", sa.Text(), nullable=False),
         sa.Column("parser_configuration_id", sa.String(100), nullable=False),
         sa.Column("normalizer_configuration_id", sa.String(100), nullable=False),
-        sa.Column("chunking_configuration_id", sa.String(100), sa.ForeignKey("chunking_configurations.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("embedding_configuration_id", sa.String(100), sa.ForeignKey("embedding_configurations.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "chunking_configuration_id",
+            sa.String(100),
+            sa.ForeignKey("chunking_configurations.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
+        sa.Column(
+            "embedding_configuration_id",
+            sa.String(100),
+            sa.ForeignKey("embedding_configurations.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("status", sa.String(30), nullable=False),
         sa.Column("attempt_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("max_attempts", sa.Integer(), nullable=False, server_default="4"),
@@ -177,11 +225,21 @@ def upgrade() -> None:
     op.create_table(
         "idempotency_records",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("workspace_id", sa.String(100), sa.ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "workspace_id",
+            sa.String(100),
+            sa.ForeignKey("workspaces.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("operation", sa.String(50), nullable=False),
         sa.Column("key", sa.String(255), nullable=False),
         sa.Column("request_fingerprint", sa.Text(), nullable=False),
-        sa.Column("ingestion_job_id", sa.String(36), sa.ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "ingestion_job_id",
+            sa.String(36),
+            sa.ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.UniqueConstraint(
@@ -189,7 +247,9 @@ def upgrade() -> None:
         ),
     )
     op.create_index("ix_idempotency_records_workspace_id", "idempotency_records", ["workspace_id"])
-    op.create_index("ix_idempotency_records_ingestion_job_id", "idempotency_records", ["ingestion_job_id"])
+    op.create_index(
+        "ix_idempotency_records_ingestion_job_id", "idempotency_records", ["ingestion_job_id"]
+    )
 
 
 def downgrade() -> None:
@@ -198,9 +258,7 @@ def downgrade() -> None:
     op.drop_table("original_source_objects")
     op.execute("DROP TRIGGER validate_document_current_version ON documents")
     op.execute("DROP FUNCTION validate_document_current_version()")
-    op.drop_constraint(
-        "fk_documents_current_document_version", "documents", type_="foreignkey"
-    )
+    op.drop_constraint("fk_documents_current_document_version", "documents", type_="foreignkey")
     op.drop_column("documents", "current_document_version_id")
     op.drop_constraint(
         "uq_document_versions_document_version_number",

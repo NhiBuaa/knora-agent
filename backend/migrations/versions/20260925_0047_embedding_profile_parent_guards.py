@@ -99,9 +99,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TRIGGER protect_populated_embedding_set_profile ON embedding_sets")
     op.execute("DROP FUNCTION protect_populated_embedding_set_profile()")
-    op.execute(
-        "DROP TRIGGER protect_referenced_embedding_dimensions ON embedding_configurations"
-    )
+    op.execute("DROP TRIGGER protect_referenced_embedding_dimensions ON embedding_configurations")
     op.execute("DROP FUNCTION protect_referenced_embedding_dimensions()")
     op.execute(
         """

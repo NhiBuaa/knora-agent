@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{css,js,jsx,json,mjs,scss,ts,tsx}\"",
     "format:check": "prettier --check \"**/*.{css,js,jsx,json,mjs,scss,ts,tsx}\"",
+    "format:shared": "prettier --config .prettierrc.json --write \"../.github/workflows/*.yml\" \"../docker-compose*.yml\" ../knora-minio-app-policy.json ../AGENTS.md ../README.md ../docs/runbooks/ci.md ../docs/development/ci-foundation-verification.md",
+    "format:shared:check": "prettier --config .prettierrc.json --check \"../.github/workflows/*.yml\" \"../docker-compose*.yml\" ../knora-minio-app-policy.json ../AGENTS.md ../README.md ../docs/runbooks/ci.md ../docs/development/ci-foundation-verification.md",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium"
   },

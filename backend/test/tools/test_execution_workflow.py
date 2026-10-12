@@ -535,10 +535,13 @@ def test_every_closed_provider_rejection_finalizes_exactly_once(rejection_code) 
     assert len(gateway.calls) == 1
 
 
-@pytest.mark.parametrize("outcome, rejection_code", [
-    (ProviderRequestRejected(), "provider_request_rejected"),
-    (ProviderScopeDenied(), "provider_scope_denied"),
-])
+@pytest.mark.parametrize(
+    "outcome, rejection_code",
+    [
+        (ProviderRequestRejected(), "provider_request_rejected"),
+        (ProviderScopeDenied(), "provider_scope_denied"),
+    ],
+)
 def test_definitive_provider_denials_finalize_without_indeterminate_retry_state(
     outcome, rejection_code: str
 ) -> None:

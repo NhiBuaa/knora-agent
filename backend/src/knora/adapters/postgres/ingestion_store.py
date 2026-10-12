@@ -54,10 +54,12 @@ class PostgresIngestionStore(IngestionStore):
                 if workspace is None:
                     raise KnoraError("WORKSPACE_ACCESS_DENIED")
                 document = session.scalar(
-                    select(DocumentTable).where(
+                    select(DocumentTable)
+                    .where(
                         DocumentTable.workspace_id == prepared.workspace_id,
                         DocumentTable.source_key == prepared.source_key,
-                    ).with_for_update()
+                    )
+                    .with_for_update()
                 )
                 if document is None:
                     document = DocumentTable(
@@ -84,8 +86,9 @@ class PostgresIngestionStore(IngestionStore):
                 created = False
                 if version is None:
                     next_version_number = session.scalar(
-                        select(func.coalesce(func.max(DocumentVersionTable.version_number), 0) + 1)
-                        .where(DocumentVersionTable.document_id == document.id)
+                        select(
+                            func.coalesce(func.max(DocumentVersionTable.version_number), 0) + 1
+                        ).where(DocumentVersionTable.document_id == document.id)
                     )
                     version = DocumentVersionTable(
                         id=str(uuid4()),

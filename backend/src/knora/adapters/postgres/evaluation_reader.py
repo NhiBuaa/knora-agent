@@ -125,9 +125,7 @@ class PostgresEvaluationReader:
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
 
-    def read_trace(
-        self, *, trace_id: str, workspace_id: str
-    ) -> EvaluationTraceProjection:
+    def read_trace(self, *, trace_id: str, workspace_id: str) -> EvaluationTraceProjection:
         with self._session_factory() as session:
             trace = session.scalar(
                 select(QuestionTraceTable).where(
@@ -215,9 +213,7 @@ class PostgresEvaluationReader:
             for chunk, document, _ in by_chunk.values()
         ):
             raise LookupError("evaluation candidate provenance mismatch")
-        retrieval_configuration = _resolve_retrieval_configuration(
-            trace.retrieval_configuration_id
-        )
+        retrieval_configuration = _resolve_retrieval_configuration(trace.retrieval_configuration_id)
         _validate_candidate_budget_evidence(
             decisions,
             by_chunk,
@@ -311,6 +307,7 @@ class PostgresEvaluationReader:
         )
         return ActiveCorpusProjection(workspace_id=workspace_id, documents=documents)
 
+
 def _validate_candidate_budget_evidence(
     decisions: list[dict[str, object]],
     by_chunk: dict[str, tuple[object, object, object]],
@@ -345,9 +342,7 @@ def _validate_candidate_budget_evidence(
             or evidence.get("selected_chunk_count") != len(selected_chunk_ids)
             or evidence.get("selected_token_count") != selected_tokens
             or evidence.get("token_total") != selected_tokens + candidate_tokens
-            or not _valid_budget_evidence(
-                str(decision.get("decision_reason")), evidence
-            )
+            or not _valid_budget_evidence(str(decision.get("decision_reason")), evidence)
         ):
             raise LookupError("evaluation candidate budget evidence is invalid")
         if decision.get("final_decision") == "SELECTED":
@@ -559,9 +554,11 @@ def _validate_branch_observations(observations: object) -> None:
             raise LookupError("evaluation branch observation is invalid")
         if any(not isinstance(item, str) or not item for item in omitted_lexemes):
             raise LookupError("evaluation branch observation is invalid")
-        if len(normalized_lexemes) != len(set(normalized_lexemes)) or len(
-            omitted_lexemes
-        ) != len(set(omitted_lexemes)) or set(normalized_lexemes) & set(omitted_lexemes):
+        if (
+            len(normalized_lexemes) != len(set(normalized_lexemes))
+            or len(omitted_lexemes) != len(set(omitted_lexemes))
+            or set(normalized_lexemes) & set(omitted_lexemes)
+        ):
             raise LookupError("evaluation branch observation is invalid")
         branch_rank = observation.get("branch_rank")
         if status == "ELIGIBLE" and (type(branch_rank) is not int or branch_rank < 1):
@@ -627,9 +624,7 @@ def _validate_candidate_observations(
             if contribution["branch_rank"] != observation["branch_rank"]:
                 raise LookupError("evaluation candidate decision is invalid")
             score_fields = (
-                ("cosine_distance", "similarity")
-                if branch == "vector"
-                else ("native_rank",)
+                ("cosine_distance", "similarity") if branch == "vector" else ("native_rank",)
             )
             if any(
                 abs(float(contribution[field_name]) - float(observation[field_name])) > 1e-12
@@ -728,11 +723,7 @@ def _validate_lexical_provenance(
         normalized = tuple(observation["normalized_lexemes"])
         omitted = tuple(observation["omitted_lexemes"])
         if observation["branch"] == "vector":
-            if (
-                observation.get("lexical_policy_id") is not None
-                or normalized
-                or omitted
-            ):
+            if observation.get("lexical_policy_id") is not None or normalized or omitted:
                 raise LookupError("evaluation trace provenance is invalid")
             continue
         if (
@@ -757,8 +748,7 @@ def _retrieval_latency(provider_metadata: object) -> float:
         raise LookupError("evaluation retrieval latency is invalid")
     resolution, phases = _validate_phase_timing(provider_metadata)
     expected = sum(
-        float(phases[name]["duration_ms"])
-        for name in ("candidate_retrieval", "evidence_selection")
+        float(phases[name]["duration_ms"]) for name in ("candidate_retrieval", "evidence_selection")
     )
     if abs(float(latency) - expected) > resolution:
         raise LookupError("evaluation retrieval latency is invalid")
@@ -796,13 +786,16 @@ def _validate_phase_timing(
         start = phase.get("start_tick")
         end = phase.get("end_tick")
         duration = phase.get("duration_ms")
-        if any(
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not isfinite(float(value))
-            for value in (start, end, duration)
-        ) or end < start or duration < 0 or (
-            previous_end is not None and start != previous_end
+        if (
+            any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not isfinite(float(value))
+                for value in (start, end, duration)
+            )
+            or end < start
+            or duration < 0
+            or (previous_end is not None and start != previous_end)
         ):
             raise LookupError("evaluation phase timing is invalid")
         if abs(float(duration) - (float(end) - float(start)) * 1000) > float(resolution):

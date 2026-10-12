@@ -20,9 +20,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     existing_turns = bind.scalar(sa.text("SELECT EXISTS (SELECT 1 FROM conversation_turns)"))
     if existing_turns:
-        raise RuntimeError(
-            "cannot add durable Turn idempotency without a verified request binding"
-        )
+        raise RuntimeError("cannot add durable Turn idempotency without a verified request binding")
 
     op.add_column(
         "conversation_turns",
@@ -91,9 +89,7 @@ def downgrade() -> None:
     op.drop_constraint(
         "ck_conversation_turns_request_fingerprint", "conversation_turns", type_="check"
     )
-    op.drop_constraint(
-        "uq_conversation_turns_claim_token", "conversation_turns", type_="unique"
-    )
+    op.drop_constraint("uq_conversation_turns_claim_token", "conversation_turns", type_="unique")
     op.drop_constraint(
         "uq_conversation_turns_idempotency_scope", "conversation_turns", type_="unique"
     )

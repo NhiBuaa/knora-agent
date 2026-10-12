@@ -77,12 +77,8 @@ def _http_request_child(
     result_queue: object,
 ) -> None:
     try:
-        response = httpx.request(
-            method, url, timeout=timeout, headers=headers, json=payload
-        )
-        result_queue.put(
-            ("ok", response.status_code, dict(response.headers), response.content)
-        )
+        response = httpx.request(method, url, timeout=timeout, headers=headers, json=payload)
+        result_queue.put(("ok", response.status_code, dict(response.headers), response.content))
     except Exception as error:
         result_queue.put(("error", type(error).__name__, str(error)))
 
@@ -181,7 +177,8 @@ class _IsolatedHttpRequest:
 
 
 def _run_with_lease[ReadinessResult](
-    operation: Callable[[], ReadinessResult], heartbeat: EvaluationLeaseHeartbeat,
+    operation: Callable[[], ReadinessResult],
+    heartbeat: EvaluationLeaseHeartbeat,
     *,
     cancel: Callable[[], None] | None = None,
 ) -> ReadinessResult:
@@ -237,8 +234,7 @@ def binding_from_corpus(
     embedding_configuration_ids = {
         item
         for item in (
-            getattr(document, "embedding_configuration_id", None)
-            for document in documents
+            getattr(document, "embedding_configuration_id", None) for document in documents
         )
         if isinstance(item, str) and item
     }
@@ -381,7 +377,8 @@ def run_readiness(
         for candidate in getattr(trace, "candidates", ()):
             source = result.binding.source_binding(candidate.source_key)
             if (candidate.document_version_id, candidate.chunk_set_id) != (
-                source.production_document_version_id, source.production_chunk_set_id
+                source.production_document_version_id,
+                source.production_chunk_set_id,
             ):
                 raise ReadinessFailure(
                     "trace_provenance_verification", "candidate binding mismatch"
@@ -426,22 +423,31 @@ def run_readiness(
             heartbeat.stop()
             heartbeat.raise_if_failed()
         return ReadinessEvidence(
-            tuple(phases), result.binding.workspace_id, trace_id,
-            len(trace.candidates), trace.retrieval_configuration_id,
+            tuple(phases),
+            result.binding.workspace_id,
+            trace_id,
+            len(trace.candidates),
+            trace.retrieval_configuration_id,
             len(result.binding.source_bindings),
-            float(retrieval_latency_ms), end_to_end_latency_ms,
-            tuple((candidate.source_key, candidate.document_version_id, candidate.chunk_set_id)
-                  for candidate in trace.candidates),
+            float(retrieval_latency_ms),
+            end_to_end_latency_ms,
+            tuple(
+                (candidate.source_key, candidate.document_version_id, candidate.chunk_set_id)
+                for candidate in trace.candidates
+            ),
             citation_matrix,
             {"public_answer": payload.get("answer"), "public_citations": citations},
             dict(getattr(trace, "provider_metadata", {})),
-            tuple({
-                "source_key": item.source_key,
-                "document_version_id": item.document_version_id,
-                "chunk_set_id": item.chunk_set_id,
-                "chunk_count": len(item.chunk_references),
-                "embedding_configuration_id": item.embedding_configuration_id,
-             } for item in corpus.documents),
+            tuple(
+                {
+                    "source_key": item.source_key,
+                    "document_version_id": item.document_version_id,
+                    "chunk_set_id": item.chunk_set_id,
+                    "chunk_count": len(item.chunk_references),
+                    "embedding_configuration_id": item.embedding_configuration_id,
+                }
+                for item in corpus.documents
+            ),
             tuple(dict(item) for item in getattr(trace, "candidate_decisions", ())),
             tuple(dict(item) for item in getattr(trace, "branch_observations", ())),
             str(getattr(trace, "decision", "")),

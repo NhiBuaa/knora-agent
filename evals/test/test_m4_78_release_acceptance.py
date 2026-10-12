@@ -71,9 +71,7 @@ def _build_release_evidence(
 ) -> dict[str, object]:
     matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
     case_patterns = {
-        pattern
-        for case in matrix["case_evidence"].values()
-        for pattern in case["nodeid_patterns"]
+        pattern for case in matrix["case_evidence"].values() for pattern in case["nodeid_patterns"]
     }
     normalized_nodeids = sorted(
         {
@@ -177,7 +175,12 @@ def _build_release_evidence(
         "result": "PASSED",
     }
     serialized = json.dumps(evidence, ensure_ascii=False, sort_keys=True)
-    forbidden_literals = ("dispatch-secret", "routing-a", "provider-resource-id", "postgresql+psycopg://")
+    forbidden_literals = (
+        "dispatch-secret",
+        "routing-a",
+        "provider-resource-id",
+        "postgresql+psycopg://",
+    )
     evidence["sanitization"]["forbidden_value_hits"] = [  # type: ignore[index]
         literal for literal in forbidden_literals if literal in serialized
     ]
@@ -252,12 +255,8 @@ def test_tc06_closed_reconciliation_projection_matches_independent_matrix() -> N
             "provider_observation_malformed",
             projection=projection,
         ),
-        "not_found": ReconciliationOutcomeNotFound(
-            proposal_id, logical_id, projection=projection
-        ),
-        "in_progress": ExecutionInProgress(
-            proposal_id, logical_id, projection=projection
-        ),
+        "not_found": ReconciliationOutcomeNotFound(proposal_id, logical_id, projection=projection),
+        "in_progress": ExecutionInProgress(proposal_id, logical_id, projection=projection),
         "fenced": ExecutionFenced(proposal_id, logical_id, projection=projection),
     }
 

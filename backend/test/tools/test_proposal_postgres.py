@@ -190,9 +190,10 @@ def test_postgres_store_persists_atomic_decision_and_append_only_audit() -> None
             if column in {"policy_snapshot", "parameters"}
             else f"{column}=:value"
         )
-        with pytest.raises(
-            Exception, match="material fields are immutable"
-        ), SessionFactory.begin() as session:
+        with (
+            pytest.raises(Exception, match="material fields are immutable"),
+            SessionFactory.begin() as session,
+        ):
             session.execute(
                 text(f"UPDATE tool_proposals SET {assignment} WHERE id=:id"),
                 {"id": proposal.id, "value": value},
@@ -209,9 +210,10 @@ def test_postgres_store_persists_atomic_decision_and_append_only_audit() -> None
         "decision_at": datetime(2031, 1, 1, tzinfo=UTC),
     }
     for column, value in decision_projection_mutations.items():
-        with pytest.raises(
-            Exception, match="decision projection is immutable"
-        ), SessionFactory.begin() as session:
+        with (
+            pytest.raises(Exception, match="decision projection is immutable"),
+            SessionFactory.begin() as session,
+        ):
             session.execute(
                 text(f"UPDATE tool_proposals SET {column}=:value WHERE id=:id"),
                 {"id": proposal.id, "value": value},
@@ -316,30 +318,37 @@ def test_postgres_restart_reconstructs_every_projection_field_and_new_material_i
             },
         )
     )
-    policy_replacement = WriteProposalWorkflow(
-        capability_resolver=policy_resolver,
-        store=PostgresToolActionStore(SessionFactory),
-        target_verifier=PostgresTargetVerifier(),
-        clock=lambda: now,
-    ).handle(
-        ProposeWriteAction(
-            "create_ticket",
-            "m4r1.target.opaque",
-            "Cannot sign in",
-            "Customer blocked",
-        ),
-        principal,
-        actor_context("agent-a", "model"),
-    ).projection
+    policy_replacement = (
+        WriteProposalWorkflow(
+            capability_resolver=policy_resolver,
+            store=PostgresToolActionStore(SessionFactory),
+            target_verifier=PostgresTargetVerifier(),
+            clock=lambda: now,
+        )
+        .handle(
+            ProposeWriteAction(
+                "create_ticket",
+                "m4r1.target.opaque",
+                "Cannot sign in",
+                "Customer blocked",
+            ),
+            principal,
+            actor_context("agent-a", "model"),
+        )
+        .projection
+    )
 
     replacements = (title_replacement, target_replacement, policy_replacement)
     assert len({approved.projection.proposal_id, *(item.proposal_id for item in replacements)}) == 4
-    assert len(
-        {
-            approved.projection.logical_execution_id,
-            *(item.logical_execution_id for item in replacements),
-        }
-    ) == 4
+    assert (
+        len(
+            {
+                approved.projection.logical_execution_id,
+                *(item.logical_execution_id for item in replacements),
+            }
+        )
+        == 4
+    )
     assert all(item.state == "proposed" and item.revision == 0 for item in replacements)
     assert all(item.approval_actor_id is None for item in replacements)
     assert sentinel.identity == "m4-76-postgres-provider-write-sentinel-v1"
@@ -406,9 +415,7 @@ def test_postgres_non_executable_projection_survives_restarted_composition(
     elif condition.startswith("policy_"):
         current_policy = current_resolver.context.policy
         policy_id = "policy-v2" if condition == "policy_id" else current_policy.policy_id
-        policy_version = (
-            "v2" if condition == "policy_version" else current_policy.policy_version
-        )
+        policy_version = "v2" if condition == "policy_version" else current_policy.policy_version
         snapshot = dict(current_policy.snapshot)
         if condition == "policy_digest":
             snapshot["execution_authority_required"] = False
@@ -457,9 +464,7 @@ def test_postgres_decision_cas_has_one_winner() -> None:
     command = ApproveProposal(created.projection.proposal_id, 0)
     service.handle(command, principal, actor_context("human-a", "human", can_approve=True))
 
-    loser = service.handle(
-        command, principal, actor_context("human-b", "human", can_approve=True)
-    )
+    loser = service.handle(command, principal, actor_context("human-b", "human", can_approve=True))
     assert isinstance(loser, AlreadyDecided)
     assert loser.projection.state == "approved"
     assert loser.projection.revision == 1
@@ -477,9 +482,7 @@ def test_postgres_concurrent_approve_reject_has_one_atomic_winner() -> None:
         )
         principal = WorkspacePrincipal(workspace_id, "caller-key")
         created = service.handle(
-            ProposeWriteAction(
-                "create_ticket", "m4r1.target.opaque", "Title", "Description"
-            ),
+            ProposeWriteAction("create_ticket", "m4r1.target.opaque", "Title", "Description"),
             principal,
             actor_context("agent-a", "model"),
         )
@@ -524,14 +527,12 @@ def test_postgres_concurrent_approve_reject_has_one_atomic_winner() -> None:
         with SessionFactory() as session:
             decisions = session.scalars(
                 select(ToolProposalDecisionTable).where(
-                    ToolProposalDecisionTable.proposal_id
-                    == created.projection.proposal_id
+                    ToolProposalDecisionTable.proposal_id == created.projection.proposal_id
                 )
             ).all()
             audits = session.scalars(
                 select(ToolActionAuditEventTable).where(
-                    ToolActionAuditEventTable.proposal_id
-                    == created.projection.proposal_id
+                    ToolActionAuditEventTable.proposal_id == created.projection.proposal_id
                 )
             ).all()
         assert len(decisions) == 1
@@ -569,8 +570,7 @@ def test_postgres_proposal_projection_rejects_invalid_lifecycle(
         constraints = set(
             session.scalars(
                 text(
-                    "SELECT conname FROM pg_constraint "
-                    "WHERE conrelid = 'tool_proposals'::regclass"
+                    "SELECT conname FROM pg_constraint WHERE conrelid = 'tool_proposals'::regclass"
                 )
             ).all()
         )
@@ -644,9 +644,10 @@ def test_postgres_rejects_invalid_decision_taxonomy(
         actor_context("agent-a", "model"),
     )
 
-    with pytest.raises(
-        Exception, match="ck_tool_proposal_decision_"
-    ), SessionFactory.begin() as session:
+    with (
+        pytest.raises(Exception, match="ck_tool_proposal_decision_"),
+        SessionFactory.begin() as session,
+    ):
         session.execute(
             text(
                 "INSERT INTO tool_proposal_decisions "

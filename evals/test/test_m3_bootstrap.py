@@ -39,7 +39,9 @@ def _binding():
 
 def _manifest():
     return SimpleNamespace(
-        version="m3-corpus-v1", workspace_id="workspace", chunk_set_id="set-1",
+        version="m3-corpus-v1",
+        workspace_id="workspace",
+        chunk_set_id="set-1",
         chunks=frozenset({"support/a#0"}),
     )
 
@@ -47,11 +49,15 @@ def _manifest():
 def _corpus():
     return SimpleNamespace(
         workspace_id="workspace",
-        documents=(SimpleNamespace(
-            source_key="support/a", document_version_id="version-1", chunk_set_id="set-1",
-            embedding_configuration_id="embedding-local-m1-v2",
-            chunk_references=("support/a#0",),
-        ),),
+        documents=(
+            SimpleNamespace(
+                source_key="support/a",
+                document_version_id="version-1",
+                chunk_set_id="set-1",
+                embedding_configuration_id="embedding-local-m1-v2",
+                chunk_references=("support/a#0",),
+            ),
+        ),
     )
 
 
@@ -68,9 +74,7 @@ def test_credential_startup_config_contains_hash_only_and_not_raw_key(monkeypatc
 def test_bootstrap_acquires_seal_before_authoritative_preflight(tmp_path: Path):
     events: list[str] = []
     seal = EvaluationEnvironmentSeal(
-        ownership_store=SqliteEvaluationOwnershipStore(
-            path=tmp_path / "ownership.sqlite3"
-        ),
+        ownership_store=SqliteEvaluationOwnershipStore(path=tmp_path / "ownership.sqlite3"),
         owner_id="bootstrap",
     )
     bootstrap = EvaluationEnvironmentBootstrap(
@@ -96,13 +100,15 @@ def test_bootstrap_releases_ownership_when_embedding_preflight_fails(tmp_path: P
     path = tmp_path / "ownership.sqlite3"
     bad_corpus = SimpleNamespace(
         workspace_id="workspace",
-        documents=(SimpleNamespace(
-            source_key="support/a",
-            document_version_id="version-1",
-            chunk_set_id="set-1",
-            embedding_configuration_id="embedding-other",
-            chunk_references=("support/a#0",),
-        ),),
+        documents=(
+            SimpleNamespace(
+                source_key="support/a",
+                document_version_id="version-1",
+                chunk_set_id="set-1",
+                embedding_configuration_id="embedding-other",
+                chunk_references=("support/a#0",),
+            ),
+        ),
     )
     seal = EvaluationEnvironmentSeal(
         ownership_store=SqliteEvaluationOwnershipStore(path=path), owner_id="first"
@@ -164,9 +170,10 @@ def test_bootstrap_releases_ownership_when_binding_preflight_fails(tmp_path: Pat
 
 
 def test_production_provisioner_materializes_every_manifest_document(tmp_path: Path):
-    (tmp_path / "manifest.json").write_text(json.dumps({"documents": [
-        {"path": "refund-policy.txt"}, {"path": "shipping-policy.txt"}
-    ]}), encoding="utf-8")
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"documents": [{"path": "refund-policy.txt"}, {"path": "shipping-policy.txt"}]}),
+        encoding="utf-8",
+    )
     (tmp_path / "refund-policy.txt").write_text("refund", encoding="utf-8")
     (tmp_path / "shipping-policy.txt").write_text("shipping", encoding="utf-8")
     calls: list[tuple[str, str]] = []
@@ -214,8 +221,8 @@ def test_launcher_stop_kills_uncooperative_process() -> None:
 def test_minio_runtime_is_ephemeral_and_injected(monkeypatch):
     values = ephemeral_minio_runtime()
     inject_minio_runtime(values)
-    assert os.environ["KNORA_CANONICAL_MINIO_ACCESS_KEY"] == values[
-        "KNORA_CANONICAL_MINIO_ACCESS_KEY"
-    ]
+    assert (
+        os.environ["KNORA_CANONICAL_MINIO_ACCESS_KEY"] == values["KNORA_CANONICAL_MINIO_ACCESS_KEY"]
+    )
     assert len(values["KNORA_CANONICAL_MINIO_SECRET_KEY"]) >= 40
     teardown_evaluation_runtime()

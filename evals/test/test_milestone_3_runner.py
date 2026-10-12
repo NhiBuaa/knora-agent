@@ -36,7 +36,7 @@ def _binding() -> EvaluationEnvironmentBinding:
         workspace_id="workspace",
         retrieval_configuration_id="retrieval-m3-rrf-v1",
         embedding_configuration_id="embedding-local-m1-v2",
-        )
+    )
 
 
 def _case(*, case_id: str = "case", applicable: bool = True) -> Milestone3Case:
@@ -87,9 +87,7 @@ def _corpus(*, extra: bool = False):
 
 
 def _environment() -> VerifiedM3Environment:
-    return VerifiedM3Environment.prepare(
-        binding=_binding(), corpus=_corpus(), manifest=_manifest()
-    )
+    return VerifiedM3Environment.prepare(binding=_binding(), corpus=_corpus(), manifest=_manifest())
 
 
 def test_corpus_closure_requires_exact_active_source_set_and_bound_version() -> None:
@@ -114,9 +112,7 @@ def test_seal_captures_snapshot_only_after_exclusive_acquire_and_detects_drift(t
             owner_id="other",
         ).acquire(run_id="run-1")
 
-    environment = seal.capture_preflight(
-        binding=_binding(), corpus=_corpus(), manifest=_manifest()
-    )
+    environment = seal.capture_preflight(binding=_binding(), corpus=_corpus(), manifest=_manifest())
     assert environment.binding == _binding()
     seal.verify_unchanged(binding=_binding(), corpus=_corpus(), manifest=_manifest())
     with pytest.raises(ObservationFailure, match="EVALUATION_ENVIRONMENT_DRIFT"):
@@ -239,30 +235,30 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
             "end_to_end_latency_ms": 9.5,
             "retrieval_configuration_id": "retrieval-m3-rrf-v1",
             "chunk_set_provenance_id": "set-1",
-                "source_bindings": [
-                    {
-                        "source_key": "support/a",
-                        "production_document_version_id": "version-1",
-                        "production_chunk_set_id": "set-1",
-                    }
-                ],
-                "decision": "ANSWER",
-                "public_answer": "fact [[E1]]",
-                "refusal_reason": None,
-                "answer_marker_ids": ["E1"],
-                "citation_evidence_ids": ["E1"],
-                "structural_validity": True,
-                "citation_correctness": True,
-                "refusal_correctness": True,
-                "semantic_citation_correctness": True,
-                "public_citations": [
-                    {
-                        "evidence_id": "E1",
-                        "source_key": "support/a",
-                        "excerpt": "fact",
-                        "source_locator": "support/a:1:1",
-                    }
-                ],
+            "source_bindings": [
+                {
+                    "source_key": "support/a",
+                    "production_document_version_id": "version-1",
+                    "production_chunk_set_id": "set-1",
+                }
+            ],
+            "decision": "ANSWER",
+            "public_answer": "fact [[E1]]",
+            "refusal_reason": None,
+            "answer_marker_ids": ["E1"],
+            "citation_evidence_ids": ["E1"],
+            "structural_validity": True,
+            "citation_correctness": True,
+            "refusal_correctness": True,
+            "semantic_citation_correctness": True,
+            "public_citations": [
+                {
+                    "evidence_id": "E1",
+                    "source_key": "support/a",
+                    "excerpt": "fact",
+                    "source_locator": "support/a:1:1",
+                }
+            ],
         }
     ]
     with pytest.raises(ObservationFailure, match="GUARDRAIL_RECONCILIATION_FAILED"):
@@ -321,9 +317,7 @@ def test_binding_requires_every_manifest_and_environment_identity() -> None:
     missing_embedding = _binding().provenance()
     missing_embedding.pop("embedding_configuration_id")
     with pytest.raises(ObservationFailure, match="EVALUATION_ENVIRONMENT_BINDING_INVALID"):
-        EvaluationEnvironmentBinding.from_mapping(
-            {"schema_version": 3, **missing_embedding}
-        )
+        EvaluationEnvironmentBinding.from_mapping({"schema_version": 3, **missing_embedding})
 
     binding = EvaluationEnvironmentBinding.from_mapping(
         {"schema_version": 3, **_binding().provenance()}
@@ -593,7 +587,7 @@ async def test_production_executor_excludes_invalid_trace_observations(
                 start_line=1,
                 end_line=2,
                 final_decision="SELECTED",
-                ),
+            ),
         ),
         "retrieval_latency_ms": 4.0,
         "alias_mapping": {"E1": "chunk-1"},

@@ -238,7 +238,7 @@ export function WorkspaceSelector({
         <button
           ref={trigger}
           type="button"
-          className="workspace-selector-trigger flex min-w-0 items-center gap-1.5 rounded-md border-0 bg-transparent px-2 py-1 text-sm transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-action font-semibold text-text-primary"
+          className={`workspace-selector-trigger flex min-w-0 items-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-sm transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-action font-semibold text-text-primary ${operator ? "h-[26px] py-0" : "py-1"}`}
           aria-label={`Switch workspace${current ? `: ${current.name}` : ""}`}
           aria-expanded={open}
           disabled={disabled}

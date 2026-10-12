@@ -34,8 +34,7 @@ def user_message(question: str, evidence: tuple[GenerationEvidence, ...]) -> str
         {
             "question": question,
             "evidence": [
-                {"evidence_id": item.evidence_id, "content": item.content}
-                for item in evidence
+                {"evidence_id": item.evidence_id, "content": item.content} for item in evidence
             ],
         },
         ensure_ascii=False,

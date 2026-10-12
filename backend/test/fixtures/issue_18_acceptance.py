@@ -113,9 +113,7 @@ def pdf_success(
     dimensions = embedding.dimensions if vector_dimensions is None else vector_dimensions
     return PdfDerivationSuccess(
         extraction=extraction,
-        vectors=tuple(
-            tuple(vector_value for _ in range(dimensions)) for _ in extraction.chunks
-        ),
+        vectors=tuple(tuple(vector_value for _ in range(dimensions)) for _ in extraction.chunks),
         embedding_provider=embedding.provider if provider is None else provider,
         embedding_model=embedding.model if model is None else model,
     )
@@ -447,14 +445,10 @@ def handler_for(
     embedding_configuration = (
         embedding_configuration or EmbeddingConfiguration.milestone_one_local()
     )
-    profile = PdfDerivationProfile.milestone_two(
-        embedding_configuration=embedding_configuration
-    )
+    profile = PdfDerivationProfile.milestone_two(embedding_configuration=embedding_configuration)
     extraction = extraction or pdf_extraction(profile.extraction_configuration)
     success = pdf_success(
-        PdfSubmissionConfiguration.milestone_two(
-            embedding_configuration=embedding_configuration
-        ),
+        PdfSubmissionConfiguration.milestone_two(embedding_configuration=embedding_configuration),
         extraction=extraction,
     )
     object_store = object_store or AcceptanceObjectStore(metadata=metadata)

@@ -176,8 +176,9 @@ def actor(actor_id: str, kind: str, *, can_approve: bool = False) -> ActorContex
     )
 
 
-def test_reconcile_observes_provider_truth_before_terminalizing_an_indeterminate_execution(
-) -> None:
+def test_reconcile_observes_provider_truth_before_terminalizing_an_indeterminate_execution() -> (
+    None
+):
     store = InMemoryToolActionStore()
     gateway = Gateway()
     observation_resolver = ObservationResolver()

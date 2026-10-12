@@ -34,9 +34,7 @@ class GeminiEmbeddingProvider:
     ) -> EmbeddingBatch:
         return self._embed(texts, configuration, role="query")
 
-    def embed(
-        self, texts: list[str], configuration: EmbeddingConfiguration
-    ) -> EmbeddingBatch:
+    def embed(self, texts: list[str], configuration: EmbeddingConfiguration) -> EmbeddingBatch:
         raise KnoraError("EMBEDDING_INPUT_ROLE_REQUIRED")
 
     def _embed(

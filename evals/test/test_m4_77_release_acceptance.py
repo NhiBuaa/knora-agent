@@ -31,6 +31,8 @@ from knora.tools.execution_types import AuthorizedExecutionBindingSnapshot, Exec
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MATRIX_PATH = REPOSITORY_ROOT / "evals" / "fixtures" / "m4_77_public_matrix_v1.json"
 CASE_IDS = tuple(f"M4-77-TC-{number:02d}" for number in range(1, 13))
+
+
 def test_tc01_literal_denial_matrix_is_closed_and_independently_stored() -> None:
     matrix = json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
     assert len(matrix["pre_acquisition_rows"]) == 37
@@ -175,9 +177,7 @@ def test_tc09_recovery_seed_is_read_only_and_has_two_disjoint_kinds() -> None:
         "v1",
         "sha256:" + "c" * 64,
     )
-    no_admission = ExecutionRecoverySeed(
-        "logical", "fingerprint", binding, None, None
-    )
+    no_admission = ExecutionRecoverySeed("logical", "fingerprint", binding, None, None)
     assert no_admission.kind == "NoAdmission"
     assert (
         ExecutionRecoverySeed("logical", "fingerprint", binding, "admission", "digest").kind

@@ -119,9 +119,7 @@ def test_retrieval_metrics_match_an_independent_worked_example() -> None:
     )
     observations = (
         EvaluationObservation("case-1", ("policy#1", "other#0"), 12.0),
-        EvaluationObservation(
-            "case-2", ("other#0", "other#1", "other#2", "policy#2"), 18.0
-        ),
+        EvaluationObservation("case-2", ("other#0", "other#1", "other#2", "policy#2"), 18.0),
         EvaluationObservation(
             "case-3",
             ("other#0",),
@@ -223,9 +221,7 @@ def test_report_write_is_atomic_and_never_overwrites_prior_evidence(tmp_path: Pa
         write_report_atomic(report_path, {"schema_version": 1, "status": "replacement"})
 
 
-def test_concurrent_report_writers_cannot_replace_the_winner(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_concurrent_report_writers_cannot_replace_the_winner(tmp_path: Path, monkeypatch) -> None:
     report_path = tmp_path / "report.json"
     barrier = threading.Barrier(2)
     original_replace = os.replace
@@ -367,16 +363,12 @@ def test_normalized_model_report_excludes_scorer_wall_clock_observations() -> No
     first = {
         "mode": "model-backed",
         "semantic": {"metrics": {"faithfulness": {"mean": 0.8}}},
-        "system": {
-            "semantic_scorer": {"latency_ms": {"mean": 10.0}, "provider_errors": 0}
-        },
+        "system": {"semantic_scorer": {"latency_ms": {"mean": 10.0}, "provider_errors": 0}},
     }
     second = {
         "mode": "model-backed",
         "semantic": {"metrics": {"faithfulness": {"mean": 0.8}}},
-        "system": {
-            "semantic_scorer": {"latency_ms": {"mean": 99.0}, "provider_errors": 0}
-        },
+        "system": {"semantic_scorer": {"latency_ms": {"mean": 99.0}, "provider_errors": 0}},
     }
 
     assert normalize_report(first) == normalize_report(second)

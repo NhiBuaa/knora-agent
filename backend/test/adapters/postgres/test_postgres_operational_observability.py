@@ -27,29 +27,43 @@ def test_workspace_cleanup_failures_are_scoped_through_lifecycle_work():
         session.flush()
         for workspace, failures in zip(workspaces, (1, 2), strict=True):
             work_id = str(uuid4())
-            session.add(ObjectLifecycleWorkTable(
-                id=work_id, workspace_id=workspace, object_key=work_id,
-                artifact_class="terminal_cleanup", lifecycle_generation=work_id,
-                state="failed", attempt_count=failures,
-            ))
+            session.add(
+                ObjectLifecycleWorkTable(
+                    id=work_id,
+                    workspace_id=workspace,
+                    object_key=work_id,
+                    artifact_class="terminal_cleanup",
+                    lifecycle_generation=work_id,
+                    state="failed",
+                    attempt_count=failures,
+                )
+            )
             session.flush()
             for number in range(1, failures + 1):
-                session.add(ObjectLifecycleAttemptTable(
-                    object_lifecycle_work_id=work_id, attempt_number=number,
-                    worker_id="test", lease_version=number,
-                    claim_operation_id=str(uuid4()), attempt_started_at=now,
-                    closed_at=now, disposition="failed",
-                ))
+                session.add(
+                    ObjectLifecycleAttemptTable(
+                        object_lifecycle_work_id=work_id,
+                        attempt_number=number,
+                        worker_id="test",
+                        lease_version=number,
+                        claim_operation_id=str(uuid4()),
+                        attempt_started_at=now,
+                        closed_at=now,
+                        disposition="failed",
+                    )
+                )
     metrics = PostgresOperationalMetricsStore(SessionFactory, retry_window=timedelta(days=1))
     assert metrics.snapshot(workspace_id=workspaces[0]).metrics["cleanup_failure_total"] == 1
     assert metrics.snapshot(workspace_id=workspaces[1]).metrics["cleanup_failure_total"] == 2
     assert metrics.snapshot().metrics["cleanup_failure_total"] == 3
-    client = TestClient(create_app(
-        operational_metrics_store=metrics,
-        api_key_authenticator=ApiKeyAuthenticator((
-            ApiCredential("metrics-test", hash_api_key("test-only"), workspaces[0], True),
-        )),
-    ))
+    client = TestClient(
+        create_app(
+            operational_metrics_store=metrics,
+            api_key_authenticator=ApiKeyAuthenticator(
+                (ApiCredential("metrics-test", hash_api_key("test-only"), workspaces[0], True),)
+            ),
+        )
+    )
     response = client.get(
         f"/v1/workspaces/{workspaces[0]}/operator/operations",
         headers={"X-API-Key": "test-only"},

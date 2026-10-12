@@ -40,14 +40,10 @@ class PostgresOperationalMetricsStore:
                 ),
             )
             job_scope = (
-                IngestionJobTable.workspace_id == workspace_id
-                if workspace_id is not None
-                else True
+                IngestionJobTable.workspace_id == workspace_id if workspace_id is not None else True
             )
             queue_depth = session.scalar(
-                select(func.count())
-                .select_from(IngestionJobTable)
-                .where(eligible, job_scope)
+                select(func.count()).select_from(IngestionJobTable).where(eligible, job_scope)
             )
             oldest_created = session.scalar(
                 select(func.min(IngestionJobTable.created_at)).where(eligible, job_scope)
@@ -57,9 +53,7 @@ class PostgresOperationalMetricsStore:
                 oldest_age = max(0.0, (now - oldest_created).total_seconds())
             window_start = now - self._retry_window
             attempt_scope = (
-                IngestionJobTable.workspace_id == workspace_id
-                if workspace_id is not None
-                else True
+                IngestionJobTable.workspace_id == workspace_id if workspace_id is not None else True
             )
             closed_attempts = (
                 session.scalar(
@@ -201,10 +195,12 @@ class PostgresOperationalMetricsStore:
                     IngestionJobAttemptTable.attempt_started_at,
                     IngestionJobTable.created_at,
                     IngestionJobAttemptTable.retry_next_attempt_at,
-                ).join(
+                )
+                .join(
                     IngestionJobTable,
                     IngestionJobTable.id == IngestionJobAttemptTable.ingestion_job_id,
-                ).where(job_scope)
+                )
+                .where(job_scope)
             ).all()
             eligibility_by_job_attempt: dict[tuple[str, int], object] = {}
             for job_id, attempt_number, _, _, retry_next in claim_latency_rows:

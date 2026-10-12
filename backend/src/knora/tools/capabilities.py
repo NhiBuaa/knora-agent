@@ -275,9 +275,10 @@ class WorkspaceResourceAuthorizer:
             "resource_claims_digest": verified.resource_claims_digest,
             "provider_routing_handle": verified.provider_routing_handle,
         }
-        if expected != verified_values or getattr(
-            snapshot, "external_scope", None
-        ) != binding.external_scope:
+        if (
+            expected != verified_values
+            or getattr(snapshot, "external_scope", None) != binding.external_scope
+        ):
             raise KnoraError("TOOL_RESOURCE_ACCESS_DENIED")
         return AuthorizedExternalResource(
             reference_id=verified.reference_id,
