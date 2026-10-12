@@ -69,8 +69,9 @@ def test_alert_configuration_requires_all_issue_20_classes_and_emits_typed_alert
     assert {alert.name for alert in telemetry.alerts} == set(classes)
 
 
-def test_operational_observability_rejects_missing_alert_configuration_when_policy_enabled(
-) -> None:
+def test_operational_observability_rejects_missing_alert_configuration_when_policy_enabled() -> (
+    None
+):
     snapshot = OperationalSnapshot(metrics={"queue_depth": 0}, configuration_version="metrics-v1")
 
     with pytest.raises(ValueError, match="alert configuration is required"):
@@ -118,12 +119,15 @@ def test_alert_policy_uses_configured_recovery_boundary() -> None:
     )
     policy = AlertPolicyV1()
 
-    assert policy.evaluate(
-        snapshot=OperationalSnapshot({"cleanup_attempt_total": 1}, "metrics-v1"),
-        definition=definition,
-        sustained_seconds=0,
-        previously_firing=True,
-    ) is None
+    assert (
+        policy.evaluate(
+            snapshot=OperationalSnapshot({"cleanup_attempt_total": 1}, "metrics-v1"),
+            definition=definition,
+            sustained_seconds=0,
+            previously_firing=True,
+        )
+        is None
+    )
 
 
 def test_versioned_alert_configuration_loads_from_json_without_defaults() -> None:

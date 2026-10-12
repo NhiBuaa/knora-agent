@@ -363,9 +363,7 @@ class PdfDerivationHandler:
     ) -> WorkOutcome[PdfDerivationSuccess]:
         del cancellation
         profile = (
-            self._profile_resolver(work)
-            if self._profile_resolver is not None
-            else self._profile
+            self._profile_resolver(work) if self._profile_resolver is not None else self._profile
         )
         if (
             profile is None
@@ -413,9 +411,7 @@ class PdfDerivationHandler:
             return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, "worker_unexpected")
 
         try:
-            extraction = self._extractor.extract(
-                stream, profile.extraction_configuration
-            )
+            extraction = self._extractor.extract(stream, profile.extraction_configuration)
         except PdfExtractionError as error:
             return self._pdf_extraction_failure(error)
         except Exception:
@@ -424,9 +420,7 @@ class PdfDerivationHandler:
             stream.close()
 
         try:
-            extraction_matches_profile = self._extraction_matches_profile(
-                extraction, profile
-            )
+            extraction_matches_profile = self._extraction_matches_profile(extraction, profile)
         except (AttributeError, TypeError, ValueError):
             extraction_matches_profile = False
         if not extraction_matches_profile:
@@ -527,13 +521,9 @@ class PdfDerivationHandler:
             or not extraction.chunks
         ):
             return False
-        if (
-            len({page.page_number for page in extraction.pages}) != len(extraction.pages)
-            or any(
-                page.page_number < 1
-                or page.content_checksum != _sha256_text(page.text)
-                for page in extraction.pages
-            )
+        if len({page.page_number for page in extraction.pages}) != len(extraction.pages) or any(
+            page.page_number < 1 or page.content_checksum != _sha256_text(page.text)
+            for page in extraction.pages
         ):
             return False
         pages = {page.page_number: page for page in extraction.pages}
@@ -558,9 +548,7 @@ class PdfDerivationHandler:
     def _pdf_extraction_failure(error: PdfExtractionError) -> WorkFailed:
         if error.retryable:
             safe_code = (
-                error.code
-                if error.code == "PDF_EXTRACTOR_UNAVAILABLE"
-                else "worker_unexpected"
+                error.code if error.code == "PDF_EXTRACTOR_UNAVAILABLE" else "worker_unexpected"
             )
             return WorkFailed(HandlerFailureKindV1.WORKER_UNEXPECTED, safe_code)
         if error.code == "PDF_ENCRYPTED":
@@ -892,9 +880,13 @@ class AttemptSupervisor:
                     return SupervisorLeaseLost()
                 next_heartbeat_at += 30.0
                 continue
-            if completion is not None and self.resolve_completion(
-                completed_at=completion.completed_at, deadline_at=deadline_at
-            ) is None:
+            if (
+                completion is not None
+                and self.resolve_completion(
+                    completed_at=completion.completed_at, deadline_at=deadline_at
+                )
+                is None
+            ):
                 return HandlerCompleted(completion)
             if now >= deadline_at or completion is not None:
                 cancellation.cancel()
@@ -1111,9 +1103,7 @@ class ProcessIngestionJob[SuccessT]:
             raise CoordinationInvariantError("superseded finalization was not applicable")
 
         if not isinstance(outcome, WorkFailed):
-            raise CoordinationInvariantError(
-                "work handler returned an unsupported outcome"
-            )
+            raise CoordinationInvariantError("work handler returned an unsupported outcome")
         if timed_out:
             observed_failure = CanonicalFailureV1(
                 cause=FailureCauseV1.ATTEMPT_TIMEOUT,

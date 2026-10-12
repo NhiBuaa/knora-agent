@@ -135,9 +135,7 @@ def prepared_tool() -> tuple[
 def test_static_registry_and_authorized_lookup_are_typed() -> None:
     tool, gateway, token, record, _, _ = prepared_tool()
 
-    result = tool.execute(
-        ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a")
-    )
+    result = tool.execute(ReadToolCommand(str(token)), WorkspacePrincipal("workspace-a", "key-a"))
 
     descriptor = CapabilityRegistry.static().resolve("ticket_lookup")
     assert descriptor.version == "m4.1"
@@ -250,9 +248,7 @@ def test_malformed_reference_has_typed_invalid_reference_error() -> None:
     tool, gateway, _, _, _, _ = prepared_tool()
 
     with pytest.raises(KnoraError) as error:
-        tool.execute(
-            ReadToolCommand("m4r1.%%%.___"), WorkspacePrincipal("workspace-a", "key-a")
-        )
+        tool.execute(ReadToolCommand("m4r1.%%%.___"), WorkspacePrincipal("workspace-a", "key-a"))
 
     assert error.value.code == "INVALID_TOOL_RESOURCE_REFERENCE"
     assert gateway.call_count == 0
@@ -443,16 +439,17 @@ def test_reference_key_lifecycle_accepts_retiring_and_rejects_unknown_revoked_or
         ),
         gateway=retiring_gateway,
     )
-    assert retiring_tool.execute(
-        ReadToolCommand(str(minted.reference)), WorkspacePrincipal("workspace-a", "key-a")
-    ).title == "Title"
+    assert (
+        retiring_tool.execute(
+            ReadToolCommand(str(minted.reference)), WorkspacePrincipal("workspace-a", "key-a")
+        ).title
+        == "Title"
+    )
 
     cases = [
         (ReferenceKeyRing((new_active,)), NOW),
         (
-            ReferenceKeyRing(
-                (new_active, ReferenceKey("k1", b"old-test-secret", "revoked"))
-            ),
+            ReferenceKeyRing((new_active, ReferenceKey("k1", b"old-test-secret", "revoked"))),
             NOW,
         ),
         (ReferenceKeyRing((old_active,)), EXPIRES),

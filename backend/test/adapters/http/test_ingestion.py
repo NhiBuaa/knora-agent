@@ -374,9 +374,7 @@ def test_http_pdf_submission_persists_source_object_and_queued_job(tmp_path) -> 
         object_store=object_store,
         store=PostgresIngestionJobStore(SessionFactory),
     )
-    client = TestClient(
-        create_app(api_key_authenticator=auth, ingestion_jobs=jobs)
-    )
+    client = TestClient(create_app(api_key_authenticator=auth, ingestion_jobs=jobs))
 
     response = valid_pdf_upload(client, key=raw_key, workspace_id=workspace_id)
 
@@ -413,9 +411,7 @@ class GuardedStore:
 class CountingProvider:
     calls: int = 0
 
-    def embed(
-        self, texts: list[str], configuration: EmbeddingConfiguration
-    ) -> EmbeddingBatch:
+    def embed(self, texts: list[str], configuration: EmbeddingConfiguration) -> EmbeddingBatch:
         self.calls += 1
         raise AssertionError("invalid request must fail before embedding")
 
@@ -463,9 +459,7 @@ def test_invalid_source_type_and_size_fail_before_provider_work() -> None:
     assert invalid_encoding.status_code == 400
     assert invalid_encoding.json() == {"error": {"code": "INVALID_DOCUMENT_ENCODING"}}
     assert oversized.status_code == 413
-    assert oversized.json() == {
-        "error": {"code": "DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION"}
-    }
+    assert oversized.json() == {"error": {"code": "DOCUMENT_TOO_LARGE_FOR_SYNC_INGESTION"}}
     assert provider.calls == 0
 
 

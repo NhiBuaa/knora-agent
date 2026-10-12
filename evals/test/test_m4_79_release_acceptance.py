@@ -12,13 +12,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MATRIX_PATH = REPOSITORY_ROOT / "evals" / "fixtures" / "m4_79_integrated_release_matrix_v1.json"
 FRONTIER_PATH = REPOSITORY_ROOT / ".agents" / "review" / "m4-issue-79-frontier-baseline-v2.json"
-GUIDE_PATH = (
-    REPOSITORY_ROOT
-    / ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.md"
-)
-GUIDE_APPROVAL_PATH = (
-    REPOSITORY_ROOT / ".agents/review/m4-issue-79-guide-approval-v2.json"
-)
+GUIDE_PATH = REPOSITORY_ROOT / ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.md"
+GUIDE_APPROVAL_PATH = REPOSITORY_ROOT / ".agents/review/m4-issue-79-guide-approval-v2.json"
 HISTORY_PATH = (
     REPOSITORY_ROOT
     / ".agents/manual-tests/milestone-4/79-integrated-release-gate-v2.evaluations.jsonl"
@@ -102,10 +97,7 @@ def _build_release_evidence(
             "plugin_marketplace_or_vendor_paths": [
                 path
                 for path in changed
-                if any(
-                    marker in path.lower()
-                    for marker in ("plugin", "marketplace", "vendor")
-                )
+                if any(marker in path.lower() for marker in ("plugin", "marketplace", "vendor"))
             ],
         },
         "final_review": {
@@ -190,12 +182,12 @@ def test_prior_release_harnesses_do_not_mutate_committed_evidence(tmp_path: Path
             "evals/test/test_m4_78_release_acceptance.py",
         ],
         cwd=REPOSITORY_ROOT,
-            env={
-                **os.environ,
-                "PYTHONPATH": os.pathsep.join(
-                    (str(tmp_path), str(REPOSITORY_ROOT / "backend" / "src"))
-                ),
-            },
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                (str(tmp_path), str(REPOSITORY_ROOT / "backend" / "src"))
+            ),
+        },
         capture_output=True,
         text=True,
     )

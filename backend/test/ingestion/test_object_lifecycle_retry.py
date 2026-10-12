@@ -106,9 +106,7 @@ def test_stale_delete_generation_cannot_complete_after_lease_handoff() -> None:
 
     second = store.claim(worker_id="worker-b")
     assert second is not None
-    second_claim = LifecycleClaim(
-        "prepared-handoff", "worker-b", 2, second.lease_version
-    )
+    second_claim = LifecycleClaim("prepared-handoff", "worker-b", 2, second.lease_version)
     with pytest.raises(PermissionError, match="stale delete generation"):
         store.complete(claim=second_claim, delete_generation=generation_a)
 
@@ -521,9 +519,7 @@ def test_worker_does_not_repeat_delete_when_crash_reconciliation_head_is_indeter
     )
     first = maintenance.claim(worker_id="worker-a")
     assert first is not None
-    claim = LifecycleClaim(
-        "head-failure-reconciliation", "worker-a", 1, first.lease_version
-    )
+    claim = LifecycleClaim("head-failure-reconciliation", "worker-a", 1, first.lease_version)
     maintenance.prepare_delete(claim=claim)
     maintenance.fence(work_id=claim.work_id)
 

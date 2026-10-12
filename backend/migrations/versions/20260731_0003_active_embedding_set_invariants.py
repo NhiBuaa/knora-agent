@@ -57,7 +57,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "DROP TRIGGER validate_document_active_embedding_set ON documents"
-    )
+    op.execute("DROP TRIGGER validate_document_active_embedding_set ON documents")
     op.execute("DROP FUNCTION validate_document_active_embedding_set()")

@@ -99,9 +99,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             worker_id=worker_id, operation_id=operation_id, work_id=work_id
         )
 
-    def prepare_delete(
-        self, *, claim: LifecycleClaim, operation_id: str | None = None
-    ) -> str:
+    def prepare_delete(self, *, claim: LifecycleClaim, operation_id: str | None = None) -> str:
         return self._lifecycle_store.prepare_delete(claim=claim, operation_id=operation_id)
 
     def revalidate_delete(self, *, claim: LifecycleClaim, delete_generation: str) -> None:
@@ -144,9 +142,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
             retry_window_upper_bound_microseconds=retry_window_upper_bound_microseconds,
         )
 
-    def complete_orphan_reconciliation(
-        self, *, work_id: str, disposition: str
-    ) -> bool:
+    def complete_orphan_reconciliation(self, *, work_id: str, disposition: str) -> bool:
         return self._lifecycle_store.complete_orphan_reconciliation(
             work_id=work_id, disposition=disposition
         )
@@ -346,9 +342,7 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
     def _database_now(session: Session) -> datetime:
         database_now = session.scalar(select(func.clock_timestamp()))
         if not isinstance(database_now, datetime):
-            raise CoordinationInvariantError(
-                "PostgreSQL did not return an authoritative timestamp"
-            )
+            raise CoordinationInvariantError("PostgreSQL did not return an authoritative timestamp")
         return database_now
 
     def commit_pdf_submission(
@@ -357,6 +351,4 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         *,
         admission_id: str | None = None,
     ) -> PdfSubmissionResult:
-        return self._submission_store.commit_pdf_submission(
-            prepared, admission_id=admission_id
-        )
+        return self._submission_store.commit_pdf_submission(prepared, admission_id=admission_id)

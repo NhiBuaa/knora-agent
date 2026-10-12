@@ -151,9 +151,7 @@ def policy_metric_fields(projection: Mapping[str, Any]) -> tuple[str, int, tuple
     recall_k = projection.get("recall_k")
     primary_metric_set = projection.get("primary_metric_set")
     primary_metrics = (
-        primary_metric_set.get("ordered")
-        if isinstance(primary_metric_set, Mapping)
-        else None
+        primary_metric_set.get("ordered") if isinstance(primary_metric_set, Mapping) else None
     )
     if (
         not isinstance(metric_contract, str)
@@ -559,9 +557,7 @@ def canonical_authority_validation(
             "status": AUTHORITY_VALIDATION_FAILURE,
             "reason": "APPROVAL_BINDING_MISMATCH",
         }
-    if production and (
-        not bundle.chain_verified or bundle.verification_method != "git-seal"
-    ):
+    if production and (not bundle.chain_verified or bundle.verification_method != "git-seal"):
         return {
             "status": AUTHORITY_VALIDATION_FAILURE,
             "reason": "AUTHORITY_CHAIN_UNVERIFIED",
@@ -683,9 +679,7 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         raise ValueError("REMEDIATION_SUBJECT_INVALID")
 
     subject_design_path = "docs/design/m3-remediation-v4.md"
-    subject_blob, _ = _git_blob(
-        repository_root, subject_commit, subject_design_path
-    )
+    subject_blob, _ = _git_blob(repository_root, subject_commit, subject_design_path)
     if subject_blob != subject_design_blob:
         raise ValueError("REMEDIATION_SUBJECT_IDENTITY_MISMATCH")
 
@@ -726,9 +720,7 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     }:
         raise ValueError("REMEDIATION_IDENTITY_PROJECTION_INVALID")
     canonical_identity = (
-        json.dumps(dict(identity_projection), sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
+        json.dumps(dict(identity_projection), sort_keys=True, separators=(",", ":")).encode("utf-8")
         + b"\n"
     )
     identity_digest = "sha256:" + hashlib.sha256(canonical_identity).hexdigest()
@@ -755,10 +747,7 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         raise ValueError("REMEDIATION_CLOSURE_SCOPE_INVALID")
     scope_blob, scope_bytes = _git_blob(repository_root, head, REMEDIATION_SCOPE_PROJECTION_PATH)
     scope_raw_sha256 = "sha256:" + hashlib.sha256(scope_bytes).hexdigest()
-    if (
-        scope_blob != scope_meta.get("git_blob")
-        or scope_raw_sha256 != scope_meta.get("raw_sha256")
-    ):
+    if scope_blob != scope_meta.get("git_blob") or scope_raw_sha256 != scope_meta.get("raw_sha256"):
         raise ValueError("REMEDIATION_SCOPE_DIGEST_MISMATCH")
     scope = json.loads(scope_bytes.decode("utf-8"))
     required_requirements = (
@@ -797,9 +786,8 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
         repository_root, head, REMEDIATION_RESPONSE_PROJECTION_PATH
     )
     response_raw_sha256 = "sha256:" + hashlib.sha256(response_bytes).hexdigest()
-    if (
-        response_blob != response_meta.get("git_blob")
-        or response_raw_sha256 != response_meta.get("raw_sha256")
+    if response_blob != response_meta.get("git_blob") or response_raw_sha256 != response_meta.get(
+        "raw_sha256"
     ):
         raise ValueError("REMEDIATION_RESPONSE_DIGEST_MISMATCH")
     response = json.loads(response_bytes.decode("utf-8"))
@@ -832,9 +820,11 @@ def _remediation_review_from_git(repository_root: Path) -> dict[str, str]:
     ):
         raise ValueError("REMEDIATION_POLICY_PROVENANCE_MISMATCH")
 
-    source_author = _git(
-        "show", "-s", "--format=%an", subject_commit, repository_root=repository_root
-    ).decode().strip()
+    source_author = (
+        _git("show", "-s", "--format=%an", subject_commit, repository_root=repository_root)
+        .decode()
+        .strip()
+    )
     external_reviewer = str(identity["reviewer_id"])
     if external_reviewer in {source_author, APPROVED_HUMAN_IDENTITY}:
         raise ValueError("REMEDIATION_REVIEWER_NOT_INDEPENDENT")
@@ -869,8 +859,7 @@ def _authority_from_git(
     ):
         raise ValueError("AUTHORITY_DOCUMENT_IDENTITY_MISMATCH")
     if projection_blob != POLICY_PROJECTION_BLOB or (
-        hashlib.sha256(projection_bytes).hexdigest()
-        != CLAIM_RULE_DIGEST.removeprefix("sha256:")
+        hashlib.sha256(projection_bytes).hexdigest() != CLAIM_RULE_DIGEST.removeprefix("sha256:")
     ):
         raise ValueError("POLICY_PROJECTION_IDENTITY_MISMATCH")
     attestation_blob, attestation_bytes = _git_blob(
@@ -952,9 +941,7 @@ def _read_and_validate_sealed_archive(path: Path) -> bytes:
             if PurePosixPath(reference).name == PurePosixPath(ATTESTATION_PATH).name
         ]
         candidate_archives = [
-            reference
-            for reference in references
-            if reference.endswith((".tar", ".tar.gz"))
+            reference for reference in references if reference.endswith((".tar", ".tar.gz"))
         ]
         if (
             len(attestation_references) != 1

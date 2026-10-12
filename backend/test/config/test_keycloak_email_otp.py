@@ -409,8 +409,14 @@ try {
 
 
 def run(
-    tmp_path: Path, data: dict, actions: str, *, runtime: bool = False, vault: Path | None = None,
-    extra_env: dict[str, str] | None = None, dotenv: str | None = None
+    tmp_path: Path,
+    data: dict,
+    actions: str,
+    *,
+    runtime: bool = False,
+    vault: Path | None = None,
+    extra_env: dict[str, str] | None = None,
+    dotenv: str | None = None,
 ) -> tuple[subprocess.CompletedProcess, dict]:
     script_root = ROOT
     if not runtime:
@@ -572,9 +578,7 @@ def test_primary_restore_snapshot_has_full_smtp_shape(
     data = primary_data(smtp_server=smtp_server)
     prepared(data)
     restore_env = {"KC_SMTP_RESTORE_PASSWORD": "RESTORE_TEST_PASSWORD"} if smtp_server else None
-    result, after = run(
-        tmp_path, data, "PrimaryBind,PrimaryRestore", extra_env=restore_env
-    )
+    result, after = run(tmp_path, data, "PrimaryBind,PrimaryRestore", extra_env=restore_env)
     assert result.returncode == 0, result.stderr
     saved = json.loads((tmp_path / "snapshot.json").read_text(encoding="utf-8-sig"))
     assert set(saved["smtp"]) == {
@@ -588,15 +592,19 @@ def test_primary_restore_snapshot_has_full_smtp_shape(
         "user",
     }
     assert "NEVER_PRINT_SMTP_PASSWORD" not in result.stdout + result.stderr
-    expected_smtp = {} if smtp_server is None else {
-        "host": "mail",
-        "port": "",
-        "from": "",
-        "user": "",
-        "auth": "false",
-        "starttls": "false",
-        "password": "RESTORE_TEST_PASSWORD",
-    }
+    expected_smtp = (
+        {}
+        if smtp_server is None
+        else {
+            "host": "mail",
+            "port": "",
+            "from": "",
+            "user": "",
+            "auth": "false",
+            "starttls": "false",
+            "password": "RESTORE_TEST_PASSWORD",
+        }
+    )
     assert after["realm"]["smtpServer"] == expected_smtp
 
 
@@ -633,7 +641,8 @@ def test_primary_smtp_opt_in_fails_closed_when_required_values_are_missing(tmp_p
 
 @pytest.mark.parametrize("process_password", [None, "PROCESS_TEST_PASSWORD"])
 def test_primary_smtp_reads_repository_dotenv_with_process_precedence(
-    tmp_path: Path, process_password: str | None,
+    tmp_path: Path,
+    process_password: str | None,
 ) -> None:
     dotenv = "\n".join(
         [
@@ -659,9 +668,7 @@ def test_primary_smtp_reads_repository_dotenv_with_process_precedence(
     )
     assert result.returncode == 0, result.stderr
     assert after["realm"]["smtpServer"]["host"] == "smtp.gmail.com"
-    assert after["realm"]["smtpServer"]["password"] == (
-        process_password or "DOTENV_TEST_PASSWORD"
-    )
+    assert after["realm"]["smtpServer"]["password"] == (process_password or "DOTENV_TEST_PASSWORD")
     assert "DOTENV_TEST_PASSWORD" not in result.stdout + result.stderr
     assert "PROCESS_TEST_PASSWORD" not in result.stdout + result.stderr
 
@@ -669,9 +676,7 @@ def test_primary_smtp_reads_repository_dotenv_with_process_precedence(
 def test_primary_bound_flow_still_applies_changed_smtp_contract(tmp_path: Path) -> None:
     data = primary_data(smtp_server={"host": "old.example", "auth": "false"})
     prepared(data)
-    data["realm"].update(
-        resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True
-    )
+    data["realm"].update(resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True)
     data["client"].update(baseUrl="http://127.0.0.1:3000", rootUrl="http://127.0.0.1:3000")
     smtp_env = {
         "KC_SMTP_HOST": "smtp.gmail.com",
@@ -702,9 +707,7 @@ def test_primary_matching_smtp_contract_is_noop_without_prior_secret(tmp_path: P
         }
     )
     prepared(data)
-    data["realm"].update(
-        resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True
-    )
+    data["realm"].update(resetCredentialsFlow=ALIAS, emailTheme="knora", resetPasswordAllowed=True)
     data["client"].update(baseUrl="http://127.0.0.1:3000", rootUrl="http://127.0.0.1:3000")
     smtp_env = {
         "KC_SMTP_HOST": "smtp.gmail.com",
@@ -746,7 +749,11 @@ def test_primary_compose_uses_postgres_and_read_only_operator_vault(tmp_path: Pa
             "--format",
             "json",
         ],
-        cwd=ROOT, env=env, capture_output=True, text=True, check=False,
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     graph = json.loads(result.stdout)
@@ -1243,6 +1250,25 @@ def test_runtime_check_is_read_only_and_validates_existing_key(
     assert before.decode() not in result.stdout + result.stderr
 
 
+def test_runtime_check_accepts_compose_omitted_create_host_path(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    key = vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    mount = next(
+        m
+        for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+        if m["target"] == "/opt/keycloak/vault"
+    )
+    mount["bind"].pop("create_host_path", None)
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_RUNTIME_CONFIG_OK" in result.stdout
+    assert after["mutations"] == after["dockerMutations"] == []
+    assert key.exists()
+
+
 def test_git_failure_inside_repository_cannot_bypass_exclusion(
     tmp_path: Path, compose_graphs
 ) -> None:
@@ -1267,6 +1293,7 @@ def test_git_failure_inside_repository_cannot_bypass_exclusion(
         ("tracked", "OTP_VAULT_GIT_BOUNDARY_REJECTED"),
         ("wide_acl", "OTP_VAULT_ACCESS_REJECTED"),
         ("mount", "OTP_VAULT_MOUNT_REJECTED"),
+        ("mount_create_host_path", "OTP_VAULT_MOUNT_REJECTED"),
         ("mount_missing", "OTP_VAULT_MOUNT_REJECTED"),
         ("foreign", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
         ("proof", "OTP_RUNTIME_GRAPH_REJECTED"),
@@ -1297,6 +1324,12 @@ def test_runtime_guards_reject_before_start(
             for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
             if m["target"] == "/opt/keycloak/vault"
         )["read_only"] = False
+    elif fault == "mount_create_host_path":
+        next(
+            m
+            for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+            if m["target"] == "/opt/keycloak/vault"
+        )["bind"]["create_host_path"] = True
     elif fault == "mount_missing":
         data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"] = [
             mount

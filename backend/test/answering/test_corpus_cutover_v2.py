@@ -21,9 +21,7 @@ def test_cutover_requires_complete_new_embeddings_for_entire_population() -> Non
 
 
 def test_cutover_rejects_rechunk_or_reused_or_mutated_v1_vectors() -> None:
-    result = evaluate_cutover(
-        (CorpusMember("a", "before", "after", True, False, False),)
-    )
+    result = evaluate_cutover((CorpusMember("a", "before", "after", True, False, False),))
 
     assert result.production_enablement_allowed is False
     assert result.invariant_violations == (

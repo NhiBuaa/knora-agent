@@ -9,18 +9,25 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "KNORA_OTP_RECOVERY_WINDOW")
 public class OtpRecoveryWindowEntity {
-    @Id @Column(name = "ID", length = 160)
+    @Id
+    @Column(name = "ID", length = 160)
     private String id;
+
     @Column(name = "REALM_ID", nullable = false, length = 64)
     private String realmId;
+
     @Column(name = "KIND", nullable = false, length = 16)
     private String kind;
+
     @Column(name = "ANCHOR_MS", nullable = false)
     private long anchorMs;
+
     @Column(name = "ATTEMPTS", nullable = false)
     private int attempts;
+
     @Column(name = "SENDS", nullable = false)
     private int sends;
+
     @Column(name = "LAST_SEND_MS", nullable = false)
     private long lastSendMs;
 }

@@ -70,6 +70,4 @@ def test_reference_resolver_fails_closed_on_unexpected_authoritative_read_error(
     resolver = PostgresObjectReferenceResolver(FailingSessionFactory())
 
     assert resolver.is_authoritatively_retained(workspace_id="w1", object_key="k1")
-    assert resolver.inconsistent_object_keys(
-        workspace_id="w1", observed_object_keys=set()
-    ) == ()
+    assert resolver.inconsistent_object_keys(workspace_id="w1", observed_object_keys=set()) == ()

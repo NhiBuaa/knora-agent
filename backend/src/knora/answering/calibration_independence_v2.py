@@ -64,17 +64,14 @@ def audit_calibration_independence(
             development_tokens = set(development.split())
             denominator = min(len(candidate_tokens), len(development_tokens))
             overlap = (
-                len(candidate_tokens & development_tokens) / denominator
-                if denominator
-                else 0.0
+                len(candidate_tokens & development_tokens) / denominator if denominator else 0.0
             )
             if overlap >= policy.minimum_normalized_token_overlap:
                 overlaps.append((item.item_id, index))
     review_valid = (
         semantic_review.calibration_sha256 == calibration_sha256
         and not semantic_review.reviewer_was_author
-        and semantic_review.reviewer_id
-        not in {item.author_id for item in calibration_items}
+        and semantic_review.reviewer_id not in {item.author_id for item in calibration_items}
         and not semantic_review.rephrase_or_derivation_found
     )
     return IndependenceAudit(

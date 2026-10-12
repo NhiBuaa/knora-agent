@@ -348,9 +348,7 @@ def test_execution_http_returns_closed_errors_and_current_sanitized_projection(
     response = client.post(
         f"/v1/workspaces/workspace-a/tool-proposals/proposal-a/{route}",
         headers={"X-API-Key": "proposal-key"},
-        json={"expected_revision": 1}
-        if route == "execute"
-        else {"expected_lease_generation": 1},
+        json={"expected_revision": 1} if route == "execute" else {"expected_lease_generation": 1},
     )
 
     expected_status = 502 if isinstance(result, (ExecutionFailed, ReconciledFailed)) else 409
@@ -449,9 +447,7 @@ def test_proposal_http_repeat_decision_returns_persisted_winner() -> None:
     proposal_id = created.json()["proposal_id"]
     route = f"/v1/workspaces/workspace-a/tool-proposals/{proposal_id}/approve"
 
-    first = client.post(
-        route, headers={"X-API-Key": "proposal-key"}, json={"expected_revision": 0}
-    )
+    first = client.post(route, headers={"X-API-Key": "proposal-key"}, json={"expected_revision": 0})
     repeat = client.post(
         route, headers={"X-API-Key": "proposal-key"}, json={"expected_revision": 0}
     )
@@ -664,9 +660,7 @@ def test_http_create_authorization_precedes_proposal_creation_without_lookup_or_
         ("description", "bad\x00description"),
     ],
 )
-def test_proposal_http_rejects_invalid_input_before_creation(
-    field: str, value: object
-) -> None:
+def test_proposal_http_rejects_invalid_input_before_creation(field: str, value: object) -> None:
     client = client_with()
     payload: dict[str, object] = proposal_payload()
     payload[field] = value
@@ -815,9 +809,7 @@ def test_unauthorized_decision_actor_cannot_enumerate_proposal_ids(
         ("reject", {"expected_revision": 0, "reason_code": "not_approved"}),
     ],
 )
-def test_proposal_decision_auth_and_absence_matrix(
-    route: str, body: dict[str, object]
-) -> None:
+def test_proposal_decision_auth_and_absence_matrix(route: str, body: dict[str, object]) -> None:
     client = client_with()
     path = f"/v1/workspaces/workspace-a/tool-proposals/absent/{route}"
 
@@ -926,8 +918,7 @@ def test_proposal_http_rejects_unknown_capability_and_reject_reason() -> None:
         json=proposal_payload(),
     )
     invalid_reason = client.post(
-        "/v1/workspaces/workspace-a/tool-proposals/"
-        f"{created.json()['proposal_id']}/reject",
+        f"/v1/workspaces/workspace-a/tool-proposals/{created.json()['proposal_id']}/reject",
         headers={"X-API-Key": "proposal-key"},
         json={"expected_revision": 0, "reason_code": "invented"},
     )

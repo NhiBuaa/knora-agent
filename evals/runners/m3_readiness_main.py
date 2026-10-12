@@ -254,41 +254,50 @@ def main() -> int:
         "KNORA_RETRIEVAL_CONFIGURATION_ID": args.retrieval_configuration,
     }
     if args.retrieval_configuration in {"retrieval-m3-vector-v2", "retrieval-m3-rrf-v2"}:
-        runtime_overrides["KNORA_VECTOR_MIN_SIMILARITY"] = str(
-            CALIBRATED_M3_VECTOR_MIN_SIMILARITY
-        )
+        runtime_overrides["KNORA_VECTOR_MIN_SIMILARITY"] = str(CALIBRATED_M3_VECTOR_MIN_SIMILARITY)
     topology = build_topology(args.project)
     compose_env = os.environ.copy()
-    compose_env.update({
-        "KNORA_DATABASE_URL": topology.database_url,
-        "KNORA_EVAL_POSTGRES_HOST_PORT": topology.database_url.rsplit(":", 1)[1].split("/", 1)[0],
-        "KNORA_EVAL_MINIO_HOST_PORT": topology.minio_endpoint.rsplit(":", 1)[1],
-        "KNORA_EVAL_API_HOST_PORT": topology.api_endpoint.split(":", 2)[2].split("/", 1)[0],
-        "KNORA_OBJECT_STORE_S3_ENDPOINT": topology.minio_endpoint,
-        **runtime_overrides,
-        **ephemeral_minio_runtime(),
-    })
+    compose_env.update(
+        {
+            "KNORA_DATABASE_URL": topology.database_url,
+            "KNORA_EVAL_POSTGRES_HOST_PORT": topology.database_url.rsplit(":", 1)[1].split("/", 1)[
+                0
+            ],
+            "KNORA_EVAL_MINIO_HOST_PORT": topology.minio_endpoint.rsplit(":", 1)[1],
+            "KNORA_EVAL_API_HOST_PORT": topology.api_endpoint.split(":", 2)[2].split("/", 1)[0],
+            "KNORA_OBJECT_STORE_S3_ENDPOINT": topology.minio_endpoint,
+            **runtime_overrides,
+            **ephemeral_minio_runtime(),
+        }
+    )
     subprocess.run(
         [
-            "docker", "compose", "-p", topology.project,
-            "up", "-d", "postgres", "minio", "minio-init",
+            "docker",
+            "compose",
+            "-p",
+            topology.project,
+            "up",
+            "-d",
+            "postgres",
+            "minio",
+            "minio-init",
         ],
         env=compose_env,
         check=True,
     )
     try:
-        previous_runtime = {
-            name: os.environ.get(name) for name in runtime_overrides
-        }
+        previous_runtime = {name: os.environ.get(name) for name in runtime_overrides}
         os.environ.update(runtime_overrides)
         _migration(topology)
         from knora.infrastructure.settings import Settings
+
         runtime_settings = Settings(_env_file=None, database_url=topology.database_url)
         providers = build_provider_selection(runtime_settings)
         engine = create_engine(topology.database_url, pool_pre_ping=True)
         session_factory = sessionmaker(bind=engine, expire_on_commit=False)
         ingestion = IngestDocument(
-            processor=DocumentProcessor(), embedding_provider=providers.embedding_provider,
+            processor=DocumentProcessor(),
+            embedding_provider=providers.embedding_provider,
             store=PostgresIngestionStore(session_factory),
         )
         gateway = ProductionEvaluationWorkspaceProvisioner(
@@ -308,8 +317,10 @@ def main() -> int:
             behavior=args.diagnostic_behavior,
         )
         binding = EvaluationEnvironmentBinding(
-            dataset_manifest_identity="m3-dataset-v1", corpus_manifest_identity=manifest.version,
-            chunk_set_provenance_id=manifest.chunk_set_id, workspace_id=manifest.workspace_id,
+            dataset_manifest_identity="m3-dataset-v1",
+            corpus_manifest_identity=manifest.version,
+            chunk_set_provenance_id=manifest.chunk_set_id,
+            workspace_id=manifest.workspace_id,
             retrieval_configuration_id=args.retrieval_configuration,
             embedding_configuration_id=providers.embedding_configuration.id,
         )
@@ -324,77 +335,100 @@ def main() -> int:
             ownership_store=SqliteEvaluationOwnershipStore(path=ownership_path)
         )
         from evals.runners.m3_bootstrap import EvaluationEnvironmentBootstrap
+
         bootstrap = EvaluationEnvironmentBootstrap(
-            workspace_provisioner=gateway, corpus_reader=reader, seal=seal,
+            workspace_provisioner=gateway,
+            corpus_reader=reader,
+            seal=seal,
             endpoint=topology.api_endpoint,
         )
         trace_reader = TraceFaultInjectingReader(reader, mode=args.trace_fault)
         try:
             evidence = run_readiness(
-                bootstrap=bootstrap, binding=binding, manifest=manifest, case=case,
-                trace_reader=trace_reader, seal=seal,
-                post_question=ResponseFaultInjectingPost(
-                    httpx.post, mode=args.response_fault
-                ),
+                bootstrap=bootstrap,
+                binding=binding,
+                manifest=manifest,
+                case=case,
+                trace_reader=trace_reader,
+                seal=seal,
+                post_question=ResponseFaultInjectingPost(httpx.post, mode=args.response_fault),
                 launcher=ProductionApiProcessLauncher(
-                command=(sys.executable, "-m", "uvicorn", "knora.main:app", "--host", "127.0.0.1",
-                         "--port", topology.api_endpoint.rsplit(":", 1)[1].split("/", 1)[0]),
-                environment={
-                    "PYTHONPATH": current_source_pythonpath(),
-                    "KNORA_DATABASE_URL": topology.database_url,
-                    "KNORA_OBJECT_STORE_BACKEND": "s3_compatible",
-                    "KNORA_OBJECT_STORE_S3_ENDPOINT": topology.minio_endpoint,
-                    "KNORA_OBJECT_STORE_S3_BUCKET": "knora",
-                    "KNORA_CANONICAL_MINIO_ACCESS_KEY": compose_env[
-                        "KNORA_CANONICAL_MINIO_ACCESS_KEY"
-                    ],
-                    "KNORA_CANONICAL_MINIO_SECRET_KEY": compose_env[
-                        "KNORA_CANONICAL_MINIO_SECRET_KEY"
-                    ],
-                    "KNORA_OBJECT_STORE_S3_ACCESS_KEY": compose_env[
-                        "KNORA_CANONICAL_MINIO_ACCESS_KEY"
-                    ],
-                    "KNORA_OBJECT_STORE_S3_SECRET_KEY": compose_env[
-                        "KNORA_CANONICAL_MINIO_SECRET_KEY"
-                    ],
-                    "KNORA_RETRIEVAL_CONFIGURATION_ID": "retrieval-m3-rrf-v1",
-                    **runtime_overrides,
-                },
+                    command=(
+                        sys.executable,
+                        "-m",
+                        "uvicorn",
+                        "knora.main:app",
+                        "--host",
+                        "127.0.0.1",
+                        "--port",
+                        topology.api_endpoint.rsplit(":", 1)[1].split("/", 1)[0],
+                    ),
+                    environment={
+                        "PYTHONPATH": current_source_pythonpath(),
+                        "KNORA_DATABASE_URL": topology.database_url,
+                        "KNORA_OBJECT_STORE_BACKEND": "s3_compatible",
+                        "KNORA_OBJECT_STORE_S3_ENDPOINT": topology.minio_endpoint,
+                        "KNORA_OBJECT_STORE_S3_BUCKET": "knora",
+                        "KNORA_CANONICAL_MINIO_ACCESS_KEY": compose_env[
+                            "KNORA_CANONICAL_MINIO_ACCESS_KEY"
+                        ],
+                        "KNORA_CANONICAL_MINIO_SECRET_KEY": compose_env[
+                            "KNORA_CANONICAL_MINIO_SECRET_KEY"
+                        ],
+                        "KNORA_OBJECT_STORE_S3_ACCESS_KEY": compose_env[
+                            "KNORA_CANONICAL_MINIO_ACCESS_KEY"
+                        ],
+                        "KNORA_OBJECT_STORE_S3_SECRET_KEY": compose_env[
+                            "KNORA_CANONICAL_MINIO_SECRET_KEY"
+                        ],
+                        "KNORA_RETRIEVAL_CONFIGURATION_ID": "retrieval-m3-rrf-v1",
+                        **runtime_overrides,
+                    },
                 ),
             )
         except ReadinessFailure as error:
             if args.trace_fault == "none" and args.response_fault == "none":
                 raise
-            print(json.dumps({
-                "status": "EXPECTED_OBSERVATION_FAILURE",
-                "trace_fault": args.trace_fault,
-                "response_fault": args.response_fault,
-                "phase": error.phase,
-                "reason": error.reason,
-            }, ensure_ascii=True))
+            print(
+                json.dumps(
+                    {
+                        "status": "EXPECTED_OBSERVATION_FAILURE",
+                        "trace_fault": args.trace_fault,
+                        "response_fault": args.response_fault,
+                        "phase": error.phase,
+                        "reason": error.reason,
+                    },
+                    ensure_ascii=True,
+                )
+            )
             return 0
-        print(json.dumps({
-            "phases": evidence.phases,
-            "workspace_id": evidence.workspace_id,
-            "trace_id": evidence.trace_id,
-            "diagnostic_case_id": case.id,
-            "candidate_count": evidence.candidate_count,
-            "retrieval_configuration_id": evidence.retrieval_configuration_id,
-            "source_bindings_verified": evidence.source_bindings_verified,
-            "retrieval_latency_ms": evidence.retrieval_latency_ms,
-            "end_to_end_latency_ms": evidence.end_to_end_latency_ms,
-            "candidate_triples": evidence.candidate_triples,
-            "citation_matrix": evidence.citation_matrix,
-            "semantic_input": evidence.semantic_input,
-            "retrieval_provenance": evidence.retrieval_provenance,
-            "active_corpus": evidence.active_corpus,
-            "candidate_decisions": evidence.candidate_decisions,
-            "branch_observations": evidence.branch_observations,
-            "decision": evidence.decision,
-            "answer": evidence.answer,
-            "refusal_reason": evidence.refusal_reason,
-            "parsed_markers": evidence.parsed_markers,
-        }, ensure_ascii=True))
+        print(
+            json.dumps(
+                {
+                    "phases": evidence.phases,
+                    "workspace_id": evidence.workspace_id,
+                    "trace_id": evidence.trace_id,
+                    "diagnostic_case_id": case.id,
+                    "candidate_count": evidence.candidate_count,
+                    "retrieval_configuration_id": evidence.retrieval_configuration_id,
+                    "source_bindings_verified": evidence.source_bindings_verified,
+                    "retrieval_latency_ms": evidence.retrieval_latency_ms,
+                    "end_to_end_latency_ms": evidence.end_to_end_latency_ms,
+                    "candidate_triples": evidence.candidate_triples,
+                    "citation_matrix": evidence.citation_matrix,
+                    "semantic_input": evidence.semantic_input,
+                    "retrieval_provenance": evidence.retrieval_provenance,
+                    "active_corpus": evidence.active_corpus,
+                    "candidate_decisions": evidence.candidate_decisions,
+                    "branch_observations": evidence.branch_observations,
+                    "decision": evidence.decision,
+                    "answer": evidence.answer,
+                    "refusal_reason": evidence.refusal_reason,
+                    "parsed_markers": evidence.parsed_markers,
+                },
+                ensure_ascii=True,
+            )
+        )
         return 0
     finally:
         for name, value in previous_runtime.items():

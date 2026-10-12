@@ -181,7 +181,14 @@ def test_only_two_compose_entry_points_and_production_excludes_test_services() -
 
 def test_default_dev_graph_does_not_start_figma_or_proof_services() -> None:
     graph = compose_graph()
-    assert set(graph["services"]) == {"postgres", "minio", "minio-init", "api", "keycloak-dev"}
+    assert set(graph["services"]) == {
+        "postgres",
+        "minio",
+        "minio-init",
+        "api",
+        "keycloak-dev",
+        "keycloak-dev-db",
+    }
     assert graph["services"]["api"]["environment"]["KNORA_M5_E2E_FAULTS_ENABLED"] == "false"
     assert "KNORA_STORAGE_PROOF" not in json.dumps(graph)
 

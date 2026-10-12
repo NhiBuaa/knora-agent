@@ -146,9 +146,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None
     assert len(generation_requests) == 1
     with SessionFactory() as session:
         trace = session.scalar(
-            select(QuestionTraceTable).where(
-                QuestionTraceTable.id == answered.json()["trace_id"]
-            )
+            select(QuestionTraceTable).where(QuestionTraceTable.id == answered.json()["trace_id"])
         )
         assert trace is not None
         assert trace.embedding_configuration_id == configuration.id

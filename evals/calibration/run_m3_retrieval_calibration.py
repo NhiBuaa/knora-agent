@@ -19,8 +19,7 @@ from knora.providers.gemini.embedding import GeminiEmbeddingProvider
 
 def canonical_json(value: Any) -> bytes:
     return (
-        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\n"
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode()
 
 
@@ -49,8 +48,7 @@ def load_inputs(base: Path) -> tuple[list[dict[str, str]], list[dict[str, Any]]]
                 }
             )
     cases = [
-        json.loads(line)
-        for line in (base / "cases.jsonl").read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in (base / "cases.jsonl").read_text(encoding="utf-8").splitlines()
     ]
     return sorted(documents, key=lambda item: item["chunk_id"]), cases
 
@@ -66,9 +64,7 @@ def metrics(
         gold = set(case.gold_chunk_ids)
         ranked_gold = [
             score
-            for chunk_id, score in zip(
-                case.top_chunk_ids, case.top_similarities, strict=True
-            )
+            for chunk_id, score in zip(case.top_chunk_ids, case.top_similarities, strict=True)
             if chunk_id in gold
         ]
         recalls.append(len(ranked_gold) / len(gold))
@@ -79,11 +75,7 @@ def metrics(
     p10_index = max(0, ceil(0.10 * len(ordered_first_gold)) - 1)
     hard_max = max(hard_negative_similarities, default=float("-inf"))
     boundaries = sorted(
-        {
-            round(score, 12)
-            for case in snapshot_cases
-            for score in case.top_similarities
-        },
+        {round(score, 12) for case in snapshot_cases for score in case.top_similarities},
         reverse=True,
     )
     max_observed = max(boundaries)
@@ -139,18 +131,14 @@ def execute(base: Path, run_manifest_path: Path, output_path: Path) -> None:
         snapshot_cases: list[CalibrationCaseObservation] = []
         hard_negative_similarities: list[float] = []
         for case in cases:
-            query_vector = provider.embed_queries(
-                [case["question"]], configuration
-            ).vectors[0]
+            query_vector = provider.embed_queries([case["question"]], configuration).vectors[0]
             ranked = sorted(
                 (
                     {
                         "chunk_id": document["chunk_id"],
                         "similarity": cosine(query_vector, vector),
                     }
-                    for document, vector in zip(
-                        documents, document_batch.vectors, strict=True
-                    )
+                    for document, vector in zip(documents, document_batch.vectors, strict=True)
                 ),
                 key=lambda item: (-item["similarity"], item["chunk_id"]),
             )[:8]
@@ -178,9 +166,7 @@ def execute(base: Path, run_manifest_path: Path, output_path: Path) -> None:
                     )
                 )
             else:
-                hard_negative_similarities.extend(
-                    item["similarity"] for item in ranked
-                )
+                hard_negative_similarities.extend(item["similarity"] for item in ranked)
     finally:
         provider.close()
         api_key = ""
@@ -214,9 +200,7 @@ def execute(base: Path, run_manifest_path: Path, output_path: Path) -> None:
         "first_run_manifest_sha256": sha256(run_manifest_bytes),
         "observed_table_sha256": observed_digest,
         "observed_table": observed_table,
-        "metrics_and_boundaries": metrics(
-            snapshot_cases, hard_negative_similarities
-        ),
+        "metrics_and_boundaries": metrics(snapshot_cases, hard_negative_similarities),
         "selection_repeated_on_same_table": True,
         "calibration_status": first.status.value,
         "gate_results": {

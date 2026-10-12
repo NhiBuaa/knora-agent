@@ -49,7 +49,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${KNORA_CANONICAL_MINIO_SECRET_KEY}
-    command: '"mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc
+    command:
+      '"mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc
       mb --ignore-existing local/knora"'
   api:
     build:
@@ -161,7 +162,8 @@ services:
     environment:
       MINIO_ROOT_USER: ${KNORA_PROVIDER_TEST_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${KNORA_PROVIDER_TEST_SECRET_KEY}
-    command: '"mc alias set provider http://s3-provider-test:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}
+    command:
+      '"mc alias set provider http://s3-provider-test:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}
       && mc mb --ignore-existing provider/knora-acceptance"'
     profiles:
       - provider-test
@@ -203,7 +205,8 @@ services:
       - figma
   figma-keycloak:
     image: knora-figma-otp-runtime:26.3.3
-    command: ${KNORA_FIGMA_KEYCLOAK_COMMAND:-start-dev --import-realm --spi-theme--cache-themes=false
+    command:
+      ${KNORA_FIGMA_KEYCLOAK_COMMAND:-start-dev --import-realm --spi-theme--cache-themes=false
       --spi-theme--cache-templates=false --spi-theme--static-max-age=-1}
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: figma-test-admin

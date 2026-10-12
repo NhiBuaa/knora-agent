@@ -193,9 +193,7 @@ def test_tc03d_transient_object_store_failure_is_retryable_and_provider_is_not_c
     ("error", "expected_kind", "expected_code"),
     [
         (
-            PdfExtractionError(
-                "PDF_EXTRACTOR_UNAVAILABLE", reason="CHILD_CRASH", retryable=True
-            ),
+            PdfExtractionError("PDF_EXTRACTOR_UNAVAILABLE", reason="CHILD_CRASH", retryable=True),
             HandlerFailureKindV1.WORKER_UNEXPECTED,
             "PDF_EXTRACTOR_UNAVAILABLE",
         ),
@@ -253,9 +251,7 @@ def test_tc03j_to_l_vector_identity_mismatch_is_terminal_before_persistence(
     metadata = pdf_metadata()
     configuration = EmbeddingConfiguration.milestone_one_local()
     wrong_success = pdf_success(
-        PdfSubmissionConfiguration.milestone_two(
-            embedding_configuration=configuration
-        ),
+        PdfSubmissionConfiguration.milestone_two(embedding_configuration=configuration),
         **success_kwargs,
     )
     provider = AcceptanceEmbeddingProvider(
@@ -276,9 +272,7 @@ def test_tc03j_provider_vector_count_mismatch_is_terminal_before_persistence() -
     metadata = pdf_metadata()
     configuration = EmbeddingConfiguration.milestone_one_local()
     expected = pdf_success(
-        PdfSubmissionConfiguration.milestone_two(
-            embedding_configuration=configuration
-        ),
+        PdfSubmissionConfiguration.milestone_two(embedding_configuration=configuration),
     )
     provider = AcceptanceEmbeddingProvider(
         batch=EmbeddingBatch(

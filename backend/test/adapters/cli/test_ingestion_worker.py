@@ -108,11 +108,14 @@ def test_cli_worker_claims_pdf_job_and_activates_embedding_set(tmp_path) -> None
         document_id=submission.document_id,
         principal=principal,
     )
-    assert reader.read_document(
-        workspace_id=workspace_id,
-        document_id=submission.document_id,
-        principal=principal,
-    ).reprocess_supported is False
+    assert (
+        reader.read_document(
+            workspace_id=workspace_id,
+            document_id=submission.document_id,
+            principal=principal,
+        ).reprocess_supported
+        is False
+    )
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows Job Object preflight")

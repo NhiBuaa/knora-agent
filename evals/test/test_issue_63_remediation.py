@@ -494,9 +494,12 @@ def test_category_case_ids_require_nonempty_strings() -> None:
 def test_paired_provenance_rejects_mutation_outside_declared_configuration_fields() -> None:
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2")
-    assert compare_paired_reports(
-        vector, hybrid, expected_case_ids=("case-a", "case-b")
-    )["provenance_match"] is True
+    assert (
+        compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))[
+            "provenance_match"
+        ]
+        is True
+    )
 
     tampered = deepcopy(hybrid)
     tampered["provenance"]["scorer_model"] = "other-judge"
@@ -572,9 +575,7 @@ def test_paired_provenance_rejects_duplicate_source_bindings() -> None:
     hybrid = _modern_report("retrieval-m3-rrf-v2")
     for report in (vector, hybrid):
         for observation in report["observations"]:
-            observation["source_bindings"].append(
-                deepcopy(observation["source_bindings"][0])
-            )
+            observation["source_bindings"].append(deepcopy(observation["source_bindings"][0]))
 
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
         compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
@@ -774,15 +775,16 @@ def test_exact_rational_selection_uses_unrounded_metric_contract_values(tmp_path
         "vector": vector["provenance"],
         "hybrid": hybrid["provenance"],
     }
-    assert result["environment_binding_digest"] == hybrid["binding_v3"][
-        "environment_binding_digest"
-    ]
-    assert result["selected_improvement"]["comparable_provenance"] == result[
-        "comparable_provenance"
-    ]
-    assert result["selected_improvement"]["environment_binding_digest"] == result[
-        "environment_binding_digest"
-    ]
+    assert (
+        result["environment_binding_digest"] == hybrid["binding_v3"]["environment_binding_digest"]
+    )
+    assert (
+        result["selected_improvement"]["comparable_provenance"] == result["comparable_provenance"]
+    )
+    assert (
+        result["selected_improvement"]["environment_binding_digest"]
+        == result["environment_binding_digest"]
+    )
     assert result["binding_attestation"]["vector"]["seal_id"] == "vector-seal"
 
     vector["retrieval"]["recall_at_8"] = 0.999999
@@ -935,7 +937,7 @@ def test_taxonomy_stage_preconditions_and_optional_categories_are_closed() -> No
                     "gold_evidence_present": True,
                     "eligible_gold_evidence": False,
                     "miss_confirmed": True,
-                }
+                },
             },
         },
         contributing_enums=("LEXICAL_MISS",),
@@ -966,8 +968,9 @@ def test_taxonomy_stage_preconditions_and_optional_categories_are_closed() -> No
         )
 
 
-def test_authority_validation_failure_is_not_policy_no_claim_and_caller_override_is_rejected(
-) -> None:
+def test_authority_validation_failure_is_not_policy_no_claim_and_caller_override_is_rejected() -> (
+    None
+):
     vector = _modern_report("retrieval-m3-vector-v2")
     hybrid = _modern_report("retrieval-m3-rrf-v2")
     pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
@@ -1042,8 +1045,7 @@ def test_canonical_production_entry_point_validates_approved_chain(tmp_path: Pat
         repository_root=repository_root,
         sealed_archive_path=repository_root
         / ".agents/review/m3-improvement-claim-v1-approval-sealed-v2.tar",
-        closure_path=repository_root
-        / ".agents/review/m3-remediation-v4-review-closure-final.json",
+        closure_path=repository_root / ".agents/review/m3-remediation-v4-review-closure-final.json",
         binding_attestation=binding_attestation,
     )
 

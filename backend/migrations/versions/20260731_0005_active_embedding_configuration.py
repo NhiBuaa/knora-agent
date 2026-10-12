@@ -35,8 +35,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         "ck_documents_active_embedding_pair",
         "documents",
-        "(active_embedding_set_id IS NULL) = "
-        "(active_embedding_configuration_id IS NULL)",
+        "(active_embedding_set_id IS NULL) = (active_embedding_configuration_id IS NULL)",
     )
     op.execute(
         """

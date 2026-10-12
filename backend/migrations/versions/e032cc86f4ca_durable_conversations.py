@@ -134,12 +134,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "fk_question_traces_workspace_turn", "question_traces", type_="foreignkey"
-    )
-    op.drop_constraint(
-        "uq_question_traces_conversation_turn_id", "question_traces", type_="unique"
-    )
+    op.drop_constraint("fk_question_traces_workspace_turn", "question_traces", type_="foreignkey")
+    op.drop_constraint("uq_question_traces_conversation_turn_id", "question_traces", type_="unique")
     op.drop_column("question_traces", "conversation_turn_id")
     op.drop_table("conversation_turns")
     op.drop_index(

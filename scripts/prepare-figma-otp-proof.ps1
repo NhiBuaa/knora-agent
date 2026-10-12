@@ -1,4 +1,4 @@
-param([switch]$CheckConfigurationOnly, [switch]$CommitReplyFault)
+param([switch]$CheckConfigurationOnly, [switch]$CommitReplyFault, [scriptblock]$WithProof)
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
@@ -110,6 +110,7 @@ try {
         if (-not $ready) { throw 'OTP_NODE_READINESS_FAILED' }
     }
     Write-Output 'OTP_PROOF_NODES_READY'
+    if ($WithProof) { & $WithProof }
 } finally {
     Remove-Item Env:KNORA_STORAGE_PROOF_SECRET -ErrorAction SilentlyContinue
     if ($CommitReplyFault) { Remove-Item Env:KNORA_STORAGE_PROOF_DB_URL -ErrorAction SilentlyContinue }

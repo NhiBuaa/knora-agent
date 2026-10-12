@@ -44,9 +44,7 @@ def test_gemini_embedding_rejects_wrong_response_dimension(size: int) -> None:
         api_key="runtime-only",
         client=httpx.Client(
             transport=httpx.MockTransport(
-                lambda request: httpx.Response(
-                    200, json={"embedding": {"values": [0.0] * size}}
-                )
+                lambda request: httpx.Response(200, json={"embedding": {"values": [0.0] * size}})
             )
         ),
     )

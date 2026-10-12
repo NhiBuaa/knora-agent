@@ -34,9 +34,7 @@ class PostgresReembeddingStore(ReembeddingStore):
         self._session_factory = session_factory
         self._authority_source_keys = tuple(sorted(authority_source_keys))
 
-    def authority_bound_population(
-        self, *, workspace_id: str
-    ) -> tuple[CorpusChunkSet, ...]:
+    def authority_bound_population(self, *, workspace_id: str) -> tuple[CorpusChunkSet, ...]:
         statement = (
             select(DocumentTable, ChunkSetTable, ChunkTable)
             .join(
@@ -119,9 +117,7 @@ class PostgresReembeddingStore(ReembeddingStore):
                 )
             return embedding_set_id
 
-    def activate_embedding_set(
-        self, *, member: CorpusChunkSet, embedding_set_id: str
-    ) -> None:
+    def activate_embedding_set(self, *, member: CorpusChunkSet, embedding_set_id: str) -> None:
         with self._session_factory.begin() as session:
             document = session.get(DocumentTable, member.document_id, with_for_update=True)
             embedding_set = session.get(EmbeddingSetTable, embedding_set_id)
@@ -143,9 +139,7 @@ class PostgresReembeddingStore(ReembeddingStore):
                 )
             )
 
-    def enable_v2_retrieval(
-        self, *, workspace_id: str, population_digest: str
-    ) -> None:
+    def enable_v2_retrieval(self, *, workspace_id: str, population_digest: str) -> None:
         with self._session_factory.begin() as session:
             active = session.execute(
                 select(DocumentTable.source_key, EmbeddingSetTable.chunk_set_id)
@@ -156,8 +150,7 @@ class PostgresReembeddingStore(ReembeddingStore):
                 .where(
                     DocumentTable.workspace_id == workspace_id,
                     DocumentTable.source_key.in_(self._authority_source_keys),
-                    EmbeddingSetTable.embedding_configuration_id
-                    == "embedding-gemini-m1-v1",
+                    EmbeddingSetTable.embedding_configuration_id == "embedding-gemini-m1-v1",
                     EmbeddingSetTable.status == "completed",
                 )
             ).all()

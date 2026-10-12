@@ -75,9 +75,7 @@ def select_calibrated_threshold(
     first_gold_scores = [
         max(
             score
-            for chunk_id, score in zip(
-                case.top_chunk_ids, case.top_similarities, strict=True
-            )
+            for chunk_id, score in zip(case.top_chunk_ids, case.top_similarities, strict=True)
             if chunk_id in case.gold_chunk_ids
         )
         for case in snapshot.cases

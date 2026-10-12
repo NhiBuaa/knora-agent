@@ -33,9 +33,7 @@ def upgrade() -> None:
             sa.ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"),
         ),
     )
-    op.add_column(
-        "ingestion_job_attempts", sa.Column("terminal_outcome_code", sa.String(100))
-    )
+    op.add_column("ingestion_job_attempts", sa.Column("terminal_outcome_code", sa.String(100)))
     op.add_column(
         "ingestion_job_attempts",
         sa.Column(

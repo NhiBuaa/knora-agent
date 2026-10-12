@@ -8,6 +8,7 @@ import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -15,25 +16,54 @@ import javax.crypto.spec.SecretKeySpec;
 public final class OtpChallengeService {
     private static final int CODE_TTL_SECONDS = 300;
     private static final long CODE_TTL_MS = CODE_TTL_SECONDS * 1000L;
-    public record Recipient(String id, String email, boolean enabled) { }
-    public record RenderResult(String messageKey, OtpChallengeStore.ChallengeReference reference,
-                               int retryAfterSeconds, long displayExpiresAt, String verifiedUserId) { }
+
+    public record Recipient(String id, String email, boolean enabled) {}
+
+    public record RenderResult(
+            String messageKey,
+            OtpChallengeStore.ChallengeReference reference,
+            int retryAfterSeconds,
+            long displayExpiresAt,
+            String verifiedUserId) {}
+
     public interface AccountLookup {
         Recipient byEmail(String email);
+
         Recipient byId(String id);
     }
-    @FunctionalInterface public interface CodeGenerator { String generate(); }
-    @FunctionalInterface public interface MailSender { void send(Recipient recipient, String code); }
-    @FunctionalInterface public interface KeyedDigest {
-        String code(OtpChallengeStore.ChallengeScope scope, OtpChallengeStore.ChallengeReference reference,
-                    String account, String code);
+
+    @FunctionalInterface
+    public interface CodeGenerator {
+        String generate();
+    }
+
+    @FunctionalInterface
+    public interface MailSender {
+        void send(Recipient recipient, String code);
+    }
+
+    @FunctionalInterface
+    public interface KeyedDigest {
+        String code(
+                OtpChallengeStore.ChallengeScope scope,
+                OtpChallengeStore.ChallengeReference reference,
+                String account,
+                String code);
+
         default String account(String realm, String identity) {
-            return code(new OtpChallengeStore.ChallengeScope(realm, "account-budget", "", "", ""),
-                    new OtpChallengeStore.ChallengeReference("account-budget", 0), identity, "");
+            return code(
+                    new OtpChallengeStore.ChallengeScope(realm, "account-budget", "", "", ""),
+                    new OtpChallengeStore.ChallengeReference("account-budget", 0),
+                    identity,
+                    "");
         }
+
         default String email(String realm, String email) {
-            return code(new OtpChallengeStore.ChallengeScope(realm, "email-scope", "", "", ""),
-                    new OtpChallengeStore.ChallengeReference("email-scope", 0), normalize(email), "");
+            return code(
+                    new OtpChallengeStore.ChallengeScope(realm, "email-scope", "", "", ""),
+                    new OtpChallengeStore.ChallengeReference("email-scope", 0),
+                    normalize(email),
+                    "");
         }
     }
 
@@ -47,9 +77,16 @@ public final class OtpChallengeService {
     private final String trustedIpDigest;
     private final String currentEmail;
 
-    public OtpChallengeService(OtpChallengeStore store, AccountLookup accounts, CodeGenerator generator,
-            KeyedDigest digest, MailSender mail, Clock clock, Supplier<String> ids,
-            String trustedIpDigest, String currentEmail) {
+    public OtpChallengeService(
+            OtpChallengeStore store,
+            AccountLookup accounts,
+            CodeGenerator generator,
+            KeyedDigest digest,
+            MailSender mail,
+            Clock clock,
+            Supplier<String> ids,
+            String trustedIpDigest,
+            String currentEmail) {
         this.store = Objects.requireNonNull(store);
         this.accounts = Objects.requireNonNull(accounts);
         this.generator = Objects.requireNonNull(generator);
@@ -62,61 +99,106 @@ public final class OtpChallengeService {
     }
 
     public RenderResult request(OtpChallengeStore.ChallengeScope scope, String email) {
-        return send(scope, normalize(email), new OtpChallengeStore.ChallengeReference(ids.get(), 1), null);
+        return send(
+                scope,
+                normalize(email),
+                new OtpChallengeStore.ChallengeReference(ids.get(), 1),
+                null);
     }
 
-    public RenderResult resend(OtpChallengeStore.ChallengeScope scope, OtpChallengeStore.ChallengeReference previous) {
-        if (previous == null || previous.generation() < 1 || previous.generation() == Long.MAX_VALUE)
+    public RenderResult resend(
+            OtpChallengeStore.ChallengeScope scope, OtpChallengeStore.ChallengeReference previous) {
+        if (previous == null
+                || previous.generation() < 1
+                || previous.generation() == Long.MAX_VALUE)
             return generic(previous, CODE_TTL_SECONDS);
-        return send(scope, currentEmail,
-                new OtpChallengeStore.ChallengeReference(previous.id(), previous.generation() + 1), previous);
+        return send(
+                scope,
+                currentEmail,
+                new OtpChallengeStore.ChallengeReference(previous.id(), previous.generation() + 1),
+                previous);
     }
 
-    private RenderResult send(OtpChallengeStore.ChallengeScope scope, String email,
-            OtpChallengeStore.ChallengeReference reference, OtpChallengeStore.ChallengeReference previous) {
+    private RenderResult send(
+            OtpChallengeStore.ChallengeScope scope,
+            String email,
+            OtpChallengeStore.ChallengeReference reference,
+            OtpChallengeStore.ChallengeReference previous) {
         try {
             Recipient recipient = accounts.byEmail(email);
             if (recipient != null && !normalize(recipient.email()).equals(email)) recipient = null;
-            // Budget identity for an existing account is stable even when its email or enabled state changes.
+            // Budget identity for an existing account is stable even when its email or enabled
+            // state
+            // changes.
             String identity = recipient == null ? "decoy:" + email : "user:" + recipient.id();
             String accountDigest = digest.account(scope.realmId(), identity);
             String code = generator.generate();
-            if (code == null || !code.matches("[0-9]{6}")) return generic(reference, CODE_TTL_SECONDS);
+            if (code == null || !code.matches("[0-9]{6}"))
+                return generic(reference, CODE_TTL_SECONDS);
             boolean deliverable = recipient != null && recipient.enabled();
-            var request = new OtpChallengeStore.SendRequest(scope, reference, previous, accountDigest,
-                    trustedIpDigest, deliverable ? recipient.id() : null, digest.code(scope, reference, identity, code));
+            var request =
+                    new OtpChallengeStore.SendRequest(
+                            scope,
+                            reference,
+                            previous,
+                            accountDigest,
+                            trustedIpDigest,
+                            deliverable ? recipient.id() : null,
+                            digest.code(scope, reference, identity, code));
             var reserved = store.reserve(request);
-            int retry = reserved.retryAfterSeconds() > 0 ? reserved.retryAfterSeconds() : CODE_TTL_SECONDS;
-            long expiry = reserved.expiresAtMs() > 0 ? reserved.expiresAtMs() : clock.millis() + CODE_TTL_MS;
+            int retry =
+                    reserved.retryAfterSeconds() > 0
+                            ? reserved.retryAfterSeconds()
+                            : CODE_TTL_SECONDS;
+            long expiry =
+                    reserved.expiresAtMs() > 0
+                            ? reserved.expiresAtMs()
+                            : clock.millis() + CODE_TTL_MS;
             if (reserved.outcome() == OtpChallengeStore.SendOutcome.SENT && deliverable) {
-                try { mail.send(recipient, code); }
-                catch (RuntimeException deliveryFailure) { return generic(reference, retry, expiry); }
+                try {
+                    mail.send(recipient, code);
+                } catch (RuntimeException deliveryFailure) {
+                    return generic(reference, retry, expiry);
+                }
                 String activationId = java.util.UUID.randomUUID().toString();
                 var activation = store.activate(scope, reference, activationId);
                 if (activation == OtpChallengeStore.ActivationOutcome.UNAVAILABLE)
                     activation = store.reconcileActivation(scope, reference, activationId);
-                if (activation != OtpChallengeStore.ActivationOutcome.ACTIVE) return generic(reference, retry, expiry);
+                if (activation != OtpChallengeStore.ActivationOutcome.ACTIVE)
+                    return generic(reference, retry, expiry);
             }
-            // No reserve success is inferred from delivery, exception, timeout or an ambiguous outcome.
-            return generic(reserved.outcome() == OtpChallengeStore.SendOutcome.SENT ? reference : previous,
-                    retry, expiry);
-        } catch (RuntimeException unavailable) { return generic(previous, CODE_TTL_SECONDS); }
+            // No reserve success is inferred from delivery, exception, timeout or an ambiguous
+            // outcome.
+            return generic(
+                    reserved.outcome() == OtpChallengeStore.SendOutcome.SENT ? reference : previous,
+                    retry,
+                    expiry);
+        } catch (RuntimeException unavailable) {
+            return generic(previous, CODE_TTL_SECONDS);
+        }
     }
 
-    public RenderResult verify(OtpChallengeStore.ChallengeScope scope,
-            OtpChallengeStore.ChallengeReference reference, String code) {
+    public RenderResult verify(
+            OtpChallengeStore.ChallengeScope scope,
+            OtpChallengeStore.ChallengeReference reference,
+            String code) {
         try {
             Recipient current = accounts.byEmail(currentEmail);
             String identity = current == null ? "decoy:" + currentEmail : "user:" + current.id();
-            String submitted = code != null && code.matches("[0-9]{6}")
-                    ? digest.code(scope, reference, identity, code) : "invalid-format";
+            String submitted =
+                    code != null && code.matches("[0-9]{6}")
+                            ? digest.code(scope, reference, identity, code)
+                            : "invalid-format";
             var verified = store.verify(scope, reference, submitted);
-            if (verified.outcome() == OtpChallengeStore.VerifyOutcome.VERIFIED && verified.verifiedUserId() != null) {
+            if (verified.outcome() == OtpChallengeStore.VerifyOutcome.VERIFIED
+                    && verified.verifiedUserId() != null) {
                 Recipient user = accounts.byId(verified.verifiedUserId());
                 if (user != null && user.enabled() && currentEmail.equals(normalize(user.email())))
                     return new RenderResult("knoraOtpVerified", reference, 0, 0, user.id());
             }
-        } catch (RuntimeException unavailable) { /* Uniform fail-closed render; no sensitive logging. */ }
+        } catch (RuntimeException unavailable) {
+            /* Uniform fail-closed render; no sensitive logging. */
+        }
         return new RenderResult("knoraOtpInvalid", reference, 0, 0, null);
     }
 
@@ -124,7 +206,8 @@ public final class OtpChallengeService {
         return generic(reference, retry, clock.millis() + CODE_TTL_MS);
     }
 
-    private RenderResult generic(OtpChallengeStore.ChallengeReference reference, int retry, long expiry) {
+    private RenderResult generic(
+            OtpChallengeStore.ChallengeReference reference, int retry, long expiry) {
         return new RenderResult("knoraOtpGenericSent", reference, retry, expiry, null);
     }
 
@@ -134,15 +217,26 @@ public final class OtpChallengeService {
     }
 
     public static KeyedDigest hmacSha256(byte[] secret) {
-        if (secret == null || secret.length < 32) throw new IllegalArgumentException("Recovery digest key must have32bytes");
+        if (secret == null || secret.length < 32)
+            throw new IllegalArgumentException("Recovery digest key must have32bytes");
         byte[] key = secret.clone();
         return (scope, reference, account, code) -> {
             try {
                 Mac mac = Mac.getInstance("HmacSHA256");
                 mac.init(new SecretKeySpec(key, "HmacSHA256"));
-                for (String value : new String[] {"knora-email-otp-v1", scope.realmId(), scope.clientId(),
-                        scope.authSessionId(), scope.tabId(), scope.emailDigest(), reference.id(),
-                        Long.toString(reference.generation()), account, code}) {
+                for (String value :
+                        new String[] {
+                            "knora-email-otp-v1",
+                            scope.realmId(),
+                            scope.clientId(),
+                            scope.authSessionId(),
+                            scope.tabId(),
+                            scope.emailDigest(),
+                            reference.id(),
+                            Long.toString(reference.generation()),
+                            account,
+                            code
+                        }) {
                     byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
                     mac.update(ByteBuffer.allocate(4).putInt(bytes.length).array());
                     mac.update(bytes);

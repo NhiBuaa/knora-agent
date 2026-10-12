@@ -15,16 +15,16 @@ def test_production_authority_binds_the_independent_m3_review_chain() -> None:
         repository_root=repository_root,
         sealed_archive_path=repository_root
         / ".agents/review/m3-improvement-claim-v1-approval-sealed-v2.tar",
-        closure_path=repository_root
-        / ".agents/review/m3-remediation-v4-review-closure-final.json",
+        closure_path=repository_root / ".agents/review/m3-remediation-v4-review-closure-final.json",
     )
 
     assert result["status"] == "APPROVED_EFFECTIVE"
     authority = result["authority"]
     assert authority.external_reviewer_id == "codex-agent:/root/m3_final_package_review_v4"
     closure = json.loads(
-        (repository_root / ".agents/review/m3-remediation-v4-review-closure-final.json")
-        .read_text(encoding="utf-8")
+        (repository_root / ".agents/review/m3-remediation-v4-review-closure-final.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert authority.review_subject_commit == closure["subject_commit"]
     assert authority.review_subject_blob == closure["subject_blob"]
@@ -64,8 +64,9 @@ def test_approved_review_response_requires_evidence_projection() -> None:
 def test_approved_review_response_requires_exact_typed_scope_coverage() -> None:
     repository_root = Path(__file__).resolve().parents[2]
     scope = json.loads(
-        (repository_root / ".agents/review/m3-remediation-v4-scope-projection-final.json")
-        .read_text(encoding="utf-8")
+        (
+            repository_root / ".agents/review/m3-remediation-v4-scope-projection-final.json"
+        ).read_text(encoding="utf-8")
     )
     subject_paths = tuple(scope["subject_paths"])
     requirements = tuple(scope["requirements"])

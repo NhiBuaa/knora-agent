@@ -45,9 +45,7 @@ class RecordingEmbeddingProvider:
     dimensions: int = 1536
     calls: int = 0
 
-    def embed(
-        self, texts: list[str], configuration: EmbeddingConfiguration
-    ) -> EmbeddingBatch:
+    def embed(self, texts: list[str], configuration: EmbeddingConfiguration) -> EmbeddingBatch:
         self.calls += 1
         vector = tuple(0.0 for _ in range(self.dimensions))
         return EmbeddingBatch(
@@ -59,13 +57,9 @@ class RecordingEmbeddingProvider:
 
 @dataclass
 class MismatchedEmbeddingProvider(RecordingEmbeddingProvider):
-    def embed(
-        self, texts: list[str], configuration: EmbeddingConfiguration
-    ) -> EmbeddingBatch:
+    def embed(self, texts: list[str], configuration: EmbeddingConfiguration) -> EmbeddingBatch:
         batch = super().embed(texts, configuration)
-        return EmbeddingBatch(
-            vectors=batch.vectors, provider="wrong-provider", model="wrong-model"
-        )
+        return EmbeddingBatch(vectors=batch.vectors, provider="wrong-provider", model="wrong-model")
 
 
 def command_for(raw_content: bytes, configuration: ChunkingConfiguration | None = None):
@@ -244,8 +238,7 @@ def test_ingest_document_rejects_non_logical_source_keys(source_key: str) -> Non
 
     with pytest.raises(KnoraError, match="INVALID_SOURCE_KEY"):
         use_case.execute(
-            command_for(b"# Refund\n\nRefunds are available for 30 days.\n")
-            .__class__(
+            command_for(b"# Refund\n\nRefunds are available for 30 days.\n").__class__(
                 workspace_id="demo",
                 source_key=source_key,
                 source_name="refund-policy.md",

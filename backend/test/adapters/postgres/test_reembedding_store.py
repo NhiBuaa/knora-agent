@@ -59,9 +59,7 @@ def test_reembedding_store_preserves_full_population_chunk_sets_and_records_cuto
 
     result = ReembedProductionCorpus(
         provider=GeminiFixtureProvider(),
-        store=PostgresReembeddingStore(
-            SessionFactory, authority_source_keys=source_keys
-        ),
+        store=PostgresReembeddingStore(SessionFactory, authority_source_keys=source_keys),
     ).execute(
         workspace_id=workspace_id,
         configuration=EmbeddingConfiguration.gemini_m3(),
@@ -82,29 +80,33 @@ def test_reembedding_store_preserves_full_population_chunk_sets_and_records_cuto
         }
         active_sets = session.scalars(
             select(EmbeddingSetTable).where(
-                EmbeddingSetTable.id.in_(
-                    document.active_embedding_set_id for document in documents
-                )
+                EmbeddingSetTable.id.in_(document.active_embedding_set_id for document in documents)
             )
         ).all()
         assert {embedding_set.chunk_set_id for embedding_set in active_sets} == set(
             before_chunk_sets.values()
         )
-        assert session.scalar(
-            select(func.count())
-            .select_from(ChunkSetTable)
-            .join(EmbeddingSetTable, EmbeddingSetTable.chunk_set_id == ChunkSetTable.id)
-            .join(DocumentTable, DocumentTable.active_embedding_set_id == EmbeddingSetTable.id)
-            .where(DocumentTable.workspace_id == workspace_id)
-        ) == 2
-        assert session.scalar(
-            select(func.count())
-            .select_from(EmbeddingSetTable)
-            .where(
-                EmbeddingSetTable.chunk_set_id.in_(before_chunk_sets.values()),
-                EmbeddingSetTable.embedding_configuration_id == "embedding-local-m1-v2",
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ChunkSetTable)
+                .join(EmbeddingSetTable, EmbeddingSetTable.chunk_set_id == ChunkSetTable.id)
+                .join(DocumentTable, DocumentTable.active_embedding_set_id == EmbeddingSetTable.id)
+                .where(DocumentTable.workspace_id == workspace_id)
             )
-        ) == 2
+            == 2
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(EmbeddingSetTable)
+                .where(
+                    EmbeddingSetTable.chunk_set_id.in_(before_chunk_sets.values()),
+                    EmbeddingSetTable.embedding_configuration_id == "embedding-local-m1-v2",
+                )
+            )
+            == 2
+        )
         cutover = session.get(
             RetrievalV2CutoverTable,
             (workspace_id, "embedding-gemini-m1-v1"),

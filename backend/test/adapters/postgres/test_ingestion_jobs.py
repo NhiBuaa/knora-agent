@@ -192,18 +192,38 @@ def test_postgres_pdf_submission_separates_replay_dedup_and_source_version_ident
         changed_version = session.get(DocumentVersionTable, changed_source.document_version_id)
         assert document.current_document_version_id == changed_version.id
         assert changed_version.version_number == 2
-        assert session.scalar(select(func.count()).select_from(DocumentVersionTable).where(
-            DocumentVersionTable.document_id == first.document_id
-        )) == 2
-        assert session.scalar(select(func.count()).select_from(OriginalSourceObjectTable).where(
-            OriginalSourceObjectTable.document_version_id == first.document_version_id
-        )) == 1
-        assert session.scalar(select(func.count()).select_from(IngestionJobTable).where(
-            IngestionJobTable.document_id == first.document_id
-        )) == 3
-        assert session.scalar(select(func.count()).select_from(IdempotencyRecordTable).where(
-            IdempotencyRecordTable.workspace_id == workspace_id
-        )) == 4
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(DocumentVersionTable)
+                .where(DocumentVersionTable.document_id == first.document_id)
+            )
+            == 2
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(OriginalSourceObjectTable)
+                .where(OriginalSourceObjectTable.document_version_id == first.document_version_id)
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.document_id == first.document_id)
+            )
+            == 3
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecordTable)
+                .where(IdempotencyRecordTable.workspace_id == workspace_id)
+            )
+            == 4
+        )
 
 
 def test_postgres_pdf_submission_rejects_idempotency_key_conflict_without_mutation() -> None:
@@ -225,9 +245,14 @@ def test_postgres_pdf_submission_rejects_idempotency_key_conflict_without_mutati
     with SessionFactory() as session:
         document = session.get(DocumentTable, first.document_id)
         assert document.current_document_version_id == first.document_version_id
-        assert session.scalar(select(func.count()).select_from(IngestionJobTable).where(
-            IngestionJobTable.document_id == first.document_id
-        )) == 1
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.document_id == first.document_id)
+            )
+            == 1
+        )
 
 
 def test_postgres_pdf_submission_converges_concurrent_duplicates_to_one_identity() -> None:
@@ -235,31 +260,32 @@ def test_postgres_pdf_submission_converges_concurrent_duplicates_to_one_identity
     with SessionFactory.begin() as session:
         session.add(WorkspaceTable(id=workspace_id, name="Concurrent PDF submission"))
     store = PostgresIngestionJobStore(SessionFactory)
-    submissions = [
-        prepared_submission(workspace_id, object_key=uuid4().hex)
-        for _ in range(4)
-    ]
+    submissions = [prepared_submission(workspace_id, object_key=uuid4().hex) for _ in range(4)]
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         results = list(executor.map(store.commit_pdf_submission, submissions))
 
     assert {result.ingestion_job_id for result in results} == {results[0].ingestion_job_id}
-    assert {result.document_version_id for result in results} == {
-        results[0].document_version_id
-    }
+    assert {result.document_version_id for result in results} == {results[0].document_version_id}
     assert [result.submission_outcome for result in results].count("created") == 1
     assert [result.submission_outcome for result in results].count("idempotency_replay") == 3
     with SessionFactory() as session:
-        assert session.scalar(
-            select(func.count())
-            .select_from(IngestionJobTable)
-            .where(IngestionJobTable.workspace_id == workspace_id)
-        ) == 1
-        assert session.scalar(
-            select(func.count())
-            .select_from(IdempotencyRecordTable)
-            .where(IdempotencyRecordTable.workspace_id == workspace_id)
-        ) == 1
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.workspace_id == workspace_id)
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecordTable)
+                .where(IdempotencyRecordTable.workspace_id == workspace_id)
+            )
+            == 1
+        )
 
 
 def test_current_version_pointer_rejects_cross_document_assignment_and_hard_delete() -> None:
@@ -299,9 +325,7 @@ def test_current_version_pointer_rejects_cross_document_assignment_and_hard_dele
 
     with pytest.raises(IntegrityError), SessionFactory.begin() as session:
         session.execute(
-            delete(DocumentVersionTable).where(
-                DocumentVersionTable.id == first.document_version_id
-            )
+            delete(DocumentVersionTable).where(DocumentVersionTable.id == first.document_version_id)
         )
 
     with SessionFactory() as session:
@@ -390,9 +414,7 @@ def test_source_version_and_current_pointer_roll_back_when_object_identity_confl
     with SessionFactory.begin() as session:
         session.add(WorkspaceTable(id=workspace_id, name="PDF source rollback"))
     store = PostgresIngestionJobStore(SessionFactory)
-    first = store.commit_pdf_submission(
-        prepared_submission(workspace_id, object_key=object_key)
-    )
+    first = store.commit_pdf_submission(prepared_submission(workspace_id, object_key=object_key))
 
     with pytest.raises(KnoraError, match="PERSISTENCE_OPERATION_FAILED"):
         store.commit_pdf_submission(
@@ -407,16 +429,22 @@ def test_source_version_and_current_pointer_roll_back_when_object_identity_confl
     with SessionFactory() as session:
         document = session.get(DocumentTable, first.document_id)
         assert document.current_document_version_id == first.document_version_id
-        assert session.scalar(
-            select(func.count())
-            .select_from(DocumentVersionTable)
-            .where(DocumentVersionTable.document_id == first.document_id)
-        ) == 1
-        assert session.scalar(
-            select(func.count())
-            .select_from(IngestionJobTable)
-            .where(IngestionJobTable.document_id == first.document_id)
-        ) == 1
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(DocumentVersionTable)
+                .where(DocumentVersionTable.document_id == first.document_id)
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.document_id == first.document_id)
+            )
+            == 1
+        )
 
 
 def test_raw_distinct_pdf_versions_can_share_a_normalized_checksum() -> None:
@@ -438,10 +466,12 @@ def test_raw_distinct_pdf_versions_can_share_a_normalized_checksum() -> None:
         session.execute(
             update(DocumentVersionTable)
             .where(
-                DocumentVersionTable.id.in_([
-                    first.document_version_id,
-                    second.document_version_id,
-                ])
+                DocumentVersionTable.id.in_(
+                    [
+                        first.document_version_id,
+                        second.document_version_id,
+                    ]
+                )
             )
             .values(
                 normalized_content="same extracted text",
@@ -450,11 +480,14 @@ def test_raw_distinct_pdf_versions_can_share_a_normalized_checksum() -> None:
         )
 
     with SessionFactory() as session:
-        assert session.scalar(
-            select(func.count())
-            .select_from(DocumentVersionTable)
-            .where(
-                DocumentVersionTable.document_id == first.document_id,
-                DocumentVersionTable.normalized_content_checksum == "d" * 64,
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(DocumentVersionTable)
+                .where(
+                    DocumentVersionTable.document_id == first.document_id,
+                    DocumentVersionTable.normalized_content_checksum == "d" * 64,
+                )
             )
-        ) == 2
+            == 2
+        )

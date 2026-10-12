@@ -1,5 +1,18 @@
 # Knora Agent
 
+## Continuous integration
+
+Pull requests and updates to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+Each component checks its formatting before tests: Prettier for frontend/shared files, Ruff for
+Python, and Maven Spotless for Java. The checks cover frontend unit and fixture tests, portable
+and Windows backend contracts, migrated PostgreSQL integration, and Keycloak provider flow tests.
+`CI required` fails when any required job fails, is cancelled, skipped, missing, or has an empty
+report. Service-backed browser journeys and expensive model checks are excluded from PR CI.
+
+Release changes that affect those runtime capabilities require the manual
+[`Runtime Verification`](.github/workflows/runtime-verification.yml) workflow and its exact-SHA
+evidence; see [`docs/runbooks/ci.md`](docs/runbooks/ci.md).
+
 **Knora is a workspace-scoped AI knowledge and support system that ingests documents, retrieves grounded evidence, and returns answers with traceable citations.**
 
 It is built around backend and applied-AI engineering concerns that are easy to hide in a simple chatbot demo: durable ingestion, versioned retrieval, evidence provenance, workspace isolation, reproducible evaluation, and human-authorized external actions.
@@ -239,20 +252,20 @@ Question / Conversation Turn
 
 ## Tech stack
 
-| Layer | Current implementation |
-| --- | --- |
-| API / application | Python 3.12–3.14, FastAPI, Pydantic |
-| Persistence | PostgreSQL, SQLAlchemy, Alembic |
-| Vector retrieval | pgvector, cosine similarity; mixed profile dimensions with DB/profile guards |
-| Lexical / hybrid retrieval | PostgreSQL full-text search, versioned RRF |
-| PDF ingestion | `pypdf`, durable PostgreSQL jobs, fenced worker attempts, hard child-process memory limits |
-| Object storage | Local filesystem or S3-compatible storage; MinIO in Docker Compose |
-| AI providers | Deterministic local adapters; Ollama Qwen3 embeddings; OpenAI-compatible embedding/generation; native Gemini embedding adapter |
-| Frontend | Next.js 15, React 18, TypeScript |
-| Browser authentication | Keycloak OIDC through a Next.js BFF; FastAPI bearer validation |
-| Testing | pytest, Ruff, Vitest, Testing Library, OpenAPI drift checks |
-| Evaluation | Versioned JSONL datasets/manifests, HTTP runners, deterministic and model-backed scoring |
-| Verified local runtime | Windows host for Ollama/API/PDF worker/frontend; Docker Desktop for PostgreSQL/pgvector and MinIO |
+| Layer                      | Current implementation                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| API / application          | Python 3.12–3.14, FastAPI, Pydantic                                                                                            |
+| Persistence                | PostgreSQL, SQLAlchemy, Alembic                                                                                                |
+| Vector retrieval           | pgvector, cosine similarity; mixed profile dimensions with DB/profile guards                                                   |
+| Lexical / hybrid retrieval | PostgreSQL full-text search, versioned RRF                                                                                     |
+| PDF ingestion              | `pypdf`, durable PostgreSQL jobs, fenced worker attempts, hard child-process memory limits                                     |
+| Object storage             | Local filesystem or S3-compatible storage; MinIO in Docker Compose                                                             |
+| AI providers               | Deterministic local adapters; Ollama Qwen3 embeddings; OpenAI-compatible embedding/generation; native Gemini embedding adapter |
+| Frontend                   | Next.js 15, React 18, TypeScript                                                                                               |
+| Browser authentication     | Keycloak OIDC through a Next.js BFF; FastAPI bearer validation                                                                 |
+| Testing                    | pytest, Ruff, Vitest, Testing Library, OpenAPI drift checks                                                                    |
+| Evaluation                 | Versioned JSONL datasets/manifests, HTTP runners, deterministic and model-backed scoring                                       |
+| Verified local runtime     | Windows host for Ollama/API/PDF worker/frontend; Docker Desktop for PostgreSQL/pgvector and MinIO                              |
 
 ## Local setup (once)
 
@@ -571,12 +584,12 @@ Pop-Location
 
 Embedding and generation providers can now be selected independently. If both selectors are absent, Knora preserves the legacy `KNORA_PROVIDER_MODE` behavior. Supplying only one selector is a startup error.
 
-| Provider | Role | Credentials | Important constraint |
-| --- | --- | --- | --- |
-| `ollama` | Embedding | No external API key | `qwen3-embedding:0.6b`, exact 1024 dimensions, immutable digest/profile identity |
-| `deterministic-local` | Embedding or generation | No | Reproducible development behavior only |
-| `openai-compatible` | Embedding or generation | Yes | Runtime configuration, pricing identity and expected dimensions must match the selected profile |
-| `google-gemini-api` | Embedding | Yes | Uses the versioned native Gemini embedding configuration |
+| Provider              | Role                    | Credentials         | Important constraint                                                                            |
+| --------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `ollama`              | Embedding               | No external API key | `qwen3-embedding:0.6b`, exact 1024 dimensions, immutable digest/profile identity                |
+| `deterministic-local` | Embedding or generation | No                  | Reproducible development behavior only                                                          |
+| `openai-compatible`   | Embedding or generation | Yes                 | Runtime configuration, pricing identity and expected dimensions must match the selected profile |
+| `google-gemini-api`   | Embedding               | Yes                 | Uses the versioned native Gemini embedding configuration                                        |
 
 The verified local Ollama launcher sets:
 
@@ -665,16 +678,16 @@ knora-agent/
 
 ## Development status
 
-| Area | Status | Boundary |
-| --- | --- | --- |
-| Cited RAG and refusal | **Verified** | Completed M1 implementation and acceptance evidence |
-| Durable PDF ingestion | **Verified** | Completed M2 production-shaped ingestion slice |
-| Hybrid retrieval and evaluation provenance | **Verified** | Completed M3 retrieval/evaluation slice |
-| Human-approved support tools | **Verified** | M4 workflow/contracts implemented; external provider composition is integration-specific |
-| Durable Conversations / serialized Turns | **Implemented** | Backend persistence, retry/recovery and bounded context are on `main`; live model-backed follow-up quality remains part of #105 |
-| Ollama local embedding + retained PDF re-index | **Verified** | #103 landed with digest-pinned Qwen3 embeddings, Windows worker isolation and real retained-PDF re-index evidence |
-| Workspace-centric user/operator product surface | **In progress** | Product #109 UI/auth integration and final release gate remain open |
-| Cloudflare public demo | **Planned** | Public inference/limits/deployment remain under the real-AI roadmap tracked by #101 |
+| Area                                            | Status          | Boundary                                                                                                                        |
+| ----------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Cited RAG and refusal                           | **Verified**    | Completed M1 implementation and acceptance evidence                                                                             |
+| Durable PDF ingestion                           | **Verified**    | Completed M2 production-shaped ingestion slice                                                                                  |
+| Hybrid retrieval and evaluation provenance      | **Verified**    | Completed M3 retrieval/evaluation slice                                                                                         |
+| Human-approved support tools                    | **Verified**    | M4 workflow/contracts implemented; external provider composition is integration-specific                                        |
+| Durable Conversations / serialized Turns        | **Implemented** | Backend persistence, retry/recovery and bounded context are on `main`; live model-backed follow-up quality remains part of #105 |
+| Ollama local embedding + retained PDF re-index  | **Verified**    | #103 landed with digest-pinned Qwen3 embeddings, Windows worker isolation and real retained-PDF re-index evidence               |
+| Workspace-centric user/operator product surface | **In progress** | Product #109 UI/auth integration and final release gate remain open                                                             |
+| Cloudflare public demo                          | **Planned**     | Public inference/limits/deployment remain under the real-AI roadmap tracked by #101                                             |
 
 There is currently no hosted production demo advertised by this repository.
 

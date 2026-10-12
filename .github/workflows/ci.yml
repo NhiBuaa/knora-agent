@@ -1,0 +1,285 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Check frontend and shared formatting
+        working-directory: frontend
+        run: |
+          npm run format:check
+          npm run format:shared:check
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Unit tests
+        working-directory: frontend
+        run: npm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest.xml
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Resolve pinned fixture renderer artifacts
+        run: |
+          mvn -B -f infra/keycloak/providers/email-otp-reset/pom.xml dependency:go-offline
+          mvn -B -f infra/keycloak/providers/email-otp-reset/pom.xml dependency:get -Dartifact=org.keycloak:keycloak-themes-vendor:26.3.3
+      - name: Export offline native fixtures
+        working-directory: frontend
+        env:
+          FIGMA_TEST_MODE: fixture
+        run: node tests/e2e/support/figma-theme-export.mjs
+      - name: Fixture Playwright tests
+        working-directory: frontend
+        env:
+          CI: true
+          FIGMA_TEST_MODE: fixture
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: test-results/figma-fixtures.xml
+        run: npx playwright test --config playwright.figma.config.ts --reporter=list,junit
+      - name: Validate frontend reports
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/ci_checks.py reports \
+            frontend/test-results/vitest.xml \
+            frontend/test-results/figma-fixtures.xml
+      - name: Upload frontend reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-reports
+          path: frontend/test-results/**/*.xml
+          if-no-files-found: error
+
+  backend:
+    name: Backend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            suite: backend
+          - os: windows-latest
+            suite: windows
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Evaluation provenance checks read immutable historical Git objects.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev]"
+      - name: Portable backend checks
+        if: ${{ matrix.suite == 'backend' }}
+        shell: bash
+        env:
+          KNORA_PROVIDER_MODE: deterministic-local
+          KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@127.0.0.1:5432/knora
+        run: |
+          set -o pipefail
+          python -m ruff format --check .
+          python -m ruff check .
+          python scripts/export_openapi.py --check
+          python -m pytest --rootdir=. backend/test evals/test --ci-suite=backend \
+            --ci-selection=backend-selection.json --junitxml=backend-report.xml
+          python scripts/ci_checks.py reports backend-report.xml
+      - name: Windows backend checks
+        if: ${{ matrix.suite == 'windows' }}
+        shell: pwsh
+        run: |
+          python -m pytest --rootdir=. backend/test evals/test --ci-suite=windows --ci-selection=windows-selection.json --junitxml=windows-report.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/ci_checks.py reports windows-report.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compose configuration checks
+        if: ${{ matrix.suite == 'backend' }}
+        shell: bash
+        env:
+          KNORA_CANONICAL_MINIO_ACCESS_KEY: ci-synthetic-access
+          KNORA_CANONICAL_MINIO_SECRET_KEY: ci-synthetic-secret
+        run: |
+          docker compose config --quiet
+          docker compose -f docker-compose.dev.yml config --quiet
+      - name: Upload backend reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-reports-${{ matrix.suite }}
+          path: |
+            *-report.xml
+            *-selection.json
+          if-no-files-found: warn
+
+  database:
+    name: Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: knora_issue110_task2
+          POSTGRES_USER: knora
+          POSTGRES_PASSWORD: knora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U knora -d knora_issue110_task2"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev]"
+      - name: Apply migrations
+        working-directory: backend
+        env:
+          KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@127.0.0.1:5432/knora_issue110_task2
+        run: python -m alembic -c alembic.ini upgrade head
+      - name: Database tests
+        env:
+          KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@127.0.0.1:5432/knora_issue110_task2
+          KNORA_PROVIDER_MODE: deterministic-local
+        run: |
+          # Delegate memory inside a disposable container for real PDF extraction.
+          docker run --rm --privileged --cgroupns private --memory 2g --network host \
+            --mount "type=bind,source=$PWD,target=/work" --workdir /work \
+            -e KNORA_DATABASE_URL -e KNORA_PROVIDER_MODE \
+            "python:${PYTHON_VERSION}-slim" bash -ec '
+              mkdir /sys/fs/cgroup/ci-runner
+              while read -r pid; do
+                echo "$pid" > /sys/fs/cgroup/ci-runner/cgroup.procs
+              done < /sys/fs/cgroup/cgroup.procs
+              echo +memory > /sys/fs/cgroup/cgroup.subtree_control
+              python -m pip install -e "./backend[dev]"
+              python -m pytest --rootdir=. backend/test evals/test --ci-suite=database --ci-selection=database-selection.json --junitxml=database-report.xml
+            '
+          python scripts/ci_checks.py reports database-report.xml
+      - name: Upload database reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-reports
+          path: |
+            database-report.xml
+            database-selection.json
+          if-no-files-found: warn
+
+  keycloak:
+    name: Keycloak
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Check Java formatting and run provider unit and flow tests
+        working-directory: infra/keycloak/providers/email-otp-reset
+        run: mvn -B -Dit.test=EmailOtpResetFlowIT verify
+      - name: Validate Maven reports
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -o pipefail
+          for suite in surefire failsafe; do
+            mapfile -t reports < <(find "infra/keycloak/providers/email-otp-reset/target/${suite}-reports" -name 'TEST-*.xml' -type f -print)
+            test "${#reports[@]}" -gt 0
+            python scripts/ci_checks.py reports "${reports[@]}"
+          done
+      - name: Upload Keycloak reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: keycloak-reports
+          path: infra/keycloak/providers/email-otp-reset/target/**/*-reports/TEST-*.xml
+          if-no-files-found: warn
+
+  required:
+    name: CI required
+    if: ${{ always() }}
+    needs: [frontend, backend, database, keycloak]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Require every CI job to succeed
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python scripts/ci_checks.py jobs
+      - name: Record tested commit
+        if: ${{ always() }}
+        env:
+          CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+          Path('ci-subject.json').write_text(json.dumps({
+              'checkout_sha': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+              'pr_head_sha': os.environ['CI_PR_HEAD_SHA'] or None,
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+          }, indent=2) + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: ci-subject
+          path: ci-subject.json
+          if-no-files-found: error

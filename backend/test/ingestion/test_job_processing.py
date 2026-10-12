@@ -61,8 +61,8 @@ from knora.providers.embedding import EmbeddingConfiguration
 class RecordingStore:
     claim: ClaimedAttempt
     claims: list[tuple[ClaimOperationId, str, AttemptTimingV1]] = field(default_factory=list)
-    finalizations: list[tuple[TransitionOperationId, ClaimedAttempt, CanonicalFailureV1]] = (
-        field(default_factory=list)
+    finalizations: list[tuple[TransitionOperationId, ClaimedAttempt, CanonicalFailureV1]] = field(
+        default_factory=list
     )
     successes: list[tuple[TransitionOperationId, ClaimedAttempt, object]] = field(
         default_factory=list
@@ -639,9 +639,7 @@ def test_pdf_handler_rejects_persisted_profile_with_changed_runtime_identity_bef
             extraction_configuration=Mock(normalizer_version=work.normalizer_configuration_id),
             embedding_configuration=persisted,
         ),
-        runtime_embedding_configuration=replace(
-            persisted, deployment_identity="ollama-digest-b"
-        ),
+        runtime_embedding_configuration=replace(persisted, deployment_identity="ollama-digest-b"),
     )
 
     outcome = handler.execute(claimed_attempt().work, Cancellation())

@@ -371,12 +371,12 @@ def test_reader_validates_versioned_branch_observations() -> None:
             {
                 "schema_version": 1,
                 "branch": "vector",
-                    "status": "BELOW_THRESHOLD",
-                    "chunk_id": "chunk-1",
-                    "cosine_distance": 0.7,
-                    "similarity": 0.3,
-                    "normalized_lexemes": [],
-                    "omitted_lexemes": [],
+                "status": "BELOW_THRESHOLD",
+                "chunk_id": "chunk-1",
+                "cosine_distance": 0.7,
+                "similarity": 0.3,
+                "normalized_lexemes": [],
+                "omitted_lexemes": [],
             }
         ]
     )
@@ -409,9 +409,7 @@ def test_reader_rejects_branch_rank_on_non_eligible_observation(status: str) -> 
     if branch == "vector":
         observation.update({"cosine_distance": 0.7, "similarity": 0.3})
     else:
-        observation.update(
-            {"native_rank": None, "lexical_policy_id": "fts-bm25-v1"}
-        )
+        observation.update({"native_rank": None, "lexical_policy_id": "fts-bm25-v1"})
 
     with pytest.raises(LookupError, match="branch observation is invalid"):
         _validate_branch_observations([observation])

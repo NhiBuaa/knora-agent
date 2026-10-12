@@ -77,7 +77,12 @@ def test_conversation_turn_submission_documents_pending_and_terminal_replay_stat
 def test_m5_checked_contract_contains_no_secret_or_raw_provider_fields() -> None:
     serialized = json.dumps(OPENAPI, sort_keys=True).lower()
     private_names = (
-        "api_key", "key_hash", "secret_key", "raw_token", "provider_api_key", "authorization_token"
+        "api_key",
+        "key_hash",
+        "secret_key",
+        "raw_token",
+        "provider_api_key",
+        "authorization_token",
     )
     for private_name in private_names:
         assert private_name not in serialized
@@ -109,7 +114,8 @@ def test_m5_sse_public_seam_emits_one_ordered_terminal_event() -> None:
     assert response.headers["content-type"].startswith("text/event-stream")
     records = [record for record in response.text.split("\n\n") if record]
     assert [record.splitlines()[0] for record in records] == [
-        "event: started", "event: final_validated"
+        "event: started",
+        "event: final_validated",
     ]
     assert sum(record.startswith("event: final_validated") for record in records) == 1
     assert service.calls == [QuestionCommand("workspace-a", "What is known?")]

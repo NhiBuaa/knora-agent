@@ -152,9 +152,7 @@ def test_different_conversations_can_admit_turns_concurrently() -> None:
         )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(
-            executor.map(submit, (first_conversation_id, second_conversation.id))
-        )
+        results = list(executor.map(submit, (first_conversation_id, second_conversation.id)))
 
     assert len({result.turn.id for result in results}) == 2
 
@@ -193,9 +191,7 @@ def test_replay_after_workspace_archive_returns_the_admitted_turn() -> None:
     first = submit_turn(store, workspace_id, conversation_id, "archive-replay", original_question)
     with SessionFactory.begin() as session:
         session.execute(
-            update(WorkspaceTable)
-            .where(WorkspaceTable.id == workspace_id)
-            .values(archived=True)
+            update(WorkspaceTable).where(WorkspaceTable.id == workspace_id).values(archived=True)
         )
 
     replay = submit_turn(store, workspace_id, conversation_id, "archive-replay", original_question)
@@ -216,9 +212,7 @@ def test_admitted_turn_finishes_after_archive_and_closes_its_admission() -> None
     )
     with SessionFactory.begin() as session:
         session.execute(
-            update(WorkspaceTable)
-            .where(WorkspaceTable.id == workspace_id)
-            .values(archived=True)
+            update(WorkspaceTable).where(WorkspaceTable.id == workspace_id).values(archived=True)
         )
 
     claim = store.claim_next_turn("worker-1", workspace_id=workspace_id)
@@ -315,12 +309,15 @@ def test_terminal_turn_round_trips_the_validated_citation_projection() -> None:
         workspace_id=workspace_id,
     )
 
-    assert store.finish_turn(
-        turn_id=claim.turn.id,
-        claim_token=claim.claim_token,
-        result=result,
-        error_code=None,
-    ) is True
+    assert (
+        store.finish_turn(
+            turn_id=claim.turn.id,
+            claim_token=claim.claim_token,
+            result=result,
+            error_code=None,
+        )
+        is True
+    )
     reloaded = store.get_turn(workspace_id, conversation_id, submission.turn.id)
 
     assert reloaded.result == result

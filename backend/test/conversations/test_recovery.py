@@ -243,9 +243,7 @@ async def test_claimed_turn_receives_bounded_context_from_its_own_history() -> N
     assert context.selected_turn_ids == ("turn-prior",)
     assert "It recommends a structured report." in context.transcript
     assert "How many chapters does that guide suggest?" in context.retrieval_query
-    prior_question_index = context.retrieval_query.index(
-        "What does the report guide recommend?"
-    )
+    prior_question_index = context.retrieval_query.index("What does the report guide recommend?")
     current_question_index = context.retrieval_query.index(
         "How many chapters does that guide suggest?"
     )

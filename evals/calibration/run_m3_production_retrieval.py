@@ -28,8 +28,7 @@ WORKSPACE_ID = "evaluation-m3-v1"
 
 def canonical_json(value: Any) -> bytes:
     return (
-        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\n"
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode()
 
 
@@ -105,9 +104,7 @@ async def execute(output_path: Path) -> None:
             )
             result = await service.execute(
                 QuestionCommand(workspace_id=WORKSPACE_ID, question=question),
-                WorkspacePrincipal(
-                    workspace_id=WORKSPACE_ID, key_id="issue-56-acceptance"
-                ),
+                WorkspacePrincipal(workspace_id=WORKSPACE_ID, key_id="issue-56-acceptance"),
             )
             projection = trace_projection(result.trace_id)
             runs.append(
@@ -132,16 +129,13 @@ async def execute(output_path: Path) -> None:
         "long-token": "x" * 5000,
     }
     lexical_results = {
-        label: normalize_fts_m3_or_v2(value)
-        for label, value in lexical_cases.items()
+        label: normalize_fts_m3_or_v2(value) for label, value in lexical_cases.items()
     }
     evidence = {
         "schema_version": 1,
         "workspace_id": WORKSPACE_ID,
         "production_seam": "AnswerQuestion->AnsweringStore.retrieve_candidates",
-        "calibrated_vector_min_similarity": format(
-            CALIBRATED_M3_VECTOR_MIN_SIMILARITY, ".12f"
-        ),
+        "calibrated_vector_min_similarity": format(CALIBRATED_M3_VECTOR_MIN_SIMILARITY, ".12f"),
         "runs": runs,
         "lexical_adversarial_results": lexical_results,
         "empty_query_yields_no_lexemes": lexical_results["empty"] == (),
@@ -155,14 +149,12 @@ async def execute(output_path: Path) -> None:
             raise ValueError("production trace embedding configuration mismatch")
         decisions = trace["candidate_decisions"]
         if any(
-            item.get("vector_contribution")
-            and item["vector_contribution"]["branch_rank"] > 8
+            item.get("vector_contribution") and item["vector_contribution"]["branch_rank"] > 8
             for item in decisions
         ):
             raise ValueError("vector candidate budget exceeded")
         if any(
-            item.get("fts_contribution")
-            and item["fts_contribution"]["branch_rank"] > 8
+            item.get("fts_contribution") and item["fts_contribution"]["branch_rank"] > 8
             for item in decisions
         ):
             raise ValueError("FTS candidate budget exceeded")
