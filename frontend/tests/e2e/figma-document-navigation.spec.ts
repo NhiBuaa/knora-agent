@@ -72,7 +72,7 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   const workspaceId = createdBody.id;
   expect(workspaceId).toBeTruthy();
   expect(selection.postDataJSON()).toMatchObject({ workspaceId });
-  await expect(page).toHaveURL(`/workspaces/${workspaceId}`);
+  await expect(page).toHaveURL(`/workspaces/${workspaceId}/conversations`);
   const listPath = `/workspaces/${workspaceId}/documents`;
   await page.goto(listPath);
 
@@ -256,6 +256,8 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
   expect(archivedResponse.request().headers()["if-match"]).toBe(
     String(archiveRevision),
   );
+  await expect(page).toHaveURL(listPath);
+  await page.getByRole("link", { name: sourceName, exact: true }).click();
   await expectDetail(true);
   await captureIdentity(
     page,

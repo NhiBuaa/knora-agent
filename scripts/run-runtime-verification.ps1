@@ -139,6 +139,12 @@ try {
         }
         $otpSnapshot = Join-Path $profileDir 'otp-binding.json'
         Invoke-Checked-Named (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @{
+            Mode = 'Prepare'
+            EnableIsolatedOtp = $true
+            AdminUsername = $AdminUsername
+            AdminPassword = $AdminPassword
+        }
+        Invoke-Checked-Named (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @{
             Mode = 'Bind'
             EnableIsolatedOtp = $true
             AdminUsername = $AdminUsername
