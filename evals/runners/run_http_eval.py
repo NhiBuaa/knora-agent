@@ -139,13 +139,16 @@ class HttpEvaluationExecutor:
                 for citation in public.citations
             )
             alias_mapping = trace.alias_mapping
-            if not isinstance(alias_mapping, dict) or any(
-                evidence_id not in alias_mapping
-                or alias_mapping[evidence_id] not in selected_candidate_ids
-                for evidence_id in citation_ids
-            ) or len(
-                {alias_mapping[evidence_id] for evidence_id in citation_ids}
-            ) != len(citation_ids):
+            if (
+                not isinstance(alias_mapping, dict)
+                or any(
+                    evidence_id not in alias_mapping
+                    or alias_mapping[evidence_id] not in selected_candidate_ids
+                    for evidence_id in citation_ids
+                )
+                or len({alias_mapping[evidence_id] for evidence_id in citation_ids})
+                != len(citation_ids)
+            ):
                 raise ValueError("PUBLIC_CITATION_ALIAS_INVALID")
             cited_chunks = tuple(
                 references_by_id[alias_mapping[evidence_id]] for evidence_id in citation_ids
@@ -192,13 +195,10 @@ class HttpEvaluationExecutor:
             cited_chunks=cited_chunks,
             citation_evidence_ids=citation_ids,
             answer_marker_ids=public.answer_marker_ids,
-            candidate_workspaces=tuple(
-                candidate.workspace_id for candidate in trace.candidates
-            ),
+            candidate_workspaces=tuple(candidate.workspace_id for candidate in trace.candidates),
             trace_id=response_trace_id,
             end_to_end_latency_ms=(
-                (response_completed if response_completed is not None else self._clock())
-                - started
+                (response_completed if response_completed is not None else self._clock()) - started
             )
             * 1000,
             token_usage=usage,

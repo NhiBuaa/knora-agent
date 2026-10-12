@@ -91,9 +91,7 @@ def upgrade() -> None:
         )
     )
     op.alter_column("question_traces", "decision", nullable=False)
-    op.alter_column(
-        "question_traces", "trace_schema_version", server_default="1"
-    )
+    op.alter_column("question_traces", "trace_schema_version", server_default="1")
     op.alter_column("question_traces", "generation_status", server_default=None)
     op.alter_column("question_traces", "validation_outcome", server_default=None)
 

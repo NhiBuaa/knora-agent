@@ -42,6 +42,31 @@ describe("isolated Figma identity environment", () => {
       "figma-ui-visual.spec.ts",
       "figma-ui-interactions.spec.ts",
     ]);
+    expect(
+      figmaTestSelection("fixture", undefined).grepInvert?.test(
+        "guarded application journeys a live backend scenario",
+      ),
+    ).toBe(true);
+    expect(
+      figmaTestSelection("fixture", undefined).grepInvert?.test(
+        "source fixtures Document detail action height",
+      ),
+    ).toBe(false);
+    expect(
+      figmaTestSelection("fixture", undefined).grepInvert?.test(
+        "source fixtures Operator prototype comparison 216:345 Operations",
+      ),
+    ).toBe(true);
+    expect(
+      figmaTestSelection("application", undefined).grepInvert?.test(
+        "source fixtures Document detail action height",
+      ),
+    ).toBe(true);
+    expect(
+      figmaTestSelection("application", undefined).grepInvert?.test(
+        "guarded application journeys a live backend scenario",
+      ),
+    ).toBe(false);
   });
   it("accepts only the approved project, realm and loopback endpoints", () => {
     const environment = figmaEnvironment();

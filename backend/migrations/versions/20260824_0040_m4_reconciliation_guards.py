@@ -22,9 +22,7 @@ def upgrade() -> None:
         "'execution_acquired','execution_taken_over','dispatch_admitted',"
         "'execution_observed','succeeded','failed')",
     )
-    op.execute(
-        "ALTER TABLE tool_proposals DROP CONSTRAINT IF EXISTS ck_tool_proposal_revision"
-    )
+    op.execute("ALTER TABLE tool_proposals DROP CONSTRAINT IF EXISTS ck_tool_proposal_revision")
     op.create_check_constraint(
         "ck_tool_proposal_revision",
         "tool_proposals",
@@ -34,8 +32,7 @@ def upgrade() -> None:
         "(state IN ('succeeded','failed') AND revision >= 3)",
     )
     op.execute(
-        "ALTER TABLE tool_executions "
-        "DROP CONSTRAINT IF EXISTS ck_tool_execution_generation_one"
+        "ALTER TABLE tool_executions DROP CONSTRAINT IF EXISTS ck_tool_execution_generation_one"
     )
     op.execute(
         "ALTER TABLE tool_executions "
@@ -181,14 +178,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TRIGGER IF EXISTS tool_action_audit_immutable ON tool_action_audit_events")
     op.execute(
-        "DROP TRIGGER IF EXISTS tool_execution_observation_immutable "
-        "ON tool_execution_observations"
+        "DROP TRIGGER IF EXISTS tool_execution_observation_immutable ON tool_execution_observations"
     )
     op.execute("DROP TRIGGER IF EXISTS tool_execution_material_immutable ON tool_executions")
     op.execute("DROP TRIGGER IF EXISTS tool_proposal_material_immutable ON tool_proposals")
-    op.execute(
-        "DELETE FROM tool_action_audit_events WHERE event_type = 'execution_taken_over'"
-    )
+    op.execute("DELETE FROM tool_action_audit_events WHERE event_type = 'execution_taken_over'")
     op.execute(
         "DELETE FROM tool_execution_observations WHERE observation_type IN "
         "('reconciled_succeeded','reconciled_failed','provider_outcome_not_found',"
@@ -208,9 +202,7 @@ def downgrade() -> None:
         "ELSE revision END "
         "WHERE state IN ('executing','succeeded','failed')"
     )
-    op.drop_constraint(
-        "ck_tool_action_audit_event_type", "tool_action_audit_events", type_="check"
-    )
+    op.drop_constraint("ck_tool_action_audit_event_type", "tool_action_audit_events", type_="check")
     op.create_check_constraint(
         "ck_tool_action_audit_event_type",
         "tool_action_audit_events",
@@ -231,8 +223,7 @@ def downgrade() -> None:
         "DROP CONSTRAINT IF EXISTS ck_tool_execution_generation_positive"
     )
     op.execute(
-        "ALTER TABLE tool_executions "
-        "DROP CONSTRAINT IF EXISTS ck_tool_execution_generation_one"
+        "ALTER TABLE tool_executions DROP CONSTRAINT IF EXISTS ck_tool_execution_generation_one"
     )
     op.create_check_constraint(
         "ck_tool_execution_generation_one", "tool_executions", "generation = 1"

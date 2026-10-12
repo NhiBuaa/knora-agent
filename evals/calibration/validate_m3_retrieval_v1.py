@@ -90,16 +90,13 @@ def validate(base: Path, development_dataset: Path) -> dict[str, object]:
         if hashlib.sha256((base / record["path"]).read_bytes()).hexdigest() != record["sha256"]:
             raise ValueError(f"calibration checksum mismatch: {record['path']}")
     cases = [
-        json.loads(line)
-        for line in (base / "cases.jsonl").read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in (base / "cases.jsonl").read_text(encoding="utf-8").splitlines()
     ]
     documents = [record for record in manifest["files"] if record["path"].startswith("corpus/")]
     applicable = [case for case in cases if case["applicable"]]
     if len(documents) <= 8:
         raise ValueError("calibration candidate universe is not informative")
-    source_keys = {
-        f"calibration/{Path(record['path']).stem}#0" for record in documents
-    }
+    source_keys = {f"calibration/{Path(record['path']).stem}#0" for record in documents}
     for case in applicable:
         gold = set(case["gold_chunk_refs"])
         near = set(case["near_negative_chunk_refs"])
@@ -122,19 +119,15 @@ def validate(base: Path, development_dataset: Path) -> dict[str, object]:
     if set(lineage["judgment_categories"]) != REQUIRED_JUDGMENT_CATEGORIES:
         raise ValueError("calibration judgment lineage is incomplete")
     development_records = [
-        json.loads(line)
-        for line in development_dataset.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in development_dataset.read_text(encoding="utf-8").splitlines()
     ]
     development = list(_strings(development_records))
     development_corpus = development_dataset.parents[1] / "corpora" / "milestone_3"
     development.extend(
-        path.read_text(encoding="utf-8")
-        for path in sorted(development_corpus.glob("*.txt"))
+        path.read_text(encoding="utf-8") for path in sorted(development_corpus.glob("*.txt"))
     )
     authored_questions = tuple(
-        AuthoredCalibrationItem(
-            case["id"], "question", case["question"], case["author_id"]
-        )
+        AuthoredCalibrationItem(case["id"], "question", case["question"], case["author_id"])
         for case in cases
     )
     authored_documents = tuple(
@@ -148,9 +141,7 @@ def validate(base: Path, development_dataset: Path) -> dict[str, object]:
     )
     authored = authored_questions + authored_documents
     semantic_review = _semantic_review(None, artifact_digest, None)
-    pending_review = SemanticReview(
-        "pending-independent-review", True, False, artifact_digest
-    )
+    pending_review = SemanticReview("pending-independent-review", True, False, artifact_digest)
     deterministic = audit_calibration_independence(
         calibration_sha256=artifact_digest,
         calibration_items=authored,
@@ -180,9 +171,7 @@ def validate_with_semantic_review(
 ) -> dict[str, object]:
     result = validate(base, development_dataset)
     artifact_digest = str(result["artifact_sha256"])
-    semantic_review = _semantic_review(
-        semantic_review_path, artifact_digest, bundle_sha256
-    )
+    semantic_review = _semantic_review(semantic_review_path, artifact_digest, bundle_sha256)
     if semantic_review is None:
         raise ValueError("independent semantic review is missing")
     result["independent_semantic_review"] = "PASS"

@@ -238,9 +238,7 @@ def test_pdf_handler_rejects_source_metadata_before_streaming_or_extraction() ->
         object_store=object_store,
         extractor=extractor,
         embedding_provider=RecordingEmbeddingProvider(embedding_configuration),
-        profile=PdfDerivationProfile.milestone_two(
-            embedding_configuration=embedding_configuration
-        ),
+        profile=PdfDerivationProfile.milestone_two(embedding_configuration=embedding_configuration),
     )
 
     outcome = handler.execute(

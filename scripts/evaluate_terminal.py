@@ -16,8 +16,10 @@ def evaluate(state: dict[str, Any]) -> dict[str, Any]:
     suspension = state.get("suspension")
     failure = state.get("failure")
     completed = (
-        isinstance(baseline, dict) and baseline.get("status") == "passed"
-        and isinstance(post, dict) and post.get("status") == "passed"
+        isinstance(baseline, dict)
+        and baseline.get("status") == "passed"
+        and isinstance(post, dict)
+        and post.get("status") == "passed"
         and state.get("behavior_drift") is False
         and isinstance(implementation, dict)
         and implementation.get("status") == "completed"

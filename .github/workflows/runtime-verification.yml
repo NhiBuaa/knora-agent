@@ -1,0 +1,90 @@
+name: Runtime Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      subject_sha:
+        description: Full 40-character release candidate commit SHA
+        required: true
+        type: string
+      profile:
+        description: Runtime capability profile
+        required: true
+        type: choice
+        options:
+          - application
+          - otp
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Runtime Verification (${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Validate dispatch input
+        shell: pwsh
+        env:
+          SUBJECT_SHA: ${{ inputs.subject_sha }}
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          if ($env:SUBJECT_SHA -cnotmatch '^[0-9a-f]{40}$') { throw 'Full subject SHA required' }
+          if ($env:PROFILE -cnotin @('application', 'otp')) { throw 'Unknown runtime profile' }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.subject_sha }}
+          persist-credentials: false
+      - name: Verify exact checkout
+        shell: pwsh
+        env:
+          SUBJECT_SHA: ${{ inputs.subject_sha }}
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $actual -cne $env:SUBJECT_SHA) {
+            throw 'Runtime checkout does not match subject SHA'
+          }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime evidence dependencies
+        run: python -m pip install --disable-pip-version-check -e 'backend[dev]'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: infra/keycloak/providers/email-otp-reset/pom.xml
+      - name: Install browser dependencies
+        run: |
+          npm --prefix frontend ci
+          npx --prefix frontend playwright install --with-deps chromium
+      - name: Execute guarded runtime profile
+        shell: pwsh
+        env:
+          SUBJECT_SHA: ${{ inputs.subject_sha }}
+          PROFILE: ${{ inputs.profile }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          ./scripts/run-runtime-verification.ps1 `
+            -SubjectSha $env:SUBJECT_SHA -Profile $env:PROFILE `
+            -WorkflowSha $env:WORKFLOW_SHA -RunId $env:RUN_ID `
+            -RunAttempt $env:RUN_ATTEMPT
+      - name: Upload sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ inputs.profile }}-${{ inputs.subject_sha }}-${{ github.run_attempt }}
+          path: |
+            .verification/runtime/${{ inputs.profile }}/evidence.json
+            .verification/runtime/${{ inputs.profile }}/reports/*.xml
+          if-no-files-found: ignore
+          retention-days: 30

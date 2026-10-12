@@ -31,9 +31,7 @@ class OperatorEvaluationResponse:
     report_id: str
     workspace_id: str
     availability: Literal["unavailable"] = "unavailable"
-    observation_failure: Literal["EVALUATION_REPORT_UNAVAILABLE"] = (
-        "EVALUATION_REPORT_UNAVAILABLE"
-    )
+    observation_failure: Literal["EVALUATION_REPORT_UNAVAILABLE"] = "EVALUATION_REPORT_UNAVAILABLE"
 
 
 _SENSITIVE_KEY_PARTS = (
@@ -51,17 +49,13 @@ _SENSITIVE_KEY_PARTS = (
 
 def _is_sensitive_key(key: object) -> bool:
     normalized = re.sub(r"[^a-z0-9]", "", str(key).casefold())
-    return normalized == "token" or any(
-        part in normalized for part in _SENSITIVE_KEY_PARTS
-    )
+    return normalized == "token" or any(part in normalized for part in _SENSITIVE_KEY_PARTS)
 
 
 def _sanitize(value: object) -> object:
     if isinstance(value, Mapping):
         return {
-            str(key): _sanitize(item)
-            for key, item in value.items()
-            if not _is_sensitive_key(key)
+            str(key): _sanitize(item) for key, item in value.items() if not _is_sensitive_key(key)
         }
     if isinstance(value, list):
         return [_sanitize(item) for item in value]
@@ -121,13 +115,9 @@ class OperatorObservability:
     ) -> OperatorEvaluationResponse:
         self._authorize(workspace_id=workspace_id, principal=principal)
         return _sanitize(
-            self._evaluation_reader.read_evaluation(
-                report_id=report_id, workspace_id=workspace_id
-            )
+            self._evaluation_reader.read_evaluation(report_id=report_id, workspace_id=workspace_id)
         )
 
     def read_operations(self, *, workspace_id: str, principal: WorkspacePrincipal) -> object:
         self._authorize(workspace_id=workspace_id, principal=principal)
-        return _sanitize(
-            _snapshot_operations(self._operations_reader, workspace_id=workspace_id)
-        )
+        return _sanitize(_snapshot_operations(self._operations_reader, workspace_id=workspace_id))

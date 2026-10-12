@@ -263,7 +263,9 @@ def test_postgres_suppression_fences_stale_prepared_generation_after_handoff() -
                 .where(DocumentTable.workspace_id == workspace_id)
                 .values(current_document_version_id=None)
             )
-            session.execute(delete(DocumentVersionTable).where(DocumentVersionTable.id.in_(version_ids)))
+            session.execute(
+                delete(DocumentVersionTable).where(DocumentVersionTable.id.in_(version_ids))
+            )
             session.execute(delete(DocumentTable).where(DocumentTable.workspace_id == workspace_id))
             session.execute(text("TRUNCATE TABLE object_lifecycle_attempts, object_lifecycle_work"))
             session.execute(
@@ -523,11 +525,14 @@ def test_postgres_lifecycle_enqueue_rejects_invalid_diagnostic_retention_metadat
                 store.enqueue(item)
 
         with SessionFactory() as session:
-            assert session.scalar(
-                select(ObjectLifecycleWorkTable.id).where(
-                    ObjectLifecycleWorkTable.workspace_id == workspace_id
+            assert (
+                session.scalar(
+                    select(ObjectLifecycleWorkTable.id).where(
+                        ObjectLifecycleWorkTable.workspace_id == workspace_id
+                    )
                 )
-            ) is None
+                is None
+            )
     finally:
         with SessionFactory.begin() as session:
             session.execute(text("TRUNCATE TABLE object_lifecycle_attempts, object_lifecycle_work"))
@@ -689,12 +694,8 @@ def test_postgres_report_only_orphan_can_record_completed_repair() -> None:
         )
         store.suppress(claim=claim, operation_id="report-op")
 
-        assert store.complete_orphan_reconciliation(
-            work_id=work_id, disposition="repaired"
-        )
-        assert not store.complete_orphan_reconciliation(
-            work_id=work_id, disposition="repaired"
-        )
+        assert store.complete_orphan_reconciliation(work_id=work_id, disposition="repaired")
+        assert not store.complete_orphan_reconciliation(work_id=work_id, disposition="repaired")
         with SessionFactory() as session:
             work = session.get(ObjectLifecycleWorkTable, work_id)
             assert work is not None
@@ -890,7 +891,9 @@ def test_postgres_worker_revalidates_attachment_after_prepare_before_delete() ->
                 .where(DocumentTable.workspace_id == workspace_id)
                 .values(current_document_version_id=None)
             )
-            session.execute(delete(DocumentVersionTable).where(DocumentVersionTable.id.in_(version_ids)))
+            session.execute(
+                delete(DocumentVersionTable).where(DocumentVersionTable.id.in_(version_ids))
+            )
             session.execute(delete(DocumentTable).where(DocumentTable.workspace_id == workspace_id))
             session.execute(text("TRUNCATE TABLE object_lifecycle_attempts, object_lifecycle_work"))
             session.execute(
@@ -1020,13 +1023,16 @@ def test_postgres_lifecycle_operation_replay_keeps_one_attempt_and_exact_retry_f
             retry_policy_version="object-lifecycle-retry-v1",
             retry_window_upper_bound_microseconds=5_000_000,
         )
-        assert store.fail(
-            claim=claim,
-            retry_delay=timedelta(seconds=3),
-            operation_id="failure-op",
-            retry_policy_version="object-lifecycle-retry-v1",
-            retry_window_upper_bound_microseconds=5_000_000,
-        ) == LifecycleWorkState.RETRY_SCHEDULED
+        assert (
+            store.fail(
+                claim=claim,
+                retry_delay=timedelta(seconds=3),
+                operation_id="failure-op",
+                retry_policy_version="object-lifecycle-retry-v1",
+                retry_window_upper_bound_microseconds=5_000_000,
+            )
+            == LifecycleWorkState.RETRY_SCHEDULED
+        )
         with pytest.raises(PermissionError, match="operation|request"):
             store.fail(
                 claim=claim,

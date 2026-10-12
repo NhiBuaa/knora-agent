@@ -27,9 +27,7 @@ def _canonical_value(value: object) -> object:
     if isinstance(value, Enum):
         return _canonical_value(value.value)
     if isinstance(value, str):
-        normalized = unicodedata.normalize("NFC", value).replace("\r\n", "\n").replace(
-            "\r", "\n"
-        )
+        normalized = unicodedata.normalize("NFC", value).replace("\r\n", "\n").replace("\r", "\n")
         if "\x00" in normalized or any(
             0xD800 <= ord(character) <= 0xDFFF for character in normalized
         ):

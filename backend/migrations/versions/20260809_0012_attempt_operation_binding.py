@@ -32,9 +32,7 @@ def upgrade() -> None:
         WHERE transition_operation_id IS NOT NULL
         """
     )
-    op.execute(
-        "SET CONSTRAINTS ALL IMMEDIATE"
-    )
+    op.execute("SET CONSTRAINTS ALL IMMEDIATE")
     op.execute(
         "ALTER TABLE ingestion_job_attempts "
         "ENABLE TRIGGER prevent_closed_ingestion_job_attempt_mutation"

@@ -39,9 +39,7 @@ class ConversationService:
         self._authorize(identity, workspace_id)
         return self._store.create(workspace_id, idempotency_key)
 
-    def read(
-        self, identity: Identity, workspace_id: str, conversation_id: str
-    ) -> ConversationView:
+    def read(self, identity: Identity, workspace_id: str, conversation_id: str) -> ConversationView:
         self._authorize_owner(identity, workspace_id)
         conversation = self._store.get(workspace_id, conversation_id)
         if conversation is None:
@@ -116,17 +114,13 @@ class ConversationService:
         self, identity: Identity, workspace_id: str, conversation_id: str, expected_revision: int
     ) -> ConversationView:
         self._authorize(identity, workspace_id)
-        return self._store.mutate(
-            workspace_id, conversation_id, expected_revision, archived=True
-        )
+        return self._store.mutate(workspace_id, conversation_id, expected_revision, archived=True)
 
     def restore(
         self, identity: Identity, workspace_id: str, conversation_id: str, expected_revision: int
     ) -> ConversationView:
         self._authorize(identity, workspace_id)
-        return self._store.mutate(
-            workspace_id, conversation_id, expected_revision, archived=False
-        )
+        return self._store.mutate(workspace_id, conversation_id, expected_revision, archived=False)
 
     def submit_turn(
         self,

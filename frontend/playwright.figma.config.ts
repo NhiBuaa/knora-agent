@@ -5,10 +5,16 @@ import {
   figmaRuntimeEnvironment,
 } from "./tests/e2e/support/figma-environment";
 
+type FigmaTestSelection = {
+  testMatch: string | string[];
+  grep?: RegExp;
+  grepInvert?: RegExp;
+};
+
 export function figmaTestSelection(
   mode: string | undefined,
   selected: string | undefined,
-) {
+): FigmaTestSelection {
   if (mode && !["fixture", "application"].includes(mode))
     throw new Error("Unknown Figma test mode.");
   if (selected) {
@@ -30,6 +36,16 @@ export function figmaTestSelection(
               "figma-conversation-navigation.spec.ts",
             ]
           : "figma-identity.spec.ts",
+    // Selection must remove incompatible describes before Playwright collects
+    // them; skipped application journeys would invalidate the CI JUnit gate.
+    ...(mode === "fixture"
+      ? {
+          grepInvert:
+            /guarded application journeys|Operator prototype comparison/,
+        }
+      : mode === "application"
+        ? { grepInvert: /source fixtures|PDF observation classifies/ }
+        : {}),
   };
 }
 

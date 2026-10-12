@@ -23,9 +23,7 @@ class CorpusChunkSet:
 
 
 class ReembeddingStore(Protocol):
-    def authority_bound_population(
-        self, *, workspace_id: str
-    ) -> tuple[CorpusChunkSet, ...]: ...
+    def authority_bound_population(self, *, workspace_id: str) -> tuple[CorpusChunkSet, ...]: ...
 
     def persist_embedding_set(
         self,
@@ -35,13 +33,9 @@ class ReembeddingStore(Protocol):
         batch: EmbeddingBatch,
     ) -> str: ...
 
-    def activate_embedding_set(
-        self, *, member: CorpusChunkSet, embedding_set_id: str
-    ) -> None: ...
+    def activate_embedding_set(self, *, member: CorpusChunkSet, embedding_set_id: str) -> None: ...
 
-    def enable_v2_retrieval(
-        self, *, workspace_id: str, population_digest: str
-    ) -> None: ...
+    def enable_v2_retrieval(self, *, workspace_id: str, population_digest: str) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +75,7 @@ class ReembedProductionCorpus:
             )
             completed.append((member, embedding_set_id))
         for member, embedding_set_id in completed:
-            self._store.activate_embedding_set(
-                member=member, embedding_set_id=embedding_set_id
-            )
+            self._store.activate_embedding_set(member=member, embedding_set_id=embedding_set_id)
         self._store.enable_v2_retrieval(
             workspace_id=workspace_id, population_digest=population_digest
         )

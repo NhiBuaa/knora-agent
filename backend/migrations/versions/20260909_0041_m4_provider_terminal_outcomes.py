@@ -11,9 +11,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_constraint(
-        "ck_tool_execution_terminal_projection", "tool_executions", type_="check"
-    )
+    op.drop_constraint("ck_tool_execution_terminal_projection", "tool_executions", type_="check")
     op.create_check_constraint(
         "ck_tool_execution_terminal_projection",
         "tool_executions",
@@ -71,9 +69,7 @@ def downgrade() -> None:
         "'provider_observation_timeout','provider_observation_malformed') "
         "AND rejection_code IS NULL AND external_resource_reference IS NULL)",
     )
-    op.drop_constraint(
-        "ck_tool_execution_terminal_projection", "tool_executions", type_="check"
-    )
+    op.drop_constraint("ck_tool_execution_terminal_projection", "tool_executions", type_="check")
     op.create_check_constraint(
         "ck_tool_execution_terminal_projection",
         "tool_executions",

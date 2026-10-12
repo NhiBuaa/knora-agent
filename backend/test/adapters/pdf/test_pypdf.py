@@ -43,11 +43,7 @@ def pdf_with_pages(*pages: str) -> bytes:
             }
         )
         page[NameObject("/Resources")] = DictionaryObject(
-            {
-                NameObject("/Font"): DictionaryObject(
-                    {NameObject("/F1"): writer._add_object(font)}
-                )
-            }
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
         )
         commands = ["BT /F1 12 Tf"]
         for index, line in enumerate(text.splitlines()):
@@ -117,11 +113,7 @@ def difficult_layout_pdf(layout: str) -> bytes:
         }
     )
     resources = DictionaryObject(
-        {
-            NameObject("/Font"): DictionaryObject(
-                {NameObject("/F1"): writer._add_object(font)}
-            )
-        }
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
     )
     commands = {
         "multi-column": (
@@ -298,11 +290,7 @@ def array_contents_pdf(stream_sizes: tuple[int, ...]) -> bytes:
         }
     )
     page[NameObject("/Resources")] = DictionaryObject(
-        {
-            NameObject("/Font"): DictionaryObject(
-                {NameObject("/F1"): writer._add_object(font)}
-            )
-        }
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
     )
     streams = []
     for size in stream_sizes:
@@ -507,10 +495,15 @@ def test_kills_over_budget_child_and_keeps_parent_healthy(
 
     assert raised.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
     assert raised.value.reason == reason
-    assert extractor.extract(
-        BytesIO(source),
-        PdfExtractionConfiguration.milestone_two(),
-    ).pages[0].text == "ordinary text"
+    assert (
+        extractor.extract(
+            BytesIO(source),
+            PdfExtractionConfiguration.milestone_two(),
+        )
+        .pages[0]
+        .text
+        == "ordinary text"
+    )
 
 
 def test_rejects_child_output_sent_after_the_extraction_deadline() -> None:
@@ -623,8 +616,7 @@ def test_hard_split_keeps_supplementary_unicode_under_the_token_cap() -> None:
     assert len(chunks) > 1
     assert all(chunk.token_count <= 650 for chunk in chunks)
     assert all(
-        page.text[chunk.start_offset : chunk.end_offset] == chunk.content
-        for chunk in chunks
+        page.text[chunk.start_offset : chunk.end_offset] == chunk.content for chunk in chunks
     )
 
 
@@ -856,9 +848,7 @@ def test_locked_baseline_stream_boundaries() -> None:
 
     above_total = exact_page_stream_pdf(
         configuration.max_page_stream_bytes,
-        page_count=(
-            configuration.max_total_stream_bytes // configuration.max_page_stream_bytes
-        )
+        page_count=(configuration.max_total_stream_bytes // configuration.max_page_stream_bytes)
         + 1,
     )
     with pytest.raises(PdfExtractionError) as total_raised:

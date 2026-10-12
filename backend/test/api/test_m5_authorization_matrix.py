@@ -57,9 +57,7 @@ def test_invalid_and_expired_bearer_tokens_are_rejected_before_opaque_lookup() -
         "/v1/workspaces/workspace-a/operator/tool-lifecycle",
         headers={"Authorization": "Bearer malformed"},
     )
-    expired_client, expired_calls = _bearer_client(
-        capabilities=("operator:read",), expired=True
-    )
+    expired_client, expired_calls = _bearer_client(capabilities=("operator:read",), expired=True)
     expired = expired_client.get(
         "/v1/workspaces/workspace-a/operator/tool-lifecycle",
         headers={"Authorization": "Bearer expired"},
@@ -115,11 +113,7 @@ def test_m4_tool_proposal_bypass_denies_wrong_workspace_before_opaque_lookup() -
 
     app = create_app(
         api_key_authenticator=ApiKeyAuthenticator(
-            (
-                ApiCredential(
-                    "workspace-a-key", hash_api_key("key-a"), "workspace-a", True
-                ),
-            )
+            (ApiCredential("workspace-a-key", hash_api_key("key-a"), "workspace-a", True),)
         ),
         write_proposal_workflow=workflow,
         tool_actor_context_provider=ActorProvider(),

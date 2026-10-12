@@ -37,9 +37,7 @@ class PostgresAnsweringStore(AnsweringStore):
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
 
-    def require_compatible_corpus(
-        self, workspace_id: str, embedding_configuration_id: str
-    ) -> None:
+    def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str) -> None:
         with self._session_factory() as session:
             self._require_compatible_corpus(
                 workspace_id, embedding_configuration_id, session=session
@@ -168,9 +166,7 @@ class PostgresAnsweringStore(AnsweringStore):
             yield session
             return
         with self._session_factory() as local_session:
-            local_session.connection(
-                execution_options={"isolation_level": "REPEATABLE READ"}
-            )
+            local_session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
             yield local_session
 
     def _active_provenance(
@@ -285,8 +281,7 @@ class PostgresAnsweringStore(AnsweringStore):
                 ChunkTable.id.asc(),
             )
             .limit(
-                retrieval_configuration.vector_candidate_k
-                or retrieval_configuration.candidate_k
+                retrieval_configuration.vector_candidate_k or retrieval_configuration.candidate_k
             )
         )
         with self._session_scope(session) as active_session:
@@ -378,8 +373,7 @@ class PostgresAnsweringStore(AnsweringStore):
         session: Session | None = None,
     ) -> tuple[RetrievalCandidate, ...]:
         lexical_policy = (
-            retrieval_configuration.lexical_policy_id
-            or retrieval_configuration.fts_policy_version
+            retrieval_configuration.lexical_policy_id or retrieval_configuration.fts_policy_version
         )
         query = self._fts_query(query_text=query_text, lexical_policy=lexical_policy)
         if query is None:
@@ -417,27 +411,34 @@ class PostgresAnsweringStore(AnsweringStore):
                 ChunkTable.search_vector.op("@@")(query),
             )
             .order_by(*order)
-            .limit(
-                retrieval_configuration.fts_candidate_k
-                or retrieval_configuration.candidate_k
-            )
+            .limit(retrieval_configuration.fts_candidate_k or retrieval_configuration.candidate_k)
         )
         with self._session_scope(session) as active_session:
             rows = active_session.execute(statement).all()
         return tuple(
             RetrievalCandidate(
-                document_id=document.id, document_version_id=version.id,
-                source_key=document.source_key, source_name=document.source_name,
-                chunk_set_id=chunk_set.id, embedding_set_id=embedding_set.id,
+                document_id=document.id,
+                document_version_id=version.id,
+                source_key=document.source_key,
+                source_name=document.source_name,
+                chunk_set_id=chunk_set.id,
+                embedding_set_id=embedding_set.id,
                 embedding_configuration_id=embedding_set.embedding_configuration_id,
-                chunk_id=chunk.id, chunk_ordinal=chunk.ordinal,
-                heading_path=tuple(chunk.heading_path), start_line=chunk.start_line,
-                end_line=chunk.end_line, content=chunk.content,
-                content_checksum=chunk.content_checksum, token_count=chunk.token_count,
-                cosine_distance=None, similarity=None,
+                chunk_id=chunk.id,
+                chunk_ordinal=chunk.ordinal,
+                heading_path=tuple(chunk.heading_path),
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+                content=chunk.content,
+                content_checksum=chunk.content_checksum,
+                token_count=chunk.token_count,
+                cosine_distance=None,
+                similarity=None,
                 fts_contribution={"branch_rank": index, "native_rank": float(raw_rank)},
-                page_start=chunk.page_start, page_end=chunk.page_end,
-                start_offset=chunk.start_offset, end_offset=chunk.end_offset,
+                page_start=chunk.page_start,
+                page_end=chunk.page_end,
+                start_offset=chunk.start_offset,
+                end_offset=chunk.end_offset,
             )
             for index, (
                 document,
@@ -471,8 +472,7 @@ class PostgresAnsweringStore(AnsweringStore):
         if not chunk_ids:
             return set()
         lexical_policy = (
-            retrieval_configuration.lexical_policy_id
-            or retrieval_configuration.fts_policy_version
+            retrieval_configuration.lexical_policy_id or retrieval_configuration.fts_policy_version
         )
         query = self._fts_query(query_text=query_text, lexical_policy=lexical_policy)
         if query is None:
@@ -606,11 +606,7 @@ class PostgresAnsweringStore(AnsweringStore):
             observations.extend(
                 BranchObservation(
                     branch="fts",
-                    status=(
-                        "NO_CONTRIBUTION"
-                        if chunk_id in fts_eligible_ids
-                        else "INELIGIBLE"
-                    ),
+                    status=("NO_CONTRIBUTION" if chunk_id in fts_eligible_ids else "INELIGIBLE"),
                     chunk_id=chunk_id,
                     lexical_policy_id=lexical_policy_id,
                     normalized_lexemes=normalized,
@@ -642,9 +638,7 @@ class PostgresAnsweringStore(AnsweringStore):
                 BranchObservation(
                     branch="fts",
                     status=(
-                        "INELIGIBLE"
-                        if lexical is not None and normalized
-                        else "NO_CONTRIBUTION"
+                        "INELIGIBLE" if lexical is not None and normalized else "NO_CONTRIBUTION"
                     ),
                     lexical_policy_id=lexical_policy_id,
                     normalized_lexemes=normalized,
@@ -662,9 +656,7 @@ class PostgresAnsweringStore(AnsweringStore):
             unique[key] = observation
         return tuple(unique.values())
 
-    def _require_v2_cutover(
-        self, *, workspace_id: str, embedding_configuration_id: str
-    ) -> None:
+    def _require_v2_cutover(self, *, workspace_id: str, embedding_configuration_id: str) -> None:
         with self._session_factory() as session:
             cutover = session.get(
                 RetrievalV2CutoverTable,
@@ -709,9 +701,7 @@ class PostgresAnsweringStore(AnsweringStore):
             insert = (
                 postgresql_insert(QuestionTraceTable)
                 .values(**values)
-                .on_conflict_do_nothing(
-                    index_elements=[QuestionTraceTable.conversation_turn_id]
-                )
+                .on_conflict_do_nothing(index_elements=[QuestionTraceTable.conversation_turn_id])
                 .returning(QuestionTraceTable.id)
             )
             inserted_id = session.execute(insert).scalar_one_or_none()
@@ -727,9 +717,7 @@ class PostgresAnsweringStore(AnsweringStore):
                 raise KnoraError("CONVERSATION_TRACE_CONFLICT")
             return existing_id
 
-    def read_conversation_result(
-        self, workspace_id: str, turn_id: str
-    ) -> QuestionResult | None:
+    def read_conversation_result(self, workspace_id: str, turn_id: str) -> QuestionResult | None:
         with self._session_factory() as session:
             trace = session.scalar(
                 select(QuestionTraceTable).where(
@@ -772,10 +760,7 @@ class PostgresAnsweringStore(AnsweringStore):
                     DocumentTable.workspace_id == workspace_id,
                 )
             ).all()
-            chunks = {
-                chunk.id: (chunk, version, document)
-                for chunk, version, document in rows
-            }
+            chunks = {chunk.id: (chunk, version, document) for chunk, version, document in rows}
             if len(chunks) != len(set(chunk_ids)):
                 return None
 
@@ -822,8 +807,7 @@ class PostgresAnsweringStore(AnsweringStore):
                 and trace.validation_outcome == "not_applicable"
             )
             valid_generated_refusal = (
-                trace.generation_status == "completed"
-                and trace.validation_outcome == "valid"
+                trace.generation_status == "completed" and trace.validation_outcome == "valid"
             )
             if not (valid_no_evidence_refusal or valid_generated_refusal):
                 return False
@@ -842,9 +826,7 @@ class PostgresAnsweringStore(AnsweringStore):
         ):
             return False
 
-        if not isinstance(trace.alias_mapping, dict) or not isinstance(
-            trace.parsed_markers, list
-        ):
+        if not isinstance(trace.alias_mapping, dict) or not isinstance(trace.parsed_markers, list):
             return False
         if any(
             not isinstance(alias, str) or not isinstance(chunk_id, str)

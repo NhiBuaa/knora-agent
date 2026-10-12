@@ -127,9 +127,7 @@ def test_public_upload_worker_poll_and_citation_use_one_job_flow(tmp_path: Path)
         assert poll.status_code == 200
         projection = poll.json()
         assert projection["status"] == "succeeded"
-        assert projection["result"] == {
-            "document_version_id": upload.json()["document_version_id"]
-        }
+        assert projection["result"] == {"document_version_id": upload.json()["document_version_id"]}
         assert projection["serving_state"] == "current"
 
         question = client.post(
@@ -145,9 +143,7 @@ def test_public_upload_worker_poll_and_citation_use_one_job_flow(tmp_path: Path)
         assert answer["decision"] == "ANSWER"
         assert answer["citations"]
         citation = answer["citations"][0]
-        assert citation["document_version_id"] == upload.json()[
-            "document_version_id"
-        ]
+        assert citation["document_version_id"] == upload.json()["document_version_id"]
         assert citation["page_start"] == 2
         assert citation["page_end"] == 2
         assert citation["start_offset"] == 0
@@ -242,17 +238,23 @@ def test_public_upload_status_and_idempotency_branches_match_durable_job(tmp_pat
             dedup_terminal.json()["ingestion_job_id"],
         } == {job_id}
         with SessionFactory() as session:
-            assert session.scalar(
-                select(func.count())
-                .select_from(IngestionJobTable)
-                .where(IngestionJobTable.workspace_id == workspace_id)
-            ) == 1
-            assert session.scalar(
-                select(func.count())
-                .select_from(DocumentVersionTable)
-                .join(
-                    IngestionJobTable,
-                    IngestionJobTable.target_document_version_id == DocumentVersionTable.id,
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(IngestionJobTable)
+                    .where(IngestionJobTable.workspace_id == workspace_id)
                 )
-                .where(IngestionJobTable.workspace_id == workspace_id)
-            ) == 1
+                == 1
+            )
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(DocumentVersionTable)
+                    .join(
+                        IngestionJobTable,
+                        IngestionJobTable.target_document_version_id == DocumentVersionTable.id,
+                    )
+                    .where(IngestionJobTable.workspace_id == workspace_id)
+                )
+                == 1
+            )

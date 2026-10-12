@@ -133,9 +133,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             else:
                 serving_state = "previous"
             failure_reason = (
-                job.failure_reason
-                if job.failure_reason in _PUBLIC_FAILURE_REASONS
-                else None
+                job.failure_reason if job.failure_reason in _PUBLIC_FAILURE_REASONS else None
             )
             error_code = (
                 job.safe_failure_code
@@ -176,7 +174,6 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         config_source_job_id: str | None,
     ) -> ReprocessContext | None:
         """Resolve a current PDF version and immutable configuration snapshot for reprocess."""
-
 
         with self._session_factory() as session:
             row = session.execute(
@@ -328,9 +325,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 raise KnoraError("DOCUMENT_VERSION_NOT_CURRENT")
             source_object = session.scalar(
                 select(OriginalSourceObjectTable).where(
-                    OriginalSourceObjectTable.id == self._source_object_id(
-                        session, prepared.source_object
-                    ),
+                    OriginalSourceObjectTable.id
+                    == self._source_object_id(session, prepared.source_object),
                     OriginalSourceObjectTable.workspace_id == prepared.workspace_id,
                     OriginalSourceObjectTable.document_version_id == version.id,
                 )
@@ -413,9 +409,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                     max_attempts=4,
                     created_at=database_now,
                     updated_at=database_now,
-                    reprocess_of_job_id=(
-                        prepared.config_source_job_id or prepared.prior_job_id
-                    ),
+                    reprocess_of_job_id=(prepared.config_source_job_id or prepared.prior_job_id),
                 )
                 session.add(job)
                 session.flush()
@@ -585,8 +579,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             .where(
                 IngestionJobTable.document_id == document.id,
                 IngestionJobTable.target_document_version_id == document_version_id,
-                IngestionJobTable.parser_configuration_id
-                == chunk_set.parser_configuration_id,
+                IngestionJobTable.parser_configuration_id == chunk_set.parser_configuration_id,
                 IngestionJobTable.normalizer_configuration_id
                 == chunk_set.normalizer_configuration_id,
                 IngestionJobTable.chunking_configuration_id == chunk_set.chunking_configuration_id,

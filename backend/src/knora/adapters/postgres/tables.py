@@ -88,9 +88,7 @@ class ConversationTable(Base):
     __table_args__ = (
         UniqueConstraint("workspace_id", "id", name="uq_conversations_workspace_id_id"),
         CheckConstraint("length(title) BETWEEN 1 AND 120", name="ck_conversations_title_length"),
-        CheckConstraint(
-            "title_source IN ('auto', 'manual')", name="ck_conversations_title_source"
-        ),
+        CheckConstraint("title_source IN ('auto', 'manual')", name="ck_conversations_title_source"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -703,9 +701,7 @@ class ChunkEmbeddingTable(Base):
 class QuestionTraceTable(Base):
     __tablename__ = "question_traces"
     __table_args__ = (
-        UniqueConstraint(
-            "conversation_turn_id", name="uq_question_traces_conversation_turn_id"
-        ),
+        UniqueConstraint("conversation_turn_id", name="uq_question_traces_conversation_turn_id"),
         ForeignKeyConstraint(
             ["workspace_id", "conversation_turn_id"],
             ["conversation_turns.workspace_id", "conversation_turns.id"],

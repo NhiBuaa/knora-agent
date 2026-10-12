@@ -102,14 +102,10 @@ class OperationalSnapshot:
         if unknown:
             raise ValueError(f"unknown Operational Metrics V1 names: {sorted(unknown)}")
         if any(
-            isinstance(value, bool) or not isfinite(float(value))
-            for value in self.metrics.values()
+            isinstance(value, bool) or not isfinite(float(value)) for value in self.metrics.values()
         ):
             raise ValueError("operational metrics must be numeric")
-        if any(
-            name != "retry_rate" and value < 0
-            for name, value in self.metrics.items()
-        ):
+        if any(name != "retry_rate" and value < 0 for name, value in self.metrics.items()):
             raise ValueError("Operational Metrics V1 counters and durations must be non-negative")
         unknown_histograms = set(self.histograms) - KNOWN_HISTOGRAMS
         if unknown_histograms:

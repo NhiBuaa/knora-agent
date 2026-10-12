@@ -222,9 +222,7 @@ class SqliteEvaluationOwnershipStore:
                 replayed = self._capability_from_operation(
                     replay, capability.run_id, capability.owner_id
                 )
-                if not self._matches(
-                    self._row(connection, capability.run_id), replayed, now
-                ):
+                if not self._matches(self._row(connection, capability.run_id), replayed, now):
                     raise EvaluationOwnershipError("EVALUATION_SEAL_FENCED")
                 return replayed
             if lease_duration <= timedelta(0):
@@ -389,9 +387,7 @@ class SqliteEvaluationOwnershipStore:
         if row is None:
             return _NO_REPLAY
         stored_duration = row[6]
-        requested_duration = (
-            lease_duration.total_seconds() if lease_duration is not None else None
-        )
+        requested_duration = lease_duration.total_seconds() if lease_duration is not None else None
         if (
             row[1] != operation
             or row[2] != run_id

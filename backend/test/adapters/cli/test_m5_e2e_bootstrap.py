@@ -14,9 +14,7 @@ class FakeGateway:
         return workspace_id
 
 
-def test_main_provisions_exact_fixture_workspaces_idempotently(
-    monkeypatch, capsys
-) -> None:
+def test_main_provisions_exact_fixture_workspaces_idempotently(monkeypatch, capsys) -> None:
     gateway = FakeGateway()
     monkeypatch.setattr(module, "PostgresEvaluationWorkspaceGateway", lambda _: gateway)
 

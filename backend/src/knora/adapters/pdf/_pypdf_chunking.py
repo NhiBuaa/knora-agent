@@ -126,7 +126,7 @@ def _hard_split_block(
 ) -> None:
     start = block.start
     while start < block.end:
-        remaining = page.text[start:block.end]
+        remaining = page.text[start : block.end]
         tokens = _encode(tokenizer, remaining)
         if len(tokens) <= configuration.max_tokens:
             end = block.end

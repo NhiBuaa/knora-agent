@@ -60,8 +60,7 @@ def upgrade() -> None:
         ],
         unique=True,
         postgresql_where=sa.text(
-            "parser_configuration_id IS NOT NULL AND "
-            "normalizer_configuration_id IS NOT NULL"
+            "parser_configuration_id IS NOT NULL AND normalizer_configuration_id IS NOT NULL"
         ),
     )
     op.create_check_constraint(

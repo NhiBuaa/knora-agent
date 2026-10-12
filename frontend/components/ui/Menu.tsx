@@ -89,7 +89,7 @@ export function Menu({ label, children, boundarySelector }: MenuProps) {
       <button
         ref={trigger}
         type="button"
-        className="kn-menu__trigger"
+        className="kn-menu__trigger align-top"
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}

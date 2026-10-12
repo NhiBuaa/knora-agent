@@ -26,6 +26,7 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
         }
         for case_id in case_ids
     ]
+
     def metric(case_count):
         return {
             "applicable_count": case_count,
@@ -35,6 +36,7 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
             "denominator": case_count,
             "value": 0.5 if case_count else None,
         }
+
     def guard_metric(case_count):
         return {
             "applicable_count": case_count,
@@ -44,6 +46,7 @@ def _report(configuration: str, *, case_ids=("case-a", "case-b"), corpus="corpus
             "denominator": case_count,
             "value": 1.0 if case_count else None,
         }
+
     categories = {
         "lexical_exact_match": {
             "case_ids": list(case_ids),
@@ -296,9 +299,7 @@ def test_no_claim_is_explicit_when_pair_has_no_qualifying_delta_or_guardrail_fai
     hybrid["retrieval"]["recall_at_8"] = 0.5
     hybrid["retrieval"]["mrr"] = 0.5
     hybrid["guardrails"] = {"citation_correctness": False}
-    pair = compare_paired_reports(
-        vector, hybrid, expected_case_ids=("case-a", "case-b")
-    )
+    pair = compare_paired_reports(vector, hybrid, expected_case_ids=("case-a", "case-b"))
 
     result = select_improvement(
         pair,
@@ -315,9 +316,9 @@ def test_no_claim_is_explicit_when_pair_has_no_qualifying_delta_or_guardrail_fai
         "vector": vector["provenance"],
         "hybrid": hybrid["provenance"],
     }
-    assert result["environment_binding_digest"] == hybrid["binding_v3"][
-        "environment_binding_digest"
-    ]
+    assert (
+        result["environment_binding_digest"] == hybrid["binding_v3"]["environment_binding_digest"]
+    )
 
 
 def test_category_breakdown_separates_membership_applicability_and_observation_failures():

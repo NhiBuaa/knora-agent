@@ -45,8 +45,7 @@ def test_question_stream_returns_ordered_sse_events() -> None:
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert response.text == (
-        'event: started\ndata: {}\n\n'
-        'event: final_validated\ndata: {"answer":"validated"}\n\n'
+        'event: started\ndata: {}\n\nevent: final_validated\ndata: {"answer":"validated"}\n\n'
     )
     assert service.calls[0][0] == QuestionCommand("workspace-a", "What is the policy?")
 

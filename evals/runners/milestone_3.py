@@ -220,11 +220,9 @@ def _validate_observation_response(
         or not public_citations
         or not answer_marker_ids
         or tuple(answer_marker_ids) != tuple(citation_evidence_ids)
-        or tuple(item.evidence_id for item in public_citations)
-        != tuple(citation_evidence_ids)
+        or tuple(item.evidence_id for item in public_citations) != tuple(citation_evidence_ids)
         or any(
-            not isinstance(item, str)
-            or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
+            not isinstance(item, str) or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
             for item in citation_evidence_ids
         )
         or len(set(citation_evidence_ids)) != len(citation_evidence_ids)
@@ -243,8 +241,7 @@ def _validate_observation_response(
             for item in public_citations
         )
         or any(
-            not isinstance(item, str)
-            or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
+            not isinstance(item, str) or _VALID_MARKER_ID_PATTERN.fullmatch(item) is None
             for item in answer_marker_ids
         )
     ):
@@ -355,11 +352,7 @@ class EvaluationEnvironmentBinding:
             **{field: value[field] for field in fields},
             embedding_configuration_id=raw_embedding_configuration_id,
             source_bindings=bindings,
-            **{
-                field: value[field]
-                for field in optional_fields
-                if field in value
-            },
+            **{field: value[field] for field in optional_fields if field in value},
         )
 
     def provenance(self) -> dict[str, object]:
@@ -505,8 +498,7 @@ def verify_corpus_closure(
         if (
             getattr(document, "document_version_id", None)
             != source_binding.production_document_version_id
-            or getattr(document, "chunk_set_id", None)
-            != source_binding.production_chunk_set_id
+            or getattr(document, "chunk_set_id", None) != source_binding.production_chunk_set_id
             or set(getattr(document, "chunk_references", ())) != expected_references[source_key]
         ):
             raise ObservationFailure("CORPUS_CLOSURE_MISMATCH")
@@ -603,7 +595,10 @@ class EvaluationEnvironmentSeal:
         return environment
 
     def verify_unchanged(
-        self, *, corpus: object, manifest: Milestone3CorpusManifest,
+        self,
+        *,
+        corpus: object,
+        manifest: Milestone3CorpusManifest,
         binding: EvaluationEnvironmentBinding,
     ) -> None:
         capability = self._require_capability()
@@ -613,9 +608,7 @@ class EvaluationEnvironmentSeal:
         if binding != self._sealed.environment.binding:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT")
         try:
-            verify_corpus_closure(
-                binding=binding, corpus=corpus, manifest=manifest
-            )
+            verify_corpus_closure(binding=binding, corpus=corpus, manifest=manifest)
         except ObservationFailure as error:
             raise ObservationFailure("EVALUATION_ENVIRONMENT_DRIFT") from error
         self._assert_current(capability)
@@ -628,9 +621,7 @@ class EvaluationEnvironmentSeal:
             mutation_id = operation_id or uuid4().hex
             self._last_operation_id = mutation_id
             try:
-                self._ownership_store.release(
-                    capability, operation_id=mutation_id
-                )
+                self._ownership_store.release(capability, operation_id=mutation_id)
             except EvaluationOwnershipError as error:
                 raise ObservationFailure(error.code) from error
             self._capability = None
@@ -654,9 +645,7 @@ class EvaluationEnvironmentSeal:
             self._capability = renewed
             return renewed
 
-    def start_heartbeat(
-        self, *, interval: timedelta | None = None
-    ) -> EvaluationLeaseHeartbeat:
+    def start_heartbeat(self, *, interval: timedelta | None = None) -> EvaluationLeaseHeartbeat:
         self._require_capability()
         heartbeat_interval = interval or timedelta(
             seconds=min(max(self._lease_duration.total_seconds() / 3, 0.01), 30)
@@ -764,9 +753,11 @@ class HttpEvaluationExecutor:
             if clock_resolution_ms is None
             else clock_resolution_ms
         )
-        if not isinstance(self._clock_resolution_ms, (int, float)) or not isfinite(
-            float(self._clock_resolution_ms)
-        ) or self._clock_resolution_ms <= 0:
+        if (
+            not isinstance(self._clock_resolution_ms, (int, float))
+            or not isfinite(float(self._clock_resolution_ms))
+            or self._clock_resolution_ms <= 0
+        ):
             raise ValueError("clock resolution must be a finite positive number")
 
     async def execute(self, case: Milestone3Case) -> M3Observation:
@@ -1004,9 +995,8 @@ def validate_public_citation_aliases(
         if getattr(candidate, "final_decision", None) == "SELECTED"
     }
     mapped_ids = tuple(alias_mapping.get(evidence_id) for evidence_id in citation_ids)
-    if (
-        any(chunk_id not in selected_ids for chunk_id in mapped_ids)
-        or len(mapped_ids) != len(set(mapped_ids))
+    if any(chunk_id not in selected_ids for chunk_id in mapped_ids) or len(mapped_ids) != len(
+        set(mapped_ids)
     ):
         raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
 
@@ -1025,9 +1015,7 @@ def validate_public_citations_against_trace(
     )
     if not isinstance(alias_mapping, dict):
         raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
-    candidates_by_id = {
-        getattr(candidate, "chunk_id", None): candidate for candidate in candidates
-    }
+    candidates_by_id = {getattr(candidate, "chunk_id", None): candidate for candidate in candidates}
     for citation in citations:
         candidate = candidates_by_id.get(alias_mapping.get(citation.evidence_id))
         if candidate is None or citation.source_key != getattr(candidate, "source_key", None):
@@ -1049,10 +1037,7 @@ def validate_public_citations_against_trace(
             ):
                 raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
             expected_locator = f"{citation.source_key}:{start_line}:{end_line}"
-        if (
-            not isinstance(expected_locator, str)
-            or citation.source_locator != expected_locator
-        ):
+        if not isinstance(expected_locator, str) or citation.source_locator != expected_locator:
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
 
 
@@ -1243,9 +1228,7 @@ def build_report(
         elif observation.is_success:
             semantic_result = None
         report_observations.append(
-            _observation_projection(
-                observation, semantic_citation_correctness=semantic_result
-            )
+            _observation_projection(observation, semantic_citation_correctness=semantic_result)
         )
     if set(semantic_results) - {observation.case_id for observation in observations}:
         raise ObservationFailure("SEMANTIC_CITATION_RESULT_CASE_MISMATCH")
@@ -1287,10 +1270,7 @@ def build_report(
         and len(successful) == len(observations)
         and all(observation.structural_validity is True for observation in successful),
         "citation_correctness": bool(answer_observations)
-        and all(
-            observation.citation_correctness is True
-            for observation in answer_observations
-        ),
+        and all(observation.citation_correctness is True for observation in answer_observations),
         "refusal_correctness": bool(refusal_checks)
         and all(value is True for value in refusal_checks),
     }
@@ -1302,10 +1282,14 @@ def build_report(
     report["guardrails"] = shaped_guardrails
     if latency_tradeoffs is None:
         successful = [observation for observation in observations if observation.is_success]
-        observed = bool(successful) and len(successful) == len(observations) and all(
-            observation.retrieval_latency_ms is not None
-            and observation.end_to_end_latency_ms is not None
-            for observation in successful
+        observed = (
+            bool(successful)
+            and len(successful) == len(observations)
+            and all(
+                observation.retrieval_latency_ms is not None
+                and observation.end_to_end_latency_ms is not None
+                for observation in successful
+            )
         )
         latency_tradeoffs = {
             "retrieval": {"count": len(successful), "observed_per_case": observed},

@@ -34,8 +34,7 @@ WORKSPACE_ID = "evaluation-m3-v1"
 
 def canonical_json(value: Any) -> bytes:
     return (
-        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\n"
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     ).encode()
 
 
@@ -93,17 +92,14 @@ def snapshot(source_keys: tuple[str, ...]) -> dict[str, Any]:
                 select(EmbeddingSetTable)
                 .where(
                     EmbeddingSetTable.chunk_set_id == active_set.chunk_set_id,
-                    EmbeddingSetTable.embedding_configuration_id
-                    == "embedding-local-m1-v2",
+                    EmbeddingSetTable.embedding_configuration_id == "embedding-local-m1-v2",
                 )
                 .order_by(EmbeddingSetTable.id)
             ).all()
             for embedding_set in v1_sets:
                 embeddings = session.scalars(
                     select(ChunkEmbeddingTable)
-                    .where(
-                        ChunkEmbeddingTable.embedding_set_id == embedding_set.id
-                    )
+                    .where(ChunkEmbeddingTable.embedding_set_id == embedding_set.id)
                     .order_by(ChunkEmbeddingTable.chunk_id)
                 ).all()
                 v1_digest.update(embedding_set.id.encode())
@@ -173,9 +169,7 @@ def execute(root: Path, output_path: Path) -> None:
     try:
         result = ReembedProductionCorpus(
             provider=provider,
-            store=PostgresReembeddingStore(
-                SessionFactory, authority_source_keys=source_keys
-            ),
+            store=PostgresReembeddingStore(SessionFactory, authority_source_keys=source_keys),
         ).execute(
             workspace_id=WORKSPACE_ID,
             configuration=EmbeddingConfiguration.gemini_m3(),
@@ -196,19 +190,13 @@ def execute(root: Path, output_path: Path) -> None:
                 old["document_version_id"] == new["document_version_id"]
             ),
             "chunk_set_unchanged": old["chunk_set_id"] == new["chunk_set_id"],
-            "chunk_set_digest_unchanged": (
-                old["chunk_set_digest"] == new["chunk_set_digest"]
-            ),
+            "chunk_set_digest_unchanged": (old["chunk_set_digest"] == new["chunk_set_digest"]),
             "v1_embedding_sets_unchanged": (
                 old["v1_embedding_set_ids"] == new["v1_embedding_set_ids"]
             ),
-            "v2_active": (
-                new["active_embedding_configuration_id"]
-                == "embedding-gemini-m1-v1"
-            ),
+            "v2_active": (new["active_embedding_configuration_id"] == "embedding-gemini-m1-v1"),
             "v2_embedding_set_is_new": (
-                new["active_embedding_set_id"]
-                not in old["v1_embedding_set_ids"]
+                new["active_embedding_set_id"] not in old["v1_embedding_set_ids"]
             ),
         }
     with SessionFactory() as session:
@@ -230,16 +218,11 @@ def execute(root: Path, output_path: Path) -> None:
             )
             .where(
                 DocumentTable.workspace_id == WORKSPACE_ID,
-                EmbeddingSetTable.embedding_configuration_id
-                == "embedding-gemini-m1-v1",
+                EmbeddingSetTable.embedding_configuration_id == "embedding-gemini-m1-v1",
             )
         )
-        gemini_config = session.get(
-            EmbeddingConfigurationTable, "embedding-gemini-m1-v1"
-        )
-    all_invariants_pass = all(
-        all(values.values()) for values in invariant_results.values()
-    )
+        gemini_config = session.get(EmbeddingConfigurationTable, "embedding-gemini-m1-v1")
+    all_invariants_pass = all(all(values.values()) for values in invariant_results.values())
     evidence = {
         "schema_version": 1,
         "workspace_id": WORKSPACE_ID,
@@ -255,12 +238,9 @@ def execute(root: Path, output_path: Path) -> None:
         "cutover": {
             "present": cutover is not None,
             "status": cutover.status if cutover is not None else None,
-            "population_digest": (
-                cutover.population_digest if cutover is not None else None
-            ),
+            "population_digest": (cutover.population_digest if cutover is not None else None),
             "matches_execution": (
-                cutover is not None
-                and cutover.population_digest == result.population_digest
+                cutover is not None and cutover.population_digest == result.population_digest
             ),
         },
         "embedding_configuration": {

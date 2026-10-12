@@ -1,4 +1,5 @@
 """Add reversible document archive state and asynchronous deletion requests."""
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa

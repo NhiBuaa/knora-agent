@@ -28,8 +28,15 @@ class EvaluationWorkspaceGateway(Protocol):
 
 
 class CorpusIngestionGateway(Protocol):
-    def ingest(self, *, workspace_id: str, source_key: str, source_name: str,
-               media_type: str, raw_content: bytes) -> object: ...
+    def ingest(
+        self,
+        *,
+        workspace_id: str,
+        source_key: str,
+        source_name: str,
+        media_type: str,
+        raw_content: bytes,
+    ) -> object: ...
 
 
 class EvaluationWorkspaceProvisioner(Protocol):
@@ -49,13 +56,9 @@ class ProductionEvaluationWorkspaceProvisioner:
     corpus_root: Path
 
     def provision_or_reuse(self, *, workspace_id: str, name: str = "Milestone 3 evaluation") -> str:
-        return self.workspace_gateway.provision_or_reuse(
-            workspace_id=workspace_id, name=name
-        )
+        return self.workspace_gateway.provision_or_reuse(workspace_id=workspace_id, name=name)
 
-    def materialize_corpus(
-        self, *, workspace_id: str, manifest: Milestone3CorpusManifest
-    ) -> None:
+    def materialize_corpus(self, *, workspace_id: str, manifest: Milestone3CorpusManifest) -> None:
         if manifest.workspace_id != workspace_id:
             raise ObservationFailure("CORPUS_WORKSPACE_MISMATCH")
         manifest_path = self.corpus_root / "manifest.json"
@@ -91,8 +94,12 @@ def inject_minio_runtime(values: dict[str, str]) -> None:
 def choose_free_loopback_ports() -> dict[str, str]:
     """Reserve no sockets; return currently free loopback ports for Compose host bindings."""
     ports: dict[str, str] = {}
-    for name in ("KNORA_EVAL_POSTGRES_HOST_PORT", "KNORA_EVAL_MINIO_HOST_PORT",
-                 "KNORA_EVAL_MINIO_CONSOLE_PORT", "KNORA_EVAL_API_HOST_PORT"):
+    for name in (
+        "KNORA_EVAL_POSTGRES_HOST_PORT",
+        "KNORA_EVAL_MINIO_HOST_PORT",
+        "KNORA_EVAL_MINIO_CONSOLE_PORT",
+        "KNORA_EVAL_API_HOST_PORT",
+    ):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             ports[name] = str(probe.getsockname()[1])
@@ -246,7 +253,12 @@ class ProductionApiProcessLauncher:
     """Starts the normal uvicorn production entrypoint with startup-only auth config."""
 
     command: tuple[str, ...] = (
-        "uvicorn", "knora.main:app", "--host", "127.0.0.1", "--port", "8000"
+        "uvicorn",
+        "knora.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
     )
     process: Any = None
     environment: dict[str, str] | None = None

@@ -153,12 +153,9 @@ def test_pdf_success_finalization_commits_complete_derivation_and_activation() -
         chunk_set = session.scalar(
             select(ChunkSetTable).where(
                 ChunkSetTable.document_version_id == claim.work.document_version_id,
-                ChunkSetTable.parser_configuration_id
-                == claim.work.parser_configuration_id,
-                ChunkSetTable.normalizer_configuration_id
-                == claim.work.normalizer_configuration_id,
-                ChunkSetTable.chunking_configuration_id
-                == claim.work.chunking_configuration_id,
+                ChunkSetTable.parser_configuration_id == claim.work.parser_configuration_id,
+                ChunkSetTable.normalizer_configuration_id == claim.work.normalizer_configuration_id,
+                ChunkSetTable.chunking_configuration_id == claim.work.chunking_configuration_id,
             )
         )
         embedding_set = session.scalar(
@@ -241,13 +238,17 @@ def test_pdf_success_finalization_replays_one_operation_without_duplicate_rows()
     assert isinstance(first, FinalizationApplied)
     assert replay == first
     with SessionFactory() as session:
-        assert session.scalar(
-            select(ChunkSetTable).where(
-                ChunkSetTable.document_version_id == claim.work.document_version_id,
-                ChunkSetTable.parser_configuration_id == claim.work.parser_configuration_id,
-                ChunkSetTable.normalizer_configuration_id == claim.work.normalizer_configuration_id,
+        assert (
+            session.scalar(
+                select(ChunkSetTable).where(
+                    ChunkSetTable.document_version_id == claim.work.document_version_id,
+                    ChunkSetTable.parser_configuration_id == claim.work.parser_configuration_id,
+                    ChunkSetTable.normalizer_configuration_id
+                    == claim.work.normalizer_configuration_id,
+                )
             )
-        ) is not None
+            is not None
+        )
         job = session.get(IngestionJobTable, job_id)
         assert job.status == "succeeded"
 
