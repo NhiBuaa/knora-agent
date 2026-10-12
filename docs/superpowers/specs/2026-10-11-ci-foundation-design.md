@@ -8,14 +8,14 @@ Make existing executable contracts run from a fresh checkout on every pull reque
 
 The owner approved four requirements:
 
-1. One `.github/workflows/ci.yml`, with Frontend, Backend, Database, Keycloak and aggregate `CI required`; preserve the exact check name `Prettier format check`.
+1. One `.github/workflows/ci.yml`, with Frontend, Backend, Database, Keycloak and aggregate `CI required`. On 2026-10-12 the owner approved moving formatting into component jobs and replacing the former `Prettier format check` requirement with `CI required` through a safe protection migration.
 2. Frontend runs only independent Playwright fixtures. E2E with real backend/auth/storage belongs to Runtime Verification.
 3. Suitable unit and integration tests run on every PR. Expensive/model/multi-service checks run separately. An executed suite with missing, empty, failed or skipped tests fails its gate.
 4. Runtime Verification is manual and a release acceptance requirement for related changes, with evidence bound to the actual tested commit SHA.
 
 ## Observed starting state
 
-- The only workflow is `.github/workflows/frontend-formatting.yml`; it runs `npm ci` and `format:check` on PR/push to main. GitHub main protection currently requires `Prettier format check`, from the GitHub Actions app, with strict checks.
+- At the original baseline, the only workflow was `.github/workflows/frontend-formatting.yml`, running `npm ci` and `format:check`. Main protection required `Prettier format check`, from the GitHub Actions app, with strict checks.
 - Frontend already exposes lint, typecheck, Vitest, build and Playwright commands; Node 22 and Next.js 15 are established choices.
 - PostgreSQL tests need migrated pgvector storage. `test_workspace_concurrency.py` explicitly requires a database named `knora_issue110_task2` and otherwise skips.
 - Windows PDF hard-memory-limit and local launcher contracts require Windows. Other configuration tests need `pwsh` and Docker configuration inspection.
@@ -30,16 +30,15 @@ Triggers: `pull_request` targeting main, `push` to main, and manual dispatch for
 
 | Job ID / check | Runner | Scope |
 | --- | --- | --- |
-| `format` / `Prettier format check` | Ubuntu | Existing npm lockfile installation and format check, with the exact existing status name |
-| `frontend` / `Frontend` | Ubuntu | ESLint, TypeScript, all Vitest tests, production build, Chromium fixture Playwright; Java 21/Maven only to render synthetic native fixtures offline |
-| `backend` / `Backend (ubuntu/windows)` | Ubuntu and Windows matrix | Portable Python/evaluation contracts on Ubuntu; Windows launcher/PDF contracts on Windows. Ruff, OpenAPI drift and both Compose entry-point validation on Ubuntu |
+| `frontend` / `Frontend` | Ubuntu | Frontend/shared Prettier checks first, ESLint, TypeScript, all Vitest tests, production build, Chromium fixture Playwright; Java 21/Maven only to render synthetic native fixtures offline |
+| `backend` / `Backend (ubuntu/windows)` | Ubuntu and Windows matrix | Portable Python/evaluation contracts on Ubuntu; Windows launcher/PDF contracts on Windows. Ruff format and lint, OpenAPI drift and both Compose entry-point validation on Ubuntu |
 | `database` / `Database` | Ubuntu | Disposable pgvector/PostgreSQL 16 service, Alembic upgrade and database integration/concurrency contracts |
-| `keycloak` / `Keycloak` | Ubuntu | Java 21 unit tests and `EmailOtpResetFlowIT`, without the two-node runtime suite |
-| `required` / `CI required` | Ubuntu | Explicit `needs` for all five job IDs; accept only `success` for every dependency |
+| `keycloak` / `Keycloak` | Ubuntu | Maven Spotless Java formatting in validate, then Java 21 unit tests and `EmailOtpResetFlowIT`, without the two-node runtime suite |
+| `required` / `CI required` | Ubuntu | Explicit `needs` for the four component job IDs; accept only `success` for every dependency |
 
-Keep `format` independent so its status cannot be skipped by another job's failure. Remove the old formatting workflow in the same change to avoid duplicate check names. Update the AGENTS policy's workflow reference when implementation moves the existing check; the mandatory check itself stays unchanged.
+Formatting belongs to the owning component. Shared workflow/Compose/CI-document formatting reuses the frontend's existing Prettier installation with explicit paths. Generated files and immutable evaluation evidence retain their existing validation. See the runbook for exact scope and languages without a formatter.
 
-The final job uses `if: ${{ always() }}` and compares every dependency result to `success`. Failure, cancellation, skip, absent/malformed results and unknown job IDs fail validation. Matrix `fail-fast: false` preserves evidence for both platforms. A workflow cancelled before the aggregator runs can leave that check cancelled or missing; it cannot authorize a merge. After the workflow is published and verified, add `CI required` alongside Prettier to required checks through an explicit repository-integration step; YAML alone does not change branch protection.
+The final job uses `if: ${{ always() }}` and compares every dependency result to `success`. Failure, cancellation, skip, absent/malformed results and unknown job IDs fail validation. Matrix `fail-fast: false` preserves evidence for both platforms. A workflow cancelled before the aggregator runs can leave that check cancelled or missing; it cannot authorize a merge. Enable the verified `CI required` check before removing the former Prettier requirement, preserving strict mode, Actions app binding and other protection settings. YAML alone does not change branch protection.
 
 ### Python partition and skip policy
 

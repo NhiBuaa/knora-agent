@@ -80,8 +80,16 @@ The sole container for every future non-primary Git worktree is
   chained expressions, and nested braces readable under the checked-in Prettier configuration.
 - Do not edit `frontend/generated/knora-openapi.ts` manually. Regenerate it with the repository
   exporter and verify it with `python scripts/export_openapi.py --check`.
-- The GitHub Actions `Prettier format check` status from the unified `CI` workflow is
+- Formatting runs inside component jobs in the unified `CI` workflow. `CI required` is
   required for every update to `main`; do not bypass a failing or missing result.
+
+## Python and shared formatting
+
+- Before completing Python changes, run `python -m ruff format .`, then
+  `python -m ruff format --check .` and `python -m ruff check .`.
+- For maintained shared files selected by `frontend/package.json`, run
+  `npm --prefix frontend run format:shared`, then `npm --prefix frontend run format:shared:check`.
+- See [the CI runbook](docs/runbooks/ci.md) for Java formatting and generated/evidence exclusions.
 
 ## Verification
 

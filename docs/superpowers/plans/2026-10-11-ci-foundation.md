@@ -4,7 +4,7 @@
 
 **Goal:** Deliver strict automatic PR CI and manual runtime release verification using existing Knora tests.
 
-**Architecture:** One ci.yml has Frontend, Backend, Database, Keycloak, an independent preserved Prettier check and CI required aggregation. A separate manual workflow checks an exact candidate SHA and emits scoped sanitized runtime evidence. Small collection/report helpers connect existing tools, without an orchestration framework.
+**Architecture:** One ci.yml has Frontend, Backend, Database, Keycloak, formatting inside the owning component jobs and CI required aggregation. A separate manual workflow checks an exact candidate SHA and emits scoped sanitized runtime evidence. Small collection/report helpers connect existing tools, without an orchestration framework.
 
 **Tech Stack:** GitHub Actions, Python 3.12, pytest/JUnit XML, Ruff, PostgreSQL 16/pgvector, Alembic, Node 22, Vitest, Playwright Chromium, Java 21/Maven, PowerShell and existing Compose profiles.
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Preserve the exact check name `Prettier format check` and add the aggregate `CI required`.
+- Require the aggregate `CI required`; owner approval on 2026-10-12 supersedes the original independent Prettier requirement with formatting inside component jobs.
 - All required job results must equal `success`; fail, cancel, skip, missing results and empty suites cannot pass.
 - No AI benchmarks or paid providers on every PR.
 - Fixture-only Playwright on PR; real service E2E belongs to Runtime Verification.
@@ -45,7 +45,10 @@ Tasks 1 and 2 have disjoint files and can be developed independently. Task 3 con
 ```python
 @pytest.mark.parametrize("result", ["failure", "cancelled", "skipped"])
 def test_required_job_non_success_is_rejected(result):
-    needs = {name: {"result": "success"} for name in ("format", "frontend", "backend", "database", "keycloak")}
+    needs = {
+        name: {"result": "success"}
+        for name in ("frontend", "backend", "database", "keycloak")
+    }
     needs["database"]["result"] = result
     assert required_jobs_succeeded(needs) is False
 ```
@@ -74,7 +77,7 @@ def test_required_job_non_success_is_rejected(result):
 **Files:** Create `.github/workflows/ci.yml`; remove `.github/workflows/frontend-formatting.yml`; update only the workflow-reference sentence in AGENTS.md; add CI command reference to README/runbook.
 
 - [x] Define PR/main/manual triggers without path filters, contents read permission, checkout/cache/setup actions, explicit timeouts and PR concurrency. Use Node22, Python3.12, Java21 and existing dependency files.
-- [x] Add independent `format` job named `Prettier format check`; add Frontend with Task2 fixture export and lint/typecheck/Vitest/build. Generate separate XML reports and validate them before success.
+- [x] Run Frontend/shared formatting first in Frontend; add Frontend with Task2 fixture export and lint/typecheck/Vitest/build. Generate separate XML reports and validate them before success.
 - [x] Add Backend Ubuntu/Windows matrix with `fail-fast: false` and respective Task1 suite options. Ubuntu also runs Ruff, exporter check and both Compose validations using only synthetic env values. Windows tests never require a host Linux Docker daemon.
 - [x] Add Database service image `pgvector/pgvector:pg16`, DB `knora_issue110_task2`, health check and loopback DSN. Run `python -m alembic -c backend/alembic.ini upgrade head` from the correct backend working directory, then database suite serially with XML validation.
 - [x] Add Keycloak: `mvn -B -f infra/keycloak/providers/email-otp-reset/pom.xml -Dit.test=EmailOtpResetFlowIT verify`; validate Surefire and Failsafe XML separately. Do not call full unfiltered verify without two real nodes.
@@ -84,7 +87,7 @@ def test_required_job_non_success_is_rejected(result):
 required:
   name: CI required
   if: ${{ always() }}
-  needs: [format, frontend, backend, database, keycloak]
+  needs: [frontend, backend, database, keycloak]
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
@@ -94,7 +97,7 @@ required:
 ```
 
 - [x] Upload only CI report/selection artifacts with if:always and unique matrix names; never dump runtime env or private traces. Failure must preserve failed job status.
-- [x] Validate workflow with actionlint and aggregate truth-table tests. Verify no duplicate Prettier name remains. Document required-check transition: preserve existing protection, add `CI required` after actual GitHub run and authorized integration.
+- [x] Validate workflow with actionlint and aggregate truth-table tests. Verify the aggregate expects exactly four component IDs. Migrate protection to the verified `CI required` before removing the former Prettier requirement; preserve strict mode, Actions app binding and other settings.
 - [x] Run applicable commands locally and commit only this task's files.
 
 ## Task 4: Manual runtime and exact release evidence
@@ -123,3 +126,17 @@ required:
 ## Self-review and continuity
 
 The spec has a task for each accepted requirement: unified/check-preservation/aggregate behavior (1,3); fixtures and live scope (2,4); classification and no false PASS (1,2,3); exact runtime release evidence (4,5); reuse/extension/no paid every-PR AI (global constraints and runbook). No task changes domain, runtime production defaults or unfinished issue acceptance. Document any necessary implementation ruling in the verification record.
+
+## Approved formatting consolidation (2026-10-12)
+
+The owner approved moving formatting into component jobs and replacing the old required Prettier
+status with the aggregate. This supersedes the original separate format-job design.
+
+- [x] Change aggregate schema and test every component failure/cancellation/skip/missing result.
+- [x] Run frontend and explicitly scoped shared Prettier checks before frontend tests.
+- [x] Normalize Python formatting without AST changes, pin Ruff, and check formatting before lint/tests.
+- [x] Pin Maven Spotless and Java formatter, normalize Java, and bind the check to validate.
+- [x] Complete repository checks and Java verification.
+- [ ] Complete independent review of the consolidation.
+- [x] Safely migrate required status while retaining strict mode and Actions app binding.
+- [ ] Push PR #161 update and qualify the current exact head with hosted CI.

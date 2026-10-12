@@ -18,7 +18,7 @@ plugin = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(plugin)
 ci_route = plugin.ci_route
 RUNTIME_NODES = plugin.RUNTIME_NODES
-JOBS = ("format", "frontend", "backend", "database", "keycloak")
+JOBS = ("frontend", "backend", "database", "keycloak")
 
 
 def report(tmp_path: Path, body: str, name: str = "report.xml") -> Path:
@@ -107,20 +107,20 @@ def test_all_required_jobs_succeed() -> None:
     assert required_jobs_succeeded({name: {"result": "success"} for name in JOBS})
 
 
+@pytest.mark.parametrize("job", JOBS)
 @pytest.mark.parametrize("result", ("failure", "cancelled", "skipped"))
-def test_required_job_non_success_is_rejected(result: str) -> None:
+def test_required_job_non_success_is_rejected(job: str, result: str) -> None:
     needs = {name: {"result": "success"} for name in JOBS}
-    needs["database"]["result"] = result
+    needs[job]["result"] = result
     assert required_jobs_succeeded(needs) is False
 
 
-def test_missing_or_unknown_job_is_rejected() -> None:
+@pytest.mark.parametrize("job", JOBS)
+def test_missing_or_unknown_job_is_rejected(job: str) -> None:
     needs = {name: {"result": "success"} for name in JOBS}
-    assert (
-        required_jobs_succeeded({key: val for key, val in needs.items() if key != "format"})
-        is False
-    )
+    assert required_jobs_succeeded({key: val for key, val in needs.items() if key != job}) is False
     assert required_jobs_succeeded({**needs, "extra": {"result": "success"}}) is False
+    assert required_jobs_succeeded({**needs, "format": {"result": "success"}}) is False
 
 
 def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:

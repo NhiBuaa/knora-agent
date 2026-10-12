@@ -7,28 +7,29 @@ Branch: `ci/foundation`
 Initial implementation commit: `0001bb5` (`ci: finalize strict runtime evidence and unified checks`)
 
 This record covers local implementation, isolated container checks and the published PR
-[#161](https://github.com/NhiBuaa/knora-agent/pull/161). Branch protection has not been changed and
-no release Runtime Verification profile has been accepted.
+[#161](https://github.com/NhiBuaa/knora-agent/pull/161). Main protection now requires `CI required` with strict checks and GitHub Actions app 15368;
+other protection settings are unchanged. No release Runtime Verification profile has been accepted.
 
 ## Automatic CI
 
-The unified workflow is `.github/workflows/ci.yml`. It contains the independent required check
-`Prettier format check`, jobs for Frontend, Backend (Ubuntu and Windows), Database, Keycloak, and
-the exact-result aggregate `CI required`. The former `Frontend formatting` workflow was removed.
+The unified workflow is `.github/workflows/ci.yml`. It contains Frontend, Backend (Ubuntu and
+Windows), Database, Keycloak, and the exact-result aggregate `CI required`. Owner approval on
+2026-10-12 moved formatting into component jobs and superseded the independent Prettier check.
+The former `Frontend formatting` workflow was removed.
 
-The current pytest collection is 1,806 nodes:
+The current pytest collection is 1,818 nodes:
 
-| Partition | Selected | Deselect/runtime accounting |
-| --- | ---: | ---: |
-| Backend portable (Linux) | 1,233 | 573 deselected |
-| Backend Windows | 222 | 1,584 deselected |
-| Database | 347 | 1,459 deselected |
-| Explicit runtime/manual nodes | 4 | excluded from PR partitions |
-| Total collection | 1,806 | partitions are disjoint and complete |
+| Partition                     | Selected |          Deselect/runtime accounting |
+| ----------------------------- | -------: | -----------------------------------: |
+| Backend portable (Linux)      |    1,245 |                       573 deselected |
+| Backend Windows               |      222 |                     1,596 deselected |
+| Database                      |      347 |                     1,471 deselected |
+| Explicit runtime/manual nodes |        4 |          excluded from PR partitions |
+| Total collection              |    1,818 | partitions are disjoint and complete |
 
-The extra 31 portable nodes include the runtime-evidence validator tests. Every required PR suite
+The portable suite includes runtime-evidence and component-result validator tests. Every required PR suite
 uses a JUnit report and `scripts/ci_checks.py`; missing, empty, failed, skipped, duplicate, or
-inconsistent reports fail validation. `CI required` accepts only the exact five dependency keys,
+inconsistent reports fail validation. `CI required` accepts only the exact four component dependency keys,
 each with result `success`, so failure, cancellation, skip, or missing jobs cannot become PASS.
 
 ## Evidence from this worktree
@@ -93,13 +94,46 @@ The failure causes and corrections are:
   interactions, preventing checkbox initialization from overwriting a premature click. Existing
   assertions and visual baselines were not weakened.
 
+The corrected hosted [run 38259796127](https://github.com/NhiBuaa/knora-agent/actions/runs/38259796127)
+passed all seven checks at head `e1014afcf0af0fee95596772162a69c11042a195`, checkout
+`ca60591b2506e22deb6a872f4faa675abbdfd49c`. This qualifies the original separate-format workflow;
+the subsequent component-format consolidation requires its own successful hosted run.
+
 PR #161's checks record hosted qualification for each published branch head. Each run's
 `ci-subject.json` artifact records the exact checkout SHA, PR head SHA, run ID and attempt; require
-successful checks for the current head before integration. No merge, branch-protection update or
-deployment has been performed. After a successful run is reviewed, add `CI required` alongside
-the preserved `Prettier format check` status. Runtime evidence remains an explicit release
+successful checks for the current head before integration. No merge or deployment has been
+performed. The approved migration enables the already verified `CI required` before removing
+the former Prettier requirement, preserving strict mode and the Actions app binding. Runtime evidence remains an explicit release
 acceptance record for the affected capabilities.
 
 Future Qdrant/OCR/DeepEval/Langfuse work follows the design rule: cheap deterministic contracts in
 required CI; real multi-service or model checks in a named profile with pinned inputs and explicit
 release mapping. No paid AI benchmark is invoked by PR CI.
+
+## Component formatting consolidation
+
+Approved on 2026-10-12; Python formatting baseline commit `0b24253`.
+
+- Removed the independent format job. Frontend runs frontend/shared Prettier before its tests;
+  Backend Ubuntu checks Python format before lint/tests. Database and Windows share that Python
+  source gate and remain mandatory aggregate dependencies.
+- Ruff 0.17.0 is pinned; Markdown is excluded so historical Python code examples remain untouched.
+  All 143 changed tracked Python baseline files have identical ASTs to their original versions.
+- Maven Spotless 3.10.4 and google-java-format 1.24.0 use AOSP style to retain four-space Java
+  indentation. Check is bound to validate and covers all 16 maintained provider/test/probe Java
+  files. Initial verify rejected formatting before any tests; apply followed by clean verify
+  passed 11 unit and 23 flow cases. Both XML suites passed strict validation.
+- The first default pytest run rejected 13 cases because uncommitted formatted runtime sources
+  differed from Git HEAD. The provenance guard was preserved. After committing only the pure
+  Python formatting baseline, all 14 process-probe tests passed and the full rerun passed
+  **1,814 cases with 4 explicit manual/runtime skips** (425.14 seconds, exit 0).
+- Exact-four-component aggregate tests: **56 passed**. Every component failure/cancellation/skip
+  and missing result is rejected; the obsolete format dependency is rejected as an extra key.
+- Ruff format/lint, frontend/shared Prettier, OpenAPI, Compose and actionlint checks passed.
+- Main protection migration was performed in two verified API updates: first both Prettier and
+  the already green CI required, then CI required only. Strict mode and Actions app 15368 were
+  preserved; every other protection field compared equal before and after.
+
+These local checks cover the consolidation working tree on the formatting baseline. The new
+PR head must pass hosted CI; its ci-subject artifact records the exact tested checkout/head.
+The formatting scope and excluded languages are specified in the CI runbook.

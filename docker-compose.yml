@@ -69,4 +69,3 @@ services:
 volumes:
   knora_postgres_data:
   knora_minio_data:
-

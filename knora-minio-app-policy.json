@@ -3,23 +3,13 @@
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:GetBucketLocation"
-      ],
-      "Resource": [
-        "arn:aws:s3:::knora"
-      ]
+      "Action": ["s3:GetBucketLocation"],
+      "Resource": ["arn:aws:s3:::knora"]
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject"
-      ],
-      "Resource": [
-        "arn:aws:s3:::knora/*"
-      ]
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": ["arn:aws:s3:::knora/*"]
     }
   ]
 }

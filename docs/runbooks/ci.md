@@ -3,8 +3,8 @@
 ## Pull request checks
 
 The automatic workflow runs the existing backend, frontend, database and Keycloak contracts.
-`Prettier format check` remains an independent check; `CI required` is the aggregate check to add
-to branch protection after the first published run succeeds. Report XML is strict: missing,
+Formatting runs inside the owning component job; `CI required` is the required branch protection
+check. The former independent `Prettier format check` is replaced by this aggregate. Report XML is strict: missing,
 empty, failed, skipped or duplicate cases fail the job.
 
 No AI provider credentials, developer `.env` files, model benchmarks, or real application E2E
@@ -15,6 +15,26 @@ and a delegated cgroup memory controller. That container requires privileged exe
 ephemeral GitHub runner so the real extractor can enforce its child-process limits. Failure to
 configure isolation fails the job; these tests do not substitute a mocked extractor. Backend
 checkout includes full Git history for immutable evaluation provenance checks.
+
+### Formatting scope
+
+| Component job             | Check                                                           | Maintained scope                                                                                                             |
+| ------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Frontend                  | `npm --prefix frontend run format:check`                        | Frontend CSS/JS/JSX/JSON/MJS/SCSS/TS/TSX using existing ignores                                                              |
+| Frontend (shared tooling) | `npm --prefix frontend run format:shared:check`                 | Workflows, Compose YAML, MinIO policy JSON, AGENTS/README and CI runbook/verification record; explicit paths in package.json |
+| Backend Ubuntu            | `python -m ruff format --check .` then `python -m ruff check .` | Repository Python, including backend, migrations, scripts, evals and tests; Ruff pinned to 0.17.0                            |
+| Keycloak                  | Maven Spotless check in `validate`                              | Provider and test/probe Java; Spotless 3.10.4 / google-java-format 1.24.0 (AOSP); before compilation/tests                   |
+
+Use the matching `format`, `format:shared`, `python -m ruff format .`, or
+`mvn -f infra/keycloak/providers/email-otp-reset/pom.xml spotless:apply` command to fix formatting.
+The database tests share Python sources checked by Backend; no duplicate formatter installation
+is needed in Database or Backend Windows. Their results remain mandatory dependencies.
+
+Generated OpenAPI files use `python scripts/export_openapi.py --check`, rather than a formatter.
+Locked evaluation datasets, manifests and historical evidence are outside shared Prettier scope.
+Ruff excludes Markdown so it does not rewrite Python examples in historical records.
+PowerShell, shell, XML and FreeMarker currently have no automatic formatting gate; the coverage
+above is explicit. Add a formatter when an agreed convention exists for those languages.
 
 ## Runtime Verification
 
@@ -67,15 +87,19 @@ ownership checks remain active; other workflow steps run as the normal runner ac
 
    A failed, cancelled, skipped, missing, empty or differently hashed report fails validation.
    Evidence for another SHA or a narrower scenario selection cannot satisfy acceptance.
+
 5. Retain the sanitized JSON and JUnit reports for 30 days with the workflow run. Do not retain
    `.env`, realm snapshots, authentication URLs, OTPs, tokens, traces, videos or broad logs.
 
 Runtime evidence does not change branch protection or publish a release automatically. After a
-published CI run is reviewed, add `CI required` alongside `Prettier format check` in the repository
-branch protection settings. Runtime evidence remains an explicit release record requirement for
+published CI run is reviewed, require `CI required` from the GitHub Actions app with strict
+checks. During migration, enable it before removing the former Prettier requirement, preserving
+all other protection settings. Runtime evidence remains an explicit release record requirement for
 changes to the related capability.
 
 Future Qdrant, OCR, DeepEval and Langfuse checks must follow the extension rule in the CI design:
 cheap deterministic contracts belong in required CI; real multi-service or model checks require a
 named profile, pinned inputs and an explicit release mapping. Empty jobs and pass-through evidence
 are not valid extensions.
+
+Java configuration follows [Spotless Maven documentation](https://github.com/diffplug/spotless/tree/main/plugin-maven#google-java-format).
