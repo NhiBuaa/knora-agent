@@ -2,7 +2,7 @@
 
 Date: 2026-10-12 (Asia/Ho_Chi_Minh)
 
-Branch: `codex/ci-foundation`
+Branch: `ci/foundation`
 
 Implementation commit: `0001bb5` (`ci: finalize strict runtime evidence and unified checks`)
 

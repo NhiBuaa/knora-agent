@@ -1,6 +1,6 @@
 # CI foundation design
 
-Status: architecture approved by the owner on 2026-10-11, including authorization to execute after writing the plan. Implementation starts from `70eb7ffc24f4d959d7a52164f8bfc74e83b10c2f` on `codex/ci-foundation`.
+Status: architecture approved by the owner on 2026-10-11, including authorization to execute after writing the plan. Implementation starts from `70eb7ffc24f4d959d7a52164f8bfc74e83b10c2f` on `ci/foundation`.
 
 ## Purpose and acceptance
 

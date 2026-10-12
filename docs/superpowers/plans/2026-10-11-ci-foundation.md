@@ -19,7 +19,7 @@
 - Scope partition is explicit and reported; required executed suites have zero skipped tests.
 - Runtime release evidence must match the exact full 40-character candidate commit SHA.
 - Use existing tools and synthetic isolated data; never load developer .env or publish credentials.
-- Worktree: `C:/Developer/Projects/knora-agent-worktree/ci-foundation`, branch `codex/ci-foundation`.
+- Worktree: `C:/Developer/Projects/knora-agent-worktree/ci-foundation`, branch `ci/foundation`.
 - No push, merge, branch deletion, worktree removal, GitHub protection change or deployment without the user's integration choice.
 
 ## File ownership and dependency map
