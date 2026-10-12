@@ -95,7 +95,9 @@ test("native identity secondary navigation returns to real forms", async ({
         2,
       ),
     );
-  } catch {
+  } catch (error) {
+    const detail =
+      error instanceof Error ? error.message.split("\n", 1)[0] : String(error);
     await sanitizeFailure(context);
     throw new Error(
       "Native secondary navigation failed; sensitive DOM removed.",
@@ -773,8 +775,10 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
         2,
       ),
     );
-  } catch {
+  } catch (error) {
     await mkdir(evidenceDirectory, { recursive: true });
+    const detail =
+      error instanceof Error ? error.message.split("\n", 1)[0] : String(error);
     const states = [];
     for (const context of ownedContexts)
       for (const nativePage of context.pages())
@@ -882,7 +886,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       JSON.stringify({ stage, states, ssoCookieMetadata }, null, 2),
     );
     for (const context of ownedContexts) await sanitizeFailure(context);
-    throw new Error(`NATIVE_STAGE_${stage}`);
+    throw new Error(`NATIVE_STAGE_${stage}: ${detail}`);
   } finally {
     for (const context of ownedContexts.slice(1)) await context.close();
   }
