@@ -42,6 +42,12 @@ function Invoke-Checked {
     if ($LASTEXITCODE -ne 0) { throw "RUNTIME_COMMAND_FAILED: $File" }
 }
 
+function Invoke-Checked-Named {
+    param([string]$File, [hashtable]$Arguments)
+    & $File @Arguments | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "RUNTIME_COMMAND_FAILED: $File" }
+}
+
 function Add-ImageIdentity {
     param([string]$Service)
     $id = (& docker compose @compose ps -q $Service).Trim()
@@ -132,9 +138,13 @@ try {
             Invoke-Checked 'sudo' (@('pwsh', '-NoProfile', '-File', (Join-Path $PSScriptRoot 'prepare-figma-otp-runtime.ps1')) + $runtimePreparation)
         }
         $otpSnapshot = Join-Path $profileDir 'otp-binding.json'
-        Invoke-Checked (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @('-Mode', 'Bind',
-            '-EnableIsolatedOtp', '-AdminUsername', $AdminUsername, '-AdminPassword', $AdminPassword,
-            '-SnapshotPath', $otpSnapshot)
+        Invoke-Checked-Named (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @{
+            Mode = 'Bind'
+            EnableIsolatedOtp = $true
+            AdminUsername = $AdminUsername
+            AdminPassword = $AdminPassword
+            SnapshotPath = $otpSnapshot
+        }
         $reports = @{}
         $reports.native = Invoke-Playwright 'native' 'playwright.figma-otp.config.ts' 'figma-otp-native.spec.ts' $null 'application'
         Add-ImageIdentity 'figma-keycloak'

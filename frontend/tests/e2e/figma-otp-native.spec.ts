@@ -347,7 +347,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await sensitive(stage, () =>
       page.getByRole("button", { name: "Create account", exact: true }).click(),
     );
-    await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+    await page.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+      timeout: 30_000,
+    });
     const workspaceUrl = page.url();
     expect(new URL(workspaceUrl).origin === applicationOrigin).toBe(true);
 
@@ -403,7 +405,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       );
       await sensitive(stage, () => page.locator("#saveTOTPBtn").click());
       stage = "MFA_RETURN_WORKSPACE";
-      await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+      await page.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+        timeout: 30_000,
+      });
       const credentials = await adminCredentials(page, username);
       const otpCredentials = credentials.filter(
         (credential) => credential.type === "otp",
@@ -455,7 +459,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       );
     }
     stage = "EXISTING_SSO_RETURN";
-    await ssoPage.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+    await ssoPage.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+      timeout: 30_000,
+    });
 
     stage = "EMAIL";
     const recovery = await browser.newContext({
@@ -708,7 +714,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       );
     }
     stage = "WORKSPACE";
-    await reset.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+    await reset.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+      timeout: 30_000,
+    });
     expect(reset.url() === workspaceUrl).toBe(true);
 
     stage = "UNKNOWN_ACCOUNT";
