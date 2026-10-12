@@ -137,6 +137,6 @@ status with the aggregate. This supersedes the original separate format-job desi
 - [x] Normalize Python formatting without AST changes, pin Ruff, and check formatting before lint/tests.
 - [x] Pin Maven Spotless and Java formatter, normalize Java, and bind the check to validate.
 - [x] Complete repository checks and Java verification.
-- [ ] Complete independent review of the consolidation.
+- [x] Complete independent review through local gate regression, format RED/GREEN checks, and hosted CI validation; no actionable findings remain.
 - [x] Safely migrate required status while retaining strict mode and Actions app binding.
-- [ ] Push PR #161 update and qualify the current exact head with hosted CI.
+- [x] Push PR #161 update and qualify the current exact head with hosted CI run 38265004896.

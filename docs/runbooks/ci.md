@@ -34,7 +34,7 @@ Generated OpenAPI files use `python scripts/export_openapi.py --check`, rather t
 Locked evaluation datasets, manifests and historical evidence are outside shared Prettier scope.
 Ruff excludes Markdown so it does not rewrite Python examples in historical records.
 PowerShell, shell, XML and FreeMarker currently have no automatic formatting gate; the coverage
-above is explicit. Add a formatter when an agreed convention exists for those languages.
+above is explicit and is recorded as a follow-up when those conventions are established. Add a formatter when an agreed convention exists for those languages.
 
 ## Runtime Verification
 

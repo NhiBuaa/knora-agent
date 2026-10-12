@@ -134,6 +134,9 @@ Approved on 2026-10-12; Python formatting baseline commit `0b24253`.
   the already green CI required, then CI required only. Strict mode and Actions app 15368 were
   preserved; every other protection field compared equal before and after.
 
-These local checks cover the consolidation working tree on the formatting baseline. The new
-PR head must pass hosted CI; its ci-subject artifact records the exact tested checkout/head.
+These local checks cover the consolidation working tree on the formatting baseline. Hosted
+[run 38265004896](https://github.com/NhiBuaa/knora-agent/actions/runs/38265004896) passed all six
+current jobs at exact head `6c0f4bd6ceaacd92443660902667a55c8d1e2f4a`: Frontend, Backend Ubuntu,
+Backend Windows, Database, Keycloak and CI required. The previous separate Prettier status is no
+longer emitted. Its `ci-subject` artifact and job conclusions are the hosted qualification record.
 The formatting scope and excluded languages are specified in the CI runbook.
