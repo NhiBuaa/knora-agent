@@ -84,17 +84,18 @@ function Invoke-Evidence {
 }
 
 try {
+    # Stream diagnostics and retain rollback ownership even if preparation throws.
+    & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1 | ForEach-Object {
+        if ([string]$_ -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
+            $snapshots += ([string]$_).Substring(27)
+        }
+        $_ | Out-Host
+    }
+    if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
+    foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
+        Add-ImageIdentity $service
+    }
     if ($Profile -eq 'application') {
-        $prepOutput = & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1
-        if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
-        foreach ($line in $prepOutput) {
-            if ([string]$line -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
-                $snapshots += ([string]$line).Substring(27)
-            }
-        }
-        foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
-            Add-ImageIdentity $service
-        }
         $reports = @{}
         $reports.identity = Invoke-Playwright 'identity' 'playwright.figma.config.ts' 'figma-identity.spec.ts' $null $null
         $reports.documents = Invoke-Playwright 'documents' 'playwright.figma.config.ts' 'figma-document-navigation.spec.ts' $null 'application'
@@ -102,16 +103,6 @@ try {
         $reports.operator = Invoke-Playwright 'operator' 'playwright.figma-operator.config.ts' 'figma-operator.spec.ts' $null 'application'
         $reports.workspace = Invoke-Playwright 'workspace' 'playwright.figma.config.ts' 'figma-ui-interactions.spec.ts' 'live account logout|owned document and workspace lifecycle' 'application'
     } else {
-        $prepOutput = & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1
-        if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
-        foreach ($line in $prepOutput) {
-            if ([string]$line -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
-                $snapshots += ([string]$line).Substring(27)
-            }
-        }
-        foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
-            Add-ImageIdentity $service
-        }
         if (-not $VaultPath) { $VaultPath = Join-Path ([IO.Path]::GetTempPath()) "knora-runtime-vault-$([guid]::NewGuid().ToString('N'))" }
         if (Test-Path -LiteralPath $VaultPath) { throw 'OTP_VAULT_MUST_BE_FRESH' }
         $null = New-Item -ItemType Directory -Path $VaultPath

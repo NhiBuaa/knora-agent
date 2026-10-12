@@ -15,6 +15,56 @@ SHA = "a" * 40
 WORKFLOW_SHA = "b" * 40
 
 
+@pytest.mark.parametrize("profile", ["application", "otp"])
+def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
+    tmp_path: Path, profile: str
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(root / "scripts/run-runtime-verification.ps1", scripts)
+    (scripts / "prepare-figma-e2e.ps1").write_text(
+        """'KEYCLOAK_ROLLBACK_SNAPSHOT=owned-snapshot.json'
+& python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
+throw 'FIGMA_START_FAILED'
+""",
+        encoding="utf-8",
+    )
+    (scripts / "configure-keycloak-auth-flow.ps1").write_text(
+        "param($Mode,$BaseUrl,$Project,$AdminUsername,$AdminPassword,$SnapshotPath)\n"
+        'Write-Host "ROLLBACK=$Mode/$SnapshotPath"\n',
+        encoding="utf-8",
+    )
+    harness = tmp_path / "failure.ps1"
+    harness.write_text(
+        """param($Script,$Profile)
+function global:git { $global:LASTEXITCODE = 0; 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
+function global:docker { $global:LASTEXITCODE = 0 }
+& $Script -SubjectSha ('a' * 40) -WorkflowSha ('b' * 40) -Profile $Profile -RunId 'test'
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(scripts / "run-runtime-verification.ps1"),
+            profile,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "FIGMA_START_FAILED" in output
+    assert "COMPOSE_START_DIAGNOSTIC" in output
+    assert "ROLLBACK=Rollback/owned-snapshot.json" in output
+    assert not (tmp_path / f".verification/runtime/{profile}/evidence.json").exists()
+
+
 def test_runtime_command_output_does_not_replace_report_path(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[3]
     harness = tmp_path / "output.ps1"
