@@ -1,6 +1,8 @@
 """Release evidence must be complete and bound to one tested commit."""
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +13,53 @@ from runtime_evidence import create_evidence, validate_release  # noqa: E402
 
 SHA = "a" * 40
 WORKFLOW_SHA = "b" * 40
+
+
+def test_runtime_command_output_does_not_replace_report_path(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    harness = tmp_path / "output.ps1"
+    harness.write_text(
+        """param([string]$Source, [string]$Root, [string]$Output)
+$ErrorActionPreference = 'Stop'
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Source, [ref]$null, [ref]$null)
+foreach ($name in 'Invoke-Checked', 'Invoke-Playwright') {
+    $function = $ast.Find({param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -eq $name
+    }, $true)
+    Invoke-Expression $function.Extent.Text
+}
+function global:Test-Runner { 'browser stdout'; $global:LASTEXITCODE = 0 }
+if (@(Invoke-Checked 'Test-Runner' @()).Count -ne 0) { throw 'stdout returned as data' }
+function Invoke-Checked {
+    'browser stdout' | Out-Host
+    '<testsuite tests="1"><testcase name="case"/></testsuite>' |
+        Set-Content $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME
+}
+$repositoryRoot = $Root
+$profileDir = $Output
+$report = Invoke-Playwright 'identity' 'config.ts' 'identity.spec.ts' '' ''
+if ($report -isnot [string] -or $report -ne (Join-Path $Output 'identity.xml')) {
+    throw 'report path is not scalar'
+}
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(root / "scripts/run-runtime-verification.ps1"),
+            str(root),
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def _report(path: Path, *, body: str = '<testcase classname="suite" name="case"/>') -> None:
@@ -141,6 +190,16 @@ def test_release_rejects_narrow_scenario_selection(tmp_path: Path) -> None:
         validate_release(SHA, [path], ["application"])
 
 
+@pytest.mark.parametrize("field", ["scenario_counts", "excluded_scenarios"])
+def test_release_rejects_incomplete_scenario_accounting(tmp_path: Path, field: str) -> None:
+    path = _evidence(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.pop(field)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="scenario"):
+        validate_release(SHA, [path], ["application"])
+
+
 def test_record_sanitizes_junit_output_and_case_names(tmp_path: Path) -> None:
     reports = {}
     for scenario in ("identity", "documents", "conversations", "operator", "workspace"):
@@ -148,7 +207,7 @@ def test_record_sanitizes_junit_output_and_case_names(tmp_path: Path) -> None:
         _report(
             report,
             body='<testcase classname="secret-user" name="auth-url-token">'
-            '<system-out>private@example.test</system-out></testcase>',
+            "<system-out>private@example.test</system-out></testcase>",
         )
         reports[scenario] = report
     path = create_evidence(
@@ -196,6 +255,9 @@ def test_release_rejects_missing_provenance(tmp_path: Path, field: str) -> None:
     "xml",
     [
         '<testsuite tests="0"><testcase classname="x" name="y"/></testsuite>',
+        '<testsuite tests="2"><testcase classname="x" name="y"/></testsuite>',
+        '<testsuites tests="1"><testsuite tests="1" skipped="1">'
+        '<testcase classname="x" name="y"/></testsuite></testsuites>',
         '<testsuite failures="1"><testcase classname="x" name="y"/></testsuite>',
         '<testsuite skipped="1"><testcase classname="x" name="y"/></testsuite>',
         '<notjunit><testcase classname="x" name="y"/></notjunit>',

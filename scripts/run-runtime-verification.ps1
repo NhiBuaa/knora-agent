@@ -24,16 +24,21 @@ $profileDir = Join-Path $OutputDir $Profile
 if (Test-Path -LiteralPath $profileDir) { throw 'RUNTIME_OUTPUT_MUST_BE_FRESH' }
 $existing = @(& docker ps -a --filter 'label=com.docker.compose.project=knora-figma-e2e' --format '{{.ID}}')
 if ($LASTEXITCODE -ne 0 -or $existing.Count -gt 0) { throw 'RUNTIME_PROJECT_MUST_BE_FRESH' }
+foreach ($resource in 'volume', 'network') {
+    $existing = @(& docker $resource ls --filter 'name=knora-figma-e2e' --format '{{.Name}}')
+    if ($LASTEXITCODE -ne 0 -or $existing.Count -gt 0) { throw 'RUNTIME_PROJECT_MUST_BE_FRESH' }
+}
 $null = New-Item -ItemType Directory -Path $profileDir
 $snapshots = @()
 $images = @{}
+$ownedVault = $null
 $compose = @('--project-name', 'knora-figma-e2e', '--project-directory', $repositoryRoot,
     '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'), '--profile', 'figma',
     '--profile', 'otp-proof')
 
 function Invoke-Checked {
     param([string]$File, [string[]]$Arguments)
-    & $File @Arguments
+    & $File @Arguments | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "RUNTIME_COMMAND_FAILED: $File" }
 }
 
@@ -57,7 +62,7 @@ function Invoke-Playwright {
     try {
         $args = @('test', $Spec, "--config=$Config", '--reporter=list,junit')
         if ($Match) { $args += "--grep=$Match" }
-        Invoke-Checked (Join-Path (Get-Location) 'node_modules/.bin/playwright') $args
+        Invoke-Checked 'node' (@((Join-Path (Get-Location) 'node_modules/@playwright/test/cli.js')) + $args)
     } finally { Pop-Location }
     if (-not (Test-Path -LiteralPath $report -PathType Leaf)) { throw "RUNTIME_REPORT_MISSING: $Name" }
     return $report
@@ -69,7 +74,8 @@ function Invoke-Evidence {
         '--workflow-sha', $WorkflowSha, '--run-id', $RunId, '--run-attempt', $RunAttempt,
         '--profile', $Profile, '--output-dir', $profileDir, '--started-at', $startedAt)
     foreach ($entry in $Reports.GetEnumerator()) { $arguments += @('--report', "$($entry.Key)=$($entry.Value)") }
-    $arguments += @('--tool', "powershell=$($PSVersionTable.PSVersion)", '--tool', "node=$((& node --version).Trim())")
+    $arguments += @('--tool', "powershell=$($PSVersionTable.PSVersion)", '--tool', "node=$((& node --version).Trim())",
+        '--tool', "python=$((& python --version).Trim())", '--tool', "maven=$((& mvn --version | Select-Object -First 1).Trim())")
     foreach ($entry in $images.GetEnumerator()) { $arguments += @('--image', "$($entry.Key)=$($entry.Value)") }
     Invoke-Checked 'python' (@((Join-Path $repositoryRoot 'scripts/runtime_evidence.py')) + $arguments)
     $evidence = Join-Path $profileDir 'evidence.json'
@@ -109,6 +115,7 @@ try {
         if (-not $VaultPath) { $VaultPath = Join-Path ([IO.Path]::GetTempPath()) "knora-runtime-vault-$([guid]::NewGuid().ToString('N'))" }
         if (Test-Path -LiteralPath $VaultPath) { throw 'OTP_VAULT_MUST_BE_FRESH' }
         $null = New-Item -ItemType Directory -Path $VaultPath
+        $ownedVault = (Get-Item -LiteralPath $VaultPath).FullName
         $token = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8380/realms/master/protocol/openid-connect/token' `
             -ContentType 'application/x-www-form-urlencoded' -Body @{
                 client_id = 'admin-cli'; grant_type = 'password'; username = $AdminUsername; password = $AdminPassword
@@ -139,6 +146,7 @@ try {
             '-SnapshotPath', $otpSnapshot)
         $reports = @{}
         $reports.native = Invoke-Playwright 'native' 'playwright.figma-otp.config.ts' 'figma-otp-native.spec.ts' $null 'application'
+        Add-ImageIdentity 'figma-keycloak'
         Invoke-Checked 'docker' @('compose', '--project-name', 'knora-figma-e2e', '--project-directory', $repositoryRoot,
             '-f', (Join-Path $repositoryRoot 'docker-compose.dev.yml'), '--profile', 'figma', 'stop', 'figma-keycloak')
         Push-Location (Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset')
@@ -183,8 +191,18 @@ try {
             & (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Rollback -BaseUrl 'http://127.0.0.1:8380' -Project 'knora-figma-e2e' -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password' -SnapshotPath $snapshot | Out-Null
         } catch { $cleanupFailed = $true }
     }
-    try { Invoke-Checked 'docker' (@('compose') + $compose + @('down', '--remove-orphans')) }
+    try { Invoke-Checked 'docker' (@('compose') + $compose + @('down', '--volumes', '--remove-orphans')) }
     catch { $cleanupFailed = $true }
+    if ($ownedVault) {
+        try {
+            if ($IsWindows) { Remove-Item -LiteralPath $ownedVault -Recurse -Force }
+            else {
+                $runnerOwner = "$((& id -u).Trim()):$((& id -g).Trim())"
+                Invoke-Checked 'sudo' @('chown', $runnerOwner, '--', $ownedVault)
+                Remove-Item -LiteralPath $ownedVault -Recurse -Force -ErrorAction Stop
+            }
+        } catch { $cleanupFailed = $true }
+    }
     Remove-Item Env:FIGMA_TEST_MODE -ErrorAction SilentlyContinue
     Remove-Item Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
     Remove-Item Env:KNORA_STORAGE_PROOF_SECRET -ErrorAction SilentlyContinue

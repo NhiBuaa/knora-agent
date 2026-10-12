@@ -10,10 +10,38 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ci_checks import validate_reports
+
 SCHEMA = "knora-runtime-verification-v1"
 PROFILES = {
     "application": ("identity", "documents", "conversations", "operator", "workspace"),
     "otp": ("storage", "native"),
+}
+EXCLUDED_SCENARIOS = {
+    "application": (
+        {
+            "scenario": "controller-pdf-turn",
+            "limitation": (
+                "Requires fresh controller processing and artifacts in a separate acceptance scope."
+            ),
+        },
+        {
+            "scenario": "fault-injection",
+            "limitation": (
+                "Outage, crash, activation and commit-reply cases require separate "
+                "acceptance evidence."
+            ),
+        },
+    ),
+    "otp": (
+        {
+            "scenario": "fault-injection",
+            "limitation": (
+                "Outage, crash, activation and commit-reply cases require separate "
+                "acceptance evidence."
+            ),
+        },
+    ),
 }
 SHA_RE = r"^[0-9a-f]{40}$"
 
@@ -27,36 +55,14 @@ def _sha(value: str, label: str) -> str:
 
 
 def _junit(path: Path) -> tuple[str, int]:
-    if not path.is_file() or path.stat().st_size == 0:
-        raise ValueError(f"report missing or empty: {path}")
     try:
-        root = ET.parse(path).getroot()
-    except (ET.ParseError, OSError) as exc:
+        count = validate_reports([path])
+    except ValueError as exc:
         raise ValueError(f"report is invalid: {path}") from exc
-    if root.tag not in {"testsuite", "testsuites"}:
-        raise ValueError(f"report is not JUnit XML: {path}")
-    cases = list(root.iter("testcase"))
-    if not cases:
-        raise ValueError(f"report has no test cases: {path}")
-    for field in ("tests", "failures", "errors", "skipped"):
-        try:
-            value = int(root.get(field, "0"))
-        except ValueError as exc:
-            raise ValueError(f"report has invalid {field}: {path}") from exc
-        if field == "tests" and value < 1 or field != "tests" and value != 0:
-            raise ValueError(f"report has non-success {field}: {path}")
-    for case in cases:
-        if case.find("failure") is not None or case.find("error") is not None:
-            raise ValueError(f"report contains failure: {path}")
-        if case.find("skipped") is not None:
-            raise ValueError(f"report contains skip: {path}")
-    identities = [(case.get("classname", ""), case.get("name", "")) for case in cases]
-    if len(set(identities)) != len(identities):
-        raise ValueError(f"report contains duplicate test cases: {path}")
-    return hashlib.sha256(path.read_bytes()).hexdigest(), len(cases)
+    return hashlib.sha256(path.read_bytes()).hexdigest(), count
 
 
-def _sanitize_junit(source: Path, destination: Path, scenario: str) -> str:
+def _sanitize_junit(source: Path, destination: Path, scenario: str) -> tuple[str, int]:
     _source_hash, count = _junit(source)
     root = ET.Element(
         "testsuite",
@@ -65,7 +71,7 @@ def _sanitize_junit(source: Path, destination: Path, scenario: str) -> str:
     for index in range(count):
         ET.SubElement(root, "testcase", {"classname": "runtime", "name": f"{scenario}-{index + 1}"})
     destination.write_bytes(ET.tostring(root, encoding="utf-8", xml_declaration=True))
-    return hashlib.sha256(destination.read_bytes()).hexdigest()
+    return hashlib.sha256(destination.read_bytes()).hexdigest(), count
 
 
 def _now() -> str:
@@ -101,11 +107,12 @@ def create_evidence(
     report_dir = output_dir / "reports"
     report_dir.mkdir(exist_ok=True)
     hashes: dict[str, str] = {}
+    counts: dict[str, int] = {}
     report_paths: dict[str, str] = {}
     for scenario in expected:
         source = Path(reports[scenario])
         destination = report_dir / f"{scenario}.xml"
-        hashes[scenario] = _sanitize_junit(source, destination, scenario)
+        hashes[scenario], counts[scenario] = _sanitize_junit(source, destination, scenario)
         report_paths[scenario] = destination.relative_to(output_dir).as_posix()
 
     data: dict[str, Any] = {
@@ -117,6 +124,8 @@ def create_evidence(
         "profile": profile,
         "selected_scenarios": list(expected),
         "executed_scenarios": list(expected),
+        "scenario_counts": counts,
+        "excluded_scenarios": [dict(item) for item in EXCLUDED_SCENARIOS[profile]],
         "tool_identities": dict(tool_identities),
         "image_identities": dict(image_identities),
         "started_at": started_at,
@@ -158,6 +167,11 @@ def _load_evidence(path: Path, candidate_sha: str) -> dict[str, Any]:
     expected = list(PROFILES[profile])
     if data.get("selected_scenarios") != expected or data.get("executed_scenarios") != expected:
         raise ValueError("evidence scenario selection is incomplete")
+    if data.get("excluded_scenarios") != [dict(item) for item in EXCLUDED_SCENARIOS[profile]]:
+        raise ValueError("evidence scenario exclusions are incomplete")
+    counts = data.get("scenario_counts")
+    if not isinstance(counts, dict) or set(counts) != set(expected):
+        raise ValueError("evidence scenario counts are incomplete")
     paths = data.get("report_paths")
     hashes = data.get("report_hashes")
     if not isinstance(paths, dict) or not isinstance(hashes, dict) or set(paths) != set(expected):
@@ -166,8 +180,11 @@ def _load_evidence(path: Path, candidate_sha: str) -> dict[str, Any]:
         report = (path.parent / paths[scenario]).resolve()
         if path.parent.resolve() not in report.parents:
             raise ValueError("evidence report path escapes evidence directory")
-        if _junit(report)[0] != hashes.get(scenario):
+        report_hash, report_count = _junit(report)
+        if report_hash != hashes.get(scenario):
             raise ValueError("evidence report hash mismatch")
+        if counts[scenario] != report_count:
+            raise ValueError("evidence scenario count mismatch")
     return data
 
 

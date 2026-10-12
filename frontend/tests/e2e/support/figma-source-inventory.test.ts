@@ -48,7 +48,7 @@ describe("Figma fixture boundary", () => {
       "DELETE",
     ],
   ])(
-    "rejects unsupported state, scope, credential and method requests",
+    "rejects unsupported state, scope, credential and method requests (%s, %s, %s)",
     (state, path, method) => {
       expect(() => fixtureResponse(state, path, method)).toThrow(
         "Unrecognized fixture request",

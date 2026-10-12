@@ -151,7 +151,9 @@ class EmailOtpResetFlowIT {
                 data.put("pageRedirectUri", "https://untrusted.example");
                 data.put("actionUri", "/native/unfinished");
                 String html = render("login", "info.ftl", data);
-                assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(html).find(),
+                assertTrue(html.contains("class=\"knora-brand knora-brand-link\" href=\"/native/login\""));
+                String messageHtml = html.substring(html.indexOf("<div id=\"kc-info-message\">"));
+                assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(messageHtml).find(),
                         "Invalid configured origin must not emit a link: " + baseUrl);
                 assertFalse(html.contains("untrusted.example"));
                 assertFalse(html.contains("href=\"/native/unfinished\""));
@@ -186,7 +188,9 @@ class EmailOtpResetFlowIT {
                 data.put("actionUri", "/native/unfinished");
                 data.put("skipLink", skipLink);
                 String html = render("login", "info.ftl", data);
-                assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(html).find(),
+                assertTrue(html.contains("class=\"knora-brand knora-brand-link\" href=\"/native/login\""));
+                String messageHtml = html.substring(html.indexOf("<div id=\"kc-info-message\">"));
+                assertFalse(java.util.regex.Pattern.compile("<a\\s[^>]*href=").matcher(messageHtml).find(),
                         "Presence of skipLink must suppress links regardless of its value or message");
             }
         }
@@ -268,6 +272,7 @@ class EmailOtpResetFlowIT {
     void offlineResetPresentationUsesSourceCopyAndEscapedRuntimeAddress() throws Exception {
         var data = templateData();
         data.put("maskedEmail", "<script>alert(1)</script>@example.test");
+        data.put("otpExpiresInSeconds", 300);
         String request = render("login", "knora-reset-email.ftl", data);
         String otp = render("login", "knora-reset-otp.ftl", data);
         assertAll(
@@ -280,7 +285,7 @@ class EmailOtpResetFlowIT {
                 () -> assertTrue(otp.contains("Use a different email")),
                 () -> assertTrue(otp.contains("If an account exists, we sent a 6-digit verification code to &lt;script&gt;alert(1)&lt;/script&gt;@example.test.")),
                 () -> assertFalse(otp.contains("<script>alert(1)</script>")),
-                () -> assertTrue(otp.contains("The code expires after 5 minutes.")));
+                () -> assertTrue(otp.contains("<span id=\"otp-retry\" data-seconds=\"300\">05:00</span>")));
         data.put("otpInvalid", true);
         assertTrue(render("login", "knora-reset-otp.ftl", data)
                 .contains("Check the code or request a new one, then try again."));
@@ -347,7 +352,6 @@ class EmailOtpResetFlowIT {
                 assertTrue(html.contains("<span id=\"otp-resend-label\">Resend code</span>"));
                 assertFalse(html.contains("Resend code in</span>"));
             }
-            assertTrue(html.contains("id=\"otp-expiry\""));
             assertFalse(html.contains("000042"), "The login form must not disclose an OTP");
         }
     }

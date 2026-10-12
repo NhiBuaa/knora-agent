@@ -1,5 +1,17 @@
 # Knora Agent
 
+## Continuous integration
+
+Pull requests and updates to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+The required checks cover frontend formatting, frontend unit and fixture tests, portable and
+Windows backend contracts, migrated PostgreSQL integration, and Keycloak provider flow tests.
+`CI required` fails when any required job fails, is cancelled, skipped, missing, or has an empty
+report. Service-backed browser journeys and expensive model checks are excluded from PR CI.
+
+Release changes that affect those runtime capabilities require the manual
+[`Runtime Verification`](.github/workflows/runtime-verification.yml) workflow and its exact-SHA
+evidence; see [`docs/runbooks/ci.md`](docs/runbooks/ci.md).
+
 **Knora is a workspace-scoped AI knowledge and support system that ingests documents, retrieves grounded evidence, and returns answers with traceable citations.**
 
 It is built around backend and applied-AI engineering concerns that are easy to hide in a simple chatbot demo: durable ingestion, versioned retrieval, evidence provenance, workspace isolation, reproducible evaluation, and human-authorized external actions.

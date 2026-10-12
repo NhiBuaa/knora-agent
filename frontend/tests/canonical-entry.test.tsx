@@ -65,7 +65,7 @@ describe("canonical entry", () => {
     expect(resolveCurrentWorkspace).not.toHaveBeenCalled();
   });
   it.each([{ "signed-out": "1" }, { state: "knora-logout-complete" }])(
-    "opens sign-in after logout",
+    "opens sign-in after logout (%j)",
     async (query) => {
       vi.mocked(getSession).mockResolvedValueOnce(null);
       await expect(
