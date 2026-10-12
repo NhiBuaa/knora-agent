@@ -508,8 +508,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await expect(reset.locator(".knora-otp-digits")).toBeVisible();
     expect((await messages(page, identity.email)).length === 1).toBe(true);
     // Real elapsed server cooldown; native form fallback remains valid without JS.
-    await reset.waitForTimeout(301_000);
-    await submit(reset, "#code", "resend", "RESEND_ALLOWED", true);
+    stage = "RESEND_ALLOWED";
+    await reset.waitForTimeout(310_000);
+    await submit(reset, "#code", "resend", stage, true);
     const nextCode = await deliveredCode(page, identity.email, seen);
     expect(nextCode !== firstCode).toBe(true);
     stage = "OLD_GENERATION";
