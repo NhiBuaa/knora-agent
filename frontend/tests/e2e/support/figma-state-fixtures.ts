@@ -542,6 +542,13 @@ export async function prepareFixture(page: Page, state: string) {
     return unexpected;
   }
   if (["228:293", "228:326"].includes(state)) return unexpected;
+  await page.locator("[data-fixture-state]").waitFor();
+  await page
+    .getByRole("status", { name: "Loading conversation history" })
+    .waitFor({ state: "hidden" });
+  await page
+    .getByRole("status", { name: "Loading documents" })
+    .waitFor({ state: "hidden" });
   if (["128:107", "128:115", "4:35", "4:67", "4:99"].includes(state))
     await page.getByRole("button", { name: /citation 1/i }).click();
   if (["128:108", "4:67", "4:126"].includes(state))
@@ -603,12 +610,5 @@ export async function prepareFixture(page: Page, state: string) {
     await page
       .getByRole("button", { name: "Request deletion", exact: true })
       .click();
-  await page.locator("[data-fixture-state]").waitFor();
-  await page
-    .getByRole("status", { name: "Loading conversation history" })
-    .waitFor({ state: "hidden" });
-  await page
-    .getByRole("status", { name: "Loading documents" })
-    .waitFor({ state: "hidden" });
   return unexpected;
 }

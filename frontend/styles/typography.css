@@ -15,6 +15,7 @@
     font-family: var(--font-inter), var(--font-control);
     font-size: var(--size-body);
     line-height: 1.55;
+    text-rendering: geometricPrecision;
   }
 
   h1,
@@ -41,5 +42,6 @@
   select {
     font-family: var(--font-inter), var(--font-control);
     font-size: var(--size-control);
+    text-rendering: inherit;
   }
 }

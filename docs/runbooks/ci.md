@@ -10,6 +10,12 @@ empty, failed, skipped or duplicate cases fail the job.
 No AI provider credentials, developer `.env` files, model benchmarks, or real application E2E
 services are used by pull request CI. Browser fixtures are synthetic and offline.
 
+Database PDF integration tests run in a disposable Linux container with a 2 GiB memory limit
+and a delegated cgroup memory controller. That container requires privileged execution on the
+ephemeral GitHub runner so the real extractor can enforce its child-process limits. Failure to
+configure isolation fails the job; these tests do not substitute a mocked extractor. Backend
+checkout includes full Git history for immutable evaluation provenance checks.
+
 ## Runtime Verification
 
 Runtime Verification is manual and must use the exact release candidate commit:

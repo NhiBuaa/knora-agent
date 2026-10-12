@@ -116,6 +116,9 @@ jobs:
             suite: windows
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Evaluation provenance checks read immutable historical Git objects.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -198,7 +201,19 @@ jobs:
           KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@127.0.0.1:5432/knora_issue110_task2
           KNORA_PROVIDER_MODE: deterministic-local
         run: |
-          python -m pytest --rootdir=. backend/test evals/test --ci-suite=database --ci-selection=database-selection.json --junitxml=database-report.xml
+          # Delegate memory inside a disposable container for real PDF extraction.
+          docker run --rm --privileged --cgroupns private --memory 2g --network host \
+            --mount "type=bind,source=$PWD,target=/work" --workdir /work \
+            -e KNORA_DATABASE_URL -e KNORA_PROVIDER_MODE \
+            "python:${PYTHON_VERSION}-slim" bash -ec '
+              mkdir /sys/fs/cgroup/ci-runner
+              while read -r pid; do
+                echo "$pid" > /sys/fs/cgroup/ci-runner/cgroup.procs
+              done < /sys/fs/cgroup/cgroup.procs
+              echo +memory > /sys/fs/cgroup/cgroup.subtree_control
+              python -m pip install -e "./backend[dev]"
+              python -m pytest --rootdir=. backend/test evals/test --ci-suite=database --ci-selection=database-selection.json --junitxml=database-report.xml
+            '
           python scripts/ci_checks.py reports database-report.xml
       - name: Upload database reports
         if: ${{ always() }}

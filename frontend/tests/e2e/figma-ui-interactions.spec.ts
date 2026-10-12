@@ -4101,6 +4101,13 @@ test.describe("source fixtures", () => {
     page,
   }) => {
     await prepareFixture(page, "154:134");
+    const menu = (await page
+      .getByRole("menu", { name: "Workspace actions", exact: true })
+      .boundingBox())!;
+    const trigger = (await page
+      .getByRole("button", { name: "Workspace actions", exact: true })
+      .boundingBox())!;
+    expect(menu.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
     await expect(
       page.getByRole("menuitem", { name: "Archive workspace" }),
     ).toBeFocused();

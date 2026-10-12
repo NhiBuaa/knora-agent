@@ -109,7 +109,7 @@ required:
 - [x] OTP runner prepares native provider/vault and proof nodes using existing guarded scripts, selects essential storage cases explicitly, then native email/OTP tests with Bind/Restore. Enable no outage/crash opt-in silently. Scope unsupported hardening as unsatisfied release evidence, not an accepted fallback.
 - [x] Disable raw auth traces/video/automatic screenshots and upload only sanitized reports plus explicitly masked synthetic evidence. Ensure finally restores only owned realm/resources. If any setup, scenario, report, cleanup or evidence step fails, final outcome remains non-success.
 - [x] Write runbook with local/dispatch commands, exact SHA release checklist, applicable profile mapping, evidence retention and branch-protection integration. Future Qdrant/OCR/DeepEval/Langfuse additions must follow the spec extension rule; no empty jobs.
-- [ ] Validate with actionlint, helper tests and feasible fresh isolated runtime profile execution. Actionlint and helper tests are green; complete live runtime profile execution remains pending a clean hosted/manual run. GitHub publication is unavailable on this branch; no push is implied by implementation approval.
+- [ ] Validate with actionlint, helper tests and feasible fresh isolated runtime profile execution. Actionlint and helper tests are green; complete live runtime profile execution remains pending a clean hosted/manual run. The owner subsequently authorized branch publication and PR #161; publication does not qualify a release runtime profile.
 - [x] Commit owned files after verification.
 
 ## Task 5: Integrated verification and completion

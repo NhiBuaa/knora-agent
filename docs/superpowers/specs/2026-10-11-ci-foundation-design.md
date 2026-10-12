@@ -49,6 +49,8 @@ CI suite names: `backend`, `windows`, `database`. A test belongs to exactly one 
 
 Database uses `postgresql+psycopg://knora:knora@127.0.0.1:5432/knora_issue110_task2`, satisfying the existing isolation guard. Never point this suite at a developer database. Do not globally enable `KNORA_RUN_LIVE_OLLAMA_GROUNDING` in PR CI.
 
+Real PDF database contracts need a writable, memory-limited cgroup. Run this suite in a disposable privileged Linux container on the ephemeral runner, with a 2 GiB limit and delegated memory controller; keep extractor fail-closed behavior. Backend checkout must include immutable historical Git objects used by evaluation provenance tests.
+
 For pytest, Vitest, Playwright and Maven, validate their JUnit XML: require a report, at least one test case, no failures/errors, no skips and no duplicate test identities. Do not pass `--passWithNoTests`, `-DfailIfNoTests=false` or `continue-on-error`. Deselection is reported as scope, never as execution success; required tests must actually be selected. Windows cases run on Windows instead of allowing their Linux skips.
 
 ### Fixture browser scope

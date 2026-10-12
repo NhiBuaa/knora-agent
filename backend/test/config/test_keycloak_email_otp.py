@@ -1243,6 +1243,25 @@ def test_runtime_check_is_read_only_and_validates_existing_key(
     assert before.decode() not in result.stdout + result.stderr
 
 
+def test_runtime_check_accepts_compose_omitted_create_host_path(
+    tmp_path: Path, compose_graphs
+) -> None:
+    vault = tmp_path / "vault"
+    key = vault_file(vault)
+    data = runtime_state(compose_graphs, vault)
+    mount = next(
+        m
+        for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+        if m["target"] == "/opt/keycloak/vault"
+    )
+    mount["bind"].pop("create_host_path", None)
+    result, after = run(tmp_path, data, "RuntimeCheck", runtime=True, vault=vault)
+    assert result.returncode == 0, result.stderr
+    assert "OTP_RUNTIME_CONFIG_OK" in result.stdout
+    assert after["mutations"] == after["dockerMutations"] == []
+    assert key.exists()
+
+
 def test_git_failure_inside_repository_cannot_bypass_exclusion(
     tmp_path: Path, compose_graphs
 ) -> None:
@@ -1267,6 +1286,7 @@ def test_git_failure_inside_repository_cannot_bypass_exclusion(
         ("tracked", "OTP_VAULT_GIT_BOUNDARY_REJECTED"),
         ("wide_acl", "OTP_VAULT_ACCESS_REJECTED"),
         ("mount", "OTP_VAULT_MOUNT_REJECTED"),
+        ("mount_create_host_path", "OTP_VAULT_MOUNT_REJECTED"),
         ("mount_missing", "OTP_VAULT_MOUNT_REJECTED"),
         ("foreign", "OTP_RESOURCE_OWNERSHIP_REJECTED"),
         ("proof", "OTP_RUNTIME_GRAPH_REJECTED"),
@@ -1297,6 +1317,12 @@ def test_runtime_guards_reject_before_start(
             for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
             if m["target"] == "/opt/keycloak/vault"
         )["read_only"] = False
+    elif fault == "mount_create_host_path":
+        next(
+            m
+            for m in data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"]
+            if m["target"] == "/opt/keycloak/vault"
+        )["bind"]["create_host_path"] = True
     elif fault == "mount_missing":
         data["runtimeConfig"]["services"]["figma-keycloak"]["volumes"] = [
             mount
