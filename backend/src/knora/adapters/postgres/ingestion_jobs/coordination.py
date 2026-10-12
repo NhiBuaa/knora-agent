@@ -112,8 +112,7 @@ class PostgresIngestionJobCoordinationStore:
         self._database_now = database_now
         self._lifecycle_store = lifecycle_store
         self._enqueue_terminal_cleanup = (
-            enqueue_terminal_cleanup
-            or lifecycle_store.enqueue_terminal_cleanup_in_transaction
+            enqueue_terminal_cleanup or lifecycle_store.enqueue_terminal_cleanup_in_transaction
         )
 
     def pdf_profile_for_work(self, work):
@@ -124,9 +123,7 @@ class PostgresIngestionJobCoordinationStore:
 
         with self._session_factory() as session:
             chunking = session.get(ChunkingConfigurationTable, work.chunking_configuration_id)
-            embedding = session.get(
-                EmbeddingConfigurationTable, work.embedding_configuration_id
-            )
+            embedding = session.get(EmbeddingConfigurationTable, work.embedding_configuration_id)
             if chunking is None or embedding is None:
                 raise CoordinationInvariantError("claimed Job references missing configuration")
             return PdfDerivationProfile(
@@ -324,9 +321,7 @@ class PostgresIngestionJobCoordinationStore:
             close_workspace_admissions_for_terminal_job(
                 session=session, job=job, terminal_at=database_now
             )
-            self._enqueue_terminal_cleanup(
-                session=session, job=job, database_now=database_now
-            )
+            self._enqueue_terminal_cleanup(session=session, job=job, database_now=database_now)
             session.flush()
             return RecoveryFailedExhausted(
                 attempt=AttemptRef(job_id=job.id, attempt_number=attempt.attempt_number)
@@ -1447,9 +1442,7 @@ class PostgresIngestionJobCoordinationStore:
             close_workspace_admissions_for_terminal_job(
                 session=session, job=job, terminal_at=database_now
             )
-            self._enqueue_terminal_cleanup(
-                session=session, job=job, database_now=database_now
-            )
+            self._enqueue_terminal_cleanup(session=session, job=job, database_now=database_now)
             session.flush()
             return FinalizationApplied(
                 attempt=AttemptRef(
@@ -1582,9 +1575,7 @@ class PostgresIngestionJobCoordinationStore:
             close_workspace_admissions_for_terminal_job(
                 session=session, job=job, terminal_at=database_now
             )
-            self._enqueue_terminal_cleanup(
-                session=session, job=job, database_now=database_now
-            )
+            self._enqueue_terminal_cleanup(session=session, job=job, database_now=database_now)
             session.flush()
             return FinalizationApplied(
                 attempt=AttemptRef(
@@ -1652,7 +1643,9 @@ class PostgresIngestionJobCoordinationStore:
             values.extend(
                 (
                     terminal_decision.policy_version,
-                    PostgresIngestionJobCoordinationStore._terminal_policy_result(terminal_decision),
+                    PostgresIngestionJobCoordinationStore._terminal_policy_result(
+                        terminal_decision
+                    ),
                 )
             )
         return "\n".join(values)

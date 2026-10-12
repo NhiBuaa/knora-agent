@@ -25,18 +25,12 @@ def test_fts_m3_or_v2_details_retain_normalized_and_omitted_lexemes() -> None:
 
 
 def test_retrieval_v2_configs_have_exact_allowed_differences() -> None:
-    vector = RetrievalConfiguration.milestone_three_vector_v2(
-        min_similarity=CALIBRATED_THRESHOLD
-    )
-    hybrid = RetrievalConfiguration.milestone_three_hybrid_v2(
-        min_similarity=CALIBRATED_THRESHOLD
-    )
+    vector = RetrievalConfiguration.milestone_three_vector_v2(min_similarity=CALIBRATED_THRESHOLD)
+    hybrid = RetrievalConfiguration.milestone_three_hybrid_v2(min_similarity=CALIBRATED_THRESHOLD)
     vector_semantics = vector.parity_semantics()
     hybrid_semantics = hybrid.parity_semantics()
     differences = {
-        name
-        for name in vector_semantics
-        if vector_semantics[name] != hybrid_semantics[name]
+        name for name in vector_semantics if vector_semantics[name] != hybrid_semantics[name]
     }
 
     assert differences == {

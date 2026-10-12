@@ -173,8 +173,7 @@ class PostgresObjectLifecycleStore:
                     replay_work = session.scalar(
                         select(ObjectLifecycleWorkTable)
                         .where(
-                            ObjectLifecycleWorkTable.id
-                            == replay_attempt.object_lifecycle_work_id
+                            ObjectLifecycleWorkTable.id == replay_attempt.object_lifecycle_work_id
                         )
                         .with_for_update()
                     )
@@ -225,10 +224,7 @@ class PostgresObjectLifecycleStore:
             if work is None:
                 return None
             now = self._database_now(session)
-            if (
-                work.eligible_at is not None
-                and work.eligible_at > now
-            ):
+            if work.eligible_at is not None and work.eligible_at > now:
                 return None
             if work.state == LifecycleWorkState.RETRY_SCHEDULED.value and (
                 work.next_attempt_at is None or work.next_attempt_at > now
@@ -286,9 +282,7 @@ class PostgresObjectLifecycleStore:
             worker_id=worker_id, operation_id=operation_id, work_id=work_id
         )
 
-    def prepare_delete(
-        self, *, claim: LifecycleClaim, operation_id: str | None = None
-    ) -> str:
+    def prepare_delete(self, *, claim: LifecycleClaim, operation_id: str | None = None) -> str:
         return self.prepare_object_lifecycle_delete(claim=claim, operation_id=operation_id)
 
     def revalidate_delete(self, *, claim: LifecycleClaim, delete_generation: str) -> None:
@@ -315,17 +309,18 @@ class PostgresObjectLifecycleStore:
                 raise PermissionError("delete generation is fenced")
             if work.eligible_at is not None and work.eligible_at > now:
                 raise LifecycleRetentionPending("lifecycle retention window has not expired")
-            if session.scalar(
-                select(OriginalSourceObjectTable.id).where(
-                    OriginalSourceObjectTable.workspace_id == work.workspace_id,
-                    OriginalSourceObjectTable.object_key == work.object_key,
-                    OriginalSourceObjectTable.deleted_at.is_(None),
+            if (
+                session.scalar(
+                    select(OriginalSourceObjectTable.id).where(
+                        OriginalSourceObjectTable.workspace_id == work.workspace_id,
+                        OriginalSourceObjectTable.object_key == work.object_key,
+                        OriginalSourceObjectTable.deleted_at.is_(None),
+                    )
                 )
-            ) is not None:
+                is not None
+            ):
                 raise PermissionError("retained Original Source Object suppresses deletion")
-            self._assert_no_other_lifecycle_retention(
-                session=session, work=work, database_now=now
-            )
+            self._assert_no_other_lifecycle_retention(session=session, work=work, database_now=now)
 
     def complete(
         self,
@@ -422,9 +417,7 @@ class PostgresObjectLifecycleStore:
             )
             if retained is not None:
                 raise PermissionError("retained Original Source Object suppresses deletion")
-            self._assert_no_other_lifecycle_retention(
-                session=session, work=work, database_now=now
-            )
+            self._assert_no_other_lifecycle_retention(session=session, work=work, database_now=now)
             attempt = session.scalar(
                 select(ObjectLifecycleAttemptTable)
                 .where(
@@ -489,13 +482,16 @@ class PostgresObjectLifecycleStore:
                 raise PermissionError("delete generation is fenced")
             if work.artifact_class == "orphan_report":
                 raise PermissionError("inconsistent database record is report-only")
-            if session.scalar(
-                select(OriginalSourceObjectTable.id).where(
-                    OriginalSourceObjectTable.workspace_id == work.workspace_id,
-                    OriginalSourceObjectTable.object_key == work.object_key,
-                    OriginalSourceObjectTable.deleted_at.is_(None),
+            if (
+                session.scalar(
+                    select(OriginalSourceObjectTable.id).where(
+                        OriginalSourceObjectTable.workspace_id == work.workspace_id,
+                        OriginalSourceObjectTable.object_key == work.object_key,
+                        OriginalSourceObjectTable.deleted_at.is_(None),
+                    )
                 )
-            ) is not None:
+                is not None
+            ):
                 raise PermissionError("retained Original Source Object suppresses deletion")
             attempt = session.scalar(
                 select(ObjectLifecycleAttemptTable)
@@ -590,7 +586,6 @@ class PostgresObjectLifecycleStore:
             if work.artifact_class == "orphan":
                 work.reconciliation_disposition = "delete_suppressed"
             elif work.artifact_class == "orphan_report":
-
                 work.reconciliation_disposition = "reported"
             attempt.closed_at = now
             attempt.disposition = "suppressed"
@@ -662,9 +657,7 @@ class PostgresObjectLifecycleStore:
             attempt.disposition = LifecycleWorkState.FAILED.value
             attempt.failure_operation_id = operation_id
             attempt.retry_policy_version = retry_policy_version
-            attempt.retry_window_upper_bound_microseconds = (
-                retry_window_upper_bound_microseconds
-            )
+            attempt.retry_window_upper_bound_microseconds = retry_window_upper_bound_microseconds
             if retry_delay is not None and claim.attempt_number < 4:
                 work.state = LifecycleWorkState.RETRY_SCHEDULED.value
                 work.next_attempt_at = now + retry_delay
@@ -678,9 +671,7 @@ class PostgresObjectLifecycleStore:
             session.flush()
             return LifecycleWorkState(work.state)
 
-    def complete_orphan_reconciliation(
-        self, *, work_id: str, disposition: str
-    ) -> bool:
+    def complete_orphan_reconciliation(self, *, work_id: str, disposition: str) -> bool:
         """Record one completed orphan or inconsistent-record correction idempotently."""
         if disposition not in {"repaired", "deleted"}:
             raise ValueError("unsupported orphan reconciliation disposition")
@@ -696,9 +687,7 @@ class PostgresObjectLifecycleStore:
             if work is None:
                 raise ValueError("orphan lifecycle work does not exist")
             if work.artifact_class == "orphan_report" and disposition != "repaired":
-                raise ValueError(
-                    "inconsistent database record cannot be deleted by orphan cleanup"
-                )
+                raise ValueError("inconsistent database record cannot be deleted by orphan cleanup")
             if work.reconciliation_disposition is not None:
                 if work.reconciliation_disposition == disposition:
                     return False
@@ -900,9 +889,7 @@ class PostgresObjectLifecycleStore:
                 str(value) for value in (trace.embedding_set_ids or ())
             ):
                 return True
-            referenced_chunks = {
-                str(value) for value in (trace.retrieved_chunk_ids or ())
-            }
+            referenced_chunks = {str(value) for value in (trace.retrieved_chunk_ids or ())}
             referenced_chunks.update(
                 str(value)
                 for value in (trace.alias_mapping or {}).values()

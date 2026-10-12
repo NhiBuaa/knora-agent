@@ -27,7 +27,11 @@ def upgrade() -> None:
     op.create_table(
         "documents",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("workspace_id", sa.String(length=100), sa.ForeignKey("workspaces.id", ondelete="RESTRICT")),
+        sa.Column(
+            "workspace_id",
+            sa.String(length=100),
+            sa.ForeignKey("workspaces.id", ondelete="RESTRICT"),
+        ),
         sa.Column("source_key", sa.String(length=500), nullable=False),
         sa.Column("source_name", sa.String(length=255), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False, server_default="0"),
@@ -38,7 +42,9 @@ def upgrade() -> None:
     op.create_table(
         "document_versions",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("document_id", sa.String(length=36), sa.ForeignKey("documents.id", ondelete="RESTRICT")),
+        sa.Column(
+            "document_id", sa.String(length=36), sa.ForeignKey("documents.id", ondelete="RESTRICT")
+        ),
         sa.Column("normalized_content", sa.Text(), nullable=False),
         sa.Column("normalized_content_checksum", sa.String(length=64), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -59,17 +65,31 @@ def upgrade() -> None:
     op.create_table(
         "chunk_sets",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("document_version_id", sa.String(length=36), sa.ForeignKey("document_versions.id", ondelete="RESTRICT")),
-        sa.Column("chunking_configuration_id", sa.String(length=100), sa.ForeignKey("chunking_configurations.id", ondelete="RESTRICT")),
+        sa.Column(
+            "document_version_id",
+            sa.String(length=36),
+            sa.ForeignKey("document_versions.id", ondelete="RESTRICT"),
+        ),
+        sa.Column(
+            "chunking_configuration_id",
+            sa.String(length=100),
+            sa.ForeignKey("chunking_configurations.id", ondelete="RESTRICT"),
+        ),
         sa.Column("status", sa.String(length=30), nullable=False),
         sa.UniqueConstraint("document_version_id", "chunking_configuration_id"),
     )
     op.create_index("ix_chunk_sets_document_version_id", "chunk_sets", ["document_version_id"])
-    op.create_index("ix_chunk_sets_chunking_configuration_id", "chunk_sets", ["chunking_configuration_id"])
+    op.create_index(
+        "ix_chunk_sets_chunking_configuration_id", "chunk_sets", ["chunking_configuration_id"]
+    )
     op.create_table(
         "chunks",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("chunk_set_id", sa.String(length=36), sa.ForeignKey("chunk_sets.id", ondelete="RESTRICT")),
+        sa.Column(
+            "chunk_set_id",
+            sa.String(length=36),
+            sa.ForeignKey("chunk_sets.id", ondelete="RESTRICT"),
+        ),
         sa.Column("ordinal", sa.Integer(), nullable=False),
         sa.Column("heading_path", postgresql.JSONB(), nullable=False),
         sa.Column("start_line", sa.Integer(), nullable=False),
@@ -91,24 +111,46 @@ def upgrade() -> None:
     op.create_table(
         "embedding_sets",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("chunk_set_id", sa.String(length=36), sa.ForeignKey("chunk_sets.id", ondelete="RESTRICT")),
-        sa.Column("embedding_configuration_id", sa.String(length=100), sa.ForeignKey("embedding_configurations.id", ondelete="RESTRICT")),
+        sa.Column(
+            "chunk_set_id",
+            sa.String(length=36),
+            sa.ForeignKey("chunk_sets.id", ondelete="RESTRICT"),
+        ),
+        sa.Column(
+            "embedding_configuration_id",
+            sa.String(length=100),
+            sa.ForeignKey("embedding_configurations.id", ondelete="RESTRICT"),
+        ),
         sa.Column("status", sa.String(length=30), nullable=False),
         sa.UniqueConstraint("chunk_set_id", "embedding_configuration_id"),
     )
     op.create_index("ix_embedding_sets_chunk_set_id", "embedding_sets", ["chunk_set_id"])
-    op.create_index("ix_embedding_sets_embedding_configuration_id", "embedding_sets", ["embedding_configuration_id"])
+    op.create_index(
+        "ix_embedding_sets_embedding_configuration_id",
+        "embedding_sets",
+        ["embedding_configuration_id"],
+    )
     op.create_table(
         "chunk_embeddings",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("embedding_set_id", sa.String(length=36), sa.ForeignKey("embedding_sets.id", ondelete="RESTRICT")),
-        sa.Column("chunk_id", sa.String(length=36), sa.ForeignKey("chunks.id", ondelete="RESTRICT")),
+        sa.Column(
+            "embedding_set_id",
+            sa.String(length=36),
+            sa.ForeignKey("embedding_sets.id", ondelete="RESTRICT"),
+        ),
+        sa.Column(
+            "chunk_id", sa.String(length=36), sa.ForeignKey("chunks.id", ondelete="RESTRICT")
+        ),
         sa.Column("embedding", pgvector.sqlalchemy.Vector(dim=1536), nullable=False),
         sa.UniqueConstraint("embedding_set_id", "chunk_id"),
     )
-    op.create_index("ix_chunk_embeddings_embedding_set_id", "chunk_embeddings", ["embedding_set_id"])
+    op.create_index(
+        "ix_chunk_embeddings_embedding_set_id", "chunk_embeddings", ["embedding_set_id"]
+    )
     op.create_index("ix_chunk_embeddings_chunk_id", "chunk_embeddings", ["chunk_id"])
-    op.add_column("documents", sa.Column("active_embedding_set_id", sa.String(length=36), nullable=True))
+    op.add_column(
+        "documents", sa.Column("active_embedding_set_id", sa.String(length=36), nullable=True)
+    )
     op.create_foreign_key(
         "fk_documents_active_embedding_set",
         "documents",
@@ -120,7 +162,11 @@ def upgrade() -> None:
     op.create_table(
         "question_traces",
         sa.Column("id", sa.String(length=36), primary_key=True),
-        sa.Column("workspace_id", sa.String(length=100), sa.ForeignKey("workspaces.id", ondelete="RESTRICT")),
+        sa.Column(
+            "workspace_id",
+            sa.String(length=100),
+            sa.ForeignKey("workspaces.id", ondelete="RESTRICT"),
+        ),
         sa.Column("question", sa.Text(), nullable=False),
         sa.Column("retrieved_chunk_ids", postgresql.JSONB(), server_default=sa.text("'[]'::jsonb")),
         sa.Column("answer", sa.Text(), nullable=True),

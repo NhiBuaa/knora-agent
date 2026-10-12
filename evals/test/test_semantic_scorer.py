@@ -350,12 +350,15 @@ def test_model_backed_report_keeps_semantic_and_system_metrics_separate() -> Non
     observation = _observation()
     evaluation = SemanticEvaluation(
         case_id=case.id,
-        scores={metric: 0.8 for metric in (
-            "citation_entailment",
-            "faithfulness",
-            "answer_relevance",
-            "refusal_correctness",
-        )},
+        scores={
+            metric: 0.8
+            for metric in (
+                "citation_entailment",
+                "faithfulness",
+                "answer_relevance",
+                "refusal_correctness",
+            )
+        },
         rationales={"faithfulness": "grounded"},
         provider="openai-compatible",
         model="judge-model",

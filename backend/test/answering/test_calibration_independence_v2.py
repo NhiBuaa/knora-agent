@@ -31,9 +31,7 @@ def test_independence_oracle_binds_lineage_copy_overlap_and_semantic_review() ->
 def test_independence_oracle_fails_closed_on_copy_or_non_independent_review() -> None:
     result = audit_calibration_independence(
         calibration_sha256="a" * 64,
-        calibration_items=(
-            AuthoredCalibrationItem("q1", "question", "Refund period", "reviewer"),
-        ),
+        calibration_items=(AuthoredCalibrationItem("q1", "question", "Refund period", "reviewer"),),
         development_items=("refund period",),
         semantic_review=SemanticReview("reviewer", True, False, "a" * 64),
         policy=IndependencePolicy.v1(),

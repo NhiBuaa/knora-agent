@@ -63,7 +63,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP TRIGGER zz_enforce_immutable_embedding_set_profile ON embedding_sets")
     op.execute("DROP FUNCTION enforce_immutable_embedding_set_profile()")
-    op.execute(
-        "DROP TRIGGER zz_enforce_immutable_embedding_dimensions ON embedding_configurations"
-    )
+    op.execute("DROP TRIGGER zz_enforce_immutable_embedding_dimensions ON embedding_configurations")
     op.execute("DROP FUNCTION enforce_immutable_embedding_dimensions()")

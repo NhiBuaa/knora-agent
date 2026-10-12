@@ -3,9 +3,34 @@ from dataclasses import dataclass
 
 _STOPWORDS = frozenset(
     [
-        "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "how", "in",
-        "is", "it", "of", "on", "or", "that", "the", "to", "was", "what", "when",
-        "where", "which", "who", "why", "with",
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "how",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "to",
+        "was",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
     ]
 )
 

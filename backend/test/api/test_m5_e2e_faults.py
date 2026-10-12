@@ -248,9 +248,7 @@ def test_provider_failure_uses_safe_terminal_stream_serialization(monkeypatch) -
     assert setup.json() == {"status": "armed"}
     assert RAW_KEY not in setup.text
     assert response.status_code == 200
-    assert response.text == (
-        'event: failure\ndata: {"error_code":"PROVIDER_REQUEST_FAILED"}\n\n'
-    )
+    assert response.text == ('event: failure\ndata: {"error_code":"PROVIDER_REQUEST_FAILED"}\n\n')
     assert "final_validated" not in response.text
     assert service.calls == []
 
@@ -275,10 +273,7 @@ def test_stream_interruption_emits_started_then_closes_without_terminal_event(
     assert setup.status_code == 200
     assert response.status_code == 200
     assert response.text == "event: started\ndata: {}\n\n"
-    assert all(
-        stage not in response.text
-        for stage in ("failure", "final_validated", "refusal")
-    )
+    assert all(stage not in response.text for stage in ("failure", "final_validated", "refusal"))
     assert service.calls == []
 
 

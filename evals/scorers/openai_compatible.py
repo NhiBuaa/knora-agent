@@ -255,9 +255,7 @@ def _user_prompt(case: EvaluationCase, observation: EvaluationObservation) -> st
         raise SemanticScorerError("SCORER_INPUT_INVALID")
     expected_raw = getattr(observation, "citation_evidence_ids", ())
     markers_raw = getattr(observation, "answer_marker_ids", ())
-    if not isinstance(expected_raw, (tuple, list)) or not isinstance(
-        markers_raw, (tuple, list)
-    ):
+    if not isinstance(expected_raw, (tuple, list)) or not isinstance(markers_raw, (tuple, list)):
         raise SemanticScorerError("SCORER_INPUT_INVALID")
     expected_ids = tuple(expected_raw)
     answer_marker_ids = tuple(markers_raw)
@@ -320,9 +318,7 @@ def _score_cost(
     ):
         return None
     amount = (
-        Decimal(usage.get("prompt_tokens", 0))
-        * configuration.input_cost_per_million_tokens
-        + Decimal(usage.get("completion_tokens", 0))
-        * configuration.output_cost_per_million_tokens
+        Decimal(usage.get("prompt_tokens", 0)) * configuration.input_cost_per_million_tokens
+        + Decimal(usage.get("completion_tokens", 0)) * configuration.output_cost_per_million_tokens
     ) / Decimal(1_000_000)
     return format(amount, "f")

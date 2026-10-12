@@ -22,9 +22,7 @@ def upgrade() -> None:
         "document_versions",
         ["document_id", "normalized_content_checksum"],
         unique=True,
-        postgresql_where=sa.text(
-            "raw_sha256 IS NULL AND normalized_content_checksum IS NOT NULL"
-        ),
+        postgresql_where=sa.text("raw_sha256 IS NULL AND normalized_content_checksum IS NOT NULL"),
     )
 
 

@@ -37,7 +37,7 @@ def test_one_key_hash_cannot_authorize_multiple_workspaces() -> None:
 @pytest.mark.parametrize(
     "payload",
     [
-        '{}',
+        "{}",
         '[{"key_id":"a","key_hash":"not-a-hash","workspace_id":"w","enabled":true}]',
         '[{"key_id":"a","key_hash":"sha256:00","workspace_id":"w","enabled":"yes"}]',
     ],

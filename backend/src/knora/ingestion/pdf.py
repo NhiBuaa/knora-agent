@@ -30,14 +30,17 @@ class PdfExtractionConfiguration:
     def __post_init__(self) -> None:
         if not 0 <= self.overlap_tokens < self.target_tokens <= self.max_tokens:
             raise ValueError("invalid PDF chunk token limits")
-        if min(
-            self.max_raw_bytes,
-            self.max_pages,
-            self.max_page_stream_bytes,
-            self.max_total_stream_bytes,
-            self.extractor_memory_bytes,
-            self.minimum_extracted_characters,
-        ) <= 0:
+        if (
+            min(
+                self.max_raw_bytes,
+                self.max_pages,
+                self.max_page_stream_bytes,
+                self.max_total_stream_bytes,
+                self.extractor_memory_bytes,
+                self.minimum_extracted_characters,
+            )
+            <= 0
+        ):
             raise ValueError("PDF extraction limits must be positive")
         if self.extraction_timeout_seconds <= 0:
             raise ValueError("PDF extraction timeout must be positive")

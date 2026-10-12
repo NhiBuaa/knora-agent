@@ -554,12 +554,8 @@ def test_superseded_replay_returns_the_exact_durable_result() -> None:
         replacement_document_version_id=replace_current_document_version(job_id)
     )
 
-    initial = store.finalize_superseded(
-        operation_id=operation_id, claim=claim, outcome=outcome
-    )
-    replay = store.finalize_superseded(
-        operation_id=operation_id, claim=claim, outcome=outcome
-    )
+    initial = store.finalize_superseded(operation_id=operation_id, claim=claim, outcome=outcome)
+    replay = store.finalize_superseded(operation_id=operation_id, claim=claim, outcome=outcome)
 
     assert isinstance(initial, FinalizationApplied)
     assert replay == initial
@@ -644,22 +640,28 @@ def test_superseded_finalization_requires_a_stale_target_and_valid_replacements(
     )
     assert isinstance(claim, ClaimedAttempt)
 
-    assert store.finalize_superseded(
-        operation_id=TransitionOperationId(uuid4().hex),
-        claim=claim,
-        outcome=WorkSuperseded(),
-    ) == InvalidTransition()
+    assert (
+        store.finalize_superseded(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=claim,
+            outcome=WorkSuperseded(),
+        )
+        == InvalidTransition()
+    )
 
     replacement_version_id = replace_current_document_version(job_id)
     _, unrelated_job_id = submit_queued_job()
-    assert store.finalize_superseded(
-        operation_id=TransitionOperationId(uuid4().hex),
-        claim=claim,
-        outcome=WorkSuperseded(
-            replacement_document_version_id=replacement_version_id,
-            replacement_ingestion_job_id=unrelated_job_id,
-        ),
-    ) == InvalidTransition()
+    assert (
+        store.finalize_superseded(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=claim,
+            outcome=WorkSuperseded(
+                replacement_document_version_id=replacement_version_id,
+                replacement_ingestion_job_id=unrelated_job_id,
+            ),
+        )
+        == InvalidTransition()
+    )
 
 
 def test_superseded_finalization_gives_fencing_precedence_over_stale_target() -> None:
@@ -678,11 +680,14 @@ def test_superseded_finalization_gives_fencing_precedence_over_stale_target() ->
             .values(lease_expires_at=func.clock_timestamp() - text("interval '1 second'"))
         )
 
-    assert store.finalize_superseded(
-        operation_id=TransitionOperationId(uuid4().hex),
-        claim=claim,
-        outcome=WorkSuperseded(replacement_document_version_id=replacement_version_id),
-    ) == Fenced()
+    assert (
+        store.finalize_superseded(
+            operation_id=TransitionOperationId(uuid4().hex),
+            claim=claim,
+            outcome=WorkSuperseded(replacement_document_version_id=replacement_version_id),
+        )
+        == Fenced()
+    )
 
     with SessionFactory() as session:
         job = session.get(IngestionJobTable, job_id)
@@ -867,11 +872,15 @@ def test_heartbeat_returns_fenced_for_a_definitely_stale_token() -> None:
     )
 
     assert isinstance(claim, ClaimedAttempt)
-    assert store.heartbeat(
-        operation_id=HeartbeatOperationId(uuid4().hex),
-        token=replace(claim.token, worker_id="other-worker"),
-        lease_duration=timedelta(minutes=2),
-    ) == Fenced()
+    assert (
+        store.heartbeat(
+            operation_id=HeartbeatOperationId(uuid4().hex),
+            token=replace(claim.token, worker_id="other-worker"),
+            lease_duration=timedelta(minutes=2),
+        )
+        == Fenced()
+    )
+
 
 def test_schedule_retry_closes_current_attempt_with_one_database_time_anchor() -> None:
     clear_coordination_jobs()

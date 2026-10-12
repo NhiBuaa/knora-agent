@@ -40,8 +40,13 @@ class ApplicationEvaluationCorpusGateway:
     embedding_configuration: EmbeddingConfiguration
 
     def ingest(
-        self, *, workspace_id: str, source_key: str, source_name: str,
-        media_type: str, raw_content: bytes,
+        self,
+        *,
+        workspace_id: str,
+        source_key: str,
+        source_name: str,
+        media_type: str,
+        raw_content: bytes,
     ) -> object:
         return self.ingest_document.execute(
             IngestDocumentCommand(

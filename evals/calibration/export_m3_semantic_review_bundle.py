@@ -44,9 +44,7 @@ def canonical_text_bytes(path: Path) -> bytes:
 
 
 def canonical_json(value: Any) -> bytes:
-    serialized = json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
+    serialized = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return (serialized + "\n").encode()
 
 
@@ -81,9 +79,7 @@ def calibration_inventory(root: Path) -> tuple[dict[str, Any], list[SemanticItem
     cases = read_jsonl(base / "cases.jsonl")
     lineage = read_json(base / "lineage.json")
     corpus_members = [
-        member
-        for member in manifest["files"]
-        if member["path"].startswith("corpus/")
+        member for member in manifest["files"] if member["path"].startswith("corpus/")
     ]
     corpus_refs = {f"calibration/{Path(member['path']).stem}#0" for member in corpus_members}
     if set(lineage["case_ids"]) != {case["id"] for case in cases}:
@@ -106,9 +102,7 @@ def calibration_inventory(root: Path) -> tuple[dict[str, Any], list[SemanticItem
             }
         )
         semantic_items.append(
-            SemanticItem(
-                f"source:{source_key}", "source-content", content, member["path"]
-            )
+            SemanticItem(f"source:{source_key}", "source-content", content, member["path"])
         )
         semantic_items.extend(
             SemanticItem(f"fact:{source_key}:{index}", "source-fact", fact, member["path"])
@@ -324,9 +318,7 @@ def reviewer_schema() -> dict[str, Any]:
                     "properties": {
                         "calibration_reference": {"type": "string"},
                         "development_reference": {"type": "string"},
-                        "assessment": {
-                            "enum": ["REPHRASE", "DERIVATION", "INDETERMINATE"]
-                        },
+                        "assessment": {"enum": ["REPHRASE", "DERIVATION", "INDETERMINATE"]},
                     },
                 },
             },
@@ -337,9 +329,7 @@ def reviewer_schema() -> dict[str, Any]:
 
 def zip_bytes(files: dict[str, bytes], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(
-        output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
-    ) as archive:
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for name in sorted(files):
             info = zipfile.ZipInfo(name, ZIP_TIMESTAMP)
             info.compress_type = zipfile.ZIP_DEFLATED

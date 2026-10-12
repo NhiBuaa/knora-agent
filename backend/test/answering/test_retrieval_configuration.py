@@ -186,9 +186,12 @@ def test_qwen_containment_candidate_preserves_existing_deployment_policies():
     assert candidate.overlap_policy == "adjacent-content-containment-v1"
     assert candidate.id == "retrieval-qwen-containment-candidate-v2-" + "f" * 24
     assert RetrievalConfiguration.milestone_one().min_similarity == 0.65
-    assert RetrievalConfiguration.qwen_vietnamese_v1(
-        min_similarity=0.51, artifact_sha256="f" * 64
-    ).overlap_policy == "adjacent-token-overlap-v1"
+    assert (
+        RetrievalConfiguration.qwen_vietnamese_v1(
+            min_similarity=0.51, artifact_sha256="f" * 64
+        ).overlap_policy
+        == "adjacent-token-overlap-v1"
+    )
     with pytest.raises(ValueError, match="unsupported"):
         retrieval_configuration_for_id(candidate.id)
 

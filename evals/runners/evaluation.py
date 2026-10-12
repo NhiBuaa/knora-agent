@@ -190,9 +190,7 @@ def load_dataset(path: Path) -> EvaluationDataset:
         if case.category not in REQUIRED_CATEGORIES:
             raise DatasetValidationError(f"unknown category: {case.category}")
         if case.expected_behavior not in {"ANSWER", "REFUSAL"}:
-            raise DatasetValidationError(
-                f"unknown expected behavior: {case.expected_behavior}"
-            )
+            raise DatasetValidationError(f"unknown expected behavior: {case.expected_behavior}")
         if case.expected_behavior == "ANSWER" and (
             not case.expected_source_documents or not case.acceptable_relevant_chunks
         ):
@@ -222,9 +220,7 @@ def load_corpus_manifest(path: Path) -> CorpusManifest:
         seen_paths.add(document_path)
         seen_source_keys.add(record["source_key"])
         normalized = (
-            document_path.read_text(encoding="utf-8")
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
+            document_path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
         )
         actual = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if actual != record["normalized_content_sha256"]:
@@ -257,9 +253,7 @@ def load_dataset_manifest(path: Path, dataset_path: Path) -> DatasetIdentity:
     return DatasetIdentity(version=payload["version"], checksum=f"sha256:{actual}")
 
 
-def validate_relevance_references(
-    dataset: EvaluationDataset, manifest: CorpusManifest
-) -> None:
+def validate_relevance_references(dataset: EvaluationDataset, manifest: CorpusManifest) -> None:
     available = {
         reference
         for document in manifest.documents
@@ -269,8 +263,7 @@ def validate_relevance_references(
         missing = set(case.acceptable_relevant_chunks) - available
         if missing:
             raise DatasetValidationError(
-                f"case {case.id} references unknown relevant chunks: "
-                + ", ".join(sorted(missing))
+                f"case {case.id} references unknown relevant chunks: " + ", ".join(sorted(missing))
             )
 
 
@@ -285,14 +278,10 @@ def verify_active_corpus(manifest: CorpusManifest, active: object) -> None:
     for source_key, document in expected.items():
         projection = actual[source_key]
         if (
-            projection.normalized_content_checksum
-            != document.normalized_content_sha256
-            or projection.chunking_configuration_id
-            != manifest.chunking_configuration_id
-            or projection.embedding_configuration_id
-            != manifest.embedding_configuration_id
-            or tuple(projection.chunk_references)
-            != document.expected_chunk_references
+            projection.normalized_content_checksum != document.normalized_content_sha256
+            or projection.chunking_configuration_id != manifest.chunking_configuration_id
+            or projection.embedding_configuration_id != manifest.embedding_configuration_id
+            or tuple(projection.chunk_references) != document.expected_chunk_references
         ):
             raise ValueError(f"active corpus does not match manifest: {source_key}")
 
@@ -348,9 +337,7 @@ def score_retrieval(
     }
 
 
-def _structural_checks(
-    case: EvaluationCase, observation: EvaluationObservation
-) -> dict[str, bool]:
+def _structural_checks(case: EvaluationCase, observation: EvaluationObservation) -> dict[str, bool]:
     if observation.decision == "ANSWER":
         decision_contract = bool(observation.answer) and (
             observation.refusal_reason is None
@@ -358,8 +345,7 @@ def _structural_checks(
             and observation.answer_marker_ids == observation.citation_evidence_ids
             and len(set(observation.citation_evidence_ids))
             == len(observation.citation_evidence_ids)
-            and len(observation.cited_chunks)
-            == len(observation.citation_evidence_ids)
+            and len(observation.cited_chunks) == len(observation.citation_evidence_ids)
         )
     elif observation.decision == "REFUSAL":
         decision_contract = (
@@ -371,15 +357,12 @@ def _structural_checks(
         )
     else:
         decision_contract = False
-    cited_source_documents = {
-        reference.rsplit("#", 1)[0] for reference in observation.cited_chunks
-    }
+    cited_source_documents = {reference.rsplit("#", 1)[0] for reference in observation.cited_chunks}
     expected_sources = set(case.expected_source_documents)
     source_documents_match = (
         not observation.cited_chunks
         if observation.decision == "REFUSAL"
-        else bool(cited_source_documents)
-        and cited_source_documents.issubset(expected_sources)
+        else bool(cited_source_documents) and cited_source_documents.issubset(expected_sources)
     )
     return {
         "decision_contract": decision_contract,
@@ -388,8 +371,7 @@ def _structural_checks(
             observation.retrieved_chunks
         ),
         "workspace_isolation": all(
-            workspace == case.workspace_id
-            for workspace in observation.candidate_workspaces
+            workspace == case.workspace_id for workspace in observation.candidate_workspaces
         ),
         "trace_persisted": bool(observation.trace_id),
     }
@@ -403,9 +385,7 @@ def _build_semantic_report(
     measurement_method: str,
 ) -> dict[str, object]:
     by_case = {evaluation.case_id: evaluation for evaluation in evaluations}
-    if len(by_case) != len(evaluations) or set(by_case) != {
-        case.id for case in dataset.cases
-    }:
+    if len(by_case) != len(evaluations) or set(by_case) != {case.id for case in dataset.cases}:
         raise ValueError("semantic evaluations must contain exactly one result for every case")
     case_results: list[dict[str, object]] = []
     metric_cases: dict[str, list[dict[str, object]]] = {metric: [] for metric in SEMANTIC_METRICS}
@@ -489,9 +469,7 @@ def build_report(
     scorer_method: str | None = None,
 ) -> dict[str, object]:
     by_case = {observation.case_id: observation for observation in observations}
-    if len(by_case) != len(observations) or set(by_case) != {
-        case.id for case in dataset.cases
-    }:
+    if len(by_case) != len(observations) or set(by_case) != {case.id for case in dataset.cases}:
         raise ValueError("observations must contain exactly one result for every case")
     ordered_cases = sorted(dataset.cases, key=lambda case: case.id)
     structural_cases = []
@@ -501,8 +479,7 @@ def build_report(
             {
                 "id": case.id,
                 "passed": all(checks.values()),
-                "expected_behavior_match": by_case[case.id].decision
-                == case.expected_behavior,
+                "expected_behavior_match": by_case[case.id].decision == case.expected_behavior,
                 "checks": checks,
             }
         )
@@ -560,9 +537,7 @@ def build_report(
             "hard_gate_passed": passed == len(structural_cases),
             "cases": structural_cases,
         },
-        "retrieval": score_retrieval(
-            dataset.cases, observations, candidate_k=8
-        ),
+        "retrieval": score_retrieval(dataset.cases, observations, candidate_k=8),
         "semantic": semantic,
         "system": {
             "end_to_end_latency_ms": {
@@ -603,9 +578,7 @@ def build_report(
                     if mode == "model-backed"
                     else "not_applicable"
                 ),
-                "cost_usd": (
-                    format(scorer_total_cost, "f") if scorer_cost_observed else None
-                ),
+                "cost_usd": (format(scorer_total_cost, "f") if scorer_cost_observed else None),
                 "cost_status": (
                     "observed"
                     if scorer_cost_observed
@@ -628,9 +601,7 @@ def validate_mode(
 ) -> None:
     if mode == "deterministic-local":
         if provider_mode != "deterministic-local":
-            raise ValueError(
-                "deterministic-local mode requires deterministic-local provider"
-            )
+            raise ValueError("deterministic-local mode requires deterministic-local provider")
         return
     if mode != "model-backed":
         raise ValueError(f"unsupported evaluation mode: {mode}")

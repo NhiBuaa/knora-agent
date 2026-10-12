@@ -189,14 +189,17 @@ def test_upload_idempotency_binding_filename_scope_and_operation_isolation(tmp_p
     assert reprocess.outcome == "reused"
     assert reprocess.ingestion_job_id == operation_key_result.ingestion_job_id
     with SessionFactory() as session:
-        assert session.scalar(
-            select(func.count())
-            .select_from(IdempotencyRecordTable)
-            .where(
-                IdempotencyRecordTable.workspace_id == workspace_a,
-                IdempotencyRecordTable.key == "same-literal-operation-key",
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecordTable)
+                .where(
+                    IdempotencyRecordTable.workspace_id == workspace_a,
+                    IdempotencyRecordTable.key == "same-literal-operation-key",
+                )
             )
-        ) == 2
+            == 2
+        )
 
 
 def test_upload_conflict_preserves_original_binding_and_fingerprint_race_is_one_winner(
@@ -259,23 +262,29 @@ def test_upload_conflict_preserves_original_binding_and_fingerprint_race_is_one_
     assert len(conflicts) == 1
     assert conflicts[0].code == "IDEMPOTENCY_KEY_CONFLICT"
     with SessionFactory() as session:
-        assert session.scalar(
-            select(func.count())
-            .select_from(IngestionJobTable)
-            .where(
-                IngestionJobTable.workspace_id == workspace_id,
-                IngestionJobTable.source_object_id.is_not(None),
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(
+                    IngestionJobTable.workspace_id == workspace_id,
+                    IngestionJobTable.source_object_id.is_not(None),
+                )
             )
-        ) == baseline_jobs + 1
-        assert session.scalar(
-            select(func.count())
-            .select_from(DocumentVersionTable)
-            .join(
-                IngestionJobTable,
-                IngestionJobTable.target_document_version_id == DocumentVersionTable.id,
+            == baseline_jobs + 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(DocumentVersionTable)
+                .join(
+                    IngestionJobTable,
+                    IngestionJobTable.target_document_version_id == DocumentVersionTable.id,
+                )
+                .where(IngestionJobTable.workspace_id == workspace_id)
             )
-            .where(IngestionJobTable.workspace_id == workspace_id)
-        ) == baseline_jobs + 1
+            == baseline_jobs + 1
+        )
 
 
 def test_reprocess_conflicting_fingerprints_have_one_binding_and_no_extra_generation(
@@ -325,24 +334,33 @@ def test_reprocess_conflicting_fingerprints_have_one_binding_and_no_extra_genera
     assert conflicts[0].code == "IDEMPOTENCY_KEY_CONFLICT"
     assert successes[0].ingestion_job_id == upload.ingestion_job_id
     with SessionFactory() as session:
-        assert session.scalar(
-            select(func.count())
-            .select_from(IngestionJobTable)
-            .where(IngestionJobTable.workspace_id == workspace_id)
-        ) == 1
-        assert session.scalar(
-            select(func.count())
-            .select_from(ReprocessAuditTable)
-            .where(ReprocessAuditTable.workspace_id == workspace_id)
-        ) == 1
-        assert session.scalar(
-            select(func.count())
-            .select_from(IdempotencyRecordTable)
-            .where(
-                IdempotencyRecordTable.workspace_id == workspace_id,
-                IdempotencyRecordTable.operation == "reprocess_document_version",
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.workspace_id == workspace_id)
             )
-        ) == 1
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ReprocessAuditTable)
+                .where(ReprocessAuditTable.workspace_id == workspace_id)
+            )
+            == 1
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IdempotencyRecordTable)
+                .where(
+                    IdempotencyRecordTable.workspace_id == workspace_id,
+                    IdempotencyRecordTable.operation == "reprocess_document_version",
+                )
+            )
+            == 1
+        )
 
 
 def _poll_client(service: IngestionJobs, workspace_id: str) -> tuple[TestClient, str]:
@@ -580,8 +598,7 @@ def test_public_poll_projects_all_six_states_exact_retry_and_terminal_metadata(t
         assert retry_payload["attempt_count"] == 1
         assert retry_payload["max_attempts"] == 4
         assert (
-            datetime.fromisoformat(retry_payload["next_attempt_at"])
-            == retry_result.next_attempt_at
+            datetime.fromisoformat(retry_payload["next_attempt_at"]) == retry_result.next_attempt_at
         )
         assert retry_payload["failure_reason"] is None
         assert retry_payload["terminal_at"] is None
@@ -593,9 +610,7 @@ def test_public_poll_projects_all_six_states_exact_retry_and_terminal_metadata(t
         assert "next_attempt_at" not in succeeded_payload
         assert succeeded_payload["failure_reason"] is None
         assert succeeded_payload["error_code"] is None
-        assert succeeded_payload["result"] == {
-            "document_version_id": succeeded.document_version_id
-        }
+        assert succeeded_payload["result"] == {"document_version_id": succeeded.document_version_id}
 
         failed_payload = _poll(client, workspace_id, failed.ingestion_job_id, raw_key)
         assert failed_payload["status"] == "failed"
@@ -615,9 +630,7 @@ def test_public_poll_projects_all_six_states_exact_retry_and_terminal_metadata(t
         assert "next_attempt_at" not in exhausted_payload
         assert "result" not in exhausted_payload
 
-        superseded_payload = _poll(
-            client, workspace_id, superseded_a.ingestion_job_id, raw_key
-        )
+        superseded_payload = _poll(client, workspace_id, superseded_a.ingestion_job_id, raw_key)
         assert superseded_payload["status"] == "superseded"
         assert superseded_payload["attempt_count"] == 1
         assert superseded_payload["max_attempts"] == 4
@@ -834,16 +847,22 @@ def test_historical_reprocess_rejection_is_side_effect_free(tmp_path) -> None:
         document = session.get(DocumentTable, first.document_id)
         assert document is not None
         assert document.current_document_version_id == current_before
-        assert session.scalar(
-            select(func.count())
-            .select_from(IngestionJobTable)
-            .where(IngestionJobTable.workspace_id == workspace_id)
-        ) == jobs_before
-        assert session.scalar(
-            select(func.count())
-            .select_from(ReprocessAuditTable)
-            .where(ReprocessAuditTable.workspace_id == workspace_id)
-        ) == audits_before
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(IngestionJobTable)
+                .where(IngestionJobTable.workspace_id == workspace_id)
+            )
+            == jobs_before
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ReprocessAuditTable)
+                .where(ReprocessAuditTable.workspace_id == workspace_id)
+            )
+            == audits_before
+        )
 
 
 def test_reprocess_missing_key_and_unavailable_source_create_no_generation(tmp_path) -> None:

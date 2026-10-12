@@ -49,8 +49,10 @@ async def ticket_lookup(
         payload = await request.json()
     except (UnicodeDecodeError, ValueError) as exc:
         raise KnoraError("TOOL_REQUEST_INVALID") from exc
-    if not isinstance(payload, dict) or set(payload) != {"ticket_reference"} or not isinstance(
-        payload.get("ticket_reference"), str
+    if (
+        not isinstance(payload, dict)
+        or set(payload) != {"ticket_reference"}
+        or not isinstance(payload.get("ticket_reference"), str)
     ):
         raise KnoraError("TOOL_REQUEST_INVALID")
     reference = payload["ticket_reference"]

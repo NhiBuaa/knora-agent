@@ -124,9 +124,7 @@ def test_deployed_reprocess_replaces_only_embedding_profile_and_binds_replay() -
 
 
 def test_existing_reprocess_modes_keep_their_persisted_replay_fingerprint() -> None:
-    current = ReprocessDocumentVersionCommand(
-        "workspace-a", "version-a", "current", None, "key-1"
-    )
+    current = ReprocessDocumentVersionCommand("workspace-a", "version-a", "current", None, "key-1")
     same_as_job = ReprocessDocumentVersionCommand(
         "workspace-a", "version-a", "same_as_job", "job-a", "key-2"
     )

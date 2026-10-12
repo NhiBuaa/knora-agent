@@ -106,9 +106,7 @@ class PostgresConversationStore:
         fingerprint = hashlib.sha256(b"conversation-create-v1").hexdigest()
         with self._session_factory.begin() as session:
             workspace = session.scalar(
-                select(WorkspaceTable)
-                .where(WorkspaceTable.id == workspace_id)
-                .with_for_update()
+                select(WorkspaceTable).where(WorkspaceTable.id == workspace_id).with_for_update()
             )
             if workspace is None:
                 raise KnoraError("WORKSPACE_ACCESS_DENIED")
@@ -233,9 +231,7 @@ class PostgresConversationStore:
     ) -> ConversationView:
         with self._session_factory.begin() as session:
             workspace = session.scalar(
-                select(WorkspaceTable)
-                .where(WorkspaceTable.id == workspace_id)
-                .with_for_update()
+                select(WorkspaceTable).where(WorkspaceTable.id == workspace_id).with_for_update()
             )
             if workspace is None:
                 raise KnoraError("WORKSPACE_ACCESS_DENIED")
@@ -280,9 +276,7 @@ class PostgresConversationStore:
 
         with self._session_factory.begin() as session:
             workspace = session.scalar(
-                select(WorkspaceTable)
-                .where(WorkspaceTable.id == workspace_id)
-                .with_for_update()
+                select(WorkspaceTable).where(WorkspaceTable.id == workspace_id).with_for_update()
             )
             if workspace is None:
                 raise KnoraError("WORKSPACE_ACCESS_DENIED")
@@ -363,9 +357,7 @@ class PostgresConversationStore:
         if not worker_id or len(worker_id) > 100:
             raise KnoraError("INVALID_CONVERSATION_WORKER_ID")
         with self._session_factory.begin() as session:
-            query = select(ConversationTurnTable).where(
-                ConversationTurnTable.status == "queued"
-            )
+            query = select(ConversationTurnTable).where(ConversationTurnTable.status == "queued")
             if workspace_id is not None:
                 query = query.where(ConversationTurnTable.workspace_id == workspace_id)
             turn = session.scalar(
@@ -484,9 +476,7 @@ class PostgresConversationStore:
 
             if result is None:
                 turn.status = (
-                    "interrupted"
-                    if error_code == "EXECUTION_OUTCOME_UNKNOWN"
-                    else "failed"
+                    "interrupted" if error_code == "EXECUTION_OUTCOME_UNKNOWN" else "failed"
                 )
                 turn.result = None
                 turn.stage = "failure"
@@ -536,10 +526,7 @@ class PostgresConversationStore:
             observations = []
             for turn in candidates:
                 now = self._database_now(session)
-                if (
-                    turn.lease_expires_at > now
-                    and turn.execution_deadline_at > now
-                ):
+                if turn.lease_expires_at > now and turn.execution_deadline_at > now:
                     continue
                 observations.append(
                     ExpiredTurnObservation(
@@ -572,8 +559,7 @@ class PostgresConversationStore:
                     ConversationTurnTable.conversation_id == observation.conversation_id,
                     ConversationTurnTable.status == "processing",
                     ConversationTurnTable.claim_token == observation.claim_token,
-                    ConversationTurnTable.lease_expires_at
-                    == observation.observed_lease_expires_at,
+                    ConversationTurnTable.lease_expires_at == observation.observed_lease_expires_at,
                     ConversationTurnTable.execution_deadline_at
                     == observation.observed_execution_deadline_at,
                 )
@@ -614,9 +600,7 @@ class PostgresConversationStore:
             session.flush()
             return True
 
-    def get_turn(
-        self, workspace_id: str, conversation_id: str, turn_id: str
-    ) -> TurnView | None:
+    def get_turn(self, workspace_id: str, conversation_id: str, turn_id: str) -> TurnView | None:
         with self._session_factory() as session:
             row = session.scalar(
                 select(ConversationTurnTable).where(
@@ -639,9 +623,7 @@ class PostgresConversationStore:
         before_sequence: int | None = None
         if cursor is not None:
             try:
-                decoded = json.loads(
-                    base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
-                )
+                decoded = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
                 cursor_conversation_id, before_sequence = decoded
                 if (
                     cursor_conversation_id != conversation_id

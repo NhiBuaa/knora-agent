@@ -23,8 +23,7 @@ def test_jsonl_inventory_is_workspace_scoped_and_validates_records(tmp_path) -> 
 def test_jsonl_inventory_rejects_invalid_record(tmp_path) -> None:
     path = tmp_path / "inventory.jsonl"
     path.write_text(
-        '{"workspace_id":"w1","object_key":"",'
-        '"created_at":"2026-01-01T00:00:00+00:00"}\n',
+        '{"workspace_id":"w1","object_key":"","created_at":"2026-01-01T00:00:00+00:00"}\n',
         encoding="utf-8",
     )
 

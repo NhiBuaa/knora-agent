@@ -78,7 +78,9 @@ def _store(path, clock: MutableClock) -> SqliteEvaluationOwnershipStore:
 def _hold_process_ownership(path: str, ready, release) -> None:
     store = SqliteEvaluationOwnershipStore(path=path)
     capability = store.acquire(
-        run_id="run-process", owner_id="process-a", lease_duration=timedelta(seconds=30),
+        run_id="run-process",
+        owner_id="process-a",
+        lease_duration=timedelta(seconds=30),
         operation_id="process-a-acquire",
     )
     ready.put(capability.fencing_version)
@@ -93,18 +95,24 @@ def test_durable_store_rejects_second_live_owner_and_preserves_owner(tmp_path) -
     second = _store(path, clock)
 
     first_capability = first.acquire(
-        run_id="run-1", owner_id="A", lease_duration=timedelta(seconds=10),
+        run_id="run-1",
+        owner_id="A",
+        lease_duration=timedelta(seconds=10),
         operation_id="first-acquire",
     )
 
     with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
         second.acquire(
-            run_id="run-1", owner_id="B", lease_duration=timedelta(seconds=10),
+            run_id="run-1",
+            owner_id="B",
+            lease_duration=timedelta(seconds=10),
             operation_id="second-acquire",
         )
     with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
         second.acquire(
-            run_id="run-1", owner_id="B", lease_duration=timedelta(seconds=10),
+            run_id="run-1",
+            owner_id="B",
+            lease_duration=timedelta(seconds=10),
             operation_id="second-acquire",
         )
 
@@ -213,7 +221,9 @@ def test_independent_processes_share_the_exclusive_lease(tmp_path) -> None:
         second = SqliteEvaluationOwnershipStore(path=path)
         with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_ACQUIRE_FAILED"):
             second.acquire(
-                run_id="run-process", owner_id="process-b", lease_duration=timedelta(seconds=30),
+                run_id="run-process",
+                owner_id="process-b",
+                lease_duration=timedelta(seconds=30),
                 operation_id="process-b-acquire",
             )
     except Empty as error:
@@ -274,14 +284,14 @@ def test_renewal_extends_lease_without_changing_fencing_version(tmp_path) -> Non
     store = _store(path, clock)
 
     capability = store.acquire(
-        run_id="run-renew", owner_id="A", lease_duration=timedelta(seconds=10),
+        run_id="run-renew",
+        owner_id="A",
+        lease_duration=timedelta(seconds=10),
         operation_id="renew-acquire",
     )
     clock.advance(timedelta(seconds=9))
 
-    renewed = store.renew(
-        capability, lease_duration=timedelta(seconds=10), operation_id="renew-1"
-    )
+    renewed = store.renew(capability, lease_duration=timedelta(seconds=10), operation_id="renew-1")
 
     assert renewed.owner_id == capability.owner_id
     assert renewed.fencing_version == capability.fencing_version
@@ -291,9 +301,7 @@ def test_renewal_extends_lease_without_changing_fencing_version(tmp_path) -> Non
 
     clock.advance(timedelta(seconds=2))
     with pytest.raises(EvaluationOwnershipError, match="EVALUATION_SEAL_FENCED"):
-        store.renew(
-            renewed, lease_duration=timedelta(seconds=10), operation_id="renew-expired"
-        )
+        store.renew(renewed, lease_duration=timedelta(seconds=10), operation_id="renew-expired")
 
 
 def test_lease_heartbeat_renews_until_stopped(tmp_path) -> None:
@@ -334,9 +342,7 @@ def test_readiness_owner_and_binding_combinations_fail_closed(tmp_path) -> None:
         source_bindings=_binding().source_bindings,
     )
     with pytest.raises(ObservationFailure, match="CORPUS_CLOSURE_MISMATCH"):
-        seal.capture_preflight(
-            binding=mismatched_binding, corpus=_corpus(), manifest=_manifest()
-        )
+        seal.capture_preflight(binding=mismatched_binding, corpus=_corpus(), manifest=_manifest())
 
     invalid_owner = EvaluationEnvironmentSeal(
         ownership_store=_store(path, clock),

@@ -296,9 +296,7 @@ class ApprovedProposalExecutor:
                 now,
             )
             if isinstance(observed, StoreExecutionFenced):
-                return ExecutionFenced(
-                    proposal.proposal_id, proposal.logical_execution_id
-                )
+                return ExecutionFenced(proposal.proposal_id, proposal.logical_execution_id)
             return ExecutionInProgress(
                 proposal.proposal_id,
                 proposal.logical_execution_id,
@@ -337,12 +335,8 @@ class ApprovedProposalExecutor:
                 now,
             )
             if isinstance(observed, StoreExecutionFenced):
-                return ExecutionFenced(
-                    proposal.proposal_id, proposal.logical_execution_id
-                )
-            return ExecutionIndeterminate(
-                proposal.proposal_id, proposal.logical_execution_id
-            )
+                return ExecutionFenced(proposal.proposal_id, proposal.logical_execution_id)
+            return ExecutionIndeterminate(proposal.proposal_id, proposal.logical_execution_id)
         observed = self._store.record_execution_observation(
             proposal.workspace_id,
             proposal.proposal_id,
@@ -667,14 +661,10 @@ class ReconciliationExecutor:
         if isinstance(outcome, (ProviderWriteSucceeded, ProviderWriteFailed)):
             return self._record_terminal(proposal, execution, outcome)
         if isinstance(outcome, (ProviderRequestRejected, ProviderScopeDenied)):
-            return self._record_outcome(
-                proposal, execution.owner, execution.generation, outcome
-            )
+            return self._record_outcome(proposal, execution.owner, execution.generation, outcome)
         return self._record_indeterminate(proposal, execution, "indeterminate_external_outcome")
 
-    def _revalidate_retry(
-        self, proposal: _StoredProposal, principal: WorkspacePrincipal
-    ) -> None:
+    def _revalidate_retry(self, proposal: _StoredProposal, principal: WorkspacePrincipal) -> None:
         if proposal.execution_stale_reason is not None:
             raise KnoraError("TOOL_PROPOSAL_STALE")
         try:

@@ -32,7 +32,6 @@ class ChunkingConfiguration:
         )
 
 
-
 @dataclass(frozen=True, slots=True)
 class PreparedChunk:
     ordinal: int

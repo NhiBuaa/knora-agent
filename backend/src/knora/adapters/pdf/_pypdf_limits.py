@@ -149,9 +149,7 @@ def _page_stream_bytes(
             )
         except _PageStreamBudgetExceeded:
             reason = (
-                "PAGE_STREAM_SIZE"
-                if remaining_page <= remaining_total
-                else "TOTAL_STREAM_SIZE"
+                "PAGE_STREAM_SIZE" if remaining_page <= remaining_total else "TOTAL_STREAM_SIZE"
             )
             raise _PageStreamBudgetExceeded(reason) from None
         total += decoded_size

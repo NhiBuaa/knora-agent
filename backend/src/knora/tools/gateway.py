@@ -343,9 +343,7 @@ def _parse_provider_write_result(
         return ProviderIdempotencyConflict()
     if outcome_type == "failed" and value in {item.value for item in ProviderTerminalFailureCode}:
         return ProviderWriteFailed(value)
-    if outcome_type == "succeeded" and _valid_provider_text(
-        value, maximum=4096, allow_empty=False
-    ):
+    if outcome_type == "succeeded" and _valid_provider_text(value, maximum=4096, allow_empty=False):
         return ProviderWriteSucceeded(value)
     if outcome_type == "request_rejected" and value == "no_write_received":
         return ProviderRequestRejected()

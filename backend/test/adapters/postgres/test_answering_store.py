@@ -56,9 +56,7 @@ def ingest(
             media_type="text/markdown",
             raw_content=content,
             chunking_configuration=ChunkingConfiguration.milestone_one(),
-            embedding_configuration=(
-                configuration or EmbeddingConfiguration.milestone_one_local()
-            ),
+            embedding_configuration=(configuration or EmbeddingConfiguration.milestone_one_local()),
         ),
         WorkspacePrincipal(workspace_id=workspace_id, key_id="test"),
     )
@@ -296,8 +294,7 @@ def test_mixed_dimension_vector_queries_guard_distance_in_both_sql_paths() -> No
 
     assert any(candidate.embedding_set_id == matching.embedding_set_id for candidate in result)
     assert any(
-        observation.status == "BELOW_THRESHOLD"
-        for observation in result.branch_observations
+        observation.status == "BELOW_THRESHOLD" for observation in result.branch_observations
     )
     assert len(vector_sql) == 2
     for statement in vector_sql:
@@ -317,20 +314,24 @@ def test_archive_excludes_new_retrieval_and_unarchive_restores_it(hybrid) -> Non
     configuration = EmbeddingConfiguration.milestone_one_local()
     retrieval = replace(
         RetrievalConfiguration.milestone_three_hybrid()
-        if hybrid else RetrievalConfiguration.milestone_one(),
+        if hybrid
+        else RetrievalConfiguration.milestone_one(),
         min_similarity=-1.0,
     )
     store = PostgresAnsweringStore(SessionFactory)
     arguments = dict(
-        workspace_id=workspace, query_text="refund",
+        workspace_id=workspace,
+        query_text="refund",
         query_vector=DeterministicEmbeddingProvider().embed(["refund"], configuration).vectors[0],
-        embedding_configuration=configuration, retrieval_configuration=retrieval,
+        embedding_configuration=configuration,
+        retrieval_configuration=retrieval,
     )
     before = store.retrieve_candidates(**arguments)
     assert len(before) > 0
     reader = PostgresDocumentReader(SessionFactory)
     lifecycle_args = dict(
-        workspace_id=workspace, document_id=ingested.document_id,
+        workspace_id=workspace,
+        document_id=ingested.document_id,
         principal=WorkspacePrincipal(workspace, "test"),
     )
     reader.archive(**lifecycle_args)
@@ -408,8 +409,7 @@ def test_retrieval_filters_workspace_and_active_embedding_set_in_sql() -> None:
         if candidate.source_key == "support/refunds-a"
     )
     assert all(
-        candidate.embedding_configuration_id == "embedding-local-m1-v2"
-        for candidate in candidates
+        candidate.embedding_configuration_id == "embedding-local-m1-v2" for candidate in candidates
     )
     assert [
         (-candidate.similarity, candidate.document_id, candidate.chunk_ordinal, candidate.chunk_id)
@@ -432,9 +432,9 @@ def test_hybrid_uses_explicit_fts_and_rrf_deduplicates_branch_contributions() ->
         session.add(WorkspaceTable(id=workspace_id, name="Hybrid Retrieval"))
     ingested = ingest(workspace_id, "support/zx-42", content=content)
     configuration = EmbeddingConfiguration.milestone_one_local()
-    query_vector = DeterministicEmbeddingProvider().embed(
-        [content.decode()], configuration
-    ).vectors[0]
+    query_vector = (
+        DeterministicEmbeddingProvider().embed([content.decode()], configuration).vectors[0]
+    )
     retrieval_configuration = replace(
         RetrievalConfiguration.milestone_three_hybrid(), candidate_k=1, min_similarity=0.0
     )
@@ -474,9 +474,7 @@ def test_hybrid_uses_explicit_fts_and_rrf_deduplicates_branch_contributions() ->
 def test_hybrid_requires_explicit_supported_versioned_policies() -> None:
     store = PostgresAnsweringStore(SessionFactory)
     configuration = EmbeddingConfiguration.milestone_one_local()
-    invalid = replace(
-        RetrievalConfiguration.milestone_three_hybrid(), fusion_policy_version=None
-    )
+    invalid = replace(RetrievalConfiguration.milestone_three_hybrid(), fusion_policy_version=None)
 
     with pytest.raises(ValueError, match="unsupported fusion policy"):
         store.retrieve_candidates(
@@ -493,19 +491,22 @@ def test_hybrid_observes_explicit_fts_ineligibility_for_evaluated_below_threshol
     configuration = EmbeddingConfiguration.milestone_one_local()
     retrieval_configuration = RetrievalConfiguration.milestone_three_hybrid()
     below_chunk = "below-threshold-chunk"
-    with patch.object(
-        store,
-        "_vector_observations",
-        return_value=(
-            BranchObservation(
-                branch="vector",
-                status="BELOW_THRESHOLD",
-                chunk_id=below_chunk,
-                cosine_distance=0.9,
-                similarity=0.1,
+    with (
+        patch.object(
+            store,
+            "_vector_observations",
+            return_value=(
+                BranchObservation(
+                    branch="vector",
+                    status="BELOW_THRESHOLD",
+                    chunk_id=below_chunk,
+                    cosine_distance=0.9,
+                    similarity=0.1,
+                ),
             ),
         ),
-    ), patch.object(store, "_fts_eligible_chunk_ids", return_value=set()):
+        patch.object(store, "_fts_eligible_chunk_ids", return_value=set()),
+    ):
         observations = store._hybrid_observations(
             vector=(),
             fts=(),
@@ -518,9 +519,7 @@ def test_hybrid_observes_explicit_fts_ineligibility_for_evaluated_below_threshol
         )
 
     assert any(
-        item.branch == "fts"
-        and item.status == "INELIGIBLE"
-        and item.chunk_id == below_chunk
+        item.branch == "fts" and item.status == "INELIGIBLE" and item.chunk_id == below_chunk
         for item in observations
     )
 
@@ -530,20 +529,23 @@ def test_hybrid_checks_fts_eligibility_for_vector_candidate_without_fts_contribu
     configuration = EmbeddingConfiguration.milestone_one_local()
     retrieval_configuration = RetrievalConfiguration.milestone_three_hybrid()
     vector_candidate = SimpleNamespace(chunk_id="vector-only")
-    with patch.object(
-        store,
-        "_vector_observations",
-        return_value=(
-            BranchObservation(
-                branch="vector",
-                status="ELIGIBLE",
-                chunk_id="vector-only",
-                branch_rank=1,
-                cosine_distance=0.1,
-                similarity=0.9,
+    with (
+        patch.object(
+            store,
+            "_vector_observations",
+            return_value=(
+                BranchObservation(
+                    branch="vector",
+                    status="ELIGIBLE",
+                    chunk_id="vector-only",
+                    branch_rank=1,
+                    cosine_distance=0.1,
+                    similarity=0.9,
+                ),
             ),
         ),
-    ), patch.object(store, "_fts_eligible_chunk_ids", return_value=set()) as eligibility:
+        patch.object(store, "_fts_eligible_chunk_ids", return_value=set()) as eligibility,
+    ):
         observations = store._hybrid_observations(
             vector=(vector_candidate,),
             fts=(),
@@ -574,9 +576,9 @@ def test_rrf_v2_uses_independent_branch_budgets_and_source_ordinal_order() -> No
             f"support/{ordinal:02d}",
             content=f"refund token {ordinal}".encode(),
         )
-    query_vector = DeterministicEmbeddingProvider().embed(
-        ["refund token"], configuration
-    ).vectors[0]
+    query_vector = (
+        DeterministicEmbeddingProvider().embed(["refund token"], configuration).vectors[0]
+    )
     retrieval = RetrievalConfiguration.milestone_three_hybrid_v2(min_similarity=-1.0)
     with SessionFactory.begin() as session:
         session.add(
@@ -619,12 +621,15 @@ def test_fts_m3_or_v2_empty_query_executes_no_sql_and_adversarial_inputs_are_bou
     engine = SessionFactory.kw["bind"]
     event.listen(engine, "before_cursor_execute", capture)
     try:
-        assert store._fts_candidates(
-            workspace_id=workspace_id,
-            query_text="the and what",
-            embedding_configuration=configuration,
-            retrieval_configuration=retrieval,
-        ) == ()
+        assert (
+            store._fts_candidates(
+                workspace_id=workspace_id,
+                query_text="the and what",
+                embedding_configuration=configuration,
+                retrieval_configuration=retrieval,
+            )
+            == ()
+        )
         assert statements == []
 
         operator_candidates = store._fts_candidates(
@@ -642,9 +647,7 @@ def test_fts_m3_or_v2_empty_query_executes_no_sql_and_adversarial_inputs_are_bou
     finally:
         event.remove(engine, "before_cursor_execute", capture)
 
-    assert {candidate.source_key for candidate in operator_candidates} == {
-        "support/refund"
-    }
+    assert {candidate.source_key for candidate in operator_candidates} == {"support/refund"}
     assert long_token_candidates == ()
     assert len(statements) == 2
     assert all("%(to_tsquery_1)s" in statement for statement in statements)
@@ -676,12 +679,8 @@ def test_fts_filters_before_limit_and_breaks_equal_ranks_by_chunk_id() -> None:
         content=b"token token token token",
         configuration=other_configuration,
     )
-    inactive = ingest(
-        workspace_id, "fts/inactive", content=b"token token token token token"
-    )
-    ingest(
-        foreign_workspace_id, "fts/foreign", content=b"token token token token token token"
-    )
+    inactive = ingest(workspace_id, "fts/inactive", content=b"token token token token token")
+    ingest(foreign_workspace_id, "fts/foreign", content=b"token token token token token token")
     with SessionFactory.begin() as session:
         session.execute(
             update(DocumentTable)
@@ -757,8 +756,7 @@ def test_conversation_trace_is_idempotently_persisted_and_recovers_validated_cit
         workspace_id,
         "guide/chapters",
         content=(
-            b"# Chapters\n\n"
-            b"The software project report is suggested to include seven chapters.\n"
+            b"# Chapters\n\nThe software project report is suggested to include seven chapters.\n"
         ),
     )
     with SessionFactory() as session:

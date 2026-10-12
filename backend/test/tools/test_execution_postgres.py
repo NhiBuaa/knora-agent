@@ -286,9 +286,7 @@ def test_postgres_fences_observation_after_provider_returns_beyond_lease() -> No
     command = ExecuteApprovedProposal(approved.projection.proposal_id, 1)
 
     with ThreadPoolExecutor(max_workers=1) as pool:
-        execution = pool.submit(
-            workflow.handle, command, principal, actor("executor-a", "system")
-        )
+        execution = pool.submit(workflow.handle, command, principal, actor("executor-a", "system"))
         assert gateway.entered.wait(timeout=10)
         Event().wait(0.3)
         gateway.release.set()
@@ -415,9 +413,7 @@ def test_postgres_admission_ack_loss_reads_back_without_second_insert() -> None:
 
 
 def test_postgres_absent_admission_after_ambiguous_failure_is_non_terminal() -> None:
-    workflow, _, _, _, gateway, principal, approved = prepared(
-        store_factory=RollbackAdmissionStore
-    )
+    workflow, _, _, _, gateway, principal, approved = prepared(store_factory=RollbackAdmissionStore)
 
     result = workflow.handle(
         ExecuteApprovedProposal(approved.projection.proposal_id, 1),
@@ -514,7 +510,9 @@ def test_postgres_execution_transitions_capture_transaction_time_once() -> None:
             approved.projection.revision,
             "worker-a",
             timedelta(minutes=5),
-            AuthorizedExecutionBindingSnapshot.from_context(Resolver(principal.workspace_id).context),
+            AuthorizedExecutionBindingSnapshot.from_context(
+                Resolver(principal.workspace_id).context
+            ),
             datetime.now(UTC),
         )
         assert isinstance(acquired, AcquireApplied)

@@ -63,9 +63,7 @@ def _case(*, case_id: str = "answer-1", behavior: str = "ANSWER") -> Milestone3C
         "workspace",
         "question",
         behavior,
-        RetrievalRelevance(
-            behavior == "ANSWER", ("support/a#0",) if behavior == "ANSWER" else ()
-        ),
+        RetrievalRelevance(behavior == "ANSWER", ("support/a#0",) if behavior == "ANSWER" else ()),
         AnswerExpectations(
             ("fact",) if behavior == "ANSWER" else (),
             "fact" if behavior == "ANSWER" else None,
@@ -160,9 +158,7 @@ def test_trace_fault_injector_exercises_fail_closed_production_seams(mode: str) 
                 raise LookupError("unauthorized")
             return self.trace
 
-    reader = TraceFaultInjectingReader(
-        Reader(Trace("trace-1", "workspace")), mode=mode
-    )
+    reader = TraceFaultInjectingReader(Reader(Trace("trace-1", "workspace")), mode=mode)
 
     if mode in {"missing", "unauthorized"}:
         with pytest.raises(LookupError):

@@ -78,9 +78,7 @@ def test_m3_population_provenance_binds_exact_manifest_and_source_set() -> None:
         },
     }
 
-    validate_m3_population_provenance(
-        report, repository_root=Path(__file__).resolve().parents[2]
-    )
+    validate_m3_population_provenance(report, repository_root=Path(__file__).resolve().parents[2])
     report["provenance"]["source_commit"] = "1" * 40
     with pytest.raises(ComparisonError, match="PROVENANCE_MISMATCH"):
         validate_m3_population_provenance(

@@ -29,17 +29,13 @@ class TraceReader:
 @dataclass
 class OperationsReader:
     def snapshot(self, *, workspace_id):
-        return OperationalSnapshot(
-            metrics={"queue_depth": 0}, configuration_version="metrics-v1"
-        )
+        return OperationalSnapshot(metrics={"queue_depth": 0}, configuration_version="metrics-v1")
 
 
 @dataclass
 class LegacyOperationsReader:
     def snapshot(self):
-        return OperationalSnapshot(
-            metrics={"queue_depth": 0}, configuration_version="metrics-v1"
-        )
+        return OperationalSnapshot(metrics={"queue_depth": 0}, configuration_version="metrics-v1")
 
 
 def principal(capabilities=None):
@@ -60,8 +56,13 @@ def test_trace_removes_credentials_regardless_of_key_case(key):
 def test_trace_preserves_token_observations_while_removing_nested_credentials():
     class Reader:
         def read_trace(self, **kwargs):
-            return {"token_usage": {"input_tokens": 12, "output_tokens": 3,
-                                    "access_token": "TEST_SENTINEL"}}
+            return {
+                "token_usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 3,
+                    "access_token": "TEST_SENTINEL",
+                }
+            }
 
     service = OperatorObservability(trace_reader=Reader(), operations_reader=OperationsReader())
     result = service.read_trace(trace_id="t", workspace_id="ws-a", principal=principal())
@@ -73,9 +74,7 @@ def test_operator_read_requires_operator_capability():
         trace_reader=TraceReader(), operations_reader=OperationsReader()
     )
     with pytest.raises(Exception, match="CAPABILITY_ACCESS_DENIED"):
-        service.read_trace(
-            trace_id="trace-a", workspace_id="ws-a", principal=principal(())
-        )
+        service.read_trace(trace_id="trace-a", workspace_id="ws-a", principal=principal(()))
 
 
 def test_operator_trace_preserves_workspace_provenance_and_sanitizes_secrets():

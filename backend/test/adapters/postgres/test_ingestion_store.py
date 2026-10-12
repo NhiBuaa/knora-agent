@@ -140,30 +140,39 @@ def test_postgres_store_cas_rejects_stale_commit_without_partial_chain() -> None
         document = session.get(DocumentTable, first.document_id)
         assert document.revision == 2
         assert document.active_embedding_set_id == late_provider.winner.embedding_set_id
-        assert session.scalar(
-            select(func.count())
-            .select_from(DocumentVersionTable)
-            .where(DocumentVersionTable.document_id == first.document_id)
-        ) == 2
-        assert session.scalar(
-            select(func.count())
-            .select_from(ChunkSetTable)
-            .join(
-                DocumentVersionTable,
-                DocumentVersionTable.id == ChunkSetTable.document_version_id,
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(DocumentVersionTable)
+                .where(DocumentVersionTable.document_id == first.document_id)
             )
-            .where(DocumentVersionTable.document_id == first.document_id)
-        ) == 2
-        assert session.scalar(
-            select(func.count())
-            .select_from(EmbeddingSetTable)
-            .join(ChunkSetTable, ChunkSetTable.id == EmbeddingSetTable.chunk_set_id)
-            .join(
-                DocumentVersionTable,
-                DocumentVersionTable.id == ChunkSetTable.document_version_id,
+            == 2
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ChunkSetTable)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .where(DocumentVersionTable.document_id == first.document_id)
             )
-            .where(DocumentVersionTable.document_id == first.document_id)
-        ) == 2
+            == 2
+        )
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(EmbeddingSetTable)
+                .join(ChunkSetTable, ChunkSetTable.id == EmbeddingSetTable.chunk_set_id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .where(DocumentVersionTable.document_id == first.document_id)
+            )
+            == 2
+        )
 
     retry = first_use_case.execute(
         _command(workspace_id, "support/refund-policy", b"# Refunds\n\n60 days.\n"), principal
@@ -511,12 +520,15 @@ def test_persistence_failure_is_sanitized_and_rolls_back_the_derivation() -> Non
     assert captured.value.code == "PERSISTENCE_OPERATION_FAILED"
     assert "database-canary" not in str(captured.value)
     with SessionFactory() as session:
-        assert session.scalar(
-            select(DocumentTable).where(
-                DocumentTable.workspace_id == workspace_id,
-                DocumentTable.source_key == source_key,
+        assert (
+            session.scalar(
+                select(DocumentTable).where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.source_key == source_key,
+                )
             )
-        ) is None
+            is None
+        )
 
 
 def test_postgres_store_rejects_configuration_id_collision() -> None:

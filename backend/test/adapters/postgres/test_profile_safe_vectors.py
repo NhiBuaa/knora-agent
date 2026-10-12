@@ -186,8 +186,10 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
                 size=1536,
             )
             old_value = connection.scalar(
-                text("SELECT encode(vector_send(embedding), 'hex') "
-                     "FROM chunk_embeddings WHERE id = :id"),
+                text(
+                    "SELECT encode(vector_send(embedding), 'hex') "
+                    "FROM chunk_embeddings WHERE id = :id"
+                ),
                 {"id": ids["old_embedding"]},
             )
 
@@ -202,8 +204,10 @@ def test_migration_preserves_1536_and_enforces_profile_dimensions(
             )
             assert (
                 connection.scalar(
-                    text("SELECT encode(vector_send(embedding), 'hex') "
-                         "FROM chunk_embeddings WHERE id = :id"),
+                    text(
+                        "SELECT encode(vector_send(embedding), 'hex') "
+                        "FROM chunk_embeddings WHERE id = :id"
+                    ),
                     {"id": ids["old_embedding"]},
                 )
                 == old_value
