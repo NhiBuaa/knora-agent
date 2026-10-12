@@ -1,6 +1,5 @@
 package com.knora.keycloak.reset;
 
-import java.util.List;
 import org.keycloak.Config;
 import org.keycloak.events.Event;
 import org.keycloak.events.EventListenerProvider;
@@ -12,12 +11,14 @@ import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 
-/** Assigns the least-privilege application baseline to accounts created through Knora registration. */
+import java.util.List;
+
+/**
+ * Assigns the least-privilege application baseline to accounts created through Knora registration.
+ */
 public final class DefaultCapabilitiesFactory implements EventListenerProviderFactory {
-    public static final List<String> DEFAULT_CAPABILITIES = List.of(
-            "documents:read",
-            "documents:write",
-            "questions:ask");
+    public static final List<String> DEFAULT_CAPABILITIES =
+            List.of("documents:read", "documents:write", "questions:ask");
     private static final String CAPABILITIES_ATTRIBUTE = "capabilities";
 
     @Override
@@ -30,12 +31,16 @@ public final class DefaultCapabilitiesFactory implements EventListenerProviderFa
         return new EventListenerProvider() {
             @Override
             public void onEvent(Event event) {
-                if (event == null || event.getError() != null || event.getType() != EventType.REGISTER) {
+                if (event == null
+                        || event.getError() != null
+                        || event.getType() != EventType.REGISTER) {
                     return;
                 }
                 RealmModel realm = session.getContext().getRealm();
-                if (realm == null || !"knora".equals(realm.getLoginTheme())
-                        || !realm.getId().equals(event.getRealmId()) || event.getUserId() == null) {
+                if (realm == null
+                        || !"knora".equals(realm.getLoginTheme())
+                        || !realm.getId().equals(event.getRealmId())
+                        || event.getUserId() == null) {
                     return;
                 }
                 UserModel user = session.users().getUserById(realm, event.getUserId());
@@ -52,20 +57,16 @@ public final class DefaultCapabilitiesFactory implements EventListenerProviderFa
             }
 
             @Override
-            public void close() {
-            }
+            public void close() {}
         };
     }
 
     @Override
-    public void init(Config.Scope config) {
-    }
+    public void init(Config.Scope config) {}
 
     @Override
-    public void postInit(KeycloakSessionFactory factory) {
-    }
+    public void postInit(KeycloakSessionFactory factory) {}
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 }
