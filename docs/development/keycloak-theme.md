@@ -421,11 +421,30 @@ does not prove delivery. For a connectivity check, use a synthetic recipient own
 operator, record only success/failure and status, and delete the test message. Never test with a
 real user account or claim delivery without a credential and an observed synthetic message.
 
-The primary provider requires PostgreSQL and a file vault. Set `KNORA_PRIMARY_OTP_VAULT_PATH`
-to an existing local directory outside Git before resolving or starting Compose. The directory is
-mounted read-only at `/opt/keycloak/vault`. It must contain the provider's realm-bound HMAC entry;
-the required entry name and Base64 key format are the same as the isolated provider contract
-documented above. Compose does not create or populate this secret directory.
+The primary provider requires PostgreSQL. For local development, set
+`KNORA_OTP_LOCAL_DEV_ENABLED=true` and put a Base64 key of at least 32 decoded bytes in
+`KNORA_OTP_HMAC_KEY` in the ignored root `.env`; this path does not require a Keycloak vault entry.
+The approved local deployment has no file-vault mount or enabled vault provider. Remove the old
+`KNORA_PRIMARY_OTP_VAULT_PATH` setting; it has no effect, even if it still points to an existing
+directory. Leaving the local switch false or absent fails closed for OTP in this deployment.
+Production retains the realm-bound Vault/secret-manager source and must keep the local switch off.
+Production provider selection and hardening remain in Issue #152; provision and verify that secret
+source before enabling production OTP. The shared image keeps its file-vault build default for
+existing production and Vault verification consumers; dev Compose explicitly disables it at build.
+
+Local keys must use canonical padded Base64 without whitespace and decode to at least 32 bytes;
+missing, malformed or shorter keys prevent OTP delivery and verification. The provider never
+generates a replacement key or falls back from an enabled local source to Vault. Keep the same
+key in `.env` across restarts. Do not enable this switch on an existing Vault-backed runtime until
+its existing key is preserved or an approved rotation/migration is scheduled. This option does not
+change Gmail SMTP, App Passwords or the production hardening work in Issue #152.
+
+Compose loads root `.env`; use `docker compose -f docker-compose.dev.yml config --quiet` for
+validation. Resolved Compose config and container inspection include environment secrets: never
+print, snapshot or retain them. Root `.dockerignore` excludes local env files from image builds.
+Key stability does not persist native authentication sessions: a full restart of single-node
+`start-dev` with local cache requires starting a new reset transaction; a rolling clustered restart
+can keep an unexpired OTP transaction when another node retains its authentication session.
 
 Rollback snapshots record only whether an SMTP password existed. When replacing an existing SMTP
 configuration, set `KC_SMTP_RESTORE_PASSWORD` to the prior password before rollback so it can

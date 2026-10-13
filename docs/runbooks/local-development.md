@@ -64,6 +64,79 @@ Confirm the account's Workers AI data permission and available free allowance be
 
 ## Start daily development
 
+### Optional local Email OTP
+
+Local Keycloak does not enable or mount file-vault. To use Email OTP, explicitly set
+`KNORA_OTP_LOCAL_DEV_ENABLED=true` and supply `KNORA_OTP_HMAC_KEY` only in the ignored root `.env`.
+Use canonical padded Base64 encoding of at least 32 random bytes. Preserve the same key across
+restarts; missing or invalid keys fail closed without Vault/random fallback. The old
+`KNORA_PRIMARY_OTP_VAULT_PATH` setting is unused and can be removed.
+
+For an existing Vault-backed runtime, preserve its current key or schedule an approved rotation
+before changing the source. After upgrading the local image/configuration, rebuild and recreate
+Keycloak in your own dev project to remove the old mount; `docker compose restart` alone does not
+apply a changed environment or service configuration. Follow the
+[Email OTP configuration guide](../development/keycloak-theme.md) for the guarded realm migration.
+SMTP/App Passwords are unchanged. Production keeps its Vault/secret-manager source with the local
+switch off; provider selection and hardening remain in Issue #152.
+
+#### Manual Email OTP smoke with Gmail SMTP
+
+Daily development and manual acceptance use the configured Gmail SMTP service. Mailpit remains
+only in isolated automated tests/CI; the daily launcher does not start it. A green Mailpit test
+does not prove delivery to a real mailbox.
+
+Use a dedicated development account with a mailbox you control and a disposable password.
+The bundled `m5-user@example.test` fixture cannot receive real Gmail delivery. The primary realm
+must already have the custom Email OTP reset flow and Gmail SMTP configured through the
+[guarded migration](../development/keycloak-theme.md#primary-email-otp-migration). Preserve the
+existing SMTP/App Password and HMAC key; do not generate a replacement key for this smoke.
+
+1. In ignored root `.env`, set `KNORA_OTP_LOCAL_DEV_ENABLED=true` and retain the valid
+   `KNORA_OTP_HMAC_KEY`. Remove the unused `KNORA_PRIMARY_OTP_VAULT_PATH` setting if present.
+   Use a PowerShell session without OTP environment overrides, because process values take
+   precedence over `.env`. Confirm the file is ignored with `git check-ignore .env`.
+2. In your own dev runtime maintenance window, with `keycloak-dev-db` already running, rebuild
+   and recreate only Keycloak to apply the updated image, environment and removed Vault mount:
+
+   ```powershell
+   Set-Location C:\Developer\Projects\knora-agent
+   $compose = @('-p', 'knora-dev', '-f', 'docker-compose.dev.yml')
+   docker compose @compose config --quiet
+   docker compose @compose up -d --build --force-recreate --no-deps --wait keycloak-dev
+   ```
+
+   Check mount destinations only; the output must not contain `/opt/keycloak/vault`:
+
+   ```powershell
+   $containerId = docker compose @compose ps -q keycloak-dev
+   docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' $containerId
+   ```
+
+   Resolved Compose configuration and full container inspection contain secrets; do not print
+   or retain them. Coordinate this restart with anyone sharing the runtime; it interrupts active
+   authentication sessions. No other project's containers or volumes need changing.
+3. Open `http://127.0.0.1:3000`, choose sign in, then **Forgot password**. Submit the dedicated
+   account's email and confirm an OTP arrives in its real inbox (also check spam).
+4. Enter one incorrect code and confirm rejection. Then enter the received code before expiry,
+   set a new disposable password, and confirm a fresh sign-in succeeds with it and rejects the
+   previous password. Record only pass/fail, time and tested commit; never the OTP, passwords,
+   keys, mailbox content or authentication URL.
+5. Leave `.env` unchanged and restart only `keycloak-dev`:
+
+   ```powershell
+   docker compose @compose restart keycloak-dev
+   ```
+
+   Wait for Keycloak to become ready, open a new reset transaction, and repeat delivery/verification.
+   Full restart of single-node `start-dev` loses the previous native authentication session.
+   Verification of an OTP issued before a rolling restart has separate
+   [recorded isolated evidence](https://github.com/NhiBuaa/knora-agent/issues/159#issuecomment-6145207522).
+   Invalid/missing keys and production source separation are covered by the automated provider
+   tests; do not corrupt the shared runtime's key to exercise those negative cases manually.
+
+### Launch
+
 From the repository root:
 
 ```powershell

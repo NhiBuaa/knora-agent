@@ -36,15 +36,15 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
     assert primary["build"] == {
         "context": ".",
         "dockerfile": "infra/keycloak/Dockerfile",
+        "args": {"KEYCLOAK_VAULT": ""},
     }
+    assert primary["command"] == "start-dev --import-realm"
     assert primary["ports"] == ["127.0.0.1:8180:8080"]
-    assert primary["volumes"][:3] == [
+    assert primary["volumes"] == [
         "./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro",
         "./themes/knora:/opt/keycloak/themes/knora:ro",
         "keycloak_dev_data:/opt/keycloak/data",
     ]
-    assert primary["volumes"][3]["target"] == "/opt/keycloak/vault"
-    assert primary["volumes"][3]["read_only"] is True
     smtp_variables = {
         "KC_SMTP_HOST",
         "KC_SMTP_PORT",
@@ -89,6 +89,29 @@ def test_smtp_example_declares_names_without_credentials() -> None:
         "KC_SMTP_AUTH",
     ):
         assert entries[name] == ""
+
+
+def test_local_otp_key_is_opt_in_and_excluded_from_build_context() -> None:
+    compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text())
+    environment = compose["services"]["keycloak-dev"]["environment"]
+    assert environment["KNORA_OTP_LOCAL_DEV_ENABLED"] == "${KNORA_OTP_LOCAL_DEV_ENABLED:-false}"
+    assert environment["KNORA_OTP_HMAC_KEY"] == "${KNORA_OTP_HMAC_KEY:-}"
+    production = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    assert "KNORA_OTP_HMAC_KEY" not in json.dumps(production)
+    entries = dict(
+        line.split("=", 1)
+        for line in (ROOT / ".env.example").read_text().splitlines()
+        if line and not line.startswith("#") and "=" in line
+    )
+    assert entries["KNORA_OTP_LOCAL_DEV_ENABLED"] == "false"
+    assert entries["KNORA_OTP_HMAC_KEY"] == ""
+    assert "KNORA_PRIMARY_OTP_VAULT_PATH" not in entries
+    assert ".env" in (ROOT / ".gitignore").read_text().splitlines()
+    assert (ROOT / ".dockerignore").read_text().splitlines() == [
+        ".env",
+        ".env.*",
+        "!.env.example",
+    ]
 
 
 def test_theme_inherits_inspected_keycloak_v2_resources() -> None:
