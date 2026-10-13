@@ -48,6 +48,16 @@ function Invoke-Checked-Named {
     if ($LASTEXITCODE -ne 0) { throw "RUNTIME_COMMAND_FAILED: $File" }
 }
 
+function Assert-StorageCases {
+    param([string]$Report, [string[]]$Expected)
+    [xml]$xml = Get-Content -Raw -LiteralPath $Report
+    $actual = @($xml.testsuite.testcase | ForEach-Object { $_.name })
+    if ($actual.Count -ne $Expected.Count -or
+        @(Compare-Object $Expected $actual).Count -ne 0) {
+        throw 'RUNTIME_STORAGE_CASES_MISMATCH'
+    }
+}
+
 function Add-ImageIdentity {
     param([string]$Service)
     $id = (& docker compose @compose ps -q $Service).Trim()
@@ -159,11 +169,21 @@ try {
         Push-Location (Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset')
         try { Invoke-Checked 'mvn' @('-B', '-Pstorage-proof', '-DskipTests', 'package') }
         finally { Pop-Location }
+        $storageCases = @(
+            'probeRejectsMissingHeaderBeforeStorage',
+            'probeRejectsAnotherRealmAndNonProofKey',
+            'independentJpaCommitRestoresOuterJtaAndSessionOnBothNodes',
+            'relationalAccountBudgetDoesNotResetAcrossSessionsOrCallerRollback',
+            'relationalParallelConsumeAndRotationNeverReviveConsumedOrOldGeneration',
+            'relationalHeldFirstRowRollbackFailsClosedThenAdmitsExactlyOnce',
+            'relationalCooldownSendCapAndFixedWindowSurviveNewSessionAndResend',
+            'relationalExpiryAndLateDeliveryFailureNeverReviveAConsumedOrRotatedGeneration'
+        )
         & (Join-Path $PSScriptRoot 'prepare-figma-otp-proof.ps1') -WithProof {
             Push-Location (Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset')
             try {
                 Invoke-Checked 'mvn' @('-B', '-Pstorage-proof', '-DproofDockerNetwork=false',
-                    '-Dit.test=OtpChallengeConcurrencyIT#probeRejectsMissingHeaderBeforeStorage+probeRejectsAnotherRealmAndNonProofKey+independentJpaCommitRestoresOuterJtaAndSessionOnBothNodes+relationalAccountBudgetDoesNotResetAcrossSessionsOrCallerRollback+relationalParallelConsumeAndRotationNeverReviveConsumedOrOldGeneration+relationalHeldFirstRowRollbackFailsClosedThenAdmitsExactlyOnce+relationalCooldownSendCapAndFixedWindowSurviveNewSessionAndResend+relationalExpiryAndLateDeliveryFailureNeverReviveConsumedOrRotatedGeneration', 'verify')
+                    "-Dit.test=OtpChallengeConcurrencyIT#$($storageCases -join '+')", 'verify')
             } finally { Pop-Location }
         }
         foreach ($service in 'figma-keycloak-proof-main', 'figma-keycloak-proof') {
@@ -171,6 +191,7 @@ try {
         }
         $reports.storage = Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset/target/failsafe-reports/TEST-com.knora.keycloak.reset.OtpChallengeConcurrencyIT.xml'
         if (-not (Test-Path -LiteralPath $reports.storage -PathType Leaf)) { throw 'RUNTIME_STORAGE_REPORT_MISSING' }
+        Assert-StorageCases $reports.storage $storageCases
     }
 } finally {
     $cleanupFailed = $false
@@ -185,6 +206,18 @@ try {
                 Remove-Item Env:KNORA_FIGMA_OTP_VAULT_PATH -ErrorAction SilentlyContinue
                 Remove-Item Env:KNORA_FIGMA_KEYCLOAK_COMMAND -ErrorAction SilentlyContinue
             }
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 60; $attempt++) {
+                try {
+                    $discovery = Invoke-RestMethod -Uri 'http://127.0.0.1:8380/realms/knora-dev/.well-known/openid-configuration' -TimeoutSec 3
+                    if ($discovery.issuer -ceq 'http://127.0.0.1:8380/realms/knora-dev') {
+                        $ready = $true
+                        break
+                    }
+                } catch { }
+                Start-Sleep -Seconds 2
+            }
+            if (-not $ready) { throw 'RUNTIME_NATIVE_RESTORE_NOT_READY' }
             if ($IsWindows) {
                 Invoke-Checked (Join-Path $PSScriptRoot 'prepare-figma-otp-runtime.ps1') $runtimePreparation
             } else {
