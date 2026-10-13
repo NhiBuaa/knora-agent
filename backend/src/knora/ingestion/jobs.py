@@ -41,6 +41,22 @@ class PdfSubmissionConfiguration:
     embedding_configuration: EmbeddingConfiguration
 
     @classmethod
+    def layout_preserving(
+        cls, *, embedding_configuration: EmbeddingConfiguration
+    ) -> PdfSubmissionConfiguration:
+        pdf = PdfExtractionConfiguration.layout_preserving()
+        legacy = cls.milestone_two(embedding_configuration=embedding_configuration)
+        return replace(
+            legacy,
+            parser_configuration_id="pdf-parser-pypdf-6-14-2-layout-lines-v2",
+            chunking_configuration=replace(
+                legacy.chunking_configuration,
+                id="chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+                parser_version=pdf.parser_version,
+            ),
+        )
+
+    @classmethod
     def milestone_two(
         cls,
         *,
