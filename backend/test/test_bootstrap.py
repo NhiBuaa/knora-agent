@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 
 import pytest
@@ -93,6 +94,28 @@ def test_bootstrap_rejects_invalid_cloudflare_settings_without_secret(
     with pytest.raises(ValueError, match="invalid provider configuration") as captured:
         build_provider_selection(Settings(**values))
     assert "secret-canary" not in str(captured.value)
+
+
+@pytest.mark.parametrize("timeout", [math.nan, math.inf, -math.inf, 0.0, -1.0])
+@pytest.mark.parametrize("cloudflare_role", ["embedding", "generation"])
+def test_bootstrap_requires_finite_positive_cloudflare_timeout(
+    timeout: float, cloudflare_role: str
+) -> None:
+    values = {
+        "_env_file": None,
+        "embedding_provider": (
+            "cloudflare-workers-ai" if cloudflare_role == "embedding" else "deterministic-local"
+        ),
+        "generation_provider": (
+            "cloudflare-workers-ai" if cloudflare_role == "generation" else "deterministic-local"
+        ),
+        "embedding_dimension": 1024 if cloudflare_role == "embedding" else 1536,
+        "cloudflare_account_id": "0123456789abcdef0123456789abcdef",
+        "cloudflare_api_token": "secret-canary",
+        "cloudflare_timeout_seconds": timeout,
+    }
+    with pytest.raises(ValueError, match="timeout must be finite and positive"):
+        build_provider_selection(Settings(**values))
 
 
 def test_bootstrap_selects_embedding_and_generation_independently() -> None:

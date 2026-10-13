@@ -1,3 +1,4 @@
+import math
 import re
 from dataclasses import dataclass
 
@@ -371,6 +372,9 @@ def _cloudflare_credentials(runtime_settings: Settings) -> tuple[str, str]:
         raise ValueError("invalid provider configuration: invalid cloudflare_account_id")
     if api_token is None or not api_token.get_secret_value():
         raise ValueError("invalid provider configuration: missing cloudflare_api_token")
-    if runtime_settings.cloudflare_timeout_seconds <= 0:
-        raise ValueError("invalid provider configuration: timeout must be positive")
+    if (
+        not math.isfinite(runtime_settings.cloudflare_timeout_seconds)
+        or runtime_settings.cloudflare_timeout_seconds <= 0
+    ):
+        raise ValueError("invalid provider configuration: timeout must be finite and positive")
     return account_id, api_token.get_secret_value()
