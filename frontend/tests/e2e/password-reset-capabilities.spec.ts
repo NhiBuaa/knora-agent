@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { passwordResetFailure } from "../password-reset/failure";
 
 const keycloak = "http://127.0.0.1:8480";
 const realm = `${keycloak}/admin/realms/knora-dev`;
@@ -358,11 +359,11 @@ for (const { name, capabilities } of [
           )
         ).status(),
       ).toBe(403);
-    } catch {
+    } catch (error) {
       for (const context of contexts)
         for (const current of context.pages())
           await current.goto("about:blank").catch(() => undefined);
-      throw new Error(`PASSWORD_RESET_REGRESSION_${stage}`);
+      throw passwordResetFailure(stage, error);
     } finally {
       for (const context of contexts.slice(1))
         await context.close().catch(() => undefined);
