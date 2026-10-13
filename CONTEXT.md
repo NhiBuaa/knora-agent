@@ -20,6 +20,12 @@ Forgot Password changes credentials for the existing identity. It preserves the 
 set and persisted Workspace ownership; recovery does not grant the registration baseline or restore
 revoked capabilities. A fresh sign-in resolves authorization from current validated claims.
 
+Email OTP uses `KNORA_OTP_HMAC_KEY` only when `KNORA_OTP_LOCAL_DEV_ENABLED=true` is explicitly
+set for local development. The ignored `.env` holds the canonical Base64 secret (at least 32
+decoded bytes); absent or invalid local keys fail closed without Vault or random fallback.
+With the switch absent or false, the realm-bound Keycloak Vault remains the key authority.
+Changing an existing runtime's key source requires preserving its key or an approved rotation plan.
+
 ## Current Model
 
 ### Knowledge ownership
