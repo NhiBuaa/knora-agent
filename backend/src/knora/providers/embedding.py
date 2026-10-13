@@ -59,6 +59,21 @@ class EmbeddingConfiguration:
             ),
         )
 
+    @classmethod
+    def cloudflare_qwen3_06b(cls) -> "EmbeddingConfiguration":
+        return cls(
+            id="embedding-cloudflare-qwen3-06b-v1",
+            provider="cloudflare-workers-ai",
+            model="@cf/qwen/qwen3-embedding-0.6b",
+            dimensions=1024,
+            distance_metric="cosine",
+            deployment_identity="cloudflare-workers-ai-api-v1",
+            api_contract_version="cloudflare-workers-ai-run-qwen3-embedding-0.6b-v1",
+            input_normalization="utf8-nfkc-v1",
+            input_policy_id="cloudflare-qwen3-qa-asymmetric-v1",
+            output_dimensionality=1024,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class EmbeddingBatch:

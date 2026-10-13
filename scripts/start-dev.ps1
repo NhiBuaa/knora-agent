@@ -3,6 +3,7 @@ param(
     [switch]$NoBrowser,
     [string]$EnvFile,
     [string]$OllamaBaseUrl,
+    [string]$EmbeddingProvider,
     [string]$GenerationProvider,
     [string]$GenerationModel,
     [string]$PythonExe,
@@ -77,16 +78,21 @@ if (-not $PreflightOnly) {
     }
 }
 
-if (-not $GenerationProvider) {
-    $GenerationProvider = if ($env:KNORA_GENERATION_PROVIDER) { $env:KNORA_GENERATION_PROVIDER } else { 'ollama' }
+if (-not $EmbeddingProvider) {
+    $EmbeddingProvider = if ($env:KNORA_EMBEDDING_PROVIDER) { $env:KNORA_EMBEDDING_PROVIDER } else { 'cloudflare-workers-ai' }
 }
-if ($GenerationProvider -notin @('ollama', 'deterministic-local')) { Fail 'INVALID_GENERATION_PROVIDER' }
+if ($EmbeddingProvider -notin @('cloudflare-workers-ai', 'ollama', 'deterministic-local')) { Fail 'INVALID_EMBEDDING_PROVIDER' }
+if (-not $GenerationProvider) {
+    $GenerationProvider = if ($env:KNORA_GENERATION_PROVIDER) { $env:KNORA_GENERATION_PROVIDER } else { 'cloudflare-workers-ai' }
+}
+if ($GenerationProvider -notin @('cloudflare-workers-ai', 'ollama', 'deterministic-local')) { Fail 'INVALID_GENERATION_PROVIDER' }
 if (-not $GenerationModel) {
     $GenerationModel = if ($env:KNORA_OLLAMA_GENERATION_MODEL) { $env:KNORA_OLLAMA_GENERATION_MODEL } else { 'qwen3:8b' }
 }
 if ($GenerationProvider -eq 'ollama' -and $GenerationModel -notin @('qwen3:8b', 'qwen3:4b', 'gpt-oss:20b')) {
     Fail 'INVALID_GENERATION_MODEL'
 }
+if ($GenerationProvider -ne 'ollama' -and $PSBoundParameters.ContainsKey('GenerationModel')) { Fail 'INVALID_GENERATION_MODEL' }
 
 if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { Fail 'WINDOWS_RUNTIME_REQUIRED' }
 if (-not $PythonExe) {
@@ -99,17 +105,19 @@ if (-not $PythonExe) {
 if (-not $PythonExe -or -not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
     Fail 'PYTHON_RUNTIME_UNAVAILABLE'
 }
-if (-not $OllamaBaseUrl) {
-    $OllamaBaseUrl = if ($env:KNORA_OLLAMA_BASE_URL) {
-        $env:KNORA_OLLAMA_BASE_URL
-    } else {
-        'http://127.0.0.1:11434'
+if ($EmbeddingProvider -eq 'ollama' -or $GenerationProvider -eq 'ollama') {
+    if (-not $OllamaBaseUrl) {
+        $OllamaBaseUrl = if ($env:KNORA_OLLAMA_BASE_URL) {
+            $env:KNORA_OLLAMA_BASE_URL
+        } else {
+            'http://127.0.0.1:11434'
+        }
     }
+    if ($OllamaBaseUrl -notmatch '^http://(127\.0\.0\.1|localhost):[0-9]{1,5}$') {
+        Fail 'OLLAMA_LOCAL_ENDPOINT_REQUIRED'
+    }
+    $OllamaBaseUrl = $OllamaBaseUrl.TrimEnd('/')
 }
-if ($OllamaBaseUrl -notmatch '^http://(127\.0\.0\.1|localhost):[0-9]{1,5}$') {
-    Fail 'OLLAMA_LOCAL_ENDPOINT_REQUIRED'
-}
-$OllamaBaseUrl = $OllamaBaseUrl.TrimEnd('/')
 if (-not $ObjectStoreBucket) {
     $ObjectStoreBucket = if ($env:KNORA_OBJECT_STORE_S3_BUCKET) {
         $env:KNORA_OBJECT_STORE_S3_BUCKET
@@ -120,13 +128,13 @@ if (-not $ObjectStoreBucket) {
 if ($DatabaseName -notmatch '^[a-z][a-z0-9_]{0,62}$') { Fail 'INVALID_DATABASE_NAME' }
 
 $env:PYTHONPATH = "$repoRoot\backend\src;$repoRoot"
-$env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl
-$env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
-$env:KNORA_EMBEDDING_PROVIDER = 'ollama'
+if ($OllamaBaseUrl) { $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl }
+if ($EmbeddingProvider -eq 'ollama') { $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b' }
+$env:KNORA_EMBEDDING_PROVIDER = $EmbeddingProvider
 $env:KNORA_GENERATION_PROVIDER = $GenerationProvider
 $env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel
 Remove-Item Env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST -ErrorAction SilentlyContinue
-$env:KNORA_EMBEDDING_DIMENSION = '1024'
+$env:KNORA_EMBEDDING_DIMENSION = if ($EmbeddingProvider -eq 'deterministic-local') { '1536' } else { '1024' }
 $env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
@@ -166,14 +174,30 @@ if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP
 $env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
-try {
-    $tags = Invoke-RestMethod -Method Get -Uri "$OllamaBaseUrl/api/tags" -TimeoutSec 5
-} catch {
-    Fail 'OLLAMA_UNAVAILABLE'
+if ($EmbeddingProvider -eq 'ollama' -or $GenerationProvider -eq 'ollama') {
+    try {
+        $tags = Invoke-RestMethod -Method Get -Uri "$OllamaBaseUrl/api/tags" -TimeoutSec 5
+    } catch {
+        Fail 'OLLAMA_UNAVAILABLE'
+    }
 }
-$matching = @($tags.models | Where-Object { $_.name -eq 'qwen3-embedding:0.6b' })
-if ($matching.Count -ne 1 -or $matching[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
-    Fail 'MODEL_UNAVAILABLE'
+if ($EmbeddingProvider -eq 'ollama') {
+    $matching = @($tags.models | Where-Object { $_.name -eq 'qwen3-embedding:0.6b' })
+    if ($matching.Count -ne 1 -or $matching[0].digest -notmatch '^(sha256:)?[0-9a-fA-F]{64}$') {
+        Fail 'MODEL_UNAVAILABLE'
+    }
+    try {
+        $show = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/show" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b"}' -TimeoutSec 10
+        $embedded = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/embed" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b","input":["Knora dev profile check"],"truncate":false}' -TimeoutSec 90
+    } catch {
+        Fail 'OLLAMA_CONTRACT_UNAVAILABLE'
+    }
+    if (-not $show.details.family -or -not $show.details.quantization_level) {
+        Fail 'MODEL_METADATA_UNAVAILABLE'
+    }
+    if ($embedded.model -ne 'qwen3-embedding:0.6b' -or @($embedded.embeddings).Count -ne 1 -or @($embedded.embeddings[0]).Count -ne 1024) {
+        Fail 'DIMENSION_MISMATCH'
+    }
 }
 if ($GenerationProvider -eq 'ollama') {
     $generationModels = @($tags.models | Where-Object { $_.name -eq $GenerationModel })
@@ -182,35 +206,36 @@ if ($GenerationProvider -eq 'ollama') {
     }
     $env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST = 'sha256:' + (($generationModels[0].digest -replace '^sha256:', '').ToLowerInvariant())
 }
-try {
-    $show = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/show" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b"}' -TimeoutSec 10
-    $embedded = Invoke-RestMethod -Method Post -Uri "$OllamaBaseUrl/api/embed" -ContentType 'application/json' -Body '{"model":"qwen3-embedding:0.6b","input":["Knora dev profile check"],"truncate":false}' -TimeoutSec 90
-} catch {
-    Fail 'OLLAMA_CONTRACT_UNAVAILABLE'
-}
-if (-not $show.details.family -or -not $show.details.quantization_level) {
-    Fail 'MODEL_METADATA_UNAVAILABLE'
-}
-if ($embedded.model -ne 'qwen3-embedding:0.6b' -or @($embedded.embeddings).Count -ne 1 -or @($embedded.embeddings[0]).Count -ne 1024) {
-    Fail 'DIMENSION_MISMATCH'
-}
-
-& $PythonExe -m knora.adapters.cli.worker --check-pdf-isolation 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) { Fail 'PDF_ISOLATION_UNAVAILABLE' }
-$profileId = (& $PythonExe -m knora.adapters.cli.worker --profile-id 2>$null | Select-Object -Last 1).Trim()
-if ($LASTEXITCODE -ne 0 -or $profileId -notmatch '^embedding-ollama-qwen3-[0-9a-f]{24}$') {
+$profileCheck = 'from knora.infrastructure.settings import Settings; from knora.bootstrap import build_provider_selection; print(build_provider_selection(Settings(_env_file=None)).embedding_configuration.id)'
+$ErrorActionPreference = 'Continue'
+$profileId = (& $PythonExe -c $profileCheck 2>$null | Select-Object -Last 1)
+$profileExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($profileExit -ne 0 -or -not $profileId -or
+    ($EmbeddingProvider -eq 'ollama' -and $profileId -notmatch '^embedding-ollama-qwen3-[0-9a-f]{24}$') -or
+    ($EmbeddingProvider -eq 'cloudflare-workers-ai' -and $profileId -ne 'embedding-cloudflare-qwen3-06b-v1') -or
+    ($EmbeddingProvider -eq 'deterministic-local' -and $profileId -ne 'embedding-local-m1-v2')) {
     Fail 'PROFILE_RESOLUTION_FAILED'
 }
 $env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID = $profileId
-$pinnedProfile = (& $PythonExe -m knora.adapters.cli.worker --profile-id 2>$null | Select-Object -Last 1).Trim()
-if ($LASTEXITCODE -ne 0 -or $pinnedProfile -ne $profileId) {
+$ErrorActionPreference = 'Continue'
+$pinnedProfile = (& $PythonExe -c $profileCheck 2>$null | Select-Object -Last 1)
+$profileExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($profileExit -ne 0 -or $pinnedProfile -ne $profileId) {
     Fail 'PROFILE_MISMATCH'
 }
+& $PythonExe -m knora.adapters.cli.worker --check-pdf-isolation 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) { Fail 'PDF_ISOLATION_UNAVAILABLE' }
 Write-Output "PRECHECK_OK $profileId"
+Write-Output "EMBEDDING_PROVIDER=$EmbeddingProvider"
 Write-Output "GENERATION_PROVIDER=$GenerationProvider"
 if ($GenerationProvider -eq 'ollama') {
     Write-Output "GENERATION_MODEL=$GenerationModel"
     Write-Output "GENERATION_DIGEST=$env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST"
+}
+if ($GenerationProvider -eq 'cloudflare-workers-ai') {
+    Write-Output 'GENERATION_MODEL=@cf/openai/gpt-oss-20b'
 }
 Write-Output "API_URL=$env:KNORA_API_URL"
 Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"

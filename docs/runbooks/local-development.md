@@ -1,12 +1,12 @@
 # Local development on Windows
 
-Use this workflow for day-to-day development. It keeps the stable Ollama demo/acceptance launcher separate from source-watching development behavior.
+Use this workflow for day-to-day development with Cloudflare Workers AI. The stable offline Ollama demo/acceptance launcher remains separate from source-watching development behavior.
 
 ## Runtime layout
 
 ```text
 Windows host
-├── Ollama
+├── Cloudflare Workers AI (backend HTTPS)
 ├── FastAPI                auto-reload
 ├── PDF ingestion worker   graceful restart-on-change
 ├── Conversation worker    processes durable Turns
@@ -22,25 +22,24 @@ The development launcher uses the dedicated `knora_dev` database by default. It 
 
 ## One-time setup
 
-Install dependencies, pull the Ollama embedding and generation models and create the gitignored local environment file:
+Install dependencies and create the gitignored local environment file:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -e ".\backend[dev]"
 npm --prefix frontend ci
-ollama pull qwen3-embedding:0.6b
-ollama pull qwen3:8b
-
 if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
 }
 ```
 
-Set local-only MinIO credentials in `.env`:
+Set local-only MinIO credentials and Cloudflare Workers AI account/token in `.env`:
 
 ```dotenv
 KNORA_OBJECT_STORE_S3_ACCESS_KEY=<local secret>
 KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
+KNORA_CLOUDFLARE_ACCOUNT_ID=<32-character account ID>
+KNORA_CLOUDFLARE_API_TOKEN=<Workers AI token>
 ```
 
 Generate a random session secret and put it in `.env` as `SESSION_SECRET=<generated value>`:
@@ -61,7 +60,7 @@ The bundled realm's public `knora-web` client allows
 `http://127.0.0.1:3000/api/auth/callback`. The local login is `m5-user` /
 `m5-user-password`. These are development credentials; do not use this realm for production.
 
-Keep Ollama and Docker Desktop running before starting Knora. Root `.env` is loaded once at launcher startup; restart the development launcher after changing `.env`.
+Confirm the account's Workers AI data permission and available free allowance before real use. The launcher does not check billing or make a paid model call during preflight. Keep the token in backend process secrets, never in `NEXT_PUBLIC_` variables or committed files. Keep Docker Desktop running before starting Knora. Root `.env` is loaded once at launcher startup; restart after changing it.
 
 ## Start daily development
 
@@ -80,7 +79,7 @@ Optional preflight without starting storage or application processes:
 The development launcher:
 
 1. loads root `.env` without overwriting explicit process environment values;
-2. verifies `qwen3-embedding:0.6b`, exact 1024-dimensional embeddings, immutable profile resolution, the selected generation model/digest and the Windows PDF Job Object safety path;
+2. validates the selected backend provider pair, native Cloudflare model/profile and credential settings, immutable profile pin and the Windows PDF Job Object safety path; Ollama selections additionally check local model metadata and a 1024-value embedding response;
 3. starts PostgreSQL and MinIO through Docker Compose under the `knora-dev` project, plus bundled Keycloak when its default realm is selected, and waits for readiness;
 4. creates/migrates the `knora_dev` database;
 5. starts FastAPI with Uvicorn auto-reload for `backend/src/knora`;
@@ -90,7 +89,7 @@ The development launcher:
 
 Press `Ctrl+C` to stop API, both workers and frontend. PostgreSQL, MinIO and Keycloak intentionally remain running so the next development start is faster. Restart the launcher after changing Conversation worker source; only the PDF worker has safe source-watch restarts.
 
-### Real generation and explicit simulation
+### Provider selection and explicit simulation
 
 If startup reports `PORT_IN_USE:ApiPort:8000` or `PORT_IN_USE:FrontendPort:3000`,
 stop the previous daily supervisor with Ctrl+C before starting another one. The launcher
@@ -98,30 +97,66 @@ checks occupied ports before modifying services or logs and leaves existing proc
 If the old supervisor has already exited, inspect the listening process and its parent before
 stopping it; do not stop every Node/Python process on the machine.
 
-An existing PowerShell window can retain `KNORA_GENERATION_PROVIDER=deterministic-local`
-from an older launcher. Process environment overrides `.env`. Open a fresh PowerShell window
-or set `$env:KNORA_GENERATION_PROVIDER = 'ollama'` before restarting. The explicit
-`-GenerationProvider ollama` parameter also overrides that stale value.
+Daily development selects `cloudflare-workers-ai` for both roles: native
+`@cf/qwen/qwen3-embedding-0.6b` under `embedding-cloudflare-qwen3-06b-v1` (1024
+dimensions) and `@cf/openai/gpt-oss-20b` generation. The preflight prints the
+selected pair/profile without sending text to Cloudflare. Missing credentials,
+unsupported model or profile, and PDF isolation failure stop before services change.
+The API and workers inherit the pinned selection. Process environment overrides
+`.env`, and command parameters override both; clear stale process selectors before
+restarting if the preflight shows an unexpected pair.
 
-Daily development defaults to `ollama` generation with `qwen3:8b`. For the CPU endpoint:
+Use the stable [offline Ollama runbook](local-ollama.md) for its digest-pinned demo.
+To choose Ollama in the daily launcher, select both roles explicitly, for example
+with a local CPU endpoint:
 
 ```powershell
-.\scripts\start-dev.ps1 -OllamaBaseUrl http://127.0.0.1:11435 -GenerationProvider ollama
+.\scripts\start-dev.ps1 -EmbeddingProvider ollama -GenerationProvider ollama -OllamaBaseUrl http://127.0.0.1:11435
 ```
 
-`-GenerationProvider` and `-GenerationModel` override `KNORA_GENERATION_PROVIDER`
-and `KNORA_OLLAMA_GENERATION_MODEL` from the process environment or `.env`.
-The supported providers are `ollama` and `deterministic-local`; supported Ollama
-generation models are `qwen3:8b` and `qwen3:4b`. Missing models or invalid digests
-stop preflight. The resolved digest is pinned for API and worker generation calls.
-`GENERATION_PROVIDER`, `GENERATION_MODEL` and `GENERATION_DIGEST` in preflight
-output show the selection; the last two apply only to Ollama.
+For Ollama, first pull `qwen3-embedding:0.6b` and a supported generation model
+(`qwen3:8b`, `qwen3:4b` or `gpt-oss:20b`). `-GenerationModel` selects the Ollama
+generation model; missing models or invalid digests stop preflight, and the
+resolved generation digest is pinned. Selecting only `-GenerationProvider ollama`
+keeps Cloudflare embedding, so select both for fully offline use.
 
-Use `-GenerationProvider deterministic-local` only for deliberate UI simulation.
+For UI simulation or CI, select both deterministic roles explicitly:
+
+```powershell
+.\scripts\start-dev.ps1 -EmbeddingProvider deterministic-local -GenerationProvider deterministic-local
+```
+
+Deterministic output copies evidence and cannot establish model answer quality.
 Restart the full launcher after provider/model changes; auto-reload does not refresh
-the parent environment. Submit a new Turn and verify its server trace records Ollama.
-Old Turns are retained unchanged. Successful preflight does not certify retrieval,
-groundedness or the #105 Conversation gate.
+the parent environment. Submit a new Turn and verify its server trace records the
+selected provider/model/profile, then inspect facts, citations and refusal. Old
+Turns remain unchanged. Successful preflight does not certify answer quality.
+
+### Re-index a retained corpus for Cloudflare
+
+Only the operator of an isolated, quiesced target corpus should run this workflow.
+Stop writers to that target, review the selected Workspaces and source data permission,
+and keep a recoverable backup. Set `KNORA_DATABASE_URL` explicitly in the operator
+process; the CLI refuses an implicit database target. Inventory is read-only by
+default and includes archived Documents:
+
+```powershell
+$env:KNORA_DATABASE_URL = '<reviewed target database URL>'
+.\.venv\Scripts\python scripts/reindex-cloudflare.py --workspace-id <workspace UUID>
+```
+
+Resolve every blocker before applying. A current PDF with retained source and a
+terminal `PDF_TEXT_INSUFFICIENT` outcome can be excluded only by its reviewed Document
+ID with `--approve-unindexable-id <Document UUID>`. Carry the same Workspace and
+approved exclusion arguments through inventory, apply and cleanup. After checking
+the data permission and free allowance, add `--apply --acknowledge-data-permission
+--acknowledge-free-quota` to stage Cloudflare vectors and atomically activate full
+eligible coverage. The apply step makes live embedding calls and has no automatic
+budget or paid-tier upgrade. Verify authorized answers, citations, refusals and
+source/version provenance end to end before a separate fresh inventory and
+`--cleanup --e2e-confirmed`. Cleanup removes obsolete vector rows for the selected
+eligible Documents; it retains sources, versions, Chunk Sets, Embedding Sets and
+traces. Do not run apply/cleanup while writers can change the target population.
 
 Before running the isolated M5 E2E workflow, stop the daily services. Both projects
 use host ports 5432, 9000 and 8180; the E2E preparation script refuses to reset its
