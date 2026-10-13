@@ -16,7 +16,7 @@ services:
       - knora_postgres_data:/var/lib/postgresql/data
 
   minio:
-    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    image: tobi312/minio:RELEASE.2025-02-28T09-55-16Z@sha256:aecb77bb2f6b56239ec438447c163ba3df03eb364dcecf71bad946bfcc380f60
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${KNORA_CANONICAL_MINIO_ACCESS_KEY}
@@ -33,7 +33,7 @@ services:
       - knora_minio_data:/data
 
   minio-init:
-    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    image: tobi312/minio:RELEASE.2025-02-28T09-55-16Z@sha256:aecb77bb2f6b56239ec438447c163ba3df03eb364dcecf71bad946bfcc380f60
     depends_on:
       minio:
         condition: service_healthy

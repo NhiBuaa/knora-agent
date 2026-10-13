@@ -5167,18 +5167,17 @@ test.describe("guarded application journeys", () => {
       const logoutStatus = (await logoutResponse).status();
       expect(logoutStatus).toBe(303);
       await page.waitForURL(
-        (url) => url.origin === keycloakOrigin && url.pathname === logoutPath,
+        (url) =>
+          url.origin === keycloakOrigin &&
+          [logoutPath, authorizationPath].includes(url.pathname),
       );
-      // Keycloak may require its native SSO termination confirmation.
+      // Server logout returns directly to native login; browser fallback may confirm.
       const confirmation = page.locator("#kc-logout");
       const nativeConfirmationShown = await confirmation.isVisible();
       if (nativeConfirmationShown) await confirmation.click();
-      await page.waitForURL((url) => url.origin === applicationOrigin);
-      await expect(
-        page.getByRole("heading", { name: "Signed out", exact: true }),
-      ).toBeVisible();
-      const signIn = page.getByRole("link", { name: "Sign in", exact: true });
-      await expect(signIn).toBeVisible();
+      await expect(page.locator("#kc-form-login")).toBeVisible();
+      // Read this tab's application storage before returning to native sign-in.
+      await page.goto("/api/auth/session");
       const preferences = await page.evaluate(() => ({
         scopedRemoved:
           sessionStorage.getItem("knora:conversation-panels:v1:test-scope") ===
@@ -5193,7 +5192,7 @@ test.describe("guarded application journeys", () => {
       expect((await signedOutSession.json()).session === null).toBe(true);
       const protectedRead = await page.request.get("/api/v1/workspaces");
       expect(protectedRead.status()).toBe(401);
-      await signIn.click();
+      await page.goto("/api/auth/login");
       await expect(page.locator("#kc-form-login")).toBeVisible();
       await expect(page.locator("#password")).toBeVisible();
       const freshAuthorization = new URL(page.url());
@@ -5229,7 +5228,7 @@ test.describe("guarded application journeys", () => {
             logoutStatus,
             logoutPath,
             nativeConfirmationShown,
-            signedOutHeadingShown: true,
+            directNativeSignInShown: true,
             preferences,
             signedOutSessionStatus: signedOutSession.status(),
             sessionNull: true,
@@ -5369,7 +5368,7 @@ test.describe("guarded application journeys", () => {
     expect(restored.archived).toBe(false);
     expect(restored.revision).toBeGreaterThan(archivedWorkspace.revision);
     expect((await selection).status()).toBe(200);
-    await expect(page).toHaveURL(new RegExp(`${base}$`));
+    await expect(page).toHaveURL(new RegExp(`${base}/conversations$`));
     await page.goto(`${base}/conversations/${second.id}`);
     await expect(
       page.getByText("Archived conversation · Read-only", { exact: true }),
@@ -5465,7 +5464,7 @@ test.describe("guarded application journeys", () => {
       "Authoritative selection status",
     ).toBe(200);
     try {
-      await expect(page).toHaveURL(/\/workspaces\/[^/]+$/);
+      await expect(page).toHaveURL(/\/workspaces\/[^/]+\/conversations$/);
     } finally {
       fs.writeFileSync(
         "../.verification/figma/q1/evidence/live-create-navigation.json",

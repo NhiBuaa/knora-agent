@@ -37,10 +37,14 @@ test("logout ends Keycloak SSO before the same browser signs in as the operator"
     .click();
   await expect(page.getByRole("menu").getByText("Signed in")).toBeVisible();
   await page.getByRole("menuitem", { name: "Log out" }).press("Enter");
-  await expect(page).toHaveURL(/\/protocol\/openid-connect\/logout/);
-  await page.locator("#kc-logout").click();
-  await expect(page.getByRole("heading", { name: "Signed out" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(page).toHaveURL(/\/protocol\/openid-connect\/(?:auth|logout)/);
+  const confirmation = page.locator("#kc-logout");
+  if (await confirmation.isVisible()) await confirmation.click();
+  await expect(page.locator("#kc-form-login")).toBeVisible();
+  await page.goto("/api/auth/session");
+  const signedOutSession = await page.request.get("/api/auth/session");
+  expect(signedOutSession.status()).toBe(200);
+  expect((await signedOutSession.json()).session).toBeNull();
   expect(
     await page.evaluate(() =>
       sessionStorage.getItem("knora:conversation-panels:v1:test-scope"),
