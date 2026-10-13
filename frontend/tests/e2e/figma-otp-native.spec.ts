@@ -95,9 +95,7 @@ test("native identity secondary navigation returns to real forms", async ({
         2,
       ),
     );
-  } catch (error) {
-    const detail =
-      error instanceof Error ? error.message.split("\n", 1)[0] : String(error);
+  } catch {
     await sanitizeFailure(context);
     throw new Error(
       "Native secondary navigation failed; sensitive DOM removed.",
@@ -776,8 +774,10 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     );
   } catch (error) {
     await mkdir(evidenceDirectory, { recursive: true });
-    const detail =
-      error instanceof Error ? error.message.split("\n", 1)[0] : String(error);
+    const source =
+      error instanceof Error
+        ? error.stack?.match(/figma-otp-native\.spec\.ts:(\d+):(\d+)/)?.[0]
+        : undefined;
     const states = [];
     for (const context of ownedContexts)
       for (const nativePage of context.pages())
@@ -885,7 +885,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       JSON.stringify({ stage, states, ssoCookieMetadata }, null, 2),
     );
     for (const context of ownedContexts) await sanitizeFailure(context);
-    throw new Error(`NATIVE_STAGE_${stage}: ${detail}`);
+    throw new Error(`NATIVE_STAGE_${stage}: ${source ?? "source unavailable"}`);
   } finally {
     for (const context of ownedContexts.slice(1)) await context.close();
   }
