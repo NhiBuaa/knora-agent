@@ -42,6 +42,22 @@ function Invoke-Checked {
     if ($LASTEXITCODE -ne 0) { throw "RUNTIME_COMMAND_FAILED: $File" }
 }
 
+function Invoke-Checked-Named {
+    param([string]$File, [hashtable]$Arguments)
+    & $File @Arguments | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "RUNTIME_COMMAND_FAILED: $File" }
+}
+
+function Assert-StorageCases {
+    param([string]$Report, [string[]]$Expected)
+    [xml]$xml = Get-Content -Raw -LiteralPath $Report
+    $actual = @($xml.testsuite.testcase | ForEach-Object { $_.name })
+    if ($actual.Count -ne $Expected.Count -or
+        @(Compare-Object $Expected $actual).Count -ne 0) {
+        throw 'RUNTIME_STORAGE_CASES_MISMATCH'
+    }
+}
+
 function Add-ImageIdentity {
     param([string]$Service)
     $id = (& docker compose @compose ps -q $Service).Trim()
@@ -58,6 +74,7 @@ function Invoke-Playwright {
     $report = Join-Path $profileDir "$Name.xml"
     $env:FIGMA_TEST_MODE = $Mode
     $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = $report
+    $env:PLAYWRIGHT_JUNIT_INCLUDE_PROJECT_IN_TEST_NAME = '1'
     Push-Location (Join-Path $repositoryRoot 'frontend')
     try {
         $args = @('test', $Spec, "--config=$Config", '--reporter=list,junit')
@@ -84,17 +101,18 @@ function Invoke-Evidence {
 }
 
 try {
+    # Stream diagnostics and retain rollback ownership even if preparation throws.
+    & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1 | ForEach-Object {
+        if ([string]$_ -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
+            $snapshots += ([string]$_).Substring(27)
+        }
+        $_ | Out-Host
+    }
+    if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
+    foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
+        Add-ImageIdentity $service
+    }
     if ($Profile -eq 'application') {
-        $prepOutput = & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1
-        if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
-        foreach ($line in $prepOutput) {
-            if ([string]$line -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
-                $snapshots += ([string]$line).Substring(27)
-            }
-        }
-        foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
-            Add-ImageIdentity $service
-        }
         $reports = @{}
         $reports.identity = Invoke-Playwright 'identity' 'playwright.figma.config.ts' 'figma-identity.spec.ts' $null $null
         $reports.documents = Invoke-Playwright 'documents' 'playwright.figma.config.ts' 'figma-document-navigation.spec.ts' $null 'application'
@@ -102,16 +120,6 @@ try {
         $reports.operator = Invoke-Playwright 'operator' 'playwright.figma-operator.config.ts' 'figma-operator.spec.ts' $null 'application'
         $reports.workspace = Invoke-Playwright 'workspace' 'playwright.figma.config.ts' 'figma-ui-interactions.spec.ts' 'live account logout|owned document and workspace lifecycle' 'application'
     } else {
-        $prepOutput = & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1
-        if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
-        foreach ($line in $prepOutput) {
-            if ([string]$line -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
-                $snapshots += ([string]$line).Substring(27)
-            }
-        }
-        foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
-            Add-ImageIdentity $service
-        }
         if (-not $VaultPath) { $VaultPath = Join-Path ([IO.Path]::GetTempPath()) "knora-runtime-vault-$([guid]::NewGuid().ToString('N'))" }
         if (Test-Path -LiteralPath $VaultPath) { throw 'OTP_VAULT_MUST_BE_FRESH' }
         $null = New-Item -ItemType Directory -Path $VaultPath
@@ -141,9 +149,19 @@ try {
             Invoke-Checked 'sudo' (@('pwsh', '-NoProfile', '-File', (Join-Path $PSScriptRoot 'prepare-figma-otp-runtime.ps1')) + $runtimePreparation)
         }
         $otpSnapshot = Join-Path $profileDir 'otp-binding.json'
-        Invoke-Checked (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @('-Mode', 'Bind',
-            '-EnableIsolatedOtp', '-AdminUsername', $AdminUsername, '-AdminPassword', $AdminPassword,
-            '-SnapshotPath', $otpSnapshot)
+        Invoke-Checked-Named (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @{
+            Mode = 'Prepare'
+            EnableIsolatedOtp = $true
+            AdminUsername = $AdminUsername
+            AdminPassword = $AdminPassword
+        }
+        Invoke-Checked-Named (Join-Path $PSScriptRoot 'configure-keycloak-email-otp.ps1') @{
+            Mode = 'Bind'
+            EnableIsolatedOtp = $true
+            AdminUsername = $AdminUsername
+            AdminPassword = $AdminPassword
+            SnapshotPath = $otpSnapshot
+        }
         $reports = @{}
         $reports.native = Invoke-Playwright 'native' 'playwright.figma-otp.config.ts' 'figma-otp-native.spec.ts' $null 'application'
         Add-ImageIdentity 'figma-keycloak'
@@ -152,11 +170,21 @@ try {
         Push-Location (Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset')
         try { Invoke-Checked 'mvn' @('-B', '-Pstorage-proof', '-DskipTests', 'package') }
         finally { Pop-Location }
+        $storageCases = @(
+            'probeRejectsMissingHeaderBeforeStorage',
+            'probeRejectsAnotherRealmAndNonProofKey',
+            'independentJpaCommitRestoresOuterJtaAndSessionOnBothNodes',
+            'relationalAccountBudgetDoesNotResetAcrossSessionsOrCallerRollback',
+            'relationalParallelConsumeAndRotationNeverReviveConsumedOrOldGeneration',
+            'relationalHeldFirstRowRollbackFailsClosedThenAdmitsExactlyOnce',
+            'relationalCooldownSendCapAndFixedWindowSurviveNewSessionAndResend',
+            'relationalExpiryAndLateDeliveryFailureNeverReviveAConsumedOrRotatedGeneration'
+        )
         & (Join-Path $PSScriptRoot 'prepare-figma-otp-proof.ps1') -WithProof {
             Push-Location (Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset')
             try {
                 Invoke-Checked 'mvn' @('-B', '-Pstorage-proof', '-DproofDockerNetwork=false',
-                    '-Dit.test=OtpChallengeConcurrencyIT#probeRejectsMissingHeaderBeforeStorage+probeRejectsAnotherRealmAndNonProofKey+independentJpaCommitRestoresOuterJtaAndSessionOnBothNodes+relationalAccountBudgetDoesNotResetAcrossSessionsOrCallerRollback+relationalParallelConsumeAndRotationNeverReviveConsumedOrOldGeneration+relationalHeldFirstRowRollbackFailsClosedThenAdmitsExactlyOnce+relationalCooldownSendCapAndFixedWindowSurviveNewSessionAndResend+relationalExpiryAndLateDeliveryFailureNeverReviveConsumedOrRotatedGeneration', 'verify')
+                    "-Dit.test=OtpChallengeConcurrencyIT#$($storageCases -join '+')", 'verify')
             } finally { Pop-Location }
         }
         foreach ($service in 'figma-keycloak-proof-main', 'figma-keycloak-proof') {
@@ -164,6 +192,7 @@ try {
         }
         $reports.storage = Join-Path $repositoryRoot 'infra/keycloak/providers/email-otp-reset/target/failsafe-reports/TEST-com.knora.keycloak.reset.OtpChallengeConcurrencyIT.xml'
         if (-not (Test-Path -LiteralPath $reports.storage -PathType Leaf)) { throw 'RUNTIME_STORAGE_REPORT_MISSING' }
+        Assert-StorageCases $reports.storage $storageCases
     }
 } finally {
     $cleanupFailed = $false
@@ -178,6 +207,18 @@ try {
                 Remove-Item Env:KNORA_FIGMA_OTP_VAULT_PATH -ErrorAction SilentlyContinue
                 Remove-Item Env:KNORA_FIGMA_KEYCLOAK_COMMAND -ErrorAction SilentlyContinue
             }
+            $ready = $false
+            for ($attempt = 0; $attempt -lt 60; $attempt++) {
+                try {
+                    $discovery = Invoke-RestMethod -Uri 'http://127.0.0.1:8380/realms/knora-dev/.well-known/openid-configuration' -TimeoutSec 3
+                    if ($discovery.issuer -ceq 'http://127.0.0.1:8380/realms/knora-dev') {
+                        $ready = $true
+                        break
+                    }
+                } catch { }
+                Start-Sleep -Seconds 2
+            }
+            if (-not $ready) { throw 'RUNTIME_NATIVE_RESTORE_NOT_READY' }
             if ($IsWindows) {
                 Invoke-Checked (Join-Path $PSScriptRoot 'prepare-figma-otp-runtime.ps1') $runtimePreparation
             } else {
@@ -205,6 +246,7 @@ try {
     }
     Remove-Item Env:FIGMA_TEST_MODE -ErrorAction SilentlyContinue
     Remove-Item Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
+    Remove-Item Env:PLAYWRIGHT_JUNIT_INCLUDE_PROJECT_IN_TEST_NAME -ErrorAction SilentlyContinue
     Remove-Item Env:KNORA_STORAGE_PROOF_SECRET -ErrorAction SilentlyContinue
     if ($cleanupFailed) { throw 'RUNTIME_CLEANUP_FAILED' }
 }
