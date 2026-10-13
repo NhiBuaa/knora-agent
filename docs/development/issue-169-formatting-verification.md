@@ -4,7 +4,8 @@ Date: 2026-10-13 (Asia/Ho_Chi_Minh)
 
 Branch: `fix/169-structured-evidence`, starting from main
 `5d318f5908f7a4a1ef63e3cf3bb832538872b2c3`.
-User acceptance is pending; the Issue remains open and In Progress.
+The owner accepted Issue #169, including the citation/language follow-up, on
+2026-10-13. Integration follows successful `CI required` at the final PR head.
 
 ## Diagnosis and scope
 
@@ -101,7 +102,8 @@ Resubmit the same original PDF/source key after deployment to obtain the new
 derivation. Old citation targets remain valid. Legacy queued/reprocessed jobs keep
 their captured profile. Complex PDF layout fidelity is outside this fix.
 
-No merge, Issue closure or Done transition is authorized before user acceptance.
+Owner acceptance above satisfies the prerequisite for merge, Issue closure and
+the Done transition; the required CI gate still applies.
 
 ## Follow-up: duplicate citation and question language
 
