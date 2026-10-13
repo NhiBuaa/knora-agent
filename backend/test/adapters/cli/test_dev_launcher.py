@@ -17,6 +17,7 @@ import pytest
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "start-dev.ps1"
 MODEL = "qwen3-embedding:0.6b"
 DIGEST = "sha256:" + "b" * 64
+ACCOUNT = "a" * 32
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
@@ -66,7 +67,14 @@ def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path,
 @pytest.fixture(autouse=True)
 def isolate_generation_environment(monkeypatch):
     for key in (
+        "KNORA_EMBEDDING_PROVIDER",
         "KNORA_GENERATION_PROVIDER",
+        "KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID",
+        "KNORA_EMBEDDING_DIMENSION",
+        "KNORA_CLOUDFLARE_ACCOUNT_ID",
+        "KNORA_CLOUDFLARE_API_TOKEN",
+        "KNORA_CLOUDFLARE_EMBEDDING_MODEL",
+        "KNORA_CLOUDFLARE_GENERATION_MODEL",
         "KNORA_OLLAMA_GENERATION_MODEL",
         "KNORA_EXPECTED_GENERATION_MODEL_DIGEST",
     ):
@@ -186,6 +194,113 @@ def _powershell() -> str:
     return executable
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_cloudflare_preflight_needs_no_ollama_and_pins_profile(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        f"KNORA_CLOUDFLARE_ACCOUNT_ID={ACCOUNT}\nKNORA_CLOUDFLARE_API_TOKEN=private-token\n"
+    )
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-OllamaBaseUrl",
+            "http://127.0.0.1:1",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=25,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK embedding-cloudflare-qwen3-06b-v1" in result.stdout
+    assert "EMBEDDING_PROVIDER=cloudflare-workers-ai" in result.stdout
+    assert "GENERATION_PROVIDER=cloudflare-workers-ai" in result.stdout
+    assert "private-token" not in result.stdout + result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("bad_setting", ["missing-token", "bad-model", "bad-profile"])
+def test_daily_cloudflare_preflight_fails_closed_without_secret_leak(
+    tmp_path: Path, bad_setting: str
+) -> None:
+    env_file = tmp_path / ".env"
+    values = [f"KNORA_CLOUDFLARE_ACCOUNT_ID={ACCOUNT}"]
+    if bad_setting != "missing-token":
+        values.append("KNORA_CLOUDFLARE_API_TOKEN=private-token")
+    if bad_setting == "bad-model":
+        values.append("KNORA_CLOUDFLARE_GENERATION_MODEL=wrong-model")
+    if bad_setting == "bad-profile":
+        values.append("KNORA_CLOUDFLARE_EMBEDDING_CONFIGURATION_ID=wrong-profile")
+    env_file.write_text("\n".join(values) + "\n")
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-OllamaBaseUrl",
+            "http://127.0.0.1:1",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=25,
+    )
+    assert result.returncode == 2
+    assert "PROFILE_RESOLUTION_FAILED" in result.stderr
+    assert "PRECHECK_OK" not in result.stdout
+    assert "private-token" not in result.stdout + result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_deterministic_pair_needs_no_ollama_or_cloudflare(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-EmbeddingProvider",
+            "deterministic-local",
+            "-GenerationProvider",
+            "deterministic-local",
+            "-OllamaBaseUrl",
+            "http://127.0.0.1:1",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=25,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK embedding-local-m1-v2" in result.stdout
+    assert "EMBEDDING_PROVIDER=deterministic-local" in result.stdout
+    assert "GENERATION_PROVIDER=deterministic-local" in result.stdout
+
+
 @contextmanager
 def _ollama_server(
     *, generation_digest: str | None = "c" * 64, generation_model: str = "qwen3:8b"
@@ -248,6 +363,10 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
                 "-File",
                 str(SCRIPT),
                 "-PreflightOnly",
+                "-EmbeddingProvider",
+                "ollama",
+                "-GenerationProvider",
+                "ollama",
                 "-EnvFile",
                 str(env_file),
                 "-OllamaBaseUrl",
@@ -291,6 +410,10 @@ def test_daily_real_generation_fails_closed_without_valid_model(tmp_path, digest
                 "-File",
                 str(SCRIPT),
                 "-PreflightOnly",
+                "-EmbeddingProvider",
+                "ollama",
+                "-GenerationProvider",
+                "ollama",
                 "-EnvFile",
                 str(env_file),
                 "-OllamaBaseUrl",
@@ -320,7 +443,9 @@ def test_daily_generation_selection_and_child_environment(
     tmp_path, parameter, process_provider, expected
 ):
     env_file = tmp_path / ".env"
-    env_file.write_text("KNORA_GENERATION_PROVIDER=deterministic-local\n")
+    env_file.write_text(
+        "KNORA_EMBEDDING_PROVIDER=ollama\nKNORA_GENERATION_PROVIDER=deterministic-local\n"
+    )
     environment = {
         k: v
         for k, v in os.environ.items()
@@ -330,7 +455,7 @@ def test_daily_generation_selection_and_child_environment(
         environment["KNORA_GENERATION_PROVIDER"] = process_provider
     environment["KNORA_EXPECTED_GENERATION_MODEL_DIGEST"] = "sha256:" + "d" * 64
     command = (
-        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV "
+        "& $env:TEST_LAUNCHER -PreflightOnly -EmbeddingProvider ollama -EnvFile $env:TEST_ENV "
         f"-OllamaBaseUrl $env:TEST_URL -PythonExe $env:TEST_PYTHON {parameter}; "
         "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; "
         "& $env:TEST_PYTHON $env:TEST_CHILD"
@@ -365,7 +490,8 @@ def test_daily_generation_selection_and_child_environment(
 def test_daily_gpt_oss_selection_from_dotenv_pins_child_digest(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "KNORA_GENERATION_PROVIDER=ollama\nKNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b\n"
+        "KNORA_EMBEDDING_PROVIDER=ollama\nKNORA_GENERATION_PROVIDER=ollama\n"
+        "KNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b\n"
     )
     child = tmp_path / "child.py"
     child.write_text(
@@ -419,7 +545,8 @@ def test_dev_launcher_respects_explicit_oidc_environment(tmp_path: Path) -> None
         encoding="utf-8",
     )
     script = (
-        "& $env:KNORA_TEST_SCRIPT -PreflightOnly -EnvFile $env:KNORA_TEST_ENV_FILE "
+        "& $env:KNORA_TEST_SCRIPT -PreflightOnly -EmbeddingProvider ollama "
+        "-GenerationProvider ollama -EnvFile $env:KNORA_TEST_ENV_FILE "
         "-OllamaBaseUrl $env:KNORA_TEST_OLLAMA -PythonExe $env:KNORA_TEST_PYTHON; "
         '"AUTH_URL=$env:KEYCLOAK_AUTHORIZATION_URL"; '
         '"BACKEND_JWKS=$env:KNORA_KEYCLOAK_JWKS_URL"; '
@@ -505,7 +632,8 @@ def test_dev_launcher_imports_dotenv_over_empty_process_value(tmp_path: Path) ->
     env_file.write_text(f"KEYCLOAK_ISSUER={issuer}\n", encoding="utf-8")
     command = (
         "$env:KEYCLOAK_ISSUER = ''; "
-        "& $env:KNORA_TEST_SCRIPT -PreflightOnly -EnvFile $env:KNORA_TEST_ENV_FILE "
+        "& $env:KNORA_TEST_SCRIPT -PreflightOnly -EmbeddingProvider ollama "
+        "-GenerationProvider ollama -EnvFile $env:KNORA_TEST_ENV_FILE "
         "-OllamaBaseUrl $env:KNORA_TEST_OLLAMA -PythonExe $env:KNORA_TEST_PYTHON"
     )
     clean_env = os.environ.copy()

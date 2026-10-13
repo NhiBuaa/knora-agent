@@ -17,7 +17,7 @@ evidence; see [`docs/runbooks/ci.md`](docs/runbooks/ci.md).
 
 It is built around backend and applied-AI engineering concerns that are easy to hide in a simple chatbot demo: durable ingestion, versioned retrieval, evidence provenance, workspace isolation, reproducible evaluation, and human-authorized external actions.
 
-> **Current state:** the cited-RAG, production-shaped ingestion, hybrid retrieval/evaluation, human-approved tool slices, durable Conversation backend, and Ollama-backed PDF re-index path are implemented on `main`. The workspace and Conversation UI is implemented; model-backed answer-quality acceptance is still in progress. No hosted production deployment is claimed.
+> **Current state:** the cited-RAG, production-shaped ingestion, hybrid retrieval/evaluation, human-approved tool slices, durable Conversation backend, and Cloudflare Workers AI local real-AI path are implemented. The workspace and Conversation UI is implemented; model-backed answer-quality acceptance is still in progress. No hosted production deployment is claimed.
 
 ## Why Knora
 
@@ -406,55 +406,26 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
 The policy change applies only to this PowerShell process; repeat it in each new
 window before running the launcher. It does not require administrator access.
 
-Daily development uses real Ollama generation (`qwen3:8b`) by default, alongside
-`qwen3-embedding:0.6b`. The preflight prints `GENERATION_PROVIDER=ollama`, the model
-and its resolved digest. API and both workers inherit the same pinned configuration.
-Missing generation models stop startup; the launcher does not fall back to simulated answers.
-
-It checks the Ollama models, embedding response and PDF worker safety without starting
-PostgreSQL, MinIO, Keycloak, the API or the frontend. When it reports `PRECHECK_OK`,
-start the daily development supervisor:
+Daily development selects Cloudflare Workers AI for both roles: native
+`@cf/qwen/qwen3-embedding-0.6b` (1024 dimensions,
+`embedding-cloudflare-qwen3-06b-v1`) and `@cf/openai/gpt-oss-20b` generation.
+Put `KNORA_CLOUDFLARE_ACCOUNT_ID` and `KNORA_CLOUDFLARE_API_TOKEN` in gitignored
+`.env` or backend process secrets. Keep the token out of `NEXT_PUBLIC_` variables.
+Confirm the account's data permission and free allowance before real use. Preflight
+validates provider settings, profile pin and PDF worker safety without model calls
+or starting services. When it reports `PRECHECK_OK`, start the daily supervisor:
 
 ```powershell
 .\scripts\start-dev.ps1
 ```
 
-For the CPU Ollama endpoint on port 11435, use:
-
-```powershell
-.\scripts\start-dev.ps1 -OllamaBaseUrl http://127.0.0.1:11435 -GenerationProvider ollama
-```
-
-For GPT-OSS, install the model on the same Ollama endpoint used by daily development:
-
-```powershell
-$env:OLLAMA_HOST = '127.0.0.1:11435'
-ollama pull gpt-oss:20b
-```
-
-Set these values in `.env` for persistent selection:
-
-```dotenv
-KNORA_GENERATION_PROVIDER=ollama
-KNORA_OLLAMA_GENERATION_MODEL=gpt-oss:20b
-KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11435
-KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS=240
-```
-
-Then run `.\scripts\start-dev.ps1`. Command parameters override process environment,
-then `.env`, then defaults. Remove stale process variables before restarting if they
-override the model in `.env`. GPT-OSS uses low reasoning with a bounded output budget;
-only its final structured content enters answers and traces. The embedding model remains
-`qwen3-embedding:0.6b`, so switching generation does not require re-indexing.
-The default model for existing setups remains `qwen3:8b`; an explicit
-`-GenerationModel gpt-oss:20b` also works for both development launchers.
-This model selection is pending the #105 semantic and Conversation acceptance gates.
-For an explicit UI-only simulation, use `-GenerationProvider deterministic-local`.
-That mode copies evidence and cannot satisfy real-AI acceptance.
-
-After restarting, submit a new Conversation Turn. Previously saved answers stay unchanged.
-Provider selection does not establish answer quality: verify the new server trace records
-`provider=ollama`, and check answer facts, citations and refusal separately.
+For fully offline Ollama, select `-EmbeddingProvider ollama -GenerationProvider
+ollama` and follow the [stable Ollama runbook](docs/runbooks/local-ollama.md). For
+UI simulation, select both roles as `deterministic-local`; CI pins that pair.
+Command parameters override process environment, then `.env`, then launcher defaults.
+After changing providers, restart and inspect a new Turn's server trace, facts,
+citations and refusal. See the [daily development runbook](docs/runbooks/local-development.md)
+for the retained-corpus inventory, guarded re-index and cleanup procedure.
 
 It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, creates the
 `knora_dev` database, and optimizes the edit-run loop:
@@ -464,7 +435,7 @@ It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, cre
 - the Conversation worker processes durable Turns and is supervised for unexpected exits;
 - if the PDF worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
 - Next.js keeps its normal Fast Refresh / HMR behavior;
-- PostgreSQL, MinIO, Keycloak and Ollama do not restart for ordinary source edits;
+- PostgreSQL, MinIO and Keycloak do not restart for ordinary source edits;
 - unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
 
 `Ctrl+C` stops the API, both workers and frontend supervisor children; PostgreSQL, MinIO and
@@ -584,12 +555,13 @@ Pop-Location
 
 Embedding and generation providers can now be selected independently. If both selectors are absent, Knora preserves the legacy `KNORA_PROVIDER_MODE` behavior. Supplying only one selector is a startup error.
 
-| Provider              | Role                    | Credentials         | Important constraint                                                                            |
-| --------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| `ollama`              | Embedding               | No external API key | `qwen3-embedding:0.6b`, exact 1024 dimensions, immutable digest/profile identity                |
-| `deterministic-local` | Embedding or generation | No                  | Reproducible development behavior only                                                          |
-| `openai-compatible`   | Embedding or generation | Yes                 | Runtime configuration, pricing identity and expected dimensions must match the selected profile |
-| `google-gemini-api`   | Embedding               | Yes                 | Uses the versioned native Gemini embedding configuration                                        |
+| Provider                | Role                    | Credentials         | Important constraint                                                                            |
+| ----------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `ollama`                | Embedding               | No external API key | `qwen3-embedding:0.6b`, exact 1024 dimensions, immutable digest/profile identity                |
+| `cloudflare-workers-ai` | Embedding or generation | Backend token       | Native 1024-dimensional Qwen3 profile and GPT-OSS 20B generation; no provider fallback          |
+| `deterministic-local`   | Embedding or generation | No                  | Reproducible development behavior only                                                          |
+| `openai-compatible`     | Embedding or generation | Yes                 | Runtime configuration, pricing identity and expected dimensions must match the selected profile |
+| `google-gemini-api`     | Embedding               | Yes                 | Uses the versioned native Gemini embedding configuration                                        |
 
 The verified local Ollama launcher sets:
 
@@ -603,7 +575,7 @@ Embedding spaces are immutable configuration identities. Documents indexed under
 
 See [`.env.example`](.env.example) for persistent local configuration, the [daily local development runbook](docs/runbooks/local-development.md), and the [stable local Ollama runbook](docs/runbooks/local-ollama.md).
 
-Cloudflare Workers AI remains planned public-demo work and is not part of the current local setup.
+The daily launcher selects Cloudflare Workers AI for both roles; direct backend and CI defaults remain deterministic until selectors are explicit.
 
 ## Frontend
 
