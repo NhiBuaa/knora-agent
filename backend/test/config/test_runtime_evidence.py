@@ -65,6 +65,13 @@ function global:docker { $global:LASTEXITCODE = 0 }
     assert not (tmp_path / f".verification/runtime/{profile}/evidence.json").exists()
 
 
+def test_runtime_otp_action_outlives_the_resend_cooldown() -> None:
+    root = Path(__file__).resolve().parents[3]
+    realm = json.loads((root / "test/fixtures/keycloak/figma-realm.json").read_text())
+    # Keycloak resets recovery when the user action expires; OTP resend waits 300 seconds.
+    assert realm.get("accessCodeLifespanUserAction", 300) > 300
+
+
 def test_runtime_powershell_arguments_bind_by_name(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[3]
     target = tmp_path / "target.ps1"
