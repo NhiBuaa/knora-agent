@@ -15,6 +15,12 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v1"
+CLOUDFLARE_SYSTEM_PROMPT = (
+    SYSTEM_PROMPT + " For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
+    "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE."
+)
+
 
 class OpenAICompatibleGenerationProvider:
     def __init__(
@@ -57,7 +63,14 @@ class OpenAICompatibleGenerationProvider:
             request_body = {
                 "model": self._model,
                 "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "system",
+                        "content": (
+                            CLOUDFLARE_SYSTEM_PROMPT
+                            if self._provider_identity == "cloudflare-workers-ai"
+                            else SYSTEM_PROMPT
+                        ),
+                    },
                     {"role": "user", "content": user_message(question, evidence)},
                 ],
                 "response_format": {
@@ -113,7 +126,11 @@ class OpenAICompatibleGenerationProvider:
                 refusal_reason=structured["refusal_reason"],
                 provider=self._provider_identity,
                 model=str(payload.get("model", self._model)),
-                prompt_version=PROMPT_VERSION,
+                prompt_version=(
+                    CLOUDFLARE_PROMPT_VERSION
+                    if self._provider_identity == "cloudflare-workers-ai"
+                    else PROMPT_VERSION
+                ),
                 finish_reason=choice.get("finish_reason"),
                 provider_request_id=response.headers.get("x-request-id") or payload.get("id"),
                 usage=usage,

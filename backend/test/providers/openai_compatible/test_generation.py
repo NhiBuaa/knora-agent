@@ -132,6 +132,7 @@ async def test_generation_prompt_requires_citation_ids_to_follow_first_marker_or
     assert "same order that their markers first appear" in system_prompt
     assert "use each inline marker at most once" in system_prompt
     assert "Fact A [[E1]]; fact B [[E1]]" in system_prompt
+    assert "For ANSWER, refusal_reason MUST be null." not in system_prompt
 
 
 @pytest.mark.asyncio
@@ -225,8 +226,15 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
         "ANSWER",
         "REFUSAL",
     ]
+    system_prompt = payload["messages"][0]["content"]
+    assert "For ANSWER, refusal_reason MUST be null." in system_prompt
+    assert (
+        "For REFUSAL, answer MUST be null, cited_evidence_ids MUST be empty, and "
+        "refusal_reason MUST be INSUFFICIENT_EVIDENCE."
+    ) in system_prompt
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v1"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}
