@@ -4897,7 +4897,7 @@ test.describe("source fixtures", () => {
     });
   });
 
-  test("empty suggestions submit one Turn; archived history remains read only", async ({
+  test("empty conversation submits a specific question; archived history remains read only", async ({
     page,
   }) => {
     for (const width of [1440, 390]) {
@@ -4910,6 +4910,11 @@ test.describe("source fixtures", () => {
       await expect(
         page.getByRole("button", { name: "Ask", exact: true }),
       ).toBeDisabled();
+      await expect(
+        page.getByRole("button", {
+          name: /Summarize this workspace|Compare the documents|Find supporting evidence/,
+        }),
+      ).toHaveCount(0);
       const focusEvidence =
         "../.verification/figma/q1/evidence/composer-focus-2026-10-10";
       fs.mkdirSync(focusEvidence, { recursive: true });
@@ -4940,14 +4945,15 @@ test.describe("source fixtures", () => {
           request.url().endsWith("/fixture-conversation/turns") &&
           request.method() === "POST",
       );
-      await page
-        .getByRole("button", { name: "Summarize this workspace" })
-        .click();
+      const specificQuestion =
+        "How many chapters does Teacher Manh – Guidelines 2024.pdf suggest?";
+      await question.fill(specificQuestion);
+      await page.getByRole("button", { name: "Ask", exact: true }).click();
       expect((await submission).postDataJSON()).toEqual({
-        question: "Summarize this workspace",
+        question: specificQuestion,
       });
       await expect(
-        page.locator("ol").getByText("Summarize this workspace"),
+        page.locator("ol").getByText(specificQuestion),
       ).toBeVisible();
       await expect(page.getByLabel("Question", { exact: true })).toHaveValue(
         "",

@@ -82,6 +82,65 @@ afterEach(() => {
   sessionStorage.clear();
 });
 describe("Conversation panel interactions", () => {
+  it.each([
+    { state: "one cited document", turn: answered },
+    {
+      state: "no cited evidence",
+      turn: { ...answered, result: { ...answered.result, citations: [] } },
+    },
+    {
+      state: "unrelated cited documents",
+      turn: {
+        ...answered,
+        result: {
+          ...answered.result,
+          citations: [
+            citation,
+            {
+              ...citation,
+              evidence_id: "E2",
+              document_id: "network-policy",
+              source_key: "network-policy",
+              source_name: "Network policy",
+              excerpt: "Network support hours are 09:00 to 17:00.",
+            },
+          ],
+        },
+      },
+    },
+    {
+      state: "insufficient evidence",
+      turn: {
+        ...answered,
+        status: "refused",
+        result: {
+          ...answered.result,
+          decision: "REFUSAL",
+          answer: null,
+          citations: [],
+          refusal_reason: "INSUFFICIENT_EVIDENCE",
+        },
+      },
+    },
+  ])("does not offer unsupported follow-ups with $state", async ({ turn }) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ items: [turn], next_cursor: null })),
+      ),
+    );
+    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    const card = await screen.findByRole("listitem", { name: "Question 1" });
+    expect(
+      within(card).queryAllByRole("button", {
+        name: /Compare the documents|Find supporting evidence/,
+      }),
+    ).toHaveLength(0);
+    expect(
+      vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(false);
+  });
   it("uses the retained context minimum only for an archived Workspace unselected answer", () => {
     const view = render(
       <EvidenceInspector
@@ -477,20 +536,48 @@ describe("Conversation panel interactions", () => {
     ).toHaveAttribute("data-rail", "expanded");
     expect(Object.values(sessionStorage)).not.toContain(citation.excerpt);
   });
-  it("submits a suggestion directly", async () => {
+  it("leaves an empty conversation ready for a specific question without generic suggestions", async () => {
+    const question =
+      "How many chapters does Guide suggest for a project report?";
     history([]);
+    vi.mocked(fetch).mockImplementation(
+      async (_url, init) =>
+        new Response(
+          JSON.stringify(
+            init?.method === "POST"
+              ? { ...answered, question }
+              : { items: [], next_cursor: null },
+          ),
+        ),
+    );
     render(<ConversationView workspaceId="w" conversation={conversation} />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Summarize this workspace" }),
-    );
-    expect(screen.getByLabelText("Question")).toHaveValue(
-      "Summarize this workspace",
-    );
+    await screen.findByRole("heading", {
+      name: "Grounded answers from your workspace",
+    });
     expect(
-      (fetch as any).mock.calls.filter(
-        (call: any[]) => call[1]?.method === "POST",
-      ),
-    ).toHaveLength(1);
+      screen.queryAllByRole("button", {
+        name: /Summarize this workspace|Compare the documents|Find supporting evidence/,
+      }),
+    ).toHaveLength(0);
+    expect(
+      vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(false);
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: question },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toHaveLength(1),
+    );
+    const post = vi
+      .mocked(fetch)
+      .mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(post[0]).toBe("/api/v1/workspaces/w/conversations/c/turns");
+    expect(JSON.parse(post[1]!.body as string)).toEqual({ question });
   });
   it.each([
     ["processing", "retrieving", "Retrieving evidence…"],
@@ -1217,7 +1304,9 @@ describe("rail mutations and stale scope", () => {
         conversation={{ ...conversation, id: "other" }}
       />,
     );
-    await screen.findByRole("button", { name: "Summarize this workspace" });
+    await screen.findByRole("heading", {
+      name: "Grounded answers from your workspace",
+    });
     finish(new Response(JSON.stringify(answered)));
     await waitFor(() =>
       expect(
