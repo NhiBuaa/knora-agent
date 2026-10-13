@@ -21,7 +21,7 @@ describe("password reset failure reporting", () => {
     ],
     [new Error("secret password OTP token"), "ERROR"],
     [null, "ERROR"],
-  ])("retains only a safe category and stage", (error, category) => {
+  ])("retains only a safe category and stage (case %#)", (error, category) => {
     expect(passwordResetFailure("LOGIN", error).message).toBe(
       `PASSWORD_RESET_REGRESSION_LOGIN_${category}`,
     );
