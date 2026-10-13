@@ -1,6 +1,6 @@
 # Preserve PDF lines with a new immutable extraction profile
 
-Status: accepted for implementation through Issue #169; user acceptance pending.
+Status: accepted through Issue #169; owner acceptance confirmed on 2026-10-13.
 
 The report in Issue #169 uses independently positioned/scaled PDF text objects.
 Pinned pypdf 6.14.2 plain extraction joins its list into a single line before
