@@ -343,14 +343,21 @@ def test_embedding_failure_never_activates_pdf(cloudflare_app, failure: str | in
     else:
         state["embedding_response"] = httpx.Response(failure, text=TOKEN)
     outcome = app.state.ingestion_worker.run_once(f"cf-failure-{failure}")
-    assert outcome.__class__.__name__ in {"RetryScheduled", "FailedTerminal"}, outcome
+    assert outcome.__class__.__name__ == "RetryScheduled", outcome
+    assert outcome.safe_code == (
+        "worker_unexpected" if failure == "shape" else "provider_transient"
+    )
     poll = client.get(
         f"/v1/workspaces/{workspace_id}/ingestion-jobs/{upload.json()['ingestion_job_id']}",
         headers={"X-API-Key": owner_key},
     )
     assert poll.status_code == 200
-    assert poll.json()["status"] in {"retry_scheduled", "failed"}
-    assert poll.json()["serving_state"] != "current"
+    assert poll.json()["status"] == "retry_scheduled"
+    assert poll.json()["error_code"] is None
+    assert poll.json()["failure_reason"] is None
+    assert poll.json()["next_attempt_at"] is not None
+    assert poll.json()["terminal_at"] is None
+    assert poll.json()["serving_state"] == "unavailable"
     with SessionFactory() as session:
         document = session.scalar(
             select(DocumentTable).where(DocumentTable.workspace_id == workspace_id)
@@ -360,6 +367,18 @@ def test_embedding_failure_never_activates_pdf(cloudflare_app, failure: str | in
     assert not state["generation_requests"]
     assert TOKEN not in poll.text
 
+    state["embedding_response"] = None
+    question = client.post(
+        "/v1/questions",
+        headers={"X-API-Key": owner_key},
+        json={"workspace_id": workspace_id, "question": FACT},
+    )
+    assert question.status_code == 200
+    assert question.json()["decision"] == "REFUSAL"
+    assert question.json()["refusal_reason"] == "INSUFFICIENT_EVIDENCE"
+    assert question.json()["citations"] == []
+    assert not state["generation_requests"]
+
 
 @pytest.mark.parametrize("cloudflare_app", [True], indirect=True)
 def test_pdf_profile_mismatch_fails_before_cloudflare(cloudflare_app) -> None:
@@ -368,6 +387,17 @@ def test_pdf_profile_mismatch_fails_before_cloudflare(cloudflare_app) -> None:
     assert upload.status_code == 202
     outcome = app.state.ingestion_worker.run_once("cf-profile-mismatch")
     assert outcome.__class__.__name__ == "FailedTerminal", outcome
+    assert outcome.safe_code == "configuration_invalid"
+    assert outcome.failure_reason == "terminal_config"
+    poll = client.get(
+        f"/v1/workspaces/{workspace_id}/ingestion-jobs/{upload.json()['ingestion_job_id']}",
+        headers={"X-API-Key": owner_key},
+    )
+    assert poll.status_code == 200
+    assert poll.json()["status"] == "failed"
+    assert poll.json()["failure_reason"] == "terminal_config"
+    assert poll.json()["error_code"] == "configuration_invalid"
+    assert "next_attempt_at" not in poll.json()
     with SessionFactory() as session:
         document = session.scalar(
             select(DocumentTable).where(DocumentTable.workspace_id == workspace_id)
