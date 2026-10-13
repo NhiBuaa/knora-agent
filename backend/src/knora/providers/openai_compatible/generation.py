@@ -15,10 +15,13 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v1"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v2"
 CLOUDFLARE_SYSTEM_PROMPT = (
     SYSTEM_PROMPT + " For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
-    "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE."
+    "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE. "
+    "Every ANSWER answer MUST contain the exact cited aliases in double brackets, such as [[E1]], "
+    "and cited_evidence_ids MUST list those same aliases. If no alias can support the answer, "
+    "return REFUSAL instead."
 )
 
 
