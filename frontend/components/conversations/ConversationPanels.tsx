@@ -39,6 +39,7 @@ function ConversationPanelLayout({
   selection,
   children,
   composer,
+  historyRef,
 }: {
   workspaceId: string;
   identityScope?: PanelIdentityScope;
@@ -51,6 +52,7 @@ function ConversationPanelLayout({
   selection?: EvidenceSelection | null;
   children: React.ReactNode;
   composer: React.ReactNode;
+  historyRef?: React.Ref<HTMLDivElement>;
 }) {
   const key = panelPreferenceKey(identityScope, workspaceId);
   const [stored, setStored] = useState<{
@@ -328,7 +330,10 @@ function ConversationPanelLayout({
             Reset panels
           </button>
         </div>
-        <div className="conversation-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-8 pt-5 min-[960px]:px-11">
+        <div
+          ref={historyRef}
+          className="conversation-scroll flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-8 pt-5 min-[960px]:px-11"
+        >
           {children}
         </div>
         <div className="conversation-composer-region shrink-0">{composer}</div>
