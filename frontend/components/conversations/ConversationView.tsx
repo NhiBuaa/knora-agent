@@ -411,11 +411,6 @@ function ConversationViewState({
   useEffect(() => {
     if (selection && !selectedCitation) setSelection(null);
   }, [selection, selectedCitation]);
-  function suggest(value: string) {
-    if (!readOnly && !submissionUncertain && !submitting && !sessionExpired) {
-      void submitQuestion(value);
-    }
-  }
   async function retry(turn: TurnResponse) {
     const history = await load();
     if (!history || !active.current || authenticationRequired.current) return;
@@ -550,10 +545,7 @@ function ConversationViewState({
       <h1 className="sr-only">{projection.title}</h1>
       {loading && <LeafLoading label="Loading conversation history" />}
       {!loading && !turns.length && !error && !sessionExpired && (
-        <ConversationEmpty
-          onSuggest={suggest}
-          disabled={readOnly || submissionUncertain || submitting}
-        />
+        <ConversationEmpty />
       )}
       <ol className="m-0 flex flex-col gap-8 p-0">
         {turns.map((turn) => (
@@ -570,7 +562,6 @@ function ConversationViewState({
                   : next,
               )
             }
-            onSuggest={suggest}
             onRetry={() => void retry(turn)}
             disabled={
               readOnly ||
