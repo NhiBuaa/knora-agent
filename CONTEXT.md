@@ -25,6 +25,11 @@ set for local development. The ignored `.env` holds the canonical Base64 secret 
 decoded bytes); absent or invalid local keys fail closed without Vault or random fallback.
 With the switch absent or false, the realm-bound Keycloak Vault remains the key authority.
 Changing an existing runtime's key source requires preserving its key or an approved rotation plan.
+The approved local-development deployment uses only the ignored `.env` source: its image and
+launcher do not enable or mount file-vault, and an old `KNORA_PRIMARY_OTP_VAULT_PATH` has no effect.
+The local switch still requires explicit opt-in; leaving it off without a production secret source
+fails closed. Production retains Vault/secret-manager integration; provider selection and hardening
+are deferred to Issue #152 and must be provisioned and verified before production OTP is enabled.
 
 ## Current Model
 

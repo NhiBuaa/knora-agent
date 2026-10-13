@@ -497,8 +497,6 @@ def primary_data(*, smtp_server: dict | None = None) -> dict:
         "command": [
             "start-dev",
             "--import-realm",
-            "--vault=file",
-            "--vault-dir=/opt/keycloak/vault",
         ],
         "configFiles": str(ROOT / "docker-compose.dev.yml"),
         "environment": [
@@ -506,14 +504,7 @@ def primary_data(*, smtp_server: dict | None = None) -> dict:
             "KC_DB_URL=jdbc:postgresql://keycloak-dev-db:5432/keycloak",
             "KC_HOSTNAME=http://127.0.0.1:8180",
         ],
-        "mounts": [
-            {
-                "Type": "bind",
-                "Source": "C:/operator-vault",
-                "Destination": "/opt/keycloak/vault",
-                "RW": False,
-            }
-        ],
+        "mounts": [],
     }
     return data
 
@@ -734,15 +725,18 @@ def test_primary_bind_rejects_extra_runtime_command_arguments(tmp_path: Path) ->
     assert after["mutations"] == []
 
 
-def test_primary_compose_uses_postgres_and_read_only_operator_vault(tmp_path: Path) -> None:
-    vault = tmp_path / "primary-vault"
-    vault.mkdir()
+def test_primary_compose_ignores_old_vault_path(tmp_path: Path) -> None:
+    vault = tmp_path / "missing-old-vault"
+    dotenv = tmp_path / "compose.env"
+    dotenv.write_text("")
     env = environment()
     env["KNORA_PRIMARY_OTP_VAULT_PATH"] = str(vault)
     result = subprocess.run(
         [
             "docker",
             "compose",
+            "--env-file",
+            str(dotenv),
             "-f",
             str(ROOT / "docker-compose.dev.yml"),
             "config",
@@ -762,11 +756,28 @@ def test_primary_compose_uses_postgres_and_read_only_operator_vault(tmp_path: Pa
     assert keycloak["environment"]["KC_DB"] == "postgres"
     assert keycloak["environment"]["KC_DB_URL"] == "jdbc:postgresql://keycloak-dev-db:5432/keycloak"
     assert keycloak["environment"]["KC_HOSTNAME"] == "http://127.0.0.1:8180"
-    assert "--vault=file" in keycloak["command"]
-    mount = next(item for item in keycloak["volumes"] if item["target"] == "/opt/keycloak/vault")
-    assert Path(mount["source"]) == vault
-    assert mount["read_only"] is True
+    assert keycloak["command"] == ["start-dev", "--import-realm"]
+    assert keycloak["build"]["args"] == {"KEYCLOAK_VAULT": ""}
+    assert all(item["target"] != "/opt/keycloak/vault" for item in keycloak["volumes"])
+    assert str(vault) not in result.stdout
     assert database["image"] == "postgres:16"
+
+
+def test_primary_bind_rejects_old_vault_mount_before_mutation(tmp_path: Path) -> None:
+    data = primary_data(smtp_server=None)
+    prepared(data)
+    data["nativeRuntime"]["mounts"].append(
+        {
+            "Type": "bind",
+            "Source": "C:/operator-vault",
+            "Destination": "/opt/keycloak/vault",
+            "RW": False,
+        }
+    )
+    result, after = run(tmp_path, data, "PrimaryBind")
+    assert result.returncode != 0
+    assert "OTP_PRIMARY_RUNTIME_REQUIRED" in result.stderr
+    assert after["mutations"] == []
 
 
 def test_primary_smtp_contract_source_redacts_password_and_requires_gmail_tls() -> None:

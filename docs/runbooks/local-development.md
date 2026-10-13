@@ -64,6 +64,24 @@ Confirm the account's Workers AI data permission and available free allowance be
 
 ## Start daily development
 
+### Optional local Email OTP
+
+Local Keycloak does not enable or mount file-vault. To use Email OTP, explicitly set
+`KNORA_OTP_LOCAL_DEV_ENABLED=true` and supply `KNORA_OTP_HMAC_KEY` only in the ignored root `.env`.
+Use canonical padded Base64 encoding of at least 32 random bytes. Preserve the same key across
+restarts; missing or invalid keys fail closed without Vault/random fallback. The old
+`KNORA_PRIMARY_OTP_VAULT_PATH` setting is unused and can be removed.
+
+For an existing Vault-backed runtime, preserve its current key or schedule an approved rotation
+before changing the source. After upgrading the local image/configuration, rebuild and recreate
+Keycloak in your own dev project to remove the old mount; `docker compose restart` alone does not
+apply a changed environment or service configuration. Follow the
+[Email OTP configuration guide](../development/keycloak-theme.md) for the guarded realm migration.
+SMTP/App Passwords are unchanged. Production keeps its Vault/secret-manager source with the local
+switch off; provider selection and hardening remain in Issue #152.
+
+### Launch
+
 From the repository root:
 
 ```powershell
