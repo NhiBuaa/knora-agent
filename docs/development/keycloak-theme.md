@@ -424,9 +424,13 @@ real user account or claim delivery without a credential and an observed synthet
 The primary provider requires PostgreSQL. For local development, set
 `KNORA_OTP_LOCAL_DEV_ENABLED=true` and put a Base64 key of at least 32 decoded bytes in
 `KNORA_OTP_HMAC_KEY` in the ignored root `.env`; this path does not require a Keycloak vault entry.
-When the switch is false or absent, set `KNORA_PRIMARY_OTP_VAULT_PATH` to an existing local
-directory outside Git. It is mounted read-only at `/opt/keycloak/vault` and must contain the
-provider's realm-bound HMAC entry. Production keeps this Vault/secret-manager path.
+The approved local deployment has no file-vault mount or enabled vault provider. Remove the old
+`KNORA_PRIMARY_OTP_VAULT_PATH` setting; it has no effect, even if it still points to an existing
+directory. Leaving the local switch false or absent fails closed for OTP in this deployment.
+Production retains the realm-bound Vault/secret-manager source and must keep the local switch off.
+Production provider selection and hardening remain in Issue #152; provision and verify that secret
+source before enabling production OTP. The shared image keeps its file-vault build default for
+existing production and Vault verification consumers; dev Compose explicitly disables it at build.
 
 Local keys must use canonical padded Base64 without whitespace and decode to at least 32 bytes;
 missing, malformed or shorter keys prevent OTP delivery and verification. The provider never

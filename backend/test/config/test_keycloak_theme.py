@@ -36,15 +36,15 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
     assert primary["build"] == {
         "context": ".",
         "dockerfile": "infra/keycloak/Dockerfile",
+        "args": {"KEYCLOAK_VAULT": ""},
     }
+    assert primary["command"] == "start-dev --import-realm"
     assert primary["ports"] == ["127.0.0.1:8180:8080"]
-    assert primary["volumes"][:3] == [
+    assert primary["volumes"] == [
         "./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro",
         "./themes/knora:/opt/keycloak/themes/knora:ro",
         "keycloak_dev_data:/opt/keycloak/data",
     ]
-    assert primary["volumes"][3]["target"] == "/opt/keycloak/vault"
-    assert primary["volumes"][3]["read_only"] is True
     smtp_variables = {
         "KC_SMTP_HOST",
         "KC_SMTP_PORT",
@@ -105,6 +105,7 @@ def test_local_otp_key_is_opt_in_and_excluded_from_build_context() -> None:
     )
     assert entries["KNORA_OTP_LOCAL_DEV_ENABLED"] == "false"
     assert entries["KNORA_OTP_HMAC_KEY"] == ""
+    assert "KNORA_PRIMARY_OTP_VAULT_PATH" not in entries
     assert ".env" in (ROOT / ".gitignore").read_text().splitlines()
     assert (ROOT / ".dockerignore").read_text().splitlines() == [
         ".env",
