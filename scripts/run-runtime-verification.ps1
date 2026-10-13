@@ -74,6 +74,7 @@ function Invoke-Playwright {
     $report = Join-Path $profileDir "$Name.xml"
     $env:FIGMA_TEST_MODE = $Mode
     $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = $report
+    $env:PLAYWRIGHT_JUNIT_INCLUDE_PROJECT_IN_TEST_NAME = '1'
     Push-Location (Join-Path $repositoryRoot 'frontend')
     try {
         $args = @('test', $Spec, "--config=$Config", '--reporter=list,junit')
@@ -245,6 +246,7 @@ try {
     }
     Remove-Item Env:FIGMA_TEST_MODE -ErrorAction SilentlyContinue
     Remove-Item Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
+    Remove-Item Env:PLAYWRIGHT_JUNIT_INCLUDE_PROJECT_IN_TEST_NAME -ErrorAction SilentlyContinue
     Remove-Item Env:KNORA_STORAGE_PROOF_SECRET -ErrorAction SilentlyContinue
     if ($cleanupFailed) { throw 'RUNTIME_CLEANUP_FAILED' }
 }
