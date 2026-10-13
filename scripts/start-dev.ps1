@@ -56,11 +56,6 @@ function Import-DotEnv([string]$Path) {
     }
 }
 
-function Stop-ProcessTree([System.Diagnostics.Process]$Process) {
-    if ($null -eq $Process -or $Process.HasExited) { return }
-    & taskkill.exe /PID $Process.Id /T /F 2>$null | Out-Null
-}
-
 if ($EnvFile) {
     if (-not (Test-Path -LiteralPath $EnvFile -PathType Leaf)) { Fail 'ENV_FILE_UNAVAILABLE' }
     $dotenvPath = (Resolve-Path -LiteralPath $EnvFile).Path
@@ -283,17 +278,27 @@ try {
     $npm = (Get-Command npm.cmd -ErrorAction Stop).Source
     $env:PORT = [string]$FrontendPort
     $workerGeneration = 0
+    if (-not ('Knora.Dev.ProcessJob' -as [type])) {
+        Add-Type -Path (Join-Path $PSScriptRoot 'dev-process-job.cs')
+    }
+    $processJob = [Knora.Dev.ProcessJob]::new()
+
+    function Start-DevProcess([string]$FilePath, [string[]]$ArgumentList,
+        [string]$RedirectStandardOutput, [string]$RedirectStandardError) {
+        return $processJob.Start($FilePath, $ArgumentList, $repoRoot,
+            $RedirectStandardOutput, $RedirectStandardError)
+    }
 
     function Start-DevWorker {
         $script:workerGeneration++
         $stdout = Join-Path $logs "worker-$script:workerGeneration.out.log"
         $stderr = Join-Path $logs "worker-$script:workerGeneration.err.log"
         Write-Host "[worker] starting generation $script:workerGeneration"
-        return Start-Process -FilePath $PythonExe -ArgumentList @(
+        return Start-DevProcess -FilePath $PythonExe -ArgumentList @(
             '-m','knora.adapters.cli.worker',
             '--dev-watch',
             '--watch-root',$backendWatchRoot
-        ) -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        ) -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     }
 
     $api = $null
@@ -301,18 +306,18 @@ try {
     $conversationWorker = $null
     $frontend = $null
     try {
-        $api = Start-Process -FilePath $PythonExe -ArgumentList @(
+        $api = Start-DevProcess -FilePath $PythonExe -ArgumentList @(
             '-m','uvicorn','knora.main:app',
             '--host','127.0.0.1',
             '--port',[string]$ApiPort,
             '--reload',
             '--reload-dir',$backendWatchRoot
-        ) -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'api.out.log') -RedirectStandardError (Join-Path $logs 'api.err.log')
+        ) -RedirectStandardOutput (Join-Path $logs 'api.out.log') -RedirectStandardError (Join-Path $logs 'api.err.log')
         $worker = Start-DevWorker
-        $conversationWorker = Start-Process -FilePath $PythonExe -ArgumentList @(
+        $conversationWorker = Start-DevProcess -FilePath $PythonExe -ArgumentList @(
             'scripts/run_conversation_worker.py'
-        ) -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'conversation-worker.out.log') -RedirectStandardError (Join-Path $logs 'conversation-worker.err.log')
-        $frontend = Start-Process -FilePath $npm -ArgumentList @('--prefix','frontend','run','dev') -WorkingDirectory $repoRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError (Join-Path $logs 'frontend.err.log')
+        ) -RedirectStandardOutput (Join-Path $logs 'conversation-worker.out.log') -RedirectStandardError (Join-Path $logs 'conversation-worker.err.log')
+        $frontend = Start-DevProcess -FilePath $npm -ArgumentList @('--prefix','frontend','run','dev') -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError (Join-Path $logs 'frontend.err.log')
 
         $apiHealthy = $false
         $frontendHealthy = $false
@@ -370,10 +375,14 @@ try {
             }
         }
     } finally {
-        Stop-ProcessTree $frontend
-        Stop-ProcessTree $conversationWorker
-        Stop-ProcessTree $worker
-        Stop-ProcessTree $api
+        try {
+            $processJob.Dispose()
+            [Console]::WriteLine('DEV_STOPPED')
+        } catch {
+            [Console]::Error.WriteLine("DEV_CLEANUP_FAILED:$($_.Exception.Message)")
+            $global:LASTEXITCODE = 2
+            throw
+        }
     }
 } catch {
     [Console]::Error.WriteLine($_.Exception.Message)
