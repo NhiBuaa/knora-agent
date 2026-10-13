@@ -2,16 +2,20 @@
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
 import sys
+import textwrap
+import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
+import psutil
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "start-dev.ps1"
@@ -79,13 +83,6 @@ def isolate_generation_environment(monkeypatch):
         "KNORA_EXPECTED_GENERATION_MODEL_DIGEST",
     ):
         monkeypatch.delenv(key, raising=False)
-
-
-def test_daily_launcher_supervises_conversation_turn_worker() -> None:
-    launcher = SCRIPT.read_text(encoding="utf-8")
-    assert "scripts/run_conversation_worker.py" in launcher
-    assert "if ($conversationWorker.HasExited)" in launcher
-    assert "Stop-ProcessTree $conversationWorker" in launcher
 
 
 def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
@@ -655,3 +652,327 @@ def test_dev_launcher_imports_dotenv_over_empty_process_value(tmp_path: Path) ->
         )
     assert result.returncode == 0, result.stderr
     assert f"OIDC_ISSUER={issuer}" in result.stdout
+
+
+@pytest.fixture
+def launcher_runtime(tmp_path: Path):
+    """Real launcher/processes/console; replace only storage and service workloads."""
+    root = tmp_path / "runtime space & directory"
+    scripts = root / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+    native = SCRIPT.with_name("dev-process-job.cs")
+    if native.exists():
+        shutil.copy2(native, scripts / native.name)
+    (root / "empty.env").write_text("# synthetic fixture\n")
+    package = root / "backend/src/knora"
+    for directory in (
+        package,
+        package / "infrastructure",
+        package / "adapters",
+        package / "adapters/cli",
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "__init__.py").touch()
+    (package / "infrastructure/settings.py").write_text(
+        "class Settings:\n    def __init__(self, **kwargs): pass\n"
+    )
+    (package / "bootstrap.py").write_text(
+        "from types import SimpleNamespace as S\n"
+        "def build_provider_selection(settings):\n"
+        "    return S(embedding_configuration=S(id='embedding-local-m1-v2'))\n"
+    )
+    (root / "alembic.py").write_text("# No database side effects in this fixture.\n")
+    service = textwrap.dedent("""
+        import json, os, subprocess, sys, time, psutil
+        from pathlib import Path
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        mode = sys.argv[1]
+        Path(f'process-{os.getpid()}.json').write_text(json.dumps(
+            {'pid': os.getpid(), 'created': psutil.Process().create_time()}))
+        if mode == 'idle':
+            while True: time.sleep(.1)
+        if mode == 'frontend':
+            child = subprocess.Popen([sys.executable, 'service.py', 'http', os.environ['PORT']])
+            if os.environ.get('FIXTURE_FAILURE') == 'frontend': sys.exit(3)
+            sys.exit(child.wait())
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'ok'}).encode())
+            def log_message(self, *args): pass
+        HTTPServer(('127.0.0.1', int(sys.argv[2])), Handler).serve_forever()
+    """)
+    (root / "service.py").write_text(service)
+    (root / "uvicorn.py").write_text(
+        "import subprocess, sys\n"
+        "child = subprocess.Popen([sys.executable, 'service.py', 'http', "
+        "sys.argv[sys.argv.index('--port') + 1]])\n"
+        "sys.exit(child.wait())\n"
+    )
+    (package / "adapters/cli/worker.py").write_text(
+        "import subprocess, sys, time\nfrom pathlib import Path\n"
+        "if '--check-pdf-isolation' in sys.argv: sys.exit(0)\n"
+        "child = subprocess.Popen([sys.executable, 'service.py', 'idle'])\n"
+        "while not Path('restart-worker').exists(): time.sleep(.1)\n"
+        "Path('restart-worker').unlink()\nsys.exit(75)\n"
+    )
+    (scripts / "run_conversation_worker.py").write_text(
+        "import subprocess, sys\n"
+        "sys.exit(subprocess.Popen([sys.executable, 'service.py', 'idle']).wait())\n"
+    )
+    (root / "npm.cmd").write_text(f'@echo off\n"{sys.executable}" service.py frontend\n')
+    wrapper = root / "invoke.ps1"
+    wrapper.write_text(
+        "function docker { $global:LASTEXITCODE = 0; if ($args -contains 'exec') { '1' } }\n"
+        "& $env:FIXTURE_LAUNCHER -NoBrowser -EnvFile $env:FIXTURE_ENV "
+        "-PythonExe $env:FIXTURE_PYTHON -EmbeddingProvider deterministic-local "
+        "-GenerationProvider deterministic-local -ApiPort $env:FIXTURE_API_PORT "
+        "-FrontendPort $env:FIXTURE_FRONTEND_PORT\n"
+    )
+    return root, wrapper
+
+
+def _unused_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _wait_until(predicate, timeout: float = 20) -> None:
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() >= deadline:
+            pytest.fail("Timed out waiting for launcher fixture")
+        time.sleep(0.05)
+
+
+def _console_ctrl_c(pid: int) -> None:
+    # Attach only to a fresh, dedicated hidden console; never broadcast to the test host.
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            textwrap.dedent("""
+            import ctypes, sys, time
+            kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel.FreeConsole()
+            if not kernel.AttachConsole(int(sys.argv[1])):
+                raise ctypes.WinError(ctypes.get_last_error())
+            kernel.SetConsoleCtrlHandler(None, True)
+            if not kernel.GenerateConsoleCtrlEvent(0, 0):
+                raise ctypes.WinError(ctypes.get_last_error())
+            time.sleep(.2)
+            kernel.FreeConsole()
+        """),
+            str(pid),
+        ],
+        check=True,
+        timeout=10,
+    )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows launcher process ownership")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+@pytest.mark.parametrize("scenario", ["ctrl-c", "exited-root", "startup-failure", "worker-restart"])
+def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenario: str):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+    root, wrapper = launcher_runtime
+    api_port, frontend_port = _unused_port(), _unused_port()
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith(("KNORA_", "KEYCLOAK_", "SESSION_"))
+    }
+    environment.update(
+        PATH=f"{root};{environment['PATH']}",
+        TEMP=str(root),
+        TMP=str(root),
+        FIXTURE_LAUNCHER=str(root / "scripts/start-dev.ps1"),
+        FIXTURE_ENV=str(root / "empty.env"),
+        FIXTURE_PYTHON=sys.executable,
+        FIXTURE_API_PORT=str(api_port),
+        FIXTURE_FRONTEND_PORT=str(frontend_port),
+        SESSION_SECRET="synthetic-session-secret-000000000000",
+        KNORA_CANONICAL_MINIO_ACCESS_KEY="synthetic-access",
+        KNORA_CANONICAL_MINIO_SECRET_KEY="synthetic-secret",
+        FIXTURE_FAILURE="frontend" if scenario == "startup-failure" else "",
+    )
+    startup = subprocess.STARTUPINFO()
+    startup.dwFlags = subprocess.STARTF_USESHOWWINDOW
+    startup.wShowWindow = 0
+    known: set[psutil.Process] = set()
+    # An unrelated process with the same executable must survive every cleanup.
+    outsider = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(120)"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    launcher = None
+    try:
+        log_path = root / "launcher.log"
+        with log_path.open("w") as output:
+            launcher = subprocess.Popen(
+                [executable, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(wrapper)],
+                cwd=root,
+                env=environment,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                startupinfo=startup,
+            )
+        owner = psutil.Process(launcher.pid)
+
+        def observe():
+            if launcher.poll() is None:
+                with suppress(psutil.NoSuchProcess):
+                    known.update(owner.children(recursive=True))
+            return log_path.read_text(errors="replace")
+
+        if scenario == "startup-failure":
+            _wait_until(lambda: observe() and launcher.poll() is not None)
+            assert "DEV_RUNTIME_FAILED" in observe()
+        else:
+            _wait_until(lambda: "DEV_READY" in observe())
+            if scenario == "exited-root":
+                frontend_pid = int(re.search(r"FRONTEND_PID=(\d+)", observe())[1])
+                frontend_root = next(process for process in known if process.pid == frontend_pid)
+                frontend_root.kill()
+                frontend_root.wait(5)
+            if scenario == "worker-restart":
+                (root / "restart-worker").touch()
+                _wait_until(lambda: "[worker] ready generation 2" in observe())
+            if launcher.poll() is None:
+                _console_ctrl_c(launcher.pid)
+            launcher.wait(15)
+        assert outsider.poll() is None
+        for marker in root.glob("process-*.json"):
+            identity = json.loads(marker.read_text())
+            with suppress(psutil.NoSuchProcess):
+                process = psutil.Process(identity["pid"])
+                if process.create_time() == identity["created"]:
+                    known.add(process)
+        remaining = [process.pid for process in known if process.is_running()]
+        assert not remaining, f"Owned processes survived cleanup: {remaining}"
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", api_port))
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", frontend_port))
+    finally:
+        if launcher is not None and launcher.poll() is None:
+            known.update(psutil.Process(launcher.pid).children(recursive=True))
+            launcher.kill()
+            launcher.wait(10)
+        # psutil identities retain creation time, protecting against recycled PIDs.
+        for process in known:
+            with suppress(psutil.NoSuchProcess):
+                process.kill()
+        psutil.wait_procs(list(known), timeout=10)
+        outsider.kill()
+        outsider.wait(10)
+
+
+def _run_job_script(tmp_path: Path, shell: str, statements: str, **environment):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+    script = tmp_path / "job.ps1"
+    script.write_text(
+        "$ErrorActionPreference = 'Stop'\n"
+        "Add-Type -Path $env:FIXTURE_NATIVE\n"
+        "$job = [Knora.Dev.ProcessJob]::new()\n"
+        "$other = [Knora.Dev.ProcessJob]::new()\n"
+        "try {\n" + statements + "\n} finally { $job.Dispose(); $other.Dispose() }\n"
+    )
+    return subprocess.run(
+        [executable, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
+        capture_output=True,
+        text=True,
+        timeout=40,
+        cwd=SCRIPT.parents[1],
+        env={
+            **os.environ,
+            "FIXTURE_NATIVE": str(SCRIPT.with_name("dev-process-job.cs")),
+            "FIXTURE_PYTHON": sys.executable,
+            "FIXTURE_DIRECTORY": str(tmp_path),
+            **environment,
+        },
+    )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows launcher process ownership")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_process_job_cleanup_is_repeatable_and_preserves_other_invocation(tmp_path, shell):
+    result = _run_job_script(
+        tmp_path,
+        shell,
+        """
+        $dir = $env:FIXTURE_DIRECTORY
+        $live = $other.Start($env:FIXTURE_PYTHON, @('-c', 'import time; time.sleep(60)'),
+            $dir, "$dir/other.out", "$dir/other.err")
+        $owned = $job.Start($env:FIXTURE_PYTHON, @('-c', 'import time; time.sleep(60)'),
+            $dir, "$dir/owned.out", "$dir/owned.err")
+        try {
+            $job.Start("$dir/missing.exe", @(), $dir, "$dir/fail.out", "$dir/fail.err")
+            throw 'Missing executable was accepted'
+        } catch {
+            if ($_.Exception.Message -notlike '*DEV_PROCESS_JOB_FAILED:CREATE_PROCESS:*') { throw }
+        }
+        $job.Dispose()
+        $job.Dispose()
+        if ($live.HasExited) { throw 'Other invocation was stopped' }
+        $job = [Knora.Dev.ProcessJob]::new()
+        $replacement = $job.Start($env:FIXTURE_PYTHON, @('-c', 'print("new invocation")'),
+            $dir, "$dir/new.out", "$dir/new.err")
+        if (-not $replacement.WaitForExit(5000) -or $replacement.ExitCode -ne 0) {
+            throw 'New invocation failed'
+        }
+        'JOB_INVOCATIONS_OK'
+    """,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "JOB_INVOCATIONS_OK" in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows native argv and log redirection")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_process_job_preserves_arguments_and_separate_standard_streams(tmp_path, shell):
+    arguments = ["space & value", 'embedded"quote', "trailing\\", ""]
+    result = _run_job_script(
+        tmp_path,
+        shell,
+        """
+        $dir = $env:FIXTURE_DIRECTORY
+        $arguments = [string[]](ConvertFrom-Json $env:FIXTURE_ARGUMENTS)
+        $code = 'import json,sys; print(json.dumps(sys.argv[1:])); print("stderr", file=sys.stderr)'
+        $child = $job.Start($env:FIXTURE_PYTHON,
+            (@('-c', $code) + $arguments),
+            $dir, "$dir/out.log", "$dir/err.log")
+        if (-not $child.WaitForExit(5000) -or $child.ExitCode -ne 0) { throw 'Child failed' }
+    """,
+        FIXTURE_ARGUMENTS=json.dumps(arguments),
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads((tmp_path / "out.log").read_text()) == arguments
+    assert (tmp_path / "err.log").read_text().strip() == "stderr"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows nested PDF memory Job")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_process_job_retains_pdf_child_memory_enforcement(tmp_path, shell):
+    result = _run_job_script(
+        tmp_path,
+        shell,
+        """
+        $dir = $env:FIXTURE_DIRECTORY
+        $child = $job.Start($env:FIXTURE_PYTHON,
+            @('-m', 'knora.adapters.cli.worker', '--check-pdf-isolation'),
+            (Get-Location).Path, "$dir/pdf.out", "$dir/pdf.err")
+        if (-not $child.WaitForExit(30000) -or $child.ExitCode -ne 0) {
+            throw 'Nested PDF memory enforcement failed'
+        }
+    """,
+    )
+    assert result.returncode == 0, result.stderr + (tmp_path / "pdf.err").read_text()

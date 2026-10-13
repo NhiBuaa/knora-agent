@@ -377,6 +377,18 @@ Development logs are written beneath:
 
 Each worker restart gets generation-specific log files so the previous generation is not silently overwritten.
 
+On Windows, each launcher invocation owns one Job Object containing the API,
+frontend, both workers and their child processes. Processes join before their
+first instruction runs, so cleanup still owns descendants after a shell or worker
+has exited. Ctrl+C and startup failures force-stop this group and wait up to ten
+seconds for it to empty. `DEV_STOPPED` confirms cleanup; `DEV_CLEANUP_FAILED`
+reports a termination, accounting or timeout failure. PostgreSQL, MinIO and
+bundled Keycloak remain running, and processes from other invocations stay outside
+the group. A port occupied by another session still fails the preflight check.
+
+The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
+and loads through PowerShell's `Add-Type`; it requires no additional dependency.
+
 Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
 
 An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.
