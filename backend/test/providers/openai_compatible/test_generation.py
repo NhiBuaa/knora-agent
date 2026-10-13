@@ -177,3 +177,113 @@ async def test_openai_compatible_generation_normalizes_failures_without_retry(
     assert str(captured.value) == expected
     assert "secret-canary" not in str(captured.value)
     assert calls == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("decision", ["ANSWER", "REFUSAL"])
+async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decision: str) -> None:
+    observed = {}
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        observed["request"] = request
+        content = (
+            '{"decision":"ANSWER","answer":"Refunds. [[E1]]",'
+            '"cited_evidence_ids":["E1"],"refusal_reason":null}'
+            if decision == "ANSWER"
+            else '{"decision":"REFUSAL","answer":null,'
+            '"cited_evidence_ids":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}'
+        )
+        return httpx.Response(
+            200,
+            json={
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [{"finish_reason": "stop", "message": {"content": content}}],
+            },
+        )
+
+    provider = OpenAICompatibleGenerationProvider(
+        base_url="https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/ai/v1",
+        api_key="secret-canary",
+        model="@cf/openai/gpt-oss-20b",
+        input_cost_per_million_tokens=None,
+        output_cost_per_million_tokens=None,
+        pricing_version=None,
+        provider_identity="cloudflare-workers-ai",
+        max_tokens=1024,
+        direct_json_schema=True,
+        client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+
+    result = await provider.generate(question="Refunds?", evidence=())
+    request = observed["request"]
+    payload = __import__("json").loads(request.content)
+    assert request.url.path.endswith("/ai/v1/chat/completions")
+    assert payload["model"] == "@cf/openai/gpt-oss-20b"
+    assert payload["max_tokens"] == 1024
+    assert payload["response_format"]["type"] == "json_schema"
+    assert payload["response_format"]["json_schema"]["properties"]["decision"]["enum"] == [
+        "ANSWER",
+        "REFUSAL",
+    ]
+    assert result.provider == "cloudflare-workers-ai"
+    assert result.model == "@cf/openai/gpt-oss-20b"
+    assert result.decision == decision
+    assert result.usage == {}
+    assert result.cost == {}
+
+
+@pytest.mark.asyncio
+async def test_missing_usage_never_produces_zero_dollar_cost() -> None:
+    provider = OpenAICompatibleGenerationProvider(
+        base_url="https://provider.example/v1",
+        api_key="secret-canary",
+        model="compatible-chat-model",
+        input_cost_per_million_tokens=Decimal("1"),
+        output_cost_per_million_tokens=Decimal("2"),
+        pricing_version="test-pricing-v1",
+        client=httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200,
+                    json={
+                        "choices": [
+                            {
+                                "message": {
+                                    "content": '{"decision":"REFUSAL","answer":null,'
+                                    '"cited_evidence_ids":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}'
+                                }
+                            }
+                        ]
+                    },
+                )
+            )
+        ),
+    )
+    result = await provider.generate(question="Unknown?", evidence=())
+    assert result.cost == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 403, 429, 500, 503])
+async def test_cloudflare_chat_safely_normalizes_http_errors(status: int) -> None:
+    calls = 0
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(status, text="secret-canary-body")
+
+    provider = OpenAICompatibleGenerationProvider(
+        base_url="https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/ai/v1",
+        api_key="secret-canary",
+        model="@cf/openai/gpt-oss-20b",
+        input_cost_per_million_tokens=None,
+        output_cost_per_million_tokens=None,
+        pricing_version=None,
+        provider_identity="cloudflare-workers-ai",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+    with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED") as captured:
+        await provider.generate(question="Unknown?", evidence=())
+    assert "secret-canary" not in str(captured.value)
+    assert calls == 1

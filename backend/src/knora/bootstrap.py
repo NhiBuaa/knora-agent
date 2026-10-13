@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import httpx
 
 from knora.infrastructure.settings import Settings
+from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
@@ -67,6 +68,24 @@ def _require_expected_profile(
 def _build_selected_embedding(
     runtime_settings: Settings, choice: str
 ) -> tuple[EmbeddingProvider, EmbeddingConfiguration]:
+    if choice == "cloudflare-workers-ai":
+        account_id, api_token = _cloudflare_credentials(runtime_settings)
+        configuration = EmbeddingConfiguration.cloudflare_qwen3_06b()
+        if (
+            runtime_settings.cloudflare_embedding_model != configuration.model
+            or runtime_settings.cloudflare_embedding_configuration_id != configuration.id
+        ):
+            raise ValueError(
+                "invalid provider configuration: unsupported Cloudflare embedding profile"
+            )
+        return (
+            CloudflareEmbeddingProvider(
+                account_id=account_id,
+                api_token=api_token,
+                timeout_seconds=runtime_settings.cloudflare_timeout_seconds,
+            ),
+            configuration,
+        )
     if choice == "ollama":
         if runtime_settings.ollama_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
@@ -150,6 +169,24 @@ def _build_selected_embedding(
 
 
 def _build_selected_generation(runtime_settings: Settings, choice: str) -> GenerationProvider:
+    if choice == "cloudflare-workers-ai":
+        account_id, api_token = _cloudflare_credentials(runtime_settings)
+        if runtime_settings.cloudflare_generation_model != "@cf/openai/gpt-oss-20b":
+            raise ValueError(
+                "invalid provider configuration: unsupported Cloudflare generation model"
+            )
+        return OpenAICompatibleGenerationProvider(
+            base_url=(f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"),
+            api_key=api_token,
+            model=runtime_settings.cloudflare_generation_model,
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            timeout_seconds=runtime_settings.cloudflare_timeout_seconds,
+            provider_identity="cloudflare-workers-ai",
+            max_tokens=1024,
+            direct_json_schema=True,
+        )
     if choice == "deterministic-local":
         return DeterministicGenerationProvider()
     if choice == "ollama":
@@ -325,3 +362,15 @@ def _build_openai_generation(runtime_settings: Settings) -> GenerationProvider:
         pricing_version=str(runtime_settings.openai_pricing_version),
         timeout_seconds=runtime_settings.openai_timeout_seconds,
     )
+
+
+def _cloudflare_credentials(runtime_settings: Settings) -> tuple[str, str]:
+    account_id = runtime_settings.cloudflare_account_id
+    api_token = runtime_settings.cloudflare_api_token
+    if account_id is None or re.fullmatch(r"[0-9a-fA-F]{32}", account_id) is None:
+        raise ValueError("invalid provider configuration: invalid cloudflare_account_id")
+    if api_token is None or not api_token.get_secret_value():
+        raise ValueError("invalid provider configuration: missing cloudflare_api_token")
+    if runtime_settings.cloudflare_timeout_seconds <= 0:
+        raise ValueError("invalid provider configuration: timeout must be positive")
+    return account_id, api_token.get_secret_value()

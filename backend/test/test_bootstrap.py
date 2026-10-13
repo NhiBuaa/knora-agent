@@ -4,6 +4,7 @@ import pytest
 
 from knora.bootstrap import build_provider_selection
 from knora.infrastructure.settings import ObjectStoreSettings, Settings
+from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration
@@ -42,6 +43,56 @@ def test_bootstrap_selects_one_complete_provider_mode() -> None:
     assert compatible.embedding_configuration.provider == "openai-compatible"
     assert compatible.embedding_configuration.model == "text-embedding-3-small"
     assert compatible.embedding_configuration.dimensions == 1536
+
+
+def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token() -> None:
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="0123456789abcdef0123456789abcdef",
+            cloudflare_api_token="secret-canary",
+        )
+    )
+
+    assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+    assert selected.embedding_configuration == EmbeddingConfiguration.cloudflare_qwen3_06b()
+    assert "secret-canary" not in repr(
+        Settings(_env_file=None, cloudflare_api_token="secret-canary")
+    )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"cloudflare_account_id": None},
+        {"cloudflare_account_id": "../other"},
+        {"cloudflare_api_token": None},
+        {"cloudflare_api_token": ""},
+        {"cloudflare_embedding_model": "other"},
+        {"cloudflare_generation_model": "other"},
+        {"cloudflare_embedding_configuration_id": "other"},
+        {"cloudflare_timeout_seconds": 0},
+    ],
+)
+def test_bootstrap_rejects_invalid_cloudflare_settings_without_secret(
+    overrides: dict[str, object],
+) -> None:
+    values = {
+        "_env_file": None,
+        "embedding_provider": "cloudflare-workers-ai",
+        "generation_provider": "cloudflare-workers-ai",
+        "embedding_dimension": 1024,
+        "cloudflare_account_id": "0123456789abcdef0123456789abcdef",
+        "cloudflare_api_token": "secret-canary",
+        **overrides,
+    }
+    with pytest.raises(ValueError, match="invalid provider configuration") as captured:
+        build_provider_selection(Settings(**values))
+    assert "secret-canary" not in str(captured.value)
 
 
 def test_bootstrap_selects_embedding_and_generation_independently() -> None:
