@@ -2,20 +2,23 @@ import { describe, expect, it } from "vitest";
 import { fixtureResponse } from "./figma-state-fixtures";
 
 describe("Figma fixture boundary", () => {
-  it("admits one synthetic suggestion Turn only in the empty Conversation state", () => {
+  it("admits one specific synthetic question only in the empty Conversation state", () => {
     const path =
       "/api/v1/workspaces/fixture-workspace/conversations/fixture-conversation/turns";
     expect(
       fixtureResponse("128:109", path, "POST", {
-        question: "Summarize this workspace",
+        question:
+          "How many chapters does Teacher Manh – Guidelines 2024.pdf suggest?",
       }),
     ).toMatchObject({
-      question: "Summarize this workspace",
+      question:
+        "How many chapters does Teacher Manh – Guidelines 2024.pdf suggest?",
       status: "answered",
     });
     expect(() =>
       fixtureResponse("128:119", path, "POST", {
-        question: "Summarize this workspace",
+        question:
+          "How many chapters does Teacher Manh – Guidelines 2024.pdf suggest?",
       }),
     ).toThrow("Unrecognized fixture request");
     expect(() =>

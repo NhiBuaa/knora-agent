@@ -36,7 +36,6 @@ it.each([
         workspaceId="w"
         selection={null}
         onSelect={vi.fn()}
-        onSuggest={vi.fn()}
         onRetry={vi.fn()}
       />
       <EvidenceInspector workspaceId="w" turn={turn} />

@@ -224,13 +224,7 @@ export function ConversationComposer({
   );
 }
 
-export function ConversationEmpty({
-  onSuggest,
-  disabled = false,
-}: {
-  onSuggest: (value: string) => void;
-  disabled?: boolean;
-}) {
+export function ConversationEmpty() {
   const sheet = (
     <div className="relative h-[154px] w-[118px] overflow-hidden rounded-[10px] border border-border bg-surface">
       <div className="absolute left-[85px] top-[11px] size-5 rounded bg-surface-subtle" />
@@ -301,26 +295,6 @@ export function ConversationEmpty({
         Knora answers using your indexed documents and shows the evidence behind
         each response.
       </p>
-      <p className="text-[9px] font-semibold leading-3 text-text-muted">
-        TRY A QUESTION
-      </p>
-      <div className="flex flex-wrap justify-center gap-2">
-        {[
-          "Summarize this workspace",
-          "Compare the documents",
-          "Find supporting evidence",
-        ].map((prompt) => (
-          <button
-            type="button"
-            key={prompt}
-            disabled={disabled}
-            onClick={() => onSuggest(prompt)}
-            className="m-0 rounded-lg border border-border bg-surface px-3 py-2 text-[11px] font-medium leading-[14px] disabled:opacity-50"
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
       <p className="max-w-[560px] rounded-[7px] bg-surface-subtle px-2.5 py-1.5 text-[10px] leading-[15px] text-text-muted">
         Answers stay grounded: sources, excerpts, page ranges, and provenance
         remain inspectable.
