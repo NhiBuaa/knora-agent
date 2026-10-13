@@ -15,6 +15,13 @@ from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddin
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
 
+@pytest.fixture(autouse=True)
+def explicit_bootstrap_settings_ignore_suite_provider_pins(monkeypatch) -> None:
+    monkeypatch.delenv("KNORA_EMBEDDING_PROVIDER", raising=False)
+    monkeypatch.delenv("KNORA_GENERATION_PROVIDER", raising=False)
+    monkeypatch.delenv("KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID", raising=False)
+
+
 def compatible_settings(**overrides) -> Settings:
     values = {
         "provider_mode": "openai-compatible",
@@ -284,21 +291,20 @@ def test_legacy_dimension_error_precedes_provider_configuration_errors(
 
 
 @pytest.mark.parametrize(
-    "runtime_settings",
+    "overrides",
     [
-        Settings(_env_file=None, embedding_dimension=1535),
-        Settings(
-            _env_file=None,
-            provider_mode="deterministic-local",
-            openai_embedding_model="gemini-embedding-001",
-        ),
+        {"embedding_dimension": 1535},
+        {
+            "provider_mode": "deterministic-local",
+            "openai_embedding_model": "gemini-embedding-001",
+        },
     ],
 )
 def test_bootstrap_rejects_an_unapproved_embedding_space(
-    runtime_settings: Settings,
+    overrides: dict[str, object],
 ) -> None:
     with pytest.raises(ValueError, match="Milestone 1 embedding configuration"):
-        build_provider_selection(runtime_settings)
+        build_provider_selection(Settings(_env_file=None, **overrides))
 
 
 def test_bootstrap_accepts_a_compatible_embedding_model_with_fixed_dimension() -> None:
