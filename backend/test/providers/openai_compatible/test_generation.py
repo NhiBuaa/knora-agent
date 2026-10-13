@@ -233,9 +233,11 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
         "refusal_reason MUST be INSUFFICIENT_EVIDENCE."
     ) in system_prompt
     assert "Every ANSWER answer MUST contain the exact cited aliases" in system_prompt
+    assert "Markdown paragraphs, headings and lists" in system_prompt
+    assert "one marker after the complete list" in system_prompt
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v2"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v3"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

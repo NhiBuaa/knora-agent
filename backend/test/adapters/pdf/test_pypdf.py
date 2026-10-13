@@ -68,6 +68,45 @@ def encrypted_pdf() -> bytes:
     return output.getvalue()
 
 
+def test_layout_profile_keeps_positioned_list_lines_and_version_pinned_ranges() -> None:
+    # Independently scaled text objects reproduce the report's collapsed plain extraction.
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+    )
+    commands = []
+    for row, line in enumerate(["Report structure", "- Introduction", "- Conclusion"]):
+        commands.append(
+            f"q 0.24 0 0 0.24 0 640 cm BT /F1 1 Tf "
+            f"42 0 0 42 300 {-200 - row * 60} Tm ({line}) Tj ET Q"
+        )
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("ascii"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    output = BytesIO()
+    writer.write(output)
+    raw = output.getvalue()
+    legacy = PypdfTextExtractor().extract(BytesIO(raw), PdfExtractionConfiguration.milestone_two())
+    assert legacy.pages[0].text == "Report structure- Introduction- Conclusion"
+    configuration = PdfExtractionConfiguration.layout_preserving()
+    result = PypdfTextExtractor().extract(BytesIO(raw), configuration)
+    assert result.pages[0].text == "Report structure\n- Introduction\n- Conclusion"
+    assert result.derivation_identity != legacy.derivation_identity
+    assert result.parser_version == "pypdf-6.14.2-layout-v2"
+    for chunk in result.chunks:
+        assert chunk.content == result.pages[0].text[chunk.start_offset : chunk.end_offset]
+        assert chunk.content_checksum == hashlib.sha256(chunk.content.encode()).hexdigest()
+        assert chunk.page_start == chunk.page_end == 1
+
+
 def unsupported_filter_pdf() -> bytes:
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)

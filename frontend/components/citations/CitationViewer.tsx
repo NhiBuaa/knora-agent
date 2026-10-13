@@ -4,6 +4,37 @@ import Link from "next/link";
 import type { CitationResponse } from "@/generated/knora-openapi";
 import { routes } from "@/lib/navigation/routes";
 
+export function CitationChip({
+  citation,
+  index,
+  selected,
+  onSelect,
+}: {
+  citation: CitationResponse;
+  index: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`Citation ${index + 1}: ${citation.source_name}`}
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={
+        selected
+          ? "m-0 rounded-full border border-action bg-action/10 px-2 py-1 text-[11px] font-medium text-action-text"
+          : "m-0 rounded-full border border-border bg-surface-subtle px-2 py-1 text-[11px] font-medium text-text-muted"
+      }
+    >
+      [{String(index + 1).padStart(2, "0")}]{" "}
+      {citation.page_start != null
+        ? `p.${citation.page_start}`
+        : citation.heading_path.at(-1) || citation.source_name}
+    </button>
+  );
+}
+
 export function CitationViewer({
   citations,
   workspaceId,
@@ -20,23 +51,13 @@ export function CitationViewer({
     return (
       <div aria-label="Citations" className="flex flex-wrap gap-[7px]">
         {citations.map((citation, index) => (
-          <button
-            type="button"
+          <CitationChip
             key={`${index}:${citation.evidence_id}`}
-            aria-label={`Citation ${index + 1}: ${citation.source_name}`}
-            aria-pressed={selectedIndex === index}
-            onClick={() => onSelect(index)}
-            className={
-              selectedIndex === index
-                ? "m-0 rounded-full border border-action bg-action/10 px-2 py-1 text-[11px] font-medium text-action-text"
-                : "m-0 rounded-full border border-border bg-surface-subtle px-2 py-1 text-[11px] font-medium text-text-muted"
-            }
-          >
-            [{String(index + 1).padStart(2, "0")}]{" "}
-            {citation.page_start != null
-              ? `p.${citation.page_start}`
-              : citation.heading_path.at(-1) || citation.source_name}
-          </button>
+            citation={citation}
+            index={index}
+            selected={selectedIndex === index}
+            onSelect={() => onSelect(index)}
+          />
         ))}
       </div>
     );

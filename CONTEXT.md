@@ -278,6 +278,12 @@ revoked capabilities. A fresh sign-in resolves authorization from current valida
   `normalizer_version` and `chunking_config_version` are explicit immutable identities. Unicode,
   whitespace, newline, control-character and line-joining normalization are versioned; changing
   any of them creates new ingestion/chunk derivations and never mutates historical results.
+- New HTTP PDF submissions use the line-preserving layout profile
+  `pdf-parser-pypdf-6-14-2-layout-lines-v2` with Chunking Configuration
+  `chunking-m2-pdf-pypdf-6-14-2-layout-v2`. The worker resolves extraction from the
+  claimed Job's immutable parser configuration. Legacy plain Jobs and historical
+  citations retain their original derivation; source excerpts never reconstruct
+  missing structure. See ADR 0016.
 - PdfTextExtractor runs in an isolated child process with a versioned ingestion budget: raw file
   size, physical page count, per-page and aggregate decompressed content-stream size, inspection/
   extraction timeout and hard RSS/container memory ceiling. The parent can kill an over-budget or

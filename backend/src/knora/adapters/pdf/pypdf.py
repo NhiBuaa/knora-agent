@@ -88,7 +88,19 @@ def _child_extract(
                 return
             _child_send_page(
                 connection,
-                _RawPage(page_number, page.extract_text(extraction_mode="plain") or ""),
+                _RawPage(
+                    page_number,
+                    (
+                        page.extract_text(
+                            extraction_mode="layout",
+                            layout_mode_space_vertically=False,
+                            layout_mode_strip_rotated=False,
+                        )
+                        if configuration.extraction_options_version == "pypdf-layout-lines-v2"
+                        else page.extract_text(extraction_mode="plain")
+                    )
+                    or "",
+                ),
             )
         _child_send(connection, ("ok_end",), wait_for_ack=True)
     except FileNotDecryptedError:

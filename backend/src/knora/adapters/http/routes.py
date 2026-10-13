@@ -226,7 +226,7 @@ async def ingest_document(
                 media_type=media_type,
                 stream=file.file,
                 idempotency_key=idempotency_key,
-                configuration=PdfSubmissionConfiguration.milestone_two(
+                configuration=PdfSubmissionConfiguration.layout_preserving(
                     embedding_configuration=embedding_configuration,
                 ),
             ),

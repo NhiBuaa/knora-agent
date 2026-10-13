@@ -6,6 +6,7 @@ import { CitationViewer } from "@/components/citations/CitationViewer";
 import { routes } from "@/lib/navigation/routes";
 import type { EvidenceSelection } from "@/lib/conversations/panel-preferences";
 import { isVietnameseQuestion } from "@/lib/conversations/question-language";
+import { AnswerContent } from "./AnswerContent";
 export function processingLabel(stage: string | null) {
   switch (stage) {
     case "retrieving":
@@ -82,9 +83,16 @@ export function TurnCard({
           </div>
         )}
         {answer && (
-          <p className="whitespace-pre-wrap break-words text-sm leading-[22px]">
-            {answer}
-          </p>
+          <AnswerContent
+            answer={answer}
+            citations={turn.result?.citations ?? []}
+            selectedIndex={
+              selection?.turnId === turn.id ? selection.citationIndex : null
+            }
+            onSelect={(index) =>
+              onSelect({ turnId: turn.id, citationIndex: index })
+            }
+          />
         )}
         {refused && (
           <>
