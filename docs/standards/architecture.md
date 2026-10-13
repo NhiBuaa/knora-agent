@@ -62,6 +62,11 @@ These rules are normative for Knora unless superseded by an approved Standard or
   Question Trace persistence. Their output must not be used to claim semantic-quality metrics.
 - Milestone 1 does not add provider fallback, multi-provider routing or a more general provider
   abstraction.
+- Cloudflare Workers AI uses the existing independent provider contracts with no fallback.
+  Backend-only account/token settings select fixed native Qwen3 0.6B embedding and GPT-OSS 20B
+  generation. The immutable Cloudflare embedding profile is
+  `embedding-cloudflare-qwen3-06b-v1` at 1024 dimensions, separate from both Ollama's
+  digest-bound 1024-dimensional profile and historical 1536-dimensional profiles.
 - Knora uses `1536` dimensions, PostgreSQL `vector(1536)` and cosine distance. Approved immutable
   Embedding Configurations are `embedding-local-m1-v2` for deterministic-local structural tests
   (`text-embedding-3-small` as a model label), `embedding-openai-m1-v1` for OpenAI-compatible
@@ -76,6 +81,11 @@ These rules are normative for Knora unless superseded by an approved Standard or
   `EMBEDDING_DIMENSION_MISMATCH` before any database write.
 - Embeddings from different Embedding Configurations must never be mixed in ingestion or
   retrieval, even when their dimensions match.
+- Retained-corpus re-indexing must inventory a quiesced operator-owned target, explicitly
+  resolve blockers and any proven terminal no-text PDF exclusions, and activate complete
+  Cloudflare coverage atomically. Obsolete vector-row cleanup requires independent end-to-end
+  acceptance; it preserves original sources, Document Versions, Chunk Sets, Embedding Sets and
+  traces.
 - Changing the embedding model or dimensions creates a new embedding space, requires compatible
   migration/storage and a full re-ingestion of affected Chunks. Environment-only changes are not
   valid migrations.

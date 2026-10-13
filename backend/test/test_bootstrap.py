@@ -1,9 +1,11 @@
+import math
 from decimal import Decimal
 
 import pytest
 
 from knora.bootstrap import build_provider_selection
 from knora.infrastructure.settings import ObjectStoreSettings, Settings
+from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration
@@ -11,6 +13,13 @@ from knora.providers.gemini.embedding import GeminiEmbeddingProvider
 from knora.providers.ollama.generation import OllamaGenerationProvider
 from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddingProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
+
+
+@pytest.fixture(autouse=True)
+def explicit_bootstrap_settings_ignore_suite_provider_pins(monkeypatch) -> None:
+    monkeypatch.delenv("KNORA_EMBEDDING_PROVIDER", raising=False)
+    monkeypatch.delenv("KNORA_GENERATION_PROVIDER", raising=False)
+    monkeypatch.delenv("KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID", raising=False)
 
 
 def compatible_settings(**overrides) -> Settings:
@@ -42,6 +51,78 @@ def test_bootstrap_selects_one_complete_provider_mode() -> None:
     assert compatible.embedding_configuration.provider == "openai-compatible"
     assert compatible.embedding_configuration.model == "text-embedding-3-small"
     assert compatible.embedding_configuration.dimensions == 1536
+
+
+def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token() -> None:
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="0123456789abcdef0123456789abcdef",
+            cloudflare_api_token="secret-canary",
+        )
+    )
+
+    assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+    assert selected.embedding_configuration == EmbeddingConfiguration.cloudflare_qwen3_06b()
+    assert "secret-canary" not in repr(
+        Settings(_env_file=None, cloudflare_api_token="secret-canary")
+    )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"cloudflare_account_id": None},
+        {"cloudflare_account_id": "../other"},
+        {"cloudflare_api_token": None},
+        {"cloudflare_api_token": ""},
+        {"cloudflare_embedding_model": "other"},
+        {"cloudflare_generation_model": "other"},
+        {"cloudflare_embedding_configuration_id": "other"},
+        {"cloudflare_timeout_seconds": 0},
+    ],
+)
+def test_bootstrap_rejects_invalid_cloudflare_settings_without_secret(
+    overrides: dict[str, object],
+) -> None:
+    values = {
+        "_env_file": None,
+        "embedding_provider": "cloudflare-workers-ai",
+        "generation_provider": "cloudflare-workers-ai",
+        "embedding_dimension": 1024,
+        "cloudflare_account_id": "0123456789abcdef0123456789abcdef",
+        "cloudflare_api_token": "secret-canary",
+        **overrides,
+    }
+    with pytest.raises(ValueError, match="invalid provider configuration") as captured:
+        build_provider_selection(Settings(**values))
+    assert "secret-canary" not in str(captured.value)
+
+
+@pytest.mark.parametrize("timeout", [math.nan, math.inf, -math.inf, 0.0, -1.0])
+@pytest.mark.parametrize("cloudflare_role", ["embedding", "generation"])
+def test_bootstrap_requires_finite_positive_cloudflare_timeout(
+    timeout: float, cloudflare_role: str
+) -> None:
+    values = {
+        "_env_file": None,
+        "embedding_provider": (
+            "cloudflare-workers-ai" if cloudflare_role == "embedding" else "deterministic-local"
+        ),
+        "generation_provider": (
+            "cloudflare-workers-ai" if cloudflare_role == "generation" else "deterministic-local"
+        ),
+        "embedding_dimension": 1024 if cloudflare_role == "embedding" else 1536,
+        "cloudflare_account_id": "0123456789abcdef0123456789abcdef",
+        "cloudflare_api_token": "secret-canary",
+        "cloudflare_timeout_seconds": timeout,
+    }
+    with pytest.raises(ValueError, match="timeout must be finite and positive"):
+        build_provider_selection(Settings(**values))
 
 
 def test_bootstrap_selects_embedding_and_generation_independently() -> None:
@@ -210,21 +291,20 @@ def test_legacy_dimension_error_precedes_provider_configuration_errors(
 
 
 @pytest.mark.parametrize(
-    "runtime_settings",
+    "overrides",
     [
-        Settings(_env_file=None, embedding_dimension=1535),
-        Settings(
-            _env_file=None,
-            provider_mode="deterministic-local",
-            openai_embedding_model="gemini-embedding-001",
-        ),
+        {"embedding_dimension": 1535},
+        {
+            "provider_mode": "deterministic-local",
+            "openai_embedding_model": "gemini-embedding-001",
+        },
     ],
 )
 def test_bootstrap_rejects_an_unapproved_embedding_space(
-    runtime_settings: Settings,
+    overrides: dict[str, object],
 ) -> None:
     with pytest.raises(ValueError, match="Milestone 1 embedding configuration"):
-        build_provider_selection(runtime_settings)
+        build_provider_selection(Settings(_env_file=None, **overrides))
 
 
 def test_bootstrap_accepts_a_compatible_embedding_model_with_fixed_dimension() -> None:

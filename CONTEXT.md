@@ -457,6 +457,20 @@ revoked capabilities. A fresh sign-in resolves authorization from current valida
   Gemini API. It uses exactly one text Content per logical Chunk or query,
   `EmbedContentConfig.outputDimensionality = 1536`, validates 1536 returned values, and stores
   provider output without client normalization. Its credential exists only at runtime.
+- A **Cloudflare Workers AI Provider** supplies the daily real-AI pair through backend-only
+  credentials: native `@cf/qwen/qwen3-embedding-0.6b` under immutable
+  `embedding-cloudflare-qwen3-06b-v1` (1024 dimensions), and
+  `@cf/openai/gpt-oss-20b` generation. Its embedding input policy
+  `cloudflare-qwen3-qa-asymmetric-v1` sends NFKC-normalized document text as
+  `documents` and question text as `queries` with a fixed question-answering
+  instruction. Provider/model/profile identity is retained in derivations and traces;
+  source/version/chunk identity and server-owned citation validation remain unchanged.
+- A retained-corpus Cloudflare re-index creates or reuses a complete Embedding Set for
+  each eligible current Chunk Set, then atomically switches active pointers for the
+  selected quiesced population. Only a reviewed terminal no-text PDF with its
+  original source retained may be explicitly excluded. Old source history and
+  derivation metadata remain; obsolete vector rows are removed only in a separate
+  operator-confirmed cleanup after end-to-end acceptance.
 
 ### System relationships
 
