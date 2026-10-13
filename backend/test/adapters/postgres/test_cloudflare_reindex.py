@@ -15,11 +15,14 @@ from knora.adapters.postgres.reembedding_store import PostgresCloudflareReindexS
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
     ChunkSetTable,
+    ChunkTable,
     DocumentTable,
     DocumentVersionTable,
+    EmbeddingConfigurationTable,
     EmbeddingSetTable,
     IngestionJobTable,
     OriginalSourceObjectTable,
+    QuestionTraceTable,
     WorkspaceTable,
 )
 from knora.domain.access import WorkspacePrincipal
@@ -353,11 +356,47 @@ def test_invalid_batch_and_revision_drift_keep_old_active_vectors() -> None:
 
 def test_cleanup_requires_confirmation_and_preserves_metadata() -> None:
     workspace_id = _workspace()
+    other_workspace_id = _workspace()
     document_id = _ingest(workspace_id, "policy")
+    other_document_id = _ingest(other_workspace_id, "foreign-policy")
     store = PostgresCloudflareReindexStore(SessionFactory)
     inventory = store.inventory(workspace_ids=(workspace_id,))
     document = inventory.eligible[0]
     old_set_id = document.active_embedding_set_id
+    source_id, trace_id = str(uuid4()), str(uuid4())
+    with SessionFactory.begin() as session:
+        session.add(
+            OriginalSourceObjectTable(
+                id=source_id,
+                workspace_id=workspace_id,
+                document_version_id=document.version_id,
+                object_key=f"test/{source_id}",
+                raw_sha256="c" * 64,
+                byte_size=1,
+                media_type="application/pdf",
+            )
+        )
+        session.add(
+            QuestionTraceTable(
+                id=trace_id,
+                workspace_id=workspace_id,
+                question="retained provenance",
+                embedding_configuration_id=document.active_embedding_configuration_id,
+                embedding_set_ids=[old_set_id],
+                chunk_set_ids=[document.chunk_set_id],
+                retrieved_chunk_ids=[chunk.chunk_id for chunk in document.chunks],
+                candidate_decisions=[],
+                branch_observations=[],
+                decision="ANSWER",
+                answer="retained provenance",
+                refused=False,
+                generation_status="completed",
+                alias_mapping={"E1": document.chunks[0].chunk_id},
+                parsed_markers=["E1"],
+                validation_outcome="valid",
+                provider_metadata={},
+            )
+        )
     staged = {document_id: store.stage(document, CONFIG, _batch(document))}
     with pytest.raises(KnoraError):
         store.cleanup(inventory, CONFIG, e2e_confirmed=False)
@@ -365,11 +404,68 @@ def test_cleanup_requires_confirmation_and_preserves_metadata() -> None:
         store.cleanup(inventory, CONFIG, e2e_confirmed=True)
     store.activate(inventory, staged, CONFIG)
     active = store.inventory(workspace_ids=(workspace_id,))
-    assert store.cleanup(active, CONFIG, e2e_confirmed=True) > 0
+
+    def snapshot():
+        with SessionFactory() as session:
+            metadata = {}
+            for table, ids in (
+                (DocumentTable, (document_id, other_document_id)),
+                (DocumentVersionTable, (document.version_id,)),
+                (OriginalSourceObjectTable, (source_id,)),
+                (ChunkSetTable, (document.chunk_set_id,)),
+                (ChunkTable, tuple(chunk.chunk_id for chunk in document.chunks)),
+                (EmbeddingSetTable, (old_set_id, staged[document_id])),
+                (
+                    EmbeddingConfigurationTable,
+                    (document.active_embedding_configuration_id, CONFIG.id),
+                ),
+                (QuestionTraceTable, (trace_id,)),
+            ):
+                metadata[table.__tablename__] = tuple(
+                    (
+                        row_id,
+                        tuple(
+                            getattr(session.get(table, row_id), column.name)
+                            for column in table.__table__.columns
+                        ),
+                    )
+                    for row_id in ids
+                )
+            vector_rows = session.scalars(
+                select(ChunkEmbeddingTable)
+                .where(
+                    ChunkEmbeddingTable.embedding_set_id.in_(
+                        (
+                            old_set_id,
+                            staged[document_id],
+                            session.get(DocumentTable, other_document_id).active_embedding_set_id,
+                        )
+                    )
+                )
+                .order_by(ChunkEmbeddingTable.id)
+            ).all()
+            vectors = tuple(
+                (row.id, row.embedding_set_id, row.chunk_id, tuple(row.embedding))
+                for row in vector_rows
+            )
+            return metadata, vectors
+
+    before_metadata, before_vectors = snapshot()
     with SessionFactory() as session:
-        assert session.get(EmbeddingSetTable, old_set_id) is not None
-        assert session.get(ChunkSetTable, document.chunk_set_id) is not None
-        assert session.get(DocumentVersionTable, document.version_id) is not None
+        foreign_set_id = session.get(DocumentTable, other_document_id).active_embedding_set_id
+    selected_old_vectors = tuple(row for row in before_vectors if row[1] == old_set_id)
+    assert selected_old_vectors
+    assert store.cleanup(active, CONFIG, e2e_confirmed=True) == len(selected_old_vectors)
+    assert (
+        store.cleanup(store.inventory(workspace_ids=(workspace_id,)), CONFIG, e2e_confirmed=True)
+        == 0
+    )
+    after_metadata, after_vectors = snapshot()
+    assert after_metadata == before_metadata
+    assert after_vectors == tuple(row for row in before_vectors if row[1] != old_set_id)
+    assert any(row[1] == foreign_set_id for row in after_vectors)
+    assert any(row[1] == staged[document_id] for row in after_vectors)
+    with SessionFactory() as session:
         assert (
             session.scalar(
                 select(func.count())
@@ -481,3 +577,63 @@ def test_provider_failure_stages_only_and_rerun_reuses_completed_set() -> None:
     provider.calls = -1
     script["apply"](store, store.inventory(workspace_ids=(workspace_id,)), provider, CONFIG)
     assert provider.calls == 0
+
+
+def test_apply_rejects_corrupt_inactive_completed_set_before_provider_or_activation() -> None:
+    workspace_id = _workspace()
+    _ingest(workspace_id, "first", content="# Policy\n\nFirst.\n\nSecond.")
+    _ingest(workspace_id, "second", content="# Policy\n\nThird.\n\nFourth.")
+    store = PostgresCloudflareReindexStore(SessionFactory)
+    inventory = store.inventory(workspace_ids=(workspace_id,))
+    first = inventory.eligible[0]
+    assert len(first.chunks) == 2
+    staged_id = store.stage(first, CONFIG, _batch(first))
+    with SessionFactory.begin() as session:
+        incomplete = session.scalar(
+            select(ChunkEmbeddingTable).where(ChunkEmbeddingTable.embedding_set_id == staged_id)
+        )
+        session.delete(incomplete)
+    with SessionFactory() as session:
+        before_documents = {
+            document.document_id: (
+                session.get(DocumentTable, document.document_id).active_embedding_set_id,
+                session.get(DocumentTable, document.document_id).revision,
+            )
+            for document in inventory.eligible
+        }
+        old_set_ids = [pointer for pointer, _ in before_documents.values()]
+        before_old_vectors = tuple(
+            (row.id, row.embedding_set_id, row.chunk_id, tuple(row.embedding))
+            for row in session.scalars(
+                select(ChunkEmbeddingTable)
+                .where(ChunkEmbeddingTable.embedding_set_id.in_(old_set_ids))
+                .order_by(ChunkEmbeddingTable.id)
+            )
+        )
+
+    class NoProviderCalls:
+        def embed_documents(self, texts, configuration):
+            pytest.fail("corrupt completed set must fail before provider call")
+
+    with pytest.raises(KnoraError) as failure:
+        runpy.run_path(str(SCRIPT))["apply"](store, inventory, NoProviderCalls(), CONFIG)
+    assert failure.value.code == "REINDEX_VECTOR_COVERAGE_INCOMPLETE"
+    with SessionFactory() as session:
+        assert {
+            document.document_id: (
+                session.get(DocumentTable, document.document_id).active_embedding_set_id,
+                session.get(DocumentTable, document.document_id).revision,
+            )
+            for document in inventory.eligible
+        } == before_documents
+        assert (
+            tuple(
+                (row.id, row.embedding_set_id, row.chunk_id, tuple(row.embedding))
+                for row in session.scalars(
+                    select(ChunkEmbeddingTable)
+                    .where(ChunkEmbeddingTable.embedding_set_id.in_(old_set_ids))
+                    .order_by(ChunkEmbeddingTable.id)
+                )
+            )
+            == before_old_vectors
+        )
