@@ -65,6 +65,9 @@ it("renders answer headings, paragraphs and lists with inline citations selectin
   expect(container.querySelector("strong")).toHaveTextContent("Introduction");
   expect(screen.getByText("A second paragraph.").tagName).toBe("P");
   expect(container.textContent).not.toContain("[[E");
+  expect(
+    screen.getAllByRole("button", { name: /Citation [12]: Guide/ }),
+  ).toHaveLength(2);
   fireEvent.click(
     within(list as HTMLElement).getByRole("button", {
       name: "Citation 1: Guide 0",
@@ -171,10 +174,29 @@ it.each([
     );
     expect(
       screen.getAllByRole("button", { name: "Citation 2: Guide 1" }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   },
 );
+
+it("retains citation selection for a historical answer without inline markers", () => {
+  const onSelect = vi.fn();
+  render(
+    <TurnCard
+      turn={{
+        ...turn,
+        result: { ...turn.result!, answer: "A historical answer." },
+      }}
+      workspaceId="workspace"
+      selection={null}
+      onSelect={onSelect}
+      onSuggest={vi.fn()}
+      onRetry={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Citation 2: Guide 1" }));
+  expect(onSelect).toHaveBeenCalledWith({ turnId: "turn", citationIndex: 1 });
+});
 
 it.each(["&#91;&#91;E99&#93;&#93; [[E1]]", "&#xE000;99&#xE001; [[E1]]"])(
   "surfaces unvalidated decoded text without fabricating a citation: %s",

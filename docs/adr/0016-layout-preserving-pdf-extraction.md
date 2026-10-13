@@ -31,9 +31,12 @@ preserved newlines. It never inserts list breaks or interprets source Markdown.
 Chat renders Markdown and resolves Evidence Alias markers to the existing citation
 selection. Missing/malformed/duplicate marker projections remain visible contract
 errors; server generation validation remains authoritative.
+Answers with inline markers use those chips once; markerless historical answers
+retain the existing citation row as a selection fallback.
 
 The Cloudflare generation prompt moves to
-`cloudflare-gpt-oss-cited-answer-v3` to request Markdown paragraphs/headings/lists
+`cloudflare-gpt-oss-cited-answer-v4` to request Markdown paragraphs/headings/lists
+and prose in the current question's language, preserving quoted source titles/terms,
 without changing grounding, citation mapping or refusal rules. The renderer adds
 no executable HTML, images or external links. Complex PDF layout fidelity and
 generation quality are not acceptance claims of this change.
