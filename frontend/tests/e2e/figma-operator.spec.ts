@@ -341,7 +341,7 @@ test.describe("isolated Figma Operator journeys", () => {
       await operator.goto(
         `/operator/traces/missing-trace?workspaceId=${foreign.id}`,
       );
-      await expect(operator.getByRole("alert")).toHaveText(
+      await expect(operator.getByRole("main").getByRole("alert")).toHaveText(
         "You are not authorized to inspect this trace.",
       );
       await expect(

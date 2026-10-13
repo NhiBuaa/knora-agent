@@ -1,6 +1,7 @@
 """Release evidence must be complete and bound to one tested commit."""
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,232 @@ from runtime_evidence import create_evidence, validate_release  # noqa: E402
 
 SHA = "a" * 40
 WORKFLOW_SHA = "b" * 40
+
+
+@pytest.mark.parametrize("profile", ["application", "otp"])
+def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
+    tmp_path: Path, profile: str
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(root / "scripts/run-runtime-verification.ps1", scripts)
+    (scripts / "prepare-figma-e2e.ps1").write_text(
+        """'KEYCLOAK_ROLLBACK_SNAPSHOT=owned-snapshot.json'
+& python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
+throw 'FIGMA_START_FAILED'
+""",
+        encoding="utf-8",
+    )
+    (scripts / "configure-keycloak-auth-flow.ps1").write_text(
+        "param($Mode,$BaseUrl,$Project,$AdminUsername,$AdminPassword,$SnapshotPath)\n"
+        'Write-Host "ROLLBACK=$Mode/$SnapshotPath"\n',
+        encoding="utf-8",
+    )
+    harness = tmp_path / "failure.ps1"
+    harness.write_text(
+        """param($Script,$Profile)
+function global:git { $global:LASTEXITCODE = 0; 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }
+function global:docker { $global:LASTEXITCODE = 0 }
+& $Script -SubjectSha ('a' * 40) -WorkflowSha ('b' * 40) -Profile $Profile -RunId 'test'
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(scripts / "run-runtime-verification.ps1"),
+            profile,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "FIGMA_START_FAILED" in output
+    assert "COMPOSE_START_DIAGNOSTIC" in output
+    assert "ROLLBACK=Rollback/owned-snapshot.json" in output
+    assert not (tmp_path / f".verification/runtime/{profile}/evidence.json").exists()
+
+
+@pytest.mark.parametrize(
+    "names", [["first", "second"], ["first"], ["first", "first"], ["first", "other"]]
+)
+def test_runtime_storage_report_requires_every_selected_case(
+    tmp_path: Path, names: list[str]
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    report = tmp_path / "storage.xml"
+    report.write_text(
+        "<testsuite>" + "".join(f'<testcase name="{name}"/>' for name in names) + "</testsuite>"
+    )
+    harness = tmp_path / "cases.ps1"
+    harness.write_text(
+        r"""param($Source,$Report)
+$ErrorActionPreference = 'Stop'
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Source,[ref]$null,[ref]$null)
+$function = $ast.Find({param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq 'Assert-StorageCases'
+},$true)
+Invoke-Expression $function.Extent.Text
+Assert-StorageCases $Report @('first','second')
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(root / "scripts/run-runtime-verification.ps1"),
+            str(report),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if names == ["first", "second"]:
+        assert result.returncode == 0, result.stdout + result.stderr
+    else:
+        assert result.returncode != 0
+        assert "RUNTIME_STORAGE_CASES_MISMATCH" in result.stderr
+
+
+def test_runtime_storage_selection_names_existing_java_cases() -> None:
+    root = Path(__file__).resolve().parents[3]
+    runner = (root / "scripts/run-runtime-verification.ps1").read_text()
+    java = (
+        root
+        / "infra/keycloak/providers/email-otp-reset/src/test/java/com/knora/keycloak/reset"
+        / "OtpChallengeConcurrencyIT.java"
+    ).read_text()
+    selected = set(re.findall(r"(?:probe|relational|independentJpa)[A-Z]\w+", runner))
+    declared = set(re.findall(r"\bvoid\s+(\w+)\s*\(", java))
+    assert len(selected) == 8
+    assert selected <= declared, selected - declared
+
+
+@pytest.mark.parametrize("ready_after", [3, 0])
+def test_runtime_cleanup_waits_for_native_issuer(tmp_path: Path, ready_after: int) -> None:
+    root = Path(__file__).resolve().parents[3]
+    (tmp_path / "otp-binding.json").write_text("{}")
+    (tmp_path / "configure-keycloak-email-otp.ps1").write_text(
+        "param($Mode,[switch]$EnableIsolatedOtp,$AdminUsername,$AdminPassword,$SnapshotPath)\n"
+        "if (-not $global:ready) { throw 'RESTORE_BEFORE_READY' }\n"
+        "$global:restored = $true\n",
+        encoding="utf-8",
+    )
+    harness = tmp_path / "cleanup.ps1"
+    harness.write_text(
+        r"""param($Source,[int]$ReadyAfter)
+$ErrorActionPreference = 'Stop'
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Source,[ref]$null,[ref]$null)
+$cleanup = $ast.Find({param($node)
+    $node -is [System.Management.Automation.Language.TryStatementAst] -and
+    $node.Finally -and $node.Finally.Extent.Text.Contains('$cleanupFailed = $false')
+},$true).Finally
+$Profile='otp'; $profileDir=$PSScriptRoot; $VaultPath=$PSScriptRoot
+$AdminUsername='test'; $AdminPassword='test'; $runtimePreparation=@(); $compose=@()
+$snapshots=@(); $ownedVault=$null; $global:ready=$false; $global:restored=$false
+$global:probeCalls=0
+function Invoke-Checked {
+    param($File,$Arguments)
+    if (($File -eq 'sudo' -or $File -like '*prepare-figma-otp-runtime.ps1') -and
+        -not $global:ready) { throw 'OTP_ADMIN_AUTHENTICATION_FAILED' }
+}
+function Invoke-RestMethod {
+    $global:probeCalls++
+    if ($ReadyAfter -gt 0 -and $global:probeCalls -ge $ReadyAfter) {
+        $global:ready=$true
+        return @{ issuer='http://127.0.0.1:8380/realms/knora-dev' }
+    }
+    throw 'not ready'
+}
+function Start-Sleep { }
+$cleanupPath = Join-Path $PSScriptRoot 'cleanup-body.ps1'
+$body = $cleanup.Extent.Text
+$body.Substring(1,$body.Length-2) | Set-Content $cleanupPath
+try { & $cleanupPath }
+catch {
+    if ($ReadyAfter -eq 0 -and $global:probeCalls -eq 60 -and
+        $_.Exception.Message -eq 'RUNTIME_CLEANUP_FAILED' -and -not $global:restored) { exit 0 }
+    throw
+}
+if ($ReadyAfter -eq 0 -or -not $global:restored -or $global:probeCalls -lt 3) {
+    throw 'cleanup did not wait for readiness'
+}
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(root / "scripts/run-runtime-verification.ps1"),
+            str(ready_after),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_runtime_otp_action_outlives_the_resend_cooldown() -> None:
+    root = Path(__file__).resolve().parents[3]
+    realm = json.loads((root / "test/fixtures/keycloak/figma-realm.json").read_text())
+    # Keycloak resets recovery when the user action expires; OTP resend waits 300 seconds.
+    assert realm.get("accessCodeLifespanUserAction", 300) > 300
+
+
+def test_runtime_powershell_arguments_bind_by_name(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    target = tmp_path / "target.ps1"
+    target.write_text(
+        "param([ValidateSet('Prepare')][string]$Mode,[switch]$EnableIsolatedOtp,[string]$SnapshotPath)\n"
+        "if ($Mode -ne 'Prepare' -or -not $EnableIsolatedOtp -or "
+        "$SnapshotPath -ne 'owned path.json') { throw 'binding failed' }\n"
+        "'script stdout' | Out-Host\n$global:LASTEXITCODE = 0\n",
+        encoding="utf-8",
+    )
+    harness = tmp_path / "named.ps1"
+    harness.write_text(
+        """param($Source,$Target)
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Source,[ref]$null,[ref]$null)
+$function = $ast.Find({param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq 'Invoke-Checked-Named'
+},$true)
+Invoke-Expression $function.Extent.Text
+$result = @(Invoke-Checked-Named $Target @{
+    Mode='Prepare'; EnableIsolatedOtp=$true; SnapshotPath='owned path.json'
+})
+if ($result.Count -ne 0) { throw 'stdout returned as data' }
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(root / "scripts/run-runtime-verification.ps1"),
+            str(target),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_runtime_command_output_does_not_replace_report_path(tmp_path: Path) -> None:

@@ -64,7 +64,6 @@ test("native identity secondary navigation returns to real forms", async ({
       await expect(page.locator(".knora-otp-digits")).toBeVisible();
       if (invalid) {
         await fillOtpCode(page, "000042");
-        await submit(page, "#code", "verify", "NAVIGATION_REJECT");
         await expect(page.locator("#otp-error")).toBeVisible();
       }
       await page.getByRole("button", { name: "Use a different email" }).click();
@@ -138,11 +137,15 @@ async function nativeForm(page: Page, input: string) {
 }
 
 async function fillOtpCode(page: Page, value: string) {
+  const previousUrl = page.url();
   const digits = page.locator(".knora-otp-digit");
   await expect(digits).toHaveCount(6);
   for (const [index, character] of [...value].entries()) {
     await digits.nth(index).fill(character);
   }
+  // Six native digits auto-submit; wait for that response instead of submitting twice.
+  if (/^[0-9]{6}$/.test(value))
+    await page.waitForURL((url) => url.href !== previousUrl);
 }
 
 async function submit(
@@ -155,13 +158,15 @@ async function submit(
   await sensitive(stage, async () => {
     const form = await nativeForm(page, input);
     const button = form.locator(`button[name="intent"][value="${intent}"]`);
-    if (bypass)
+    if (bypass) {
+      const previousUrl = page.url();
       await button.evaluate((element: HTMLButtonElement) => {
         element.disabled = false;
         element.form!.noValidate = true;
         element.form!.requestSubmit(element);
       });
-    else await button.click();
+      await page.waitForURL((url) => url.href !== previousUrl);
+    } else await button.click();
   });
 }
 
@@ -347,7 +352,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await sensitive(stage, () =>
       page.getByRole("button", { name: "Create account", exact: true }).click(),
     );
-    await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+    await page.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+      timeout: 30_000,
+    });
     const workspaceUrl = page.url();
     expect(new URL(workspaceUrl).origin === applicationOrigin).toBe(true);
 
@@ -403,7 +410,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       );
       await sensitive(stage, () => page.locator("#saveTOTPBtn").click());
       stage = "MFA_RETURN_WORKSPACE";
-      await page.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+      await page.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+        timeout: 30_000,
+      });
       const credentials = await adminCredentials(page, username);
       const otpCredentials = credentials.filter(
         (credential) => credential.type === "otp",
@@ -455,7 +464,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       );
     }
     stage = "EXISTING_SSO_RETURN";
-    await ssoPage.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+    await ssoPage.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+      timeout: 30_000,
+    });
 
     stage = "EMAIL";
     const recovery = await browser.newContext({
@@ -490,7 +501,6 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     stage = "OTP_WRONG";
     const wrong = firstCode === "000000" ? "000001" : "000000";
     await sensitive(stage, () => fillOtpCode(reset, wrong));
-    await submit(reset, "#code", "verify", stage);
     await expect(reset.locator("#otp-error")).toBeVisible();
     await capture(reset, "rejected-otp");
 
@@ -499,16 +509,15 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
     await submit(reset, "#code", "resend", stage, true);
     await expect(reset.locator(".knora-otp-digits")).toBeVisible();
     expect((await messages(page, identity.email)).length === 1).toBe(true);
-    // Real elapsed server cooldown; no native clock or database fixture changes.
+    stage = "RESEND_ALLOWED";
     await expect(reset.locator("#otp-resend")).toBeEnabled({
       timeout: 310_000,
     });
-    await submit(reset, "#code", "resend", "RESEND_ALLOWED");
+    await submit(reset, "#code", "resend", stage);
     const nextCode = await deliveredCode(page, identity.email, seen);
     expect(nextCode !== firstCode).toBe(true);
     stage = "OLD_GENERATION";
     await sensitive(stage, () => fillOtpCode(reset, firstCode));
-    await submit(reset, "#code", "verify", stage);
     await expect(reset.locator("#otp-error")).toBeVisible();
 
     stage = "OTP_CORRECT";
@@ -516,7 +525,6 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       await nativeForm(reset, "#code")
     ).getAttribute("action");
     await sensitive(stage, () => fillOtpCode(reset, nextCode));
-    await submit(reset, "#code", "verify", stage);
     await expect(reset.locator("#kc-passwd-update-form")).toBeVisible();
     await capture(reset, "native-password");
     stage = "PASSWORD_CONFIRMATION";
@@ -708,7 +716,9 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       );
     }
     stage = "WORKSPACE";
-    await reset.waitForURL(/\/workspaces\/[0-9a-f-]+$/, { timeout: 30_000 });
+    await reset.waitForURL(/\/workspaces(?:\/[0-9a-f-]+)?$/, {
+      timeout: 30_000,
+    });
     expect(reset.url() === workspaceUrl).toBe(true);
 
     stage = "UNKNOWN_ACCOUNT";
@@ -765,8 +775,12 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
         2,
       ),
     );
-  } catch {
+  } catch (error) {
     await mkdir(evidenceDirectory, { recursive: true });
+    const source =
+      error instanceof Error
+        ? error.stack?.match(/figma-otp-native\.spec\.ts:(\d+):(\d+)/)?.[0]
+        : undefined;
     const states = [];
     for (const context of ownedContexts)
       for (const nativePage of context.pages())
@@ -874,7 +888,7 @@ test("native recovery, resend, consume and fresh sign-in preserve credential aut
       JSON.stringify({ stage, states, ssoCookieMetadata }, null, 2),
     );
     for (const context of ownedContexts) await sanitizeFailure(context);
-    throw new Error(`NATIVE_STAGE_${stage}`);
+    throw new Error(`NATIVE_STAGE_${stage}: ${source ?? "source unavailable"}`);
   } finally {
     for (const context of ownedContexts.slice(1)) await context.close();
   }

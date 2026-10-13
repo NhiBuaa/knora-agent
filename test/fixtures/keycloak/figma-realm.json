@@ -1,6 +1,7 @@
 {
   "realm": "knora-dev",
   "enabled": true,
+  "accessCodeLifespanUserAction": 900,
   "displayName": "Knora Local Development",
   "loginTheme": "knora",
   "registrationAllowed": true,

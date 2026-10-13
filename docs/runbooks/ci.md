@@ -61,6 +61,13 @@ their own fresh processing/controller evidence exists. The `otp` profile runs th
 journey and eight essential two-node storage cases. Crash, outage, activation and commit-reply
 fault cases are separate acceptance scopes and are never silently counted as the base OTP pass.
 
+The synthetic realm uses a 900-second user action lifespan so the real 300-second OTP resend
+cooldown can finish inside the native reset transaction. OTP expiry and attempt/send limits remain
+unchanged. Before enabling OTP on a deployed realm, verify that its user action lifespan exceeds
+the resend cooldown; this profile does not configure a deployed realm. Keycloak checks reset
+credentials against the user action lifespan
+([Keycloak 26.3.3 source](https://github.com/keycloak/keycloak/blob/26.3.3/services/src/main/java/org/keycloak/services/resources/LoginActionsService.java#L473-L475)).
+
 The OTP preparation uses the existing guarded vault and proof launchers. On Linux, the temporary
 vault is owned by the Keycloak container UID (`1000:0`) with directory mode `0700` and file mode
 `0600`; symlink/reparse paths and broader permissions fail closed. The proof secret exists only
