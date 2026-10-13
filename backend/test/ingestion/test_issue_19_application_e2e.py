@@ -20,7 +20,6 @@ from knora.adapters.postgres.tables import DocumentVersionTable, IngestionJobTab
 from knora.ingestion.job_processing import (
     AttemptTimingV1,
     PdfDerivationHandler,
-    PdfDerivationProfile,
     ProcessIngestionJob,
     RetryPolicyV1,
     SystemRandomSource,
@@ -80,9 +79,7 @@ def test_public_upload_worker_poll_and_citation_use_one_job_flow(tmp_path: Path)
             object_store=object_store,
             extractor=PypdfTextExtractor(),
             embedding_provider=DeterministicEmbeddingProvider(),
-            profile=PdfDerivationProfile.milestone_two(
-                embedding_configuration=embedding_configuration
-            ),
+            profile_resolver=store.pdf_profile_for_work,
         ),
         operation_ids=UuidOperationIds(),
         timing=AttemptTimingV1.standard(),

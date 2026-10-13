@@ -130,7 +130,11 @@ class PostgresIngestionJobCoordinationStore:
                 parser_configuration_id=work.parser_configuration_id,
                 normalizer_configuration_id=work.normalizer_configuration_id,
                 chunking_configuration_id=work.chunking_configuration_id,
-                extraction_configuration=PdfExtractionConfiguration.milestone_two(),
+                extraction_configuration=(
+                    PdfExtractionConfiguration.layout_preserving()
+                    if work.parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2"
+                    else PdfExtractionConfiguration.milestone_two()
+                ),
                 embedding_configuration=configuration_from_row(embedding),
             )
 

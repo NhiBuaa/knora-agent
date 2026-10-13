@@ -146,12 +146,12 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
                 object_store=object_store,
                 extractor=PypdfTextExtractor(),
                 embedding_provider=embedding,
-                profile=PdfDerivationProfile.milestone_two(
-                    embedding_configuration=(
-                        EmbeddingConfiguration.milestone_one_local()
-                        if getattr(request, "param", False)
-                        else PROFILE
+                profile_resolver=lambda work: (
+                    PdfDerivationProfile.milestone_two(
+                        embedding_configuration=EmbeddingConfiguration.milestone_one_local()
                     )
+                    if getattr(request, "param", False)
+                    else store.pdf_profile_for_work(work)
                 ),
                 runtime_embedding_configuration=PROFILE,
             ),
