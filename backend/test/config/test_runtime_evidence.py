@@ -65,6 +65,48 @@ function global:docker { $global:LASTEXITCODE = 0 }
     assert not (tmp_path / f".verification/runtime/{profile}/evidence.json").exists()
 
 
+def test_runtime_powershell_arguments_bind_by_name(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[3]
+    target = tmp_path / "target.ps1"
+    target.write_text(
+        "param([ValidateSet('Prepare')][string]$Mode,[switch]$EnableIsolatedOtp,[string]$SnapshotPath)\n"
+        "if ($Mode -ne 'Prepare' -or -not $EnableIsolatedOtp -or "
+        "$SnapshotPath -ne 'owned path.json') { throw 'binding failed' }\n"
+        "'script stdout' | Out-Host\n$global:LASTEXITCODE = 0\n",
+        encoding="utf-8",
+    )
+    harness = tmp_path / "named.ps1"
+    harness.write_text(
+        """param($Source,$Target)
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Source,[ref]$null,[ref]$null)
+$function = $ast.Find({param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $node.Name -eq 'Invoke-Checked-Named'
+},$true)
+Invoke-Expression $function.Extent.Text
+$result = @(Invoke-Checked-Named $Target @{
+    Mode='Prepare'; EnableIsolatedOtp=$true; SnapshotPath='owned path.json'
+})
+if ($result.Count -ne 0) { throw 'stdout returned as data' }
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            shutil.which("pwsh") or "pwsh",
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(root / "scripts/run-runtime-verification.ps1"),
+            str(target),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_runtime_command_output_does_not_replace_report_path(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[3]
     harness = tmp_path / "output.ps1"
