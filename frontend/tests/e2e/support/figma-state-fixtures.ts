@@ -423,7 +423,8 @@ export function fixtureResponse(
       typeof requestBody !== "object" ||
       requestBody === null ||
       !("question" in requestBody) ||
-      requestBody.question !== "Summarize this workspace"
+      requestBody.question !==
+        "How many chapters does Teacher Manh – Guidelines 2024.pdf suggest?"
     )
       throw new Error("Unrecognized fixture request");
     return { ...turnForState(state), question: requestBody.question };

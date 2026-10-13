@@ -162,12 +162,14 @@ describe("smoke feedback", () => {
     expect(push).toHaveBeenCalledWith("/workspaces/w/conversations");
     confirm.mockRestore();
   });
-  it("uses Vietnamese follow-up suggestions and submits when clicked", async () => {
+  it("submits a specific Vietnamese follow-up unchanged in the current conversation", async () => {
+    const question =
+      "Theo Guide, báo cáo dự án phần mềm được gợi ý trình bày bao nhiêu chương?";
     const turn = {
       id: "t",
       conversation_id: "c",
       sequence: 1,
-      question: "Báo cáo có bao nhiêu chương?",
+      question: "Báo cáo dự án phần mềm được gợi ý trình bày bao nhiêu chương?",
       status: "answered",
       stage: null,
       error_code: null,
@@ -176,6 +178,8 @@ describe("smoke feedback", () => {
         answer: "Bảy chương.",
         citations: [],
         refusal_reason: null,
+        trace_id: "trace",
+        workspace_id: "w",
       },
     };
     const fetchMock = vi.fn(
@@ -183,21 +187,39 @@ describe("smoke feedback", () => {
         new Response(
           JSON.stringify(
             i?.method === "POST"
-              ? { ...turn, id: "t2", sequence: 2 }
+              ? { ...turn, id: "t2", sequence: 2, question }
               : { items: [turn], next_cursor: null },
           ),
         ),
     );
     vi.stubGlobal("fetch", fetchMock);
     render(<ConversationView workspaceId="w" conversation={conversation} />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Tìm bằng chứng hỗ trợ" }),
-    );
+    await screen.findByRole("listitem", { name: "Question 1" });
+    expect(
+      screen.queryAllByRole("button", {
+        name: /Tìm bằng chứng hỗ trợ|So sánh các tài liệu/,
+      }),
+    ).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: question },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([, i]) => i?.method === "POST")).toBe(
         true,
       ),
     );
+    const posts = fetchMock.mock.calls.filter(
+      ([, init]) => init?.method === "POST",
+    );
+    expect(posts).toHaveLength(1);
+    expect(posts[0][0]).toBe("/api/v1/workspaces/w/conversations/c/turns");
+    expect(JSON.parse(posts[0][1]!.body as string)).toEqual({ question });
+    expect(
+      within(
+        await screen.findByRole("listitem", { name: "Question 2" }),
+      ).getByText(question),
+    ).toBeVisible();
   });
   it("retains one conversation creation key after a lost response", async () => {
     const keys: (string | null)[] = [];
