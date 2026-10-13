@@ -16,7 +16,6 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -37,6 +36,7 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
     private final Function<KeycloakSession, OtpChallengeStore> stores;
     private final OtpChallengeService.CodeGenerator codes;
     private final Clock clock;
+    private final Function<String, String> environment;
 
     public EmailOtpResetAuthenticator() {
         this(
@@ -49,9 +49,18 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
             Function<KeycloakSession, OtpChallengeStore> stores,
             OtpChallengeService.CodeGenerator codes,
             Clock clock) {
+        this(stores, codes, clock, System::getenv);
+    }
+
+    EmailOtpResetAuthenticator(
+            Function<KeycloakSession, OtpChallengeStore> stores,
+            OtpChallengeService.CodeGenerator codes,
+            Clock clock,
+            Function<String, String> environment) {
         this.stores = stores;
         this.codes = codes;
         this.clock = clock;
+        this.environment = environment;
     }
 
     @Override
@@ -225,29 +234,41 @@ public final class EmailOtpResetAuthenticator implements Authenticator {
                 digest.email(realm, email));
     }
 
-    private static RequestDigest digest(KeycloakSession session, String realm) {
+    private RequestDigest digest(KeycloakSession session, String realm) {
         try {
-            String entry =
-                    "knora-email-otp-hmac-"
-                            + HexFormat.of()
-                                    .formatHex(
-                                            MessageDigest.getInstance("SHA-256")
-                                                    .digest(
-                                                            realm.getBytes(
-                                                                    StandardCharsets.UTF_8)));
-            try (var secret = session.vault().getStringSecret("${vault." + entry + "}")) {
-                String encoded =
-                        secret.get()
-                                .orElseThrow(
-                                        () -> new IllegalStateException("Recovery key missing"));
-                if (encoded.length() > 4096)
-                    throw new IllegalStateException("Recovery key malformed");
-                byte[] bytes = Base64.getDecoder().decode(encoded.strip());
-                try {
-                    return new RequestDigest(bytes);
-                } finally {
-                    Arrays.fill(bytes, (byte) 0);
+            var values = new HashMap<String, String>();
+            String mode = environment.apply(OtpHmacKeySource.LOCAL_DEV_ENABLED);
+            if (mode != null) values.put(OtpHmacKeySource.LOCAL_DEV_ENABLED, mode);
+            byte[] bytes;
+            if (OtpHmacKeySource.localDevelopmentEnabled(values)) {
+                String key = environment.apply(OtpHmacKeySource.ENVIRONMENT_KEY);
+                if (key != null) values.put(OtpHmacKeySource.ENVIRONMENT_KEY, key);
+                bytes = OtpHmacKeySource.resolve(values, () -> null);
+            } else {
+                String entry =
+                        "knora-email-otp-hmac-"
+                                + HexFormat.of()
+                                        .formatHex(
+                                                MessageDigest.getInstance("SHA-256")
+                                                        .digest(
+                                                                realm.getBytes(
+                                                                        StandardCharsets.UTF_8)));
+                try (var secret = session.vault().getStringSecret("${vault." + entry + "}")) {
+                    bytes =
+                            OtpHmacKeySource.resolve(
+                                    values,
+                                    () ->
+                                            secret.get()
+                                                    .orElseThrow(
+                                                            () ->
+                                                                    new IllegalStateException(
+                                                                            "Recovery key missing")));
                 }
+            }
+            try {
+                return new RequestDigest(bytes);
+            } finally {
+                Arrays.fill(bytes, (byte) 0);
             }
         } catch (java.security.GeneralSecurityException failed) {
             throw new IllegalStateException("Recovery digest unavailable");

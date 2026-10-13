@@ -7,4 +7,5 @@ RUN mvn -B -ntp -Dmaven.test.skip=true package
 FROM quay.io/keycloak/keycloak:26.3.3
 COPY --from=provider /build/target/email-otp-reset-0.1.0-SNAPSHOT.jar /opt/keycloak/providers/email-otp-reset.jar
 COPY themes/knora /opt/keycloak/themes/knora
-RUN /opt/keycloak/bin/kc.sh build --db=postgres --vault=file
+ARG KEYCLOAK_VAULT=file
+RUN /opt/keycloak/bin/kc.sh build --db=postgres ${KEYCLOAK_VAULT:+--vault=$KEYCLOAK_VAULT}

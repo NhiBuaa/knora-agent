@@ -20,6 +20,20 @@ Forgot Password changes credentials for the existing identity. It preserves the 
 set and persisted Workspace ownership; recovery does not grant the registration baseline or restore
 revoked capabilities. A fresh sign-in resolves authorization from current validated claims.
 
+Email OTP uses `KNORA_OTP_HMAC_KEY` only when `KNORA_OTP_LOCAL_DEV_ENABLED=true` is explicitly
+set for local development. The ignored `.env` holds the canonical Base64 secret (at least 32
+decoded bytes); absent or invalid local keys fail closed without Vault or random fallback.
+With the switch absent or false, the realm-bound Keycloak Vault remains the key authority.
+Changing an existing runtime's key source requires preserving its key or an approved rotation plan.
+The approved local-development deployment uses only the ignored `.env` source: its image and
+launcher do not enable or mount file-vault, and an old `KNORA_PRIMARY_OTP_VAULT_PATH` has no effect.
+The local switch still requires explicit opt-in; leaving it off without a production secret source
+fails closed. Production retains Vault/secret-manager integration; provider selection and hardening
+are deferred to Issue #152 and must be provisioned and verified before production OTP is enabled.
+Daily local development and manual Email OTP acceptance use the configured real SMTP service
+(currently Gmail). Mailpit is reserved for isolated automated tests/CI that read synthetic OTP mail;
+the daily launcher does not start it. Automated Mailpit evidence does not prove Gmail delivery.
+
 ## Current Model
 
 ### Knowledge ownership

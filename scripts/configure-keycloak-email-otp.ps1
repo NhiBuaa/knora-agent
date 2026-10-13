@@ -198,7 +198,7 @@ function Assert-OtpNativeContainer {
 
 function Assert-OtpPrimaryContainer {
     param($Container)
-    $expectedCommand = @('start-dev', '--import-realm', '--vault=file', '--vault-dir=/opt/keycloak/vault')
+    $expectedCommand = @('start-dev', '--import-realm')
     $command = @($Container.Config.Cmd) -join '|'
     if ((@($Container.Config.Entrypoint) -join '|') -ne '/opt/keycloak/bin/kc.sh' -or
         $command -ne ($expectedCommand -join '|') -or
@@ -208,7 +208,7 @@ function Assert-OtpPrimaryContainer {
         throw 'OTP_PRIMARY_RUNTIME_REQUIRED'
     }
     $vault = @($Container.Mounts | Where-Object Destination -eq '/opt/keycloak/vault')
-    if ($vault.Count -ne 1 -or $vault[0].Type -ne 'bind' -or $vault[0].RW -ne $false) {
+    if ($vault.Count -ne 0) {
         throw 'OTP_PRIMARY_RUNTIME_REQUIRED'
     }
 }

@@ -55,7 +55,6 @@ it("renders answer headings, paragraphs and lists with inline citations selectin
       workspaceId="workspace"
       selection={null}
       onSelect={onSelect}
-      onSuggest={vi.fn()}
       onRetry={vi.fn()}
     />,
   );
@@ -110,7 +109,6 @@ it.each(["Unsupported [[E3]]", "Malformed [[E1]", "Repeated [[E1]] [[E1]]"])(
         workspaceId="workspace"
         selection={null}
         onSelect={vi.fn()}
-        onSuggest={vi.fn()}
         onRetry={vi.fn()}
       />,
     );
@@ -146,7 +144,6 @@ it("does not turn generated HTML, links or images into active content", () => {
       workspaceId="workspace"
       selection={null}
       onSelect={vi.fn()}
-      onSuggest={vi.fn()}
       onRetry={vi.fn()}
     />,
   );
@@ -168,7 +165,6 @@ it.each([
         workspaceId="workspace"
         selection={null}
         onSelect={vi.fn()}
-        onSuggest={vi.fn()}
         onRetry={vi.fn()}
       />,
     );
@@ -190,7 +186,6 @@ it("retains citation selection for a historical answer without inline markers", 
       workspaceId="workspace"
       selection={null}
       onSelect={onSelect}
-      onSuggest={vi.fn()}
       onRetry={vi.fn()}
     />,
   );
@@ -207,7 +202,6 @@ it.each(["&#91;&#91;E99&#93;&#93; [[E1]]", "&#xE000;99&#xE001; [[E1]]"])(
         workspaceId="workspace"
         selection={null}
         onSelect={vi.fn()}
-        onSuggest={vi.fn()}
         onRetry={vi.fn()}
       />,
     );

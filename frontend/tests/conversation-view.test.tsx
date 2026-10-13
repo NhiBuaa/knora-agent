@@ -164,7 +164,7 @@ describe("durable Conversation view", () => {
     },
   );
 
-  it("the refusal follow-up submits its question directly", async () => {
+  it("a refusal keeps document review available without another unsupported question", async () => {
     const refused = {
       ...answered,
       status: "refused",
@@ -181,18 +181,18 @@ describe("durable Conversation view", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     render(<ConversationView workspaceId="w-1" conversation={conversation} />);
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Find supporting evidence",
+    expect(
+      await screen.findByRole("link", { name: "Review indexed documents" }),
+    ).toHaveAttribute("href", "/workspaces/w-1/documents");
+    expect(
+      screen.queryAllByRole("button", {
+        name: /Find supporting evidence|Compare the documents/,
       }),
-    );
-    expect(screen.getByLabelText("Question")).toHaveValue(
-      "Find supporting evidence",
-    );
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(fetchMock.mock.calls[1][1]?.body as string)).toEqual({
-      question: "Find supporting evidence",
-    });
+    ).toHaveLength(0);
+    expect(screen.getByLabelText("Question")).toHaveValue("");
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "POST"),
+    ).toBe(false);
   });
 
   it("does not let an older history response clear a newer authentication failure", async () => {

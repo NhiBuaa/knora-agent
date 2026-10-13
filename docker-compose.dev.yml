@@ -81,7 +81,9 @@ services:
     build:
       context: .
       dockerfile: infra/keycloak/Dockerfile
-    command: start-dev --import-realm --vault=file --vault-dir=/opt/keycloak/vault
+      args:
+        KEYCLOAK_VAULT: ""
+    command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KNORA_DEV_KEYCLOAK_ADMIN_USERNAME:-knora-dev-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD:-knora-dev-admin-password}
@@ -90,6 +92,8 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KNORA_PRIMARY_KEYCLOAK_DB_PASSWORD:-knora-primary-keycloak-database}
       KC_HOSTNAME: http://127.0.0.1:8180
+      KNORA_OTP_LOCAL_DEV_ENABLED: ${KNORA_OTP_LOCAL_DEV_ENABLED:-false}
+      KNORA_OTP_HMAC_KEY: ${KNORA_OTP_HMAC_KEY:-}
     ports:
       - 127.0.0.1:8180:8080
     healthcheck:
@@ -105,12 +109,6 @@ services:
       - ./test/fixtures/keycloak/dev-realm.json:/opt/keycloak/data/import/knora-dev-realm.json:ro
       - ./themes/knora:/opt/keycloak/themes/knora:ro
       - keycloak_dev_data:/opt/keycloak/data
-      - type: bind
-        source: ${KNORA_PRIMARY_OTP_VAULT_PATH:-./test/fixtures/keycloak}
-        target: /opt/keycloak/vault
-        read_only: true
-        bind:
-          create_host_path: false
     depends_on:
       keycloak-dev-db:
         condition: service_healthy

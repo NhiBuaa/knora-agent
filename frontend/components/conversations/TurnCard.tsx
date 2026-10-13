@@ -24,7 +24,6 @@ export function TurnCard({
   workspaceId,
   selection,
   onSelect,
-  onSuggest,
   onRetry,
   disabled = false,
   sessionExpired = false,
@@ -33,18 +32,11 @@ export function TurnCard({
   workspaceId: string;
   selection: EvidenceSelection | null;
   onSelect: (selection: EvidenceSelection) => void;
-  onSuggest: (draft: string) => void;
   onRetry: () => void;
   disabled?: boolean;
   sessionExpired?: boolean;
 }) {
   const vietnamese = isVietnameseQuestion(turn.question);
-  const evidencePrompt = vietnamese
-    ? "Tìm bằng chứng hỗ trợ"
-    : "Find supporting evidence";
-  const comparePrompt = vietnamese
-    ? "So sánh các tài liệu"
-    : "Compare the documents";
   const working = ["queued", "processing", "pending"].includes(turn.status);
   const interrupted = turn.status === "interrupted";
   const failed =
@@ -127,14 +119,6 @@ export function TurnCard({
                   ? "Xem tài liệu đã lập chỉ mục"
                   : "Review indexed documents"}
               </Link>
-              <button
-                disabled={disabled}
-                type="button"
-                onClick={() => onSuggest(evidencePrompt)}
-                className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
-              >
-                {evidencePrompt}
-              </button>
             </div>
           </>
         )}
@@ -188,26 +172,6 @@ export function TurnCard({
               }
             />
           )}
-        {answer && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onSuggest(evidencePrompt)}
-              className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
-            >
-              {evidencePrompt}
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onSuggest(comparePrompt)}
-              className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
-            >
-              {comparePrompt}
-            </button>
-          </div>
-        )}
       </article>
     </li>
   );
