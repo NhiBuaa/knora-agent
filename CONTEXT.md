@@ -16,6 +16,10 @@ Knora self-registration assigns the fixed baseline capabilities `documents:read`
 Workspace ownership is still created and checked by Knora's database; registration never grants
 admin or cross-workspace access, and client-submitted capability values are ignored.
 
+Forgot Password changes credentials for the existing identity. It preserves the current capability
+set and persisted Workspace ownership; recovery does not grant the registration baseline or restore
+revoked capabilities. A fresh sign-in resolves authorization from current validated claims.
+
 ## Current Model
 
 ### Knowledge ownership

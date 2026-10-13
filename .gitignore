@@ -14,3 +14,5 @@ evals/reports/*.json
 !evals/reports/.gitkeep
 minio-smoke.txt
 .verification/figma/q1/
+.verification/password-reset/
+.verification/issue-162/
