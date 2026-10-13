@@ -91,6 +91,28 @@ def test_smtp_example_declares_names_without_credentials() -> None:
         assert entries[name] == ""
 
 
+def test_local_otp_key_is_opt_in_and_excluded_from_build_context() -> None:
+    compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text())
+    environment = compose["services"]["keycloak-dev"]["environment"]
+    assert environment["KNORA_OTP_LOCAL_DEV_ENABLED"] == "${KNORA_OTP_LOCAL_DEV_ENABLED:-false}"
+    assert environment["KNORA_OTP_HMAC_KEY"] == "${KNORA_OTP_HMAC_KEY:-}"
+    production = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
+    assert "KNORA_OTP_HMAC_KEY" not in json.dumps(production)
+    entries = dict(
+        line.split("=", 1)
+        for line in (ROOT / ".env.example").read_text().splitlines()
+        if line and not line.startswith("#") and "=" in line
+    )
+    assert entries["KNORA_OTP_LOCAL_DEV_ENABLED"] == "false"
+    assert entries["KNORA_OTP_HMAC_KEY"] == ""
+    assert ".env" in (ROOT / ".gitignore").read_text().splitlines()
+    assert (ROOT / ".dockerignore").read_text().splitlines() == [
+        ".env",
+        ".env.*",
+        "!.env.example",
+    ]
+
+
 def test_theme_inherits_inspected_keycloak_v2_resources() -> None:
     properties = dict(
         line.split("=", 1)

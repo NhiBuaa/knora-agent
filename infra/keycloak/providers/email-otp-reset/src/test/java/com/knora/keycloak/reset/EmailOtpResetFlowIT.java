@@ -698,6 +698,60 @@ class EmailOtpResetFlowIT {
     }
 
     @Test
+    void offlineLocalKeyUsesEnvironmentAndSurvivesProviderRestart() throws Exception {
+        var first = new Fixture();
+        first.environment.put("KNORA_OTP_LOCAL_DEV_ENABLED", "true");
+        first.environment.put("KNORA_OTP_HMAC_KEY", first.vaultValue);
+        first.vaultValue = null;
+        first.post("request", "email", "known@example.test");
+        assertEquals(List.of("reserve", "mail", "activate"), first.events);
+        assertNull(first.vaultExpression);
+        var restarted = new Fixture();
+        restarted.environment.putAll(first.environment);
+        restarted.notes.putAll(first.notes);
+        restarted.post("verify", "code", "000042");
+        assertTrue(first.sent.codeDigest().equals(restarted.submittedDigest));
+        assertTrue(restarted.succeeded);
+        assertNull(restarted.vaultExpression);
+    }
+
+    @Test
+    void offlineInvalidLocalConfigurationBlocksStoreAndSmtpWithoutVaultFallback() throws Exception {
+        for (String key :
+                new String[] {
+                    null, "", "not-base64", Base64.getEncoder().encodeToString(new byte[31])
+                }) {
+            var f = new Fixture();
+            f.environment.put("KNORA_OTP_LOCAL_DEV_ENABLED", "true");
+            if (key != null) f.environment.put("KNORA_OTP_HMAC_KEY", key);
+            f.post("request", "email", "known@example.test");
+            assertTrue(f.events.isEmpty());
+            assertNull(f.vaultExpression);
+            assertFalse(f.succeeded);
+            assertNull(f.attachedUser);
+        }
+        var f = new Fixture();
+        f.environment.put("KNORA_OTP_LOCAL_DEV_ENABLED", "yes");
+        f.post("request", "email", "known@example.test");
+        assertTrue(f.events.isEmpty());
+        assertNull(f.vaultExpression);
+    }
+
+    @Test
+    void offlineProductionIgnoresLocalKeyAndStillRequiresVault() throws Exception {
+        for (String mode : new String[] {null, "false", ""}) {
+            var f = new Fixture();
+            if (mode != null) f.environment.put("KNORA_OTP_LOCAL_DEV_ENABLED", mode);
+            f.environment.put("KNORA_OTP_HMAC_KEY", f.vaultValue);
+            f.vaultValue = null;
+            f.post("request", "email", "known@example.test");
+            assertTrue(f.events.isEmpty());
+            assertEquals(1, f.vaultClosed);
+            assertFalse(f.succeeded);
+        }
+    }
+
+    @Test
     void offlineOnlyConfirmedVerifiedUserSetsNativeCompletionFlag() throws Exception {
         var f = new Fixture();
         f.post("request", "email", "known@example.test");
@@ -803,6 +857,7 @@ class EmailOtpResetFlowIT {
     }
 
     static final class Fixture {
+        final Map<String, String> environment = new HashMap<>();
         Instant now = Instant.parse("2026-10-06T00:00:00Z");
         final Map<String, String> notes = new HashMap<>();
         final Map<String, Object> attributes = new HashMap<>();
@@ -1064,7 +1119,10 @@ class EmailOtpResetFlowIT {
             }
             var constructor =
                     type.getDeclaredConstructor(
-                            Function.class, OtpChallengeService.CodeGenerator.class, Clock.class);
+                            Function.class,
+                            OtpChallengeService.CodeGenerator.class,
+                            Clock.class,
+                            Function.class);
             constructor.setAccessible(true);
             authenticator =
                     (Authenticator)
@@ -1083,7 +1141,8 @@ class EmailOtpResetFlowIT {
                                         public Instant instant() {
                                             return now;
                                         }
-                                    });
+                                    },
+                                    (Function<String, String>) environment::get);
         }
 
         void post(String intent, String field, String value) {
