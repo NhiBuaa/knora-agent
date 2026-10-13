@@ -55,6 +55,9 @@ for (const viewport of [
     ).toBeVisible();
     await expect(article.locator("ol > li")).toHaveCount(2);
     await expect(article).not.toContainText("[[");
+    await expect(
+      article.getByRole("button", { name: /Citation 1:/ }),
+    ).toHaveCount(1);
     await article
       .locator("ol")
       .getByRole("button", { name: /Citation 1:/ })

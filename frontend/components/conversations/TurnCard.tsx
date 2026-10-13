@@ -156,18 +156,22 @@ export function TurnCard({
             Try again
           </button>
         )}
-        {!working && !interrupted && !failed && turn.result?.citations && (
-          <CitationViewer
-            citations={turn.result.citations}
-            workspaceId={workspaceId}
-            selectedIndex={
-              selection?.turnId === turn.id ? selection.citationIndex : null
-            }
-            onSelect={(index) =>
-              onSelect({ turnId: turn.id, citationIndex: index })
-            }
-          />
-        )}
+        {!working &&
+          !interrupted &&
+          !failed &&
+          !answer?.includes("[[") &&
+          turn.result?.citations && (
+            <CitationViewer
+              citations={turn.result.citations}
+              workspaceId={workspaceId}
+              selectedIndex={
+                selection?.turnId === turn.id ? selection.citationIndex : null
+              }
+              onSelect={(index) =>
+                onSelect({ turnId: turn.id, citationIndex: index })
+              }
+            />
+          )}
       </article>
     </li>
   );
