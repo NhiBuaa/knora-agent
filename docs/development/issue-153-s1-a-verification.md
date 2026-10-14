@@ -71,10 +71,15 @@ follow-up parents, absence scopes and exposure are recorded in the same corpus.
   includes Windows launcher/memory-preflight failures while available RAM fell
   below the unchanged 768 MiB safety minimum. It is **not a passing full gate**.
   PR remains Draft pending an uninterrupted full verification/required CI result.
+- After memory recovered, all affected Windows launcher/bootstrap/worker/readiness
+  groups passed on the unchanged final code: **107 passed in 176.80 seconds**.
+  This targeted rerun resolves their observed failures; it is not a replacement
+  for a single complete whole-suite gate.
 - Ruff format/check/lint and `docker compose -p knora153s1 config --quiet` passed.
   Compose validation used non-secret MinIO placeholders and started no extra service.
-- Hindsight search/list/capture were unavailable (`ECONNREFUSED`); no memory
-  claims were used as verification.
+- Initial Hindsight search/list/capture were unavailable (`ECONNREFUSED`). A later
+  search/read succeeded but contained no S1-specific decision or test evidence;
+  verification here uses code, issue approval and observed command results.
 
 ## Offline baseline sizing
 
