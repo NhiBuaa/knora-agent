@@ -41,17 +41,17 @@ _Câu trả lời với trích dẫn đang được chọn. Nội dung “before
 
 ![community-garden-guide.pdf đã upload và xử lý thành công, với trạng thái tài liệu Ready](docs/assets/readme/pdf-upload.jpg)
 
-Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu đạt trạng thái **Ready** sau khi worker xử lý.
+Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu đạt trạng thái **Ready** sau khi worker xử lý. [Mở screenshot ở kích thước gốc](docs/assets/readme/pdf-upload.jpg).
 
 ### Không có bằng chứng hỗ trợ
 
 ![Knora từ chối câu hỏi về mật khẩu Wi-Fi văn phòng không có trong tài liệu mẫu](docs/assets/readme/refusal.jpg)
 
-Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn.
+Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn. [Mở screenshot ở kích thước gốc](docs/assets/readme/refusal.jpg).
 
-**Nguồn gốc screenshots:** chụp lại ngày **2026-10-14** bằng production frontend build từ `c71d35d` và backend source tree `c78140c`. Câu trả lời và thông báo từ chối đã lưu được tạo ban đầu từ `7697615`, sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation. Lần chụp lại sử dụng các kết quả đó, không thay đổi nội dung hoặc gọi model mới.
+**Nguồn gốc screenshots:** chụp ngày **2026-10-14**. Screenshot câu trả lời sử dụng production frontend build `c71d35d` với backend source `7c8d19b`; screenshots Ready và từ chối sử dụng development runtime source `96a6379`, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Các capture giữ toàn bộ giao diện, không cắt hoặc chỉnh nội dung sản phẩm.
 
-Screenshot câu trả lời sau đó được chụp lại từ cùng frontend build với backend source `7c8d19b`. Ảnh giữ toàn bộ viewport với sidebar Workspace/Conversations, Evidence Inspector và ô nhập câu hỏi đều hiển thị. Câu trả lời và citation đã lưu không thay đổi.
+Câu trả lời và thông báo từ chối đã lưu được tạo ban đầu từ `7697615`, sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation. Lần chụp lại sử dụng các kết quả đó, không thay đổi nội dung hoặc gọi model mới.
 
 </details>
 
