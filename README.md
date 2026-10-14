@@ -1,10 +1,14 @@
 # Knora
 
+![Knora — document Q&A with RAG](docs/assets/readme/knora-banner.svg)
+
 [![CI](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml)
 
-**Ask questions about your documents. Inspect the sources behind each answer.**
+**Ask documents. Check the evidence.**
 
-Knora lets you ask questions about documents in a private Workspace and inspect the cited sources.
+AI-powered document Q&A with verifiable citations and evidence-based refusal.
+
+Knora uses retrieval-augmented generation (RAG) to answer questions from documents in a private Workspace, with cited passages you can inspect.
 
 **Upload PDF → Ask Question → Citation / Refusal**
 
@@ -25,9 +29,9 @@ _An answer with its citation selected. The answer's “before 9 AM” statement 
 <details>
 <summary><strong>PDF upload and refusal examples</strong></summary>
 
-### Upload a source
+### From upload to Ready
 
-![The real PDF upload dialog with community-garden-guide.pdf selected](docs/assets/readme/pdf-upload.jpg)
+![community-garden-guide.pdf uploaded and successfully processed, with its document status showing Ready](docs/assets/readme/pdf-upload.jpg)
 
 The upload creates a durable Ingestion Job. The sample reached **Ready** after worker processing.
 
@@ -37,9 +41,15 @@ The upload creates a durable Ingestion Job. The sample reached **Ready** after w
 
 This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation.
 
+**Screenshot provenance:** recaptured on **2026-10-14** with a production frontend build from `c71d35d` and backend source tree `c78140c`. The stored answer and refusal were originally produced from `7697615`, using Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. Recapture reused those results without changing their content or making new model calls.
+
 </details>
 
-These are real local-runtime screenshots captured on **2026-10-14**, using the [fictional CC0 sample PDF](docs/assets/readme/community-garden-guide.pdf). The runtime used the tracked source tree of `7697615395e469863279b9f5286b4ebed2396144`, Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. They illustrate this small workflow; they are not hosted-demo or general answer-quality evidence.
+Real local runtime using a [fictional CC0 sample PDF](docs/assets/readme/community-garden-guide.pdf). These examples are not hosted-demo or general answer-quality evidence.
+
+## Feature Highlights
+
+![Document Ingestion: text-based PDFs with processing status through Ready. Evidence-backed Answers: inspect cited passages or receive explicit refusals. Secure Workspaces: Keycloak sign-in and backend ownership checks.](docs/assets/readme/feature-highlights.svg)
 
 ## Engineering Highlights
 
