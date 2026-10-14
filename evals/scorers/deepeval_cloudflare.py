@@ -158,6 +158,28 @@ class CloudflareJudge(DeepEvalBaseLLM):
         return self.generate(prompt, schema)
 
 
+def _scoring_input_sha256(capture: dict) -> str:
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                {
+                    key: capture.get(key)
+                    for key in (
+                        "question",
+                        "answer",
+                        "reference_answer",
+                        "generation_evidence",
+                        "evidence_status",
+                    )
+                },
+                sort_keys=True,
+                ensure_ascii=False,
+            ).encode()
+        ).hexdigest()
+    )
+
+
 def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
     if measure and (
         capture.get("data_classification") not in {"public", "synthetic"}
@@ -229,20 +251,8 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
                     "rationale": None,
                     "error": str(error),
                 }
-    input_sha256 = (
-        "sha256:"
-        + hashlib.sha256(
-            json.dumps(
-                {
-                    key: capture.get(key)
-                    for key in ("question", "answer", "reference_answer", "generation_evidence")
-                },
-                sort_keys=True,
-                ensure_ascii=False,
-            ).encode()
-        ).hexdigest()
-    )
     return {
+        "run_id": capture.get("run_id"),
         "case_id": capture.get("case_id"),
         "trace_id": capture.get("trace_id"),
         "attempt": capture.get("attempt"),
@@ -251,7 +261,7 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
         "method": "direct-measure-v1",
         "model": judge.get_model_name(),
         "input_status": capture.get("evidence_status"),
-        "input_sha256": input_sha256,
+        "input_sha256": _scoring_input_sha256(capture),
         "http_attempts": judge.ledger.count() - attempts_before if measure else 0,
     }
 
@@ -346,9 +356,11 @@ def publish_supplement(path: Path, source: dict, captures: list[dict], results: 
     cases = []
     for capture in captures:
         result = by_case[capture["case_id"]]
-        if result.get("trace_id", capture["trace_id"]) != capture["trace_id"]:
-            raise JudgeError("RESULT_TRACE_MISMATCH")
-        cases.append({**result, "trace_id": capture["trace_id"], "attempt": capture["attempt"]})
+        if any(result.get(key) != capture[key] for key in ("run_id", "attempt", "trace_id")):
+            raise JudgeError("RESULT_IDENTITY_MISMATCH")
+        if result.get("input_sha256") != _scoring_input_sha256(capture):
+            raise JudgeError("RESULT_INPUT_MISMATCH")
+        cases.append(result)
     report = {
         "schema_version": 1,
         "source_provenance": source.get("provenance"),

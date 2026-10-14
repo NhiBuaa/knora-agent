@@ -159,12 +159,63 @@ def test_supplement_rejects_wrong_trace_and_never_clobbers(tmp_path) -> None:
     output = tmp_path / "supplement.json"
     with pytest.raises(JudgeError, match="CAPTURE_TRACE_MISMATCH"):
         publish_supplement(output, source, [_capture(trace_id="wrong")], [])
-    report = publish_supplement(output, source, [_capture()], [{"case_id": "case-1"}])
+    result = score_capture(
+        _capture(), SimpleNamespace(get_model_name=lambda: "offline"), measure=False
+    )
+    report = publish_supplement(output, source, [_capture()], [result])
     assert report["cases"][0]["trace_id"] == "trace-1"
     assert output.exists()
     assert list(tmp_path.glob(".*.tmp")) == []
     with pytest.raises(FileExistsError):
-        publish_supplement(output, source, [_capture()], [{"case_id": "case-1"}])
+        publish_supplement(output, source, [_capture()], [result])
+
+
+@pytest.mark.parametrize(
+    "changed,replacement",
+    (
+        ("question", "How long can I return an item?"),
+        ("answer", "Forty days."),
+        ("reference_answer", "Refunds are accepted within 40 days."),
+        ("generation_evidence", [{"alias": "E1", "content": "Refunds: 40 days."}]),
+        ("evidence_status", "unavailable"),
+    ),
+)
+def test_supplement_rejects_scores_from_stale_inputs(tmp_path, changed, replacement) -> None:
+    source = {"observations": [{"case_id": "case-1", "trace_id": "trace-1"}]}
+    original = _capture()
+    result = score_capture(
+        original, SimpleNamespace(get_model_name=lambda: "offline"), measure=False
+    )
+    current = _capture(**{changed: replacement})
+    with pytest.raises(JudgeError, match="RESULT_INPUT_MISMATCH"):
+        publish_supplement(tmp_path / "supplement.json", source, [current], [result])
+    assert not (tmp_path / "supplement.json").exists()
+
+
+@pytest.mark.parametrize(
+    "field,value", (("run_id", "other-run"), ("attempt", 2), ("trace_id", "other-trace"))
+)
+def test_supplement_rejects_mismatched_result_identity(tmp_path, field, value) -> None:
+    source = {"observations": [{"case_id": "case-1", "trace_id": "trace-1"}]}
+    result = score_capture(
+        _capture(), SimpleNamespace(get_model_name=lambda: "offline"), measure=False
+    )
+    result[field] = value
+    with pytest.raises(JudgeError, match="RESULT_IDENTITY_MISMATCH"):
+        publish_supplement(tmp_path / "supplement.json", source, [_capture()], [result])
+
+
+@pytest.mark.parametrize("field", ("run_id", "attempt", "trace_id", "input_sha256"))
+def test_supplement_rejects_missing_result_binding(tmp_path, field) -> None:
+    source = {"observations": [{"case_id": "case-1", "trace_id": "trace-1"}]}
+    result = score_capture(
+        _capture(), SimpleNamespace(get_model_name=lambda: "offline"), measure=False
+    )
+    result.pop(field, None)
+    error = "RESULT_INPUT_MISMATCH" if field == "input_sha256" else "RESULT_IDENTITY_MISMATCH"
+    with pytest.raises(JudgeError, match=error):
+        publish_supplement(tmp_path / "supplement.json", source, [_capture()], [result])
+    assert not (tmp_path / "supplement.json").exists()
 
 
 def test_capture_derives_answer_and_exact_context_only_from_report() -> None:
