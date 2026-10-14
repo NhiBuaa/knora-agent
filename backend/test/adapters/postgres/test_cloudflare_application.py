@@ -101,8 +101,13 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
             content = json.dumps(
                 {
                     "decision": "ANSWER",
-                    "answer": "Blue umbrellas. [[E1]]",
-                    "cited_evidence_ids": ["E1"],
+                    "blocks": [
+                        {
+                            "kind": "paragraph",
+                            "text": "Blue umbrellas.",
+                            "support": [{"evidence_id": "E1", "quote": FACT}],
+                        }
+                    ],
                     "refusal_reason": None,
                 }
             )

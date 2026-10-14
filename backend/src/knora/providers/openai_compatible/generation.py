@@ -8,6 +8,7 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
+from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA, compose_answer
 from knora.providers.structured_generation import (
     PROMPT_VERSION,
     STRUCTURED_RESULT_SCHEMA,
@@ -15,28 +16,34 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v8"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v13"
 CLOUDFLARE_SYSTEM_PROMPT = (
-    SYSTEM_PROMPT + " For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
-    "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE. "
-    "Every ANSWER answer MUST contain the exact cited aliases in double brackets, such as [[E1]], "
-    "and cited_evidence_ids MUST list those same aliases. If no alias can support the answer, "
-    "return REFUSAL instead. Format the answer with Markdown paragraphs, headings and lists. "
-    "An enumeration of two or more distinct items MUST use a Markdown bulleted list, with "
-    "each item on its own line starting with '- ', not a comma-separated paragraph. "
-    "Preserve the items' meaning and source order; "
-    "do not invent members or details absent from the evidence. "
-    "Keep short answers about a single fact as prose. "
-    "For a list supported by one alias, put one marker after the complete "
-    "list. Use the current question's language for all answer prose. "
-    "If the question is Vietnamese, introductions, headings and explanations MUST be Vietnamese. "
-    "Preserve quoted source titles and technical terms as written. "
-    "REQUIRED count-answer layout when the evidence names a collection's members, "
-    "including when the question asks only how many: one complete introductory sentence containing "
-    "**count unit**, then a blank line and a '- ' line for each named member. "
-    "Replace count, unit and members with the actual supported values in the question's language. "
-    "The count and its unit belong inside the same bold span. A count-only sentence is incomplete "
-    "when the evidence supplies the members."
+    "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
+    "ANSWER requires nonempty blocks and null refusal_reason. REFUSAL requires empty blocks and "
+    "INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: "
+    "an evidence_id and an exact quote from that evidence (whitespace may be collapsed). "
+    "Use all sources needed to support each statement, not one convenient source for the answer. "
+    "Quotes must support the full statement and its important qualifications. Do not invent, "
+    "omit important conditions, or infer unsupported members. Retain conditional context. "
+    "Answer only the question's scope. Do not expand a single-fact answer with related background, "
+    "report parts or outlines. For a requested collection, retain its conditional members and "
+    "qualifications from all relevant evidence. Never paraphrase words inside a quote. "
+    "Write natural prose in the question's language; preserve quoted titles/technical terms. "
+    "Each text field is one line without citation markers; the server adds bullets and citations. "
+    "Keep a short single-fact answer as a paragraph. Any enumeration of two or more distinct items "
+    "must be a list block, never embedded in paragraph text. Set ordered=true when the source "
+    "defines a clear sequence; preserve it. Otherwise ordered=false and arrange multiple "
+    "sources sensibly without changing meaning. Each item has its own supporting quotes. "
+    "For count questions, even when only how many is asked, lead with a natural paragraph "
+    "stating the proven total, then list the evidenced members. One member stays in prose; "
+    "zero needs no member list. Set paragraph bold to the literal number-and-unit phrase "
+    "occurring exactly once in its text; otherwise omit bold or use null. "
+    "The server adds emphasis. "
+    "A total needs explicit source proof or a complete source collection; a selected subset "
+    "does not prove it. A proven total with incomplete member evidence must disclose the missing "
+    "portion in prose. If the total is unproven, explain the evidence limit without asserting it. "
+    "Keep suggested-outline context and merging/splitting qualifications when the source makes "
+    "the outline conditional. Keep conditional indexes conditional."
 )
 
 
@@ -78,6 +85,11 @@ class OpenAICompatibleGenerationProvider:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         try:
+            schema = (
+                ANSWER_BLOCK_SCHEMA
+                if self._provider_identity == "cloudflare-workers-ai"
+                else STRUCTURED_RESULT_SCHEMA
+            )
             request_body = {
                 "model": self._model,
                 "messages": [
@@ -94,12 +106,12 @@ class OpenAICompatibleGenerationProvider:
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": (
-                        STRUCTURED_RESULT_SCHEMA
+                        schema
                         if self._direct_json_schema
                         else {
                             "name": "knora_structured_generation_result",
                             "strict": True,
-                            "schema": STRUCTURED_RESULT_SCHEMA,
+                            "schema": schema,
                         }
                     ),
                 },
@@ -115,6 +127,11 @@ class OpenAICompatibleGenerationProvider:
             payload = response.json()
             choice = payload["choices"][0]
             structured = json.loads(choice["message"]["content"])
+            if self._provider_identity == "cloudflare-workers-ai":
+                answer, cited_ids = compose_answer(structured, evidence)
+            else:
+                answer = structured["answer"]
+                cited_ids = tuple(structured["cited_evidence_ids"])
             usage = {
                 key: int(value)
                 for key, value in payload.get("usage", {}).items()
@@ -139,8 +156,8 @@ class OpenAICompatibleGenerationProvider:
                 }
             return GenerationResult(
                 decision=structured["decision"],
-                answer=structured["answer"],
-                cited_evidence_ids=tuple(structured["cited_evidence_ids"]),
+                answer=answer,
+                cited_evidence_ids=cited_ids,
                 refusal_reason=structured["refusal_reason"],
                 provider=self._provider_identity,
                 model=str(payload.get("model", self._model)),

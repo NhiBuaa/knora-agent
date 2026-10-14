@@ -1,8 +1,10 @@
+import json
 from decimal import Decimal
 
 import httpx
 import pytest
 
+from knora.answering.generation_validation import validate_generation
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
@@ -181,18 +183,45 @@ async def test_openai_compatible_generation_normalizes_failures_without_retry(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("decision", ["ANSWER", "REFUSAL"])
-async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decision: str) -> None:
+@pytest.mark.parametrize("case", ["paragraph", "list", "refusal"])
+async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: str) -> None:
     observed = {}
+    decision = "REFUSAL" if case == "refusal" else "ANSWER"
+    blocks = [
+        {
+            "kind": "paragraph",
+            "text": "Refunds.",
+            "support": [{"evidence_id": "E1", "quote": "Refunds."}],
+        }
+    ]
+    expected = "Refunds. [[E1]]"
+    if case == "list":
+        blocks = [
+            {
+                "kind": "paragraph",
+                "text": "There are 2 parts.",
+                "bold": "2 parts",
+                "support": [{"evidence_id": "E1", "quote": "Alpha; Beta."}],
+            },
+            {
+                "kind": "list",
+                "ordered": True,
+                "items": [
+                    {"text": title, "support": [{"evidence_id": "E1", "quote": title}]}
+                    for title in ("Alpha", "Beta")
+                ],
+            },
+        ]
+        expected = "There are **2 parts**.\n\n- Alpha\n- Beta\n\n[[E1]]"
 
     async def endpoint(request: httpx.Request) -> httpx.Response:
         observed["request"] = request
-        content = (
-            '{"decision":"ANSWER","answer":"Refunds. [[E1]]",'
-            '"cited_evidence_ids":["E1"],"refusal_reason":null}'
-            if decision == "ANSWER"
-            else '{"decision":"REFUSAL","answer":null,'
-            '"cited_evidence_ids":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}'
+        content = json.dumps(
+            {
+                "decision": decision,
+                "blocks": blocks if decision == "ANSWER" else [],
+                "refusal_reason": None if decision == "ANSWER" else "INSUFFICIENT_EVIDENCE",
+            }
         )
         return httpx.Response(
             200,
@@ -215,7 +244,10 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
         client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
     )
 
-    result = await provider.generate(question="Báo cáo có bao nhiêu chương?", evidence=())
+    result = await provider.generate(
+        question="Báo cáo có bao nhiêu chương?",
+        evidence=(GenerationEvidence("E1", "Refunds. Alpha; Beta."),),
+    )
     request = observed["request"]
     payload = __import__("json").loads(request.content)
     assert request.url.path.endswith("/ai/v1/chat/completions")
@@ -227,34 +259,23 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
         "REFUSAL",
     ]
     system_prompt = payload["messages"][0]["content"]
-    assert "For ANSWER, refusal_reason MUST be null." in system_prompt
-    assert (
-        "For REFUSAL, answer MUST be null, cited_evidence_ids MUST be empty, and "
-        "refusal_reason MUST be INSUFFICIENT_EVIDENCE."
-    ) in system_prompt
-    assert "Every ANSWER answer MUST contain the exact cited aliases" in system_prompt
-    assert "Markdown paragraphs, headings and lists" in system_prompt
-    assert "two or more distinct items MUST use a Markdown bulleted list" in system_prompt
-    assert "REQUIRED count-answer layout" in system_prompt
-    assert "including when the question asks only how many" in system_prompt
-    assert "one complete introductory sentence containing **count unit**" in system_prompt
-    assert "then a blank line and a '- ' line for each named member" in system_prompt
-    assert "Preserve the items' meaning and source order" in system_prompt
-    assert "Keep short answers about a single fact as prose" in system_prompt
-    assert "one marker after the complete list" in system_prompt
-    assert "Use the current question's language for all answer prose" in system_prompt
-    assert "introductions, headings and explanations MUST be Vietnamese" in system_prompt
-    assert "Preserve quoted source titles and technical terms as written" in system_prompt
+    assert "support" in system_prompt
+    assert "exact quote" in system_prompt
+    assert result.answer == (expected if decision == "ANSWER" else None)
+    assert result.cited_evidence_ids == (("E1",) if decision == "ANSWER" else ())
     assert (
         __import__("json").loads(payload["messages"][1]["content"])["question"]
         == "Báo cáo có bao nhiêu chương?"
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v8"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v13"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}
+    assert validate_generation(result, available_evidence_ids=("E1",)).parsed_markers == (
+        ("E1",) if decision == "ANSWER" else ()
+    )
 
 
 @pytest.mark.asyncio
