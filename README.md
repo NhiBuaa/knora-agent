@@ -28,7 +28,7 @@
 
 ![Knora answering a question about watering seedlings, with the page-one source excerpt open in the Evidence Inspector](docs/assets/readme/cited-answer.jpg)
 
-_An answer with its citation selected. The answer's “before 9 AM” statement matches the sample source._
+_An answer with its citation selected. The answer's “before 9 AM” statement matches the sample source. [Open the full-size screenshot](docs/assets/readme/cited-answer.jpg)._
 
 1. **Upload a text-based PDF** to your private Workspace and wait for processing to finish.
 2. **Ask a question** in a Conversation.
@@ -50,6 +50,8 @@ The upload creates a durable Ingestion Job. The sample reached **Ready** after w
 This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation.
 
 **Screenshot provenance:** recaptured on **2026-10-14** with a production frontend build from `c71d35d` and backend source tree `c78140c`. The stored answer and refusal were originally produced from `7697615`, using Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. Recapture reused those results without changing their content or making new model calls.
+
+The answer screenshot was subsequently recaptured from the same frontend build with backend source `fe3b696`, with the conversation rail hidden and the capture focused on the answer and selected source. The stored answer and citation are unchanged.
 
 </details>
 
