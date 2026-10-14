@@ -854,8 +854,10 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                 process = psutil.Process(identity["pid"])
                 if process.create_time() == identity["created"]:
                     known.add(process)
-        remaining = [process.pid for process in known if process.is_running()]
-        assert not remaining, f"Owned processes survived cleanup: {remaining}"
+        assert "DEV_STOPPED" in observe()
+        # Console hosts can outlive their launcher briefly while attachments close.
+        _, remaining = psutil.wait_procs(list(known), timeout=10)
+        assert not remaining, f"Owned processes survived cleanup: {remaining}\n{observe()}"
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", api_port))
         with socket.socket() as sock:
