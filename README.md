@@ -41,17 +41,17 @@ _An answer with its citation selected. The answer's “before 9 AM” statement 
 
 ![community-garden-guide.pdf uploaded and successfully processed, with its document status showing Ready](docs/assets/readme/pdf-upload.jpg)
 
-The upload creates a durable Ingestion Job. The sample reached **Ready** after worker processing.
+The upload creates a durable Ingestion Job. The sample reached **Ready** after worker processing. [Open the full-size screenshot](docs/assets/readme/pdf-upload.jpg).
 
 ### No supporting evidence
 
 ![Knora refusing a question about an office Wi-Fi password that is absent from the sample document](docs/assets/readme/refusal.jpg)
 
-This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation.
+This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation. [Open the full-size screenshot](docs/assets/readme/refusal.jpg).
 
-**Screenshot provenance:** recaptured on **2026-10-14** with a production frontend build from `c71d35d` and backend source tree `c78140c`. The stored answer and refusal were originally produced from `7697615`, using Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. Recapture reused those results without changing their content or making new model calls.
+**Screenshot provenance:** captured on **2026-10-14**. The answer screenshot uses production frontend build `c71d35d` with backend source `7c8d19b`; the Ready and refusal screenshots use development runtime source `96a6379`, with Dev Tools hidden through its built-in session control. Captures retain the full interface without cropping or editing product content.
 
-The answer screenshot was subsequently recaptured from the same frontend build with backend source `7c8d19b`. The image preserves the full viewport with the Workspace/Conversations sidebar, Evidence Inspector and question composer visible. The stored answer and citation are unchanged.
+The stored answer and refusal were originally produced from `7697615`, using Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. Recapture reused those results without changing their content or making new model calls.
 
 </details>
 
