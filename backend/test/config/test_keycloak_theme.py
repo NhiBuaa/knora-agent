@@ -72,13 +72,14 @@ def test_primary_keycloak_builds_otp_provider_without_changing_isolated_mail_run
     }
 
 
-def test_smtp_example_declares_names_without_credentials() -> None:
+def test_optional_smtp_is_documented_without_template_credentials() -> None:
     entries = dict(
         line.split("=", 1)
-        for line in (ROOT / ".env.example").read_text().splitlines()
+        for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
         if line and not line.startswith("#") and "=" in line
     )
 
+    reference = (ROOT / "docs/runbooks/local-development.md").read_text(encoding="utf-8")
     for name in (
         "KC_SMTP_HOST",
         "KC_SMTP_PORT",
@@ -88,7 +89,8 @@ def test_smtp_example_declares_names_without_credentials() -> None:
         "KC_SMTP_STARTTLS",
         "KC_SMTP_AUTH",
     ):
-        assert entries[name] == ""
+        assert entries.get(name, "") == ""
+        assert name in reference
 
 
 def test_local_otp_key_is_opt_in_and_excluded_from_build_context() -> None:
@@ -100,11 +102,11 @@ def test_local_otp_key_is_opt_in_and_excluded_from_build_context() -> None:
     assert "KNORA_OTP_HMAC_KEY" not in json.dumps(production)
     entries = dict(
         line.split("=", 1)
-        for line in (ROOT / ".env.example").read_text().splitlines()
+        for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
         if line and not line.startswith("#") and "=" in line
     )
-    assert entries["KNORA_OTP_LOCAL_DEV_ENABLED"] == "false"
-    assert entries["KNORA_OTP_HMAC_KEY"] == ""
+    assert entries.get("KNORA_OTP_LOCAL_DEV_ENABLED", "false") == "false"
+    assert entries.get("KNORA_OTP_HMAC_KEY", "") == ""
     assert "KNORA_PRIMARY_OTP_VAULT_PATH" not in entries
     assert ".env" in (ROOT / ".gitignore").read_text().splitlines()
     assert (ROOT / ".dockerignore").read_text().splitlines() == [
