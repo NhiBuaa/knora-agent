@@ -32,6 +32,7 @@ dev = [
 ]
 evaluation-deepeval = ["deepeval==4.2.8"]
 evaluation-ragas = ["ragas==0.4.3", "langchain-community==0.3.31"]
+evaluation-langfuse = ["langfuse==4.17.0"]
 
 [project.scripts]
 knora-ingest = "knora.adapters.cli.ingest:main"
