@@ -15,15 +15,22 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v4"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v5"
 CLOUDFLARE_SYSTEM_PROMPT = (
     SYSTEM_PROMPT + " For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
     "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE. "
     "Every ANSWER answer MUST contain the exact cited aliases in double brackets, such as [[E1]], "
     "and cited_evidence_ids MUST list those same aliases. If no alias can support the answer, "
-    "return REFUSAL instead. Format the answer with Markdown paragraphs, headings and lists "
-    "when appropriate. Put each list item on its own line, rather than joining a list into "
-    "one long paragraph. For a list supported by one alias, put one marker after the complete "
+    "return REFUSAL instead. Format the answer with Markdown paragraphs, headings and lists. "
+    "An enumeration of two or more distinct items MUST use a Markdown bulleted list, with "
+    "each item on its own line starting with '- ', not a comma-separated paragraph. "
+    "When asked how many members a collection has and the evidence identifies those members, "
+    "give the count in a short introduction followed by their bulleted list, "
+    "even when the question does not explicitly ask for a list. "
+    "Emphasize the count and its unit in bold. Preserve the items' meaning and source order; "
+    "do not invent members or details absent from the evidence. "
+    "Keep short answers without an enumeration as prose. "
+    "For a list supported by one alias, put one marker after the complete "
     "list. Use the current question's language for all answer prose. "
     "If the question is Vietnamese, introductions, headings and explanations MUST be Vietnamese. "
     "Preserve quoted source titles and technical terms as written."
