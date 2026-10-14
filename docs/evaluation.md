@@ -157,6 +157,84 @@ wall-clock observations are excluded:
 
 Case ordering, provenance, structural outcomes and retrieval metrics must remain identical.
 
+## Provider and scorer configuration
+
+Daily development chỉ cần năm input trong [mẫu root](../.env.example).
+Các biến dưới đây vẫn được hỗ trợ cho backend trực tiếp, compatibility và evaluation;
+không cần điền khi chỉ chạy Cloudflare daily. Cấu hình provider ảnh hưởng embedding
+space phải khớp corpus/profile, không đổi identity hoặc re-index dữ liệu lịch sử chỉ
+để thử một provider khác.
+
+### Application provider
+
+Backend đọc `.env` qua `Settings`; process env ưu tiên hơn file. Nếu đặt
+`KNORA_EMBEDDING_PROVIDER` và `KNORA_GENERATION_PROVIDER`, phải đặt cả cặp. Nếu cả
+cặp chưa đặt, `KNORA_PROVIDER_MODE` mặc định `deterministic-local`; legacy mode còn
+hỗ trợ `openai-compatible` (cả hai vai trò) hoặc `google-gemini-api` (Gemini embedding,
+OpenAI-compatible generation). Daily launcher chỉ chọn Cloudflare/Ollama/deterministic;
+không dùng launcher đó để chạy các mode compatibility này.
+
+| Biến | Default / điều kiện |
+| --- | --- |
+| `KNORA_OPENAI_BASE_URL`, `KNORA_OPENAI_API_KEY` | Chưa đặt; bắt buộc khi chọn OpenAI-compatible. Ví dụ URL của OpenAI là `https://api.openai.com/v1`; endpoint compatible khác cần contract tương ứng. Key chỉ ở `.env` bỏ qua bởi Git hoặc process secrets. |
+| `KNORA_OPENAI_EMBEDDING_MODEL`, `KNORA_OPENAI_EMBEDDING_CONFIGURATION_ID` | `text-embedding-3-small`, `embedding-openai-m1-v1`; dimension 1536. Default model label này cũng được deterministic validation sử dụng. |
+| `KNORA_OPENAI_GENERATION_MODEL` | Chưa đặt; cần chọn model khi dùng OpenAI-compatible generation. |
+| `KNORA_OPENAI_PRICING_VERSION` | Chưa đặt; bắt buộc với OpenAI-compatible application provider. |
+| `KNORA_OPENAI_EMBEDDING_INPUT_COST_PER_MILLION_TOKENS` | Chưa đặt; cần số không âm khi chọn OpenAI-compatible embedding. |
+| `KNORA_OPENAI_GENERATION_INPUT_COST_PER_MILLION_TOKENS`, `KNORA_OPENAI_GENERATION_OUTPUT_COST_PER_MILLION_TOKENS` | Chưa đặt; cần số không âm khi chọn OpenAI-compatible generation. Không tự điền 0 nếu chưa biết giá. |
+| `KNORA_OPENAI_TIMEOUT_SECONDS` | 60 giây; override bằng số dương. |
+| `KNORA_GEMINI_API_KEY`, `KNORA_GEMINI_TIMEOUT_SECONDS` | Key chưa đặt, timeout 60 giây. Chọn embedding `google-gemini-api` cần key; native V2 pin `gemini-embedding-2`, `embedding-gemini-m1-v1`, 1536 chiều và input policy đã duyệt. Các calibration/re-embedding CLI đọc key từ process env trực tiếp. |
+
+Ví dụ cấu hình application OpenAI-compatible trong môi trường riêng đã có corpus
+đúng profile (thay model/giá bằng giá trị đã xác minh, không chạy trên runtime chung):
+
+```dotenv
+KNORA_PROVIDER_MODE=openai-compatible
+KNORA_OPENAI_BASE_URL=https://api.openai.com/v1
+KNORA_OPENAI_API_KEY=<runtime-secret>
+KNORA_OPENAI_GENERATION_MODEL=<compatible-model>
+KNORA_OPENAI_PRICING_VERSION=<reviewed-pricing-version>
+KNORA_OPENAI_EMBEDDING_INPUT_COST_PER_MILLION_TOKENS=<verified-nonnegative-number>
+KNORA_OPENAI_GENERATION_INPUT_COST_PER_MILLION_TOKENS=<verified-nonnegative-number>
+KNORA_OPENAI_GENERATION_OUTPUT_COST_PER_MILLION_TOKENS=<verified-nonnegative-number>
+```
+
+Để dùng native Gemini embedding, chọn cặp
+`KNORA_EMBEDDING_PROVIDER=google-gemini-api` và
+`KNORA_GENERATION_PROVIDER=openai-compatible`, thêm `KNORA_GEMINI_API_KEY`, giữ
+dimension 1536 và các cấu hình generation/giá tương ứng. Legacy
+`KNORA_PROVIDER_MODE=google-gemini-api` vẫn hoạt động khi không đặt cặp selectors.
+Các giá trị Gemini OpenAI-compatible lịch sử ở phần bên dưới có ý nghĩa khác với
+native V2; không dùng chúng thay cho native contract.
+
+### Semantic scorer: process environment riêng
+
+Scorer dùng `SemanticScorerConfiguration.from_environment`, **chỉ đọc process env**.
+Điền `KNORA_SEMANTIC_SCORER_*` vào `.env` không tự cấp chúng cho runner. Backend
+Settings không sở hữu hoặc validate cấu hình scorer; evaluator giữ reader/validation
+riêng. Cấp biến qua process secrets của phiên evaluation hoặc công cụ quản lý secrets
+được phép; không thêm cơ chế tự nạp `.env` hoặc dùng application token thay judge key.
+
+| Biến | Default / điều kiện |
+| --- | --- |
+| `KNORA_SEMANTIC_SCORER_BASE_URL`, `KNORA_SEMANTIC_SCORER_API_KEY`, `KNORA_SEMANTIC_SCORER_MODEL` | Chưa đặt; bắt buộc cho semantic scoring. Judge model/endpoint/key độc lập với application provider. |
+| `KNORA_SEMANTIC_SCORER_TIMEOUT_SECONDS` | 60 giây; override bằng số dương. |
+| `KNORA_SEMANTIC_SCORER_PRICING_VERSION`, `KNORA_SEMANTIC_SCORER_INPUT_COST_PER_MILLION_TOKENS`, `KNORA_SEMANTIC_SCORER_OUTPUT_COST_PER_MILLION_TOKENS` | Chưa đặt; tùy chọn, cost phải không âm. Thiếu giá được ghi `unavailable`. |
+
+Ví dụ chỉ cấp trong process evaluation được phép, không in secret ra output:
+
+```powershell
+$env:KNORA_SEMANTIC_SCORER_BASE_URL = '<reviewed-compatible-endpoint>'
+$env:KNORA_SEMANTIC_SCORER_API_KEY = '<runtime-judge-secret>'
+$env:KNORA_SEMANTIC_SCORER_MODEL = '<reviewed-judge-model>'
+```
+
+Runner M1 `--mode model-backed` hiện yêu cầu cả embedding và generation provenance
+`openai-compatible`; không tự hỗ trợ Cloudflare chỉ vì cùng giao thức generation.
+Giữ legacy M1/M3/Vietnamese datasets/manifests/reports và V1/V2 profiles để regression.
+Judge và tích hợp DeepEval/Langfuse của #158 sẽ được duyệt riêng; phần cấu hình này
+không chọn provider/hosting hoặc thay evaluator contract của #153/#158.
+
 ## Model-backed semantic baseline
 
 Run the application in `openai-compatible` mode with an active corpus derived under the same

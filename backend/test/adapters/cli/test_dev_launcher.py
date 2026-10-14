@@ -194,9 +194,16 @@ def _powershell() -> str:
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
 def test_daily_cloudflare_preflight_needs_no_ollama_and_pins_profile(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_text(
-        f"KNORA_CLOUDFLARE_ACCOUNT_ID={ACCOUNT}\nKNORA_CLOUDFLARE_API_TOKEN=private-token\n"
-    )
+    template = (SCRIPT.parents[1] / ".env.example").read_text(encoding="utf-8")
+    for name, value in {
+        "KNORA_CLOUDFLARE_ACCOUNT_ID": ACCOUNT,
+        "KNORA_CLOUDFLARE_API_TOKEN": "private-token",
+        "KNORA_OBJECT_STORE_S3_ACCESS_KEY": "synthetic-access",
+        "KNORA_OBJECT_STORE_S3_SECRET_KEY": "synthetic-secret",
+        "SESSION_SECRET": "synthetic-session-secret",
+    }.items():
+        template = re.sub(rf"^{name}=.*$", f"{name}={value}", template, flags=re.MULTILINE)
+    env_file.write_text(template, encoding="utf-8")
     result = subprocess.run(
         [
             _powershell(),
