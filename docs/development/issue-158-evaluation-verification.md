@@ -43,6 +43,7 @@ Existing databases at ports 55432, 55453 and 15483 are not used. Tests use deter
 | Ragas and adjacent focused contracts | 57 passed | Actual PydanticPrompt API, explicit mock provider, selected export approval and pending review |
 | Ragas provenance regression | 6 failed on prior code, then 17 focused tests passed | Imported candidates remain caller-declared; actual Ragas generation is identified separately; blank provenance rejected |
 | Langfuse focused contracts | 11 passed | Actual typed SDK/MockTransport, safe serialization, exact payload review and default OFF |
+| Langfuse M3 failure status regression | 12 passed | Known observation failure preserved; arbitrary text remains unknown |
 | Backend CI partition | 1,316 passed / 621 deselected | Before later integration changes; preliminary |
 | Windows CI partition | 242 passed / 1,700 deselected | Before later integration changes; preliminary |
 | Database CI partition | 363 passed / 12 skipped | Separate test DB; skips require the CI database name |
@@ -50,13 +51,37 @@ Existing databases at ports 55432, 55453 and 15483 are not used. Tests use deter
 | Ruff format/check/lint | Passed after DeepEval fix | Final checks follow all adapters |
 | Shared Prettier format/check | Passed | Existing CI dependency install and opt-out environment changes |
 | Compose configurations / OpenAPI | Passed | Configuration only; no application started |
+| Full pytest | 1,973 passed / 4 skipped / 26 existing warnings, 565.16 s | Owned test database; isolated deterministic providers |
+| Final Langfuse focused run | 12 passed, 1.34 s | Full-suite collection preceded the additional status test; this run covers it on the final adapter |
+| DeepEval ambient provider-mode regression | 2 failed before fix; 2 passed after fix; full scorer file 25 passed | Installed 4.2.8 cannot construct TypeSafe under ambient hybrid/system_one; all metrics use mocked Cloudflare |
+| Final root/CI startup collection | Passed for developer root and backend/windows/database CI prefixes | Root pytest.ini selected; DeepEval plugin absent; root collected 1,979 tests |
+| Final fix formatting/lint | Passed | Ruff format/check/lint and shared Prettier format/check after provider/startup changes |
 
 The database partition emitted 26 existing Alembic `path_separator` deprecation warnings. The
 12 skipped concurrency tests require the literal database name `knora_issue110_task2`; that name
 was created and migrated inside the owned test container. Their fixture also requires the DSN to
 end with that name, so a `connect_timeout` query suffix caused an initial follow-up to skip. The
-corrected DSN ran all 12 tests successfully and is used for the final full gate. No safety check
-was lowered. Final branch verification and review results are recorded below when complete.
+corrected DSN ran all 12 tests successfully and was used for the full gate. No safety check
+was lowered.
+
+The full command was `.venv/Scripts/python -m pytest --junitxml=<local-ledger>/full-report.xml -q`,
+with `KNORA_DATABASE_URL` selecting only port 55458 and explicit telemetry opt-outs in the test
+process. The four skips are three manually enabled locked PDF acceptance fixtures and the pinned
+real Ollama test; neither activation is authorized here. The temporary test container was stopped
+and removed after checking its recorded ID and ownership label. Other services remain untouched.
+
+Final review identified two gaps: ambient DeepEval modes can select TypeSafe instead of the
+explicit judge, and root-target pytest does not select the nested backend configuration. Docker
+also does not inherit the host job's opt-out environment automatically. The final fix pins LLM
+execution to the approved judge and suppresses plugin loading before pytest starts, with the
+same opt-outs passed into the disposable database process. Commit `22a81e2` addresses both.
+The full local test run had the opt-outs set before process startup; it made no live judge call.
+The startup follow-up only collected tests; it did not run the database container or repeat the
+full suite. Docker environment propagation was checked in the workflow. Review and focused
+regressions cover this final change; the full-suite result belongs to the earlier tree.
+Each integration received task review and regression re-review. The whole-branch review found
+the two issues above; the single consolidated fix wave received a scoped re-review with both
+findings addressed, zero open findings and no new breakage. Live quality remains unaccepted.
 
 ## Decisions made during execution
 
