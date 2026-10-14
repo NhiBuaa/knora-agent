@@ -16,6 +16,13 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.12"
+  DEEPEVAL_DISABLE_DOTENV: "1"
+  DEEPEVAL_DISABLE_LEGACY_KEYFILE: "1"
+  DEEPEVAL_TELEMETRY_OPT_OUT: "1"
+  DEEPEVAL_UPDATE_WARNING_OPT_IN: "0"
+  RAGAS_DO_NOT_TRACK: "true"
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
 
 jobs:
   frontend:
@@ -112,7 +119,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - name: Install backend dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]"
       - name: Portable backend checks
         if: ${{ matrix.suite == 'backend' }}
         shell: bash
@@ -178,7 +185,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - name: Install backend dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]"
       - name: Apply migrations
         working-directory: backend
         env:
@@ -199,7 +206,7 @@ jobs:
                 echo "$pid" > /sys/fs/cgroup/ci-runner/cgroup.procs
               done < /sys/fs/cgroup/cgroup.procs
               echo +memory > /sys/fs/cgroup/cgroup.subtree_control
-              python -m pip install -e "./backend[dev]"
+              python -m pip install -e "./backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]"
               python -m pytest --rootdir=. backend/test evals/test --ci-suite=database --ci-selection=database-selection.json --junitxml=database-report.xml
             '
           python scripts/ci_checks.py reports database-report.xml
