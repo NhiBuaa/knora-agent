@@ -360,8 +360,13 @@ def author_gold():
     case(
         "comparison",
         "Đơn chuẩn và vùng xa khác hạn đổi thế nào; đơn vùng xa đã mở niêm phong có ngoại lệ gì?",
-        "Chuẩn 48 giờ; vùng xa 72 giờ; không nhận đổi hàng vùng xa đã mở niêm phong.",
-        ["48 giờ", "72 giờ", "không nhận đổi hàng vùng xa đã mở niêm phong"],
+        "Chuẩn 48 giờ sau khi nhận; vùng xa 72 giờ sau khi nhận; "
+        "không nhận đổi hàng vùng xa đã mở niêm phong.",
+        [
+            "chuẩn 48 giờ sau khi nhận",
+            "vùng xa 72 giờ sau khi nhận",
+            "không nhận đổi hàng vùng xa đã mở niêm phong",
+        ],
         ["h13", "h14", "h15"],
     )
     case(
@@ -791,7 +796,10 @@ def write_reviews(manifest):
             "",
             EXPOSURE,
             "",
-            "Status: pending NhiBuaa review. Candidate content is not approved gold.",
+            "Status: batch 1 approved by NhiBuaa on 2026-10-14. "
+            "Full dataset is not frozen; binding and baseline B are not approved."
+            if batch == 0
+            else "Status: pending NhiBuaa review. Candidate content is not approved gold.",
             "",
             f"Corpus SHA-256: `{manifest['corpus_sha256']}`",
             f"Dataset SHA-256: `{manifest['dataset_sha256']}`",
@@ -800,6 +808,20 @@ def write_reviews(manifest):
             "Locators use 1-based PDF pages, not printed journal page numbers.",
             "",
         ]
+        if batch == 0:
+            lines.extend(
+                [
+                    "Approval scope: cases 001-012; case 010 includes after-receipt "
+                    "timing for both 48 and 72 hours, with the opened-seal exception "
+                    "limited to remote orders. Other cases are unchanged.",
+                    "",
+                    "Agent reconfirmed clean-02.pdf page 1 from a fresh rendering: "
+                    "g1 states standard confirmation within 24 hours; g2 states "
+                    "urgent confirmation within 2 hours; g3 explicitly excludes "
+                    "completed resolution time. Source hash matches the manifest.",
+                    "",
+                ]
+            )
         for row in cases[batch * 12 : (batch + 1) * 12]:
             lines.extend(
                 [
@@ -844,7 +866,9 @@ def write_reviews(manifest):
                     )
             lines.extend(
                 [
-                    "Owner decision: pending. Fact completeness, visible locator, "
+                    "Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only."
+                    if batch == 0
+                    else "Owner decision: pending. Fact completeness, visible locator, "
                     "AND/OR alternatives and no-answer scope require owner review.",
                     "",
                 ]

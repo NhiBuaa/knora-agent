@@ -2,12 +2,16 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: pending NhiBuaa review. Candidate content is not approved gold.
+Status: batch 1 approved by NhiBuaa on 2026-10-14. Full dataset is not frozen; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `12127bf8d8a06bb3aac3719d2cd6726370b5ae8fec029a77c925bb00c4aeaf97`
+Dataset SHA-256: `6ff59068f56e0a53038ff2f3c9d63a45813094639a98672e923d2bfb88499d37`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
+
+Approval scope: cases 001-012; case 010 includes after-receipt timing for both 48 and 72 hours, with the opened-seal exception limited to remote orders. Other cases are unchanged.
+
+Agent reconfirmed clean-02.pdf page 1 from a fresh rendering: g1 states standard confirmation within 24 hours; g2 states urgent confirmation within 2 hours; g3 explicitly excludes completed resolution time. Source hash matches the manifest.
 
 ## pdf-v3-001 - simple - vi
 
@@ -23,7 +27,7 @@ Parent: none
   - Verbatim visible evidence: Phiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ.
   - Source SHA-256: `a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-002 - simple - vi
 
@@ -43,7 +47,7 @@ Parent: none
   - Verbatim visible evidence: 1.1. Đơn chuẩn: được đổi trong 48 giờ sau khi nhận.
   - Source SHA-256: `da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-003 - simple - vi
 
@@ -59,7 +63,7 @@ Parent: none
   - Verbatim visible evidence: 1.2. Chủ sở hữu: được công bố bản đã duyệt.
   - Source SHA-256: `3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-004 - simple - vi
 
@@ -75,7 +79,7 @@ Parent: none
   - Verbatim visible evidence: 1. Cảnh báo P1: phải báo trực trong 15 phút.
   - Source SHA-256: `80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-005 - simple - vi
 
@@ -91,7 +95,7 @@ Parent: none
   - Verbatim visible evidence: Hạn mức đầu kỳ cấp 14 lượt.
   - Source SHA-256: `e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-006 - simple - vi
 
@@ -107,7 +111,7 @@ Parent: none
   - Verbatim visible evidence: Kho ảnh mở từ 08:30 đến 17:30.
   - Source SHA-256: `77bc2701ecd348197deefa668890c21e2061efc108972fad2c8e12b4942574fa`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-007 - simple - vi
 
@@ -127,7 +131,7 @@ Parent: none
   - Verbatim visible evidence: Ngày kiểm tra hồ sơ là 14/10/2026.
   - Source SHA-256: `062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-008 - simple - vi
 
@@ -143,7 +147,7 @@ Parent: none
   - Verbatim visible evidence: RX-03: thiết bị đo có sai số tối đa 0,2 độ C.
   - Source SHA-256: `ee8932dc5ee26dfe71ae3f3c70293e6bff5f988197e72f02375b265596d02ab3`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-009 - comparison - vi
 
@@ -167,15 +171,15 @@ Parent: none
   - Verbatim visible evidence: Giờ xác nhận không phải thời gian giải quyết hoàn tất.
   - Source SHA-256: `a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-010 - comparison - vi
 
 Đơn chuẩn và vùng xa khác hạn đổi thế nào; đơn vùng xa đã mở niêm phong có ngoại lệ gì?
 
-Reference: Chuẩn 48 giờ; vùng xa 72 giờ; không nhận đổi hàng vùng xa đã mở niêm phong.
+Reference: Chuẩn 48 giờ sau khi nhận; vùng xa 72 giờ sau khi nhận; không nhận đổi hàng vùng xa đã mở niêm phong.
 
-Required facts: 48 giờ; 72 giờ; không nhận đổi hàng vùng xa đã mở niêm phong
+Required facts: chuẩn 48 giờ sau khi nhận; vùng xa 72 giờ sau khi nhận; không nhận đổi hàng vùng xa đã mở niêm phong
 AND/OR groups: `[["h13"], ["h14"], ["h15"]]`
 Parent: none
 
@@ -191,7 +195,7 @@ Parent: none
   - Verbatim visible evidence: 1.2.1. Ngoại lệ: không nhận đổi hàng đã mở niêm phong.
   - Source SHA-256: `da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-011 - comparison - vi
 
@@ -211,7 +215,7 @@ Parent: none
   - Verbatim visible evidence: 1.1. Biên tập viên: được sửa bản nháp, không được công bố.
   - Source SHA-256: `3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-012 - comparison - vi
 
@@ -231,4 +235,4 @@ Parent: none
   - Verbatim visible evidence: 2.1. Hồ sơ tranh chấp được giữ 90 ngày, thay cho 30 ngày.
   - Source SHA-256: `3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.

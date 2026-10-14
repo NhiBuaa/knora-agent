@@ -4,6 +4,12 @@
 gold or a claim about baseline quality. Exposure for all questions and synthetic content:
 `agent-authored; no model calls; owner review pending`.
 
+Batch 1 (001-012) was approved by NhiBuaa on 2026-10-14 after adding after-receipt
+timing to both deadlines in case 010 and reconfirming cases 001/009 against the
+original clean-02.pdf page 1. Batches 2-5 remain pending. This partial review does
+not freeze the full dataset or approve chunk bindings or baseline B; the final
+corpus/dataset hashes will be approved after all five batches.
+
 ## Fixed scope
 
 | Category | Files | PDF pages | Visible characteristics |
