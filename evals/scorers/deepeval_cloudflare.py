@@ -224,8 +224,10 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
                 model=judge,
                 async_mode=False,
             ),
-            "answer_relevancy": AnswerRelevancyMetric(model=judge, async_mode=False),
-            "faithfulness": FaithfulnessMetric(model=judge, async_mode=False),
+            "answer_relevancy": AnswerRelevancyMetric(
+                model=judge, eval_mode="llm", async_mode=False
+            ),
+            "faithfulness": FaithfulnessMetric(model=judge, eval_mode="llm", async_mode=False),
         }
         for name, scorer in scorers.items():
             if metrics[name]["status"] == "not_applicable":

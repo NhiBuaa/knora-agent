@@ -277,7 +277,15 @@ def test_free_preflight_requires_fresh_bound_approval() -> None:
         validate_free_preflight(record, run_id="run-1", capture_sha256=digest)
 
 
-def test_real_deepeval_metrics_use_only_mocked_cloudflare_transport(tmp_path) -> None:
+@pytest.mark.parametrize("ambient_mode", ["hybrid", "system_one"])
+def test_real_deepeval_metrics_use_only_mocked_cloudflare_transport(
+    tmp_path, monkeypatch, ambient_mode
+) -> None:
+    monkeypatch.setenv("DEEPEVAL_EVAL_MODE", ambient_mode)
+    monkeypatch.setattr(
+        "deepeval.metrics.utils.models.TypeSafeModel",
+        lambda *_args, **_kwargs: pytest.fail("UNAPPROVED_PROVIDER_SELECTED"),
+    )
     prompts = []
 
     def value(schema, defs):
