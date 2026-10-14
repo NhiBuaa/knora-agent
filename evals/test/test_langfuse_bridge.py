@@ -91,6 +91,20 @@ def test_bad_duration_fails_closed(bad) -> None:
         preview_report(json.dumps(report).encode(), project_key=b"project-secret-1234567890")
 
 
+def test_known_observation_failure_status_is_preserved_and_arbitrary_text_is_not() -> None:
+    report = _report()
+    report["observations"][0]["status"] = "observation_failure"
+    preview = preview_report(json.dumps(report).encode(), project_key=b"project-secret-1234567890")
+    span = preview["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    attrs = {item["key"]: item["value"] for item in span["attributes"]}
+    assert attrs["langfuse.trace.metadata.observation_status"] == {
+        "stringValue": "observation_failure"
+    }
+    report["observations"][0]["status"] = "RAW_ERROR_SENTINEL"
+    preview = preview_report(json.dumps(report).encode(), project_key=b"project-secret-1234567890")
+    assert "RAW_ERROR_SENTINEL" not in json.dumps(preview)
+
+
 def test_export_rebuilds_allowlist_through_real_sdk_mock_transport() -> None:
     requests = []
     imported_at, digest = _approved_preview()

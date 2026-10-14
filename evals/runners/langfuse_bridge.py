@@ -79,7 +79,10 @@ def preview_report(
             status = item.get("status")
             attrs.append(
                 _attribute(
-                    "observation_status", status if status in ("observed", "failure") else "unknown"
+                    "observation_status",
+                    status
+                    if status in ("observed", "failure", "observation_failure")
+                    else "unknown",
                 )
             )
             spans.append(
