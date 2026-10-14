@@ -45,20 +45,42 @@ These are real local-runtime screenshots captured on **2026-10-14**, using the [
 
 The backend owns authorization, document state, evidence and validated outcomes. The UI presents its public contracts.
 
-| Engineering concern                               | Implemented mechanism                                                                                                                                                                                                              | Inspect the evidence                                                                                                                                                         |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Durable PDF ingestion**                         | Persisted jobs and attempts, bounded retries, lease fencing and atomic activation prevent an expired worker from publishing stale work.                                                                                            | [M2 specification](docs/specs/done/milestone-2-production-ingestion.md) · [PostgreSQL coordination tests](backend/test/adapters/postgres/test_ingestion_job_coordination.py) |
-| **Traceable citations and refusal**               | Generation receives request-scoped evidence aliases. The server validates markers and resolves source metadata; no qualified evidence means refusal without generation. Structural validity is separate from semantic correctness. | [Answering use case](backend/src/knora/answering/module.py) · [Generation validation tests](backend/test/answering/test_generation_validation.py)                            |
-| **Workspace isolation and durable Conversations** | Backend ownership checks precede resource lookup. Turn admission is idempotent, execution is serialized per Conversation, and finalization is fenced.                                                                              | [Ownership tests](backend/test/access/test_workspace_identity.py) · [Conversation concurrency tests](backend/test/adapters/postgres/test_conversation_concurrency.py)        |
-| **Versioned retrieval**                           | PostgreSQL supports pgvector and full-text retrieval with versioned RRF. Workspace, active-set and embedding-profile filters apply before ranking; derivations retain provenance.                                                  | [Retrieval adapter](backend/src/knora/adapters/postgres/answering_store.py) · [Retrieval tests](backend/test/adapters/postgres/test_answering_store.py)                      |
-| **Reproducible evaluation**                       | Versioned datasets, corpus manifests and scorer/configuration provenance separate structural checks, retrieval metrics, semantic scoring and observation failures. Evaluation uses the normal Q&A HTTP seam.                       | [Evaluation methodology](docs/evaluation.md) · [Runner tests](evals/test/test_evaluation_runner.py)                                                                          |
+### Durable PDF ingestion
+
+Persisted jobs and attempts, bounded retries, lease fencing and atomic activation prevent an expired worker from publishing stale work.
+
+[M2 specification](docs/specs/done/milestone-2-production-ingestion.md) · [PostgreSQL coordination tests](backend/test/adapters/postgres/test_ingestion_job_coordination.py)
+
+### Traceable citations and refusal
+
+Generation receives request-scoped evidence aliases. The server validates markers and resolves source metadata; no qualified evidence means refusal without generation. Structural validity is separate from semantic correctness.
+
+[Answering use case](backend/src/knora/answering/module.py) · [Generation validation tests](backend/test/answering/test_generation_validation.py)
+
+### Workspace isolation and durable Conversations
+
+Backend ownership checks precede resource lookup. Turn admission is idempotent, execution is serialized per Conversation, and finalization is fenced.
+
+[Ownership tests](backend/test/access/test_workspace_identity.py) · [Conversation concurrency tests](backend/test/adapters/postgres/test_conversation_concurrency.py)
+
+### Versioned retrieval
+
+PostgreSQL supports pgvector and full-text retrieval with versioned RRF. Workspace, active-set and embedding-profile filters apply before ranking; derivations retain provenance.
+
+[Retrieval adapter](backend/src/knora/adapters/postgres/answering_store.py) · [Retrieval tests](backend/test/adapters/postgres/test_answering_store.py)
+
+### Reproducible evaluation
+
+Versioned datasets, corpus manifests and scorer/configuration provenance separate structural checks, retrieval metrics, semantic scoring and observation failures. Evaluation uses the normal Q&A HTTP seam.
+
+[Evaluation methodology](docs/evaluation.md) · [Runner tests](evals/test/test_evaluation_runner.py)
 
 The [human-approved tool workflow](docs/design/milestone-4-tools-human-approval.md) additionally separates approval from current execution authority and models idempotency/reconciliation. Its reference-provider evidence does not establish a live integration with an external support system.
 
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     Browser["Next.js UI / BFF"] -->|"Keycloak bearer identity"| API["FastAPI: Workspace authorization"]
     Client["API client"] -->|"Workspace API key"| API
     API --> Upload["PDF submission"]
@@ -71,7 +93,6 @@ flowchart LR
     Turns --> Answer["Retrieve → select evidence → generate → validate"]
     DB --> Answer
     Answer --> Result["Persisted answer + citations / refusal"]
-    Result --> Browser
 ```
 
 **Current stack:** Python / FastAPI, PostgreSQL / pgvector, object storage, Cloudflare Workers AI, Next.js / TypeScript and Keycloak. The local launcher runs separate PDF and Conversation workers; a production deployment topology remains to be established.
@@ -114,11 +135,9 @@ Use the same runbook for authentication, shutdown and troubleshooting. [Ollama](
 
 The automatic **[CI workflow](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml)** covers Frontend, Backend (Ubuntu and Windows), Database and Keycloak contracts, with formatting in the owning jobs. **`CI required`** aggregates these results. The badge above tracks `main`, not every PR or a deployed environment.
 
-| Evidence                            | What it establishes                                                                                                                                                                | Where to inspect                                                                                                                                                                               |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Automatic CI**                    | Deterministic unit, fixture, adapter and integration contracts. It excludes real AI calls and application service E2E.                                                             | [CI workflow](.github/workflows/ci.yml) · [CI runbook](docs/runbooks/ci.md)                                                                                                                    |
-| **Manual Runtime Verification**     | Selected isolated application or OTP journeys for the exact `subject_sha` recorded in a run's evidence. A successful run for another SHA does not qualify the current commit.      | [Workflow and run artifacts](https://github.com/NhiBuaa/knora-agent/actions/workflows/runtime-verification.yml) · [Release evidence checklist](docs/runbooks/ci.md#release-evidence-checklist) |
-| **Model-backed quality evaluation** | Dataset- and configuration-scoped retrieval, answer, citation-support and refusal observations. Historical results do not establish general quality or current release acceptance. | [Evaluation methodology and report index](docs/evaluation.md) · [Evaluation artifacts](evals/reports)                                                                                          |
+- **Automatic CI:** deterministic unit, fixture, adapter and integration contracts. It excludes real AI calls and application service E2E. [CI workflow](.github/workflows/ci.yml) · [CI runbook](docs/runbooks/ci.md).
+- **Manual Runtime Verification:** selected isolated application or OTP journeys for the exact `subject_sha` recorded in a run's evidence. A successful run for another SHA does not qualify the current commit. [Workflow and run artifacts](https://github.com/NhiBuaa/knora-agent/actions/workflows/runtime-verification.yml) · [Release evidence checklist](docs/runbooks/ci.md#release-evidence-checklist).
+- **Model-backed quality evaluation:** dataset- and configuration-scoped retrieval, answer, citation-support and refusal observations. Historical results do not establish general quality or current release acceptance. [Evaluation methodology and report index](docs/evaluation.md) · [Evaluation artifacts](evals/reports).
 
 Local repository checks:
 
