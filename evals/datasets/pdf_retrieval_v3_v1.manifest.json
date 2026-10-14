@@ -1,0 +1,856 @@
+{
+  "schema_version": 1,
+  "version": "pdf-retrieval-v3-v1-candidate",
+  "status": "pending",
+  "owner": "NhiBuaa",
+  "exposure": "agent-authored; no model calls; owner review pending",
+  "corpus_digest_scheme": "canonical-sources-and-anchors-json-sha256-v1",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "7b446994ae19fbf005c6e2308410caac0b7128772af2a28e6afe635a1b4fdb85",
+  "sources": [
+    {
+      "id": "clean-01",
+      "path": "corpora/pdf_retrieval_v3_v1/clean-01.pdf",
+      "sha256": "85c08b53d95346cce7d03d456b9d83058d4914326b148f1388c553413453877a",
+      "page_count": 2,
+      "category": "clean",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Sổ điều hướng hồ sơ",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "clean-02",
+      "path": "corpora/pdf_retrieval_v3_v1/clean-02.pdf",
+      "sha256": "a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf",
+      "page_count": 1,
+      "category": "clean",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Hướng dẫn phiếu hỗ trợ",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "hierarchy-01",
+      "path": "corpora/pdf_retrieval_v3_v1/hierarchy-01.pdf",
+      "sha256": "da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d",
+      "page_count": 1,
+      "category": "hierarchy",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Quy định đổi và hoàn",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "hierarchy-02",
+      "path": "corpora/pdf_retrieval_v3_v1/hierarchy-02.pdf",
+      "sha256": "3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec",
+      "page_count": 1,
+      "category": "hierarchy",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Quyền và lưu trữ",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "hierarchy-03",
+      "path": "corpora/pdf_retrieval_v3_v1/hierarchy-03.pdf",
+      "sha256": "80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180",
+      "page_count": 2,
+      "category": "hierarchy",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Cảnh báo vận hành",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "columns-01",
+      "path": "corpora/pdf_retrieval_v3_v1/columns-01.pdf",
+      "sha256": "e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05",
+      "page_count": 1,
+      "category": "multi_column",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Hạn mức sử dụng",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "columns-02",
+      "path": "corpora/pdf_retrieval_v3_v1/columns-02.pdf",
+      "sha256": "ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593",
+      "page_count": 1,
+      "category": "multi_column",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Bilingual evidence glossary",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "table-01",
+      "path": "corpora/pdf_retrieval_v3_v1/table-01.pdf",
+      "sha256": "25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f",
+      "page_count": 1,
+      "category": "hard_table",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Bảng đơn hàng",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "table-02",
+      "path": "corpora/pdf_retrieval_v3_v1/table-02.pdf",
+      "sha256": "06ea98d9fa8172caba88c9175b879d10d433f62867812edb7b993877bd333105",
+      "page_count": 1,
+      "category": "hard_table",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Bảng thời lượng hỗ trợ",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "table-03",
+      "path": "corpora/pdf_retrieval_v3_v1/table-03.pdf",
+      "sha256": "68c0826bb6b2d20442725f063ba909688bb1acfd6d101bb8759f13ca224c41b4",
+      "page_count": 1,
+      "category": "hard_table",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Bảng khối lượng kiểm",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "scan-01",
+      "path": "corpora/pdf_retrieval_v3_v1/scan-01.pdf",
+      "sha256": "77bc2701ecd348197deefa668890c21e2061efc108972fad2c8e12b4942574fa",
+      "page_count": 1,
+      "category": "scan_mixed",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Kho ảnh SC-07",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "scan-02",
+      "path": "corpora/pdf_retrieval_v3_v1/scan-02.pdf",
+      "sha256": "062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8",
+      "page_count": 1,
+      "category": "scan_mixed",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Biên bản kiểm MX-11",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "scan-03",
+      "path": "corpora/pdf_retrieval_v3_v1/scan-03.pdf",
+      "sha256": "ee8932dc5ee26dfe71ae3f3c70293e6bff5f988197e72f02375b265596d02ab3",
+      "page_count": 1,
+      "category": "scan_mixed",
+      "kind": "synthetic",
+      "license": "CC-BY-4.0",
+      "source_url": "https://github.com/NhiBuaa/knora-agent",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "title": "Phiếu thiết bị RX-03",
+      "attribution": "Knora evaluation fixture; agent-authored, 2026",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "academic-phobert",
+      "path": "corpora/pdf_retrieval_v3_v1/academic-phobert.pdf",
+      "sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "page_count": 6,
+      "category": "academic",
+      "kind": "real",
+      "license": "CC-BY-4.0",
+      "source_url": "https://aclanthology.org/2020.findings-emnlp.92.pdf",
+      "license_url": "https://aclanthology.org/faq/copyright/",
+      "title": "PhoBERT: Pre-trained language models for Vietnamese",
+      "attribution": "Dat Quoc Nguyen and Anh Tuan Nguyen, Findings of EMNLP 2020, pp. 1037-1042",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "academic-phonlp",
+      "path": "corpora/pdf_retrieval_v3_v1/academic-phonlp.pdf",
+      "sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "page_count": 7,
+      "category": "academic",
+      "kind": "real",
+      "license": "CC-BY-4.0",
+      "source_url": "https://aclanthology.org/2021.naacl-demos.1.pdf",
+      "license_url": "https://aclanthology.org/faq/copyright/",
+      "title": "PhoNLP: A joint multi-task learning model for Vietnamese part-of-speech tagging, named entity recognition and dependency parsing",
+      "attribution": "Linh The Nguyen and Dat Quoc Nguyen, NAACL-HLT 2021 Demonstrations, pp. 1-7",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    },
+    {
+      "id": "academic-vit5",
+      "path": "corpora/pdf_retrieval_v3_v1/academic-vit5.pdf",
+      "sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "page_count": 7,
+      "category": "academic",
+      "kind": "real",
+      "license": "CC-BY-4.0",
+      "source_url": "https://aclanthology.org/2022.naacl-srw.18.pdf",
+      "license_url": "https://aclanthology.org/faq/copyright/",
+      "title": "ViT5: Pretrained Text-to-Text Transformer for Vietnamese Language Generation",
+      "attribution": "Long Phan, Hieu Tran, Hieu Nguyen and Trieu H. Trinh, NAACL 2022 Student Research Workshop, pp. 136-142",
+      "acquired_at": "2026-10-14",
+      "exposure": "agent-authored; no model calls; owner review pending"
+    }
+  ],
+  "anchors": [
+    {
+      "id": "r1",
+      "source_id": "clean-01",
+      "page": 1,
+      "text": "Mã A-17 tra cứu hồ sơ QD-42.",
+      "region": "left text block; x=45, y=706 PDF points from bottom"
+    },
+    {
+      "id": "r2",
+      "source_id": "clean-01",
+      "page": 1,
+      "text": "Mã B-08 tra cứu hồ sơ TB-19.",
+      "region": "left text block; x=45, y=654 PDF points from bottom"
+    },
+    {
+      "id": "r3",
+      "source_id": "clean-01",
+      "page": 1,
+      "text": "Mã C-31 tra cứu hồ sơ SC-07.",
+      "region": "left text block; x=45, y=602 PDF points from bottom"
+    },
+    {
+      "id": "r4",
+      "source_id": "clean-01",
+      "page": 2,
+      "text": "Mã D-12 tra cứu hồ sơ COL-58.",
+      "region": "left text block; x=45, y=706 PDF points from bottom"
+    },
+    {
+      "id": "r5",
+      "source_id": "clean-01",
+      "page": 2,
+      "text": "Mã E-24 tra cứu hồ sơ QD-63.",
+      "region": "left text block; x=45, y=654 PDF points from bottom"
+    },
+    {
+      "id": "r6",
+      "source_id": "clean-01",
+      "page": 2,
+      "text": "Mã F-09 tra cứu hồ sơ TB-27.",
+      "region": "left text block; x=45, y=602 PDF points from bottom"
+    },
+    {
+      "id": "g1",
+      "source_id": "clean-02",
+      "page": 1,
+      "text": "Phiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ.",
+      "region": "left text block; x=45, y=706 PDF points from bottom"
+    },
+    {
+      "id": "g2",
+      "source_id": "clean-02",
+      "page": 1,
+      "text": "Phiếu hỗ trợ khẩn phải được xác nhận trong 2 giờ.",
+      "region": "left text block; x=45, y=654 PDF points from bottom"
+    },
+    {
+      "id": "g3",
+      "source_id": "clean-02",
+      "page": 1,
+      "text": "Giờ xác nhận không phải thời gian giải quyết hoàn tất.",
+      "region": "left text block; x=45, y=602 PDF points from bottom"
+    },
+    {
+      "id": "g4",
+      "source_id": "clean-02",
+      "page": 1,
+      "text": "Hạn xác nhận được tính theo giờ liên tục, kể cả cuối tuần.",
+      "region": "left text block; x=45, y=550 PDF points from bottom"
+    },
+    {
+      "id": "g5",
+      "source_id": "clean-02",
+      "page": 1,
+      "text": "Không thu phí xác nhận phiếu hỗ trợ.",
+      "region": "left text block; x=45, y=498 PDF points from bottom"
+    },
+    {
+      "id": "g6",
+      "source_id": "clean-02",
+      "page": 1,
+      "text": "Không thu phí xác nhận phiếu hỗ trợ.",
+      "region": "left text block; x=45, y=446 PDF points from bottom"
+    },
+    {
+      "id": "h11",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "text": "QD-42: mức bồi hoàn tối đa là 350.000 đồng.",
+      "region": "left column; x=45, y=706 PDF points from bottom; heading path QD-42"
+    },
+    {
+      "id": "h12",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "text": "1. Phạm vi: áp dụng cho đơn hàng nội địa.",
+      "region": "left column; x=45, y=653 PDF points from bottom; heading path 1. Phạm vi"
+    },
+    {
+      "id": "h13",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "text": "1.1. Đơn chuẩn: được đổi trong 48 giờ sau khi nhận.",
+      "region": "left column; x=61, y=600 PDF points from bottom; heading path 1.1. Đơn chuẩn"
+    },
+    {
+      "id": "h14",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "text": "1.2. Đơn vùng xa: được đổi trong 72 giờ sau khi nhận.",
+      "region": "left column; x=61, y=547 PDF points from bottom; heading path 1.2. Đơn vùng xa"
+    },
+    {
+      "id": "h15",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "text": "1.2.1. Ngoại lệ: không nhận đổi hàng đã mở niêm phong.",
+      "region": "left column; x=77, y=494 PDF points from bottom; heading path 1.2.1. Ngoại lệ"
+    },
+    {
+      "id": "h16",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "text": "2. Hoàn tiền: xử lý trong 5 ngày làm việc.",
+      "region": "left column; x=45, y=441 PDF points from bottom; heading path 2. Hoàn tiền"
+    },
+    {
+      "id": "h21",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "text": "QD-63: thời hạn lưu bản sao là 90 ngày.",
+      "region": "left column; x=45, y=706 PDF points from bottom; heading path QD-63"
+    },
+    {
+      "id": "h22",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "text": "1. Quyền truy cập: người đọc chỉ được xem tài liệu.",
+      "region": "left column; x=45, y=653 PDF points from bottom; heading path 1. Quyền truy cập"
+    },
+    {
+      "id": "h23",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "text": "1.1. Biên tập viên: được sửa bản nháp, không được công bố.",
+      "region": "left column; x=61, y=600 PDF points from bottom; heading path 1.1. Biên tập viên"
+    },
+    {
+      "id": "h24",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "text": "1.2. Chủ sở hữu: được công bố bản đã duyệt.",
+      "region": "left column; x=61, y=547 PDF points from bottom; heading path 1.2. Chủ sở hữu"
+    },
+    {
+      "id": "h25",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "text": "2. Lưu trữ: bản nháp thường được giữ 30 ngày.",
+      "region": "left column; x=45, y=494 PDF points from bottom; heading path 2. Lưu trữ"
+    },
+    {
+      "id": "h26",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "text": "2.1. Hồ sơ tranh chấp được giữ 90 ngày, thay cho 30 ngày.",
+      "region": "left column; x=61, y=441 PDF points from bottom; heading path 2.1. Hồ sơ tranh chấp được giữ 90 ngày, thay cho 30 ngày."
+    },
+    {
+      "id": "h31",
+      "source_id": "hierarchy-03",
+      "page": 1,
+      "text": "1. Cảnh báo P1: phải báo trực trong 15 phút.",
+      "region": "left column; x=45, y=706 PDF points from bottom; heading path 1. Cảnh báo P1"
+    },
+    {
+      "id": "h32",
+      "source_id": "hierarchy-03",
+      "page": 1,
+      "text": "1.1. Cảnh báo P2: phải báo trực trong 60 phút.",
+      "region": "left column; x=61, y=653 PDF points from bottom; heading path 1.1. Cảnh báo P2"
+    },
+    {
+      "id": "h33",
+      "source_id": "hierarchy-03",
+      "page": 1,
+      "text": "1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ.",
+      "region": "left column; x=77, y=600 PDF points from bottom; heading path 1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ."
+    },
+    {
+      "id": "h34",
+      "source_id": "hierarchy-03",
+      "page": 2,
+      "text": "2. Người trực phải xác nhận đã nhận cảnh báo.",
+      "region": "left column; x=45, y=706 PDF points from bottom; heading path 2. Người trực phải xác nhận đã nhận cảnh báo."
+    },
+    {
+      "id": "h35",
+      "source_id": "hierarchy-03",
+      "page": 2,
+      "text": "2.1. Khi chưa có xác nhận, gọi lại sau 5 phút.",
+      "region": "left column; x=61, y=653 PDF points from bottom; heading path 2.1. Khi chưa có xác nhận, gọi lại sau 5 phút."
+    },
+    {
+      "id": "h36",
+      "source_id": "hierarchy-03",
+      "page": 2,
+      "text": "2.2. Không gửi nội dung khách hàng qua kênh công khai.",
+      "region": "left column; x=61, y=600 PDF points from bottom; heading path 2.2. Không gửi nội dung khách hàng qua kênh công khai."
+    },
+    {
+      "id": "c11",
+      "source_id": "columns-01",
+      "page": 1,
+      "text": "COL-58: tổng hạn mức là 42 lượt.",
+      "region": "left text block; x=45, y=706 PDF points from bottom"
+    },
+    {
+      "id": "c12",
+      "source_id": "columns-01",
+      "page": 1,
+      "text": "Hạn mức đầu kỳ cấp 14 lượt.",
+      "region": "left text block; x=45, y=654 PDF points from bottom"
+    },
+    {
+      "id": "c13",
+      "source_id": "columns-01",
+      "page": 1,
+      "text": "Hạn mức chuyển kỳ tối đa 28 lượt.",
+      "region": "left text block; x=45, y=602 PDF points from bottom"
+    },
+    {
+      "id": "c14",
+      "source_id": "columns-01",
+      "page": 1,
+      "text": "Không cộng dồn lượt đã hết hạn.",
+      "region": "right text block; x=315, y=706 PDF points from bottom"
+    },
+    {
+      "id": "c15",
+      "source_id": "columns-01",
+      "page": 1,
+      "text": "Lượt chuyển kỳ được dùng trước lượt đầu kỳ.",
+      "region": "right text block; x=315, y=654 PDF points from bottom"
+    },
+    {
+      "id": "c16",
+      "source_id": "columns-01",
+      "page": 1,
+      "text": "Hạn mức được kiểm tra lúc 09:00 mỗi thứ Hai.",
+      "region": "right text block; x=315, y=602 PDF points from bottom"
+    },
+    {
+      "id": "c21",
+      "source_id": "columns-02",
+      "page": 1,
+      "text": "Evidence nghĩa là bằng chứng nguồn, không phải câu trả lời.",
+      "region": "left text block; x=45, y=706 PDF points from bottom"
+    },
+    {
+      "id": "c22",
+      "source_id": "columns-02",
+      "page": 1,
+      "text": "Citation nghĩa là trích dẫn chỉ đến bằng chứng nguồn.",
+      "region": "left text block; x=45, y=637 PDF points from bottom"
+    },
+    {
+      "id": "c23",
+      "source_id": "columns-02",
+      "page": 1,
+      "text": "Refusal nghĩa là từ chối trả lời khi thiếu bằng chứng.",
+      "region": "left text block; x=45, y=568 PDF points from bottom"
+    },
+    {
+      "id": "c24",
+      "source_id": "columns-02",
+      "page": 1,
+      "text": "Answer means a response supported by source evidence.",
+      "region": "right text block; x=315, y=706 PDF points from bottom"
+    },
+    {
+      "id": "c25",
+      "source_id": "columns-02",
+      "page": 1,
+      "text": "A citation does not replace the required answer facts.",
+      "region": "right text block; x=315, y=637 PDF points from bottom"
+    },
+    {
+      "id": "c26",
+      "source_id": "columns-02",
+      "page": 1,
+      "text": "A refusal must not invent a missing source fact.",
+      "region": "right text block; x=315, y=568 PDF points from bottom"
+    },
+    {
+      "id": "t11",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "TB-19",
+      "region": "merged-header table; row 1; column Mã hồ sơ; unit đơn; x=60, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t12",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "12",
+      "region": "merged-header table; row 1; column Đã xử lý; unit đơn; x=180, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t13",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "18",
+      "region": "merged-header table; row 1; column Còn chờ; unit đơn; x=300, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t14",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "30",
+      "region": "merged-header table; row 1; column Tổng; unit đơn; x=420, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t15",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "TB-20",
+      "region": "merged-header table; row 2; column Mã hồ sơ; unit đơn; x=60, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t16",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "7",
+      "region": "merged-header table; row 2; column Đã xử lý; unit đơn; x=180, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t17",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "9",
+      "region": "merged-header table; row 2; column Còn chờ; unit đơn; x=300, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t18",
+      "source_id": "table-01",
+      "page": 1,
+      "text": "16",
+      "region": "merged-header table; row 2; column Tổng; unit đơn; x=420, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t21",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "TB-27",
+      "region": "merged-header table; row 1; column Mã hồ sơ; unit phút; x=60, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t22",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "45",
+      "region": "merged-header table; row 1; column Trực tuyến; unit phút; x=180, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t23",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "15",
+      "region": "merged-header table; row 1; column Tại chỗ; unit phút; x=300, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t24",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "60",
+      "region": "merged-header table; row 1; column Tổng; unit phút; x=420, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t25",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "TB-28",
+      "region": "merged-header table; row 2; column Mã hồ sơ; unit phút; x=60, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t26",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "20",
+      "region": "merged-header table; row 2; column Trực tuyến; unit phút; x=180, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t27",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "10",
+      "region": "merged-header table; row 2; column Tại chỗ; unit phút; x=300, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t28",
+      "source_id": "table-02",
+      "page": 1,
+      "text": "30",
+      "region": "merged-header table; row 2; column Tổng; unit phút; x=420, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t31",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "KT-09",
+      "region": "merged-header table; row 1; column Mã hồ sơ; unit kg; x=60, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t32",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "2,5",
+      "region": "merged-header table; row 1; column Sáng; unit kg; x=180, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t33",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "4,0",
+      "region": "merged-header table; row 1; column Chiều; unit kg; x=300, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t34",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "6,5",
+      "region": "merged-header table; row 1; column Tổng; unit kg; x=420, y=527 PDF points from bottom"
+    },
+    {
+      "id": "t35",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "KT-10",
+      "region": "merged-header table; row 2; column Mã hồ sơ; unit kg; x=60, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t36",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "1,5",
+      "region": "merged-header table; row 2; column Sáng; unit kg; x=180, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t37",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "2,0",
+      "region": "merged-header table; row 2; column Chiều; unit kg; x=300, y=467 PDF points from bottom"
+    },
+    {
+      "id": "t38",
+      "source_id": "table-03",
+      "page": 1,
+      "text": "3,5",
+      "region": "merged-header table; row 2; column Tổng; unit kg; x=420, y=467 PDF points from bottom"
+    },
+    {
+      "id": "s11",
+      "source_id": "scan-01",
+      "page": 1,
+      "text": "SC-07: phí lưu kho là 27.000 đồng mỗi ngày.",
+      "region": "raster-only evidence block; image x=95,y=270 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s12",
+      "source_id": "scan-01",
+      "page": 1,
+      "text": "Kho ảnh mở từ 08:30 đến 17:30.",
+      "region": "raster-only evidence block; image x=95,y=425 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s13",
+      "source_id": "scan-01",
+      "page": 1,
+      "text": "Kho ảnh không nhận hàng vào Chủ nhật.",
+      "region": "raster-only evidence block; image x=95,y=580 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s14",
+      "source_id": "scan-01",
+      "page": 1,
+      "text": "Người nhận phải xuất trình mã nhận hàng.",
+      "region": "raster-only evidence block; image x=95,y=735 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s21",
+      "source_id": "scan-02",
+      "page": 1,
+      "text": "MX-11: hồ sơ đã kiểm có 23 trang.",
+      "region": "raster-only evidence block; image x=95,y=270 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s22",
+      "source_id": "scan-02",
+      "page": 1,
+      "text": "Trong hồ sơ có 5 trang phụ lục ảnh.",
+      "region": "raster-only evidence block; image x=95,y=425 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s23",
+      "source_id": "scan-02",
+      "page": 1,
+      "text": "Bản số hóa không thay thế bản gốc có chữ ký.",
+      "region": "raster-only evidence block; image x=95,y=580 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s24",
+      "source_id": "scan-02",
+      "page": 1,
+      "text": "Ngày kiểm tra hồ sơ là 14/10/2026.",
+      "region": "raster-only evidence block; image x=95,y=735 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s31",
+      "source_id": "scan-03",
+      "page": 1,
+      "text": "RX-03: thiết bị đo có sai số tối đa 0,2 độ C.",
+      "region": "raster-only evidence block; image x=95,y=270 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s32",
+      "source_id": "scan-03",
+      "page": 1,
+      "text": "Kiểm chuẩn thiết bị mỗi 6 tháng.",
+      "region": "raster-only evidence block; image x=95,y=425 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s33",
+      "source_id": "scan-03",
+      "page": 1,
+      "text": "Không dùng thiết bị khi tem kiểm chuẩn đã hết hạn.",
+      "region": "raster-only evidence block; image x=95,y=580 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "s34",
+      "source_id": "scan-03",
+      "page": 1,
+      "text": "Nhiệt độ bảo quản từ 15 đến 25 độ C.",
+      "region": "raster-only evidence block; image x=95,y=735 pixels from top; embedded image occupies PDF x=45..550,y=110..700"
+    },
+    {
+      "id": "pb1",
+      "source_id": "academic-phobert",
+      "page": 1,
+      "text": "public large-scale monolingual language mod-\nels pre-trained for Vietnamese.",
+      "region": "page 1; Abstract, left column, opening sentence"
+    },
+    {
+      "id": "pb2",
+      "source_id": "academic-phobert",
+      "page": 1,
+      "text": "We present PhoBERT with two versions—\nPhoBERTbase and PhoBERTlarge",
+      "region": "page 1; Abstract opening; base/large are typographic subscripts attached to PhoBERT; transcribed without adding a hyphen"
+    },
+    {
+      "id": "pn1",
+      "source_id": "academic-phonlp",
+      "page": 1,
+      "text": "model—named PhoNLP—for joint Viet-\nnamese part-of-speech (POS) tagging, named\nentity recognition (NER) and dependency\nparsing.",
+      "region": "page 1; Abstract opening, left column; joint Vietnamese POS tagging, NER and dependency parsing sentence"
+    },
+    {
+      "id": "pn2",
+      "source_id": "academic-phonlp",
+      "page": 1,
+      "text": "Apache License 2.0.",
+      "region": "page 1; Abstract, left column, toolkit release license sentence"
+    },
+    {
+      "id": "v51",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "text": "based encoder-decoder model for the Viet-\nnamese language.",
+      "region": "page 1; Abstract opening, left column; based continues hyphenated Transformer- from preceding line"
+    },
+    {
+      "id": "v52",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "text": "two downstream text generation tasks",
+      "region": "page 1; Abstract, left column, benchmark sentence"
+    },
+    {
+      "id": "v53",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "text": "stractive Text Summarization and Named En-\ntity Recognition.",
+      "region": "page 1; Abstract, left column, benchmark sentence; stractive continues hyphenated Ab- from preceding line"
+    },
+    {
+      "id": "v54",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "text": "the Viet-\nnamese monolingual subset of CC100",
+      "region": "page 1; Introduction, right column near bottom"
+    }
+  ]
+}
