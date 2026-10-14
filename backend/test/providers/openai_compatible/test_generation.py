@@ -215,7 +215,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
         client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
     )
 
-    result = await provider.generate(question="Refunds?", evidence=())
+    result = await provider.generate(question="Báo cáo có bao nhiêu chương?", evidence=())
     request = observed["request"]
     payload = __import__("json").loads(request.content)
     assert request.url.path.endswith("/ai/v1/chat/completions")
@@ -233,9 +233,18 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
         "refusal_reason MUST be INSUFFICIENT_EVIDENCE."
     ) in system_prompt
     assert "Every ANSWER answer MUST contain the exact cited aliases" in system_prompt
+    assert "Markdown paragraphs, headings and lists" in system_prompt
+    assert "one marker after the complete list" in system_prompt
+    assert "Use the current question's language for all answer prose" in system_prompt
+    assert "introductions, headings and explanations MUST be Vietnamese" in system_prompt
+    assert "Preserve quoted source titles and technical terms as written" in system_prompt
+    assert (
+        __import__("json").loads(payload["messages"][1]["content"])["question"]
+        == "Báo cáo có bao nhiêu chương?"
+    )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v2"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v4"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

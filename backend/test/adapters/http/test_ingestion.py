@@ -263,6 +263,12 @@ def test_pdf_upload_returns_durable_job_response_without_reading_into_applicatio
     assert command.source_name == "refund-policy.pdf"
     assert command.media_type == "application/pdf"
     assert command.idempotency_key == "pdf-request-1"
+    assert (
+        command.configuration.parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2"
+    )
+    assert (
+        command.configuration.chunking_configuration.id == "chunking-m2-pdf-pypdf-6-14-2-layout-v2"
+    )
     assert jobs.streamed_bytes == [b"%PDF-1.7\nsmall fixture"]
     assert principal.workspace_id == "workspace-a"
 

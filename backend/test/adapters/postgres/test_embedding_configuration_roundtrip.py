@@ -21,6 +21,7 @@ from knora.adapters.postgres.tables import (
 from knora.domain.errors import KnoraError
 from knora.ingestion.jobs import PdfSubmissionConfiguration, PreparedPdfSubmission
 from knora.ingestion.object_store import ObjectMetadata
+from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
 from knora.providers.embedding import EmbeddingConfiguration
 
@@ -77,13 +78,22 @@ def _submission(workspace_id: str, profile: EmbeddingConfiguration) -> PreparedP
     )
 
 
-def test_persisted_profile_roundtrips_through_job_and_worker() -> None:
+@pytest.mark.parametrize("layout_preserving", [False, True])
+def test_persisted_profile_roundtrips_through_job_and_worker(layout_preserving: bool) -> None:
     workspace_id = f"profile-roundtrip-{uuid4().hex}"
     profile = _profile()
     with SessionFactory.begin() as session:
         session.add(WorkspaceTable(id=workspace_id, name="Profile roundtrip"))
     store = PostgresIngestionJobStore(SessionFactory)
-    result = store.commit_pdf_submission(_submission(workspace_id, profile))
+    submission = _submission(workspace_id, profile)
+    if layout_preserving:
+        submission = replace(
+            submission,
+            configuration=PdfSubmissionConfiguration.layout_preserving(
+                embedding_configuration=profile
+            ),
+        )
+    result = store.commit_pdf_submission(submission)
 
     with SessionFactory() as session:
         row = session.get(EmbeddingConfigurationTable, profile.id)
@@ -105,6 +115,11 @@ def test_persisted_profile_roundtrips_through_job_and_worker() -> None:
         )()
 
     assert store.pdf_profile_for_work(work).embedding_configuration == profile
+    assert store.pdf_profile_for_work(work).extraction_configuration == (
+        PdfExtractionConfiguration.layout_preserving()
+        if layout_preserving
+        else PdfExtractionConfiguration.milestone_two()
+    )
     context = store.read_reprocess_context(
         workspace_id=workspace_id,
         document_version_id=result.document_version_id,

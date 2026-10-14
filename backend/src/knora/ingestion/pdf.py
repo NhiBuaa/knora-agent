@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import BinaryIO, Protocol
 
 from knora.domain.errors import KnoraError
@@ -70,6 +70,14 @@ class PdfExtractionConfiguration:
     def derivation_identity(self) -> str:
         encoded = json.dumps(asdict(self), sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
+
+    @classmethod
+    def layout_preserving(cls) -> PdfExtractionConfiguration:
+        return replace(
+            cls.milestone_two(),
+            parser_version="pypdf-6.14.2-layout-v2",
+            extraction_options_version="pypdf-layout-lines-v2",
+        )
 
 
 @dataclass(frozen=True, slots=True)

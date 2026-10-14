@@ -7,6 +7,7 @@ import {
   fixtureResponse,
   statePath,
   conversation as referenceConversation,
+  answered,
 } from "./support/figma-state-fixtures";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -19,6 +20,81 @@ import type {
   ConversationResponse,
   TurnResponse,
 } from "../../generated/knora-openapi";
+
+for (const viewport of [
+  { width: 1440, height: 960 },
+  { width: 1912, height: 1114 },
+]) {
+  test(`source fixtures render structured answers and preserve multiline evidence at ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize(viewport);
+    const unexpected = await prepareFixture(page, "128:107");
+    const excerpt = "Report structure\n  - Introduction\n  - Conclusion";
+    const turn: TurnResponse = {
+      ...answered,
+      result: {
+        ...answered.result!,
+        answer:
+          "## Report structure\n\nTwo chapters:\n\n1. Introduction\n2. Conclusion [[E1]]\n\nUse this order.",
+        citations: [{ ...answered.result!.citations[0], excerpt }],
+      },
+    };
+    await page.route(
+      "**/conversations/fixture-conversation/turns?**",
+      (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ items: [turn], next_cursor: null }),
+        }),
+    );
+    await page.reload();
+    const article = page.getByRole("article");
+    await expect(
+      article.getByRole("heading", { name: "Report structure" }),
+    ).toBeVisible();
+    await expect(article.locator("ol > li")).toHaveCount(2);
+    await expect(article).not.toContainText("[[");
+    await expect(
+      article.getByRole("button", { name: /Citation 1:/ }),
+    ).toHaveCount(1);
+    await article
+      .locator("ol")
+      .getByRole("button", { name: /Citation 1:/ })
+      .click();
+    const inspector = page.getByRole("complementary", {
+      name: "Evidence Inspector",
+    });
+    const passage = inspector.locator("blockquote p").last();
+    await expect(passage).toHaveText(excerpt, { useInnerText: false });
+    expect(await passage.textContent()).toBe(excerpt);
+    await expect(passage).toHaveCSS("white-space", "pre-wrap");
+    await expect(
+      inspector.getByText("fixture-version", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole("link", { name: "Open document" }),
+    ).toHaveAttribute(
+      "href",
+      "/workspaces/fixture-workspace/documents/fixture-document",
+    );
+    await inspector.getByText("Provenance", { exact: true }).click();
+    await expect(inspector.getByText("E1", { exact: true })).toBeVisible();
+    await expect(inspector.getByText("0–149", { exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    const screenshot = info.outputPath("structured-answer-and-source.png");
+    await page.screenshot({ path: screenshot, animations: "disabled" });
+    await info.attach("structured-answer-and-source", {
+      path: screenshot,
+      contentType: "image/png",
+    });
+    expect(unexpected).toEqual([]);
+  });
+}
 
 for (const state of ["228:293", "228:326"]) {
   test(`Authentication outcome ${state} renders readable tinted evidence cues`, async ({
