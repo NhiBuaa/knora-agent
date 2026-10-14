@@ -51,7 +51,7 @@ Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lờ
 
 **Nguồn gốc screenshots:** chụp lại ngày **2026-10-14** bằng production frontend build từ `c71d35d` và backend source tree `c78140c`. Câu trả lời và thông báo từ chối đã lưu được tạo ban đầu từ `7697615`, sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation. Lần chụp lại sử dụng các kết quả đó, không thay đổi nội dung hoặc gọi model mới.
 
-Screenshot câu trả lời sau đó được chụp lại từ cùng frontend build với backend source `fe3b696`, ẩn conversation rail và tập trung khung chụp vào câu trả lời cùng nguồn đang chọn. Câu trả lời và citation đã lưu không thay đổi.
+Screenshot câu trả lời sau đó được chụp lại từ cùng frontend build với backend source `fe3b696`, ẩn conversation rail. Ảnh giữ toàn bộ viewport, bao gồm Evidence Inspector và ô nhập câu hỏi. Câu trả lời và citation đã lưu không thay đổi.
 
 </details>
 
