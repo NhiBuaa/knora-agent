@@ -30,8 +30,10 @@ launcher do not enable or mount file-vault, and an old `KNORA_PRIMARY_OTP_VAULT_
 The local switch still requires explicit opt-in; leaving it off without a production secret source
 fails closed. Production retains Vault/secret-manager integration; provider selection and hardening
 are deferred to Issue #152 and must be provisioned and verified before production OTP is enabled.
-Daily local development and manual Email OTP acceptance use the configured real SMTP service
-(currently Gmail). Mailpit is reserved for isolated automated tests/CI that read synthetic OTP mail;
+Daily development includes registration, sign-in, sign-out and Forgot Password via Email OTP;
+the root template supplies the explicit local opt-in, while SMTP/reset-flow provisioning is a
+one-time guarded setup. Daily local development and manual Email OTP acceptance use the configured
+real SMTP service (currently Gmail). Mailpit is reserved for isolated automated tests/CI that read synthetic OTP mail;
 the daily launcher does not start it. Automated Mailpit evidence does not prove Gmail delivery.
 
 ## Current Model
