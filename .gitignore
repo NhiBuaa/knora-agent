@@ -11,6 +11,7 @@ __pycache__/
 dist/
 build/
 evals/reports/*.json
+evals/reports/.deepeval-ledgers/
 !evals/reports/.gitkeep
 minio-smoke.txt
 .verification/figma/q1/
