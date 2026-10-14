@@ -64,77 +64,80 @@ Confirm the account's Workers AI data permission and available free allowance be
 
 ## Configuration reference
 
-Mẫu root [`.env.example`](../../.env.example) chỉ yêu cầu **5 giá trị** cho daily
+The root [`.env.example`](../../.env.example) requires **five values** for daily
 development: `KNORA_CLOUDFLARE_ACCOUNT_ID`, `KNORA_CLOUDFLARE_API_TOKEN`,
-`KNORA_OBJECT_STORE_S3_ACCESS_KEY`, `KNORA_OBJECT_STORE_S3_SECRET_KEY` và
-`SESSION_SECRET`. Hai credential S3 dùng cho MinIO local; giữ giá trị cũ nếu storage
-đã tồn tại. Tạo session secret bằng lệnh ở phần setup trên. Không cần điền lại các
-biến trong bảng dưới để chạy `start-dev.ps1` với realm đi kèm.
+`KNORA_OBJECT_STORE_S3_ACCESS_KEY`, `KNORA_OBJECT_STORE_S3_SECRET_KEY` and
+`SESSION_SECRET`. The S3 credentials are for local MinIO; preserve existing values
+when reusing storage. Generate the session secret with the setup command above.
+The variables below do not need additional assignments when running
+`start-dev.ps1` with the bundled realm.
 
-Chỉ thêm override của chế độ cần dùng vào `.env` hoặc process env. Tham số launcher
-ưu tiên hơn process env, process env ưu tiên hơn `.env`. Không đặt biến số tùy chọn
-thành chuỗi rỗng; bỏ assignment để dùng default. Không tự sửa file `.env` hoặc
-khởi động lại runtime của người khác khi cập nhật mẫu.
+Add overrides to `.env` or the process environment only for the mode you use.
+Launcher parameters take precedence over the process environment, which takes
+precedence over `.env`. Leave optional numeric variables unset instead of assigning
+empty strings. Updating the template must not change another session's `.env` or
+restart its runtime.
 
-### Default và giá trị launcher tự điền
+### Defaults and values supplied by the launcher
 
-| Biến | Khi dùng / default |
+| Variable | Usage / default |
 | --- | --- |
-| `KNORA_EMBEDDING_PROVIDER`, `KNORA_GENERATION_PROVIDER` | Daily launcher mặc định cả hai là `cloudflare-workers-ai`; chọn cả hai `ollama` để offline hoặc `deterministic-local` để mô phỏng. Backend trực tiếp yêu cầu đặt cả cặp hoặc để cả cặp chưa đặt. |
-| `KNORA_PROVIDER_MODE` | Backend trực tiếp/CI mặc định `deterministic-local` khi không có cặp selector; giữ compatibility cho evaluation. Daily launcher chọn cặp độc lập nên không dùng biến này để chọn provider. |
-| `KNORA_DATABASE_URL` | Settings mặc định `postgresql+psycopg://knora:knora@localhost:5432/knora`; daily launcher tự đặt theo `-DatabaseName` (mặc định `knora_dev`) và `-PostgresPort` (5432). Chỉ đặt URL rõ ràng cho backend trực tiếp hoặc `start-ollama-demo.ps1 -UseExistingStorage` với target đã kiểm tra. |
-| `KNORA_EMBEDDING_DIMENSION`, `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID`, `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` | Launcher tự resolve/pin; không nhập tay khi dùng launcher. Backend trực tiếp mặc định dimension 1536; Cloudflare/Ollama cần 1024 và profile tương ứng; Ollama generation cần digest thật đã xác minh. |
-| `KNORA_API_URL`, `KNORA_BACKEND_URL`, `NEXT_PUBLIC_APP_ORIGIN` | Daily launcher tự đặt theo API/frontend ports, mặc định 8000/3000. Không đưa provider secrets vào biến `NEXT_PUBLIC_`. |
-| `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`, `KEYCLOAK_ISSUER` | Daily launcher điền endpoint của `http://127.0.0.1:8180/realms/knora-dev` khi chưa có giá trị; issuer ngoài cần realm đang chạy, các endpoint theo issuer hoặc override rõ ràng. |
-| `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, `KNORA_KEYCLOAK_AUDIENCE` | Bundled client `knora-web`; audience backend mặc định theo audience frontend. Với client ngoài, cấu hình cả client ID và hai audience đúng realm. |
-| `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_JWKS_URL` | Daily launcher lấy từ OIDC frontend nếu chưa đặt. Issuer frontend/backend phải khớp; backend trực tiếp không tự bật bearer validation khi thiếu cấu hình. |
-| `KEYCLOAK_CLIENT_SECRET` | Chỉ cần với confidential client ngoài; bundled public client không cần. |
-| `KEYCLOAK_REDIRECT_URI`, `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` | Daily launcher mặc định `http://127.0.0.1:3000/api/auth/callback` và `http://127.0.0.1:3000/`; `-FrontendPort` cập nhật cả hai. Phải khớp allowlist của client. |
-| `KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS` | Backend default 300 giây; chỉ override khi cần. |
-| `KNORA_API_CREDENTIALS_JSON` | Backend default `[]`; chỉ dùng cho API-key CLI/integration, không cần với browser bearer flow. Chứa `key_id`, hash, Workspace và enabled theo [architecture](../standards/architecture.md#authentication-and-workspace-authorization); không lưu raw API key trong JSON. |
-| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY` | Default `retrieval-m1-v1`, không override threshold. Opt-in containment dùng `retrieval-evidence-containment-v1`, rollback về `retrieval-m1-v1`; xem [acceptance runbook](evidence-containment-acceptance.md). V2 chỉ nhận threshold/profile đã calibrated của V2; không dùng cho Cloudflare chỉ vì dimension hoặc score có vẻ phù hợp. |
+| `KNORA_EMBEDDING_PROVIDER`, `KNORA_GENERATION_PROVIDER` | The daily launcher defaults both to `cloudflare-workers-ai`; select both as `ollama` for offline use or `deterministic-local` for simulation. Direct backend invocation requires both selectors to be set or both unset. |
+| `KNORA_PROVIDER_MODE` | Direct backend/CI defaults to `deterministic-local` when the selector pair is absent; compatibility modes remain available for evaluation. The daily launcher selects the pair independently, so this variable does not select its provider. |
+| `KNORA_DATABASE_URL` | Settings defaults to `postgresql+psycopg://knora:knora@localhost:5432/knora`; the daily launcher derives it from `-DatabaseName` (default `knora_dev`) and `-PostgresPort` (5432). Set an explicit URL only for direct backend invocation or `start-ollama-demo.ps1 -UseExistingStorage` with a verified target. |
+| `KNORA_EMBEDDING_DIMENSION`, `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID`, `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` | The launcher resolves and pins these values; do not enter them manually when using it. Direct backend invocation defaults to dimension 1536; Cloudflare/Ollama require 1024 and the matching profile; Ollama generation requires a verified real digest. |
+| `KNORA_API_URL`, `KNORA_BACKEND_URL`, `NEXT_PUBLIC_APP_ORIGIN` | The daily launcher derives these from the API/frontend ports, defaulting to 8000/3000. Never put provider secrets in `NEXT_PUBLIC_` variables. |
+| `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`, `KEYCLOAK_ISSUER` | The daily launcher supplies endpoints for `http://127.0.0.1:8180/realms/knora-dev` when unset. An external issuer requires a running realm; endpoints follow that issuer unless explicitly overridden. |
+| `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, `KNORA_KEYCLOAK_AUDIENCE` | The bundled client is `knora-web`; the backend audience defaults to the frontend audience. For an external client, configure the client ID and both audiences to match the realm. |
+| `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_JWKS_URL` | The daily launcher takes these from frontend OIDC settings when unset. Frontend/backend issuers must match; direct backend invocation does not enable bearer validation automatically when configuration is missing. |
+| `KEYCLOAK_CLIENT_SECRET` | Required only for an external confidential client; the bundled public client does not need it. |
+| `KEYCLOAK_REDIRECT_URI`, `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` | Daily launcher defaults are `http://127.0.0.1:3000/api/auth/callback` and `http://127.0.0.1:3000/`; `-FrontendPort` updates both. They must match the client's allowlist. |
+| `KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS` | Backend default: 300 seconds; override only when needed. |
+| `KNORA_API_CREDENTIALS_JSON` | Backend default: `[]`; used only for API-key CLI/integration, not required for the browser bearer flow. Contains `key_id`, hash, Workspace and enabled fields as defined in [architecture](../standards/architecture.md#authentication-and-workspace-authorization); never store raw API keys in this JSON. |
+| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY` | Default: `retrieval-m1-v1`, without a threshold override. Opt-in containment uses `retrieval-evidence-containment-v1`; rollback uses `retrieval-m1-v1`. See the [acceptance runbook](evidence-containment-acceptance.md). V2 accepts only its calibrated threshold/profile; do not use it for Cloudflare merely because dimensions or scores appear compatible. |
 
-### Provider tùy chọn
+### Optional providers
 
-Cloudflare giữ fixed native Qwen3 embedding + GPT-OSS generation; không cần nhập
-model/profile để chạy daily. `KNORA_CLOUDFLARE_TIMEOUT_SECONDS` default 60 giây.
-Các override `KNORA_CLOUDFLARE_EMBEDDING_MODEL`,
-`KNORA_CLOUDFLARE_EMBEDDING_CONFIGURATION_ID`, `KNORA_CLOUDFLARE_GENERATION_MODEL`
-chỉ được chấp nhận khi khớp fixed profile hiện hành. Đổi model/space cần cấu hình mới
-được duyệt và re-index có kiểm soát, không chỉ sửa env.
+Cloudflare retains fixed native Qwen3 embedding and GPT-OSS generation; daily use
+does not require model/profile input. `KNORA_CLOUDFLARE_TIMEOUT_SECONDS` defaults to
+60 seconds. Overrides for `KNORA_CLOUDFLARE_EMBEDDING_MODEL`,
+`KNORA_CLOUDFLARE_EMBEDDING_CONFIGURATION_ID` and `KNORA_CLOUDFLARE_GENERATION_MODEL`
+are accepted only when they match the current fixed profile. Changing the model or
+embedding space requires an approved new configuration and controlled re-indexing.
 
-Ollama offline dùng recipe tại [Provider selection](#provider-selection-and-explicit-simulation)
-và [stable offline runbook](local-ollama.md). Các override còn hỗ trợ:
+For offline Ollama, use [Provider selection](#provider-selection-and-explicit-simulation)
+and the [stable offline runbook](local-ollama.md). Supported overrides:
 
-| Biến | Default |
+| Variable | Default |
 | --- | --- |
-| `KNORA_OLLAMA_BASE_URL` | Launcher `http://127.0.0.1:11434`; Settings trực tiếp `http://localhost:11434`. Launcher chỉ nhận endpoint loopback. |
-| `KNORA_OLLAMA_EMBEDDING_MODEL` | `qwen3-embedding:0.6b`, fixed profile; launcher resolve digest/metadata. |
-| `KNORA_OLLAMA_GENERATION_MODEL` | `qwen3:8b`; có thể chọn `qwen3:4b` hoặc `gpt-oss:20b` đã pull, không đổi default khi dọn mẫu. |
-| `KNORA_OLLAMA_TIMEOUT_SECONDS`, `KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS` | 60 và 120 giây; đặt số dương nếu cần override. |
+| `KNORA_OLLAMA_BASE_URL` | Launcher: `http://127.0.0.1:11434`; direct Settings: `http://localhost:11434`. The launcher accepts only loopback endpoints. |
+| `KNORA_OLLAMA_EMBEDDING_MODEL` | `qwen3-embedding:0.6b`, fixed profile; the launcher resolves its digest/metadata. |
+| `KNORA_OLLAMA_GENERATION_MODEL` | `qwen3:8b`; an already pulled `qwen3:4b` or `gpt-oss:20b` can also be selected. Template cleanup does not change the default. |
+| `KNORA_OLLAMA_TIMEOUT_SECONDS`, `KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS` | 60 and 120 seconds; overrides must be positive numbers. |
 
-Gemini, OpenAI-compatible và semantic scorer vẫn có caller compatibility/evaluation;
-xem [biến provider/scorer](../evaluation.md#provider-and-scorer-configuration).
-Application provider và judge là hai vai trò riêng; chọn Cloudflare daily không tự
-chọn judge hoặc đổi hợp đồng model-backed evaluation.
+Gemini, OpenAI-compatible and the semantic scorer retain compatibility/evaluation
+callers; see [provider/scorer variables](../evaluation.md#provider-and-scorer-configuration).
+The application provider and judge are separate roles; selecting Cloudflare for
+daily use does not select a judge or change the model-backed evaluation contract.
 
-### Storage, Compose, operations và OTP
+### Storage, Compose, operations and OTP
 
-| Biến | Khi dùng / default |
+| Variable | Usage / default |
 | --- | --- |
-| `KNORA_OBJECT_STORE_BACKEND`, `KNORA_OBJECT_STORE_ROOT` | Backend trực tiếp mặc định `filesystem`, root `.knora-objects`. Daily launcher chọn `s3_compatible` với MinIO local. |
-| `KNORA_OBJECT_STORE_S3_ENDPOINT`, `KNORA_OBJECT_STORE_S3_BUCKET`, `KNORA_OBJECT_STORE_S3_REGION` | Backend trực tiếp không có default; khi dùng S3 cần bucket/credential và endpoint của dịch vụ. Daily launcher dùng `http://127.0.0.1:9000`, bucket `knora` (hoặc `-ObjectStoreBucket`/env), region `us-east-1` nếu chưa đặt. Stable launcher hỗ trợ `-ObjectStoreEndpoint` và `-UseExistingStorage`; xem [offline runbook](local-ollama.md). |
-| `KNORA_CANONICAL_MINIO_ACCESS_KEY`, `KNORA_CANONICAL_MINIO_SECRET_KEY` | Tên credential Compose; launcher ưu tiên cặp này rồi lấy cặp `KNORA_OBJECT_STORE_S3_ACCESS_KEY`/`KNORA_OBJECT_STORE_S3_SECRET_KEY` từ mẫu. Không cần điền hai cặp. Chạy Compose trực tiếp cần cấp cặp canonical qua process env hoặc `.env`; không tự tạo lại credential của volume cũ. |
-| `KNORA_PROVIDER_TEST_ACCESS_KEY`, `KNORA_PROVIDER_TEST_SECRET_KEY` | Chỉ cho profile `provider-test` trong `docker-compose.dev.yml`, tách credential khỏi daily. Không cần cho startup bình thường. |
-| `KNORA_OBJECT_INVENTORY_MANIFEST`, `KNORA_OBJECT_INVENTORY_MINIMUM_AGE_SECONDS` | Operations: đường dẫn JSONL inventory nếu có, minimum age default 86400 giây. Không đặt manifest thì không tự có inventory scanner. |
-| `KNORA_OPERATIONAL_ALERT_CONFIGURATION_JSON`, `KNORA_OPERATIONAL_METRICS_RETRY_WINDOW_SECONDS` | Versioned alert configuration tùy chọn; retry metric window default 300 giây. Xem [operational observability](../standards/architecture.md#asynchronous-pdf-ingestion). |
-| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY` | Local OTP opt-in, switch mặc định false; key phải là Base64 canonical tối thiểu 32 decoded bytes, giữ qua restart. Production dùng Vault/secret manager khi switch tắt. |
-| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Chỉ cấp cho guarded SMTP setup: Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, sender/user/password của tài khoản dev được phép. Không điền thì không tự cấu hình SMTP. Mailpit chỉ dùng isolated tests/CI. |
+| `KNORA_OBJECT_STORE_BACKEND`, `KNORA_OBJECT_STORE_ROOT` | Direct backend defaults: `filesystem`, root `.knora-objects`. The daily launcher selects `s3_compatible` with local MinIO. |
+| `KNORA_OBJECT_STORE_S3_ENDPOINT`, `KNORA_OBJECT_STORE_S3_BUCKET`, `KNORA_OBJECT_STORE_S3_REGION` | No direct backend defaults; S3 requires a bucket, credentials and the service endpoint. The daily launcher uses `http://127.0.0.1:9000`, bucket `knora` (or `-ObjectStoreBucket`/environment), and region `us-east-1` when unset. The stable launcher supports `-ObjectStoreEndpoint` and `-UseExistingStorage`; see the [offline runbook](local-ollama.md). |
+| `KNORA_CANONICAL_MINIO_ACCESS_KEY`, `KNORA_CANONICAL_MINIO_SECRET_KEY` | Compose credential names; the launcher prefers this pair, then falls back to `KNORA_OBJECT_STORE_S3_ACCESS_KEY`/`KNORA_OBJECT_STORE_S3_SECRET_KEY` from the template. Do not fill both pairs. Direct Compose invocation requires the canonical pair in the process environment or `.env`; preserve credentials for existing volumes. |
+| `KNORA_PROVIDER_TEST_ACCESS_KEY`, `KNORA_PROVIDER_TEST_SECRET_KEY` | Only for the `provider-test` profile in `docker-compose.dev.yml`, with credentials separate from daily use. Not required for normal startup. |
+| `KNORA_OBJECT_INVENTORY_MANIFEST`, `KNORA_OBJECT_INVENTORY_MINIMUM_AGE_SECONDS` | Operations: optional JSONL inventory path; minimum age defaults to 86400 seconds. An inventory scanner is not supplied automatically when the manifest is unset. |
+| `KNORA_OPERATIONAL_ALERT_CONFIGURATION_JSON`, `KNORA_OPERATIONAL_METRICS_RETRY_WINDOW_SECONDS` | Optional versioned alert configuration; retry metric window defaults to 300 seconds. See [operational observability](../standards/architecture.md#asynchronous-pdf-ingestion). |
+| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY` | Local OTP is opt-in; the switch defaults to false. The key must be canonical Base64 containing at least 32 decoded bytes and must persist across restarts. Production uses Vault/secret manager when the switch is off. |
+| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Supply only for guarded SMTP setup: Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, and sender/user/password from an authorized development account. Leaving them unset does not configure SMTP automatically. Mailpit is only for isolated tests/CI. |
 
-OTP/SMTP cần quy trình opt-in tại [Optional local Email OTP](#optional-local-email-otp)
-và [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration).
-Đừng tự tạo key, đổi nguồn key, bật flow hoặc restart realm đang dùng khi chỉ cập nhật
-mẫu. Các profiles/datasets/evidence cũ giữ nguyên identity và nội dung.
+OTP/SMTP requires the opt-in procedure in [Optional local Email OTP](#optional-local-email-otp)
+and the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration).
+Updating the template must not generate keys, change key sources, enable flows or
+restart an active realm. Existing profiles/datasets/evidence retain their identity
+and content.
 
 ## Start daily development
 
