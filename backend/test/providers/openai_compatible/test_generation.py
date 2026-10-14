@@ -235,10 +235,12 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
     assert "Every ANSWER answer MUST contain the exact cited aliases" in system_prompt
     assert "Markdown paragraphs, headings and lists" in system_prompt
     assert "two or more distinct items MUST use a Markdown bulleted list" in system_prompt
-    assert "even when the question does not explicitly ask for a list" in system_prompt
-    assert "Emphasize the count and its unit in bold" in system_prompt
+    assert "REQUIRED count-answer layout" in system_prompt
+    assert "including when the question asks only how many" in system_prompt
+    assert "one complete introductory sentence containing **count unit**" in system_prompt
+    assert "then a blank line and a '- ' line for each named member" in system_prompt
     assert "Preserve the items' meaning and source order" in system_prompt
-    assert "Keep short answers without an enumeration as prose" in system_prompt
+    assert "Keep short answers about a single fact as prose" in system_prompt
     assert "one marker after the complete list" in system_prompt
     assert "Use the current question's language for all answer prose" in system_prompt
     assert "introductions, headings and explanations MUST be Vietnamese" in system_prompt
@@ -249,7 +251,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(decisio
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v5"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v8"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

@@ -15,7 +15,7 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v5"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v8"
 CLOUDFLARE_SYSTEM_PROMPT = (
     SYSTEM_PROMPT + " For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
     "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE. "
@@ -24,16 +24,19 @@ CLOUDFLARE_SYSTEM_PROMPT = (
     "return REFUSAL instead. Format the answer with Markdown paragraphs, headings and lists. "
     "An enumeration of two or more distinct items MUST use a Markdown bulleted list, with "
     "each item on its own line starting with '- ', not a comma-separated paragraph. "
-    "When asked how many members a collection has and the evidence identifies those members, "
-    "give the count in a short introduction followed by their bulleted list, "
-    "even when the question does not explicitly ask for a list. "
-    "Emphasize the count and its unit in bold. Preserve the items' meaning and source order; "
+    "Preserve the items' meaning and source order; "
     "do not invent members or details absent from the evidence. "
-    "Keep short answers without an enumeration as prose. "
+    "Keep short answers about a single fact as prose. "
     "For a list supported by one alias, put one marker after the complete "
     "list. Use the current question's language for all answer prose. "
     "If the question is Vietnamese, introductions, headings and explanations MUST be Vietnamese. "
-    "Preserve quoted source titles and technical terms as written."
+    "Preserve quoted source titles and technical terms as written. "
+    "REQUIRED count-answer layout when the evidence names a collection's members, "
+    "including when the question asks only how many: one complete introductory sentence containing "
+    "**count unit**, then a blank line and a '- ' line for each named member. "
+    "Replace count, unit and members with the actual supported values in the question's language. "
+    "The count and its unit belong inside the same bold span. A count-only sentence is incomplete "
+    "when the evidence supplies the members."
 )
 
 

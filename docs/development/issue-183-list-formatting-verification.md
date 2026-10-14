@@ -24,7 +24,7 @@ screenshot. Prompt v4 only requested lists "when appropriate".
 
 ## Approved change
 
-Cloudflare prompt v5 requires separate Markdown bullet lines for an enumeration
+Cloudflare prompt v8 requires separate Markdown bullet lines for an enumeration
 of two or more items. When evidence identifies the members of a collection, a
 count question receives an introduction with the count and unit in bold, followed
 by those members, even without an explicit request to list them. Item meaning and
@@ -49,12 +49,15 @@ unchanged. No dependency or output reconstruction is added.
 | Frontend and shared Prettier checks | passed |
 | OpenAPI exporter check | current |
 | Compose config | exit 0; ambient canonical MinIO variables unset |
-| Full Python suite | 1,851 passed, 43 failed, 16 skipped |
+| Full Python suite after Docker recovery | 1,894 passed, 16 skipped, exit 0 |
 
-The full Python run used a dedicated migrated test database. Docker stopped
-during the run; the failed cases report Postgres connection timeouts. This failed
-run is not counted as a passing gate. The 16 skips retain the existing guarded
-database, manual PDF baseline and explicitly enabled Ollama exclusions.
+The full Python run used a dedicated migrated test database. The first run had
+1,851 passes, 43 Postgres connection-timeout failures and 16 skips after Docker
+stopped. It is not counted as a pass. The full rerun passed after the owner
+restored Docker. It began with v5; the final v8 provider/validation contracts were
+checked separately (20 passes). Required CI checks the final published tree.
+The 16 skips retain the existing guarded database, manual PDF baseline and
+explicitly enabled Ollama exclusions.
 
 Contract tests assert the outgoing provider instructions and immutable version;
 they do not demonstrate compliance by a real model.
@@ -62,10 +65,10 @@ they do not demonstrate compliance by a real model.
 A read-only independent review found no actionable code defects. It identified
 the missing real-model/browser evidence as the remaining verification gate.
 
-## Runtime verification pending
+## Real provider and browser observations
 
 A separate worktree API, ingestion worker, conversation worker and Next frontend
-were started with their imports checked against this worktree and prompt v5.
+were started with their imports checked against this worktree and prompt version.
 They use an isolated runtime database and filesystem object store. A fresh
 workspace was created through the authenticated browser UI. The original #169
 PDF was submitted through the real HTTP upload endpoint (202), using an ephemeral
@@ -73,11 +76,58 @@ workspace-scoped API credential in a local TestClient; the running server's
 authentication was not changed. Browser file upload was unavailable because the
 existing Edge extension lacks file-URL permission; no permission was granted.
 
-Fresh real-provider answers and desktop/mobile citation checks are still pending.
-Docker's Postgres/Keycloak services became unavailable, and Edge displayed
-`ERR_BLOCKED_BY_CLIENT` on the local verification page. The browser barrier
-requires owner intervention. No fixture, historical answer replay or prompt
-string assertion is substituted for the requested runtime evidence.
+After Docker recovery, fresh questions ran through Edge, the authenticated Next
+BFF, the worktree API and conversation worker, with actual Cloudflare generation.
+Temporary HTTPX request hooks recorded the outgoing system-prompt hash and
+verified equality with the imported prompt before transport. Response hashes
+match the persisted answers. No request or response was rewritten by the hooks.
+The v8 system hash is
+`b2424cfa95be38822494c8f6569368426506dfc2c7654757a4755b41ea35e2a8`.
+
+| Fresh question | v8 observation | Trace |
+| --- | --- | --- |
+| Báo cáo dự án phần mềm được gợi ý trình bày bao nhiêu chương? | bold count/unit, 7 bullet lines, 8 newlines, 1 citation, valid | `4eb09fb6-05e7-44ce-a532-c97d0924bf7e` |
+| Báo cáo cần có những phần nào ngoài các chương nội dung? | 6 bullet lines, 9 newlines, 1 citation, valid | `43b573c6-95f6-4f05-b1ce-ecb0246707d0` |
+| Mục tiêu chung của mọi báo cáo là gì? | prose, 0 bullet lines, 0 newlines, 1 citation, valid | `a3615147-70cc-4940-a50e-e7e81735be85` |
+
+All three use `cloudflare-workers-ai`, `@cf/openai/gpt-oss-20b`, prompt v8,
+and finish reason `stop`. Stored Turn results equal their matching traces.
+Every cited alias maps to the stored Chunk; document/version/page/line/offset/
+checksum fields match the public projection.
+
+Actual Edge checks at 1440x960 and 390x844 observe 7, 6 and 0 answer list items,
+respectively. Each answer has exactly one chip and no raw marker. Citation
+selection opens the matching document and historical version; the Inspector
+excerpt equals the payload verbatim. Text wraps without horizontal overflow.
+Screenshots were saved and visually inspected locally. Mobile here means a real
+desktop Edge browser with its viewport overridden, not a physical phone.
+
+The general-list observation establishes layout and structural citation mapping;
+it is not an independent semantic-quality score. Its single cited Chunk does not
+contain every item named across the selected evidence, and the generated order
+is not a literal reproduction of the source list. The validator's accepted
+structural contract is unchanged; no unsupported semantic guarantee is claimed.
+
+### Unsuccessful observations retained
+
+- v5: seven bullets but only the number was bold, so it did not meet the full
+  count/unit requirement.
+- v6 and v7: the count/unit was bold but the model omitted the member list.
+- First v8 count: no marker; validation rejected it.
+- First v8 general list: five bullets but invalid citation output; rejected.
+- Another v8 general-list request failed before a trace could be persisted,
+  with `GENERATION_OUTPUT_INVALID`; its raw response was not captured, so the
+  precise parse failure is not attributed to a token cutoff.
+- A date question refused before generation; it is not short-answer evidence.
+
+These are distinct fresh turns, not an automatic repair/retry flow. They remain
+failed observations, even though later measured v8 turns rendered successfully.
+No fixture, historical answer replay or prompt-string assertion substitutes for
+the real observations. The unchanged validator continues to fail closed.
+
+The new instructions improve the requested layout but cannot guarantee that every
+model output obeys formatting or citation instructions. Sampling, model, token
+budget, transport, schema and retry behavior were not changed under option A.
 
 ## Evidence and acceptance boundaries
 
@@ -85,6 +135,6 @@ Temporary runtime scripts, logs and observations stay in ignored
 `frontend/test-results/issue183/`. Credentials, cookies, original PDF bytes,
 raw source/provider content and database dumps are excluded from publication.
 
-This record is a progress report, not owner acceptance or a release Runtime
+This record is a capability observation, not owner acceptance or a release Runtime
 Verification claim. Required CI and the requested runtime scenarios must be
 reported at the PR head. No merge, Issue closure or Done transition is authorized.
