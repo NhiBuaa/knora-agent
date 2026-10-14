@@ -515,7 +515,7 @@ def author_gold():
         (
             "Vậy hạn đó có tính cuối tuần và mất phí không?",
             "Tính giờ liên tục kể cả cuối tuần; không thu phí xác nhận.",
-            ["kể cả cuối tuần", "không thu phí xác nhận"],
+            ["tính giờ liên tục, kể cả cuối tuần", "không thu phí xác nhận"],
             ["g4", ["g5", "g6"]],
         ),
         (
@@ -528,7 +528,10 @@ def author_gold():
             "Người đó có quyền công bố bản chưa duyệt được nêu không?",
             "Chỉ quyền công bố bản đã duyệt được nêu; "
             "không thể suy ra quyền công bố bản chưa duyệt.",
-            ["quyền được nêu chỉ là công bố bản đã duyệt"],
+            [
+                "quyền được nêu chỉ là công bố bản đã duyệt",
+                "không thể suy ra quyền công bố bản chưa duyệt",
+            ],
             ["h24"],
         ),
         (
@@ -556,7 +559,8 @@ def author_gold():
             ["s22"],
         ),
         (
-            "Thiết bị đó kiểm chuẩn bao lâu một lần và hết tem có dùng được không?",
+            "Thiết bị đó kiểm chuẩn bao lâu một lần và khi tem kiểm chuẩn hết hạn "
+            "có dùng được không?",
             "Mỗi 6 tháng; không dùng khi tem kiểm chuẩn hết hạn.",
             ["6 tháng", "không dùng khi tem hết hạn"],
             ["s32", "s33"],
@@ -799,7 +803,7 @@ def write_reviews(manifest):
             "",
             f"Status: batch {batch + 1} approved by NhiBuaa on 2026-10-14. "
             "Full dataset is not frozen; binding and baseline B are not approved."
-            if batch < 2
+            if batch < 3
             else "Status: pending NhiBuaa review. Candidate content is not approved gold.",
             "",
             f"Corpus SHA-256: `{manifest['corpus_sha256']}`",
@@ -832,6 +836,22 @@ def write_reviews(manifest):
                     "",
                     "Case 018: the difference of 14 orders is calculated from "
                     "30 minus 16 in table-01.pdf, not printed directly in the PDF.",
+                    "",
+                ]
+            )
+        if batch == 2:
+            lines.extend(
+                [
+                    "Approval scope: cases 025-036; case 029 required facts include "
+                    "continuous hours including weekends; case 031 required facts "
+                    "include that permission to publish unapproved versions cannot "
+                    "be inferred; case 036 explicitly asks about an expired "
+                    "calibration label. Other cases are unchanged.",
+                    "",
+                    "Case 031 remains ANSWER: the source states permission for "
+                    "approved versions only, without establishing either permission "
+                    "or an absolute prohibition for unapproved versions. Evidence "
+                    "anchors and follow-up parent links are unchanged.",
                     "",
                 ]
             )
@@ -880,7 +900,7 @@ def write_reviews(manifest):
             lines.extend(
                 [
                     "Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only."
-                    if batch < 2
+                    if batch < 3
                     else "Owner decision: pending. Fact completeness, visible locator, "
                     "AND/OR alternatives and no-answer scope require owner review.",
                     "",

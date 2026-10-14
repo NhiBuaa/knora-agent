@@ -2,12 +2,16 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: pending NhiBuaa review. Candidate content is not approved gold.
+Status: batch 3 approved by NhiBuaa on 2026-10-14. Full dataset is not frozen; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `ee1ddabec75833f64b3b2a145d6b5caddaa831ed1391a537fd0a55e5c3812044`
+Dataset SHA-256: `d8111778a4032cb90265a41cc69680c1798a0e501bc40694d6d343edcdc9bbe8`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
+
+Approval scope: cases 025-036; case 029 required facts include continuous hours including weekends; case 031 required facts include that permission to publish unapproved versions cannot be inferred; case 036 explicitly asks about an expired calibration label. Other cases are unchanged.
+
+Case 031 remains ANSWER: the source states permission for approved versions only, without establishing either permission or an absolute prohibition for unapproved versions. Evidence anchors and follow-up parent links are unchanged.
 
 ## pdf-v3-025 - table_hierarchy - vi
 
@@ -27,7 +31,7 @@ Parent: none
   - Verbatim visible evidence: 2.1. Khi chưa có xác nhận, gọi lại sau 5 phút.
   - Source SHA-256: `80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-026 - table_hierarchy - vi
 
@@ -43,7 +47,7 @@ Parent: none
   - Verbatim visible evidence: 2.2. Không gửi nội dung khách hàng qua kênh công khai.
   - Source SHA-256: `80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-027 - table_hierarchy - vi
 
@@ -63,7 +67,7 @@ Parent: none
   - Verbatim visible evidence: Lượt chuyển kỳ được dùng trước lượt đầu kỳ.
   - Source SHA-256: `e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-028 - table_hierarchy - vi
 
@@ -83,7 +87,7 @@ Parent: none
   - Verbatim visible evidence: Bản số hóa không thay thế bản gốc có chữ ký.
   - Source SHA-256: `062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-029 - follow_up - vi
 
@@ -91,7 +95,7 @@ Vậy hạn đó có tính cuối tuần và mất phí không?
 
 Reference: Tính giờ liên tục kể cả cuối tuần; không thu phí xác nhận.
 
-Required facts: kể cả cuối tuần; không thu phí xác nhận
+Required facts: tính giờ liên tục, kể cả cuối tuần; không thu phí xác nhận
 AND/OR groups: `[["g4"], ["g5", "g6"]]`
 Parent: pdf-v3-001
 
@@ -107,7 +111,7 @@ Parent: pdf-v3-001
   - Verbatim visible evidence: Không thu phí xác nhận phiếu hỗ trợ.
   - Source SHA-256: `a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-030 - follow_up - vi
 
@@ -123,7 +127,7 @@ Parent: pdf-v3-002
   - Verbatim visible evidence: 2. Hoàn tiền: xử lý trong 5 ngày làm việc.
   - Source SHA-256: `da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-031 - follow_up - vi
 
@@ -131,7 +135,7 @@ Người đó có quyền công bố bản chưa duyệt được nêu không?
 
 Reference: Chỉ quyền công bố bản đã duyệt được nêu; không thể suy ra quyền công bố bản chưa duyệt.
 
-Required facts: quyền được nêu chỉ là công bố bản đã duyệt
+Required facts: quyền được nêu chỉ là công bố bản đã duyệt; không thể suy ra quyền công bố bản chưa duyệt
 AND/OR groups: `[["h24"]]`
 Parent: pdf-v3-003
 
@@ -139,7 +143,7 @@ Parent: pdf-v3-003
   - Verbatim visible evidence: 1.2. Chủ sở hữu: được công bố bản đã duyệt.
   - Source SHA-256: `3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-032 - follow_up - vi
 
@@ -155,7 +159,7 @@ Parent: pdf-v3-004
   - Verbatim visible evidence: 1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ.
   - Source SHA-256: `80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-033 - follow_up - vi
 
@@ -175,7 +179,7 @@ Parent: pdf-v3-005
   - Verbatim visible evidence: Hạn mức được kiểm tra lúc 09:00 mỗi thứ Hai.
   - Source SHA-256: `e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-034 - follow_up - vi
 
@@ -195,7 +199,7 @@ Parent: pdf-v3-006
   - Verbatim visible evidence: Người nhận phải xuất trình mã nhận hàng.
   - Source SHA-256: `77bc2701ecd348197deefa668890c21e2061efc108972fad2c8e12b4942574fa`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-035 - follow_up - vi
 
@@ -211,11 +215,11 @@ Parent: pdf-v3-007
   - Verbatim visible evidence: Trong hồ sơ có 5 trang phụ lục ảnh.
   - Source SHA-256: `062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-036 - follow_up - vi
 
-Thiết bị đó kiểm chuẩn bao lâu một lần và hết tem có dùng được không?
+Thiết bị đó kiểm chuẩn bao lâu một lần và khi tem kiểm chuẩn hết hạn có dùng được không?
 
 Reference: Mỗi 6 tháng; không dùng khi tem kiểm chuẩn hết hạn.
 
@@ -231,4 +235,4 @@ Parent: pdf-v3-008
   - Verbatim visible evidence: Không dùng thiết bị khi tem kiểm chuẩn đã hết hạn.
   - Source SHA-256: `ee8932dc5ee26dfe71ae3f3c70293e6bff5f988197e72f02375b265596d02ab3`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
