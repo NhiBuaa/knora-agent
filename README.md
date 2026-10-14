@@ -4,23 +4,23 @@
 
 **Ask questions about your documents. Inspect the sources behind each answer.**
 
-Knora is a Workspace-scoped knowledge application for finding information in documents and checking the evidence behind a response.
+Knora lets you ask questions about documents in a private Workspace and inspect the cited sources.
 
 **Upload PDF → Ask Question → Citation / Refusal**
 
-> **Current status:** the local application, durable PDF ingestion, Conversations and citation inspection are implemented. Answer-quality improvements and acceptance are in progress. A public demo is not yet available.
+> **Current status:** local PDF ingestion, Conversations and citation inspection are implemented. Answer-quality acceptance is in progress. No public demo is available.
 
 [Workflow](#workflow) · [Engineering Highlights](#engineering-highlights) · [Architecture](#architecture) · [Run Locally](#run-locally) · [Verification](#verification)
 
 ## Workflow
 
-1. **Upload a text-based PDF** to your private Workspace and wait for processing to finish.
-2. **Ask a question** in a Conversation.
-3. **Inspect a citation** to see the source excerpt and page, or receive an explicit refusal when evidence is insufficient.
-
 ![Knora answering a question about watering seedlings, with the page-one source excerpt open in the Evidence Inspector](docs/assets/readme/cited-answer.jpg)
 
 _An answer with its citation selected. The answer's “before 9 AM” statement matches the sample source._
+
+1. **Upload a text-based PDF** to your private Workspace and wait for processing to finish.
+2. **Ask a question** in a Conversation.
+3. **Inspect a citation** to see the source excerpt and page, or receive an explicit refusal when evidence is insufficient.
 
 <details>
 <summary><strong>PDF upload and refusal examples</strong></summary>
