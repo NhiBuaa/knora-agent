@@ -434,7 +434,8 @@ def author_gold():
     )
     case(
         "comparison",
-        "Compare the TB-19 and TB-20 totals, preserving each row identifier.",
+        "Compare the TB-19 and TB-20 totals, preserving each row identifier, "
+        "and state the difference in orders.",
         "TB-19 totals 30 orders; TB-20 totals 16 orders; TB-19 is larger by 14 orders.",
         ["TB-19 30 orders", "TB-20 16 orders", "difference 14 orders"],
         ["t11", "t14", "t15", "t18"],
@@ -796,9 +797,9 @@ def write_reviews(manifest):
             "",
             EXPOSURE,
             "",
-            "Status: batch 1 approved by NhiBuaa on 2026-10-14. "
+            f"Status: batch {batch + 1} approved by NhiBuaa on 2026-10-14. "
             "Full dataset is not frozen; binding and baseline B are not approved."
-            if batch == 0
+            if batch < 2
             else "Status: pending NhiBuaa review. Candidate content is not approved gold.",
             "",
             f"Corpus SHA-256: `{manifest['corpus_sha256']}`",
@@ -819,6 +820,18 @@ def write_reviews(manifest):
                     "g1 states standard confirmation within 24 hours; g2 states "
                     "urgent confirmation within 2 hours; g3 explicitly excludes "
                     "completed resolution time. Source hash matches the manifest.",
+                    "",
+                ]
+            )
+        if batch == 1:
+            lines.extend(
+                [
+                    "Approval scope: cases 013-024; case 018 explicitly asks for "
+                    "the difference in orders. Reference, required facts and evidence "
+                    "anchors are unchanged. Other cases are unchanged.",
+                    "",
+                    "Case 018: the difference of 14 orders is calculated from "
+                    "30 minus 16 in table-01.pdf, not printed directly in the PDF.",
                     "",
                 ]
             )
@@ -867,7 +880,7 @@ def write_reviews(manifest):
             lines.extend(
                 [
                     "Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only."
-                    if batch == 0
+                    if batch < 2
                     else "Owner decision: pending. Fact completeness, visible locator, "
                     "AND/OR alternatives and no-answer scope require owner review.",
                     "",

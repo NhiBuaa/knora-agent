@@ -2,12 +2,16 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: pending NhiBuaa review. Candidate content is not approved gold.
+Status: batch 2 approved by NhiBuaa on 2026-10-14. Full dataset is not frozen; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `6ff59068f56e0a53038ff2f3c9d63a45813094639a98672e923d2bfb88499d37`
+Dataset SHA-256: `ee1ddabec75833f64b3b2a145d6b5caddaa831ed1391a537fd0a55e5c3812044`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
+
+Approval scope: cases 013-024; case 018 explicitly asks for the difference in orders. Reference, required facts and evidence anchors are unchanged. Other cases are unchanged.
+
+Case 018: the difference of 14 orders is calculated from 30 minus 16 in table-01.pdf, not printed directly in the PDF.
 
 ## pdf-v3-013 - comparison - vi
 
@@ -31,7 +35,7 @@ Parent: none
   - Verbatim visible evidence: 1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ.
   - Source SHA-256: `80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-014 - comparison - en
 
@@ -51,7 +55,7 @@ Parent: none
   - Verbatim visible evidence: Citation nghĩa là trích dẫn chỉ đến bằng chứng nguồn.
   - Source SHA-256: `ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-015 - comparison - mixed
 
@@ -75,7 +79,7 @@ Parent: none
   - Verbatim visible evidence: A refusal must not invent a missing source fact.
   - Source SHA-256: `ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-016 - comparison - mixed
 
@@ -99,7 +103,7 @@ Parent: none
   - Verbatim visible evidence: two downstream text generation tasks
   - Source SHA-256: `69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43`; license: [CC-BY-4.0](https://aclanthology.org/faq/copyright/); [source](https://aclanthology.org/2022.naacl-srw.18.pdf)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-017 - comparison - mixed
 
@@ -123,11 +127,11 @@ Parent: none
   - Verbatim visible evidence: stractive Text Summarization and Named En- / tity Recognition.
   - Source SHA-256: `69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43`; license: [CC-BY-4.0](https://aclanthology.org/faq/copyright/); [source](https://aclanthology.org/2022.naacl-srw.18.pdf)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-018 - comparison - en
 
-Compare the TB-19 and TB-20 totals, preserving each row identifier.
+Compare the TB-19 and TB-20 totals, preserving each row identifier, and state the difference in orders.
 
 Reference: TB-19 totals 30 orders; TB-20 totals 16 orders; TB-19 is larger by 14 orders.
 
@@ -151,7 +155,7 @@ Parent: none
   - Verbatim visible evidence: 16
   - Source SHA-256: `25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-019 - table_hierarchy - vi
 
@@ -179,7 +183,7 @@ Parent: none
   - Verbatim visible evidence: 30
   - Source SHA-256: `25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-020 - table_hierarchy - vi
 
@@ -203,7 +207,7 @@ Parent: none
   - Verbatim visible evidence: 9
   - Source SHA-256: `25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-021 - table_hierarchy - vi
 
@@ -231,7 +235,7 @@ Parent: none
   - Verbatim visible evidence: 60
   - Source SHA-256: `06ea98d9fa8172caba88c9175b879d10d433f62867812edb7b993877bd333105`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-022 - table_hierarchy - vi
 
@@ -259,7 +263,7 @@ Parent: none
   - Verbatim visible evidence: 30
   - Source SHA-256: `06ea98d9fa8172caba88c9175b879d10d433f62867812edb7b993877bd333105`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-023 - table_hierarchy - vi
 
@@ -287,7 +291,7 @@ Parent: none
   - Verbatim visible evidence: 6,5
   - Source SHA-256: `68c0826bb6b2d20442725f063ba909688bb1acfd6d101bb8759f13ca224c41b4`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-024 - table_hierarchy - vi
 
@@ -315,4 +319,4 @@ Parent: none
   - Verbatim visible evidence: 3,5
   - Source SHA-256: `68c0826bb6b2d20442725f063ba909688bb1acfd6d101bb8759f13ca224c41b4`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
