@@ -1,698 +1,165 @@
-# Knora Agent
+# Knora
 
-## Continuous integration
+[![CI](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml)
 
-Pull requests and updates to `main` run [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-Each component checks its formatting before tests: Prettier for frontend/shared files, Ruff for
-Python, and Maven Spotless for Java. The checks cover frontend unit and fixture tests, portable
-and Windows backend contracts, migrated PostgreSQL integration, and Keycloak provider flow tests.
-`CI required` fails when any required job fails, is cancelled, skipped, missing, or has an empty
-report. Service-backed browser journeys and expensive model checks are excluded from PR CI.
+**Ask questions about your documents. Inspect the sources behind each answer.**
 
-Release changes that affect those runtime capabilities require the manual
-[`Runtime Verification`](.github/workflows/runtime-verification.yml) workflow and its exact-SHA
-evidence; see [`docs/runbooks/ci.md`](docs/runbooks/ci.md).
+Knora lets you ask questions about documents in a private Workspace and inspect the cited sources.
 
-**Knora is a workspace-scoped AI knowledge and support system that ingests documents, retrieves grounded evidence, and returns answers with traceable citations.**
+**Upload PDF → Ask Question → Citation / Refusal**
 
-It is built around backend and applied-AI engineering concerns that are easy to hide in a simple chatbot demo: durable ingestion, versioned retrieval, evidence provenance, workspace isolation, reproducible evaluation, and human-authorized external actions.
+> **Current status:** local PDF ingestion, Conversations and citation inspection are implemented. Answer-quality acceptance is in progress. No public demo is available.
 
-> **Current state:** the cited-RAG, production-shaped ingestion, hybrid retrieval/evaluation, human-approved tool slices, durable Conversation backend, and Cloudflare Workers AI local real-AI path are implemented. The workspace and Conversation UI is implemented; model-backed answer-quality acceptance is still in progress. No hosted production deployment is claimed.
+[Workflow](#workflow) · [Engineering Highlights](#engineering-highlights) · [Architecture](#architecture) · [Run Locally](#run-locally) · [Verification](#verification)
 
-## Why Knora
+## Workflow
 
-Document Q&A becomes difficult to trust when the system cannot explain where an answer came from or what happened before it produced that answer.
+![Knora answering a question about watering seedlings, with the page-one source excerpt open in the Evidence Inspector](docs/assets/readme/cited-answer.jpg)
 
-Knora treats those concerns as system design problems:
+_An answer with its citation selected. The answer's “before 9 AM” statement matches the sample source._
 
-- answers are grounded in a request-scoped Evidence Set and expose source citations;
-- insufficient evidence produces a refusal instead of an invented citation;
-- PDF ingestion is durable asynchronous work rather than a long-running upload request;
-- retrieval behavior is tied to immutable/versioned configurations and embedding spaces;
-- authorization is scoped to a Workspace before protected resources are used;
-- evaluation records the dataset, corpus, configuration and scorer provenance behind a result;
-- write-capable tools require explicit human approval and fresh execution authority.
+1. **Upload a text-based PDF** to your private Workspace and wait for processing to finish.
+2. **Ask a question** in a Conversation.
+3. **Inspect a citation** to see the source excerpt and page, or receive an explicit refusal when evidence is insufficient.
 
-The project is intentionally closer to a small AI-backed service than to a prompt wrapper.
+<details>
+<summary><strong>PDF upload and refusal examples</strong></summary>
 
-## What is implemented
+### Upload a source
 
-### Cited knowledge retrieval
+![The real PDF upload dialog with community-garden-guide.pdf selected](docs/assets/readme/pdf-upload.jpg)
 
-Knora can ingest text, Markdown and PDF sources, retrieve supporting chunks and return either a cited answer or an explicit refusal. Citation projections preserve enough document/version/source-location information for a reviewer to trace the answer back to its evidence.
+The upload creates a durable Ingestion Job. The sample reached **Ready** after worker processing.
 
-### Production-shaped PDF ingestion
+### No supporting evidence
 
-PDF upload creates durable work. Source objects, ingestion jobs, processing attempts, retry state and serving pointers are persisted independently of the HTTP request.
+![Knora refusing a question about an office Wi-Fi password that is absent from the sample document](docs/assets/readme/refusal.jpg)
 
-Worker coordination uses leases and fencing so an expired worker cannot publish a stale result. Reprocessing is modeled as a new processing generation instead of mutating historical attempts.
+This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation.
 
-### Versioned vector and hybrid retrieval
+</details>
 
-The answering layer exposes one retrieval seam while the PostgreSQL adapter supports configured retrieval strategies.
+These are real local-runtime screenshots captured on **2026-10-14**, using the [fictional CC0 sample PDF](docs/assets/readme/community-garden-guide.pdf). The runtime used the tracked source tree of `7697615395e469863279b9f5286b4ebed2396144`, Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. They illustrate this small workflow; they are not hosted-demo or general answer-quality evidence.
 
-Current implementation includes:
+## Engineering Highlights
 
-- pgvector cosine retrieval;
-- PostgreSQL full-text retrieval;
-- exact Embedding Configuration matching;
-- deterministic candidate ordering;
-- versioned Reciprocal Rank Fusion for hybrid retrieval;
-- evidence selection with chunk-count, overlap and token-budget constraints;
-- persisted retrieval/candidate provenance for analysis.
+The backend owns authorization, document state, evidence and validated outcomes. The UI presents its public contracts.
 
-Vector-only configurations remain useful reproducible baselines; hybrid retrieval does not silently replace them.
+### Durable PDF ingestion
 
-### Workspace-scoped authorization
+Persisted jobs and attempts, bounded retries, lease fencing and atomic activation prevent an expired worker from publishing stale work.
 
-Documents, ingestion jobs, retrieval, question traces, operator observations and tool data are scoped to a Workspace.
+[M2 specification](docs/specs/done/milestone-2-production-ingestion.md) · [PostgreSQL coordination tests](backend/test/adapters/postgres/test_ingestion_job_coordination.py)
 
-The backend supports workspace-scoped API credentials and Keycloak bearer authentication. Bearer principals additionally carry explicit capabilities, while FastAPI remains the authority for workspace and capability checks.
+### Traceable citations and refusal
 
-### Human-approved tools
+Generation receives request-scoped evidence aliases. The server validates markers and resolves source metadata; no qualified evidence means refusal without generation. Structural validity is separate from semantic correctness.
 
-Milestone 4 adds an explicit boundary between knowledge retrieval and external actions.
+[Answering use case](backend/src/knora/answering/module.py) · [Generation validation tests](backend/test/answering/test_generation_validation.py)
 
-Knora includes a read-only ticket lookup capability and a write workflow built around:
+### Workspace isolation and durable Conversations
 
-`proposal → human approval/rejection → authorized execution → reconciliation`
+Backend ownership checks precede resource lookup. Turn admission is idempotent, execution is serialized per Conversation, and finalization is fenced.
 
-Approval is not treated as execution authority. Before a side effect, the backend revalidates the current Workspace, capability, external-scope binding and policy compatibility. Durable execution identity, fencing, provider-side idempotency and audit records protect retry/recovery paths.
+[Ownership tests](backend/test/access/test_workspace_identity.py) · [Conversation concurrency tests](backend/test/adapters/postgres/test_conversation_concurrency.py)
 
-The workflow and HTTP contracts are implemented; concrete external support-system gateways and authority bindings are supplied by an integration/deployment composition rather than silently enabled by the default local app.
+### Versioned retrieval
 
-### Durable Conversations
+PostgreSQL supports pgvector and full-text retrieval with versioned RRF. Workspace, active-set and embedding-profile filters apply before ranking; derivations retain provenance.
 
-Knora persists independent Conversations and Turns in PostgreSQL. Turn admission is idempotent and serialized per Conversation, worker claims are fenced, and reconnect/recovery reads persisted status instead of assuming an uncertain execution succeeded.
+[Retrieval adapter](backend/src/knora/adapters/postgres/answering_store.py) · [Retrieval tests](backend/test/adapters/postgres/test_answering_store.py)
 
-Follow-up context is bounded and conversation-local. Previous turns help resolve references, but facts still require fresh authorized retrieval and the existing evidence/citation/refusal gates remain authoritative.
+### Reproducible evaluation
 
-### User and operator surfaces
+Versioned datasets, corpus manifests and scorer/configuration provenance separate structural checks, retrieval metrics, semantic scoring and observation failures. Evaluation uses the normal Q&A HTTP seam.
 
-The repository also contains a Next.js application with:
+[Evaluation methodology](docs/evaluation.md) · [Runner tests](evals/test/test_evaluation_runner.py)
 
-- document list/detail and upload flows;
-- archive/unarchive controls;
-- document embedding-readiness and re-index status;
-- Workspace collection, Documents and durable Conversation/Turn views;
-- final-answer, refusal, failure and interruption states for persisted Turns;
-- citation inspection from server-projected evidence;
-- read-only M4 lifecycle presentation;
-- operator views for traces, evaluation observations and operational state;
-- a Keycloak OIDC BFF/session boundary that keeps bearer credentials out of browser JavaScript.
-
-The private browser app starts at `/workspaces`. An owned Workspace opens at `/workspaces/{workspace_id}`, with Documents and Conversations beneath it. Conversations are created by an explicit action, and Turns and cited results are read from the durable backend. The former `/app/*` product routes are no longer served. The Keycloak callback validates OIDC state, nonce and PKCE; Workspace selection checks backend ownership and uses the signed browser preference only as a hint. Archived Workspaces remain readable until restored.
+The [human-approved tool workflow](docs/design/milestone-4-tools-human-approval.md) additionally separates approval from current execution authority and models idempotency/reconciliation. Its reference-provider evidence does not establish a live integration with an external support system.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    Browser["Next.js user / operator UI"]
-    Client["CLI / API client"]
-    API["FastAPI"]
-
-    Browser -->|"Keycloak OIDC via BFF"| API
-    Client -->|"Workspace API key"| API
-
-    API --> Auth["Workspace + capability authorization"]
-
-    Auth --> Question["Question pipeline"]
-    Question --> Retrieval["Configured retrieval strategy"]
-    Retrieval --> Vector["pgvector cosine search"]
-    Retrieval -. "hybrid configuration" .-> FTS["PostgreSQL full-text search"]
-    Vector --> Ordering["Versioned candidate ordering / RRF"]
-    FTS --> Ordering
-    Ordering --> Evidence["Evidence selection"]
-    Evidence --> Generation["Generation + citation validation"]
-    Generation --> Answer["Cited Answer or Refusal"]
-    Generation --> Trace["Question Trace + provenance"]
-
-    Auth --> Ingestion["Document ingestion"]
-    Ingestion --> Text["Text / Markdown synchronous path"]
-    Ingestion --> Job["PDF durable Ingestion Job"]
-    Job --> Objects["Filesystem / S3-compatible ObjectStore"]
-    Job --> Worker["ProcessIngestionJob worker"]
-    Worker --> Extract["PDF extraction + page-bounded chunking"]
-    Extract --> Store["PostgreSQL + pgvector"]
-    Store --> Activation["Fenced activation"]
-
-    Auth --> Conversation["Durable Conversations / Turns"]
-    Conversation --> ConversationWorker["Serialized turn worker"]
-    ConversationWorker --> Question
-
-    Auth --> Operator["Authorized operator projections"]
-
-    Auth --> Tools["Tool workflow when integration dependencies are composed"]
-    Tools --> Read["Authorized read tool"]
-    Tools --> Proposal["Immutable write proposal"]
-    Proposal --> Approval["Human approval / rejection"]
-    Approval --> Execution["Authorized execution / reconciliation"]
+    Browser["Next.js UI / BFF"] -->|"Keycloak bearer identity"| API["FastAPI: Workspace authorization"]
+    Client["API client"] -->|"Workspace API key"| API
+    API --> Upload["PDF submission"]
+    Upload --> Objects["Original PDF / ObjectStore"]
+    Upload --> Jobs["Durable ingestion jobs"]
+    Jobs --> Worker["PDF worker: extract, chunk, embed"]
+    Objects --> Worker
+    Worker --> DB["PostgreSQL / pgvector"]
+    API --> Turns["Durable Conversations / Turn worker"]
+    Turns --> Answer["Retrieve → select evidence → generate → validate"]
+    DB --> Answer
+    Answer --> Result["Persisted answer + citations / refusal"]
 ```
 
-The backend owns document, retrieval, evidence, trace, evaluation and tool state. The frontend consumes public contracts; it does not independently decide whether evidence is sufficient, reconstruct citations heuristically, or grant itself approval/execution authority.
+**Current stack:** Python / FastAPI, PostgreSQL / pgvector, object storage, Cloudflare Workers AI, Next.js / TypeScript and Keycloak. The local launcher runs separate PDF and Conversation workers; a production deployment topology remains to be established.
 
-## Engineering highlights
+For boundaries, trade-offs and failure semantics, read:
 
-### Durable ingestion instead of request-bound processing
+- [Architecture Standard](docs/standards/architecture.md) and [domain model](CONTEXT.md).
+- [M1 application seams](docs/design/milestone-1-module-seams.md) and [M2 ingestion seams](docs/design/milestone-2-module-seams.md).
+- [PostgreSQL job-store rationale](docs/adr/0001-postgresql-ingestion-job-store.md), [PDF citation provenance](docs/adr/0002-pdf-citation-provenance.md) and [fenced retry policy](docs/adr/0005-fenced-ingestion-retry-policy.md).
 
-Text and Markdown can use the synchronous ingestion path, but PDF processing is modeled as durable work.
+## Run Locally
 
-A PDF submission persists the source object and a Workspace-scoped Ingestion Job before background derivation. Attempts have explicit state, retry policy, lease ownership and fencing generations. Source/version identity is separated from parser, chunking and embedding derivations, and activation occurs only when the target is still valid.
+The documented daily development path uses **Windows / PowerShell**, **Python 3.12–3.14**, **Node.js 22** and **Docker Desktop with Linux containers**. Real AI uses Cloudflare Workers AI; credentials and available allowance are required.
 
-The local Windows demo now includes a real ingestion worker entrypoint. Production scheduling remains a deployment concern rather than an HTTP progress loop.
-
-See [Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md).
-
-### Retrieval is configuration, not hidden application state
-
-Embedding and Retrieval Configurations are explicit identities.
-
-Retrieval operates only on active Embedding Sets that match the selected embedding configuration. Hybrid retrieval combines eligible vector and lexical candidates inside the PostgreSQL adapter, deduplicates them by canonical chunk identity and applies a versioned fusion policy.
-
-The local Ollama path resolves `qwen3-embedding:0.6b` into an immutable digest-bound 1024-dimensional profile. Existing documents keep their historical vector space until they are explicitly re-indexed under the deployed profile; incompatible active corpora fail closed instead of being compared across spaces.
-
-See the [Architecture Standard](docs/standards/architecture.md), [Production Retrieval V2 design](docs/design/m3-retrieval-rrf-v2-authority-proposal-r9.md), and [local Ollama runbook](docs/runbooks/local-ollama.md).
-
-### Evidence stays separate from generation
-
-Providers do not get to invent database citation identities.
-
-Knora creates request-scoped evidence aliases, supplies selected evidence to generation, validates the structured generation result, and projects citations from server-owned evidence metadata. An empty or insufficient Evidence Set leads to refusal rather than fabricated support.
-
-This makes structural citation correctness independently testable from semantic answer quality.
-
-### Authorization is checked at the domain boundary
-
-A Workspace is the primary isolation boundary.
-
-Protected paths establish a `WorkspacePrincipal`, verify that the request belongs to the authorized Workspace and, for bearer sessions, require the relevant capability before protected operations proceed. Operator access, document access and tool authority remain separate capabilities.
-
-The Next.js BFF handles browser session transport, but FastAPI remains the final authorization authority.
-
-### Tool approval is a real safety boundary
-
-A model-generated proposal cannot approve itself and a human approval does not automatically grant write authority.
-
-Proposal intent is immutable. Approval binds the reviewed action and its versioned capability/scope/policy context. Execution rechecks current authority immediately before the external side effect, while logical idempotency and execution fencing protect retries, crashes and reconciliation.
-
-See [Milestone 4 design](docs/design/milestone-4-tools-human-approval.md) and [ADR 0015](docs/adr/0015-human-approved-tool-execution-boundary.md).
-
-### Evaluation is part of the architecture
-
-Knora keeps evaluation inputs and measurements versioned rather than treating one manual answer as proof of RAG quality.
-
-The repository contains:
-
-- a 20-case Milestone 1 dataset for deterministic structural/retrieval evaluation and model-backed semantic baselines;
-- a separate 50-case Milestone 3 corpus-grounded dataset contract;
-- dataset and corpus manifests with checksums/provenance;
-- HTTP-based evaluation through the normal question endpoint;
-- retrieval metrics such as Recall@k and reciprocal rank;
-- model-backed semantic scoring with explicit scorer version and measurement method;
-- latency, token, cost and provider-error observations kept separate from quality measurements;
-- append-safe reports and repeatability checks.
-
-Historical evaluation results are scoped observations under their recorded dataset/configuration. They are not presented here as evidence of general benchmark superiority.
-
-See [Evaluation](docs/evaluation.md).
-
-## Request flows
-
-### Document ingestion
-
-```text
-Upload
-  → workspace authorization
-  → durable source / Document Version identity
-  → synchronous text path
-       or
-    durable PDF Ingestion Job
-  → worker claim + fenced attempt
-  → extraction / normalization / chunking
-  → embeddings
-  → immutable Chunk Set + Embedding Set
-  → fenced activation
-```
-
-### Question answering
-
-```text
-Question / Conversation Turn
-  → workspace + conversation authorization
-  → bounded prior-turn context when applicable
-  → configured retrieval
-  → vector and optionally full-text candidates
-  → deterministic ordering / fusion
-  → evidence selection
-  → generation
-  → citation / output validation
-  → Question Trace
-  → persisted Cited Answer or Refusal
-```
-
-## Tech stack
-
-| Layer                      | Current implementation                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| API / application          | Python 3.12–3.14, FastAPI, Pydantic                                                                                            |
-| Persistence                | PostgreSQL, SQLAlchemy, Alembic                                                                                                |
-| Vector retrieval           | pgvector, cosine similarity; mixed profile dimensions with DB/profile guards                                                   |
-| Lexical / hybrid retrieval | PostgreSQL full-text search, versioned RRF                                                                                     |
-| PDF ingestion              | `pypdf`, durable PostgreSQL jobs, fenced worker attempts, hard child-process memory limits                                     |
-| Object storage             | Local filesystem or S3-compatible storage; MinIO in Docker Compose                                                             |
-| AI providers               | Deterministic local adapters; Ollama Qwen3 embeddings; OpenAI-compatible embedding/generation; native Gemini embedding adapter |
-| Frontend                   | Next.js 15, React 18, TypeScript                                                                                               |
-| Browser authentication     | Keycloak OIDC through a Next.js BFF; FastAPI bearer validation                                                                 |
-| Testing                    | pytest, Ruff, Vitest, Testing Library, OpenAPI drift checks                                                                    |
-| Evaluation                 | Versioned JSONL datasets/manifests, HTTP runners, deterministic and model-backed scoring                                       |
-| Verified local runtime     | Windows host for Ollama/API/PDF worker/frontend; Docker Desktop for PostgreSQL/pgvector and MinIO                              |
-
-## Local setup (once)
-
-### Prerequisites
-
-- Windows with PowerShell
-- Python 3.12–3.14
-- Node.js/npm compatible with `frontend/package-lock.json`
-- Docker Desktop running Linux containers
-- Ollama for Windows
-- `qwen3-embedding:0.6b` pulled locally
-- the bundled `knora-dev` Keycloak realm for local browser sign-in
-
-### Install backend and frontend dependencies
+From a fresh checkout:
 
 ```powershell
 git clone https://github.com/NhiBuaa/knora-agent.git
 Set-Location knora-agent
-
 python -m venv .venv
 .\.venv\Scripts\python -m pip install -e ".\backend[dev]"
 npm --prefix frontend ci
-```
-
-First check whether the Windows Ollama app is already serving the default endpoint:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:11434/api/tags
-```
-
-If that command returns a response, **do not run `ollama serve`**: another Ollama server
-already owns port 11434, and starting a second one fails with a bind error. Only if the
-request cannot connect, start Ollama in a separate PowerShell window and keep it open:
-
-```powershell
-ollama serve
-```
-
-In the repository terminal, pull the embedding and generation models:
-
-```powershell
-ollama pull qwen3-embedding:0.6b
-ollama pull qwen3:8b
-```
-
-When GPU embedding works, keep `KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11434` in
-`.env`. Confirm the model can embed before starting Knora:
-
-```powershell
-$result = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:11434/api/embed `
-    -ContentType 'application/json' `
-    -Body '{"model":"qwen3-embedding:0.6b","input":["Knora dev check"],"truncate":false}'
-@($result.embeddings[0]).Count
-```
-
-The result must be `1024`. If this request instead fails with a CUDA error, use the
-[CPU-only Ollama fallback](docs/runbooks/local-ollama.md#prerequisites) on port 11435 and
-set `KNORA_OLLAMA_BASE_URL=http://127.0.0.1:11435` in `.env` before running the launcher.
-
-### Configure `.env`
-
-Copy the tracked template to the gitignored root `.env`:
-
-```powershell
 if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
 }
 ```
 
-Edit `.env` once with local-only configuration and secrets. For the default fresh MinIO path, set at least:
-
-```dotenv
-KNORA_OBJECT_STORE_S3_ACCESS_KEY=<local secret>
-KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
-```
-
-Generate a random `SESSION_SECRET` in PowerShell and add it to `.env`:
+Follow the [local-development runbook](docs/runbooks/local-development.md#one-time-setup) to set the local MinIO credentials, random session secret and Cloudflare account/token in the ignored `.env`. Keep Docker Desktop running, then launch from the repository root:
 
 ```powershell
-$bytes = New-Object byte[] 32
-$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
-[Convert]::ToBase64String($bytes)
-```
-
-Use the output as `SESSION_SECRET=<generated value>`. Keep this value and the MinIO credentials
-in the gitignored `.env`; do not paste them into logs or commit them.
-
-The launcher loads root `.env` automatically before starting FastAPI, the worker and Next.js. A new terminal or machine restart does not require re-entering the same `$env:...` assignments.
-
-For settings exposed by the daily launcher, non-empty values are resolved in this order:
-
-```text
-explicit launcher option (when available)
-        >
-PowerShell process environment
-        >
-root .env
-        >
-local development default
-```
-
-The launcher still pins the local database, provider mode, embedding dimensions and E2E
-fault switch for its development topology.
-
-Do not manually pin `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID` for the normal local flow. The launcher resolves the installed Ollama model digest and pins the derived profile at runtime.
-
-With OIDC entries left blank, `start-dev.ps1` starts the bundled `knora-dev` Keycloak realm
-and fills the matching frontend/backend values at runtime. The realm includes the public `knora-web` client,
-the callback `http://127.0.0.1:3000/api/auth/callback`, and local test account
-`m5-user` / `m5-user-password`. Values you explicitly set in `.env` or PowerShell are
-preserved. To use another realm, set its issuer and OIDC URLs in `.env`; the launcher
-then expects that Keycloak to be running and does not start the bundled realm. For a custom
-client, set `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE` and
-`KNORA_KEYCLOAK_AUDIENCE` to the values issued by that realm; copied `.env` files may
-still contain `knora-web`. Frontend and backend issuer values must agree. The
-`docker-compose.dev.yml` API service is reserved for the bundled E2E fixture;
-`start-dev.ps1` runs the daily API on the Windows host. The same dev realm definition is used by M5 E2E, whose
-database, Compose project and fault controls remain isolated from daily development.
-The E2E preparation command is `.\scripts\prepare-local-e2e.ps1`; it uses the same
-`docker-compose.dev.yml` with process-local test settings after the daily services are stopped.
-
-The bundled realm uses the Knora login theme on a fresh import. If the realm already exists in
-the persistent Keycloak volume, follow [the theme setup guide](docs/development/keycloak-theme.md)
-to set `loginTheme` without re-importing users or clients. The theme uses the same bundled fonts
-and color tokens as the app; its setting does not change OIDC or session behavior.
-
-## Daily local development
-
-After completing the setup above, allow local scripts in this PowerShell window,
-then run the preflight:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
 .\scripts\start-dev.ps1 -PreflightOnly
-```
-
-The policy change applies only to this PowerShell process; repeat it in each new
-window before running the launcher. It does not require administrator access.
-
-Daily development selects Cloudflare Workers AI for both roles: native
-`@cf/qwen/qwen3-embedding-0.6b` (1024 dimensions,
-`embedding-cloudflare-qwen3-06b-v1`) and `@cf/openai/gpt-oss-20b` generation.
-Put `KNORA_CLOUDFLARE_ACCOUNT_ID` and `KNORA_CLOUDFLARE_API_TOKEN` in gitignored
-`.env` or backend process secrets. Keep the token out of `NEXT_PUBLIC_` variables.
-Confirm the account's data permission and free allowance before real use. Preflight
-validates provider settings, profile pin and PDF worker safety without model calls
-or starting services. When it reports `PRECHECK_OK`, start the daily supervisor:
-
-```powershell
 .\scripts\start-dev.ps1
 ```
 
-For fully offline Ollama, select `-EmbeddingProvider ollama -GenerationProvider
-ollama` and follow the [stable Ollama runbook](docs/runbooks/local-ollama.md). For
-UI simulation, select both roles as `deterministic-local`; CI pins that pair.
-Command parameters override process environment, then `.env`, then launcher defaults.
-After changing providers, restart and inspect a new Turn's server trace, facts,
-citations and refusal. See the [daily development runbook](docs/runbooks/local-development.md)
-for the retained-corpus inventory, guarded re-index and cleanup procedure.
+Open **http://127.0.0.1:3000** and sign in using the runbook's bundled development realm. The launcher starts storage and Keycloak, migrates the development database, and runs the API, PDF worker, Conversation worker and frontend. Preflight checks configuration and safety prerequisites; it does not verify Cloudflare answers or billing.
 
-It starts PostgreSQL, MinIO and Keycloak in the `knora-dev` Compose project, creates the
-`knora_dev` database, and optimizes the edit-run loop:
+Use the same runbook for authentication, shutdown and troubleshooting. [Ollama](docs/runbooks/local-ollama.md) is an optional offline path. Deterministic providers exercise contracts and simulated output; they do not demonstrate semantic answer quality. Do not reuse development credentials or the bundled realm for a public deployment.
 
-- FastAPI runs with Uvicorn auto-reload for `backend/src/knora`;
-- the ingestion worker watches Python source and restarts only at a safe job boundary;
-- the Conversation worker processes durable Turns and is supervised for unexpected exits;
-- if the PDF worker is busy, it finishes the admitted job, stops claiming new work, then restarts;
-- Next.js keeps its normal Fast Refresh / HMR behavior;
-- PostgreSQL, MinIO and Keycloak do not restart for ordinary source edits;
-- unexpected worker crashes are surfaced instead of hidden behind an infinite restart loop.
+## Verification
 
-`Ctrl+C` stops the API, both workers and frontend supervisor children; PostgreSQL, MinIO and
-Keycloak remain running for a faster next start. Root `.env` is loaded at launcher startup,
-so restart `start-dev.ps1` after changing `.env` or Conversation worker source.
+The automatic **[CI workflow](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml)** covers Frontend, Backend (Ubuntu and Windows), Database and Keycloak contracts, with formatting in the owning jobs. **`CI required`** aggregates these results. The badge above tracks `main`, not every PR or a deployed environment.
 
-Use `start-ollama-demo.ps1` instead when you need the stable #103 demo/acceptance runtime without source watchers. See [Local development on Windows](docs/runbooks/local-development.md) for the exact reload and shutdown behavior.
+- **Automatic CI:** deterministic unit, fixture, adapter and integration contracts. It excludes real AI calls and application service E2E. [CI workflow](.github/workflows/ci.yml) · [CI runbook](docs/runbooks/ci.md).
+- **Manual Runtime Verification:** selected isolated application or OTP journeys for the exact `subject_sha` recorded in a run's evidence. A successful run for another SHA does not qualify the current commit. [Workflow and run artifacts](https://github.com/NhiBuaa/knora-agent/actions/workflows/runtime-verification.yml) · [Release evidence checklist](docs/runbooks/ci.md#release-evidence-checklist).
+- **Model-backed quality evaluation:** dataset- and configuration-scoped retrieval, answer, citation-support and refusal observations. Historical results do not establish general quality or current release acceptance. [Evaluation methodology and report index](docs/evaluation.md) · [Evaluation artifacts](evals/reports).
 
-## Stable local demo — Ollama PDF re-index
+Local repository checks:
 
-The verified local real-embedding path is Windows-oriented. It runs Ollama, FastAPI, the PDF ingestion worker and Next.js on the Windows host, while PostgreSQL/pgvector and MinIO stay in Docker Desktop.
-
-This path proves real 1024-dimensional Ollama embedding and retained-PDF re-indexing. It does **not** by itself claim model-backed answer quality; that semantic acceptance remains a separate gate.
-
-### Run the safety/profile preflight
-
-```powershell
-.\scripts\start-ollama-demo.ps1 -PreflightOnly
-```
-
-The preflight starts no database or application service. It fails closed unless all of the following are available:
-
-- Ollama `/api/tags` and `/api/show` for `qwen3-embedding:0.6b`;
-- one exact 1024-value `/api/embed` response;
-- a stable immutable Knora embedding profile derived from the resolved model digest and input policy;
-- the Windows Job Object hard memory limit used by the PDF extractor child process.
-
-API and worker startup are pinned to the same resolved embedding profile. A model digest change creates a different profile and requires explicit re-indexing rather than silently reusing old vectors.
-
-### Start the local stack
-
-```powershell
-.\scripts\start-ollama-demo.ps1
-```
-
-The launcher:
-
-- starts PostgreSQL and MinIO through Docker Compose;
-- creates and migrates the isolated `knora_issue103_demo` database;
-- runs FastAPI, the PDF ingestion worker and Next.js as Windows host processes;
-- keeps Ollama on the local host endpoint;
-- prints API/worker/frontend PIDs and a temporary log directory;
-- opens the frontend unless `-NoBrowser` is supplied.
-
-Useful options include `-PostgresPort`, `-ApiPort`, `-FrontendPort`, `-PythonExe`, `-NoBrowser`, `-OllamaBaseUrl`, and `-EnvFile`. Command-line/process values override `.env` for temporary local changes.
-
-When `-FrontendPort` is supplied, the daily dev launcher also uses that port for the local OIDC callback. Add the resulting callback URI to the Keycloak client's allowed redirects before browser login.
-
-Health and API docs remain available at:
-
-```text
-http://127.0.0.1:8000/health
-http://127.0.0.1:8000/docs
-```
-
-The frontend defaults to `http://127.0.0.1:3000`.
-
-### Re-index retained PDFs under the deployed Ollama profile
-
-A fresh launcher database intentionally has no historical Documents. To prove retained-source re-indexing, use reviewed existing PostgreSQL/ObjectStore data.
-
-Put those connection values in the local `.env` instead of re-entering them in every PowerShell session:
-
-```dotenv
-KNORA_DATABASE_URL=<reviewed existing database URL>
-KNORA_OBJECT_STORE_S3_ENDPOINT=http://127.0.0.1:9000
-KNORA_OBJECT_STORE_S3_BUCKET=knora
-KNORA_OBJECT_STORE_S3_ACCESS_KEY=<local secret>
-KNORA_OBJECT_STORE_S3_SECRET_KEY=<local secret>
-```
-
-Then run:
-
-```powershell
-.\scripts\start-ollama-demo.ps1 -PreflightOnly -UseExistingStorage
-.\scripts\start-ollama-demo.ps1 -UseExistingStorage
-```
-
-`-UseExistingStorage` does not start Compose, create a database or run migrations. It requires the selected database to already be at the current Alembic head.
-
-In the Documents surface, a retained PDF whose active Embedding Set does not match the deployed Ollama profile is projected as **Re-index required**. Re-indexing uses the retained source object and current parser/chunker, changes only the embedding profile, and does not replace the old active set unless the new job succeeds.
-
-Do not point the launcher at another checkout's default `knora` database without reviewing its schema, object store and backup first.
-
-For the complete workflow, failure modes, CPU-only Ollama fallback, existing-storage rules and shutdown procedure, see [Local Ollama PDF re-index on Windows](docs/runbooks/local-ollama.md).
-
-### Docker Compose entry points
-
-Use `docker-compose.dev.yml` alone for local development and testing; it is not an
-overlay on production. The development launcher selects the daily services explicitly.
-Figma and OTP preparation scripts select optional profiles and validate target ownership.
-See [Keycloak/Figma harness](docs/development/keycloak-theme.md#compose-entry-points-and-retained-resources).
-S3 provider acceptance services are opt-in with `--profile provider-test` in the dev file.
-
-`docker-compose.yml` is the production deployment entry point for the backend and storage.
-It excludes development Keycloak, test SMTP, fixture APIs and proof instrumentation.
-This file consolidation does not qualify a production deployment: configure deployment
-credentials, identity/provider settings and infrastructure using the existing runbooks.
-
-### Deterministic development mode
-
-Ollama is not required for deterministic tests and structural development. When both independent provider selectors are absent, the existing legacy provider mode remains available; the default `deterministic-local` path is intended for reproducible tests, not evidence of real semantic model quality.
-
-A minimal backend test setup remains:
-
-```powershell
-docker compose -f docker-compose.dev.yml up -d --wait postgres
-
-Push-Location .\backend
-..\.venv\Scripts\alembic upgrade head
-Pop-Location
-
-.\.venv\Scripts\python -m pytest
-```
-
-## Provider selection
-
-Embedding and generation providers can now be selected independently. If both selectors are absent, Knora preserves the legacy `KNORA_PROVIDER_MODE` behavior. Supplying only one selector is a startup error.
-
-| Provider                | Role                    | Credentials         | Important constraint                                                                            |
-| ----------------------- | ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| `ollama`                | Embedding               | No external API key | `qwen3-embedding:0.6b`, exact 1024 dimensions, immutable digest/profile identity                |
-| `cloudflare-workers-ai` | Embedding or generation | Backend token       | Native 1024-dimensional Qwen3 profile and GPT-OSS 20B generation; no provider fallback          |
-| `deterministic-local`   | Embedding or generation | No                  | Reproducible development behavior only                                                          |
-| `openai-compatible`     | Embedding or generation | Yes                 | Runtime configuration, pricing identity and expected dimensions must match the selected profile |
-| `google-gemini-api`     | Embedding               | Yes                 | Uses the versioned native Gemini embedding configuration                                        |
-
-The verified local Ollama launcher sets:
-
-```text
-KNORA_EMBEDDING_PROVIDER=ollama
-KNORA_GENERATION_PROVIDER=deterministic-local
-KNORA_EMBEDDING_DIMENSION=1024
-```
-
-Embedding spaces are immutable configuration identities. Documents indexed under another profile are not compared against the Ollama vector space; they remain available under their historical configuration until explicitly re-indexed.
-
-See [`.env.example`](.env.example) for persistent local configuration, the [daily local development runbook](docs/runbooks/local-development.md), and the [stable local Ollama runbook](docs/runbooks/local-ollama.md).
-
-The daily launcher selects Cloudflare Workers AI for both roles; direct backend and CI defaults remain deterministic until selectors are explicit.
-
-## Frontend
-
-Both local launchers start the frontend automatically after dependencies are installed. `start-dev.ps1` keeps the Next.js development server in the supervised daily-development runtime, while `start-ollama-demo.ps1` uses the same dev server inside the stable demo topology. To run it independently:
-
-```powershell
-npm --prefix frontend ci
-npm --prefix frontend run dev
-```
-
-Authenticated browser use requires a configured Keycloak realm plus matching frontend and backend OIDC settings. For the launcher path, these local values can live in the gitignored root `.env`; Next.js inherits them from the launcher process.
-
-The workspace-centric sidebar and Conversation product surface are being integrated separately under Product #109; backend durable Conversation APIs already exist.
-
-## Testing and contract verification
-
-Backend checks from the repository root:
+Database integration tests require a migrated, isolated PostgreSQL / pgvector database supplied through `KNORA_DATABASE_URL`. See the [CI database job](.github/workflows/ci.yml) for its setup; use a test database, separate from your application data.
 
 ```powershell
 .\.venv\Scripts\python -m pytest
 .\.venv\Scripts\ruff check .
 docker compose config --quiet
-.\.venv\Scripts\python scripts\export_openapi.py --check
+npm --prefix frontend run format:shared:check
 ```
 
-Frontend checks:
+These checks and the screenshots do not establish public availability, production readiness or semantic correctness for arbitrary questions.
 
-```powershell
-Push-Location .\frontend
-npm ci
-npm test
-npm run typecheck
-npm run lint
-npm run build
-Pop-Location
-```
+## Current Scope and Limitations
 
-`docs/openapi.json` is generated from the FastAPI application. `scripts/export_openapi.py --check` detects drift between the implementation and the committed API contract.
+- **Implemented:** cited document Q&A, durable text-based PDF ingestion, versioned PostgreSQL retrieval, private Workspaces, durable Conversations, citation inspection and operator projections. M4 tool contracts require explicit integration composition.
+- **Active work:** [Retrieval V3 / Qdrant-first upgrade (#153)](https://github.com/NhiBuaa/knora-agent/issues/153) and [DeepEval / Langfuse integration (#158)](https://github.com/NhiBuaa/knora-agent/issues/158). Target designs and installed tools are not quality acceptance.
+- **Public availability:** [Public Demo (#181)](https://github.com/NhiBuaa/knora-agent/issues/181) waits for #153/#158 and owner acceptance of release-candidate quality evidence. No live demo, production operation, user adoption or performance claim is made here.
+- **Input and quality limits:** the PDF path requires extractable text. OCR and perfect complex-layout recovery are not promised. Valid citation structure does not guarantee that an answer is semantically supported; remaining quality errors are being evaluated.
+- **Future integration:** KittaChat × Knora remains planned, not implemented. Progress and technical decisions live in the [GitHub Project](https://github.com/users/NhiBuaa/projects/5) and linked Issues.
 
-Historical acceptance artifacts contain test counts for the exact commits they evaluated. This README intentionally does not reuse those counts as a claim about the current checkout.
+## Ownership
 
-## Evaluation
-
-Evaluation runs through the same public question contract used by the application rather than through a separate evaluation-only retrieval path.
-
-The evaluation subsystem distinguishes:
-
-- structural validity from semantic support;
-- retrieval quality from answer quality;
-- refusal correctness from retrieval misses;
-- system observations such as latency/cost from quality metrics;
-- deterministic development evaluation from model-backed semantic evaluation.
-
-Every meaningful report is tied to versioned dataset, corpus, retrieval configuration, generation/scorer identity and source revision provenance.
-
-See [Evaluation datasets and runners](docs/evaluation.md) for setup, execution, report comparison and the limits on interpreting historical metrics.
-
-## Repository structure
-
-```text
-knora-agent/
-├── backend/             # FastAPI application, domain/application code, adapters and tests
-├── frontend/            # Next.js user/operator surface and frontend tests
-├── docs/                # Architecture, ADRs, designs, completed specs and OpenAPI contract
-├── evals/               # Versioned datasets, corpora, runners, calibration and reports
-├── scripts/             # Stable demo + daily-dev launchers and verification utilities
-├── docker-compose.yml   # Production deployment entry point
-├── docker-compose.dev.yml # Standalone development and optional test profiles
-├── CONTEXT.md           # Current project world model and domain vocabulary
-└── AGENTS.md            # Repository contribution / governed-delivery guidance
-```
-
-## Development status
-
-| Area                                            | Status          | Boundary                                                                                                                        |
-| ----------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Cited RAG and refusal                           | **Verified**    | Completed M1 implementation and acceptance evidence                                                                             |
-| Durable PDF ingestion                           | **Verified**    | Completed M2 production-shaped ingestion slice                                                                                  |
-| Hybrid retrieval and evaluation provenance      | **Verified**    | Completed M3 retrieval/evaluation slice                                                                                         |
-| Human-approved support tools                    | **Verified**    | M4 workflow/contracts implemented; external provider composition is integration-specific                                        |
-| Durable Conversations / serialized Turns        | **Implemented** | Backend persistence, retry/recovery and bounded context are on `main`; live model-backed follow-up quality remains part of #105 |
-| Ollama local embedding + retained PDF re-index  | **Verified**    | #103 landed with digest-pinned Qwen3 embeddings, Windows worker isolation and real retained-PDF re-index evidence               |
-| Workspace-centric user/operator product surface | **In progress** | Product #109 UI/auth integration and final release gate remain open                                                             |
-| Cloudflare public demo                          | **Planned**     | Public inference/limits/deployment remain under the real-AI roadmap tracked by #101                                             |
-
-There is currently no hosted production demo advertised by this repository.
-
-## Roadmap
-
-Near-term work is intentionally separated from shipped behavior:
-
-1. Complete the workspace-centric UI/auth integration and Product #109 release gate.
-2. Run the model-backed local Q&A/follow-up/citation/refusal acceptance owned by #105; the current Ollama evidence proves embedding/re-index behavior, not semantic answer quality.
-3. Add Cloudflare-backed public inference, guest/demo controls and the bounded recruiter deployment under #101.
-4. Integrate the independent Knora service with KittaChat through explicit API/event contracts after the standalone product boundary is stable.
-
-Plans and open issues are not treated as implemented functionality until they land with the required verification evidence.
-
-## Documentation
-
-High-value entry points:
-
-- [Project Overview](docs/PROJECT_OVERVIEW.md) — product boundaries, invariants and roadmap
-- [Current World Model](CONTEXT.md) — canonical domain concepts and current architectural model
-- [Architecture Standard](docs/standards/architecture.md) — normative system boundaries and safety rules
-- [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md)
-- [Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md)
-- [Production Retrieval V2](docs/design/m3-retrieval-rrf-v2-authority-proposal-r9.md)
-- [Local development on Windows](docs/runbooks/local-development.md)
-- [Local Ollama PDF re-index on Windows](docs/runbooks/local-ollama.md)
-- [Evaluation](docs/evaluation.md)
-- [Milestone 4 — Tools and human approval](docs/design/milestone-4-tools-human-approval.md)
-- [ADR 0015 — Human-approved tool execution boundary](docs/adr/0015-human-approved-tool-execution-boundary.md)
-- [M5 UI and observability design](docs/superpowers/specs/2026-09-14-m5-ui-observability-design.md)
-- [Generated OpenAPI contract](docs/openapi.json)
-- [Repository guidance](AGENTS.md)
-
----
-
-Knora is developed as an engineering portfolio project, but its claims are deliberately bounded by the implementation and evidence present in the repository: architecture decisions are versioned, failure states remain visible, and planned work is not presented as shipped behavior.
+Knora is an individual portfolio project maintained by NhiBuaa, developed with AI assistance.
