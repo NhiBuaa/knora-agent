@@ -64,13 +64,24 @@ Confirm the account's Workers AI data permission and available free allowance be
 
 ## Configuration reference
 
-The root [`.env.example`](../../.env.example) requires **five values** for daily
-development: `KNORA_CLOUDFLARE_ACCOUNT_ID`, `KNORA_CLOUDFLARE_API_TOKEN`,
-`KNORA_OBJECT_STORE_S3_ACCESS_KEY`, `KNORA_OBJECT_STORE_S3_SECRET_KEY` and
-`SESSION_SECRET`. The S3 credentials are for local MinIO; preserve existing values
-when reusing storage. Generate the session secret with the setup command above.
-The variables below do not need additional assignments when running
-`start-dev.ps1` with the bundled realm.
+Daily development includes registration, sign-in, sign-out and Forgot Password
+through real email OTP. Fill the blank values in the root
+[`.env.example`](../../.env.example), then save it as the ignored `.env`:
+
+| Group | Values to supply |
+| --- | --- |
+| AI, storage and session | Cloudflare account/token, local MinIO access/secret, and `SESSION_SECRET` |
+| Email OTP | `KNORA_OTP_HMAC_KEY`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD` |
+
+The template already sets the local OTP switch to true and supplies Gmail
+host/port/TLS/auth settings. The sender and SMTP user usually use the same Gmail
+address, but both fields must be filled. Use a Google App Password, not the account
+password. Preserve existing MinIO credentials, HMAC key, SMTP settings and session
+secret when reusing a configured environment; do not overwrite its `.env`.
+Complete [Daily auth setup](#daily-auth-setup-one-time) once to configure the
+Keycloak reset flow and SMTP. After setup, daily use needs only `start-dev.ps1`.
+Backend/Compose defaults remain unchanged when the template's explicit local OTP
+setting is absent; production must keep the local switch off.
 
 Add overrides to `.env` or the process environment only for the mode you use.
 Launcher parameters take precedence over the process environment, which takes
@@ -130,10 +141,10 @@ daily use does not select a judge or change the model-backed evaluation contract
 | `KNORA_PROVIDER_TEST_ACCESS_KEY`, `KNORA_PROVIDER_TEST_SECRET_KEY` | Only for the `provider-test` profile in `docker-compose.dev.yml`, with credentials separate from daily use. Not required for normal startup. |
 | `KNORA_OBJECT_INVENTORY_MANIFEST`, `KNORA_OBJECT_INVENTORY_MINIMUM_AGE_SECONDS` | Operations: optional JSONL inventory path; minimum age defaults to 86400 seconds. An inventory scanner is not supplied automatically when the manifest is unset. |
 | `KNORA_OPERATIONAL_ALERT_CONFIGURATION_JSON`, `KNORA_OPERATIONAL_METRICS_RETRY_WINDOW_SECONDS` | Optional versioned alert configuration; retry metric window defaults to 300 seconds. See [operational observability](../standards/architecture.md#asynchronous-pdf-ingestion). |
-| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY` | Local OTP is opt-in; the switch defaults to false. The key must be canonical Base64 containing at least 32 decoded bytes and must persist across restarts. Production uses Vault/secret manager when the switch is off. |
-| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Supply only for guarded SMTP setup: Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, and sender/user/password from an authorized development account. Leaving them unset does not configure SMTP automatically. Mailpit is only for isolated tests/CI. |
+| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY` | The daily template explicitly sets the local switch to true; Compose still defaults to false when it is unset. The key must be canonical Base64 containing at least 32 decoded bytes and must persist across restarts. Production uses Vault/secret manager when the switch is off. |
+| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Required for daily Forgot Password; apply once through guarded SMTP setup. Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, and sender/user/password from an authorized development account. Leaving them unset does not configure SMTP automatically. Mailpit is only for isolated tests/CI. |
 
-OTP/SMTP requires the opt-in procedure in [Optional local Email OTP](#optional-local-email-otp)
+OTP/SMTP requires the procedure in [Daily auth setup](#daily-auth-setup-one-time)
 and the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration).
 Updating the template must not generate keys, change key sources, enable flows or
 restart an active realm. Existing profiles/datasets/evidence retain their identity
@@ -141,10 +152,68 @@ and content.
 
 ## Start daily development
 
-### Optional local Email OTP
+### Daily auth setup (one-time)
 
-Local Keycloak does not enable or mount file-vault. To use Email OTP, explicitly set
-`KNORA_OTP_LOCAL_DEV_ENABLED=true` and supply `KNORA_OTP_HMAC_KEY` only in the ignored root `.env`.
+For an already configured daily environment, keep its `.env`, HMAC key and SMTP
+settings and skip setup. Registration, sign-in, sign-out and Forgot Password are
+all part of daily use; OTP is not a separate optional feature.
+
+For a fresh environment:
+
+1. Copy `.env.example` to `.env` only if `.env` does not exist, and fill both groups
+   in the configuration reference above. The four Gmail defaults and local OTP
+   switch are already set. Enable Google 2-Step Verification and use a Google App
+   Password for `KC_SMTP_PASSWORD`; `KC_SMTP_FROM` must be an authorized sender.
+2. Generate a session secret and an OTP HMAC key separately, only for a new
+   environment. Use the session-secret command under [One-time setup](#one-time-setup).
+   For `KNORA_OTP_HMAC_KEY`, generate canonical padded Base64:
+
+   ```powershell
+   .\.venv\Scripts\python -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())"
+   ```
+
+   Put the result in the HMAC field. Never generate replacement values for an
+   existing configured environment.
+3. Open Docker Desktop, then run `.\scripts\start-dev.ps1` from the repository root.
+   Keep that terminal open. Once startup finishes, Keycloak is running, but entering
+   SMTP values in `.env` alone has not configured the realm's reset flow or SMTP.
+4. Open a second PowerShell terminal at the same repository root. For a fresh
+   bundled realm with unchanged bootstrap credentials, run:
+
+   ```powershell
+   $otpAdmin = @{
+       BaseUrl = 'http://127.0.0.1:8180'
+       Project = 'knora-dev'
+       AdminUsername = 'knora-dev-admin'
+       AdminPassword = 'knora-dev-admin-password'
+   }
+   .\scripts\configure-keycloak-email-otp.ps1 -Mode Prepare -EnablePrimaryOtp @otpAdmin
+   .\scripts\configure-keycloak-email-otp.ps1 -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp @otpAdmin
+   ```
+
+   Use the existing admin credentials for a custom/existing realm instead; never
+   reset them to match this example. The guarded script loads SMTP values from the
+   ignored root `.env`, prepares the reset flow and binds it with a rollback
+   snapshot. Expect `OTP_FLOW_PREPARED_UNBOUND` (or `OTP_FLOW_ALREADY_PREPARED`) and
+   `OTP_BIND_VERIFIED` (or `OTP_BIND_ALREADY_SET`). Stop if either command fails.
+   Existing SMTP changes may require the previous password for rollback; follow
+   the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration)
+   rather than bypassing its checks.
+5. Open `http://127.0.0.1:3000`, register a dedicated development account using an
+   inbox you control, sign out, then use Forgot Password. Receive the OTP, set a new
+   disposable password and sign in with it. Only observed delivery and successful
+   recovery confirm the complete flow. The fixture `m5-user@example.test` cannot
+   receive real mail.
+
+After this one-time setup, start daily development with
+`.\scripts\start-dev.ps1`. Do not repeat realm binding or key generation each day.
+The launcher does not configure SMTP automatically or verify real mail delivery;
+`-PreflightOnly` is only a provider/PDF configuration check.
+
+#### Existing runtime and key safety
+
+Local Keycloak does not enable or mount file-vault. The daily template explicitly sets
+`KNORA_OTP_LOCAL_DEV_ENABLED=true` and requires `KNORA_OTP_HMAC_KEY` only in the ignored root `.env`.
 Use canonical padded Base64 encoding of at least 32 random bytes. Preserve the same key across
 restarts; missing or invalid keys fail closed without Vault/random fallback. The old
 `KNORA_PRIMARY_OTP_VAULT_PATH` setting is unused and can be removed.

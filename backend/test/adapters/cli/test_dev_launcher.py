@@ -201,6 +201,10 @@ def test_daily_cloudflare_preflight_needs_no_ollama_and_pins_profile(tmp_path: P
         "KNORA_OBJECT_STORE_S3_ACCESS_KEY": "synthetic-access",
         "KNORA_OBJECT_STORE_S3_SECRET_KEY": "synthetic-secret",
         "SESSION_SECRET": "synthetic-session-secret",
+        "KNORA_OTP_HMAC_KEY": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=",
+        "KC_SMTP_FROM": "synthetic@example.com",
+        "KC_SMTP_USER": "synthetic@example.com",
+        "KC_SMTP_PASSWORD": "synthetic-app-password",
     }.items():
         template = re.sub(rf"^{name}=.*$", f"{name}={value}", template, flags=re.MULTILINE)
     env_file.write_text(template, encoding="utf-8")

@@ -159,7 +159,9 @@ Case ordering, provenance, structural outcomes and retrieval metrics must remain
 
 ## Provider and scorer configuration
 
-Daily development requires only the five inputs in the [root template](../.env.example).
+Daily development uses the AI/storage/session and email OTP/SMTP groups in the
+[root template](../.env.example); complete [daily auth setup](runbooks/local-development.md#daily-auth-setup-one-time)
+once for registration, sign-in, sign-out and Forgot Password.
 The variables below remain supported for direct backend invocation, compatibility
 and evaluation; they are not required for daily Cloudflare use. Provider settings
 that affect the embedding space must match the corpus/profile. Do not change
