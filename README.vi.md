@@ -28,7 +28,7 @@
 
 ![Knora trả lời câu hỏi về tưới cây con, với đoạn nguồn trang một mở trong Evidence Inspector](docs/assets/readme/cited-answer.jpg)
 
-_Câu trả lời với trích dẫn đang được chọn. Nội dung “before 9 AM” trong câu trả lời khớp với tài liệu mẫu._
+_Câu trả lời với trích dẫn đang được chọn. Nội dung “before 9 AM” trong câu trả lời khớp với tài liệu mẫu. [Mở screenshot ở kích thước gốc](docs/assets/readme/cited-answer.jpg)._
 
 1. **Upload PDF có văn bản** vào Workspace riêng tư và chờ xử lý hoàn tất.
 2. **Đặt câu hỏi** trong một Conversation.
@@ -50,6 +50,8 @@ Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu �
 Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn.
 
 **Nguồn gốc screenshots:** chụp lại ngày **2026-10-14** bằng production frontend build từ `c71d35d` và backend source tree `c78140c`. Câu trả lời và thông báo từ chối đã lưu được tạo ban đầu từ `7697615`, sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation. Lần chụp lại sử dụng các kết quả đó, không thay đổi nội dung hoặc gọi model mới.
+
+Screenshot câu trả lời sau đó được chụp lại từ cùng frontend build với backend source `fe3b696`, ẩn conversation rail và tập trung khung chụp vào câu trả lời cùng nguồn đang chọn. Câu trả lời và citation đã lưu không thay đổi.
 
 </details>
 
