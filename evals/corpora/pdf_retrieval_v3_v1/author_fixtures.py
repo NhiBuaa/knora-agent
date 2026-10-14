@@ -359,9 +359,9 @@ def author_gold():
     )
     case(
         "comparison",
-        "Đơn chuẩn và vùng xa khác hạn đổi thế nào; đơn đã mở niêm phong có ngoại lệ gì?",
-        "Chuẩn 48 giờ; vùng xa 72 giờ; không nhận đổi hàng đã mở niêm phong.",
-        ["48 giờ", "72 giờ", "không nhận đổi hàng đã mở niêm phong"],
+        "Đơn chuẩn và vùng xa khác hạn đổi thế nào; đơn vùng xa đã mở niêm phong có ngoại lệ gì?",
+        "Chuẩn 48 giờ; vùng xa 72 giờ; không nhận đổi hàng vùng xa đã mở niêm phong.",
+        ["48 giờ", "72 giờ", "không nhận đổi hàng vùng xa đã mở niêm phong"],
         ["h13", "h14", "h15"],
     )
     case(

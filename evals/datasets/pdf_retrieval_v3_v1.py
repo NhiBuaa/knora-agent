@@ -220,9 +220,9 @@ def load_dataset(manifest_path: Path, dataset_path: Path) -> PdfDataset:
                     "unknown evidence anchor",
                 )
                 if category == "multi_hop":
+                    source_options = [{by_anchor[a].source_id for a in group} for group in groups]
                     _require(
-                        len(groups) >= 2
-                        and len({by_anchor[a].source_id for g in groups for a in g}) >= 2,
+                        len(groups) >= 2 and not set.intersection(*source_options),
                         "multi_hop source steps",
                     )
                 used.update(a for group in groups for a in group)

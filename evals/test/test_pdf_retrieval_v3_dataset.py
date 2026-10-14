@@ -156,3 +156,16 @@ def test_distribution_cannot_be_reduced_to_remove_difficult_cases(tmp_path):
     _edit_data(manifest, data, lambda rows: rows.pop())
     with pytest.raises(DatasetContractError, match="distribution"):
         load_dataset(manifest, data)
+
+
+def test_multi_hop_rejects_or_alternatives_satisfiable_from_one_source(tmp_path):
+    manifest, data = _copy_candidate(tmp_path)
+
+    def change(rows):
+        case = next(row for row in rows if row["category"] == "multi_hop")
+        # r1 is a legal choice in both groups; the second source h11 is optional.
+        case["evidence_groups"] = [["r1", "h11"], ["r1"]]
+
+    _edit_data(manifest, data, change)
+    with pytest.raises(DatasetContractError, match="multi_hop"):
+        load_dataset(manifest, data)

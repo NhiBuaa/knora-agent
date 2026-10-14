@@ -26,6 +26,8 @@ The target documents do not repeat registry route codes. Both source steps are r
 the two table lookups also require the target row identifier. The eight follow-ups name
 their real preceding cases 001-008 and use their established subject through references
 such as “thiết bị đó” and “nơi đó”. A follow-up must be asked in its parent conversation.
+Multi-hop validation rejects any source that is an OR option in every AND group, so every
+legal selection requires at least two distinct sources.
 
 ## Review packets
 

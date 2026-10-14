@@ -5,7 +5,7 @@ agent-authored; no model calls; owner review pending
 Status: pending NhiBuaa review. Candidate content is not approved gold.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `7b446994ae19fbf005c6e2308410caac0b7128772af2a28e6afe635a1b4fdb85`
+Dataset SHA-256: `12127bf8d8a06bb3aac3719d2cd6726370b5ae8fec029a77c925bb00c4aeaf97`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
 
