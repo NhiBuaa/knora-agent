@@ -176,6 +176,8 @@ def build_review_packet(
     prompt_version: str,
 ) -> dict:
     _validate_source_export(chunks, identity)
+    if not model.strip() or not prompt_version.strip():
+        raise RagasDraftError("GENERATOR_PROVENANCE_MISSING")
     if not 1 <= len(candidates) <= 12:
         raise RagasDraftError("DRAFT_LIMIT")
     by_ref = {chunk["chunk_ref"]: chunk for chunk in chunks}
@@ -223,11 +225,9 @@ def build_review_packet(
         "schema_version": 1,
         "source": identity,
         "generator": {
-            "library": "ragas",
-            "version": "0.4.3",
-            "model": model,
-            "prompt_version": prompt_version,
-            "ragas_llm": "KnoraRagasLLM",
+            "origin": "imported_candidates",
+            "declared_model": model,
+            "declared_prompt_version": prompt_version,
         },
         "drafts": drafts,
         "release_gate": False,
@@ -257,7 +257,7 @@ async def generate_review_packet(
         raise RagasDraftError("GENERATION_NOT_APPROVED")
     if not 1 <= count <= 12:
         raise RagasDraftError("DRAFT_LIMIT")
-    if not chunks or not model or not prompt_version:
+    if not chunks or not model.strip() or not prompt_version.strip():
         raise RagasDraftError("GENERATOR_INPUT_INVALID")
     _validate_source_export(chunks, identity)
     output = await KnoraReviewPrompt().generate(
@@ -269,13 +269,22 @@ async def generate_review_packet(
     )
     if len(output.drafts) > count or any(draft.language != language for draft in output.drafts):
         raise RagasDraftError("DRAFT_LIMIT_OR_LANGUAGE_MISMATCH")
-    return build_review_packet(
+    packet = build_review_packet(
         [draft.model_dump() for draft in output.drafts],
         chunks,
         identity,
         model=model,
         prompt_version=prompt_version,
     )
+    packet["generator"] = {
+        "origin": "ragas_pydantic_prompt",
+        "library": "ragas",
+        "version": "0.4.3",
+        "ragas_llm": "KnoraRagasLLM",
+        "model": model,
+        "prompt_version": prompt_version,
+    }
+    return packet
 
 
 def write_review_packet(path: Path, packet: dict) -> None:

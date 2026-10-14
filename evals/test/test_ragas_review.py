@@ -106,7 +106,14 @@ def test_actual_ragas_prompt_uses_explicit_mock_provider_and_returns_pending_pac
             count=1,
         )
     )
-    assert packet["generator"]["ragas_llm"] == "KnoraRagasLLM"
+    assert packet["generator"] == {
+        "origin": "ragas_pydantic_prompt",
+        "library": "ragas",
+        "version": "0.4.3",
+        "ragas_llm": "KnoraRagasLLM",
+        "model": "mock-model",
+        "prompt_version": "ragas-review-v1",
+    }
     assert packet["drafts"][0]["review_status"] == "pending_owner_review"
     assert (
         packet["drafts"][0]["proposed_necessary_hops"][0]["content_sha256"]
@@ -241,6 +248,19 @@ def test_packet_cap_language_and_immutable_local_output(tmp_path) -> None:
         write_review_packet(path, packet)
 
 
+@pytest.mark.parametrize(
+    "model,prompt_version", (("", "v1"), ("mock", " "), (" ", "v1"), ("mock", ""))
+)
+def test_packet_rejects_blank_declared_provenance(model, prompt_version) -> None:
+    chunks, identity = load_approved_chunks(
+        CORPUS, approved_source_keys=("support/account-security", "support/refund-policy")
+    )
+    with pytest.raises(RagasDraftError, match="GENERATOR_PROVENANCE_MISSING"):
+        build_review_packet(
+            [_candidate(chunks)], chunks, identity, model=model, prompt_version=prompt_version
+        )
+
+
 def test_noise_sensitivity_requires_full_retrieval_and_suitable_judge() -> None:
     capture = {
         "question": "What happened?",
@@ -293,4 +313,10 @@ def test_local_cli_builds_pending_packet_without_provider(tmp_path, monkeypatch)
         ],
     )
     main()
-    assert json.loads(output.read_text(encoding="utf-8"))["release_gate"] is False
+    packet = json.loads(output.read_text(encoding="utf-8"))
+    assert packet["release_gate"] is False
+    assert packet["generator"] == {
+        "origin": "imported_candidates",
+        "declared_model": "mock-model",
+        "declared_prompt_version": "ragas-review-v1",
+    }
