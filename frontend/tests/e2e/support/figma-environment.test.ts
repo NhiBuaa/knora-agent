@@ -41,6 +41,7 @@ describe("isolated Figma identity environment", () => {
     expect(figmaTestSelection("fixture", undefined).testMatch).toEqual([
       "figma-ui-visual.spec.ts",
       "figma-ui-interactions.spec.ts",
+      "conversation-scroll.spec.ts",
     ]);
     expect(
       figmaTestSelection("fixture", undefined).grepInvert?.test(

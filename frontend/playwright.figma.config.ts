@@ -28,7 +28,11 @@ export function figmaTestSelection(
   return {
     testMatch:
       mode === "fixture"
-        ? ["figma-ui-visual.spec.ts", "figma-ui-interactions.spec.ts"]
+        ? [
+            "figma-ui-visual.spec.ts",
+            "figma-ui-interactions.spec.ts",
+            "conversation-scroll.spec.ts",
+          ]
         : mode === "application"
           ? [
               "figma-ui-interactions.spec.ts",

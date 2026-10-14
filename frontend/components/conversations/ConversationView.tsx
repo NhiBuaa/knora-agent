@@ -89,6 +89,43 @@ function ConversationViewState({
   const [submissionConflict, setSubmissionConflict] = useState(false);
   const [serverArchived, setServerArchived] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const history = useRef<HTMLDivElement>(null);
+  const historyPositioned = useRef(false);
+
+  useEffect(() => {
+    if (loading || error || sessionExpired || historyPositioned.current) return;
+    if (!turns.length) {
+      historyPositioned.current = true;
+      return;
+    }
+    const element = history.current;
+    if (!element) return;
+    let cancelled = false;
+    let frame = 0;
+    const cancel = () => {
+      cancelled = true;
+      historyPositioned.current = true;
+    };
+    // User movement wins while fonts and panel measurements settle.
+    for (const event of ["scroll", "wheel", "touchmove"])
+      element.addEventListener(event, cancel, { passive: true });
+    void (document.fonts?.ready ?? Promise.resolve()).then(() => {
+      if (cancelled) return;
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          if (cancelled) return;
+          historyPositioned.current = true;
+          element.scrollTop = element.scrollHeight;
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      for (const event of ["scroll", "wheel", "touchmove"])
+        element.removeEventListener(event, cancel);
+    };
+  }, [loading, error, sessionExpired, turns.length]);
   const authenticationRequired = useRef(false);
   const authenticationGeneration = useRef(0);
   const submitKey = useRef<string | null>(null);
@@ -457,6 +494,7 @@ function ConversationViewState({
   return (
     <ConversationPanels
       workspaceId={workspaceId}
+      historyRef={history}
       identityScope={identityScope}
       selection={selection}
       rail={(mode, onChange, overlay) => (

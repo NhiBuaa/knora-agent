@@ -185,7 +185,12 @@ export function FigmaFixtureView() {
       <ConversationView
         workspaceId={workspace.id}
         workspaceName={workspace.name}
-        conversation={{ ...conversation, archived: state === "128:119" }}
+        conversation={{
+          ...(conversations.find((item) =>
+            pathname.endsWith(`/conversations/${item.id}`),
+          ) ?? conversation),
+          archived: state === "128:119",
+        }}
         workspaceArchived={state === "183:176"}
         workspaceRevision={workspace.revision}
         initialConversations={conversations}
