@@ -581,7 +581,7 @@ def author_gold():
         "typo_identifier",
         "COL-58 tong han muc la 24 hay 42 luot?",
         "42 lượt, không phải 24.",
-        ["42 lượt", "không phải 24"],
+        ["42 lượt"],
         ["c11"],
     )
     case(
@@ -610,7 +610,7 @@ def author_gold():
         "typo_identifier",
         "Phobert co bao nhieu version, ten gi?",
         "Hai phiên bản: PhoBERT-base và PhoBERT-large.",
-        ["hai phiên bản", "PhoBERT-base", "PhoBERT-large"],
+        ["hai phiên bản", "phiên bản base của PhoBERT", "phiên bản large của PhoBERT"],
         ["pb2"],
         "mixed",
     )
@@ -803,7 +803,7 @@ def write_reviews(manifest):
             "",
             f"Status: batch {batch + 1} approved by NhiBuaa on 2026-10-14. "
             "Full dataset is not frozen; binding and baseline B are not approved."
-            if batch < 3
+            if batch < 4
             else "Status: pending NhiBuaa review. Candidate content is not approved gold.",
             "",
             f"Corpus SHA-256: `{manifest['corpus_sha256']}`",
@@ -855,6 +855,47 @@ def write_reviews(manifest):
                     "",
                 ]
             )
+        if batch == 3:
+            lines.extend(
+                [
+                    "Approval scope: cases 037-048. Case 040 requires a clear correct "
+                    "selection of 42 turns without false assertions; it does not require "
+                    "the literal phrase 'not 24'. Case 044 accepts equivalent base/large "
+                    "typography (hyphen, space, attached text or subscript) while requiring "
+                    "both PhoBERT versions and the count of two.",
+                    "",
+                    "Intentional missing diacritics and typos are unchanged. Case 045 "
+                    "distinguishes toolkit licensing from PDF licensing; cases 047-048 "
+                    "require both source steps. Anchors and other cases are unchanged.",
+                    "",
+                ]
+            )
+        if batch == 4:
+            lines.extend(
+                [
+                    "Agent source check (2026-10-14): cases 049-052 require both "
+                    "registry mapping and destination facts. The registry has no destination "
+                    "values; destination PDFs do not mention the lookup codes. Case 049 "
+                    "uses raster evidence; case 052 needs the TB-27 row and Total column "
+                    "with the minutes unit, not just the isolated cell 60.",
+                    "",
+                    "Cases 053-060 remain REFUSAL with no positive evidence groups. "
+                    "Absence is limited to this 16-PDF corpus: no completion SLA, Z-99 "
+                    "mapping, international refund amount, PhoNLP USD training cost, "
+                    "KnoraMed-2099 F1, SC-07 phone number, TB-19 Q4/2027 data or "
+                    "Knora 2026 production accuracy. Synthetic pages including all scans "
+                    "were visually checked; full academic text was checked with pdfplumber "
+                    "and all seven PhoNLP pages were read visually. A failed or blank "
+                    "pypdf extraction is not evidence of absence.",
+                    "",
+                    "Review cautions: 053 must not reuse the 24-hour confirmation SLA; "
+                    "055 must not extend domestic policy to international orders; 056 "
+                    "must not estimate USD from hardware or speed; 057 must not substitute "
+                    "another benchmark; 059-060 must state insufficient corpus evidence, "
+                    "not assert that real-world data or measurements do not exist.",
+                    "",
+                ]
+            )
         for row in cases[batch * 12 : (batch + 1) * 12]:
             lines.extend(
                 [
@@ -900,7 +941,7 @@ def write_reviews(manifest):
             lines.extend(
                 [
                     "Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only."
-                    if batch < 3
+                    if batch < 4
                     else "Owner decision: pending. Fact completeness, visible locator, "
                     "AND/OR alternatives and no-answer scope require owner review.",
                     "",

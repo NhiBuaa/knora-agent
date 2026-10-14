@@ -6,7 +6,7 @@
   "exposure": "agent-authored; no model calls; owner review pending",
   "corpus_digest_scheme": "canonical-sources-and-anchors-json-sha256-v1",
   "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
-  "dataset_sha256": "d8111778a4032cb90265a41cc69680c1798a0e501bc40694d6d343edcdc9bbe8",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
   "sources": [
     {
       "id": "clean-01",

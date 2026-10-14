@@ -12,7 +12,12 @@ calculated from 30 minus 16, not printed directly in the PDF; its reference, fac
 and anchors are unchanged. Batch 3 (025-036) was approved on the same date with
 complete continuous-hours facts in 029, the information limit in 031 and explicit
 calibration-label expiry wording in 036. Case 031 remains ANSWER; anchors and
-follow-up parents are unchanged. Batches 4-5 remain pending. This partial review does
+follow-up parents are unchanged. Batch 4 (037-048) was approved on the same date:
+case 040 requires a clear selection of 42 without false assertions, not the literal
+phrase "not 24"; case 044 accepts equivalent base/large typography while preserving
+both version identities and the count of two. Its facts describe the version meanings
+rather than requiring a particular hyphen or subscript spelling. Batch 5 remains
+pending. This partial review does
 not freeze the full dataset or approve chunk bindings or baseline B; the final
 corpus/dataset hashes will be approved after all five batches.
 

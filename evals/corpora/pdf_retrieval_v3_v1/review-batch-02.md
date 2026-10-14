@@ -5,7 +5,7 @@ agent-authored; no model calls; owner review pending
 Status: batch 2 approved by NhiBuaa on 2026-10-14. Full dataset is not frozen; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `d8111778a4032cb90265a41cc69680c1798a0e501bc40694d6d343edcdc9bbe8`
+Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
 

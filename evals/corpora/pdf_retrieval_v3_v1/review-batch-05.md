@@ -5,9 +5,15 @@ agent-authored; no model calls; owner review pending
 Status: pending NhiBuaa review. Candidate content is not approved gold.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `d8111778a4032cb90265a41cc69680c1798a0e501bc40694d6d343edcdc9bbe8`
+Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
+
+Agent source check (2026-10-14): cases 049-052 require both registry mapping and destination facts. The registry has no destination values; destination PDFs do not mention the lookup codes. Case 049 uses raster evidence; case 052 needs the TB-27 row and Total column with the minutes unit, not just the isolated cell 60.
+
+Cases 053-060 remain REFUSAL with no positive evidence groups. Absence is limited to this 16-PDF corpus: no completion SLA, Z-99 mapping, international refund amount, PhoNLP USD training cost, KnoraMed-2099 F1, SC-07 phone number, TB-19 Q4/2027 data or Knora 2026 production accuracy. Synthetic pages including all scans were visually checked; full academic text was checked with pdfplumber and all seven PhoNLP pages were read visually. A failed or blank pypdf extraction is not evidence of absence.
+
+Review cautions: 053 must not reuse the 24-hour confirmation SLA; 055 must not extend domestic policy to international orders; 056 must not estimate USD from hardware or speed; 057 must not substitute another benchmark; 059-060 must state insufficient corpus evidence, not assert that real-world data or measurements do not exist.
 
 ## pdf-v3-049 - multi_hop - vi
 

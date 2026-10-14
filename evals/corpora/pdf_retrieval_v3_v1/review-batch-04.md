@@ -2,12 +2,16 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: pending NhiBuaa review. Candidate content is not approved gold.
+Status: batch 4 approved by NhiBuaa on 2026-10-14. Full dataset is not frozen; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
-Dataset SHA-256: `d8111778a4032cb90265a41cc69680c1798a0e501bc40694d6d343edcdc9bbe8`
+Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
+
+Approval scope: cases 037-048. Case 040 requires a clear correct selection of 42 turns without false assertions; it does not require the literal phrase 'not 24'. Case 044 accepts equivalent base/large typography (hyphen, space, attached text or subscript) while requiring both PhoBERT versions and the count of two.
+
+Intentional missing diacritics and typos are unchanged. Case 045 distinguishes toolkit licensing from PDF licensing; cases 047-048 require both source steps. Anchors and other cases are unchanged.
 
 ## pdf-v3-037 - typo_identifier - vi
 
@@ -23,7 +27,7 @@ Parent: none
   - Verbatim visible evidence: Phiếu hỗ trợ khẩn phải được xác nhận trong 2 giờ.
   - Source SHA-256: `a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-038 - typo_identifier - vi
 
@@ -39,7 +43,7 @@ Parent: none
   - Verbatim visible evidence: QD-42: mức bồi hoàn tối đa là 350.000 đồng.
   - Source SHA-256: `da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-039 - typo_identifier - vi
 
@@ -55,7 +59,7 @@ Parent: none
   - Verbatim visible evidence: QD-63: thời hạn lưu bản sao là 90 ngày.
   - Source SHA-256: `3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-040 - typo_identifier - vi
 
@@ -63,7 +67,7 @@ COL-58 tong han muc la 24 hay 42 luot?
 
 Reference: 42 lượt, không phải 24.
 
-Required facts: 42 lượt; không phải 24
+Required facts: 42 lượt
 AND/OR groups: `[["c11"]]`
 Parent: none
 
@@ -71,7 +75,7 @@ Parent: none
   - Verbatim visible evidence: COL-58: tổng hạn mức là 42 lượt.
   - Source SHA-256: `e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-041 - typo_identifier - vi
 
@@ -87,7 +91,7 @@ Parent: none
   - Verbatim visible evidence: SC-07: phí lưu kho là 27.000 đồng mỗi ngày.
   - Source SHA-256: `77bc2701ecd348197deefa668890c21e2061efc108972fad2c8e12b4942574fa`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-042 - typo_identifier - vi
 
@@ -103,7 +107,7 @@ Parent: none
   - Verbatim visible evidence: Nhiệt độ bảo quản từ 15 đến 25 độ C.
   - Source SHA-256: `ee8932dc5ee26dfe71ae3f3c70293e6bff5f988197e72f02375b265596d02ab3`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-043 - typo_identifier - en
 
@@ -119,7 +123,7 @@ Parent: none
   - Verbatim visible evidence: A citation does not replace the required answer facts.
   - Source SHA-256: `ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-044 - typo_identifier - mixed
 
@@ -127,7 +131,7 @@ Phobert co bao nhieu version, ten gi?
 
 Reference: Hai phiên bản: PhoBERT-base và PhoBERT-large.
 
-Required facts: hai phiên bản; PhoBERT-base; PhoBERT-large
+Required facts: hai phiên bản; phiên bản base của PhoBERT; phiên bản large của PhoBERT
 AND/OR groups: `[["pb2"]]`
 Parent: none
 
@@ -135,7 +139,7 @@ Parent: none
   - Verbatim visible evidence: We present PhoBERT with two versions— / PhoBERTbase and PhoBERTlarge
   - Source SHA-256: `6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8`; license: [CC-BY-4.0](https://aclanthology.org/faq/copyright/); [source](https://aclanthology.org/2020.findings-emnlp.92.pdf)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-045 - typo_identifier - mixed
 
@@ -151,7 +155,7 @@ Parent: none
   - Verbatim visible evidence: Apache License 2.0.
   - Source SHA-256: `61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371`; license: [CC-BY-4.0](https://aclanthology.org/faq/copyright/); [source](https://aclanthology.org/2021.naacl-demos.1.pdf)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-046 - typo_identifier - mixed
 
@@ -167,7 +171,7 @@ Parent: none
   - Verbatim visible evidence: the Viet- / namese monolingual subset of CC100
   - Source SHA-256: `69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43`; license: [CC-BY-4.0](https://aclanthology.org/faq/copyright/); [source](https://aclanthology.org/2022.naacl-srw.18.pdf)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-047 - multi_hop - vi
 
@@ -187,7 +191,7 @@ Parent: none
   - Verbatim visible evidence: QD-42: mức bồi hoàn tối đa là 350.000 đồng.
   - Source SHA-256: `da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
 
 ## pdf-v3-048 - multi_hop - vi
 
@@ -211,4 +215,4 @@ Parent: none
   - Verbatim visible evidence: 30
   - Source SHA-256: `25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only.
