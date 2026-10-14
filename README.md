@@ -1,20 +1,28 @@
-# Knora
+<p align="center">
+  <img src="docs/assets/readme/knora-banner.svg" alt="Knora — document Q&A with RAG" />
+</p>
 
-![Knora — document Q&A with RAG](docs/assets/readme/knora-banner.svg)
+<p align="center">
+  <a href="README.md"><strong>English</strong></a> | <a href="README.vi.md">Tiếng Việt</a>
+</p>
 
-[![CI](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml"><img src="https://github.com/NhiBuaa/knora-agent/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
+</p>
 
-**Ask documents. Check the evidence.**
+<p align="center"><strong>Ask documents. Check the evidence.</strong></p>
 
-AI-powered document Q&A with verifiable citations and evidence-based refusal.
+<p align="center">AI-powered document Q&A with verifiable citations and evidence-based refusal.</p>
 
-Knora uses retrieval-augmented generation (RAG) to answer questions from documents in a private Workspace, with cited passages you can inspect.
+<p align="center">Knora uses retrieval-augmented generation (RAG) to answer questions from documents in a private Workspace, with cited passages you can inspect.</p>
 
-**Upload PDF → Ask Question → Citation / Refusal**
+<p align="center"><strong>Upload PDF → Ask Question → Citation / Refusal</strong></p>
 
 > **Current status:** local PDF ingestion, Conversations and citation inspection are implemented. Answer-quality acceptance is in progress. No public demo is available.
 
-[Workflow](#workflow) · [Engineering Highlights](#engineering-highlights) · [Architecture](#architecture) · [Run Locally](#run-locally) · [Verification](#verification)
+<p align="center">
+  <a href="#workflow">Workflow</a> · <a href="#engineering-highlights">Engineering Highlights</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run Locally</a> · <a href="#verification">Verification</a>
+</p>
 
 ## Workflow
 
