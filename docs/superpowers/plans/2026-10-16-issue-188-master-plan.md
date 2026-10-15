@@ -1,8 +1,12 @@
 # Issue #188 — Master Implementation Plan
 
-> **For agentic workers:** After explicit phase authorization, use `executing-plans` and the repository's testing/review workflow. A Goal may implement and repair only its approved phase envelope. This document currently authorizes no implementation.
+> **For agentic workers:** Use the repository's testing/review workflow. The active Goal may implement and repair only the approved P1 offline envelope; later phases remain unauthorized.
 
-**Status:** Draft v1 for owner architecture/plan review, 2026-10-16. Planning only. P1 Step A/Q1 is **undecided**, not approved, declined or started.
+**Status:** Architecture and Master v1 approved by owner on 2026-10-16, with the completion distinction below. Q1 / P1 Step A offline is approved and in progress under the active Codex Goal. Later phases and all live/configuration/runtime/enforcement/merge permissions remain ungranted.
+
+**2026-10-16 owner decision:** [Approval record](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6199169575). Implement P1 offline runner, 16 VI/EN cases, tests and observation contract; autonomously test, review and repair within P1. No Cloudflare inference, Gateway configuration, costs, runtime activation, enforcement or merge. P1 completion must present evidence, acceptance status and missing P2 entry conditions; it grants no other phase.
+
+**Completion vocabulary:** **Detection Completed** means the agreed detection scope has completed, reviewed evidence and explicit owner quality acceptance, including coverage and false positives. **Protection Enabled** additionally requires an approved enforcement policy, separate activation authority and verified runtime prevention/rollback evidence. With enforcement OFF, Protection Enabled is false: never claim that Knora prevents attacks. P1 technical completion alone establishes neither final status.
 
 **Goal:** Deliver independently measured Prompt Injection, Secrets, PII and Dangerous Output detection, integrate accepted capabilities into Knora safely, and obtain owner security acceptance using Knora Evaluation.
 
@@ -35,13 +39,13 @@ Read on 2026-10-16: full #188 body and all 16 discussion comments, PR #199 body/
 | Secrets baseline | Implemented in Draft/Open PR #199, head `bd5f288da7822d81e99f17f97567ec5c3129d7bb`; CI required SUCCESS in [run 38735531328](https://github.com/NhiBuaa/knora-agent/actions/runs/38735531328). Real Guardrails integration is in a separate required dependency environment; no silent skip or base-backend dependency addition. | Owner retains experimental implementation baseline only; security quality not accepted; PR unmerged and says `Refs #188`. |
 | Secrets pilot | `pilot-003.json`: **3 TP, 1 FN, 1 FP, 3 TN**, recall 0.75, FPR 0.25. FN is split key; FP is public checksum. Exact reviewed fixture SHA256 `09d64242c694abee6017723b73c1dabd468f6125a0816c003337e05c40954d4a`. | Freeze historical results and labels. Presence does not establish unauthorized leakage. |
 | Saved PDF smoke | `pdf-smoke-002.json`: execution `not_run`, 2 unavailable/unreviewed units; **no usable detector result**. | No clean-output or PDF-security claim. |
-| P1 | Research and proposal committed as `5c580a3`; no runner, 16-case fixture, approved labels or live trial implemented. Code audit: existing generation uses Workers AI account REST URL, Authorization only, no Gateway selection; question/evidence JSON in user message, upstream non-streaming. | Cloudflare P1 direction chosen; Step A undecided. P1 verdict/log shape, segmentation/roles/threshold, Vietnamese accuracy and specific price unverified. |
+| P1 | Offline implementation in progress after approval. Existing generation uses Workers AI account REST URL, Authorization only, no Gateway selection; question/evidence JSON in user message, upstream non-streaming. | Step A approved; fixture labels, P1 quality and live trial unaccepted. Native verdict/log shape, segmentation/roles/threshold, Vietnamese accuracy and specific price unverified. |
 | Account preflight | On 2026-10-15 Gateway-list and subscriptions GET each returned 403/code 10000. | Plan, Gateway existence/log cohort, remaining quota and billing mode unknown. No inference or Gateway mutation performed. |
 | PII / Dangerous Output | Cloud candidates identified only; no detector implementation or real evaluation. | Entity coverage/taxonomy, labels, thresholds and candidate selection unapproved. |
 | Runtime / enforcement / export | No #188 runtime hook or enforcement; export OFF. | No runtime activation, enforcement, merge, deployment or security acceptance authorized. |
-| Current work | Master Plan preparation in isolated `issue-188-cloudflare-p1-research` worktree. | Planning in progress until this draft is presented. No implementation Goal created. |
+| Current work | Approved P1 offline Goal in isolated `issue-188-cloudflare-p1-research` worktree on `codex/issue-188-p1-offline`. | Technical verification and evidence handoff pending; no broader #188 acceptance. |
 
-PR #199 remains Secrets-only. This docs branch is based on `b2465f5` plus research commit `5c580a3`; it does not contain PR #199 or unmerged Workbench implementations. Future phase preflight must select the actual integration base. Reuse reviewed commits via an explicit integration/stacking decision; do not assume unmerged code is in main or duplicate it to avoid a dependency.
+PR #199 remains Secrets-only and unchanged. P1 branch is explicitly stacked on its exact head `bd5f288da7822d81e99f17f97567ec5c3129d7bb`; research and Master-only commits were replayed as `c7852fc` and `ad9e596`. P1 reuses those existing helpers without modifying them. It does not contain unmerged Workbench implementations. Integration into main/merge order remains a future explicit decision; this stack is no claim that PR #199 is merged.
 
 ## 3. Architectural decision proposed for review
 
@@ -139,8 +143,8 @@ Arrows mean specific reviewed deliverables, not whole parent Issue completion. P
 
 | Phase | Current state | Can finish without live calls? |
 | --- | --- | --- |
-| P0 | This planning draft prepared; owner review pending | Yes |
-| P1 | Not started; Step A/Q1 undecided | Yes |
+| P0 | Architecture and Master v1 approved 2026-10-16 | Yes |
+| P1 | Step A/Q1 approved; offline implementation in progress in `codex/issue-188-p1-offline`, based on PR #199 `bd5f288` plus unchanged research/Master docs | Yes |
 | P2 | Research available; 403 account-access gap; exact packet not prepared | Yes; may end with documented unavailable capability, not live readiness |
 | P3 | Not run / not approved | No |
 | P4 | Baseline implemented; qualification not started or accepted | Yes for saved/synthetic local detector evidence; not application leak acceptance |
@@ -169,7 +173,7 @@ Every phase below inherits the global constraints, approval matrix and common De
 - [ ] Mock HTTP success/positive/completed negative, detector failure, missing/truncated logs, schema drift, 403/429, timeout, unexpected 2016/2017 block and retry/restart accounting. Do not fabricate a production P1 JSON field: mock fixtures are explicitly hypothetical until P2/P3 provide native evidence.
 - [ ] Reuse atomic writer and existing aggregation semantics; version a supplement only if necessary. Default CLI prepares/imports artifacts with zero network. Live mode remains locked without an exact run authorization manifest; unsupported verdict shape returns unavailable.
 
-**Acceptance:** All 16 cases and labels/provenance are reviewable; output contains no raw matches/reasons; failures remain in population; mocks are marked development evidence. **Tests:** Focused P1, existing Secrets/report regression, no-network audit and repository gates. **DoD:** Reviewed offline code/test evidence and immutable preparation artifact, Step A status updated; no claim of P1 quality or live readiness. Owner has not yet approved this phase.
+**Acceptance:** All 16 cases and labels/provenance are reviewable; output contains no raw matches/reasons; failures remain in population; mocks are marked development evidence. **Tests:** Focused P1, existing Secrets/report regression, no-network audit and repository gates. **DoD:** Reviewed offline code/test evidence and immutable preparation artifact, Step A status updated; no claim of P1 quality or live readiness. Owner approved this offline phase on 2026-10-16; exact fixture labels still require separate digest-bound review.
 
 ### P2 — Cloud capability verification and exact trial approval packet
 
@@ -245,9 +249,9 @@ If owner retains OFF, record the accepted observational scope and residual risk.
 
 | Authority | Currently granted | Required concrete record before use |
 | --- | --- | --- |
-| Master planning/research/docs | Yes, current request | This draft and Issue link; no implementation Goal now. |
+| Master planning/research/docs | Architecture/Master v1 approved 2026-10-16 | Single Master and Issue decision; active Goal limited to P1 offline. |
 | Existing Secrets implementation/pilot | Historical approved envelope only | Exact PR #199 artifacts preserved; does not grant new scans/install/runtime. |
-| P1 Step A / other offline code | **Undecided / unapproved** | Phase IDs, files, inputs, allowed installed dependencies/test resources, acceptance and limits. Owner may approve a bundle of offline phases once; no repetitive approval for internal red/green/debug steps. |
+| P1 Step A / other offline code | **P1 approved; other phases unapproved** | P1 files/fixtures/tests/contract only, existing installed dependencies, PR #199 pinned reuse. Autonomous red/green/review/repair within P1; no new install or live authority. |
 | New dependencies/install | No new install granted | Exact versions/hashes/licenses, isolated environment and transitive egress/model behavior; no additional local security model. |
 | Public/synthetic Cloudflare data | Context/design permission confirmed | Each live run pins actual inputs and destination. Gold/reference answers and internal IDs are not sent merely because source PDFs are public. Only minimal required prompt/evidence goes to the approved account/service. |
 | Private/sensitive data / other cloud service | Not granted | Separate data/recipient/purpose permission. Current development corpus is public/synthetic; future input admission cannot assume that forever. |
@@ -261,8 +265,8 @@ If owner retains OFF, record the accepted observational scope and residual risk.
 
 ### Open owner decisions and when they reach the frontier
 
-1. **Now:** Review architecture, phase boundaries, reuse strategy and proposed completion definition. Request changes to this Master. No Step A answer is requested in this planning checkpoint.
-2. **After review:** Select phase/bundle implementation envelopes and authorize starting the corresponding Goal(s). P1 Step A remains undecided until that explicit answer.
+1. **Decided 2026-10-16:** Architecture/Master v1 and P1 Step A approved, with Detection Completed distinct from Protection Enabled. Do not ask again.
+2. **Current frontier:** Finish only P1 offline under the active Goal and present evidence/acceptance status plus P2 prerequisites. P2 and later phase execution still need their own envelope authorization.
 3. **After concrete packets:** Review candidate/entity/hazard coverage, exact labels, data/logging choice, run costs and calls. Account/pricing facts are the agent's research responsibility; owner decides permissions and risk, not factual API behavior.
 4. **After findings:** Choose remediation, accepted quality bounds/validation selection, runtime profile and activation, then enforcement disposition and acceptance/merge independently. Never reopen already-settled local-development/public-synthetic/no-new-local-model/Knora-authority decisions without new conflicting evidence.
 
@@ -300,7 +304,7 @@ needed; never bypass it. Mark this Goal complete only after its technical DoD is
 verified. Human quality acceptance and Issue completion remain separate.
 ```
 
-Before starting, replace the general phase reference with its approved IDs, commit/authority and bounded artifacts; a template is not runnable authority. Do not invent a Codex token budget. If owner supplies one, record it separately from Cloudflare money/token/call limits. Automatic continuation may repair approved tests, not renew live budgets or restart indeterminate requests. Follow the actual Goal tool lifecycle rules; missing permission does not authorize pause/status changes beyond those rules. No Goal is created by this planning task.
+Before starting, replace the general phase reference with its approved IDs, commit/authority and bounded artifacts; a template is not runnable authority. Do not invent a Codex token budget. If owner supplies one, record it separately from Cloudflare money/token/call limits. Automatic continuation may repair approved tests, not renew live budgets or restart indeterminate requests. Follow the actual Goal tool lifecycle rules; missing permission does not authorize pause/status changes beyond those rules. The active owner-created Goal now covers P1 offline and its decision/evidence handoff only.
 
 ### Durable phase handoff
 
@@ -322,6 +326,8 @@ Update the state row in section 6 with exact code SHA/PR, input/config/label/rep
 
 **Common technical DoD:** Implement only the authorized files/behavior; preserve old artifact hashes; relevant negative/security tests and gates pass at exact SHA; review findings fixed or explicitly accepted; evidence note/report has truthful offline/live status and no raw leaks; rollback documented; state/Issue coordination updated. An environment-blocked required gate is not technical completion. No optional test expansion once the concrete risk/gate is resolved.
 
+**Final status must report both fields independently:** `Detection Completed: yes/no (owner-accepted scope and evidence)` and `Protection Enabled: yes/no (approved, activated and verified policy)`. Enforcement OFF always means `Protection Enabled: no`; completed detection or a green Goal never supports a prevention claim. Final #188 acceptance/closure still requires the P9/P10 owner disposition even when detection evidence is accepted.
+
 | #188 completion criterion | Evidence required | Owner action |
 | --- | --- | --- |
 | All four threat groups | Accepted target/coverage, reviewed labels, completed detection/FP/FN evidence, explicit unsupported gaps; historical Secrets results retained | Accept each group or keep #188 incomplete; no aggregate waiver by agent |
@@ -334,10 +340,9 @@ Update the state row in section 6 with exact code SHA/PR, input/config/label/rep
 
 ## 11. Review checklist and immediate next step
 
-- [ ] Owner reviews recommended architecture and runtime boundaries.
-- [ ] Owner reviews all-group coverage, phase graph, tests/DoD and policy/acceptance split.
-- [ ] Owner reviews permissions and Goal autonomy limits.
-- [ ] Amend this single Master until the architecture/plan is accepted.
-- [ ] Only afterward ask for concrete implementation phase/bundle authorization, including the still-undecided P1 Step A.
+- [x] Owner approved architecture and Master v1, including phase/permission boundaries (2026-10-16).
+- [x] Owner required Detection Completed / Protection Enabled distinction.
+- [x] Owner approved Q1 / P1 Step A offline and autonomous technical repairs.
+- [ ] Complete P1 evidence/review and present remaining P2 prerequisites.
 
-This draft makes the next approval reviewable; it does not request or assume immediate implementation, inference, Gateway activation, cost, enforcement, export, merge or deployment.
+Only P1 offline implementation is currently authorized. No inference, Gateway activation, cost, runtime activation, enforcement, export, merge or deployment authority follows from Master approval.
