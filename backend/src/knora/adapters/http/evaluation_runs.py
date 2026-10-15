@@ -17,6 +17,7 @@ class PreflightRequest(BaseModel):
     dataset_id: str
     case_ids: list[str]
     profile_id: str
+    dataset_reference: dict[str, Any] | None = None
 
 
 class PreflightResponse(BaseModel):
@@ -30,6 +31,9 @@ class PreflightResponse(BaseModel):
     context_only_case_ids: list[str] = []
     profile_id: str | None = None
     expires_at: str | None = None
+    dataset_reference: dict[str, Any] | None = None
+    case_readiness: list[dict[str, Any]] = []
+    source_preparation: list[dict[str, Any]] = []
 
 
 class StartRunRequest(BaseModel):
@@ -72,12 +76,18 @@ def list_profiles(workspace_id: str, request: Request, response: Response):
 @router.post("/preflight", response_model=PreflightResponse)
 def preflight(workspace_id: str, payload: PreflightRequest, request: Request, response: Response):
     _private(response)
+    options = (
+        {"dataset_reference": payload.dataset_reference}
+        if payload.dataset_reference is not None
+        else {}
+    )
     return _service(request).preflight(
         workspace_id,
         _principal(request, workspace_id),
         payload.dataset_id,
         tuple(payload.case_ids),
         payload.profile_id,
+        **options,
     )
 
 
@@ -122,7 +132,35 @@ def read_case(workspace_id: str, run_id: str, case_id: str, request: Request, re
     if case is None:
         response.status_code = 404
         return {"detail": "EVALUATION_CASE_NOT_FOUND"}
-    return {"case_id": case_id, **case}
+    report = run.get("report")
+    scored = (
+        next((item for item in report.get("cases", []) if item["case_id"] == case_id), {})
+        if report
+        else {}
+    )
+    if scored.get("status") != case.get("status"):
+        # A checkpoint can be newer than the saved report while execution is still in progress.
+        scored = {
+            key: value
+            for key, value in scored.items()
+            if key
+            not in {
+                "retrieval",
+                "generation_evidence_coverage",
+                "evaluable",
+                "reasons",
+                "refusal_correctness",
+                "citation_correctness",
+            }
+        }
+    return {
+        **scored,
+        **case,
+        "case_id": case_id,
+        "dataset": run.get("selection", {}).get("reference"),
+        "source_preparation": report.get("source_preparation", []) if report else [],
+        "quality_status": report.get("quality_status", "UNAVAILABLE") if report else "UNAVAILABLE",
+    }
 
 
 @router.get("/runs/{run_id}/report", response_model=dict[str, Any])

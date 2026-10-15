@@ -42,3 +42,42 @@ def test_http_preflight_and_case_are_workspace_scoped(monkeypatch):
     assert case.json()["status"] == "FAILED"
     missing = client.get("/v1/workspaces/workspace-1/evaluation/runs/run-1/cases/other")
     assert missing.status_code == 404
+
+
+def test_case_checkpoint_takes_precedence_over_queued_report(monkeypatch):
+    service = Service()
+    service.read_run = lambda *_: {
+        "observations": {
+            "case-1": {
+                "status": "OBSERVED",
+                "trace_id": "checkpoint-trace",
+                "public_answer": "Saved answer",
+            }
+        },
+        "report": {
+            "cases": [
+                {
+                    "case_id": "case-1",
+                    "question": "Gold question",
+                    "status": "NOT_RUN",
+                    "trace_id": None,
+                    "public_answer": None,
+                    "evaluable": False,
+                    "reasons": ["OBSERVATION_NOT_RUN"],
+                }
+            ]
+        },
+    }
+    app = FastAPI()
+    app.state.evaluation_runs = service
+    app.include_router(router)
+    monkeypatch.setattr(
+        "knora.adapters.http.evaluation_runs.authorize_workspace_principal",
+        lambda *_: WorkspacePrincipal("w", "owner", ("operator:read",)),
+    )
+    case = TestClient(app).get("/v1/workspaces/w/evaluation/runs/run-1/cases/case-1").json()
+    assert case["status"] == "OBSERVED"
+    assert case["trace_id"] == "checkpoint-trace"
+    assert case["public_answer"] == "Saved answer"
+    assert case["question"] == "Gold question"
+    assert "reasons" not in case

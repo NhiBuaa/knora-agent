@@ -93,3 +93,23 @@ navigation and generated OpenAPI. R1 owns run/execution/report behavior; A1 owns
 and retention. Shared changes are coordinated in issue discussions before editing. Reuse current
 PostgreSQL, ObjectStore, worker patterns, runners and trace viewer. No additional framework or
 queue infrastructure is introduced by this design.
+
+## R3 implementation checkpoint
+
+Builder PDF selection carries the complete frozen reference into the existing Runs preflight.
+The server resolves that exact version and digest; the browser does not supply a runtime binding.
+A registered PDF runtime profile prepares an independently reviewed binding snapshot containing
+the source hashes, runtime chunk/embedding sets, configurations, candidate budget and reviewed
+anchor-to-chunk alternatives. The binding review digest is independent of freeze approval and
+never grants provider-call permission. A profile must verify its owned runtime corpus afresh.
+Preflight, admission and the queued worker recheck the snapshot before dispatch. Default application
+wiring registers no executable profiles; live profiles remain blocked pending separate approval.
+
+PDF runs reuse RunStore and its fenced claim/checkpoint/finish lifecycle. The initial deterministic
+report preserves every selected gold case and retained-source preparation state before execution;
+terminal reports include blocked/failed/indeterminate cases and their reasons. Transport ambiguity
+stops dispatch without automatic retry. Case reads prefer fresh checkpoints over an older report.
+Runs detail polls progress; Case/Report screens label saved snapshots and offer a GET-only refresh.
+Original PDF links use the existing authorized BFF route. Neither gold nor legacy metric contracts
+change. Real-model UI acceptance, an owned runtime binding and provider quota approval remain
+separate from this offline integration checkpoint.

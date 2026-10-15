@@ -254,6 +254,7 @@ def create_app(
         catalog=application.state.evaluation_catalog,
         store=PostgresEvaluationRunStore(SessionFactory),
         profiles=(),
+        datasets=application.state.dataset_service,
     )
     application.state.object_lifecycle_worker = ObjectLifecycleWorker(
         maintenance=selected_lifecycle_maintenance,

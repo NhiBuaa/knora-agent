@@ -1583,6 +1583,18 @@
             "title": "Dataset Id",
             "type": "string"
           },
+          "dataset_reference": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Reference"
+          },
           "profile_id": {
             "title": "Profile Id",
             "type": "string"
@@ -1604,6 +1616,15 @@
               "type": "string"
             },
             "title": "Case Ids",
+            "type": "array"
+          },
+          "case_readiness": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Case Readiness",
             "type": "array"
           },
           "context_only_case_ids": {
@@ -1636,6 +1657,18 @@
             ],
             "title": "Dataset Id"
           },
+          "dataset_reference": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Reference"
+          },
           "expires_at": {
             "anyOf": [
               {
@@ -1667,6 +1700,15 @@
               "type": "string"
             },
             "title": "Reasons",
+            "type": "array"
+          },
+          "source_preparation": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Source Preparation",
             "type": "array"
           },
           "status": {

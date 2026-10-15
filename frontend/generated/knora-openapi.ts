@@ -299,17 +299,21 @@ export type PdfSubmissionResponse = {
 export type PreflightRequest = {
   case_ids: Array<string>;
   dataset_id: string;
+  dataset_reference?: Record<string, unknown> | null;
   profile_id: string;
 };
 export type PreflightResponse = {
   case_ids?: Array<string>;
+  case_readiness?: Array<Record<string, unknown>>;
   context_only_case_ids?: Array<string>;
   dataset_digest?: string | null;
   dataset_id?: string | null;
+  dataset_reference?: Record<string, unknown> | null;
   expires_at?: string | null;
   preflight_id: string;
   profile_id?: string | null;
   reasons: Array<string>;
+  source_preparation?: Array<Record<string, unknown>>;
   status: string;
   workspace_id?: string | null;
 };

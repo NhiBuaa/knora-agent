@@ -8,11 +8,27 @@ type Case = { id: string; question: string; expected_behavior: string };
 type Dataset = {
   id: string;
   format: string;
-  reference: { format: string } | null;
+  reference: { format: string; [key: string]: unknown } | null;
   cases: Case[];
 };
 type Profile = { profile_id: string; kind: string; status: string };
-type Preflight = { preflight_id: string; status: string; reasons: string[] };
+type Preflight = {
+  preflight_id: string;
+  status: string;
+  reasons: string[];
+  context_only_case_ids?: string[];
+  case_readiness?: {
+    case_id: string;
+    status: string;
+    reasons: string[];
+    warnings: string[];
+  }[];
+  source_preparation?: {
+    document_version_id: string;
+    status: string;
+    failure_code: string | null;
+  }[];
+};
 type Observation = {
   status: string;
   failure_code?: string;
@@ -42,7 +58,11 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-type RunsProps = { workspaceId?: string; runId?: string };
+type RunsProps = {
+  workspaceId?: string;
+  runId?: string;
+  capabilities?: string[];
+};
 
 export function RunsView(props: RunsProps) {
   return (
@@ -53,7 +73,10 @@ export function RunsView(props: RunsProps) {
   );
 }
 
-function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
+function WorkspaceRuns({ workspaceId, runId, capabilities = [] }: RunsProps) {
+  const canRun = ["operator:read", "evaluations:run", "questions:ask"].every(
+    (capability) => capabilities.includes(capability),
+  );
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [datasetId, setDatasetId] = useState("");
@@ -102,11 +125,13 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
     ])
       .then(([catalog, availableProfiles, savedRuns]) => {
         if (!active) return;
-        const native = catalog.items.filter(
-          (item) => item.reference?.format === "m3-native-v1",
+        const available = catalog.items.filter(
+          (item) =>
+            item.reference?.format === "m3-native-v1" ||
+            item.reference?.format === "pdf-gold-v1",
         );
-        setDatasets(native);
-        setDatasetId(native[0]?.id ?? "");
+        setDatasets(available);
+        setDatasetId(available[0]?.id ?? "");
         setProfiles(availableProfiles);
         setRuns(savedRuns);
       })
@@ -128,6 +153,7 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
     setPreflight(null);
   }
   async function checkReadiness() {
+    if (!canRun) return;
     setBusy(true);
     setError(null);
     try {
@@ -138,6 +164,9 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
             dataset_id: datasetId,
             case_ids: selected,
             profile_id: profileId,
+            ...(dataset?.reference?.format === "pdf-gold-v1"
+              ? { dataset_reference: dataset.reference }
+              : {}),
           }),
         }),
       );
@@ -148,7 +177,7 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
     }
   }
   async function start() {
-    if (preflight?.status !== "READY") return;
+    if (!canRun || preflight?.status !== "READY") return;
     setBusy(true);
     setError(null);
     try {
@@ -227,10 +256,16 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
   return (
     <section aria-label="Evaluation runs">
       <h2>New evaluation run</h2>
+      {!canRun && (
+        <p>
+          Read-only access. Starting evaluation requires run and Q&amp;A
+          permissions.
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
       {!dataset && (
         <p role="status">
-          No native M3 dataset is available for this Workspace.
+          No frozen supported dataset is available for this Workspace.
         </p>
       )}
       {dataset && (
@@ -263,7 +298,7 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
                   checked={selected.includes(item.id)}
                   onChange={() => toggleCase(item.id)}
                 />{" "}
-                {item.question} ({item.expected_behavior})
+                {item.id}: {item.question} ({item.expected_behavior})
               </label>
             ))}
           </fieldset>
@@ -287,20 +322,42 @@ function WorkspaceRuns({ workspaceId, runId }: RunsProps) {
           <p>
             <button
               type="button"
-              disabled={busy || selected.length === 0}
+              disabled={!canRun || busy || selected.length === 0}
               onClick={() => void checkReadiness()}
             >
               Check readiness
             </button>
           </p>
           {preflight && (
-            <div role="status">
-              Readiness: {preflight.status} {preflight.reasons.join(", ")}
+            <div>
+              <p role="status">
+                Readiness: {preflight.status} {preflight.reasons.join(", ")}
+              </p>
+              <p>
+                Context-only cases:{" "}
+                {preflight.context_only_case_ids?.join(", ") || "none"}
+              </p>
+              <ul>
+                {preflight.case_readiness?.map((item) => (
+                  <li key={item.case_id}>
+                    {item.case_id}: {item.status} {item.reasons.join(", ")}{" "}
+                    {item.warnings.join(", ")}
+                  </li>
+                ))}
+              </ul>
+              <ul>
+                {preflight.source_preparation?.map((item) => (
+                  <li key={item.document_version_id}>
+                    Source preparation {item.document_version_id}: {item.status}{" "}
+                    {item.failure_code}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           <button
             type="button"
-            disabled={busy || preflight?.status !== "READY"}
+            disabled={!canRun || busy || preflight?.status !== "READY"}
             onClick={() => void start()}
           >
             Start run
