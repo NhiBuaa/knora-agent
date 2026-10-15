@@ -846,7 +846,18 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
             _wait_until(lambda: observe() and launcher.poll() is not None)
             assert "DEV_RUNTIME_FAILED" in observe()
         else:
-            _wait_until(lambda: "DEV_READY" in observe())
+            try:
+                _wait_until(lambda: "DEV_READY" in observe())
+            except pytest.fail.Exception:
+                service_logs = "\n".join(
+                    f"{path.name}:\n{path.read_text(errors='replace')[-4000:]}"
+                    for path in sorted((root / "knora-dev-runtime").glob("*.log"))
+                )
+                pytest.fail(
+                    f"Launcher readiness timeout; exit={launcher.poll()}\n"
+                    f"{observe()}\n{service_logs}",
+                    pytrace=False,
+                )
             if scenario == "exited-root":
                 frontend_pid = int(re.search(r"FRONTEND_PID=(\d+)", observe())[1])
                 frontend_root = next(process for process in known if process.pid == frontend_pid)
