@@ -5,7 +5,8 @@
 final hashes to the approved commit and [owner decision](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6183549793).
 This freeze is not binding approval, baseline B authorization or a claim about baseline quality.
 [Checked offline binding review packet](../../reports/pdf_retrieval_v3_v1/binding-layout-v2-offline/README.md):
-58 unique proposals, 3 ambiguous anchors and 25 missing; owner review is pending.
+owner approved offline content on 2026-10-15: 58 unique mappings, explicit choices
+`g5→#0`, `g6→#1`, `t17→#1`, and 25 missing retained. Runtime binding approval is pending.
 Historical authoring exposure for all questions and synthetic content remains:
 `agent-authored; no model calls; owner review pending`.
 

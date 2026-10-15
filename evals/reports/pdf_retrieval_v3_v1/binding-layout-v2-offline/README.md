@@ -1,6 +1,14 @@
 # Review binding gold → chunks: pypdf layout-v2 (offline)
 
-**Trạng thái: agent đã kiểm tra; chờ owner review nội dung/occurrence. Chưa có binding approval runtime.**
+**Trạng thái: NhiBuaa đã duyệt nội dung/occurrence offline ngày 2026-10-15. Chưa có binding approval runtime.**
+
+[Quyết định của owner](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6183912900):
+duyệt 58 mapping duy nhất, chọn `g5→#0`, `g6→#1`, `t17→#1` và ghi nhận 25 missing
+trong packet tại commit `f18ef8d5577b6b880e65b42f6a153088b0117cde`, đúng hai digest bên dưới.
+Giữ nguyên chunks/proposals và frozen corpus/gold. Đây không phải approved runtime binding
+record hoặc quyền chạy Baseline B/model/scoring. Các bảng `proposed`/`ambiguous`/`missing`
+giữ kết quả của proposer trước review; khuyến nghị trong packet đã được owner chấp thuận
+ở phạm vi nội dung offline này.
 
 ## Phạm vi và danh tính
 
@@ -67,9 +75,9 @@
 | [academic-phonlp](../../../corpora/pdf_retrieval_v3_v1/academic-phonlp.pdf) | 13 | 1 | 0 | 1 |
 | [academic-vit5](../../../corpora/pdf_retrieval_v3_v1/academic-vit5.pdf) | 7 | 0 | 0 | 4 |
 
-## Ba lựa chọn mơ hồ — khuyến nghị, chưa chấp nhận
+## Ba lựa chọn mơ hồ — owner đã duyệt nội dung offline
 
-| Anchor | Bằng chứng PDF | Occurrences trong chunk | Khuyến nghị |
+| Anchor | Bằng chứng PDF | Occurrences trong chunk | Lựa chọn owner duyệt offline |
 | --- | --- | --- | --- |
 | g5 | clean-02 p1, x45/y498, dòng phí thứ nhất | clean-02/000: #0 `[297,333)`, #1 `[334,370)` | #0 theo đúng vị trí dòng thứ nhất |
 | g6 | clean-02 p1, x45/y446, dòng phí thứ hai | clean-02/000: #0 `[297,333)`, #1 `[334,370)` | #1 theo đúng vị trí dòng thứ hai |
@@ -259,13 +267,13 @@ Không thay thế đánh giá retrieval. Với 58 candidates duy nhất: 33 câu
 | pdf-v3-059 | — | no-answer; không suy thành positive PASS |
 | pdf-v3-060 | — | no-answer; không suy thành positive PASS |
 
-## Boundary trước scoring và điều cần owner duyệt
+## Boundary trước scoring và runtime binding còn phải duyệt
 
 Runtime chunk IDs/chunk-set IDs được tạo UUID4 khi persist kết quả ingestion thành công, sau `embed_documents`. Reader chỉ trả active/current completed chunk+embedding sets. Snapshot này không chứng minh có hay không có một derivation đã persist trong session khác; không truy cập runtime dùng chung khi chưa phối hợp.
 
 Code đối chiếu: `backend/src/knora/ingestion/job_processing.py` (`PdfDerivationHandler.execute`), `backend/src/knora/adapters/postgres/ingestion_jobs/coordination.py` (success persistence), `backend/src/knora/adapters/postgres/evaluation_reader.py` (`read_pdf_chunks`), `evals/runners/pdf_retrieval_v3.py` (propose/collect), `evals/runners/pdf_source_binding.py` (digest/review).
 
-Owner có thể duyệt nội dung/occurrence offline ở packet này: 58 unique candidates, g5→#0/g6→#1/t17→#1 và ghi nhận 25 missing, không sửa gold. Chưa được chuyển lựa chọn đó thành approved runtime review file.
+Owner đã duyệt nội dung/occurrence offline ở packet này: 58 unique candidates, g5→#0/g6→#1/t17→#1 và ghi nhận 25 missing, không sửa gold. Chưa được chuyển lựa chọn đó thành approved runtime review file.
 
 Khi ingestion thực được cho phép và đã phối hợp runtime: xác minh Free plan/quota thực, không phát sinh phí; lấy persisted chunks và đề xuất bằng lệnh hiện có; đối chiếu source SHA/config/page/offset/checksum/content với packet này; trình actual proposal SHA + IDs cho owner duyệt riêng trước scoring/collect. B/model vẫn chưa được duyệt chạy trong bước này.
 
