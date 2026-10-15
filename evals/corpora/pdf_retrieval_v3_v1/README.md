@@ -4,6 +4,8 @@
 [Owner approval record](../../datasets/pdf_retrieval_v3_v1.approval.json) binds both
 final hashes to the approved commit and [owner decision](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6183549793).
 This freeze is not binding approval, baseline B authorization or a claim about baseline quality.
+[Checked offline binding review packet](../../reports/pdf_retrieval_v3_v1/binding-layout-v2-offline/README.md):
+58 unique proposals, 3 ambiguous anchors and 25 missing; owner review is pending.
 Historical authoring exposure for all questions and synthetic content remains:
 `agent-authored; no model calls; owner review pending`.
 
@@ -132,6 +134,9 @@ keys and compact separators. Dataset SHA-256 binds JSONL bytes after CRLF/CR nor
 to LF. Thus visible gold/locator edits invalidate corpus approval; question/fact/parent
 edits invalidate dataset approval. Owner approval must explicitly match both hashes and
 owner `NhiBuaa` through `validate_approval`; packet status never grants approval.
+`validate_approval` checks only `status`, `owner`, `corpus_sha256` and `dataset_sha256`.
+The approval record's `approved_commit` is provenance metadata; the validator does not
+verify that commit. The freeze check compared content with that Git commit separately.
 The unchanged manifest status and exposure describe the original candidate authoring
 state; the separate approval record is the owner authorization for these exact hashes.
 The runner's `validate` stage only checks dataset structure and emits a fixed
