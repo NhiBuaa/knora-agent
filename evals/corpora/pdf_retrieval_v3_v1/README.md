@@ -1,7 +1,8 @@
 # PDF Retrieval V3 V1: source gold review candidate
 
-**Status: pending NhiBuaa review.** This is a candidate corpus and gold packet, not frozen
-gold or a claim about baseline quality. Exposure for all questions and synthetic content:
+**Status: all five batches approved; final corpus/dataset hash approval pending.**
+This corpus and gold packet is not frozen or a claim about baseline quality.
+Historical authoring exposure for all questions and synthetic content remains:
 `agent-authored; no model calls; owner review pending`.
 
 Batch 1 (001-012) was approved by NhiBuaa on 2026-10-14 after adding after-receipt
@@ -16,10 +17,15 @@ follow-up parents are unchanged. Batch 4 (037-048) was approved on the same date
 case 040 requires a clear selection of 42 without false assertions, not the literal
 phrase "not 24"; case 044 accepts equivalent base/large typography while preserving
 both version identities and the count of two. Its facts describe the version meanings
-rather than requiring a particular hyphen or subscript spelling. Batch 5 remains
-pending. This partial review does
-not freeze the full dataset or approve chunk bindings or baseline B; the final
-corpus/dataset hashes will be approved after all five batches.
+rather than requiring a particular hyphen or subscript spelling. Batch 5 (049-060)
+was approved unchanged on 2026-10-15. All 60 cases have now completed batch review.
+This does not freeze the full dataset or approve chunk bindings or baseline B;
+explicit approval of the final corpus/dataset hashes remains pending.
+
+Final hashes proposed for owner approval (unchanged by Batch 5 approval):
+
+- Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
+- Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
 
 ## Fixed scope
 

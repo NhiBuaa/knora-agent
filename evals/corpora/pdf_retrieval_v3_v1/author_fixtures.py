@@ -796,15 +796,14 @@ def write_reviews(manifest):
     by_anchor = {row["id"]: row for row in anchors}
     by_source = {row["id"]: row for row in sources}
     for batch in range(5):
+        approval_date = "2026-10-14" if batch < 4 else "2026-10-15"
         lines = [
             f"# Source gold review batch {batch + 1}/5",
             "",
             EXPOSURE,
             "",
-            f"Status: batch {batch + 1} approved by NhiBuaa on 2026-10-14. "
-            "Full dataset is not frozen; binding and baseline B are not approved."
-            if batch < 4
-            else "Status: pending NhiBuaa review. Candidate content is not approved gold.",
+            f"Status: batch {batch + 1} approved by NhiBuaa on {approval_date}. "
+            "Full dataset is not frozen; binding and baseline B are not approved.",
             "",
             f"Corpus SHA-256: `{manifest['corpus_sha256']}`",
             f"Dataset SHA-256: `{manifest['dataset_sha256']}`",
@@ -873,6 +872,11 @@ def write_reviews(manifest):
         if batch == 4:
             lines.extend(
                 [
+                    "Approval scope: cases 049-060 approved unchanged by NhiBuaa on "
+                    "2026-10-15. All five batches have been reviewed; final corpus/dataset "
+                    "hash approval and freeze remain pending. Binding and baseline B "
+                    "require separate gates.",
+                    "",
                     "Agent source check (2026-10-14): cases 049-052 require both "
                     "registry mapping and destination facts. The registry has no destination "
                     "values; destination PDFs do not mention the lookup codes. Case 049 "
@@ -940,10 +944,7 @@ def write_reviews(manifest):
                     )
             lines.extend(
                 [
-                    "Owner decision: approved by NhiBuaa on 2026-10-14 for this batch only."
-                    if batch < 4
-                    else "Owner decision: pending. Fact completeness, visible locator, "
-                    "AND/OR alternatives and no-answer scope require owner review.",
+                    f"Owner decision: approved by NhiBuaa on {approval_date} for this batch only.",
                     "",
                 ]
             )

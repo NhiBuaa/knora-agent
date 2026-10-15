@@ -2,12 +2,14 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: pending NhiBuaa review. Candidate content is not approved gold.
+Status: batch 5 approved by NhiBuaa on 2026-10-15. Full dataset is not frozen; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
 Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
+
+Approval scope: cases 049-060 approved unchanged by NhiBuaa on 2026-10-15. All five batches have been reviewed; final corpus/dataset hash approval and freeze remain pending. Binding and baseline B require separate gates.
 
 Agent source check (2026-10-14): cases 049-052 require both registry mapping and destination facts. The registry has no destination values; destination PDFs do not mention the lookup codes. Case 049 uses raster evidence; case 052 needs the TB-27 row and Total column with the minutes unit, not just the isolated cell 60.
 
@@ -33,7 +35,7 @@ Parent: none
   - Verbatim visible evidence: SC-07: phí lưu kho là 27.000 đồng mỗi ngày.
   - Source SHA-256: `77bc2701ecd348197deefa668890c21e2061efc108972fad2c8e12b4942574fa`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-050 - multi_hop - vi
 
@@ -53,7 +55,7 @@ Parent: none
   - Verbatim visible evidence: COL-58: tổng hạn mức là 42 lượt.
   - Source SHA-256: `e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-051 - multi_hop - vi
 
@@ -73,7 +75,7 @@ Parent: none
   - Verbatim visible evidence: QD-63: thời hạn lưu bản sao là 90 ngày.
   - Source SHA-256: `3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-052 - multi_hop - vi
 
@@ -97,7 +99,7 @@ Parent: none
   - Verbatim visible evidence: 60
   - Source SHA-256: `06ea98d9fa8172caba88c9175b879d10d433f62867812edb7b993877bd333105`; license: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/); [source](https://github.com/NhiBuaa/knora-agent)
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-053 - no_answer - vi
 
@@ -113,7 +115,7 @@ Corpus-bounded absence: Chỉ có hạn xác nhận; g3 phủ định việc đ�
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-054 - no_answer - vi
 
@@ -129,7 +131,7 @@ Corpus-bounded absence: Sổ điều hướng chỉ có A-17/B-08/C-31/D-12/E-24
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-055 - no_answer - vi
 
@@ -145,7 +147,7 @@ Corpus-bounded absence: QD-42 chỉ nêu phạm vi nội địa; không có mứ
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-056 - no_answer - vi
 
@@ -161,7 +163,7 @@ Corpus-bounded absence: Toàn bộ 7 trang PhoNLP không nêu chi phí huấn lu
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-057 - no_answer - vi
 
@@ -177,7 +179,7 @@ Corpus-bounded absence: KnoraMed-2099 không xuất hiện trong bất kỳ PDF 
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-058 - no_answer - vi
 
@@ -193,7 +195,7 @@ Corpus-bounded absence: Bản ảnh SC-07 có phí/giờ/ngày/mã nhận, khôn
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-059 - no_answer - vi
 
@@ -209,7 +211,7 @@ Corpus-bounded absence: Bảng chỉ có hai hàng TB-19/TB-20 theo trạng thá
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
 
 ## pdf-v3-060 - no_answer - en
 
@@ -225,4 +227,4 @@ Corpus-bounded absence: The corpus contains a 2020 research paper, not a Knora p
 
 Check against all 16 source PDFs listed in the manifest; no positive evidence anchor is claimed.
 
-Owner decision: pending. Fact completeness, visible locator, AND/OR alternatives and no-answer scope require owner review.
+Owner decision: approved by NhiBuaa on 2026-10-15 for this batch only.
