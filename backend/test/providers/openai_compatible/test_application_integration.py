@@ -61,6 +61,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
                     {
                         "text": "Refunds are available for thirty days.",
                         "support": ["E1"],
+                        "bold": None,
                     }
                 ],
                 "items": [],
@@ -179,7 +180,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
         )
         assert trace.provider_metadata["generation"]["provider"] == provider_identity
         assert trace.provider_metadata["generation"]["prompt_version"] == (
-            "cloudflare-gpt-oss-cited-answer-v16"
+            "cloudflare-gpt-oss-cited-answer-v17"
             if provider_identity == "cloudflare-workers-ai"
             else "m1-cited-answer-v1"
         )

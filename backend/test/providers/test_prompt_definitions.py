@@ -10,7 +10,7 @@ import pytest
 from knora.providers.generation import GenerationEvidence
 
 BASELINE = json.loads(
-    (Path(__file__).parent / "fixtures/prompt-baseline-c775a83.json").read_text(encoding="utf-8")
+    (Path(__file__).parent / "fixtures/prompt-baseline-305f8b9.json").read_text(encoding="utf-8")
 )
 
 

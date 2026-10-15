@@ -92,14 +92,15 @@ def ollama_user_message(question: str, evidence: tuple[GenerationEvidence, ...])
     )
 
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v16"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v17"
 
 
 CLOUDFLARE_SYSTEM_PROMPT = (
     "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
     "Return before (introductory paragraphs), items (one main list), and after (concluding "
-    "paragraphs), in that order. Each paragraph or item has text and support; paragraphs may "
-    "also have bold. Do not return block kinds or nested lists. ANSWER requires content in "
+    "paragraphs), in that order. Each paragraph or item has text and support; paragraphs must "
+    "also have bold (a literal phrase or null). Do not return block kinds or nested lists. "
+    "ANSWER requires content in "
     "these slots and null refusal_reason. REFUSAL requires all three arrays empty and "
     "INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: "
     "a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, "

@@ -193,6 +193,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
             "kind": "paragraph",
             "text": "Refunds.",
             "support": ["E1"],
+            "bold": None,
         }
     ]
     expected = "Refunds. [[E1]]"
@@ -271,7 +272,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v16"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v17"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

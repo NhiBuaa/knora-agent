@@ -17,8 +17,8 @@ catalog or replacement semantic gate is introduced. Other providers and the
 public API remain unchanged. No additional dependency, repair retry, model change,
 historical rewrite, source-excerpt change or renderer change.
 
-An optional paragraph `bold` field selects one literal phrase occurring exactly
-once in its text. The composer escapes it and adds emphasis; no count parser or
+Every paragraph must declare `bold`: a literal string selecting one phrase
+occurring exactly once in its text, or null for no emphasis (Q19). The composer escapes it and adds emphasis; no count parser or
 count/basis/witness fields remain. Proven totals, missing-member disclosure and
 important conditions remain prompt and source-review obligations. Alias presence
 and shape checks do not prove semantic support or completeness.
@@ -125,3 +125,26 @@ support, completeness, conditions or source order. Two calls increase latency an
 quota use, and the 1024 cap is per request, not a combined turn cap. Keep GPT-OSS
 20B, production settings and retrieval defaults. Before any real calls, present a
 new bounded runtime proposal including both stages; wait for owner approval.
+
+
+## Q19: required nullable paragraph emphasis (2026-10-15)
+
+Owner approved code/tests/docs only after Q18. Remove the paragraph default so
+both the wire schema and local decoder require `bold`, retaining string/null.
+Composer and validation logic remain unchanged; no repair, Markdown parsing,
+member inference, semantic judge or module move. Align the existing paragraph
+instruction and identify the changed answer contract as v17; selection stays v1.
+Coordinate through #191 before shared edits and publish the exact diff afterward.
+
+- [x] Observe RED for schema-required bold and missing before/after paragraph fields.
+- [x] Require nullable bold; adapt every provider/application/PostgreSQL fixture.
+- [x] Regress the captured Q18 payload, null/literal emphasis, literal Markdown
+  stars, ANSWER/refusal and no mutation/repair. Existing citation gates stay active.
+- [ ] Complete fresh formatting/lint/full suite/review and exact-head CI; record limits.
+- [ ] Report read-only Billing/usage observations separately from unproven actual cost.
+- [ ] Propose a separately approved runtime only after fail-closed preflight and
+  an isolated OAuth arrangement are reviewable. Never replace primary frontend.
+
+Q18's source-supplied merge/split conditions were omitted. That semantic failure
+remains unresolved by Q19. No inference, retry, model/token/default changes,
+production rollout, merge, issue closure or Done transition is authorized.

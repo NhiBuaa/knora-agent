@@ -119,3 +119,20 @@ acceptance. Coordinate intersecting changes through Issues before edits.
 Research and evidence: [contract research](../development/issue-183-provider-output-research.md),
 [plan](../development/issue-183-structured-list-plan.md),
 [verification](../development/issue-183-list-formatting-verification.md).
+
+
+## Q19: align wire schema and local paragraph contract (2026-10-15)
+
+Q18 returned HTTP200/finish stop and seven items, but omitted paragraph `bold`
+and embedded Markdown stars in its lead text. The v16 schema allowed omission;
+the local count gate rejected it. This is a wire/local mismatch, not a renderer
+finding. The owner approved requiring `bold` on every paragraph as a literal
+string or null, with the existing composer and validation unchanged. Null means
+no emphasis; raw Markdown remains escaped literal text, never parsed or repaired.
+The answer contract identity becomes v17; selection remains presentation-v1.
+
+This does not resolve Q18's separate omission of evidence-supplied chapter
+merge/split conditions. Schema validity, alias membership and correct item shape
+do not prove source fidelity. Q2–Q4 and real-provider/browser acceptance still
+apply. No additional inference or rollout is authorized. #191 was notified
+before shared edits and retains separate module-refactoring ownership.

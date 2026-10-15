@@ -106,6 +106,7 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
                         {
                             "text": "Blue umbrellas.",
                             "support": ["E1"],
+                            "bold": None,
                         }
                     ],
                     "items": [],
@@ -297,9 +298,9 @@ def test_empty_workspace_refuses_without_generation(cloudflare_app) -> None:
     "content",
     [
         "fake-cloudflare-token-invalid-json",
-        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E99"]}],'
+        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E99"],"bold":null}],'
         '"items":[],"after":[],"refusal_reason":null}',
-        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E1"]}],'
+        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E1"],"bold":null}],'
         '"items":[],"after":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}',
     ],
 )

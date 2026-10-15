@@ -13,7 +13,7 @@ from knora.providers.ollama.generation import OllamaGenerationProvider
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
 BASELINE = json.loads(
-    (Path(__file__).parent / "fixtures/prompt-baseline-c775a83.json").read_text(encoding="utf-8")
+    (Path(__file__).parent / "fixtures/prompt-baseline-305f8b9.json").read_text(encoding="utf-8")
 )
 CASES = {case["name"]: case for case in BASELINE["cases"]}
 DIGEST = "sha256:" + "a" * 64

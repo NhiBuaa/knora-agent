@@ -27,7 +27,7 @@ Date: 2026-10-15.
 | Ollama Qwen 8b/4b | `ollama/generation.py` | `ollama-qwen3-cited-answer-v5`; grounding/few-shot text; JSON keys `evidence`, `current_question` |
 | Ollama GPT-OSS 20b | `ollama/generation.py` | Exact model predicate, appended example and sorted schema text; composite `ollama-gpt-oss-low-schema-v3:ollama-qwen3-cited-answer-v5` |
 | Cloudflare selector | `openai_compatible/presentation.py` | `cloudflare-presentation-v1`; same question/evidence serializer; four presentation choices |
-| Cloudflare answer | `openai_compatible/generation.py` | `cloudflare-gpt-oss-cited-answer-v16` after Q17; exact selected-presentation suffix; unchanged fixed-slot schema |
+| Cloudflare answer | `openai_compatible/generation.py` | `cloudflare-gpt-oss-cited-answer-v17` after Q19; exact selected-presentation suffix; unchanged fixed-slot schema |
 
 All serializers retain Unicode handling, whitespace, key ordering and escaping.
 Cloudflare retains two ordered calls and existing per-stage/aggregate metadata.
@@ -72,8 +72,8 @@ Paths below are relative to this worktree.
 
 **Tests/fixtures to create or adapt:**
 
-- `backend/test/providers/fixtures/prompt-baseline-c775a83.json`: synthetic offline
-  request fixture captured from untouched Q17 adapters. Original `67a149f` fixture
+- `backend/test/providers/fixtures/prompt-baseline-305f8b9.json`: synthetic offline
+  request fixture captured from untouched Q19 adapters. Original `67a149f` fixture
   remains in historical checkpoint `9033ed0`; replacing it records approved #183 sync.
 - `backend/test/providers/test_prompt_parity.py`: complete adapter request parity
   through MockTransport; generic, Qwen 8b/4b, GPT-OSS and all Cloudflare presentations;
@@ -253,3 +253,37 @@ Any new one is returned to the owner using grilling before implementation procee
 - Next: owner reviews/accepts #191; refresh approved #183 discussion/head again before
   any publishing/integration choice. Required CI has not run for this local branch.
   No model calls, runtime acceptance or HTTP400 changes were made by #191.
+
+## Integration review authorized by owner (after 2802ed3)
+
+- Published Draft stacked PR #200 on `fix/issue-183-answer-lists`, never main.
+  Initial exact-head CI `38736162530` at `2802ed3`: CI required SUCCESS and all
+  five component jobs SUCCESS. Database artifact: 376 cases, zero failures/skips;
+  all 12 Workspace concurrency cases skipped locally ran and passed in CI.
+- The other four historical local skips remain out of scope: 3 manual PDF
+  acceptance opt-ins and 1 real Ollama grounding opt-in. No model calls authorized.
+- Integration review: no actionable findings; independently ran original adapters
+  against 16 parity cases and 44 identity/parity/provenance tests. Guard now checks
+  9 files rather than 3: measured median 0.674s vs 0.217s on this machine. Its worker
+  work is inside the unchanged 3s synthetic deadline. Fresh local combined run:
+  417 passed / 2 deadline failures (only EXTRACT reached); separate baseline and
+  refactor reruns passed both cases in 8.32s / 8.30s. Original failures retained;
+  fail-closed timeout, no retry or deadline weakening. Hosted Windows CI passed.
+  An earlier extra local run omitted the DB15491 environment and had 2 DB failures;
+  the corrected combined run passed the DB cases, without source changes.
+- Q19 is tested upstream commit `305f8b9e50fdb7655bc4d3ccdbdb4a6c07269fae`,
+  announced in #183 comment `6192367090`: 101 provider/composer + 17 integration
+  checks and independent review; upstream full/CI still pending at announcement.
+  Sync via a merge from the published #183 branch, preserving #191 pushed history.
+  Required nullable paragraph bold, v17 wording/version and upstream regressions
+  remain #183-owned; #191 only moves exact constants and updates parity fixtures.
+- Captured replacement 8-case fixture from clean original Q19 adapters at exact
+  `305f8b9` through MockTransport. Generic/Ollama/selector cases unchanged from Q17.
+  Q17 fixture remains in `2802ed3`; Q19 independent fixture is the current oracle.
+- Revised #191-only review range is `305f8b9...HEAD`. Schemas/composer and #183
+  behavior/application fixtures must be absent from this PR diff. Post-sync tests,
+  final CI and delta review pending; no final acceptance or integration authorized.
+
+- Post-Q19 focused regression: **403 passed**, 2 dependency warnings, 28.43s.
+  Ruff format/check/lint, OpenAPI and Compose config passed. No guard or deadline
+  changes. Post-commit full suite and exact-head CI will be linked from PR #200.
