@@ -29,6 +29,222 @@ const source = {
   snapshot_id: "snap1",
 };
 
+const dataset = {
+  id: "d1",
+  workspace_id: "w1",
+  name: "Review",
+  status: "DRAFT",
+  sources: [source],
+};
+
+const extractedPage = {
+  source_id: "s1",
+  document_version_id: "ver1",
+  snapshot_id: "snap1",
+  extraction_sha256: "b".repeat(64),
+  configuration_sha256: "c".repeat(64),
+  physical_page: 1,
+  text: "Page one evidence",
+  content_checksum: "d".repeat(64),
+};
+
+it("clears loaded extraction when the physical page changes", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string) =>
+      Response.json(input.includes("/pages/") ? extractedPage : dataset),
+    ),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await userEvent.click(
+    await screen.findByRole("button", { name: "guide.pdf" }),
+  );
+  expect(await screen.findByText("Page one evidence")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Physical page" }), {
+    target: { value: "2" },
+  });
+
+  expect(screen.getByTitle("Original PDF")).toHaveAttribute(
+    "src",
+    "/api/operator/evaluation/datasets/d1/sources/s1/original?workspaceId=w1#page=2",
+  );
+  expect(screen.queryByText("Page one evidence")).not.toBeInTheDocument();
+  expect(screen.getByText("Extracted page unavailable.")).toBeInTheDocument();
+});
+
+it("ignores a pending extraction after editing the physical page", async () => {
+  let finishPage!: (response: Response) => void;
+  const pendingPage = new Promise<Response>((resolve) => {
+    finishPage = resolve;
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string) => {
+      if (input.includes("/pages/1?")) return pendingPage;
+      if (input.includes("/pages/2?"))
+        return Response.json({
+          ...extractedPage,
+          physical_page: 2,
+          text: "Page two evidence",
+        });
+      return Response.json(dataset);
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await userEvent.click(
+    await screen.findByRole("button", { name: "guide.pdf" }),
+  );
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Physical page" }), {
+    target: { value: "2" },
+  });
+  await act(async () => {
+    finishPage(Response.json(extractedPage));
+  });
+
+  expect(screen.queryByText("Page one evidence")).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Show extracted page" }),
+  );
+  expect(await screen.findByText("Page two evidence")).toBeInTheDocument();
+});
+
+it.each(["", "0", "-1", "1.5", "9007199254740992"])(
+  "does not request an invalid physical page %j",
+  async (value) => {
+    const requestedPages: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (input.includes("/pages/")) {
+          requestedPages.push(input);
+          return Response.json(extractedPage);
+        }
+        return Response.json(dataset);
+      }),
+    );
+    render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "guide.pdf" }),
+    );
+    await screen.findByText("Page one evidence");
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: "Physical page" }),
+      {
+        target: { value },
+      },
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Show extracted page" }),
+    );
+
+    expect(requestedPages).toHaveLength(1);
+    expect(screen.queryByText("Page one evidence")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "positive whole number",
+    );
+  },
+);
+
+it("replays a partial upload batch without duplicating its committed sources", async () => {
+  const requests: { filename: string; key: string | null }[] = [];
+  const committed = new Map<string, string>();
+  let loseResponse = true;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string, init?: RequestInit) => {
+      if (init?.method === "POST" && input.includes("/sources?")) {
+        const file = (init.body as FormData).get("file") as File;
+        const key = new Headers(init.headers).get("Idempotency-Key");
+        requests.push({ filename: file.name, key });
+        if (!key) return new Response(null, { status: 400 });
+        committed.set(key, file.name);
+        if (file.name === "second.pdf" && loseResponse) {
+          loseResponse = false;
+          throw new Error("Upload response lost.");
+        }
+        return Response.json(source, { status: 201 });
+      }
+      return Response.json(dataset);
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await screen.findByRole("heading", { name: "Review" });
+  await userEvent.upload(screen.getByLabelText("PDF files"), [
+    new File(["%PDF-first"], "guide.pdf", { type: "application/pdf" }),
+    new File(["%PDF-second"], "second.pdf", { type: "application/pdf" }),
+  ]);
+  const submit = screen.getByRole("button", { name: "Upload PDFs" });
+  fireEvent.submit(submit.closest("form")!);
+  await waitFor(() => expect(submit).toBeEnabled());
+  fireEvent.submit(submit.closest("form")!);
+  await waitFor(() => expect(submit).toBeEnabled());
+
+  expect(requests).toHaveLength(4);
+  expect(requests[0].key).toBeTruthy();
+  expect(requests[1].key).not.toBe(requests[0].key);
+  expect(requests.slice(2)).toEqual(requests.slice(0, 2));
+  expect([...committed.values()]).toEqual(["guide.pdf", "second.pdf"]);
+  expect(
+    (screen.getByLabelText("PDF files") as HTMLInputElement).files,
+  ).toHaveLength(0);
+});
+
+it("keeps an upload error visible after refreshing dataset details", async () => {
+  let reads = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input: string, init?: RequestInit) => {
+      if (init?.method === "POST") return new Response(null, { status: 413 });
+      reads++;
+      return Response.json(dataset);
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await screen.findByRole("heading", { name: "Review" });
+  await userEvent.upload(
+    screen.getByLabelText("PDF files"),
+    new File(["%PDF-too-big"], "large.pdf", { type: "application/pdf" }),
+  );
+  const submit = screen.getByRole("button", { name: "Upload PDFs" });
+  fireEvent.submit(submit.closest("form")!);
+  await waitFor(() => expect(submit).toBeEnabled());
+
+  expect(reads).toBe(2);
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Unable to upload large.pdf.",
+  );
+});
+
+it("uses a new upload identity when the selected file changes", async () => {
+  const keys: (string | null)[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        keys.push(new Headers(init.headers).get("Idempotency-Key"));
+        return new Response(null, { status: 413 });
+      }
+      return Response.json(dataset);
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await screen.findByRole("heading", { name: "Review" });
+  const input = screen.getByLabelText("PDF files");
+  const submit = screen.getByRole("button", { name: "Upload PDFs" });
+  for (const content of ["%PDF-first", "%PDF-changed"]) {
+    await userEvent.upload(
+      input,
+      new File([content], "guide.pdf", { type: "application/pdf" }),
+    );
+    fireEvent.submit(submit.closest("form")!);
+    await waitFor(() => expect(submit).toBeEnabled());
+  }
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBeTruthy();
+  expect(keys[1]).not.toBe(keys[0]);
+});
+
 it("does not show a late extraction response beside another original PDF", async () => {
   let finishFirst!: (response: Response) => void;
   const firstPage = new Promise<Response>((resolve) => {

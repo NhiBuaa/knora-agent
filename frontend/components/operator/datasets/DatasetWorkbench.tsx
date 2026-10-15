@@ -56,6 +56,9 @@ export function DatasetWorkbench(props: WorkbenchProps) {
 
 function DatasetWorkspace({ workspaceId, initialDatasetId }: WorkbenchProps) {
   const viewRequest = useRef(0);
+  const uploadKeys = useRef(
+    new Map<File, { datasetId: string; key: string }>(),
+  );
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [dataset, setDataset] = useState<
     (Dataset & { sources: Source[] }) | null
@@ -131,6 +134,10 @@ function DatasetWorkspace({ workspaceId, initialDatasetId }: WorkbenchProps) {
     setPage(null);
     setError(null);
     if (!workspaceId || !dataset || source.status !== "READY") return;
+    if (!Number.isSafeInteger(physicalPage) || physicalPage < 1) {
+      setError("Physical page must be a positive whole number.");
+      return;
+    }
     try {
       const response = await fetch(
         `${base}/${encodeURIComponent(dataset.id)}/sources/${encodeURIComponent(source.id)}/pages/${physicalPage}?workspaceId=${encodeURIComponent(workspaceId)}`,
@@ -198,23 +205,29 @@ function DatasetWorkspace({ workspaceId, initialDatasetId }: WorkbenchProps) {
       for (const file of Array.from(input.files)) {
         const body = new FormData();
         body.append("file", file);
+        let identity = uploadKeys.current.get(file);
+        if (!identity || identity.datasetId !== dataset.id) {
+          identity = { datasetId: dataset.id, key: crypto.randomUUID() };
+          uploadKeys.current.set(file, identity);
+        }
         const response = await fetch(
           `${base}/${encodeURIComponent(dataset.id)}/sources?workspaceId=${encodeURIComponent(workspaceId)}`,
           {
             method: "POST",
-            headers: { "Idempotency-Key": crypto.randomUUID() },
+            headers: { "Idempotency-Key": identity.key },
             body,
           },
         );
         if (!response.ok) throw new Error(`Unable to upload ${file.name}.`);
       }
       input.value = "";
+      uploadKeys.current.clear();
       await loadDataset(dataset.id);
     } catch (cause) {
+      await loadDataset(dataset.id);
       setError(
         cause instanceof Error ? cause.message : "Unable to upload PDF.",
       );
-      await loadDataset(dataset.id).catch(() => undefined);
     } finally {
       setBusy(false);
     }
@@ -312,6 +325,7 @@ function DatasetWorkspace({ workspaceId, initialDatasetId }: WorkbenchProps) {
                 accept="application/pdf,.pdf"
                 multiple
                 required
+                onChange={() => uploadKeys.current.clear()}
               />
             </label>
             <button
@@ -372,9 +386,11 @@ function DatasetWorkspace({ workspaceId, initialDatasetId }: WorkbenchProps) {
                       type="number"
                       min={1}
                       value={pageNumber}
-                      onChange={(event) =>
-                        setPageNumber(Number(event.target.value))
-                      }
+                      onChange={(event) => {
+                        ++viewRequest.current;
+                        setPage(null);
+                        setPageNumber(Number(event.target.value));
+                      }}
                     />
                   </label>
                   <button
