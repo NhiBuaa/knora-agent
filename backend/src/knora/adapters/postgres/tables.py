@@ -939,3 +939,53 @@ class ToolWorkspaceDispatchEpochTable(Base):
         ForeignKey("workspaces.id", ondelete="RESTRICT"), primary_key=True
     )
     workspace_dispatch_epoch: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class LexicalGenerationTable(Base):
+    __tablename__ = "lexical_generations"
+    __table_args__ = (
+        CheckConstraint("revision > 0", name="ck_lexical_generations_revision"),
+        CheckConstraint("expected_count > 0", name="ck_lexical_generations_count"),
+        CheckConstraint(
+            "status IN ('requested', 'active', 'revoked')", name="ck_lexical_generations_status"
+        ),
+        UniqueConstraint(
+            "document_id", "revision", name="uq_lexical_generations_document_revision"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id", ondelete="RESTRICT"))
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), index=True
+    )
+    document_version_id: Mapped[str] = mapped_column(
+        ForeignKey("document_versions.id", ondelete="RESTRICT")
+    )
+    chunk_set_id: Mapped[str] = mapped_column(ForeignKey("chunk_sets.id", ondelete="RESTRICT"))
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    workspace_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    profile_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    acknowledged_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    manifest: Mapped[dict] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LexicalHeadTable(Base):
+    __tablename__ = "lexical_heads"
+    __table_args__ = (CheckConstraint("revision >= 0", name="ck_lexical_heads_revision"),)
+
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), primary_key=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    desired_generation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("lexical_generations.id", ondelete="RESTRICT"), nullable=True
+    )
+    active_generation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("lexical_generations.id", ondelete="RESTRICT"), nullable=True
+    )

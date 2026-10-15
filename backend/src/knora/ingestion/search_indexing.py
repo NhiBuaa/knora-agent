@@ -1,17 +1,12 @@
-"""Pure lexical-generation contracts used before durable index integration.
-
-The ledger is deliberately in-memory.  PostgreSQL is the production authority; this
-small state machine makes the acknowledgement and CAS rules testable without a
-database or a Qdrant process.
-"""
+"""Immutable lexical indexing inputs; lifecycle authority belongs to PostgreSQL."""
 
 from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from math import isfinite
-from typing import Literal
+from uuid import NAMESPACE_URL, uuid5
 
 
 class LexicalGenerationError(ValueError):
@@ -22,7 +17,8 @@ class StaleGenerationError(LexicalGenerationError):
     """A generation or revision is no longer the requested one."""
 
 
-GenerationStatus = Literal["requested", "ready", "active", "revoked"]
+def lexical_point_id(generation_id: str, chunk_id: str) -> str:
+    return str(uuid5(NAMESPACE_URL, json.dumps(["knora-lexical-v1", generation_id, chunk_id])))
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +30,30 @@ class LexicalProfile:
     b: float
     avg_len: float
     statistics_digest: str
+
+    @classmethod
+    def from_native_token_counts(
+        cls,
+        *,
+        id: str,
+        tokenizer: str,
+        tokenizer_version: str,
+        k1: float,
+        b: float,
+        token_counts: tuple[int, ...],
+        statistics_digest: str,
+    ) -> LexicalProfile:
+        if not token_counts or any(type(count) is not int or count < 1 for count in token_counts):
+            raise LexicalGenerationError("native tokenizer counts are required for avg_len")
+        return cls(
+            id,
+            tokenizer,
+            tokenizer_version,
+            k1,
+            b,
+            sum(token_counts) / len(token_counts),
+            statistics_digest,
+        )
 
     def __post_init__(self) -> None:
         if not all(
@@ -77,7 +97,7 @@ class LexicalChunk:
     def __post_init__(self) -> None:
         if not self.chunk_id or not self.content_checksum:
             raise LexicalGenerationError("chunk identity and checksum are required")
-        if isinstance(self.ordinal, bool) or self.ordinal < 0:
+        if type(self.ordinal) is not int or self.ordinal < 0:
             raise LexicalGenerationError("chunk ordinal must be non-negative")
 
 
@@ -104,7 +124,7 @@ class LexicalGeneration:
             )
         ):
             raise LexicalGenerationError("generation identity fields are required")
-        if isinstance(self.revision, bool) or self.revision < 1:
+        if type(self.revision) is not int or self.revision < 1:
             raise LexicalGenerationError("generation revision must be positive")
         if not self.chunks:
             raise LexicalGenerationError("lexical generation cannot be empty")
@@ -118,7 +138,7 @@ class LexicalGeneration:
     def point_ids(self) -> tuple[str, ...]:
         """Return stable point IDs scoped to this generation."""
 
-        return tuple(f"{self.generation_id}:{chunk.chunk_id}" for chunk in self.chunks)
+        return tuple(lexical_point_id(self.generation_id, chunk.chunk_id) for chunk in self.chunks)
 
     def content_digest(self) -> str:
         payload = {
@@ -144,94 +164,16 @@ class LexicalGeneration:
 
 
 @dataclass(frozen=True, slots=True)
-class GenerationRecord:
+class StageReceipt:
     generation_id: str
-    workspace_id: str
-    document_id: str
-    revision: int
-    status: GenerationStatus
-    point_count: int | None = None
-    content_digest: str | None = None
+    point_count: int
+    content_digest: str
 
-
-class GenerationLedger:
-    """Offline reference state machine for request, acknowledgement and CAS activation."""
-
-    def __init__(self) -> None:
-        self._records: dict[str, GenerationRecord] = {}
-        self._active: dict[tuple[str, str], str] = {}
-
-    def request(self, generation: LexicalGeneration) -> GenerationRecord:
-        existing = self._records.get(generation.generation_id)
-        digest = generation.content_digest()
-        if existing is not None:
-            if existing.revision != generation.revision or existing.content_digest not in {
-                None,
-                digest,
-            }:
-                raise StaleGenerationError("generation identity was reused with different content")
-            return existing
-        record = GenerationRecord(
-            generation_id=generation.generation_id,
-            workspace_id=generation.workspace_id,
-            document_id=generation.document_id,
-            revision=generation.revision,
-            status="requested",
-            content_digest=digest,
-        )
-        self._records[generation.generation_id] = record
-        return record
-
-    def acknowledge(
-        self,
-        *,
-        generation_id: str,
-        revision: int,
-        point_count: int,
-        content_digest: str,
-    ) -> GenerationRecord:
-        record = self._records.get(generation_id)
-        if record is None or record.revision != revision or record.status == "revoked":
-            raise StaleGenerationError("generation acknowledgement is stale")
-        if point_count < 1 or record.content_digest != content_digest:
-            raise LexicalGenerationError("generation acknowledgement does not match request")
-        if record.status == "active":
-            return record
-        ready = replace(record, status="ready", point_count=point_count)
-        self._records[generation_id] = ready
-        return ready
-
-    def activate(
-        self,
-        *,
-        workspace_id: str,
-        document_id: str,
-        expected_revision: int,
-        generation_id: str,
-    ) -> GenerationRecord:
-        record = self._records.get(generation_id)
+    def validate(self, generation: LexicalGeneration) -> None:
         if (
-            record is None
-            or record.workspace_id != workspace_id
-            or record.document_id != document_id
-            or record.revision != expected_revision
-            or record.status != "ready"
+            self.generation_id != generation.generation_id
+            or type(self.point_count) is not int
+            or self.point_count != len(generation.chunks)
+            or self.content_digest != generation.content_digest()
         ):
-            raise StaleGenerationError("generation activation compare-and-set failed")
-        active = replace(record, status="active")
-        self._records[generation_id] = active
-        self._active[(workspace_id, document_id)] = generation_id
-        return active
-
-    def revoke(self, generation_id: str) -> None:
-        record = self._records.get(generation_id)
-        if record is None:
-            raise StaleGenerationError("unknown generation cannot be revoked")
-        self._records[generation_id] = replace(record, status="revoked")
-        key = (record.workspace_id, record.document_id)
-        if self._active.get(key) == generation_id:
-            del self._active[key]
-
-    def active(self, workspace_id: str, document_id: str) -> GenerationRecord | None:
-        generation_id = self._active.get((workspace_id, document_id))
-        return self._records.get(generation_id) if generation_id is not None else None
+            raise LexicalGenerationError("generation acknowledgement does not match request")
