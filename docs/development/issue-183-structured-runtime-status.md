@@ -71,7 +71,19 @@ uncommitted GenerationResult source against HEAD, as their immutable-source guar
 requires. Do not weaken that guard. Commit the reviewed code, then rerun the
 complete suite with isolated proxy settings; this first run is not a pass.
 
-Committed-head full-suite/CI results will be recorded in the next checkpoint.
+The committed-code rerun (`ecabf744f060d0a670020b0fd9adb8475e141927`, Python
+3.13.15) ended **1 failed /1959 passed /16 skipped /27 warnings**, 412.66 seconds.
+All previous 33 failures passed. The remaining existing PDF multi-column test
+failed in multiprocessing child startup (`AttributeError: 'tuple' object has no
+attribute '_bootstrap'`), reported safely as `PDF_EXTRACTOR_UNAVAILABLE` before
+extraction. Its isolated rerun passed (1 test, 1.23 seconds). No PDF code, test,
+deadline or isolation gate was changed; do not label this a green full run or a
+fixed extractor. The whole-file follow-up passed **31 tests /3 skipped** in
+17.54 seconds; the child startup failure did not recur. Its underlying cause is
+not established, so this observation remains a limitation. Exact-head CI and the
+final checkpoint are recorded in Issue #183/PR #184; retained local XML is under ignored
+`frontend/test-results/issue183/q12/`.
+
 No real provider call is authorized by Q12. A new bounded allowance
 must count one query embedding plus two generation requests per question, with
 Workers Free/paid budget0USD preflight, and await owner approval. Selection may be

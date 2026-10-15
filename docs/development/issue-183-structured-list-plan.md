@@ -85,9 +85,13 @@ stays separate and unimplemented.
   output, count lead/emphasis, incomplete proven counts, unknown totals,
   zero/one members, refusal in every mode, malformed/extra selection fields,
   unknown aliases, truncation, HTTP/timeout failures and no retries.
-- [ ] Update ADR0017, CONTEXT and runtime status; run focused and full pytest,
-  Ruff formatting/lint, shared formatting and Compose checks. Review, push and
-  verify CI required on the exact head; publish results to #183/PR #184 Draft.
+- [x] Update ADR0017, CONTEXT and runtime status; run focused and full pytest,
+  Ruff formatting/lint, shared formatting and Compose checks; obtain review.
+  Record the nonpassing full-run observations and PDF follow-up explicitly.
+
+Publishing gate: push and verify CI required on the exact head, then publish
+results/limits to #183/PR #184 Draft. The issue/PR checkpoint carries that
+post-commit CI verdict; code/tests do not establish runtime acceptance.
 
 The first selection can be wrong; structural acceptance cannot prove semantic
 support, completeness, conditions or source order. Two calls increase latency and
