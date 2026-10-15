@@ -49,9 +49,9 @@ The upload creates a durable Ingestion Job. The sample reached **Ready** after w
 
 This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation. [Open the full-size screenshot](docs/assets/readme/refusal.jpg).
 
-**Screenshot provenance:** captured on **2026-10-14**. The answer screenshot uses production frontend build `c71d35d` with backend source `7c8d19b`; the Ready and refusal screenshots use development runtime source `96a6379`, with Dev Tools hidden through its built-in session control. Captures retain the full interface without cropping or editing product content.
+**Screenshot provenance:** captured in external Microsoft Edge on **2026-10-15**, using development runtime source `d5f01f4`. A fresh upload of the sample PDF reached Ready in a separate demo Workspace; both questions were submitted during this session. The runtime uses Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation.
 
-The stored answer and refusal were originally produced from `7697615`, using Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. Recapture reused those results without changing their content or making new model calls.
+The full browser content was captured at 1912 pixels wide, with Dev Tools hidden through its built-in session control. Original JPEG captures are retained without cropping, upscaling, sharpening or editing product content. Open the full-size images to inspect small text.
 
 </details>
 

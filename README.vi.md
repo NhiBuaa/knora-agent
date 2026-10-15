@@ -49,9 +49,9 @@ Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu �
 
 Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn. [Mở screenshot ở kích thước gốc](docs/assets/readme/refusal.jpg).
 
-**Nguồn gốc screenshots:** chụp ngày **2026-10-14**. Screenshot câu trả lời sử dụng production frontend build `c71d35d` với backend source `7c8d19b`; screenshots Ready và từ chối sử dụng development runtime source `96a6379`, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Các capture giữ toàn bộ giao diện, không cắt hoặc chỉnh nội dung sản phẩm.
+**Nguồn gốc screenshots:** chụp bằng Microsoft Edge bên ngoài vào **2026-10-15**, sử dụng development runtime source `d5f01f4`. PDF mẫu được upload mới và đạt Ready trong Workspace demo riêng; cả hai câu hỏi được gửi trong phiên này. Runtime sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation.
 
-Câu trả lời và thông báo từ chối đã lưu được tạo ban đầu từ `7697615`, sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation. Lần chụp lại sử dụng các kết quả đó, không thay đổi nội dung hoặc gọi model mới.
+Toàn bộ nội dung trình duyệt được chụp ở chiều rộng 1912 pixel, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Giữ nguyên capture JPEG gốc, không cắt, phóng ảnh, làm nét hoặc chỉnh nội dung sản phẩm. Mở ảnh kích thước gốc để đọc chữ nhỏ.
 
 </details>
 
