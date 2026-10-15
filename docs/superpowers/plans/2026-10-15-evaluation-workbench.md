@@ -132,3 +132,11 @@ concurrency behavior for new scoring batches, runtime binding and separately app
 quality/calibration. No shared services or databases were started/changed. Do not mark slices
 accepted or #192 Done from offline technical tests. Keep #188 shadow outputs supplementary, reuse
 native source/capture identities, and serialize shared file/migration integration with #153/#188.
+
+Subsequent completion audit found the service fixtures were the only profile-composition path.
+The existing application factory now accepts explicit trusted native/PDF/proposal/scoring profile
+arguments, all empty by default. Composition and default-denial tests plus evaluation, bootstrap
+and main lifecycle tests pass223 cases. No provider/corpus preparation runs during composition.
+This closes the host-composition seam only: actual retained-source corpus preparation, reviewed
+binding construction and approved live admission remain implementation/acceptance work, not just
+permission to press Run. See the current product audit in Issue192 comment6199348185.

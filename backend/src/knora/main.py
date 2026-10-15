@@ -51,8 +51,10 @@ from knora.conversations.service import ConversationService
 from knora.domain.errors import KnoraError
 from knora.evaluation.catalog import Milestone3Catalog
 from knora.evaluation.datasets import DatasetService
-from knora.evaluation.runs import EvaluationRunService
-from knora.evaluation.scoring import EvaluationScoringService
+from knora.evaluation.pdf_runtime import PdfRuntimeProfile
+from knora.evaluation.proposals import ProposalProfile
+from knora.evaluation.runs import EvaluationRunService, RuntimeProfile
+from knora.evaluation.scoring import EvaluationScoringService, ScoringProfile
 from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.job_processing import (
@@ -132,6 +134,10 @@ def create_app(
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
     operator_observability: OperatorObservability | None = None,
+    evaluation_profiles: tuple[RuntimeProfile, ...] = (),
+    evaluation_pdf_profiles: tuple[PdfRuntimeProfile, ...] = (),
+    evaluation_proposal_profiles: dict[str, ProposalProfile] | None = None,
+    evaluation_scoring_profiles: tuple[ScoringProfile, ...] = (),
     write_proposal_workflow: WriteProposalWorkflow | None = None,
     tool_actor_context_provider: ActorContextProvider | None = None,
     read_tool: ReadTool | None = None,
@@ -248,19 +254,20 @@ def create_app(
         object_store=selected_object_store,
         extractor=PypdfTextExtractor(),
         configuration=PdfExtractionConfiguration.layout_preserving(),
+        proposal_profiles=evaluation_proposal_profiles,
     )
     application.state.evaluation_catalog = Milestone3Catalog()
-    # Live profiles are intentionally not registered until a separately approved
-    # provider/runtime binding exists; the UI therefore exposes readiness as blocked.
+    # Trusted hosts may compose profiles; default wiring remains empty and live admission blocked.
     evaluation_run_store = PostgresEvaluationRunStore(SessionFactory)
     application.state.evaluation_runs = EvaluationRunService(
         catalog=application.state.evaluation_catalog,
         store=evaluation_run_store,
-        profiles=(),
+        profiles=evaluation_profiles,
+        pdf_profiles=evaluation_pdf_profiles,
         datasets=application.state.dataset_service,
     )
     application.state.evaluation_scoring = EvaluationScoringService(
-        application.state.evaluation_runs, evaluation_run_store
+        application.state.evaluation_runs, evaluation_run_store, evaluation_scoring_profiles
     )
     application.state.object_lifecycle_worker = ObjectLifecycleWorker(
         maintenance=selected_lifecycle_maintenance,

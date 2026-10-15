@@ -142,3 +142,9 @@ the browser cannot provide endpoints, paths, credentials or a scorer callback. S
 are trusted server registrations. Default wiring registers none and live profiles are blocked
 pending exact provider/egress/quota/budget authorization. Tests exercise the existing DeepEval
 Cloudflare adapter through MockTransport only; no live acceptance is implied.
+
+The existing application factory accepts explicit native/PDF, proposal and scoring profiles from
+a trusted server host. Defaults stay empty; composition itself neither prepares a corpus nor
+calls a provider. This is not a browser registry, runtime activation or live approval mechanism.
+An actual corpus preparation/binding adapter and approved execution envelope are still required
+for an owner UI demonstration; injected service fixtures alone do not prove that workflow.
