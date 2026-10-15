@@ -1,0 +1,117 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-012:1",
+  "candidates": [
+    {
+      "chunk_id": "2c54d222-7131-4fa7-b4fb-ff4afae66385",
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "Quyền và lưu trữ\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nQD-63: thời hạn lưu bản sao là 90 ngày.\n1. Quyền truy cập: người đọc chỉ được xem tài liệu.\n1.1. Biên tập viên: được sửa bản nháp, không được công bố.\n1.2. Chủ sở hữu: được công bố bản đã duyệt.\n2. Lưu trữ: bản nháp thường được giữ 30 ngày.\n2.1. Hồ sơ tranh chấp được giữ 90 ngày, thay cho 30 ngày.\nPDF page 1 | CC BY 4.0 | Knora evaluation fixture",
+      "content_checksum": "fa850438f7607eb9ea5750954f0927d8d4a87052ef313130312f66fcfdf3d2bc",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 423,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec",
+      "source_key": "hierarchy-02",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-012",
+  "conversation_id": null,
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "ANSWER",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 11706.916199998886,
+  "failure_code": null,
+  "provider_metadata": {
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acf9a55b538622-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792047935536",
+      "usage": {
+        "completion_tokens": 202,
+        "prompt_tokens": 571,
+        "total_tokens": 773
+      }
+    },
+    "retrieval": {
+      "latency_ms": 17.88959999976214
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 17.8777999990416,
+          "end_tick": 16104.8111194,
+          "start_tick": 16104.7932416
+        },
+        "evidence_selection": {
+          "duration_ms": 0.011800000720540993,
+          "end_tick": 16104.8111312,
+          "start_tick": 16104.8111194
+        },
+        "generation": {
+          "duration_ms": 6077.261700000236,
+          "end_tick": 16110.8883929,
+          "start_tick": 16104.8111312
+        },
+        "query_embedding": {
+          "duration_ms": 5469.582800000353,
+          "end_tick": 16104.7932416,
+          "start_tick": 16099.3236588
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": "Bản nháp thường được giữ 30 ngày; hồ sơ tranh chấp được giữ 90 ngày. [[E1]]",
+    "citations": [
+      {
+        "content_checksum": "fa850438f7607eb9ea5750954f0927d8d4a87052ef313130312f66fcfdf3d2bc",
+        "document_id": "733f1080-0a27-4781-940d-3cbdb060117c",
+        "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+        "end_line": 9,
+        "end_offset": 423,
+        "evidence_id": "E1",
+        "excerpt": "Quyền và lưu trữ\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nQD-63: thời hạn lưu bản sao là 90 ngày.\n1. Quyền truy cập: người đọc chỉ được xem tài liệu.\n1.1. Biên tập viên: được sửa bản nháp, không được công bố.\n1.2. Chủ sở hữu: được công bố bản đã duyệt.\n2. Lưu trữ: bản nháp thường được giữ 30 ngày.\n2.1. Hồ sơ tranh chấp được giữ 90 ngày, thay cho 30 ngày.\nPDF page 1 | CC BY 4.0 | Knora evaluation …",
+        "heading_path": [],
+        "page_end": 1,
+        "page_start": 1,
+        "source_key": "hierarchy-02",
+        "source_name": "hierarchy-02.pdf",
+        "start_line": 1,
+        "start_offset": 0
+      }
+    ],
+    "decision": "ANSWER",
+    "refusal_reason": null,
+    "trace_id": "dd080f90-d359-4133-9224-58994aaec0fc",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "eb85f7e7370fe350879aa8f43f03863d7ec16ec63734ce877fde75b8a0a28194",
+  "retrieval_latency_ms": 17.88959999976214,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+  ],
+  "trace_id": "dd080f90-d359-4133-9224-58994aaec0fc",
+  "turn_id": null,
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

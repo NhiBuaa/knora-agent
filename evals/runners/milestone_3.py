@@ -27,6 +27,8 @@ from evals.runners.m3_claim_authority import (
     policy_metric_fields,
 )
 
+from knora.answering.excerpt import citation_excerpt
+
 MARKER_PATTERN = re.compile(r"\[\[(E[1-9][0-9]*)\]\]")
 _MARKER_TOKEN_PATTERN = re.compile(r"\[\[([^\]]*)\]\]")
 _VALID_MARKER_ID_PATTERN = re.compile(r"E[1-9][0-9]*\Z")
@@ -1031,7 +1033,13 @@ def validate_public_citations_against_trace(
 
         content = getattr(candidate, "content", None)
         if content is not None and (
-            not isinstance(content, str) or citation.excerpt != content[:500]
+            not isinstance(content, str)
+            or citation.excerpt
+            != citation_excerpt(
+                content,
+                start_offset=getattr(candidate, "start_offset", None),
+                end_offset=getattr(candidate, "end_offset", None),
+            )
         ):
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
         expected_locator = getattr(candidate, "source_locator", None)

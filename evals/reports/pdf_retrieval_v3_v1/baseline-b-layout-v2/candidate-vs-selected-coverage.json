@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "denominators": {
+    "total": 60,
+    "attempted": 1,
+    "observed": 0,
+    "retrieval_evaluable": 0,
+    "extraction_or_mapping_missing": 0,
+    "not_run": 59,
+    "observation_failed": 1,
+    "provider_failed": 0
+  },
+  "candidate_pool_definition": "saved row.candidates: post-threshold candidate final-decision pool, not all vector branch hits",
+  "selected_pool_definition": "the same saved candidates where final_decision is SELECTED",
+  "evaluable_cases": 0,
+  "all_candidate_groups_covered": 0,
+  "all_selected_groups_covered": 0,
+  "candidate_coverage_rate": null,
+  "selected_coverage_rate": null,
+  "cases": {
+    "pdf-v3-001": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-002": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-003": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-004": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-005": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-006": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-007": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-008": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-009": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-010": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-011": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-012": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-013": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-014": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-015": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-016": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-017": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-018": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-019": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-020": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-021": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-022": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-023": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-024": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-025": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-026": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-027": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-028": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-029": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-030": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-031": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-032": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-033": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-034": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-035": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-036": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-037": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-038": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-039": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-040": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-041": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-042": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-043": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-044": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-045": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-046": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-047": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-048": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-049": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-050": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-051": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-052": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-053": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-054": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-055": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-056": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-057": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-058": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-059": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-060": {
+      "status": "not_evaluable"
+    }
+  }
+}

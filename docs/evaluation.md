@@ -317,6 +317,147 @@ Verify exact model IDs with `GET /models` and probe `POST /embeddings` with `dim
 before ingesting. Free-tier rate limits are project/model scoped; pace scorer requests for a full
 20-case run so transient throttling is not confused with semantic quality.
 
+## Retrieval V3 S1 PDF baseline
+
+S1 A prepares a **review candidate**, not accepted gold. See
+[corpus and five review batches](../evals/corpora/pdf_retrieval_v3_v1/README.md) and
+[approved S1 scope](superpowers/specs/2026-10-14-retrieval-v3-s1.md).
+The same Knora authority owns source manifests, cases, bindings, observations and
+reports. #158 tools consume captured observations; this adapter installs no judge.
+
+**Paid budget: 0 USD.** B waits for owner approval of the corpus and all 60 gold
+cases, verified Workers **Free** plan and remaining daily quota, and runtime
+coordination. Never upgrade or use a paid account with overage. If Free is
+unavailable, stop and report for a later owner decision. Quota exhaustion retains
+the source data, configuration, persisted chunks and counters until reset. The
+approved baseline is pypdf layout-v2 / Qwen3 0.6B 1024d / GPT-OSS20B
+max_tokens=1024 / retrieval-evidence-containment-v1 threshold 0.65; it is
+exploratory, not a calibrated threshold or V3 acceptance.
+
+### A: inspect the candidate without inference
+
+From the isolated worktree root:
+
+```powershell
+.\.venv\Scripts\python -m evals.runners.pdf_retrieval_v3 validate --output .verification/issue153/candidate.json
+.\.venv\Scripts\python -m pytest evals/test/test_pdf_retrieval_v3_dataset.py evals/test/test_pdf_source_binding.py evals/test/test_pdf_retrieval_v3.py evals/test/test_pdf_baseline_runtime.py
+```
+
+Review the real/synthetic composition, licenses, source hashes, PDF physical
+pages/visible regions and evidence groups. Outer groups are AND; alternatives
+inside one group are OR. Six multi-hop cases require two necessary source steps.
+Follow-up parents occur earlier in the same conversation. Scan anchors come from
+visible source content, independently of parser output. Extraction/mapping misses
+remain failures; they never become empty positive gold or retrieval score zero.
+
+After owner approval, save a local `gold-approval.json` with `status: approved`,
+`owner: NhiBuaa`, and exact `corpus_sha256`/`dataset_sha256` from candidate validation.
+Retain the owner decision URL alongside the local approval. Never manufacture this
+record from a passing test or agent review.
+
+### B: owned Free-only runtime, after approval
+
+Coordinate first. Default S1 topology is Compose project `knora153s1`, only
+Postgres on loopback **55453**, fresh database `knora153s1_baseline`, filesystem
+objects under the S1 worktree, API **8153** and production PDF/Turn workers.
+Do not borrow daily database 5432, another session's volume, object root, PID or
+port. Run migrations on the fresh owned database. No GPU/Ollama, frontend, MinIO
+or Keycloak server is needed; the loopback eval credential uses existing owner
+and capability authorization services. This is not deployed authentication/UI evidence.
+
+Before launching, inspect the **actual account** plan and Workers AI usage in
+Cloudflare dashboard. Save a local `free-preflight.json` containing:
+
+```json
+{
+  "account_id": "actual-account-id",
+  "plan": "Workers Free",
+  "checked_at": "actual-UTC-ISO-timestamp",
+  "neurons_used": 0,
+  "daily_limit": 10000,
+  "models_free_eligible": true,
+  "no_paid_gateway": true,
+  "evidence": "local-reviewed-dashboard-evidence-reference"
+}
+```
+
+Values above illustrate the schema, **not verified account facts**. Check the
+same account that credentials target; no paid AI Gateway. Startup requires a
+snapshot checked within 15 minutes; crossing UTC midnight requires a new
+preflight. Workers Free rejects usage beyond 10,000 neurons/day; Workers Paid
+can bill overage. Quota resets at **00:00 UTC / 07:00 Vietnam**.
+[Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+HTTP429 is conservatively paused until reset, including temporary capacity errors;
+HTTP402/403 stops for an access/Free eligibility review. No automatic paid fallback.
+[Cloudflare error taxonomy](https://developers.cloudflare.com/workers-ai/platform/errors/).
+
+Set `KNORA_DATABASE_URL` to the owned `knora153s1_baseline` database and keep
+`KNORA_CLOUDFLARE_ACCOUNT_ID`, `KNORA_CLOUDFLARE_API_TOKEN` and a strong generated
+`KNORA_S1_BEARER_TOKEN` in process environment. Never commit or print tokens.
+
+```powershell
+.\.venv\Scripts\python -m evals.runners.pdf_baseline_runtime --approval .verification/issue153/gold-approval.json --free-preflight .verification/issue153/free-preflight.json --counters .verification/issue153/run/counts.json --objects .verification/issue153/objects --run-id s1-baseline-01
+```
+
+Create the workspace through `POST /v1/workspaces` with the eval Bearer token,
+owner-selected name and stable Idempotency-Key. Preserve its returned ID. The
+runner commands below use that same workspace and run ID; append the required
+`--approval`, `--run-id`, `--workspace-id`, `--output` and `--counters` arguments.
+The collector defaults to loopback8153. Execute sequentially:
+
+1. `python -m evals.runners.pdf_retrieval_v3 upload` submits all16 PDFs and polls
+   only their admitted job IDs. Terminal extraction failures are retained.
+2. `python -m evals.runners.pdf_retrieval_v3 propose` writes immutable
+   `binding-proposals.json` from current persisted PDF derivations.
+3. Owner reviews each anchor match. Save `binding-review.json` with
+   `status: approved`, `reviewer: NhiBuaa`, `decision_url`, exact
+   `proposal_sha256`, and `choices` mapping **every** anchor ID to one occurrence
+   index, or `[]` for missing extraction. Ambiguous occurrences need an explicit
+   selection; overlapping chunks of the same occurrence remain alternatives.
+4. `python -m evals.runners.pdf_retrieval_v3 collect --binding-review ...`
+   captures each question once through production Q&A/Conversation HTTP, its
+   exact workspace/trace/public response and PDF citation provenance. Immutable
+   run/case/attempt/trace records are the #158 tool input seam. A pending dispatch
+   without a captured response is an uncertain outcome: inspect it before retry;
+   automatic replay is blocked. Already captured cases are skipped on resume.
+5. After daily quota reset, refresh Free preflight and restart the **same run**
+   with unchanged data/config/counters. Use `collect --resume-quota` only for
+   explicitly recorded quota-paused or expired-preflight attempts; previous attempt artifacts remain.
+   Request cap stops require review, not a new run ID to reset counters.
+6. `python -m evals.runners.pdf_retrieval_v3 report --binding-review ...`
+   scores reviewed source groups. Optional `--response-reviews` supplies owner
+   semantic judgments tied to the exact response digest. Missing review is
+   pending; #158 tools unavailable is not_run. Reports never imply final acceptance.
+
+All report/observation publication uses existing atomic no-clobber Knora helper.
+Counters persist **70 generation HTTP attempts / 2,500 individual embedding
+strings**, including failed/time-out requests and repeated PDF-job batches.
+These limits prevent waste; they are not a paid reserve or account quota meter.
+Only one owned eval runtime may use its counter file. Stop on insufficient Free
+quota/caps; never truncate PDFs, skip cases, change models or lower threshold.
+Report total/attempted/observed/evaluable/missing-extraction/not-run/error
+denominators separately. Observed invoice cost remains unavailable, not assumed zero.
+
+### Offline sizing of this candidate
+
+The unchanged production pypdf layout-v2 extractor was run locally on all 16
+candidate PDFs without embedding or generation. It produced 47 chunks and
+16,307 chunk tokens measured with its existing cl100k tokenizer, from 2,083,688
+PDF bytes. This is a sizing observation, not provider token accounting or a
+successful source binding. Scan-01/scan-03 failed with PDF_TEXT_INSUFFICIENT;
+scan-02 extracted only 127 characters, and ViT5 only 243 characters over 7 pages.
+Retain their source gold and expose the missing extraction in B.
+
+One initial pass therefore sizes to 47 document embedding strings plus 60 query
+strings (107 total), before retries or setup probes. At most 60 initial
+generation requests and 61,440 configured output tokens are possible; actual
+generation can be lower when retrieval refuses. The retry-inclusive caps remain
+70 requests / 2,500 embedding strings. These figures do not prove that the
+remaining Free quota fits in one day: model tokenizers, input prompts, retries
+and other sessions affect consumption. Paid allowance is **0 USD**; split across
+quota resets if necessary, with the same data/configuration and no duplicate calls.
+
+
 ## Issue 158: optional evaluation tools
 
 These integrations extend Knora Evaluation. Knora remains the sole authority for datasets, gold,

@@ -1,0 +1,65 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-010:1",
+  "candidates": [],
+  "case_id": "pdf-v3-010",
+  "conversation_id": null,
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 1704.5270999988134,
+  "failure_code": null,
+  "provider_metadata": {
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acf977b9608622-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 29.414300001008087
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 29.403200000160723,
+          "end_tick": 16093.6597422,
+          "start_tick": 16093.630339
+        },
+        "evidence_selection": {
+          "duration_ms": 0.011100000847363845,
+          "end_tick": 16093.6597533,
+          "start_tick": 16093.6597422
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16093.6597533,
+          "start_tick": 16093.6597533
+        },
+        "query_embedding": {
+          "duration_ms": 1610.9679000001051,
+          "end_tick": 16093.630339,
+          "start_tick": 16092.0193711
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "2fe087e1-11b6-46b6-a635-274f2d56df7a",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "a56840dd1ea202b7f00765941f3fc4875031e5656ff220814c36b7c776ef50c4",
+  "retrieval_latency_ms": 29.414300001008087,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "2fe087e1-11b6-46b6-a635-274f2d56df7a",
+  "turn_id": null,
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

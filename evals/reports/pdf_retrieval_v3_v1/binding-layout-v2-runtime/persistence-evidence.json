@@ -1,0 +1,27 @@
+{
+  "checked_at": "2026-10-15T05:15:28.778029+00:00",
+  "scope": "owned baseline database only; transaction READ ONLY",
+  "counts": {
+    "read_only": "on",
+    "workspaces": 1,
+    "documents": 16,
+    "document_versions": 16,
+    "chunks": 47,
+    "question_traces": 0,
+    "conversations": 0,
+    "turns": 0,
+    "job_attempts": 16
+  },
+  "embedding_profiles": [
+    {
+      "id": "embedding-cloudflare-qwen3-06b-v1",
+      "provider": "cloudflare-workers-ai",
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "dimensions": 1024,
+      "status": "completed",
+      "vectors": 47,
+      "min_dimensions": 1024,
+      "max_dimensions": 1024
+    }
+  ]
+}

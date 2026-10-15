@@ -76,6 +76,36 @@ class EvaluationCandidateProjection:
     decision_reason: str | None
     vector_contribution: dict[str, object] | None
     fts_contribution: dict[str, object] | None
+    raw_sha256: str | None = None
+    parser_configuration_id: str | None = None
+    normalizer_configuration_id: str | None = None
+    chunking_configuration_id: str | None = None
+    page_start: int | None = None
+    page_end: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
+    content_checksum: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PdfChunkProjection:
+    workspace_id: str
+    source_key: str
+    chunk_id: str
+    document_version_id: str
+    chunk_set_id: str
+    raw_sha256: str
+    parser_configuration_id: str
+    normalizer_configuration_id: str
+    chunking_configuration_id: str
+    page_start: int
+    page_end: int
+    start_offset: int
+    end_offset: int
+    content_checksum: str
+    content: str
+    start_line: int
+    end_line: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,7 +204,7 @@ class PostgresEvaluationReader:
                 rows=embedding_rows,
             )
             rows = session.execute(
-                select(ChunkTable, DocumentTable, DocumentVersionTable)
+                select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
                 .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
                 .join(
                     DocumentVersionTable,
@@ -196,7 +226,8 @@ class PostgresEvaluationReader:
                     EmbeddingSetTable.status == "completed",
                 )
             ).all()
-        by_chunk = {chunk.id: (chunk, document, version) for chunk, document, version in rows}
+        by_chunk = {chunk.id: (chunk, document, version) for chunk, document, version, _ in rows}
+        chunk_sets = {chunk.id: chunk_set for chunk, _, _, chunk_set in rows}
         missing_chunk_ids = [chunk_id for chunk_id in chunk_ids if chunk_id not in by_chunk]
         if missing_chunk_ids:
             raise LookupError("evaluation candidate not found")
@@ -236,6 +267,15 @@ class PostgresEvaluationReader:
                 decision_reason=decision.get("decision_reason"),
                 vector_contribution=decision.get("vector_contribution"),
                 fts_contribution=decision.get("fts_contribution"),
+                raw_sha256=by_chunk[chunk_id][2].raw_sha256,
+                parser_configuration_id=chunk_sets[chunk_id].parser_configuration_id,
+                normalizer_configuration_id=chunk_sets[chunk_id].normalizer_configuration_id,
+                chunking_configuration_id=chunk_sets[chunk_id].chunking_configuration_id,
+                page_start=by_chunk[chunk_id][0].page_start,
+                page_end=by_chunk[chunk_id][0].page_end,
+                start_offset=by_chunk[chunk_id][0].start_offset,
+                end_offset=by_chunk[chunk_id][0].end_offset,
+                content_checksum=by_chunk[chunk_id][0].content_checksum,
             )
             for chunk_id, decision in zip(chunk_ids, decisions, strict=True)
         )
@@ -261,6 +301,54 @@ class PostgresEvaluationReader:
             refusal_reason=trace.refusal_reason,
             parsed_markers=tuple(str(item) for item in trace.parsed_markers),
             validation_outcome=trace.validation_outcome,
+        )
+
+    def read_pdf_chunks(self, *, workspace_id: str) -> tuple[PdfChunkProjection, ...]:
+        """Project only current, active PDF derivations inside the requested workspace."""
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
+                .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .join(DocumentTable, DocumentTable.id == DocumentVersionTable.document_id)
+                .join(
+                    EmbeddingSetTable, EmbeddingSetTable.id == DocumentTable.active_embedding_set_id
+                )
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    DocumentTable.current_document_version_id == DocumentVersionTable.id,
+                    DocumentVersionTable.media_type == "application/pdf",
+                    EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
+                    EmbeddingSetTable.status == "completed",
+                    ChunkSetTable.status == "completed",
+                )
+                .order_by(DocumentTable.source_key, ChunkTable.ordinal)
+            ).all()
+        return tuple(
+            PdfChunkProjection(
+                workspace_id=document.workspace_id,
+                source_key=document.source_key,
+                chunk_id=chunk.id,
+                document_version_id=version.id,
+                chunk_set_id=chunk_set.id,
+                raw_sha256=version.raw_sha256,
+                parser_configuration_id=chunk_set.parser_configuration_id,
+                normalizer_configuration_id=chunk_set.normalizer_configuration_id,
+                chunking_configuration_id=chunk_set.chunking_configuration_id,
+                page_start=chunk.page_start,
+                page_end=chunk.page_end,
+                start_offset=chunk.start_offset,
+                end_offset=chunk.end_offset,
+                content_checksum=chunk.content_checksum,
+                content=chunk.content,
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+            )
+            for chunk, document, version, chunk_set in rows
         )
 
     def read_active_corpus(self, *, workspace_id: str) -> ActiveCorpusProjection:
