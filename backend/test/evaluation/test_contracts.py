@@ -1,11 +1,19 @@
 import json
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
+from evals.datasets.milestone_3 import (
+    load_milestone_3_corpus_manifest,
+    load_milestone_3_dataset,
+    load_milestone_3_dataset_manifest,
+    validate_milestone_3_references,
+)
 
 from knora.evaluation.contracts import (
     Case,
     DatasetIdentity,
+    DatasetSelection,
     EvidenceAnchor,
     EvidenceGroup,
     FreezeApproval,
@@ -152,6 +160,50 @@ def test_valid_offset_anchor_pins_extraction_snapshot():
     assert anchor.end_offset == 5
 
 
+@pytest.mark.parametrize(
+    "locator_change",
+    (
+        {"extraction_snapshot_id": "extract-2"},
+        {"extraction_sha256": "b" * 64},
+        {"start_offset": 1},
+    ),
+)
+def test_reextraction_does_not_change_frozen_gold_but_reviewed_anchor_edits_require_approval(
+    locator_change,
+):
+    gold = dataset()
+    anchored = replace(
+        gold.cases[0],
+        evidence_groups=(
+            EvidenceGroup(
+                (EvidenceAnchor("version-1", 1, "A is stated.", "extract-1", SHA, 0, 12),)
+            ),
+        ),
+    )
+    gold = replace(gold, cases=(anchored,) + gold.cases[1:])
+    frozen = freeze_dataset(gold, approval(gold))
+    frozen_bytes = frozen.to_json().encode("utf-8")
+    frozen_digest = frozen.reference.digest
+
+    # A new processing record does not replace the anchor reviewed in gold.
+    reextraction = {"snapshot_id": "extract-2", "sha256": "b" * 64}
+    assert reextraction["snapshot_id"] != (
+        anchored.evidence_groups[0].alternatives[0].extraction_snapshot_id
+    )
+    assert frozen.to_json().encode("utf-8") == frozen_bytes
+    assert frozen.reference.digest == frozen_digest
+
+    revised_anchor = replace(anchored.evidence_groups[0].alternatives[0], **locator_change)
+    revised_case = replace(anchored, evidence_groups=(EvidenceGroup((revised_anchor,)),))
+    revised_gold = replace(gold, cases=(revised_case,) + gold.cases[1:])
+    assert revised_gold.digest != frozen_digest
+    with pytest.raises(ValueError, match="digest"):
+        freeze_dataset(revised_gold, frozen.approval)
+    assert (
+        freeze_dataset(revised_gold, approval(revised_gold)).reference.digest == revised_gold.digest
+    )
+
+
 def test_duplicate_unknown_and_cyclic_case_references_fail():
     gold = dataset()
     with pytest.raises(ValueError, match="duplicate"):
@@ -206,4 +258,55 @@ def test_selection_includes_transitive_context_in_dependency_order():
     assert select_cases(frozen, ("no-answer",)).context_only_case_ids == (
         "base",
         "follow-up",
+    )
+
+
+@pytest.mark.parametrize(
+    ("selected", "context_only", "message"),
+    [
+        (["absent"], [], "unknown"),
+        (["follow-up"], ["absent"], "context-only"),
+    ],
+)
+def test_selection_json_rejects_forged_case_ids(selected, context_only, message):
+    gold = dataset()
+    frozen = freeze_dataset(gold, approval(gold))
+    forged = {
+        "reference": frozen.reference.__dict__,
+        "selected_case_ids": selected,
+        "context_only_case_ids": context_only,
+    }
+    with pytest.raises(ValueError, match=message):
+        DatasetSelection.from_json(canonical_json(forged), frozen)
+
+
+def test_m3_full_validation_precedes_answer_refusal_selection_without_rewriting_native_artifacts():
+    root = Path(__file__).resolve().parents[3] / "evals"
+    dataset_path = root / "datasets" / "milestone_3.jsonl"
+    dataset_manifest_path = root / "datasets" / "milestone_3.manifest.json"
+    corpus_manifest_path = root / "corpora" / "milestone_3" / "manifest.json"
+    original_bytes = tuple(
+        path.read_bytes() for path in (dataset_path, dataset_manifest_path, corpus_manifest_path)
+    )
+
+    legacy = load_milestone_3_dataset(dataset_path)
+    identity = load_milestone_3_dataset_manifest(dataset_manifest_path, dataset_path)
+    corpus = load_milestone_3_corpus_manifest(corpus_manifest_path)
+    validate_milestone_3_references(legacy, corpus)
+    selected = tuple(case for case in legacy.cases if case.id in {"lexical-01", "refusal-04"})
+
+    assert tuple((case.id, case.expected_behavior) for case in selected) == (
+        ("lexical-01", "ANSWER"),
+        ("refusal-04", "REFUSAL"),
+    )
+    assert (
+        identity.checksum
+        == "sha256:1830dd47863eae06927a4a6c2eb927b13899784ff94c83f522931ca6ec3ccc50"
+    )
+    assert (
+        tuple(
+            path.read_bytes()
+            for path in (dataset_path, dataset_manifest_path, corpus_manifest_path)
+        )
+        == original_bytes
     )

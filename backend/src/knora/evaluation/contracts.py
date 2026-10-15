@@ -414,6 +414,8 @@ def freeze_dataset(gold: GoldDataset, approval: FreezeApproval) -> FrozenDataset
 
 @dataclass(frozen=True)
 class DatasetSelection:
+    """Structural value; use select_cases or from_json to validate against frozen gold."""
+
     reference: DatasetReference
     selected_case_ids: tuple[str, ...]
     context_only_case_ids: tuple[str, ...]
@@ -436,6 +438,7 @@ class DatasetSelection:
 
     @classmethod
     def from_json(cls, value: str, frozen: FrozenDataset) -> DatasetSelection:
+        """Read an untrusted selection and verify IDs, digest and context dependencies."""
         data = _object(
             _read_json(value), {"reference", "selected_case_ids", "context_only_case_ids"}
         )
@@ -451,6 +454,7 @@ class DatasetSelection:
 
 
 def select_cases(frozen: FrozenDataset, case_ids: tuple[str, ...]) -> DatasetSelection:
+    """Build a validated selection from IDs in the frozen dataset."""
     frozen.__post_init__()
     _tuple(case_ids, "case_ids")
     _unique(case_ids, "selected case ID")

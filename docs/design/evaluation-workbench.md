@@ -26,7 +26,9 @@ evidence groups, and ordered context dependencies.
 An evidence group requires at least one accepted alternative; all required groups must be covered.
 Each anchor identifies its source version and physical page plus reviewed quote or region. Text
 offsets are start-inclusive/end-exclusive and require the exact extraction snapshot and checksum.
-Extraction and runtime binding are separate artifacts; neither participates in gold identity.
+Independent extraction processing records and runtime bindings are separate artifacts and do not
+participate in gold identity. A reviewed anchor's extraction snapshot ID, checksum, and offsets
+are part of immutable gold when supplied; later re-extraction never updates that reviewed anchor.
 Original-PDF verification can justify freezing despite incomplete extraction or runtime binding.
 Failed extraction does not become successful preparation and remains visible.
 
