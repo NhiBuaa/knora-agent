@@ -14,7 +14,15 @@ from knora.ingestion.pdf import PdfExtractionConfiguration
 
 PDF = Path(__file__).resolve().parents[3] / "docs/assets/readme/community-garden-guide.pdf"
 OWNER = WorkspacePrincipal(
-    "w1", "owner", ("operator:read", "evaluations:write", "documents:write", "documents:read")
+    "w1",
+    "owner",
+    (
+        "operator:read",
+        "evaluations:write",
+        "evaluations:approve",
+        "documents:write",
+        "documents:read",
+    ),
 )
 
 
@@ -99,9 +107,9 @@ class MemoryDatasetStore:
         self.sources[source.id] = updated
         return updated
 
-    def get_snapshot(self, workspace_id, dataset_id, source_id):
+    def get_snapshot(self, workspace_id, dataset_id, source_id, snapshot_id=None):
         source = self.get_source(workspace_id, dataset_id, source_id)
-        return self.snapshots.get(source.snapshot_id) if source and source.snapshot_id else None
+        return self.snapshots.get(snapshot_id or source.snapshot_id) if source else None
 
 
 @pytest.fixture

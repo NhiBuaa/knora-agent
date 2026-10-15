@@ -42,18 +42,34 @@ def list_datasets(
     principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
 ) -> CatalogResponse:
     drafts = request.app.state.dataset_service.list_datasets(workspace_id, principal)
-    items = [
-        CatalogDatasetResponse(
-            id=draft.id,
-            workspace_id=draft.workspace_id,
-            name=draft.name,
-            status=draft.status,
-            format="pdf-gold-v1",
-            reference=None,
-            case_count=0,
+    items = []
+    for draft in drafts:
+        frozen = (
+            request.app.state.dataset_service.get_frozen_dataset(workspace_id, draft.id, principal)
+            if draft.status == "FROZEN"
+            else None
         )
-        for draft in drafts
-    ]
+        cases = frozen.gold.cases if frozen else draft.cases
+        items.append(
+            CatalogDatasetResponse(
+                id=draft.id,
+                workspace_id=draft.workspace_id,
+                name=draft.name,
+                status=draft.status,
+                format="pdf-gold-v1",
+                reference=frozen.reference if frozen else None,
+                case_count=len(cases),
+                cases=[
+                    CatalogCaseResponse(
+                        id=case.case_id,
+                        question=case.question,
+                        expected_behavior=case.expected,
+                        category=case.category,
+                    )
+                    for case in cases
+                ],
+            )
+        )
     for entry in request.app.state.evaluation_catalog.list_datasets(workspace_id):
         reference = entry.reference
         items.append(

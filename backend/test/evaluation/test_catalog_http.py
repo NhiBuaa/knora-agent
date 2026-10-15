@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
 from knora.domain.access import WorkspacePrincipal
-from knora.evaluation.contracts import LegacyDatasetReference
+from knora.evaluation.contracts import DatasetReference, LegacyDatasetReference
 from knora.main import create_app
 
 
@@ -43,7 +43,7 @@ def client_with_catalog(capabilities=("operator:read",)):
         calls.append(("drafts", workspace_id))
         return (
             SimpleNamespace(
-                id="draft-1", workspace_id=workspace_id, name="PDF draft", status="DRAFT"
+                id="draft-1", workspace_id=workspace_id, name="PDF draft", status="DRAFT", cases=()
             ),
         )
 
@@ -101,3 +101,48 @@ def test_catalog_denies_before_either_source_lookup(workspace, capabilities):
     )
     assert response.status_code == 403
     assert calls == []
+
+
+def test_catalog_uses_frozen_population_and_never_attaches_old_digest_to_new_draft():
+    client, _ = client_with_catalog()
+    accepted = SimpleNamespace(
+        case_id="accepted", question="Question?", expected="ANSWER", category="single-hop"
+    )
+    rejected = SimpleNamespace(
+        case_id="rejected", question="Rejected?", expected="ANSWER", category="single-hop"
+    )
+    reference = DatasetReference(
+        dataset_id="pdf-1",
+        version=1,
+        workspace_id="workspace-a",
+        format="pdf-gold-v1",
+        metric_contract="pdf-metrics-v1",
+        digest="b" * 64,
+    )
+    draft = SimpleNamespace(
+        id="pdf-1",
+        workspace_id="workspace-a",
+        name="PDF",
+        status="FROZEN",
+        cases=(accepted, rejected),
+        reference=reference,
+    )
+    client.app.state.dataset_service = SimpleNamespace(
+        list_datasets=lambda *args: (draft,),
+        get_frozen_dataset=lambda *args: SimpleNamespace(
+            gold=SimpleNamespace(cases=(accepted,)), reference=reference
+        ),
+    )
+    headers = {"X-API-Key": "catalog-key"}
+    frozen = client.get("/v1/workspaces/workspace-a/evaluation/datasets", headers=headers).json()[
+        "items"
+    ][0]
+    assert frozen["case_count"] == 1
+    assert [case["id"] for case in frozen["cases"]] == ["accepted"]
+    assert frozen["reference"]["digest"] == reference.digest
+    draft.status = "DRAFT"
+    editing = client.get("/v1/workspaces/workspace-a/evaluation/datasets", headers=headers).json()[
+        "items"
+    ][0]
+    assert editing["case_count"] == 2
+    assert editing["reference"] is None

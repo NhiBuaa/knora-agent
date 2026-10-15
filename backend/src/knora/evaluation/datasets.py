@@ -4,13 +4,26 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import BinaryIO, Literal, Protocol
 
+from knora.access.identity import Identity
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.evaluation.access import authorize_evaluation
+from knora.evaluation.contracts import (
+    Case,
+    DatasetIdentity,
+    DatasetReference,
+    FreezeApproval,
+    FrozenDataset,
+    GoldDataset,
+    PdfSource,
+    digest_json,
+    freeze_dataset,
+)
 from knora.ingestion.object_store import ObjectMetadata, ObjectStore
 from knora.ingestion.pdf import (
     NormalizedPdfPage,
@@ -22,11 +35,26 @@ from knora.ingestion.pdf import (
 
 
 @dataclass(frozen=True, slots=True)
+class CaseReview:
+    case_id: str
+    case_digest: str
+    decision: Literal["ACCEPTED", "REJECTED"]
+    owner_issuer: str
+    owner_subject: str
+    note: str
+    reviewed_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class Dataset:
     id: str
     workspace_id: str
     name: str
-    status: Literal["DRAFT"]
+    status: Literal["DRAFT", "FROZEN"]
+    revision: int = 0
+    cases: tuple[Case, ...] = ()
+    reviews: tuple[CaseReview, ...] = ()
+    reference: DatasetReference | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,8 +119,33 @@ class DatasetStore(Protocol):
     ) -> DatasetSource: ...
 
     def get_snapshot(
-        self, workspace_id: str, dataset_id: str, source_id: str
+        self, workspace_id: str, dataset_id: str, source_id: str, snapshot_id: str | None = None
     ) -> ExtractionSnapshot | None: ...
+
+    def save_cases(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        cases: tuple[Case, ...],
+        reviews: tuple[CaseReview, ...],
+        expected_revision: int,
+    ) -> Dataset: ...
+
+    def persist_frozen(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        frozen: FrozenDataset,
+        expected_revision: int,
+    ) -> Dataset: ...
+
+    def get_frozen(
+        self, workspace_id: str, dataset_id: str, version: int | None = None
+    ) -> FrozenDataset | None: ...
+
+    def reopen_dataset(
+        self, workspace_id: str, dataset_id: str, expected_revision: int
+    ) -> Dataset: ...
 
 
 class DatasetService:
@@ -142,7 +195,9 @@ class DatasetService:
         principal: WorkspacePrincipal,
     ) -> DatasetSource:
         authorize_evaluation(workspace_id=workspace_id, principal=principal, action="upload")
-        self.get_dataset(workspace_id, dataset_id, principal)
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        if dataset.status == "FROZEN":
+            raise KnoraError("EVALUATION_DATASET_FROZEN")
         if not idempotency_key or len(idempotency_key) > 255:
             raise KnoraError("INVALID_IDEMPOTENCY_KEY")
         safe_name = filename.replace("\\", "/").rsplit("/", 1)[-1]
@@ -238,6 +293,232 @@ class DatasetService:
         authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read_source")
         self.get_source(workspace_id, dataset_id, source_id, principal)
         return self._store.get_snapshot(workspace_id, dataset_id, source_id)
+
+    @staticmethod
+    def _editable(dataset: Dataset, expected_revision: int) -> None:
+        if dataset.status == "FROZEN":
+            raise KnoraError("EVALUATION_DATASET_FROZEN")
+        if type(expected_revision) is not int or dataset.revision != expected_revision:
+            raise KnoraError("EVALUATION_DATASET_REVISION_CONFLICT")
+
+    @staticmethod
+    def _actor(principal: WorkspacePrincipal, identity: Identity) -> None:
+        if identity.subject != principal.subject:
+            raise KnoraError("WORKSPACE_ACCESS_DENIED")
+
+    def _gold(
+        self,
+        workspace_id: str,
+        dataset: Dataset,
+        cases: tuple[Case, ...],
+        sources: tuple[DatasetSource, ...],
+        version: int,
+    ) -> GoldDataset:
+        if not sources or not cases:
+            raise KnoraError("EVALUATION_GOLD_NOT_READY")
+        source_by_version = {source.document_version_id: source for source in sources}
+        for case in cases:
+            anchors = [anchor for group in case.evidence_groups for anchor in group.alternatives]
+            if case.no_answer_scope:
+                for document_version_id in case.no_answer_scope.checked_document_version_ids:
+                    if document_version_id not in source_by_version:
+                        raise KnoraError("EVALUATION_GOLD_NOT_READY")
+            for anchor in anchors:
+                source = source_by_version.get(anchor.document_version_id)
+                if source is None:
+                    raise KnoraError("EVALUATION_GOLD_NOT_READY")
+                if anchor.extraction_snapshot_id is not None:
+                    snapshot = self._store.get_snapshot(
+                        workspace_id, dataset.id, source.id, anchor.extraction_snapshot_id
+                    )
+                    if snapshot is None or snapshot.extraction_sha256 != anchor.extraction_sha256:
+                        raise KnoraError("EVALUATION_GOLD_NOT_READY")
+                    page = next(
+                        (p for p in snapshot.pages if p.page_number == anchor.physical_page), None
+                    )
+                    if page is None or (
+                        anchor.start_offset is not None
+                        and (
+                            anchor.end_offset > len(page.text)
+                            or page.text[anchor.start_offset : anchor.end_offset] != anchor.quote
+                        )
+                    ):
+                        raise KnoraError("EVALUATION_GOLD_NOT_READY")
+        try:
+            return GoldDataset(
+                DatasetIdentity(dataset.id, version, workspace_id, "pdf-gold-v1", "pdf-metrics-v1"),
+                tuple(
+                    PdfSource(s.document_id, s.document_version_id, s.raw_sha256) for s in sources
+                ),
+                cases,
+            )
+        except ValueError as error:
+            raise KnoraError("EVALUATION_CASE_INVALID") from error
+
+    def save_case(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        case: Case,
+        expected_revision: int,
+        principal: WorkspacePrincipal,
+    ) -> Dataset:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="write")
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        self._editable(dataset, expected_revision)
+        cases = tuple(case if c.case_id == case.case_id else c for c in dataset.cases)
+        if case.case_id not in {c.case_id for c in dataset.cases}:
+            cases += (case,)
+        self._gold(
+            workspace_id, dataset, cases, self.list_sources(workspace_id, dataset_id, principal), 1
+        )
+        return self._store.save_cases(workspace_id, dataset_id, cases, (), expected_revision)
+
+    def delete_case(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        case_id: str,
+        expected_revision: int,
+        principal: WorkspacePrincipal,
+    ) -> Dataset:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="write")
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        self._editable(dataset, expected_revision)
+        if case_id not in {case.case_id for case in dataset.cases}:
+            raise KnoraError("EVALUATION_CASE_NOT_FOUND")
+        cases = tuple(case for case in dataset.cases if case.case_id != case_id)
+        if cases:
+            self._gold(
+                workspace_id,
+                dataset,
+                cases,
+                self.list_sources(workspace_id, dataset_id, principal),
+                1,
+            )
+        return self._store.save_cases(workspace_id, dataset_id, cases, (), expected_revision)
+
+    def review_case(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        case_id: str,
+        decision: Literal["ACCEPTED", "REJECTED"],
+        expected_revision: int,
+        principal: WorkspacePrincipal,
+        *,
+        identity: Identity,
+        note: str,
+    ) -> Dataset:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="approve")
+        self._actor(principal, identity)
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read_source")
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        self._editable(dataset, expected_revision)
+        if case_id not in {case.case_id for case in dataset.cases}:
+            raise KnoraError("EVALUATION_CASE_NOT_FOUND")
+        if decision not in ("ACCEPTED", "REJECTED"):
+            raise KnoraError("EVALUATION_REVIEW_DECISION_INVALID")
+        if not note.strip() or len(note) > 2000:
+            raise KnoraError("EVALUATION_REVIEW_DECISION_INVALID")
+        if decision == "ACCEPTED":
+            self._gold(
+                workspace_id,
+                dataset,
+                dataset.cases,
+                self.list_sources(workspace_id, dataset_id, principal),
+                1,
+            )
+        case = next(c for c in dataset.cases if c.case_id == case_id)
+        review = CaseReview(
+            case_id,
+            digest_json(asdict(case)),
+            decision,
+            identity.issuer,
+            identity.subject,
+            note.strip(),
+            datetime.now(UTC).isoformat(),
+        )
+        reviews = tuple(r for r in dataset.reviews if r.case_id != case_id) + (review,)
+        return self._store.save_cases(
+            workspace_id, dataset_id, dataset.cases, reviews, expected_revision
+        )
+
+    def preview_gold(
+        self, workspace_id: str, dataset_id: str, principal: WorkspacePrincipal
+    ) -> GoldDataset:
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        reviews = {r.case_id: r for r in dataset.reviews}
+        if not dataset.cases or any(
+            c.case_id not in reviews or reviews[c.case_id].case_digest != digest_json(asdict(c))
+            for c in dataset.cases
+        ):
+            raise KnoraError("EVALUATION_GOLD_NOT_READY")
+        accepted = tuple(c for c in dataset.cases if reviews[c.case_id].decision == "ACCEPTED")
+        latest = self._store.get_frozen(workspace_id, dataset_id)
+        version = latest.reference.version + 1 if latest else 1
+        return self._gold(
+            workspace_id,
+            dataset,
+            accepted,
+            self.list_sources(workspace_id, dataset_id, principal),
+            version,
+        )
+
+    def freeze_dataset(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        expected_revision: int,
+        principal: WorkspacePrincipal,
+        *,
+        identity: Identity,
+        gold_digest: str,
+    ) -> FrozenDataset:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="approve")
+        self._actor(principal, identity)
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        self._editable(dataset, expected_revision)
+        gold = self.preview_gold(workspace_id, dataset_id, principal)
+        if gold.digest != gold_digest:
+            raise KnoraError("EVALUATION_GOLD_DIGEST_CONFLICT")
+        for source in self.list_sources(workspace_id, dataset_id, principal):
+            metadata = self._object_store.head(
+                workspace_id=workspace_id, object_key=source.object_key
+            )
+            if metadata.sha256 != source.raw_sha256 or metadata.byte_size != source.byte_size:
+                raise KnoraError("SOURCE_IDENTITY_MISMATCH")
+        frozen = freeze_dataset(
+            gold, FreezeApproval(identity.issuer, identity.subject, gold.digest)
+        )
+        self._store.persist_frozen(workspace_id, dataset_id, frozen, expected_revision)
+        return frozen
+
+    def get_frozen_dataset(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        principal: WorkspacePrincipal,
+        *,
+        version: int | None = None,
+    ) -> FrozenDataset:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read")
+        self.get_dataset(workspace_id, dataset_id, principal)
+        frozen = self._store.get_frozen(workspace_id, dataset_id, version)
+        if frozen is None:
+            raise KnoraError("EVALUATION_GOLD_VERSION_NOT_FOUND")
+        return frozen
+
+    def reopen_dataset(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        expected_revision: int,
+        principal: WorkspacePrincipal,
+    ) -> Dataset:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="write")
+        self.get_dataset(workspace_id, dataset_id, principal)
+        return self._store.reopen_dataset(workspace_id, dataset_id, expected_revision)
 
     def read_original(
         self, workspace_id: str, dataset_id: str, source_id: str, principal: WorkspacePrincipal

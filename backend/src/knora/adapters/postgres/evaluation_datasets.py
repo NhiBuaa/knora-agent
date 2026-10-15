@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from knora.adapters.postgres.evaluation_datasets_tables import (
     DatasetDraftTable,
     DatasetSourceTable,
+    EvaluationGoldVersionTable,
     ExtractionSnapshotTable,
 )
 from knora.adapters.postgres.tables import (
@@ -19,7 +21,9 @@ from knora.adapters.postgres.tables import (
     WorkspaceTable,
 )
 from knora.domain.errors import KnoraError
+from knora.evaluation.contracts import Case, FrozenDataset
 from knora.evaluation.datasets import (
+    CaseReview,
     Dataset,
     DatasetSource,
     ExtractionSnapshot,
@@ -30,7 +34,19 @@ from knora.ingestion.pdf import NormalizedPdfPage, PdfExtractionResult
 
 
 def _dataset(row: DatasetDraftTable) -> Dataset:
-    return Dataset(row.id, row.workspace_id, row.name, row.status)
+    from knora.evaluation.contracts import DatasetReference
+
+    reviews = tuple(CaseReview(**item) for item in (row.reviews or []))
+    return Dataset(
+        row.id,
+        row.workspace_id,
+        row.name,
+        row.status,
+        row.revision,
+        tuple(Case.from_dict(case) for case in (row.cases or [])),
+        reviews,
+        DatasetReference.from_dict(row.reference) if row.reference else None,
+    )
 
 
 def _source(row: DatasetSourceTable) -> DatasetSource:
@@ -118,6 +134,8 @@ class PostgresDatasetStore:
             )
             if dataset is None:
                 raise KnoraError("DATASET_NOT_FOUND")
+            if dataset.status == "FROZEN":
+                raise KnoraError("EVALUATION_DATASET_FROZEN")
             replay = session.scalar(
                 select(DatasetSourceTable).where(
                     DatasetSourceTable.dataset_id == dataset_id,
@@ -126,6 +144,8 @@ class PostgresDatasetStore:
             )
             if replay is not None:
                 return _source(replay), False
+            dataset.revision += 1
+            dataset.reviews = []
             source_id = str(uuid4())
             document = DocumentTable(
                 id=str(uuid4()),
@@ -265,7 +285,7 @@ class PostgresDatasetStore:
             return _source(row)
 
     def get_snapshot(
-        self, workspace_id: str, dataset_id: str, source_id: str
+        self, workspace_id: str, dataset_id: str, source_id: str, snapshot_id: str | None = None
     ) -> ExtractionSnapshot | None:
         with self._session_factory() as session:
             source = session.scalar(
@@ -275,11 +295,11 @@ class PostgresDatasetStore:
                     DatasetSourceTable.workspace_id == workspace_id,
                 )
             )
-            if source is None or source.snapshot_id is None:
+            if source is None or (snapshot_id is None and source.snapshot_id is None):
                 return None
             row = session.scalar(
                 select(ExtractionSnapshotTable).where(
-                    ExtractionSnapshotTable.id == source.snapshot_id,
+                    ExtractionSnapshotTable.id == (snapshot_id or source.snapshot_id),
                     ExtractionSnapshotTable.source_id == source_id,
                     ExtractionSnapshotTable.workspace_id == workspace_id,
                 )
@@ -290,3 +310,125 @@ class PostgresDatasetStore:
             return ExtractionSnapshot(
                 row.id, source_id, row.configuration_sha256, row.extraction_sha256, pages
             )
+
+    def save_cases(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        cases: tuple[Case, ...],
+        reviews: tuple[CaseReview, ...],
+        expected_revision: int,
+    ) -> Dataset:
+        with self._session_factory.begin() as session:
+            row = session.scalar(
+                select(DatasetDraftTable)
+                .where(
+                    DatasetDraftTable.id == dataset_id,
+                    DatasetDraftTable.workspace_id == workspace_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("DATASET_NOT_FOUND")
+            if row.status == "FROZEN":
+                raise KnoraError("EVALUATION_DATASET_FROZEN")
+            if row.revision != expected_revision:
+                raise KnoraError("EVALUATION_DATASET_REVISION_CONFLICT")
+            row.cases = [asdict(case) for case in cases]
+            row.reviews = [asdict(review) for review in reviews]
+            row.revision += 1
+            session.flush()
+            return _dataset(row)
+
+    def persist_frozen(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        frozen: FrozenDataset,
+        expected_revision: int,
+    ) -> Dataset:
+        with self._session_factory.begin() as session:
+            row = session.scalar(
+                select(DatasetDraftTable)
+                .where(
+                    DatasetDraftTable.id == dataset_id,
+                    DatasetDraftTable.workspace_id == workspace_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("DATASET_NOT_FOUND")
+            if row.status == "FROZEN":
+                raise KnoraError("EVALUATION_DATASET_FROZEN")
+            if row.revision != expected_revision:
+                raise KnoraError("EVALUATION_DATASET_REVISION_CONFLICT")
+            session.add(
+                EvaluationGoldVersionTable(
+                    id=str(uuid4()),
+                    workspace_id=workspace_id,
+                    dataset_id=dataset_id,
+                    version=frozen.reference.version,
+                    digest=frozen.reference.digest,
+                    frozen_json=frozen.to_json(),
+                    reviews=row.reviews,
+                    draft_revision=row.revision,
+                )
+            )
+            row.status = "FROZEN"
+            row.reference = asdict(frozen.reference)
+            row.revision += 1
+            session.flush()
+            return _dataset(row)
+
+    def get_frozen(
+        self, workspace_id: str, dataset_id: str, version: int | None = None
+    ) -> FrozenDataset | None:
+        with self._session_factory() as session:
+            row = session.scalar(
+                select(EvaluationGoldVersionTable)
+                .where(
+                    EvaluationGoldVersionTable.dataset_id == dataset_id,
+                    EvaluationGoldVersionTable.workspace_id == workspace_id,
+                    *(
+                        [EvaluationGoldVersionTable.version == version]
+                        if version is not None
+                        else []
+                    ),
+                )
+                .order_by(EvaluationGoldVersionTable.version.desc())
+            )
+            return FrozenDataset.from_json(row.frozen_json) if row is not None else None
+
+    def reopen_dataset(self, workspace_id: str, dataset_id: str, expected_revision: int) -> Dataset:
+        with self._session_factory.begin() as session:
+            row = session.scalar(
+                select(DatasetDraftTable)
+                .where(
+                    DatasetDraftTable.id == dataset_id,
+                    DatasetDraftTable.workspace_id == workspace_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("DATASET_NOT_FOUND")
+            if row.revision != expected_revision:
+                raise KnoraError("EVALUATION_DATASET_REVISION_CONFLICT")
+            if row.status != "FROZEN":
+                raise KnoraError("EVALUATION_DATASET_REVISION_CONFLICT")
+            frozen_row = session.scalar(
+                select(EvaluationGoldVersionTable)
+                .where(
+                    EvaluationGoldVersionTable.dataset_id == dataset_id,
+                    EvaluationGoldVersionTable.workspace_id == workspace_id,
+                )
+                .order_by(EvaluationGoldVersionTable.version.desc())
+            )
+            if frozen_row is None:
+                raise KnoraError("EVALUATION_GOLD_VERSION_NOT_FOUND")
+            frozen = FrozenDataset.from_json(frozen_row.frozen_json)
+            row.status = "DRAFT"
+            row.cases = [case for case in frozen.gold.to_dict()["cases"]]
+            row.reviews = []
+            row.revision += 1
+            session.flush()
+            return _dataset(row)

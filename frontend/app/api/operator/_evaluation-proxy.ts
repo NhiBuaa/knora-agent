@@ -125,6 +125,8 @@ export async function proxyEvaluationPath(
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
+  const revision = request.headers.get("if-match-revision");
+  if (revision) headers.set("if-match-revision", revision);
   try {
     const response = await fetch(
       `${process.env.KNORA_BACKEND_URL ?? "http://127.0.0.1:8000"}${pathForWorkspace(encodeURIComponent(workspaceId))}`,

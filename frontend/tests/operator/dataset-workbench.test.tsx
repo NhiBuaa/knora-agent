@@ -9,7 +9,22 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import { DatasetWorkbench } from "@/components/operator/datasets/DatasetWorkbench";
+import { DatasetWorkbench as Workbench } from "@/components/operator/datasets/DatasetWorkbench";
+
+function DatasetWorkbench(props: React.ComponentProps<typeof Workbench>) {
+  return (
+    <Workbench
+      capabilities={[
+        "operator:read",
+        "evaluations:write",
+        "evaluations:approve",
+        "documents:read",
+        "documents:write",
+      ]}
+      {...props}
+    />
+  );
+}
 
 afterEach(() => {
   cleanup();
@@ -507,4 +522,158 @@ it("keeps failed extraction visible and the original reviewable", async () => {
   expect(
     screen.queryByText("Garden evidence on page one"),
   ).not.toBeInTheDocument();
+});
+
+it("creates, reviews, and freezes a canonical answer case", async () => {
+  let current: typeof dataset & {
+    revision: number;
+    cases: { case_id: string }[];
+    reviews: { case_id: string; decision: string }[];
+    reference?: { version: number; digest: string };
+  } = { ...dataset, revision: 0, cases: [], reviews: [] };
+  const requests: { method: string; url: string; body?: unknown }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string, init?: RequestInit) => {
+      if (init?.method && init.method !== "GET") {
+        const body = init.body ? JSON.parse(init.body as string) : undefined;
+        requests.push({ method: init.method, url: input, body });
+        if (input.includes("/cases/") && init.method === "PUT") {
+          current = {
+            ...current,
+            revision: 1,
+            cases: [body.case],
+            reviews: [],
+          };
+          return Response.json(current);
+        }
+        if (input.includes("/review")) {
+          current = {
+            ...current,
+            revision: 2,
+            reviews: [
+              {
+                case_id: body.case_id ?? current.cases[0].case_id,
+                decision: "ACCEPTED",
+              },
+            ],
+          };
+          return Response.json(current);
+        }
+        if (input.includes("/freeze")) {
+          current = {
+            ...current,
+            revision: 3,
+            status: "FROZEN",
+            reference: { version: 1, digest: "e".repeat(64) },
+          };
+          return Response.json(current);
+        }
+      }
+      if (input.includes("/gold-preview"))
+        return Response.json({
+          digest: "e".repeat(64),
+          gold: { cases: current.cases },
+        });
+      return Response.json(current);
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await screen.findByRole("heading", { name: "Review" });
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Question" }),
+    "What is here?",
+  );
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Reference answer" }),
+    "A garden.",
+  );
+  await userEvent.type(
+    screen.getByRole("textbox", { name: /Required facts/i }),
+    "garden",
+  );
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Evidence quote" }),
+    "community garden",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Add case" }));
+  await screen.findByText("UNREVIEWED");
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Review note" }),
+    "Checked against original PDF",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Accept" }));
+  await screen.findByText("ACCEPTED");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Freeze accepted cases" }),
+  );
+  await screen.findByText(/Gold v1/);
+  expect(requests.map((request) => request.method)).toEqual([
+    "PUT",
+    "POST",
+    "POST",
+  ]);
+});
+
+it("does not offer writes or approval to a read-only operator", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json(dataset)),
+  );
+  render(
+    <DatasetWorkbench
+      workspaceId="w1"
+      initialDatasetId="d1"
+      capabilities={["operator:read"]}
+    />,
+  );
+  await screen.findByRole("heading", { name: "Review" });
+  expect(
+    screen.queryByRole("button", { name: "Add case" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Freeze accepted cases" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Upload PDFs" }),
+  ).not.toBeInTheDocument();
+});
+
+it("allows original-PDF no-answer review after extraction failure with an explicit scope note", async () => {
+  let saved: any;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_input: string, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        saved = JSON.parse(init.body as string).case;
+        return Response.json({ ...dataset, cases: [saved], revision: 1 });
+      }
+      return Response.json({
+        ...dataset,
+        revision: 0,
+        sources: [{ ...source, status: "FAILED", snapshot_id: null }],
+      });
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await screen.findByRole("heading", { name: "Review" });
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Question" }),
+    "Is an unknown fact stated?",
+  );
+  await userEvent.selectOptions(
+    screen.getByLabelText("Expected behavior"),
+    "REFUSAL",
+  );
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "No-answer verification note" }),
+    "I checked all pages of this PDF for that fact.",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Add case" }));
+  await waitFor(() =>
+    expect(saved?.no_answer_scope).toEqual({
+      checked_document_version_ids: ["ver1"],
+      verification_note: "I checked all pages of this PDF for that fact.",
+    }),
+  );
 });

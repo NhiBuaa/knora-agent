@@ -23,6 +23,12 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/cases/{case_id}"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/cases/{case_id}/review"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/freeze"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold-preview"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/revisions"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/original"
@@ -109,10 +115,14 @@ export type CreateDatasetRequest = {
   name: string;
 };
 export type DatasetDetailResponse = {
+  cases?: Array<Record<string, unknown>>;
   id: string;
   name: string;
+  reference?: Record<string, unknown> | null;
+  reviews?: Array<Record<string, unknown>>;
+  revision?: number;
   sources: Array<SourceResponse>;
-  status: string;
+  status: "DRAFT" | "FROZEN";
   workspace_id: string;
 };
 export type DatasetReference = {
@@ -124,9 +134,13 @@ export type DatasetReference = {
   workspace_id: string;
 };
 export type DatasetResponse = {
+  cases?: Array<Record<string, unknown>>;
   id: string;
   name: string;
-  status: string;
+  reference?: Record<string, unknown> | null;
+  reviews?: Array<Record<string, unknown>>;
+  revision?: number;
+  status: "DRAFT" | "FROZEN";
   workspace_id: string;
 };
 export type DocumentDeletionRequestResponse = {
@@ -156,6 +170,10 @@ export type DocumentResponse = {
   source_key: string;
   source_name: string;
   workspace_id: string;
+};
+export type FreezeRequest = {
+  expected_revision: number;
+  gold_digest: string;
 };
 export type HTTPValidationError = {
   detail?: Array<ValidationError>;
@@ -329,6 +347,14 @@ export type ResolutionResponse = {
   state: "ACTIVE" | "NO_ACTIVE_WORKSPACE";
   workspace: WorkspaceResponse | null;
 };
+export type ReviewCaseRequest = {
+  decision: "ACCEPTED" | "REJECTED";
+  expected_revision: number;
+  note: string;
+};
+export type RevisionRequest = {
+  expected_revision: number;
+};
 export type RunResponse = {
   binding: Record<string, unknown>;
   execution_status: string;
@@ -340,6 +366,10 @@ export type RunResponse = {
   selection: Record<string, unknown>;
   selection_digest: string;
   workspace_id: string;
+};
+export type SaveCaseRequest = {
+  case: Record<string, unknown>;
+  expected_revision: number;
 };
 export type SourceResponse = {
   byte_size: number;
@@ -466,6 +496,12 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive": DocumentResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets": CatalogResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}": DatasetDetailResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/cases/{case_id}": DatasetResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/cases/{case_id}/review": DatasetResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/freeze": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold-preview": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/revisions": DatasetResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}": SourceResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/original": KnoraApiResponse;

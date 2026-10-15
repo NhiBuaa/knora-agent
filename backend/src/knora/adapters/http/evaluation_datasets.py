@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Header, Path, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Header, Path, Query, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
+from knora.access.identity import Identity
 from knora.adapters.http.routes import require_operator_read
+from knora.adapters.http.workspaces import private, require_identity
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
-from knora.evaluation.datasets import DatasetService, DatasetSource
+from knora.evaluation.contracts import Case
+from knora.evaluation.datasets import Dataset, DatasetService, DatasetSource
 
 router = APIRouter(prefix="/v1/workspaces/{workspace_id}/evaluation", tags=["evaluation-datasets"])
 
@@ -32,7 +37,11 @@ class DatasetResponse(BaseModel):
     id: str
     workspace_id: str
     name: str
-    status: Literal["DRAFT"]
+    status: Literal["DRAFT", "FROZEN"]
+    revision: int = 0
+    cases: list[dict] = Field(default_factory=list)
+    reviews: list[dict] = Field(default_factory=list)
+    reference: dict | None = None
 
 
 class SourceResponse(BaseModel):
@@ -54,6 +63,31 @@ class DatasetDetailResponse(DatasetResponse):
     sources: list[SourceResponse]
 
 
+class SaveCaseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    case: dict
+    expected_revision: int = Field(ge=0)
+
+
+class ReviewCaseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["ACCEPTED", "REJECTED"]
+    expected_revision: int = Field(ge=0)
+    note: str = Field(min_length=1, max_length=2000)
+
+
+class RevisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=0)
+
+
+class FreezeRequest(RevisionRequest):
+    gold_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class PageResponse(BaseModel):
     source_id: str
     document_version_id: str
@@ -69,6 +103,19 @@ def _source_response(source: DatasetSource) -> SourceResponse:
     return SourceResponse.model_validate(source, from_attributes=True)
 
 
+def _dataset_response(dataset: Dataset) -> DatasetResponse:
+    return DatasetResponse(
+        id=dataset.id,
+        workspace_id=dataset.workspace_id,
+        name=dataset.name,
+        status=dataset.status,
+        revision=dataset.revision,
+        cases=[asdict(case) for case in dataset.cases],
+        reviews=[asdict(review) for review in dataset.reviews],
+        reference=asdict(dataset.reference) if dataset.reference else None,
+    )
+
+
 @router.post("/datasets", status_code=201, response_model=DatasetResponse)
 def create_dataset(
     workspace_id: str,
@@ -78,9 +125,7 @@ def create_dataset(
     service: Annotated[DatasetService, Depends(get_dataset_service)],
 ) -> DatasetResponse:
     response.headers["Cache-Control"] = "no-store"
-    return DatasetResponse.model_validate(
-        service.create_dataset(workspace_id, payload.name, principal), from_attributes=True
-    )
+    return _dataset_response(service.create_dataset(workspace_id, payload.name, principal))
 
 
 @router.get("/datasets/{dataset_id}", response_model=DatasetDetailResponse)
@@ -95,8 +140,138 @@ def get_dataset(
     sources = service.list_sources(workspace_id, dataset_id, principal)
     response.headers["Cache-Control"] = "no-store"
     return DatasetDetailResponse(
-        **DatasetResponse.model_validate(dataset, from_attributes=True).model_dump(),
+        **_dataset_response(dataset).model_dump(),
         sources=[_source_response(source) for source in sources],
+    )
+
+
+@router.put("/datasets/{dataset_id}/cases/{case_id}", response_model=DatasetResponse)
+def save_case(
+    workspace_id: str,
+    dataset_id: str,
+    case_id: str,
+    payload: SaveCaseRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> DatasetResponse:
+    private(response)
+    if payload.case.get("case_id") != case_id:
+        raise KnoraError("EVALUATION_CASE_INVALID")
+    try:
+        case = Case.from_dict(payload.case)
+    except (TypeError, ValueError) as error:
+        raise KnoraError("EVALUATION_CASE_INVALID") from error
+    return _dataset_response(
+        service.save_case(workspace_id, dataset_id, case, payload.expected_revision, principal)
+    )
+
+
+@router.delete("/datasets/{dataset_id}/cases/{case_id}", response_model=DatasetResponse)
+def delete_case(
+    workspace_id: str,
+    dataset_id: str,
+    case_id: str,
+    response: Response,
+    expected_revision: Annotated[int, Header(alias="If-Match-Revision", ge=0)],
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> DatasetResponse:
+    private(response)
+    return _dataset_response(
+        service.delete_case(workspace_id, dataset_id, case_id, expected_revision, principal)
+    )
+
+
+@router.post("/datasets/{dataset_id}/cases/{case_id}/review", response_model=DatasetResponse)
+def review_case(
+    workspace_id: str,
+    dataset_id: str,
+    case_id: str,
+    payload: ReviewCaseRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    identity: Annotated[Identity, Depends(require_identity)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> DatasetResponse:
+    private(response)
+    return _dataset_response(
+        service.review_case(
+            workspace_id,
+            dataset_id,
+            case_id,
+            payload.decision,
+            payload.expected_revision,
+            principal,
+            identity=identity,
+            note=payload.note,
+        )
+    )
+
+
+@router.post("/datasets/{dataset_id}/freeze", response_model=dict)
+def freeze_dataset(
+    workspace_id: str,
+    dataset_id: str,
+    payload: FreezeRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    identity: Annotated[Identity, Depends(require_identity)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> dict:
+    private(response)
+    return json.loads(
+        service.freeze_dataset(
+            workspace_id,
+            dataset_id,
+            payload.expected_revision,
+            principal,
+            identity=identity,
+            gold_digest=payload.gold_digest,
+        ).to_json()
+    )
+
+
+@router.get("/datasets/{dataset_id}/gold", response_model=dict)
+def get_frozen_gold(
+    workspace_id: str,
+    dataset_id: str,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+    version: Annotated[int | None, Query(ge=1)] = None,
+) -> dict:
+    private(response)
+    return json.loads(
+        service.get_frozen_dataset(workspace_id, dataset_id, principal, version=version).to_json()
+    )
+
+
+@router.get("/datasets/{dataset_id}/gold-preview", response_model=dict)
+def preview_gold(
+    workspace_id: str,
+    dataset_id: str,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> dict:
+    private(response)
+    gold = service.preview_gold(workspace_id, dataset_id, principal)
+    return {"gold": gold.to_dict(), "digest": gold.digest}
+
+
+@router.post("/datasets/{dataset_id}/revisions", response_model=DatasetResponse)
+def reopen_dataset(
+    workspace_id: str,
+    dataset_id: str,
+    payload: RevisionRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> DatasetResponse:
+    private(response)
+    return _dataset_response(
+        service.reopen_dataset(workspace_id, dataset_id, payload.expected_revision, principal)
     )
 
 

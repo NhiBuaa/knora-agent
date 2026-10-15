@@ -9,6 +9,8 @@ vi.mock("next/headers", () => ({
 
 import { getSession } from "@/lib/auth/session";
 import { proxyEvaluationPath } from "@/app/api/operator/_evaluation-proxy";
+import { GET as getGold } from "@/app/api/operator/evaluation/datasets/[datasetId]/gold/route";
+import { POST as reviewCase } from "@/app/api/operator/evaluation/datasets/[datasetId]/cases/[caseId]/review/route";
 
 const target = (workspace: string) =>
   `/v1/workspaces/${workspace}/evaluation/runs`;
@@ -168,5 +170,52 @@ describe("Evaluation BFF admission and transport", () => {
     const unavailable = await proxyEvaluationPath(request("GET"), target);
     expect(unavailable.status).toBe(503);
     expect(await unavailable.text()).not.toContain("secret endpoint");
+  });
+
+  it("forwards a selected immutable gold version and rejects path-like versions", async () => {
+    const params = Promise.resolve({ datasetId: "set-1" });
+    const result = await getGold(
+      new Request(
+        "https://app.example/api/operator/evaluation/datasets/set-1/gold?workspaceId=w1&version=2",
+      ),
+      { params },
+    );
+    expect(result.status).toBe(200);
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      "http://127.0.0.1:8000/v1/workspaces/w1/evaluation/datasets/set-1/gold?version=2",
+    );
+    vi.mocked(fetch).mockClear();
+    const invalid = await getGold(
+      new Request(
+        "https://app.example/api/operator/evaluation/datasets/set-1/gold?workspaceId=w1&version=../2",
+      ),
+      { params },
+    );
+    expect(invalid.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not grant case approval to a dataset writer", async () => {
+    vi.mocked(getSession).mockResolvedValue({
+      ...session,
+      capabilities: ["operator:read", "evaluations:write", "documents:read"],
+    });
+    const result = await reviewCase(request(), {
+      params: Promise.resolve({ datasetId: "set-1", caseId: "case-1" }),
+    });
+    expect(result.status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("forwards the edit revision for a same-origin delete", async () => {
+    const incoming = request("DELETE");
+    incoming.headers.set("If-Match-Revision", "5");
+    const result = await proxyEvaluationPath(incoming, target);
+    expect(result.status).toBe(200);
+    expect(
+      new Headers(vi.mocked(fetch).mock.calls[0][1]?.headers).get(
+        "if-match-revision",
+      ),
+    ).toBe("5");
   });
 });

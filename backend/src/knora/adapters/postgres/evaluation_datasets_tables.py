@@ -17,6 +17,10 @@ class DatasetDraftTable(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="DRAFT")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cases: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    reviews: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    reference: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -66,4 +70,26 @@ class ExtractionSnapshotTable(Base):
     extraction_options_version: Mapped[str] = mapped_column(String(100), nullable=False)
     normalizer_version: Mapped[str] = mapped_column(String(100), nullable=False)
     pages: Mapped[list[dict]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class EvaluationGoldVersionTable(Base):
+    __tablename__ = "evaluation_gold_versions"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "version"),
+        UniqueConstraint("dataset_id", "digest"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="RESTRICT"), index=True
+    )
+    dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("evaluation_dataset_drafts.id", ondelete="RESTRICT"), index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    frozen_json: Mapped[str] = mapped_column(String, nullable=False)
+    reviews: Mapped[list[dict]] = mapped_column(JSON, nullable=False)
+    draft_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -22,6 +22,10 @@ def upgrade() -> None:
         sa.Column("workspace_id", sa.String(length=100), nullable=False),
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("revision", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("cases", sa.JSON(), nullable=False, server_default="[]"),
+        sa.Column("reviews", sa.JSON(), nullable=False, server_default="[]"),
+        sa.Column("reference", sa.JSON(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -122,6 +126,36 @@ def upgrade() -> None:
         ["source_id"],
     )
     op.create_table(
+        "evaluation_gold_versions",
+        sa.Column("id", sa.String(length=36), nullable=False),
+        sa.Column("workspace_id", sa.String(length=100), nullable=False),
+        sa.Column("dataset_id", sa.String(length=36), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("digest", sa.String(length=64), nullable=False),
+        sa.Column("frozen_json", sa.String(), nullable=False),
+        sa.Column("reviews", sa.JSON(), nullable=False),
+        sa.Column("draft_revision", sa.Integer(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(["workspace_id"], ["workspaces.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["dataset_id"], ["evaluation_dataset_drafts.id"], ondelete="RESTRICT"
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("dataset_id", "version"),
+        sa.UniqueConstraint("dataset_id", "digest"),
+    )
+    op.create_index(
+        "ix_evaluation_gold_versions_workspace_id", "evaluation_gold_versions", ["workspace_id"]
+    )
+    op.create_index(
+        "ix_evaluation_gold_versions_dataset_id", "evaluation_gold_versions", ["dataset_id"]
+    )
+    op.create_table(
         "evaluation_runs",
         sa.Column("run_id", sa.String(length=36), nullable=False),
         sa.Column("workspace_id", sa.String(length=100), nullable=False),
@@ -170,6 +204,9 @@ def downgrade() -> None:
     op.drop_table("evaluation_run_preflights")
     op.drop_index("ix_evaluation_runs_workspace_id", table_name="evaluation_runs")
     op.drop_table("evaluation_runs")
+    op.drop_index("ix_evaluation_gold_versions_dataset_id", table_name="evaluation_gold_versions")
+    op.drop_index("ix_evaluation_gold_versions_workspace_id", table_name="evaluation_gold_versions")
+    op.drop_table("evaluation_gold_versions")
     op.drop_index(
         "ix_evaluation_extraction_snapshots_source_id", table_name="evaluation_extraction_snapshots"
     )
