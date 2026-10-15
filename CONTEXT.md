@@ -467,6 +467,10 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   Clear source order and important qualifications must be retained. Contiguous
   content sharing evidence prefers a citation after its last block; every needed
   source must remain cited. These are semantic obligations, not schema guarantees.
+  Q9's private Cloudflare paragraph/list contract carries supporting Evidence
+  Aliases for each paragraph or item. The adapter checks Evidence Set membership
+  and composes Markdown; it no longer checks literal quotes or source positions.
+  A valid alias does not prove semantic support, count completeness or source order.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input

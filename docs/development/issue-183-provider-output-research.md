@@ -4,7 +4,7 @@ Date: 2026-10-14 (Asia/Ho_Chi_Minh).
 
 Status: design research. The owner authorized a design round after the v8
 observations and selected natural paraphrases with supporting source references.
-The owner subsequently approved Q2–Q4 and Q6 contract simplification. PR #184
+The owner subsequently approved Q2–Q4, Q6 and Q9 contract simplification. PR #184
 remains Draft. The v8 observations below precede that structured-contract change.
 
 ## Confirmed contract and capability
@@ -126,7 +126,7 @@ existence is not semantic relevance or collection completeness.
 - Q4 approved: prefer citation chips after the final block of contiguous content
   sharing sources, and fully cite differing sources. Citation accuracy takes
   precedence over avoiding duplicate-looking chips.
-- Continue a bounded private Cloudflare contract: exact quotes anchor natural
+- Q6 used a bounded private Cloudflare contract: exact quotes anchored natural
   items; compose into the accepted public Markdown/unique-alias contract. No new
   dependency, model, transport, retry or historical/source-excerpt rewrite.
   [Implementation plan](issue-183-structured-list-plan.md).
@@ -137,3 +137,15 @@ existence is not semantic relevance or collection completeness.
 - Q6 approved paragraph/list + text + source anchors, one optional literal bold
   phrase, and removal of count/basis/witness fields. Keep Q2–Q4, GPT-OSS 20B and
   production configuration. Code/tests are authorized; further inference is not.
+- Q7/Q8 completed seven physical requests: recovery ingestion succeeded with 23
+  chunks; count refused with an incomplete selected outline, general list used a
+  paragraph and changed a quote's capitalization, short prose changed a quote's
+  capitalization. None was truncated. The general list also omitted a source
+  qualification and changed its modality. [Full result](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6172692531).
+- Q9 approved replacing quote pairs with nonempty arrays of supplied Evidence
+  Aliases per paragraph/item, removing literal-quote and quote-position gates.
+  Keep backend bullets/emphasis/citation grouping and public validation/mapping.
+  Alias membership does not prove list classification, semantic support, count
+  proof, completeness, conditions or source order. Do not introduce line catalogs
+  already tried unsuccessfully, retrieval changes or semantic systems. Code/tests
+  only; keep 20B/1024 and present any new runtime allowance separately.

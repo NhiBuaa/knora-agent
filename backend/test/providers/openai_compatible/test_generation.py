@@ -191,7 +191,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
         {
             "kind": "paragraph",
             "text": "Refunds.",
-            "support": [{"evidence_id": "E1", "quote": "Refunds."}],
+            "support": ["E1"],
         }
     ]
     expected = "Refunds. [[E1]]"
@@ -201,15 +201,11 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
                 "kind": "paragraph",
                 "text": "There are 2 parts.",
                 "bold": "2 parts",
-                "support": [{"evidence_id": "E1", "quote": "Alpha; Beta."}],
+                "support": ["E1"],
             },
             {
                 "kind": "list",
-                "ordered": True,
-                "items": [
-                    {"text": title, "support": [{"evidence_id": "E1", "quote": title}]}
-                    for title in ("Alpha", "Beta")
-                ],
+                "items": [{"text": title, "support": ["E1"]} for title in ("Alpha", "Beta")],
             },
         ]
         expected = "There are **2 parts**.\n\n- Alpha\n- Beta\n\n[[E1]]"
@@ -258,9 +254,6 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
         "ANSWER",
         "REFUSAL",
     ]
-    system_prompt = payload["messages"][0]["content"]
-    assert "support" in system_prompt
-    assert "exact quote" in system_prompt
     assert result.answer == (expected if decision == "ANSWER" else None)
     assert result.cited_evidence_ids == (("E1",) if decision == "ANSWER" else ())
     assert (
@@ -269,7 +262,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v13"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v14"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

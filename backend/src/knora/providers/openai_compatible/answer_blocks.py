@@ -1,6 +1,5 @@
 """Private Cloudflare output; public answers retain the existing Markdown contract."""
 
-from collections import Counter
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -13,14 +12,9 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
-class _Anchor(_Model):
-    evidence_id: str
-    quote: str = Field(min_length=1)
-
-
 class _Statement(_Model):
     text: str = Field(min_length=1)
-    support: list[_Anchor] = Field(min_length=1)
+    support: list[str] = Field(min_length=1)
 
 
 class _Paragraph(_Statement):
@@ -30,7 +24,6 @@ class _Paragraph(_Statement):
 
 class _List(_Model):
     kind: Literal["list"]
-    ordered: bool
     items: list[_Statement] = Field(min_length=2)
 
 
@@ -61,15 +54,10 @@ def _escape(text: str) -> str:
     return escaped
 
 
-def _references(support: list[_Anchor], evidence: dict[str, str]) -> list[str]:
-    for anchor in support:
-        if (
-            anchor.evidence_id not in evidence
-            or not anchor.quote.strip()
-            or " ".join(anchor.quote.split()) not in evidence[anchor.evidence_id]
-        ):
-            _invalid()
-    return list(dict.fromkeys(anchor.evidence_id for anchor in support))
+def _references(support: list[str], evidence: set[str]) -> list[str]:
+    if any(alias not in evidence for alias in support):
+        _invalid()
+    return list(dict.fromkeys(support))
 
 
 def compose_answer(
@@ -86,40 +74,17 @@ def compose_answer(
     if not result.blocks or result.refusal_reason is not None:
         _invalid()
 
-    contents = {entry.evidence_id: " ".join(entry.content.split()) for entry in evidence}
+    available_ids = {entry.evidence_id for entry in evidence}
     texts: list[str] = []
     aliases: list[list[str]] = []
     for block in result.blocks:
         if isinstance(block, _List):
             references = []
-            positions: dict[str, int] = {}
-            uses = Counter(
-                pair
-                for item in block.items
-                for pair in {
-                    (anchor.evidence_id, " ".join(anchor.quote.split())) for anchor in item.support
-                }
-            )
             for item in block.items:
-                references.extend(_references(item.support, contents))
-                if block.ordered:
-                    item_positions: dict[str, int] = {}
-                    for anchor in item.support:
-                        if uses[(anchor.evidence_id, " ".join(anchor.quote.split()))] > 1:
-                            continue
-                        position = contents[anchor.evidence_id].find(" ".join(anchor.quote.split()))
-                        item_positions[anchor.evidence_id] = min(
-                            position, item_positions.get(anchor.evidence_id, position)
-                        )
-                    if not item_positions:
-                        _invalid()
-                    for alias, position in item_positions.items():
-                        if position <= positions.get(alias, -1):
-                            _invalid()
-                        positions[alias] = position
+                references.extend(_references(item.support, available_ids))
             texts.append("\n".join(f"- {_line(item.text)}" for item in block.items))
         else:
-            references = _references(block.support, contents)
+            references = _references(block.support, available_ids)
             text = _line(block.text)
             if block.bold is not None:
                 phrase = block.bold.strip()

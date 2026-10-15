@@ -7,16 +7,12 @@ from knora.providers.generation import GenerationEvidence
 from knora.providers.openai_compatible.answer_blocks import compose_answer
 
 
-def anchor(alias: str, quote: str) -> dict:
-    return {"evidence_id": alias, "quote": quote}
+def item(text: str, *aliases: str) -> dict:
+    return {"text": text, "support": list(aliases)}
 
 
-def item(text: str, alias: str, quote: str) -> dict:
-    return {"text": text, "support": [anchor(alias, quote)]}
-
-
-def paragraph(text: str, alias: str, quote: str) -> dict:
-    return {"kind": "paragraph", **item(text, alias, quote)}
+def paragraph(text: str, *aliases: str) -> dict:
+    return {"kind": "paragraph", **item(text, *aliases)}
 
 
 def answer(*blocks: dict) -> dict:
@@ -33,15 +29,7 @@ def test_lists_are_composed_from_items_with_all_sources_and_conditions() -> None
     payload = answer(
         {
             "kind": "list",
-            "ordered": False,
-            "items": [
-                item("Alpha", "E1", "Alpha"),
-                item(
-                    "Mục lục hình nếu có hình",
-                    "E2",
-                    "Create a figure index only when figures exist.",
-                ),
-            ],
+            "items": [item("Alpha", "E1"), item("Mục lục hình nếu có hình", "E2")],
         }
     )
     assert compose_answer(payload, EVIDENCE) == (
@@ -51,9 +39,7 @@ def test_lists_are_composed_from_items_with_all_sources_and_conditions() -> None
 
 
 def test_single_fact_stays_prose_and_refusal_stays_empty() -> None:
-    assert compose_answer(
-        answer(paragraph("Có tài liệu tham khảo.", "E2", "Include references.")), EVIDENCE
-    ) == (
+    assert compose_answer(answer(paragraph("Có tài liệu tham khảo.", "E2")), EVIDENCE) == (
         "Có tài liệu tham khảo. [[E2]]",
         ("E2",),
     )
@@ -69,17 +55,13 @@ def outline_blocks() -> tuple[dict, dict]:
             "kind": "paragraph",
             "text": "Dàn ý gợi ý gồm 2 phần. Dự án nhỏ có thể gộp các phần.",
             "bold": "2 phần",
-            "support": [anchor("E1", EVIDENCE[0].content)],
+            "support": ["E1"],
         },
-        {
-            "kind": "list",
-            "ordered": True,
-            "items": [item("Alpha", "E1", "Alpha"), item("Beta", "E1", "Beta")],
-        },
+        {"kind": "list", "items": [item("Alpha", "E1"), item("Beta", "E1")]},
     )
 
 
-def test_count_is_general_bold_value_and_unit_with_source_order() -> None:
+def test_count_is_general_bold_value_and_unit_with_member_order() -> None:
     assert compose_answer(answer(*outline_blocks()), EVIDENCE) == (
         "Dàn ý gợi ý gồm **2 phần**. Dự án nhỏ có thể gộp các phần.\n\n- Alpha\n- Beta\n\n[[E1]]",
         ("E1",),
@@ -90,7 +72,6 @@ def test_independently_supported_total_can_exceed_members_with_disclosure() -> N
     lead, members = outline_blocks()
     disclosure = "Nguồn hiện có chỉ nêu hai phần; chưa đủ tên ba phần còn lại."
     lead.update(text="Có 5 phần. " + disclosure, bold="5 phần")
-    lead["support"] = [anchor("E1", "Five parts: Alpha; Beta.")]
     evidence = (GenerationEvidence("E1", "Five parts: Alpha; Beta."),)
     result, aliases = compose_answer(answer(lead, members), evidence)
     assert "**5 phần**" in result
@@ -101,9 +82,9 @@ def test_independently_supported_total_can_exceed_members_with_disclosure() -> N
 
 def test_repeated_source_uses_receive_a_complete_enclosing_citation_group() -> None:
     payload = answer(
-        paragraph("Alpha.", "E1", "Alpha"),
-        paragraph("References.", "E2", "Include references."),
-        paragraph("Beta.", "E1", "Beta"),
+        paragraph("Alpha.", "E1"),
+        paragraph("References.", "E2"),
+        paragraph("Beta.", "E1"),
     )
     assert compose_answer(payload, EVIDENCE) == (
         "Alpha.\n\nReferences.\n\nBeta. [[E1]] [[E2]]",
@@ -113,25 +94,33 @@ def test_repeated_source_uses_receive_a_complete_enclosing_citation_group() -> N
 
 def test_separate_contiguous_source_groups_keep_their_citations_nearby() -> None:
     result, aliases = compose_answer(
-        answer(
-            paragraph("Alpha.", "E1", "Alpha"),
-            paragraph("References.", "E2", "Include references."),
-        ),
-        EVIDENCE,
+        answer(paragraph("Alpha.", "E1"), paragraph("References.", "E2")), EVIDENCE
     )
     assert result == "Alpha. [[E1]]\n\nReferences. [[E2]]"
     assert aliases == ("E1", "E2")
 
 
+def test_each_item_keeps_all_required_sources_without_duplicate_markers() -> None:
+    payload = answer(
+        {
+            "kind": "list",
+            "items": [
+                item("Alpha et références.", "E2", "E1", "E2"),
+                item("Beta.", "E1"),
+            ],
+        }
+    )
+    assert compose_answer(payload, EVIDENCE) == (
+        "- Alpha et références.\n- Beta.\n\n[[E2]] [[E1]]",
+        ("E2", "E1"),
+    )
+
+
 def test_model_markdown_is_literal_inside_server_owned_blocks() -> None:
     result, _ = compose_answer(
         answer(
-            paragraph("```", "E1", "Alpha"),
-            {
-                "kind": "list",
-                "ordered": False,
-                "items": [item("---", "E1", "Alpha"), item("1. Beta", "E1", "Beta")],
-            },
+            paragraph("```", "E1"),
+            {"kind": "list", "items": [item("---", "E1"), item("1. Beta", "E1")]},
         ),
         EVIDENCE,
     )
@@ -140,55 +129,40 @@ def test_model_markdown_is_literal_inside_server_owned_blocks() -> None:
 
 def test_tab_after_number_does_not_create_a_model_owned_list() -> None:
     payload = answer(
-        paragraph("1.\tAlpha", "E1", "Alpha"),
-        {
-            "kind": "list",
-            "ordered": False,
-            "items": [item("2.\tAlpha", "E1", "Alpha"), item("Beta", "E1", "Beta")],
-        },
+        paragraph("1.\tAlpha", "E1"),
+        {"kind": "list", "items": [item("2.\tAlpha", "E1"), item("Beta", "E1")]},
     )
     assert compose_answer(payload, EVIDENCE)[0] == (
         "1\\.\tAlpha\n\n- 2\\.\tAlpha\n- Beta\n\n[[E1]]"
     )
 
 
-def test_ordered_members_can_share_contextual_support_in_any_support_order() -> None:
-    _, members = outline_blocks()
-    qualifier = anchor("E1", "Small projects may merge them.")
-    members["items"][0]["support"].insert(0, qualifier)
-    members["items"][1]["support"].append(qualifier)
-    result, _ = compose_answer(answer(members), EVIDENCE)
-    assert result.startswith("- Alpha\n- Beta")
-
-
 def test_single_member_count_keeps_member_as_prose() -> None:
-    lead = paragraph("Dàn ý gợi ý có 1 phần: Alpha.", "E1", "Suggested outline: Alpha.")
+    lead = paragraph("Dàn ý gợi ý có 1 phần: Alpha.", "E1")
     lead["bold"] = "1 phần"
     result, _ = compose_answer(
-        answer(lead),
-        (GenerationEvidence("E1", "Suggested outline: Alpha."),),
+        answer(lead), (GenerationEvidence("E1", "Suggested outline: Alpha."),)
     )
     assert "**1 phần**" in result
     assert "\n- " not in result
 
 
 def test_explicit_zero_count_does_not_require_missing_members() -> None:
-    lead = paragraph("Có 0 phần.", "E1", "No parts.")
+    lead = paragraph("Có 0 phần.", "E1")
     lead["bold"] = "0 phần"
     result, _ = compose_answer(answer(lead), (GenerationEvidence("E1", "No parts."),))
     assert "**0 phần**" in result
 
 
-def test_source_anchors_allow_only_whitespace_variation() -> None:
-    source = "Suggested outline:\n  Alpha;\t Beta."
-    lead, members = outline_blocks()
-    lead["support"] = [anchor("E1", "Suggested outline: Alpha; Beta.")]
-    result, _ = compose_answer(answer(lead, members), (GenerationEvidence("E1", source),))
-    assert "**2 phần**" in result
-    assert source == "Suggested outline:\n  Alpha;\t Beta."
-    members["items"][0]["support"][0]["quote"] = "alpha"
-    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(answer(lead, members), (GenerationEvidence("E1", source),))
+def test_natural_paraphrase_references_source_without_copying_a_quote() -> None:
+    source = "Tuy nhiên, mục tiêu chung là trình bày toàn diện đề tài."
+    result, aliases = compose_answer(
+        answer(paragraph("Mục tiêu chung là trình bày toàn diện đề tài.", "E1")),
+        (GenerationEvidence("E1", source),),
+    )
+    assert result == "Mục tiêu chung là trình bày toàn diện đề tài. [[E1]]"
+    assert aliases == ("E1",)
+    assert source == "Tuy nhiên, mục tiêu chung là trình bày toàn diện đề tài."
 
 
 def test_emphasis_preserves_literal_sentence_spacing_and_punctuation() -> None:
@@ -199,14 +173,14 @@ def test_emphasis_preserves_literal_sentence_spacing_and_punctuation() -> None:
 
 
 def test_emphasis_escapes_model_markdown_as_literal_text() -> None:
-    lead = paragraph("Có 2 *phần*.", "E1", "Alpha")
+    lead = paragraph("Có 2 *phần*.", "E1")
     lead["bold"] = "2 *phần*"
     result, _ = compose_answer(answer(lead), EVIDENCE)
     assert result == "Có **2 \\*phần\\***. [[E1]]"
 
 
 def test_null_emphasis_stays_prose() -> None:
-    lead = paragraph("Alpha.", "E1", "Alpha")
+    lead = paragraph("Alpha.", "E1")
     lead["bold"] = None
     assert compose_answer(answer(lead), EVIDENCE) == ("Alpha. [[E1]]", ("E1",))
 
@@ -215,12 +189,15 @@ def test_null_emphasis_stays_prose() -> None:
     "fault",
     [
         "unknown",
-        "invented_quote",
+        "unknown_paragraph_source",
+        "legacy_quote",
         "empty_support",
+        "non_string_support",
+        "empty_alias",
+        "missing_support",
         "raw_marker",
         "multiline",
         "single_item",
-        "reverse",
         "unknown_bold",
         "repeated_bold",
         "empty_bold",
@@ -234,19 +211,25 @@ def test_invalid_blocks_fail_closed(fault: str) -> None:
     lead, members = copy.deepcopy(outline_blocks())
     payload = answer(lead, members)
     if fault == "unknown":
-        members["items"][0]["support"][0]["evidence_id"] = "E9"
-    elif fault == "invented_quote":
-        members["items"][0]["support"][0]["quote"] = "Invented"
+        members["items"][0]["support"] = ["E1", "E9"]
+    elif fault == "unknown_paragraph_source":
+        lead["support"] = ["E9"]
+    elif fault == "legacy_quote":
+        members["items"][0]["support"] = [{"evidence_id": "E1", "quote": "Alpha"}]
     elif fault == "empty_support":
         members["items"][0]["support"] = []
+    elif fault == "non_string_support":
+        members["items"][0]["support"] = [1]
+    elif fault == "empty_alias":
+        members["items"][0]["support"] = [""]
+    elif fault == "missing_support":
+        del members["items"][0]["support"]
     elif fault == "raw_marker":
         members["items"][0]["text"] = "Alpha [[E2]]"
     elif fault == "multiline":
         members["items"][0]["text"] = "Alpha\n- invented"
     elif fault == "single_item":
         members["items"].pop()
-    elif fault == "reverse":
-        members["items"].reverse()
     elif fault == "unknown_bold":
         lead["bold"] = "5 phần"
     elif fault == "repeated_bold":

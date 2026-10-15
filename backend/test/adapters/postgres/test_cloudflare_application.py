@@ -105,7 +105,7 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
                         {
                             "kind": "paragraph",
                             "text": "Blue umbrellas.",
-                            "support": [{"evidence_id": "E1", "quote": FACT}],
+                            "support": ["E1"],
                         }
                     ],
                     "refusal_reason": None,
