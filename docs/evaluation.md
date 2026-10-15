@@ -157,6 +157,92 @@ wall-clock observations are excluded:
 
 Case ordering, provenance, structural outcomes and retrieval metrics must remain identical.
 
+## Provider and scorer configuration
+
+Daily development uses the AI/storage/session and email OTP/SMTP groups in the
+[root template](../.env.example); complete [daily auth setup](runbooks/local-development.md#daily-auth-setup-one-time)
+once for registration, sign-in, sign-out and Forgot Password.
+The variables below remain supported for direct backend invocation, compatibility
+and evaluation; they are not required for daily Cloudflare use. Provider settings
+that affect the embedding space must match the corpus/profile. Do not change
+identities or re-index historical data merely to try another provider.
+
+### Application provider
+
+The backend reads `.env` through `Settings`; the process environment takes
+precedence over the file. Set `KNORA_EMBEDDING_PROVIDER` and
+`KNORA_GENERATION_PROVIDER` together. When both are unset, `KNORA_PROVIDER_MODE`
+defaults to `deterministic-local`; legacy modes also support `openai-compatible`
+(both roles) or `google-gemini-api` (Gemini embedding, OpenAI-compatible generation).
+The daily launcher selects only Cloudflare/Ollama/deterministic; use direct
+invocation for these compatibility modes.
+
+| Variable | Default / requirement |
+| --- | --- |
+| `KNORA_OPENAI_BASE_URL`, `KNORA_OPENAI_API_KEY` | Unset; required for OpenAI-compatible. OpenAI's example URL is `https://api.openai.com/v1`; other compatible endpoints need the corresponding contract. Keep the key only in gitignored `.env` or process secrets. |
+| `KNORA_OPENAI_EMBEDDING_MODEL`, `KNORA_OPENAI_EMBEDDING_CONFIGURATION_ID` | `text-embedding-3-small`, `embedding-openai-m1-v1`; dimension 1536. Deterministic validation also uses this default model label. |
+| `KNORA_OPENAI_GENERATION_MODEL` | Unset; select a model for OpenAI-compatible generation. |
+| `KNORA_OPENAI_PRICING_VERSION` | Unset; required for the OpenAI-compatible application provider. |
+| `KNORA_OPENAI_EMBEDDING_INPUT_COST_PER_MILLION_TOKENS` | Unset; a nonnegative number is required for OpenAI-compatible embedding. |
+| `KNORA_OPENAI_GENERATION_INPUT_COST_PER_MILLION_TOKENS`, `KNORA_OPENAI_GENERATION_OUTPUT_COST_PER_MILLION_TOKENS` | Unset; nonnegative numbers are required for OpenAI-compatible generation. Do not enter 0 when pricing is unknown. |
+| `KNORA_OPENAI_TIMEOUT_SECONDS` | 60 seconds; overrides must be positive numbers. |
+| `KNORA_GEMINI_API_KEY`, `KNORA_GEMINI_TIMEOUT_SECONDS` | Key unset; timeout 60 seconds. Selecting `google-gemini-api` embedding requires a key; native V2 pins `gemini-embedding-2`, `embedding-gemini-m1-v1`, 1536 dimensions and the approved input policy. Calibration/re-embedding CLIs read the key directly from the process environment. |
+
+Example application OpenAI-compatible configuration in a separate environment
+with a corpus under the matching profile (replace model/prices with verified
+values; do not run this against a shared runtime):
+
+```dotenv
+KNORA_PROVIDER_MODE=openai-compatible
+KNORA_OPENAI_BASE_URL=https://api.openai.com/v1
+KNORA_OPENAI_API_KEY=<runtime-secret>
+KNORA_OPENAI_GENERATION_MODEL=<compatible-model>
+KNORA_OPENAI_PRICING_VERSION=<reviewed-pricing-version>
+KNORA_OPENAI_EMBEDDING_INPUT_COST_PER_MILLION_TOKENS=<verified-nonnegative-number>
+KNORA_OPENAI_GENERATION_INPUT_COST_PER_MILLION_TOKENS=<verified-nonnegative-number>
+KNORA_OPENAI_GENERATION_OUTPUT_COST_PER_MILLION_TOKENS=<verified-nonnegative-number>
+```
+
+For native Gemini embedding, select the pair
+`KNORA_EMBEDDING_PROVIDER=google-gemini-api` and
+`KNORA_GENERATION_PROVIDER=openai-compatible`, add `KNORA_GEMINI_API_KEY`, and keep
+dimension 1536 with the corresponding generation/pricing configuration. Legacy
+`KNORA_PROVIDER_MODE=google-gemini-api` still works when both selectors are unset.
+The historical Gemini OpenAI-compatible values below have different semantics
+from native V2; do not substitute them for the native contract.
+
+### Semantic scorer: separate process environment
+
+The scorer uses `SemanticScorerConfiguration.from_environment` and **reads only the
+process environment**. Adding `KNORA_SEMANTIC_SCORER_*` to `.env` does not supply
+them automatically to the runner. Backend Settings does not own or validate
+scorer configuration; the evaluator retains its separate reader/validation.
+Supply variables through the evaluation process's secrets or an authorized secret
+manager; do not add automatic `.env` loading or substitute the application token
+for the judge key.
+
+| Variable | Default / requirement |
+| --- | --- |
+| `KNORA_SEMANTIC_SCORER_BASE_URL`, `KNORA_SEMANTIC_SCORER_API_KEY`, `KNORA_SEMANTIC_SCORER_MODEL` | Unset; required for semantic scoring. The judge model/endpoint/key are independent of the application provider. |
+| `KNORA_SEMANTIC_SCORER_TIMEOUT_SECONDS` | 60 seconds; overrides must be positive numbers. |
+| `KNORA_SEMANTIC_SCORER_PRICING_VERSION`, `KNORA_SEMANTIC_SCORER_INPUT_COST_PER_MILLION_TOKENS`, `KNORA_SEMANTIC_SCORER_OUTPUT_COST_PER_MILLION_TOKENS` | Unset; optional, with nonnegative costs. Missing pricing is recorded as `unavailable`. |
+
+Example variables supplied only to an authorized evaluation process, without
+printing secrets:
+
+```powershell
+$env:KNORA_SEMANTIC_SCORER_BASE_URL = '<reviewed-compatible-endpoint>'
+$env:KNORA_SEMANTIC_SCORER_API_KEY = '<runtime-judge-secret>'
+$env:KNORA_SEMANTIC_SCORER_MODEL = '<reviewed-judge-model>'
+```
+
+The M1 runner's `--mode model-backed` currently requires `openai-compatible`
+provenance for both embedding and generation; sharing the generation protocol
+does not automatically enable Cloudflare support. Retain legacy M1/M3/Vietnamese
+datasets/manifests/reports and V1/V2 profiles for regression. The judge and
+DeepEval/Langfuse integration in #158 require separate approval; this configuration
+reference does not select a provider/hosting or change the #153/#158 evaluator contract.
+
 ## Model-backed semantic baseline
 
 Run the application in `openai-compatible` mode with an active corpus derived under the same

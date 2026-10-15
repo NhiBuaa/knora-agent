@@ -62,12 +62,158 @@ The bundled realm's public `knora-web` client allows
 
 Confirm the account's Workers AI data permission and available free allowance before real use. The launcher does not check billing or make a paid model call during preflight. Keep the token in backend process secrets, never in `NEXT_PUBLIC_` variables or committed files. Keep Docker Desktop running before starting Knora. Root `.env` is loaded once at launcher startup; restart after changing it.
 
+## Configuration reference
+
+Daily development includes registration, sign-in, sign-out and Forgot Password
+through real email OTP. Fill the blank values in the root
+[`.env.example`](../../.env.example), then save it as the ignored `.env`:
+
+| Group | Values to supply |
+| --- | --- |
+| AI, storage and session | Cloudflare account/token, local MinIO access/secret, and `SESSION_SECRET` |
+| Email OTP | `KNORA_OTP_HMAC_KEY`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD` |
+
+The template already sets the local OTP switch to true and supplies Gmail
+host/port/TLS/auth settings. The sender and SMTP user usually use the same Gmail
+address, but both fields must be filled. Use a Google App Password, not the account
+password. Preserve existing MinIO credentials, HMAC key, SMTP settings and session
+secret when reusing a configured environment; do not overwrite its `.env`.
+Complete [Daily auth setup](#daily-auth-setup-one-time) once to configure the
+Keycloak reset flow and SMTP. After setup, daily use needs only `start-dev.ps1`.
+Backend/Compose defaults remain unchanged when the template's explicit local OTP
+setting is absent; production must keep the local switch off.
+
+Add overrides to `.env` or the process environment only for the mode you use.
+Launcher parameters take precedence over the process environment, which takes
+precedence over `.env`. Leave optional numeric variables unset instead of assigning
+empty strings. Updating the template must not change another session's `.env` or
+restart its runtime.
+
+### Defaults and values supplied by the launcher
+
+| Variable | Usage / default |
+| --- | --- |
+| `KNORA_EMBEDDING_PROVIDER`, `KNORA_GENERATION_PROVIDER` | The daily launcher defaults both to `cloudflare-workers-ai`; select both as `ollama` for offline use or `deterministic-local` for simulation. Direct backend invocation requires both selectors to be set or both unset. |
+| `KNORA_PROVIDER_MODE` | Direct backend/CI defaults to `deterministic-local` when the selector pair is absent; compatibility modes remain available for evaluation. The daily launcher selects the pair independently, so this variable does not select its provider. |
+| `KNORA_DATABASE_URL` | Settings defaults to `postgresql+psycopg://knora:knora@localhost:5432/knora`; the daily launcher derives it from `-DatabaseName` (default `knora_dev`) and `-PostgresPort` (5432). Set an explicit URL only for direct backend invocation or `start-ollama-demo.ps1 -UseExistingStorage` with a verified target. |
+| `KNORA_EMBEDDING_DIMENSION`, `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID`, `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` | The launcher resolves and pins these values; do not enter them manually when using it. Direct backend invocation defaults to dimension 1536; Cloudflare/Ollama require 1024 and the matching profile; Ollama generation requires a verified real digest. |
+| `KNORA_API_URL`, `KNORA_BACKEND_URL`, `NEXT_PUBLIC_APP_ORIGIN` | The daily launcher derives these from the API/frontend ports, defaulting to 8000/3000. Never put provider secrets in `NEXT_PUBLIC_` variables. |
+| `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`, `KEYCLOAK_ISSUER` | The daily launcher supplies endpoints for `http://127.0.0.1:8180/realms/knora-dev` when unset. An external issuer requires a running realm; endpoints follow that issuer unless explicitly overridden. |
+| `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, `KNORA_KEYCLOAK_AUDIENCE` | The bundled client is `knora-web`; the backend audience defaults to the frontend audience. For an external client, configure the client ID and both audiences to match the realm. |
+| `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_JWKS_URL` | The daily launcher takes these from frontend OIDC settings when unset. Frontend/backend issuers must match; direct backend invocation does not enable bearer validation automatically when configuration is missing. |
+| `KEYCLOAK_CLIENT_SECRET` | Required only for an external confidential client; the bundled public client does not need it. |
+| `KEYCLOAK_REDIRECT_URI`, `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` | Daily launcher defaults are `http://127.0.0.1:3000/api/auth/callback` and `http://127.0.0.1:3000/`; `-FrontendPort` updates both. They must match the client's allowlist. |
+| `KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS` | Backend default: 300 seconds; override only when needed. |
+| `KNORA_API_CREDENTIALS_JSON` | Backend default: `[]`; used only for API-key CLI/integration, not required for the browser bearer flow. Contains `key_id`, hash, Workspace and enabled fields as defined in [architecture](../standards/architecture.md#authentication-and-workspace-authorization); never store raw API keys in this JSON. |
+| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY` | Default: `retrieval-m1-v1`, without a threshold override. Opt-in containment uses `retrieval-evidence-containment-v1`; rollback uses `retrieval-m1-v1`. See the [acceptance runbook](evidence-containment-acceptance.md). V2 accepts only its calibrated threshold/profile; do not use it for Cloudflare merely because dimensions or scores appear compatible. |
+
+### Optional providers
+
+Cloudflare retains fixed native Qwen3 embedding and GPT-OSS generation; daily use
+does not require model/profile input. `KNORA_CLOUDFLARE_TIMEOUT_SECONDS` defaults to
+60 seconds. Overrides for `KNORA_CLOUDFLARE_EMBEDDING_MODEL`,
+`KNORA_CLOUDFLARE_EMBEDDING_CONFIGURATION_ID` and `KNORA_CLOUDFLARE_GENERATION_MODEL`
+are accepted only when they match the current fixed profile. Changing the model or
+embedding space requires an approved new configuration and controlled re-indexing.
+
+For offline Ollama, use [Provider selection](#provider-selection-and-explicit-simulation)
+and the [stable offline runbook](local-ollama.md). Supported overrides:
+
+| Variable | Default |
+| --- | --- |
+| `KNORA_OLLAMA_BASE_URL` | Launcher: `http://127.0.0.1:11434`; direct Settings: `http://localhost:11434`. The launcher accepts only loopback endpoints. |
+| `KNORA_OLLAMA_EMBEDDING_MODEL` | `qwen3-embedding:0.6b`, fixed profile; the launcher resolves its digest/metadata. |
+| `KNORA_OLLAMA_GENERATION_MODEL` | `qwen3:8b`; an already pulled `qwen3:4b` or `gpt-oss:20b` can also be selected. Template cleanup does not change the default. |
+| `KNORA_OLLAMA_TIMEOUT_SECONDS`, `KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS` | 60 and 120 seconds; overrides must be positive numbers. |
+
+Gemini, OpenAI-compatible and the semantic scorer retain compatibility/evaluation
+callers; see [provider/scorer variables](../evaluation.md#provider-and-scorer-configuration).
+The application provider and judge are separate roles; selecting Cloudflare for
+daily use does not select a judge or change the model-backed evaluation contract.
+
+### Storage, Compose, operations and OTP
+
+| Variable | Usage / default |
+| --- | --- |
+| `KNORA_OBJECT_STORE_BACKEND`, `KNORA_OBJECT_STORE_ROOT` | Direct backend defaults: `filesystem`, root `.knora-objects`. The daily launcher selects `s3_compatible` with local MinIO. |
+| `KNORA_OBJECT_STORE_S3_ENDPOINT`, `KNORA_OBJECT_STORE_S3_BUCKET`, `KNORA_OBJECT_STORE_S3_REGION` | No direct backend defaults; S3 requires a bucket, credentials and the service endpoint. The daily launcher uses `http://127.0.0.1:9000`, bucket `knora` (or `-ObjectStoreBucket`/environment), and region `us-east-1` when unset. The stable launcher supports `-ObjectStoreEndpoint` and `-UseExistingStorage`; see the [offline runbook](local-ollama.md). |
+| `KNORA_CANONICAL_MINIO_ACCESS_KEY`, `KNORA_CANONICAL_MINIO_SECRET_KEY` | Compose credential names; the launcher prefers this pair, then falls back to `KNORA_OBJECT_STORE_S3_ACCESS_KEY`/`KNORA_OBJECT_STORE_S3_SECRET_KEY` from the template. Do not fill both pairs. Direct Compose invocation requires the canonical pair in the process environment or `.env`; preserve credentials for existing volumes. |
+| `KNORA_PROVIDER_TEST_ACCESS_KEY`, `KNORA_PROVIDER_TEST_SECRET_KEY` | Only for the `provider-test` profile in `docker-compose.dev.yml`, with credentials separate from daily use. Not required for normal startup. |
+| `KNORA_OBJECT_INVENTORY_MANIFEST`, `KNORA_OBJECT_INVENTORY_MINIMUM_AGE_SECONDS` | Operations: optional JSONL inventory path; minimum age defaults to 86400 seconds. An inventory scanner is not supplied automatically when the manifest is unset. |
+| `KNORA_OPERATIONAL_ALERT_CONFIGURATION_JSON`, `KNORA_OPERATIONAL_METRICS_RETRY_WINDOW_SECONDS` | Optional versioned alert configuration; retry metric window defaults to 300 seconds. See [operational observability](../standards/architecture.md#asynchronous-pdf-ingestion). |
+| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY` | The daily template explicitly sets the local switch to true; Compose still defaults to false when it is unset. The key must be canonical Base64 containing at least 32 decoded bytes and must persist across restarts. Production uses Vault/secret manager when the switch is off. |
+| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Required for daily Forgot Password; apply once through guarded SMTP setup. Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, and sender/user/password from an authorized development account. Leaving them unset does not configure SMTP automatically. Mailpit is only for isolated tests/CI. |
+
+OTP/SMTP requires the procedure in [Daily auth setup](#daily-auth-setup-one-time)
+and the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration).
+Updating the template must not generate keys, change key sources, enable flows or
+restart an active realm. Existing profiles/datasets/evidence retain their identity
+and content.
+
 ## Start daily development
 
-### Optional local Email OTP
+### Daily auth setup (one-time)
 
-Local Keycloak does not enable or mount file-vault. To use Email OTP, explicitly set
-`KNORA_OTP_LOCAL_DEV_ENABLED=true` and supply `KNORA_OTP_HMAC_KEY` only in the ignored root `.env`.
+For an already configured daily environment, keep its `.env`, HMAC key and SMTP
+settings and skip setup. Registration, sign-in, sign-out and Forgot Password are
+all part of daily use; OTP is not a separate optional feature.
+
+For a fresh environment:
+
+1. Copy `.env.example` to `.env` only if `.env` does not exist, and fill both groups
+   in the configuration reference above. The four Gmail defaults and local OTP
+   switch are already set. Enable Google 2-Step Verification and use a Google App
+   Password for `KC_SMTP_PASSWORD`; `KC_SMTP_FROM` must be an authorized sender.
+2. Generate a session secret and an OTP HMAC key separately, only for a new
+   environment. Use the session-secret command under [One-time setup](#one-time-setup).
+   For `KNORA_OTP_HMAC_KEY`, generate canonical padded Base64:
+
+   ```powershell
+   .\.venv\Scripts\python -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())"
+   ```
+
+   Put the result in the HMAC field. Never generate replacement values for an
+   existing configured environment.
+3. Open Docker Desktop, then run `.\scripts\start-dev.ps1` from the repository root.
+   Keep that terminal open. Once startup finishes, Keycloak is running, but entering
+   SMTP values in `.env` alone has not configured the realm's reset flow or SMTP.
+4. Open a second PowerShell terminal at the same repository root. For a fresh
+   bundled realm with unchanged bootstrap credentials, run:
+
+   ```powershell
+   $otpAdmin = @{
+       BaseUrl = 'http://127.0.0.1:8180'
+       Project = 'knora-dev'
+       AdminUsername = 'knora-dev-admin'
+       AdminPassword = 'knora-dev-admin-password'
+   }
+   .\scripts\configure-keycloak-email-otp.ps1 -Mode Prepare -EnablePrimaryOtp @otpAdmin
+   .\scripts\configure-keycloak-email-otp.ps1 -Mode Bind -EnablePrimaryOtp -ConfigurePrimarySmtp @otpAdmin
+   ```
+
+   Use the existing admin credentials for a custom/existing realm instead; never
+   reset them to match this example. The guarded script loads SMTP values from the
+   ignored root `.env`, prepares the reset flow and binds it with a rollback
+   snapshot. Expect `OTP_FLOW_PREPARED_UNBOUND` (or `OTP_FLOW_ALREADY_PREPARED`) and
+   `OTP_BIND_VERIFIED` (or `OTP_BIND_ALREADY_SET`). Stop if either command fails.
+   Existing SMTP changes may require the previous password for rollback; follow
+   the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration)
+   rather than bypassing its checks.
+5. Open `http://127.0.0.1:3000`, register a dedicated development account using an
+   inbox you control, sign out, then use Forgot Password. Receive the OTP, set a new
+   disposable password and sign in with it. Only observed delivery and successful
+   recovery confirm the complete flow. The fixture `m5-user@example.test` cannot
+   receive real mail.
+
+After this one-time setup, start daily development with
+`.\scripts\start-dev.ps1`. Do not repeat realm binding or key generation each day.
+The launcher does not configure SMTP automatically or verify real mail delivery;
+`-PreflightOnly` is only a provider/PDF configuration check.
+
+#### Existing runtime and key safety
+
+Local Keycloak does not enable or mount file-vault. The daily template explicitly sets
+`KNORA_OTP_LOCAL_DEV_ENABLED=true` and requires `KNORA_OTP_HMAC_KEY` only in the ignored root `.env`.
 Use canonical padded Base64 encoding of at least 32 random bytes. Preserve the same key across
 restarts; missing or invalid keys fail closed without Vault/random fallback. The old
 `KNORA_PRIMARY_OTP_VAULT_PATH` setting is unused and can be removed.
