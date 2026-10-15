@@ -46,6 +46,52 @@ def refusal():
 
 
 @pytest.mark.asyncio
+async def test_pdf_capture_retains_bounded_prethreshold_diagnostics_and_raw_scores():
+    persisted = trace()
+    persisted.trace_schema_version = 2
+    persisted.branch_observation_schema_version = 1
+    persisted.candidate_decisions = ()
+    persisted.branch_observations = (
+        {
+            "schema_version": 1,
+            "branch": "vector",
+            "status": "BELOW_THRESHOLD",
+            "chunk_id": "below",
+            "similarity": 0.6253242865,
+            "cosine_distance": 0.3746757135,
+        },
+    )
+    reader = NS(read_trace=lambda **_: persisted, read_pdf_chunks=lambda **_: ())
+    async with httpx.AsyncClient(
+        base_url="http://test",
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=refusal())),
+    ) as client:
+        row = await PdfHttpExecutor(
+            client=client,
+            headers={},
+            reader=reader,
+            workspace_id="workspace",
+            run_id="run",
+            embedding_configuration_id=persisted.embedding_configuration_id,
+        ).execute(case())
+    assert row["failure_code"] is None
+    diagnostic = row["retrieval_diagnostics"]
+    assert diagnostic["branch_observations"][0]["similarity"] == 0.6253242865
+    assert diagnostic["unobserved_candidates"] == "unknown"
+    assert row["candidates"] == []
+
+
+def test_historical_trace_without_fields_stays_unavailable():
+    from evals.runners.pdf_retrieval_v3 import project_retrieval_diagnostics
+
+    assert project_retrieval_diagnostics(trace()) == {
+        "schema_version": 1,
+        "status": "unavailable",
+        "reason": "TRACE_FIELDS_UNAVAILABLE",
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("drift", ["none", "answer", "workspace", "trace", "profile"])
 async def test_exact_public_trace_binding(drift):
     persisted = trace()
@@ -151,6 +197,39 @@ def test_report_keeps_missing_extraction_out_of_retrieval_denominator():
     assert report["metrics"]["all_evidence_groups_covered"] is None
     assert report["cases"][2]["status"] == "not_run"
     assert report["tools"] == "not_run"
+
+
+def test_supplement_keeps_top8_top200_and_generation_coverage_separate():
+    diagnostic = {
+        "schema_version": 1,
+        "status": "observed",
+        "ordered_candidate_ids": [str(i) for i in range(10)],
+        "generation_evidence_chunk_ids": ["0"],
+        "branch_observations": [{"raw_score": 3.25}],
+        "candidate_decisions": [{"decision_reason": "CHUNK_COUNT_LIMIT"}],
+    }
+    row = {
+        "case_id": "q1",
+        "failure_code": None,
+        "response_sha256": "r",
+        "selected_chunk_ids": ["0"],
+        "decision": "ANSWER",
+        "retrieval_diagnostics": diagnostic,
+    }
+    dataset = NS(cases=(case(),), dataset_sha256="a", corpus_sha256="b")
+    report = build_report(dataset, [row], {"limit": ("9",)}, {})
+    supplement = report["cases"][0]["retrieval_diagnostics"]
+    assert supplement["coverage"] == {
+        "retrieved_top8": [False],
+        "retrieved_top200": [True],
+        "generation_selected": [False],
+    }
+    assert supplement["branch_observations"] == [{"raw_score": 3.25}]
+    assert supplement["candidate_decisions"][0]["decision_reason"] == "CHUNK_COUNT_LIMIT"
+    assert report["metrics"] == {"all_evidence_groups_covered": 0.0}
+    missing = build_report(dataset, [row], {"limit": ()}, {})
+    assert missing["cases"][0]["retrieval_diagnostics"]["coverage"] is None
+    assert missing["denominators"]["extraction_or_mapping_missing"] == 1
 
 
 def test_response_review_cannot_be_reused_for_another_answer():

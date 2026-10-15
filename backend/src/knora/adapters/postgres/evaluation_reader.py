@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from math import isfinite
 
 from sqlalchemy import select
@@ -15,11 +15,24 @@ from knora.adapters.postgres.tables import (
     EmbeddingSetTable,
     QuestionTraceTable,
 )
+from knora.answering.evidence import select_evidence
+from knora.answering.generation_validation import validate_generation
+from knora.answering.lexical import validate_bm25_result
 from knora.answering.retrieval_configuration import (
     CALIBRATED_M3_VECTOR_MIN_SIMILARITY,
     resolve_retrieval_configuration,
 )
 from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2_details
+from knora.answering.stores import (
+    BranchObservation,
+    LexicalGeneration,
+    QuestionTraceRecord,
+    RetrievalCandidate,
+    RetrievalConfiguration,
+    RetrievalResult,
+)
+from knora.domain.errors import KnoraError
+from knora.providers.generation import GenerationResult
 
 _VALID_FINAL_DECISIONS = {
     "SELECTED",
@@ -71,7 +84,7 @@ class EvaluationCandidateProjection:
     start_line: int
     end_line: int
     final_rank: int
-    fusion_score: float
+    fusion_score: float | None
     final_decision: str
     decision_reason: str | None
     vector_contribution: dict[str, object] | None
@@ -85,6 +98,9 @@ class EvaluationCandidateProjection:
     start_offset: int | None = None
     end_offset: int | None = None
     content_checksum: str | None = None
+    document_id: str | None = None
+    token_count: int | None = None
+    bm25_contribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +129,7 @@ class EvaluationTraceProjection:
     trace_id: str
     workspace_id: str
     retrieval_configuration_id: str
-    embedding_configuration_id: str
+    embedding_configuration_id: str | None
     candidates: tuple[EvaluationCandidateProjection, ...]
     alias_mapping: dict[str, str]
     provider_metadata: dict[str, object]
@@ -130,6 +146,170 @@ class EvaluationTraceProjection:
     refusal_reason: str | None
     parsed_markers: tuple[str, ...]
     validation_outcome: str
+
+
+def project_bm25_trace(
+    *,
+    trace_id: str,
+    record: QuestionTraceRecord,
+    candidates: tuple[EvaluationCandidateProjection, ...],
+    authorized_generations: tuple[LexicalGeneration, ...],
+) -> EvaluationTraceProjection:
+    """Project a trusted lexical snapshot offline; does not establish database readiness.
+
+    S2.2 must resolve generations and chunks from PostgreSQL in one authorized snapshot.
+    Never pass trace self-assertions as the authoritative snapshot.
+    """
+    try:
+        config = RetrievalConfiguration.bm25_diagnostic_v1()
+        metadata = record.provider_metadata["retrieval"]
+        expected_policy = {
+            "id": "bm25-raw-no-cutoff-v1",
+            "score_kind": "bm25",
+            "numeric_cutoff": None,
+            "cutoff_status": "not_calibrated",
+            "candidate_limit": 200,
+            "observed_scope": "authorized_top_k",
+            "beyond_limit": "unknown",
+        }
+        if (
+            not trace_id
+            or record.trace_schema_version != 3
+            or record.branch_observation_schema_version != 2
+            or record.retrieval_configuration_id != config.id
+            or record.embedding_configuration_id is not None
+            or record.embedding_set_ids
+            or record.fusion_policy_version is not None
+            or metadata["mode"] != "bm25-only"
+            or metadata["score_policy"] != expected_policy
+            or metadata["lexical_generations"] != [asdict(g) for g in authorized_generations]
+            or record.provider_metadata["embedding"] != {"status": "not_run"}
+            or record.provider_metadata["timing"]["phases"]["query_embedding"].get("status")
+            != "not_run"
+            or tuple(c.chunk_id for c in candidates) != record.retrieved_chunk_ids
+            or len(record.candidate_decisions) != len(candidates)
+        ):
+            raise ValueError("lexical trace metadata mismatch")
+        resolved = []
+        for rank, (c, d) in enumerate(zip(candidates, record.candidate_decisions, strict=True), 1):
+            if (
+                c.workspace_id != record.workspace_id
+                or c.chunk_id != d["chunk_id"]
+                or c.final_rank != rank
+                or d["final_rank"] != rank
+                or c.final_decision != d["final_decision"]
+                or c.decision_reason != d["decision_reason"]
+                or c.fusion_score is not None
+                or d["fusion_score"] is not None
+                or c.vector_contribution is not None
+                or c.fts_contribution is not None
+                or d["vector_contribution"] is not None
+                or d["fts_contribution"] is not None
+                or c.bm25_contribution != d["bm25_contribution"]
+                or type(c.token_count) is not int
+                or c.token_count < 1
+            ):
+                raise ValueError("lexical candidate mismatch")
+            bm25 = c.bm25_contribution
+            resolved.append(
+                RetrievalCandidate(
+                    document_id=c.document_id,
+                    document_version_id=c.document_version_id,
+                    source_key=c.source_key,
+                    source_name=c.source_key,
+                    chunk_set_id=c.chunk_set_id,
+                    embedding_set_id=None,
+                    embedding_configuration_id=None,
+                    chunk_id=c.chunk_id,
+                    chunk_ordinal=c.chunk_ordinal,
+                    heading_path=(),
+                    start_line=c.start_line,
+                    end_line=c.end_line,
+                    content=c.content,
+                    content_checksum=c.content_checksum,
+                    token_count=c.token_count,
+                    cosine_distance=None,
+                    similarity=None,
+                    bm25_score=bm25["raw_score"],
+                    bm25_rank=bm25["branch_rank"],
+                    index_generation_id=bm25["index_generation_id"],
+                )
+            )
+        observations = []
+        for item in record.branch_observations:
+            if item["schema_version"] != 2:
+                raise ValueError("lexical observation version mismatch")
+            observations.append(
+                BranchObservation(**{k: v for k, v in item.items() if k != "schema_version"})
+            )
+        result = RetrievalResult(
+            candidates=tuple(resolved),
+            branch_observations=tuple(observations),
+            chunk_set_ids=record.chunk_set_ids,
+            lexical_generations=authorized_generations,
+        )
+        validate_bm25_result(result, workspace_id=record.workspace_id, configuration=config)
+        selection = select_evidence(result.candidates, config)
+        for actual, expected in zip(record.candidate_decisions, selection.decisions, strict=True):
+            outcome = expected.outcome
+            reason = None
+            if outcome in {"TOKEN_BUDGET_EXCEEDED", "CHUNK_COUNT_LIMIT"}:
+                reason = "TOKEN_BUDGET" if outcome == "TOKEN_BUDGET_EXCEEDED" else outcome
+                outcome = "BUDGET_EXCEEDED"
+            if (actual["final_decision"], actual["decision_reason"], actual["budget_evidence"]) != (
+                outcome,
+                reason,
+                expected.budget_evidence,
+            ):
+                raise ValueError("lexical selection mismatch")
+        aliases = {f"E{i}": d.candidate.chunk_id for i, d in enumerate(selection.selected, 1)}
+        if record.alias_mapping != aliases or record.decision not in {"ANSWER", "REFUSAL"}:
+            raise ValueError("lexical alias mismatch")
+        if aliases:
+            if record.generation_status != "completed" or record.validation_outcome != "valid":
+                raise ValueError("lexical generation state mismatch")
+        elif (record.decision, record.generation_status, record.validation_outcome) != (
+            "REFUSAL",
+            "not_called",
+            "not_applicable",
+        ):
+            raise ValueError("lexical empty-selection state mismatch")
+        validated = validate_generation(
+            GenerationResult(
+                decision=record.decision,
+                answer=record.answer,
+                refusal_reason=record.refusal_reason,
+                cited_evidence_ids=record.parsed_markers,
+            ),
+            available_evidence_ids=tuple(aliases),
+        )
+        if validated.parsed_markers != record.parsed_markers:
+            raise ValueError("lexical markers mismatch")
+        latency = _retrieval_latency(record.provider_metadata)
+    except (KeyError, TypeError, ValueError, AttributeError, KnoraError, LookupError) as error:
+        raise LookupError("evaluation lexical trace provenance is invalid") from error
+    return EvaluationTraceProjection(
+        trace_id=trace_id,
+        workspace_id=record.workspace_id,
+        retrieval_configuration_id=record.retrieval_configuration_id,
+        embedding_configuration_id=None,
+        candidates=candidates,
+        alias_mapping=record.alias_mapping,
+        provider_metadata=record.provider_metadata,
+        retrieval_latency_ms=latency,
+        trace_schema_version=3,
+        branch_observation_schema_version=2,
+        fusion_policy_version=None,
+        embedding_set_ids=(),
+        chunk_set_ids=record.chunk_set_ids,
+        candidate_decisions=record.candidate_decisions,
+        branch_observations=record.branch_observations,
+        decision=record.decision,
+        answer=record.answer,
+        refusal_reason=record.refusal_reason,
+        parsed_markers=record.parsed_markers,
+        validation_outcome=record.validation_outcome,
+    )
 
 
 @dataclass(frozen=True, slots=True)
