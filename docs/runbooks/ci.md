@@ -12,7 +12,7 @@ services are used by pull request CI. Browser fixtures are synthetic and offline
 
 The required `Security shadow (offline integration)` job installs
 `evals/requirements-security-shadow.txt` in its own runner environment and runs
-`evals/integration/test_security_shadow.py`. This exercises the real local secrets validator,
+`evals/integration/test_security_shadow_integration.py`. This exercises the real local secrets validator,
 without model inference, provider credentials, or export. Missing dependencies fail explicitly;
 there is no optional skip. Pure shadow tests remain in the backend suite, whose dependencies
 are unchanged. The aggregate requires this job as well as the existing component jobs.

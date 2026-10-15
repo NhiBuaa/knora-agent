@@ -42,7 +42,7 @@ security-quality acceptance.
 ## CI separation
 
 Pure tests remain under `evals/test/test_security_shadow.py`. The real validator test lives in
-`evals/integration/test_security_shadow.py`, executed by the required Security shadow CI job with
+`evals/integration/test_security_shadow_integration.py`, executed by the required Security shadow CI job with
 only its own pinned dependencies and pytest. Missing dependencies fail the test, never skip it.
 Backend dependencies remain unchanged. Enforcement and export remain OFF.
 
