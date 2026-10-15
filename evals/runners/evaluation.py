@@ -631,9 +631,8 @@ def write_report_atomic(path: Path, report: dict[str, object]) -> None:
             os.link(temporary, path)
         except FileExistsError:
             raise FileExistsError(f"report already exists: {path}") from None
-    except BaseException:
+    finally:
         temporary.unlink(missing_ok=True)
-        raise
 
 
 def normalize_report(report: dict[str, object]) -> dict[str, object]:

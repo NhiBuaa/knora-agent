@@ -78,6 +78,8 @@ class PublicResponseProjection:
 @dataclass(frozen=True, slots=True)
 class M3Observation:
     case_id: str
+    trace_id: str | None = None
+    generation_evidence: tuple[tuple[str, str], ...] = ()
     candidates: tuple[CanonicalChunkReference, ...] = ()
     retrieval_latency_ms: float | None = None
     end_to_end_latency_ms: float | None = None
@@ -101,6 +103,8 @@ class M3Observation:
         cls,
         *,
         case_id: str,
+        trace_id: str | None = None,
+        generation_evidence: tuple[tuple[str, str], ...] = (),
         candidates: tuple[CanonicalChunkReference, ...],
         retrieval_latency_ms: float,
         end_to_end_latency_ms: float,
@@ -143,6 +147,8 @@ class M3Observation:
                 raise ValueError("observation guardrail is invalid")
         return cls(
             case_id=case_id,
+            trace_id=trace_id,
+            generation_evidence=generation_evidence,
             candidates=candidates,
             retrieval_latency_ms=retrieval_latency_ms,
             end_to_end_latency_ms=end_to_end_latency_ms,
@@ -832,6 +838,8 @@ class HttpEvaluationExecutor:
                 raise ObservationFailure("RETRIEVAL_LATENCY_INVALID")
             return M3Observation.success(
                 case_id=case.id,
+                trace_id=trace_id,
+                generation_evidence=project_generation_evidence(trace),
                 candidates=candidates,
                 retrieval_latency_ms=float(latency),
                 end_to_end_latency_ms=(
@@ -1022,6 +1030,7 @@ def validate_public_citations_against_trace(
         candidate = candidates_by_id.get(alias_mapping.get(citation.evidence_id))
         if candidate is None or citation.source_key != getattr(candidate, "source_key", None):
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+
         content = getattr(candidate, "content", None)
         if content is not None and (
             not isinstance(content, str)
@@ -1047,6 +1056,31 @@ def validate_public_citations_against_trace(
             expected_locator = f"{citation.source_key}:{start_line}:{end_line}"
         if not isinstance(expected_locator, str) or citation.source_locator != expected_locator:
             raise ObservationFailure("CITATION_STRUCTURAL_ERROR")
+
+
+def project_generation_evidence(trace: object) -> tuple[tuple[str, str], ...]:
+    """Capture only complete selected content actually aliased into generation."""
+    selected = {
+        candidate.chunk_id: candidate
+        for candidate in getattr(trace, "candidates", ())
+        if getattr(candidate, "final_decision", None) == "SELECTED"
+    }
+    aliases = getattr(trace, "alias_mapping", None)
+    if (
+        not isinstance(aliases, dict)
+        or len(aliases) != len(selected)
+        or set(aliases.values()) != set(selected)
+        or set(aliases) != {f"E{index}" for index in range(1, len(selected) + 1)}
+    ):
+        raise ObservationFailure("GENERATION_EVIDENCE_MISMATCH")
+    if any(
+        not isinstance(getattr(candidate, "content", None), str) for candidate in selected.values()
+    ):
+        return ()
+    return tuple(
+        (alias, selected[aliases[alias]].content)
+        for alias in (f"E{index}" for index in range(1, len(aliases) + 1))
+    )
 
 
 def _validate_public_citation_aliases(
@@ -1318,6 +1352,14 @@ def _observation_projection(
         refusal_correctness = observation.decision == "ANSWER"
     projection: dict[str, object] = {
         "case_id": observation.case_id,
+        "trace_id": observation.trace_id,
+        "generation_evidence": [
+            {"alias": alias, "content": content}
+            for alias, content in observation.generation_evidence
+        ],
+        "generation_evidence_status": (
+            "exact" if observation.generation_evidence else "unavailable"
+        ),
         "status": "observed" if observation.is_success else "failure",
         "retrieval_latency_ms": observation.retrieval_latency_ms,
         "end_to_end_latency_ms": observation.end_to_end_latency_ms,

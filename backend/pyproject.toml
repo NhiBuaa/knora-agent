@@ -30,6 +30,9 @@ dev = [
   "pytest-asyncio>=0.25,<1",
   "ruff==0.17.0",
 ]
+evaluation-deepeval = ["deepeval==4.2.8"]
+evaluation-ragas = ["ragas==0.4.3", "langchain-community==0.3.31"]
+evaluation-langfuse = ["langfuse==4.17.0"]
 
 [project.scripts]
 knora-ingest = "knora.adapters.cli.ingest:main"
@@ -38,6 +41,7 @@ knora-ingest = "knora.adapters.cli.ingest:main"
 packages = ["src/knora"]
 
 [tool.pytest.ini_options]
+addopts = "-p no:deepeval"
 pythonpath = ["src"]
 testpaths = ["backend/test"]
 
