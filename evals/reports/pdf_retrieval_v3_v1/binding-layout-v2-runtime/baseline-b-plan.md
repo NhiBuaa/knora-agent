@@ -1,6 +1,8 @@
 # Baseline B — đề nghị owner duyệt riêng
 
-Ngày 15/10/2026. **Chưa được phép thực hiện.** Approval runtime binding không cấp quyền Q&A, generation hoặc scoring. Phạm vi dưới đây là khuyến nghị để owner chốt theo `$grilling`, không phải quyết định đã duyệt.
+Ngày 15/10/2026. **Q1/Q2 đã được owner duyệt tại `ffcbd42`; lượt B đã dừng lỗi, chưa hoàn thành.** [Owner approval với các điều kiện bổ sung](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6185384722) giới hạn60query/60generation attempts, nhóm tối đa12, không ingestion/retry/judge/export, paid0USD; mọi lỗi/drift phải dừng xin duyệt riêng. Điều kiện này có ưu tiên cao hơn phần resume sau quota reset trong bản đề xuất lịch sử bên dưới. Không được tự resume khi chưa có duyệt riêng.
+
+Lượt live đã dừng câu001 sau1query+1generation vì shared evaluator không tương thích citation preview production. 59câu `not_run`, corpus/gold/binding/config giữ nguyên; xem [partial report và quyết định sửa còn mở](../baseline-b-layout-v2/README.md). Nội dung còn lại giữ dự toán/phạm vi của đề xuất đã được duyệt, không phải quyền vượt qua gate lỗi.
 
 ## 1. Phạm vi và giới hạn requests
 

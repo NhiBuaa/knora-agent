@@ -1,0 +1,8 @@
+{
+  "batch_executed_case_ids": [
+    "pdf-v3-001"
+  ],
+  "query_embedding_attempts": 1,
+  "generation_attempts": 1,
+  "stop_reason": "CASE_FAILED_NO_RETRY"
+}
