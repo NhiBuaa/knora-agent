@@ -47,7 +47,7 @@ class RetrievalConfiguration:
             max_evidence_tokens=3000,
             overlap_policy="adjacent-content-containment-v1",
             strategy="bm25-only",
-            lexical_policy_id="bm25-unicode-multilingual-v1",
+            lexical_policy_id="bm25-unicode-word-v1",
         )
 
     def parity_semantics(self) -> dict[str, object]:
