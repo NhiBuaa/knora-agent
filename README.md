@@ -140,15 +140,6 @@ if (-not (Test-Path .env)) {
 }
 ```
 
-For an existing checkout or a new PowerShell window, first enter your repository directory (replace the example path):
-
-```powershell
-Set-Location "C:\path\to\knora-agent"
-Test-Path .\scripts\start-dev.ps1
-```
-
-`Test-Path` must return `True`. A “not recognized” / `CommandNotFoundException` error means PowerShell could not find the script at the supplied path; check your working directory.
-
 If PowerShell reports that running scripts is disabled, allow local scripts for the current session, then confirm the prompt if shown:
 
 ```powershell
@@ -157,7 +148,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 
 This setting ends when the PowerShell window closes; organizational Group Policy can override it. See [Microsoft's execution-policy documentation](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy).
 
-Follow the [local-development runbook](docs/runbooks/local-development.md#one-time-setup) to set the local MinIO credentials, random session secret and Cloudflare account/token in the ignored `.env`. Keep Docker Desktop running, then launch from that same repository directory:
+Follow the [local-development runbook](docs/runbooks/local-development.md#one-time-setup) to set the local MinIO credentials, random session secret and Cloudflare account/token in the ignored `.env`. Keep Docker Desktop running, then launch from the repository root:
 
 ```powershell
 .\scripts\start-dev.ps1 -PreflightOnly

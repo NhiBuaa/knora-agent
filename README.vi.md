@@ -140,15 +140,6 @@ if (-not (Test-Path .env)) {
 }
 ```
 
-Nếu đã có checkout hoặc vừa mở cửa sổ PowerShell mới, trước tiên vào thư mục repository của bạn (thay đường dẫn ví dụ):
-
-```powershell
-Set-Location "C:\path\to\knora-agent"
-Test-Path .\scripts\start-dev.ps1
-```
-
-`Test-Path` phải trả về `True`. Lỗi “not recognized” / `CommandNotFoundException` nghĩa là PowerShell không tìm thấy script ở đường dẫn đã nhập; hãy kiểm tra thư mục hiện tại.
-
 Nếu PowerShell báo việc chạy scripts bị vô hiệu hóa, cho phép chạy local scripts trong phiên hiện tại, rồi xác nhận nếu có lời nhắc:
 
 ```powershell
@@ -157,7 +148,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 
 Thiết lập này hết hiệu lực khi đóng cửa sổ PowerShell; Group Policy của tổ chức có thể ghi đè. Xem [tài liệu execution policy của Microsoft](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy).
 
-Làm theo [runbook phát triển cục bộ](docs/runbooks/local-development.md#one-time-setup) để đặt MinIO credentials cục bộ, session secret ngẫu nhiên và Cloudflare account/token trong `.env` được Git bỏ qua. Giữ Docker Desktop đang chạy, sau đó khởi động từ cùng thư mục repository đó:
+Làm theo [runbook phát triển cục bộ](docs/runbooks/local-development.md#one-time-setup) để đặt MinIO credentials cục bộ, session secret ngẫu nhiên và Cloudflare account/token trong `.env` được Git bỏ qua. Giữ Docker Desktop đang chạy, sau đó khởi động từ root repository:
 
 ```powershell
 .\scripts\start-dev.ps1 -PreflightOnly
