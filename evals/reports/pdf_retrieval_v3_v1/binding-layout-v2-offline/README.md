@@ -10,6 +10,10 @@ record hoặc quyền chạy Baseline B/model/scoring. Các bảng `proposed`/`a
 giữ kết quả của proposer trước review; khuyến nghị trong packet đã được owner chấp thuận
 ở phạm vi nội dung offline này.
 
+[Runtime preparation / reuse inspection / ingestion inventory](runtime-preparation.md):
+đã kiểm tra read-only tài nguyên #153; chờ owner duyệt ingestion embedding-only.
+Actual runtime proposal SHA chưa có; corpus/gold và snapshot này giữ nguyên.
+
 ## Phạm vi và danh tính
 
 - Giữ nguyên 16 PDF / 60 câu / 86 anchors đã freeze. Không gọi model, không dùng database/runtime/Docker/ports; chi phí trả phí 0 USD.
