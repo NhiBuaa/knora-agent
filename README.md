@@ -28,7 +28,7 @@
 
 ![Knora answering a question about watering seedlings, with the page-one source excerpt open in the Evidence Inspector](docs/assets/readme/cited-answer.jpg)
 
-_An answer with its citation selected. The answer's “before 9 AM” statement matches the sample source. [Open the full-size screenshot](docs/assets/readme/cited-answer.jpg)._
+_An answer with its citation selected. The answer's “before 9 AM” statement matches the sample source._
 
 1. **Upload a text-based PDF** to your private Workspace and wait for processing to finish.
 2. **Ask a question** in a Conversation.

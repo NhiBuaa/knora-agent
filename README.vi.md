@@ -28,7 +28,7 @@
 
 ![Knora trả lời câu hỏi về tưới cây con, với đoạn nguồn trang một mở trong Evidence Inspector](docs/assets/readme/cited-answer.jpg)
 
-_Câu trả lời với trích dẫn đang được chọn. Nội dung “before 9 AM” trong câu trả lời khớp với tài liệu mẫu. [Mở screenshot ở kích thước gốc](docs/assets/readme/cited-answer.jpg)._
+_Câu trả lời với trích dẫn đang được chọn. Nội dung “before 9 AM” trong câu trả lời khớp với tài liệu mẫu._
 
 1. **Upload PDF có văn bản** vào Workspace riêng tư và chờ xử lý hoàn tất.
 2. **Đặt câu hỏi** trong một Conversation.
