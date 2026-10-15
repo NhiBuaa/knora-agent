@@ -140,6 +140,14 @@ if (-not (Test-Path .env)) {
 }
 ```
 
+Nếu PowerShell báo việc chạy scripts bị vô hiệu hóa, cho phép chạy local scripts trong phiên hiện tại, rồi xác nhận nếu có lời nhắc:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+```
+
+Thiết lập này hết hiệu lực khi đóng cửa sổ PowerShell; Group Policy của tổ chức có thể ghi đè. Xem [tài liệu execution policy của Microsoft](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/set-executionpolicy).
+
 Làm theo [runbook phát triển cục bộ](docs/runbooks/local-development.md#one-time-setup) để đặt MinIO credentials cục bộ, session secret ngẫu nhiên và Cloudflare account/token trong `.env` được Git bỏ qua. Giữ Docker Desktop đang chạy, sau đó khởi động từ root repository:
 
 ```powershell
