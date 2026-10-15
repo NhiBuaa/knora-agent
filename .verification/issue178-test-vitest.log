@@ -1,0 +1,30 @@
+
+> test
+> vitest run --run
+
+
+ RUN  v4.1.11 C:/Developer/Projects/knora-agent/frontend
+
+ ❯ tests/workspace-page-rendering.test.ts (1 test | 1 skipped) 90009ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/workspace-page-rendering.test.ts [ tests/workspace-page-rendering.test.ts ]
+Error: Hook timed out in 90000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ tests/workspace-page-rendering.test.ts:65:1
+     63| }
+     64|
+     65| beforeAll(async () => {
+       | ^
+     66|   previousSessionSecret = process.env.SESSION_SECRET;
+     67|   process.env.SESSION_SECRET = sessionSecret;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 51 passed (52)
+      Tests  468 passed | 1 skipped (469)
+   Start at  11:42:47
+   Duration  95.13s (transform 50.53s, setup 36.78s, import 155.73s, tests 207.86s, environment 242.98s)
+

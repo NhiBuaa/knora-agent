@@ -1,0 +1,13 @@
+
+> test
+> vitest run
+
+
+ RUN  v4.1.11 C:/Developer/Projects/knora-agent/frontend
+
+
+ Test Files  51 passed (51)
+      Tests  457 passed (457)
+   Start at  19:07:33
+   Duration  87.40s (transform 12.30s, setup 13.53s, import 43.28s, tests 126.06s, environment 143.88s)
+

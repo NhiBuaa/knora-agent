@@ -1,0 +1,99 @@
+[WebServer] (node:46700) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 12 tests using 1 worker
+
+(node:69068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:43824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  x   1 [fixtures] › tests\e2e\conversation-scroll.spec.ts:93:9 › Conversation opening scroll 1440 › positions only after a delayed history response has rendered (20.1s)
+(node:84328) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:87908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:32524) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  2 [fixtures] › tests\e2e\conversation-scroll.spec.ts:122:9 › Conversation opening scroll 1440 › opens at the true latest message and keeps reading position during older pagination (11.7s)
+[WebServer] (node:52716) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:92808) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:47988) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  3 [fixtures] › tests\e2e\conversation-scroll.spec.ts:199:9 › Conversation opening scroll 1440 › waits for slow history and ignores a previous Conversation response when switching (5.3s)
+[WebServer] (node:6556) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:82664) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  4 [fixtures] › tests\e2e\conversation-scroll.spec.ts:258:9 › Conversation opening scroll 1440 › polling a pending answer does not pull a reader back down (3.7s)
+[WebServer] (node:61068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58432) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  5 [fixtures] › tests\e2e\conversation-scroll.spec.ts:311:9 › Conversation opening scroll 1440 › a successful empty history does not arm a scroll for a later submission (3.1s)
+[WebServer] (node:25360) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:10328) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  6 [fixtures] › tests\e2e\conversation-scroll.spec.ts:349:9 › Conversation opening scroll 1440 › user scrolling while fonts settle cancels the pending opening scroll (4.7s)
+[WebServer] (node:70932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:85068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  7 [fixtures] › tests\e2e\conversation-scroll.spec.ts:93:9 › Conversation opening scroll 390 › positions only after a delayed history response has rendered (2.9s)
+[WebServer] (node:12364) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:83656) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  8 [fixtures] › tests\e2e\conversation-scroll.spec.ts:122:9 › Conversation opening scroll 390 › opens at the true latest message and keeps reading position during older pagination (3.9s)
+[WebServer] (node:85816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:67752) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:54036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok  9 [fixtures] › tests\e2e\conversation-scroll.spec.ts:199:9 › Conversation opening scroll 390 › waits for slow history and ignores a previous Conversation response when switching (3.8s)
+[WebServer] (node:80060) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok 10 [fixtures] › tests\e2e\conversation-scroll.spec.ts:258:9 › Conversation opening scroll 390 › polling a pending answer does not pull a reader back down (3.5s)
+[WebServer] (node:73000) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:29512) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok 11 [fixtures] › tests\e2e\conversation-scroll.spec.ts:311:9 › Conversation opening scroll 390 › a successful empty history does not arm a scroll for a later submission (2.4s)
+[WebServer] (node:5792) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:89748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ok 12 [fixtures] › tests\e2e\conversation-scroll.spec.ts:349:9 › Conversation opening scroll 390 › user scrolling while fonts settle cancels the pending opening scroll (3.1s)
+
+
+  1) [fixtures] › tests\e2e\conversation-scroll.spec.ts:93:9 › Conversation opening scroll 1440 › positions only after a delayed history response has rendered 
+
+    Test timeout of 20000ms exceeded.
+
+    Error: page.goto: net::ERR_ABORTED; maybe frame was detached?
+    Call log:
+      - navigating to "http://127.0.0.1:3300/workspaces/fixture-workspace/conversations/fixture-conversation?state=128%3A107", waiting until "load"
+
+
+       at support\figma-state-fixtures.ts:513
+
+      511 |   const narrowCreation =
+      512 |     state === "148:116" && (page.viewportSize()?.width ?? 1440) < 960;
+    > 513 |   await page.goto(
+          |              ^
+      514 |     `${narrowCreation ? "/workspaces" : statePath(state)}?state=${encodeURIComponent(state)}`,
+      515 |   );
+      516 |   await page.evaluate(() => window.document.fonts.ready);
+        at prepareFixture (C:\Developer\Projects\knora-agent\frontend\tests\e2e\support\figma-state-fixtures.ts:513:14)
+        at C:\Developer\Projects\knora-agent\frontend\tests\e2e\conversation-scroll.spec.ts:96:26
+
+    Error Context: test-results\figma-ui\conversation-scroll-Conver-73985-story-response-has-rendered-fixtures\error-context.md
+
+  1 failed
+    [fixtures] › tests\e2e\conversation-scroll.spec.ts:93:9 › Conversation opening scroll 1440 › positions only after a delayed history response has rendered 
+  11 passed (1.7m)
