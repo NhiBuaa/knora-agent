@@ -1,5 +1,9 @@
 # Issue #183: general answer lists
 
+> Historical verification record. The sole forward plan is the
+> [Master Implementation Plan](../superpowers/plans/2026-10-16-issue-183-master-plan.md).
+> Its phase permissions supersede future-work proposals below; preserve these dated results.
+
 Date: 2026-10-14 (Asia/Ho_Chi_Minh).
 
 Branch: `fix/issue-183-answer-lists`, based on main

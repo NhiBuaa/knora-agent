@@ -1,5 +1,9 @@
 # Issue #183: structured-output runtime checkpoint
 
+> Historical runtime checkpoint. The sole forward plan and current Q20 audit are in the
+> [Master Implementation Plan](../superpowers/plans/2026-10-16-issue-183-master-plan.md).
+> Preparation/next-step statements below are dated history, not a live request grant.
+
 Updated: 2026-10-15. PR #184 remains Draft; Issue remains open and Project In Progress.
 
 ## Approved behavior
