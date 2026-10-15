@@ -2,7 +2,9 @@
 
 import argparse
 import asyncio
+import hashlib
 import json
+import re
 from pathlib import Path
 from time import perf_counter
 
@@ -307,6 +309,124 @@ def load_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 
+def revalidation_evaluator_sha256():
+    """Bind review to the current checker, PDF executor and production preview policy."""
+    root = Path(__file__).resolve().parents[2]
+    paths = (
+        "evals/runners/milestone_3.py",
+        "evals/runners/pdf_retrieval_v3.py",
+        "backend/src/knora/answering/excerpt.py",
+    )
+    return digest(
+        {
+            path: hashlib.sha256((root / path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+            for path in paths
+        }
+    )
+
+
+def load_revalidation_selection(output, record_path, *, proposal_sha256, derivation_sha256):
+    """Select one owner-reviewed replay of an immutable failed capture, never a new attempt."""
+    record = load_json(record_path)
+    if (
+        not isinstance(record, dict)
+        or record.get("schema_version") != 1
+        or record.get("status") != "approved"
+        or record.get("reviewer") != "NhiBuaa"
+        or record.get("decision_url")
+        != "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6186149890"
+        or not proposal_sha256
+        or record.get("proposal_sha256") != proposal_sha256
+        or record.get("evaluator_sha256") != revalidation_evaluator_sha256()
+    ):
+        raise ValueError("revalidation owner/code/proposal review mismatch")
+    identity = record.get("identity")
+    keys = {
+        "run_id",
+        "case_id",
+        "attempt_id",
+        "attempt",
+        "workspace_id",
+        "conversation_id",
+        "turn_id",
+        "trace_id",
+        "response_sha256",
+        "corpus_sha256",
+        "dataset_sha256",
+        "derivation_sha256",
+    }
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != keys
+        or any(not isinstance(identity[k], str) or not identity[k] for k in keys - {"attempt"})
+        or type(identity["attempt"]) is not int
+        or identity["attempt"] < 1
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", identity["case_id"])
+        or not derivation_sha256
+        or identity["derivation_sha256"] != derivation_sha256
+        or identity["attempt_id"]
+        != f"{identity['run_id']}:{identity['case_id']}:{identity['attempt']}"
+    ):
+        raise ValueError("revalidation identity mismatch")
+    output = Path(output)
+    path = output / f"case-{identity['case_id']}-attempt-{identity['attempt']}.json"
+    if not path.is_file() or path.resolve().parent != output.resolve():
+        raise ValueError("revalidation original capture missing or unsafe")
+    raw = path.read_bytes()
+    original = json.loads(raw.decode("utf-8-sig"))
+    observation = record.get("observation")
+    if (
+        hashlib.sha256(raw).hexdigest() != record.get("original_capture_sha256")
+        or not isinstance(original, dict)
+        or any(original.get(k) != v for k, v in identity.items())
+        or original.get("failure_code") != "CASE_FAILED_NO_RETRY"
+        or original.get("observation_failure_code") != "CITATION_STRUCTURAL_ERROR"
+        or not isinstance(original.get("public_response"), dict)
+        or "end_to_end_latency_ms" not in original
+        or digest(original.get("public_response")) != identity["response_sha256"]
+        or not isinstance(observation, dict)
+        or digest(observation) != record.get("observation_sha256")
+    ):
+        raise ValueError("revalidation capture/observation digest or identity mismatch")
+    mutable = {
+        "failure_code",
+        "decision",
+        "selected_chunk_ids",
+        "candidates",
+        "provider_metadata",
+        "retrieval_latency_ms",
+        "revalidation",
+    }
+    required = {
+        "failure_code",
+        "decision",
+        "selected_chunk_ids",
+        "candidates",
+        "provider_metadata",
+        "retrieval_latency_ms",
+    }
+    if (
+        not required <= observation.keys()
+        or observation["failure_code"] is not None
+        or observation["decision"] != original["public_response"].get("decision")
+        or any(
+            key not in mutable and (key not in observation or observation[key] != original[key])
+            for key in original
+        )
+        or set(observation) - set(original) - mutable
+        or (
+            "retrieval_latency_ms" in original
+            and observation["retrieval_latency_ms"] != original["retrieval_latency_ms"]
+        )
+        or any(
+            int(p.stem.rsplit("-", 1)[1]) > identity["attempt"]
+            for p in output.glob(f"case-{identity['case_id']}-attempt-*.json")
+        )
+    ):
+        raise ValueError("revalidation changed stable capture data or selected a stale attempt")
+    return {identity["case_id"]: observation}
+
+
 def validate_artifact_identity(row, dataset, run_id, workspace_id, *, derivation_sha256=None):
     expected = {
         "run_id": run_id,
@@ -331,9 +451,39 @@ def validate_counter_identity(counters, dataset, run_id):
 
 
 async def collect_cases(
-    dataset, executor, output: Path, *, derivation_sha256=None, resume_quota=False
+    dataset,
+    executor,
+    output: Path,
+    *,
+    derivation_sha256=None,
+    resume_quota=False,
+    revalidation_record=None,
+    proposal_sha256=None,
 ):
     """Resume captured cases without re-answering them for tools or framework metrics."""
+    selections = (
+        load_revalidation_selection(
+            output,
+            revalidation_record,
+            proposal_sha256=proposal_sha256,
+            derivation_sha256=derivation_sha256,
+        )
+        if revalidation_record is not None
+        else {}
+    )
+    for case_id, selected in selections.items():
+        if case_id not in {case.id for case in dataset.cases}:
+            raise ValueError("revalidation case is not in dataset")
+        try:
+            validate_artifact_identity(
+                selected,
+                dataset,
+                executor.run_id,
+                executor.workspace_id,
+                derivation_sha256=derivation_sha256,
+            )
+        except ValueError as error:
+            raise ValueError("revalidation dataset/run identity mismatch") from error
     child_parents = {case.parent_case_id for case in dataset.cases if case.parent_case_id}
     conversations = {}
     rows = []
@@ -345,6 +495,8 @@ async def collect_cases(
         )
         path = previous[-1] if previous else output / f"case-{case.id}-attempt-1.json"
         row = load_json(path) if previous else None
+        if case.id in selections:
+            row = selections[case.id]
         retry = bool(
             row
             and resume_quota
@@ -419,14 +571,26 @@ async def collect_cases(
     return rows
 
 
-def selected_observations(output):
+def selected_observations(
+    output, *, revalidation_record=None, proposal_sha256=None, derivation_sha256=None
+):
+    selections = (
+        load_revalidation_selection(
+            output,
+            revalidation_record,
+            proposal_sha256=proposal_sha256,
+            derivation_sha256=derivation_sha256,
+        )
+        if revalidation_record is not None
+        else {}
+    )
     rows = {}
     for path in output.glob("case-*.json"):
         row = load_json(path)
         previous = rows.get(row["case_id"])
         if previous is None or row["attempt"] > previous["attempt"]:
             rows[row["case_id"]] = row
-    return list(rows.values())
+    return list((rows | selections).values())
 
 
 def main():
