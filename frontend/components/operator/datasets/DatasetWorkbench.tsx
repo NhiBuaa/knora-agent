@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { RagasProposals } from "@/components/operator/datasets/RagasProposals";
 
 type Dataset = {
   id: string;
@@ -19,6 +20,7 @@ type Dataset = {
     note: string;
   }[];
   reference?: Record<string, unknown> | null;
+  proposal_batches?: Record<string, unknown>[];
 };
 
 type CaseRecord = {
@@ -680,6 +682,17 @@ function DatasetWorkspace({
               </li>
             ))}
           </ul>
+          {dataset.proposal_batches !== undefined && (
+            <RagasProposals
+              workspaceId={workspaceId}
+              datasetId={dataset.id}
+              revision={dataset.revision ?? 0}
+              status={dataset.status}
+              sources={dataset.sources}
+              canWrite={canWrite}
+              onChanged={() => loadDataset(dataset.id)}
+            />
+          )}
           {canWrite && dataset.status !== "FROZEN" && (
             <section
               aria-label="Case editor"

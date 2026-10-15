@@ -46,6 +46,7 @@ def _dataset(row: DatasetDraftTable) -> Dataset:
         tuple(Case.from_dict(case) for case in (row.cases or [])),
         reviews,
         DatasetReference.from_dict(row.reference) if row.reference else None,
+        tuple(row.proposal_batches or []),
     )
 
 
@@ -69,6 +70,55 @@ def _source(row: DatasetSourceTable) -> DatasetSource:
 class PostgresDatasetStore:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
+
+    def reserve_proposal_batch(self, workspace_id, dataset_id, batch, expected_revision):
+        with self._session_factory.begin() as session:
+            row = session.scalar(
+                select(DatasetDraftTable)
+                .where(
+                    DatasetDraftTable.id == dataset_id,
+                    DatasetDraftTable.workspace_id == workspace_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("DATASET_NOT_FOUND")
+            for previous in row.proposal_batches or []:
+                if previous["request_id"] == batch["request_id"]:
+                    if previous["request_digest"] != batch["request_digest"]:
+                        raise KnoraError("EVALUATION_PROPOSAL_REQUEST_CONFLICT")
+                    return previous, False
+            if row.status == "FROZEN":
+                raise KnoraError("EVALUATION_DATASET_FROZEN")
+            if row.revision != expected_revision:
+                raise KnoraError("EVALUATION_DATASET_REVISION_CONFLICT")
+            row.proposal_batches = [*(row.proposal_batches or []), batch]
+            row.revision += 1
+            session.flush()
+            return batch, True
+
+    def finish_proposal_batch(self, workspace_id, dataset_id, batch):
+        with self._session_factory.begin() as session:
+            row = session.scalar(
+                select(DatasetDraftTable)
+                .where(
+                    DatasetDraftTable.id == dataset_id,
+                    DatasetDraftTable.workspace_id == workspace_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("DATASET_NOT_FOUND")
+            previous = next((b for b in row.proposal_batches or [] if b["id"] == batch["id"]), None)
+            if previous is None or previous["request_digest"] != batch["request_digest"]:
+                raise KnoraError("EVALUATION_PROPOSAL_REQUEST_CONFLICT")
+            if previous["status"] != "INDETERMINATE":
+                return previous
+            row.proposal_batches = [
+                batch if b["id"] == batch["id"] else b for b in row.proposal_batches
+            ]
+            session.flush()
+            return batch
 
     def create_dataset(self, workspace_id: str, name: str) -> Dataset:
         with self._session_factory.begin() as session:

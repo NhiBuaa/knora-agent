@@ -7,7 +7,8 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import BinaryIO, Literal, Protocol
+from typing import TYPE_CHECKING, BinaryIO, Literal, Protocol
+from uuid import uuid4
 
 from knora.access.identity import Identity
 from knora.domain.access import WorkspacePrincipal
@@ -33,6 +34,9 @@ from knora.ingestion.pdf import (
     PdfTextExtractor,
 )
 
+if TYPE_CHECKING:
+    from knora.evaluation.proposals import ProposalProfile
+
 
 @dataclass(frozen=True, slots=True)
 class CaseReview:
@@ -55,6 +59,7 @@ class Dataset:
     cases: tuple[Case, ...] = ()
     reviews: tuple[CaseReview, ...] = ()
     reference: DatasetReference | None = None
+    proposal_batches: tuple[dict, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +152,12 @@ class DatasetStore(Protocol):
         self, workspace_id: str, dataset_id: str, expected_revision: int
     ) -> Dataset: ...
 
+    def reserve_proposal_batch(
+        self, workspace_id: str, dataset_id: str, batch: dict, expected_revision: int
+    ) -> tuple[dict, bool]: ...
+
+    def finish_proposal_batch(self, workspace_id: str, dataset_id: str, batch: dict) -> dict: ...
+
 
 class DatasetService:
     def __init__(
@@ -155,11 +166,223 @@ class DatasetService:
         object_store: ObjectStore,
         extractor: PdfTextExtractor,
         configuration: PdfExtractionConfiguration,
+        proposal_profiles: dict[str, ProposalProfile] | None = None,
     ) -> None:
         self._store = store
         self._object_store = object_store
         self._extractor = extractor
         self._configuration = configuration
+        self._proposal_profiles = proposal_profiles or {}
+
+    def proposal_profiles(self, workspace_id: str, principal: WorkspacePrincipal) -> list[dict]:
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read_source")
+        return [
+            {
+                "profile_id": p.profile_id,
+                "kind": p.kind,
+                "model": p.model,
+                "prompt_version": p.prompt_version,
+            }
+            for p in self._proposal_profiles.values()
+        ]
+
+    def _proposal_input(self, workspace_id, dataset_id, source_ids, principal):
+        from knora.evaluation.proposals import export_pdf_pages
+
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read_source")
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        if not source_ids or len(source_ids) != len(set(source_ids)):
+            raise KnoraError("EVALUATION_PROPOSAL_NOT_READY")
+        pairs = []
+        for source_id in source_ids:
+            source = self.get_source(workspace_id, dataset_id, source_id, principal)
+            snapshot = self.get_snapshot(workspace_id, dataset_id, source_id, principal)
+            if snapshot is None:
+                raise KnoraError("EVALUATION_PROPOSAL_NOT_READY")
+            self.read_original(workspace_id, dataset_id, source_id, principal)
+            pairs.append((source, snapshot))
+        try:
+            chunks, identity = export_pdf_pages(dataset, tuple(pairs))
+        except ValueError as error:
+            raise KnoraError("EVALUATION_PROPOSAL_NOT_READY") from error
+        return dataset, chunks, identity
+
+    def proposal_preflight(
+        self, workspace_id, dataset_id, source_ids, profile_id, language, count, principal
+    ):
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="write")
+        dataset, chunks, identity = self._proposal_input(
+            workspace_id, dataset_id, source_ids, principal
+        )
+        reasons = []
+        profile = self._proposal_profiles.get(profile_id)
+        if dataset.status != "DRAFT":
+            reasons.append("EVALUATION_DATASET_FROZEN")
+        if language not in ("vi", "en") or type(count) is not int or not 1 <= count <= 12:
+            reasons.append("EVALUATION_PROPOSAL_INPUT_INVALID")
+        if profile is None:
+            reasons.append("EVALUATION_PROPOSAL_PROFILE_NOT_CONFIGURED")
+        elif profile.kind != "offline":
+            reasons.append("LIVE_APPROVAL_REQUIRED")
+        payload = {
+            "source": identity,
+            "profile_id": profile_id,
+            "language": language,
+            "count": count,
+            "model": profile.model if profile else None,
+            "prompt_version": profile.prompt_version if profile else None,
+        }
+        return {
+            "status": "BLOCKED" if reasons else "READY",
+            "reasons": reasons,
+            "expected_revision": dataset.revision,
+            "input_digest": digest_json(payload),
+            "input": payload,
+            "page_count": len(chunks),
+            "supported": ["ANSWER/multi-hop"],
+            "unsupported": ["single-hop", "comparison", "tables", "follow-up", "no-answer"],
+            "review_required": True,
+        }
+
+    async def generate_proposals(
+        self,
+        workspace_id,
+        dataset_id,
+        source_ids,
+        profile_id,
+        language,
+        count,
+        expected_revision,
+        input_digest,
+        request_id,
+        principal,
+    ):
+        from knora.evaluation.proposals import map_review_packet
+
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="write")
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read_source")
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        request_digest = digest_json(
+            {
+                "source_ids": source_ids,
+                "profile_id": profile_id,
+                "language": language,
+                "count": count,
+                "expected_revision": expected_revision,
+                "input_digest": input_digest,
+            }
+        )
+        for previous in dataset.proposal_batches:
+            if previous["request_id"] == request_id:
+                if previous["request_digest"] != request_digest:
+                    raise KnoraError("EVALUATION_PROPOSAL_REQUEST_CONFLICT")
+                return previous
+        self._editable(dataset, expected_revision)
+        preflight = self.proposal_preflight(
+            workspace_id, dataset_id, source_ids, profile_id, language, count, principal
+        )
+        if preflight["status"] != "READY" or preflight["input_digest"] != input_digest:
+            raise KnoraError("EVALUATION_PROPOSAL_NOT_READY")
+        _, chunks, identity = self._proposal_input(workspace_id, dataset_id, source_ids, principal)
+        if identity != preflight["input"]["source"]:
+            raise KnoraError("EVALUATION_PROPOSAL_NOT_READY")
+        batch = {
+            "id": str(uuid4()),
+            "request_id": request_id,
+            "request_digest": request_digest,
+            "status": "INDETERMINATE",
+            "input": preflight["input"],
+            "input_digest": input_digest,
+            "created_at": datetime.now(UTC).isoformat(),
+            "result": None,
+        }
+        batch, reserved = self._store.reserve_proposal_batch(
+            workspace_id, dataset_id, batch, expected_revision
+        )
+        if not reserved:
+            return batch
+        profile = self._proposal_profiles[profile_id]
+        try:
+            packet = await profile.generate(chunks, identity, language, count)
+            if not isinstance(packet, dict) or len(packet.get("drafts", [])) > count:
+                raise ValueError("DRAFT_LIMIT")
+            generator = packet.get("generator", {})
+            if (
+                generator.get("model", generator.get("declared_model")) != profile.model
+                or generator.get("prompt_version", generator.get("declared_prompt_version"))
+                != profile.prompt_version
+                or any(
+                    d.get("language") != language
+                    for d in packet.get("drafts", [])
+                    if isinstance(d, dict)
+                )
+            ):
+                raise ValueError("GENERATOR_PROVENANCE_MISMATCH")
+            result = map_review_packet(
+                packet,
+                chunks,
+                identity,
+                batch_id=batch["id"],
+                existing_questions=tuple(c.question for c in dataset.cases),
+            )
+            batch = {**batch, "status": "COMPLETED", "result": result}
+        except Exception:
+            # A provider may have consumed the request; an uncertain batch is never replayed.
+            batch = {**batch, "reason": "GENERATION_UNAVAILABLE_OR_INVALID"}
+        return self._store.finish_proposal_batch(workspace_id, dataset_id, batch)
+
+    def import_proposal(
+        self,
+        workspace_id,
+        dataset_id,
+        batch_id,
+        draft_id,
+        expected_revision,
+        principal,
+        *,
+        question=None,
+        reference_answer=None,
+    ):
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="write")
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read_source")
+        dataset = self.get_dataset(workspace_id, dataset_id, principal)
+        self._editable(dataset, expected_revision)
+        batch = next((b for b in dataset.proposal_batches if b["id"] == batch_id), None)
+        proposal = (
+            next(
+                (
+                    d
+                    for d in (batch or {}).get("result", {}).get("drafts", [])
+                    if d["draft_id"] == draft_id
+                ),
+                None,
+            )
+            if batch and batch.get("result")
+            else None
+        )
+        if proposal is None or proposal["status"] != "READY_FOR_REVIEW":
+            raise KnoraError("EVALUATION_PROPOSAL_NOT_READY")
+        case = Case.from_dict(proposal["case"])
+        if question is not None or reference_answer is not None:
+            from dataclasses import replace
+
+            try:
+                case = replace(
+                    case,
+                    question=question if question is not None else case.question,
+                    reference_answer=reference_answer
+                    if reference_answer is not None
+                    else case.reference_answer,
+                )
+            except ValueError as error:
+                raise KnoraError("EVALUATION_CASE_INVALID") from error
+        if any(
+            c.case_id == case.case_id
+            or " ".join(c.question.split()).casefold() == " ".join(case.question.split()).casefold()
+            for c in dataset.cases
+        ):
+            raise KnoraError("EVALUATION_PROPOSAL_REQUEST_CONFLICT")
+        return self.save_case(workspace_id, dataset_id, case, expected_revision, principal)
 
     def create_dataset(
         self, workspace_id: str, name: str, principal: WorkspacePrincipal

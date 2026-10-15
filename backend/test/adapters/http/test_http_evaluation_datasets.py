@@ -12,6 +12,52 @@ from knora.evaluation.datasets import Dataset
 
 
 class RecordingService:
+    def proposal_profiles(self, workspace_id, principal):
+        return []
+
+    def proposal_preflight(
+        self, workspace_id, dataset_id, source_ids, profile_id, language, count, principal
+    ):
+        assert (workspace_id, dataset_id, source_ids, profile_id, language, count) == (
+            "w1",
+            "d1",
+            ("s1",),
+            "fixture",
+            "vi",
+            2,
+        )
+        return {"status": "BLOCKED", "reasons": ["LIVE_APPROVAL_REQUIRED"]}
+
+    async def generate_proposals(
+        self,
+        workspace_id,
+        dataset_id,
+        source_ids,
+        profile_id,
+        language,
+        count,
+        expected_revision,
+        input_digest,
+        request_id,
+        principal,
+    ):
+        assert (
+            source_ids,
+            profile_id,
+            language,
+            count,
+            expected_revision,
+            input_digest,
+            request_id,
+        ) == (("s1",), "fixture", "vi", 2, 1, "a" * 64, "request")
+        return {"id": "batch", "status": "INDETERMINATE"}
+
+    def import_proposal(
+        self, workspace_id, dataset_id, batch_id, draft_id, expected_revision, principal, **edits
+    ):
+        assert (batch_id, draft_id, expected_revision) == ("batch", "draft-01", 2)
+        return Dataset("d1", "w1", "Review", "DRAFT", 3)
+
     def create_dataset(self, workspace_id, name, principal):
         assert (workspace_id, name, principal.workspace_id) == ("w1", "Review", "w1")
         return Dataset("d1", "w1", "Review", "DRAFT")
@@ -143,6 +189,36 @@ def test_route_create_and_read_draft():
     detail = client.get("/v1/workspaces/w1/evaluation/datasets/d1")
     assert detail.status_code == 200
     assert detail.json()["sources"] == []
+
+
+def test_proposal_routes_pin_selection_and_reject_browser_provider_configuration():
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_operator_read] = lambda: WorkspacePrincipal(
+        "w1", "owner", ("operator:read", "documents:read", "evaluations:write")
+    )
+    app.dependency_overrides[get_dataset_service] = RecordingService
+    client = TestClient(app)
+    base = "/v1/workspaces/w1/evaluation/datasets/d1/proposals"
+    assert client.get(base).json() == {"profiles": [], "batches": []}
+    payload = {"source_ids": ["s1"], "profile_id": "fixture", "language": "vi", "count": 2}
+    response = client.post(base + "/preflight", json=payload)
+    assert response.json()["status"] == "BLOCKED"
+    assert "no-store" in response.headers["cache-control"]
+    for invalid in (
+        {"endpoint": "https://example.com"},
+        {"local_path": "C:/private.pdf"},
+        {"count": 13},
+        {"language": "fr"},
+    ):
+        assert client.post(base + "/preflight", json={**payload, **invalid}).status_code == 422
+    generated = client.post(
+        base,
+        json={**payload, "expected_revision": 1, "input_digest": "a" * 64, "request_id": "request"},
+    )
+    assert generated.json()["status"] == "INDETERMINATE"
+    imported = client.post(base + "/batch/drafts/draft-01/import", json={"expected_revision": 2})
+    assert imported.json()["revision"] == 3
 
 
 def test_route_case_edit_review_and_freeze_use_canonical_payloads():
