@@ -24,6 +24,9 @@ class EvaluationRunTable(Base):
     quality_status: Mapped[str] = mapped_column(String(32), nullable=False)
     observations: Mapped[dict] = mapped_column(JSON, nullable=False)
     report: Mapped[dict | None] = mapped_column(JSON)
+    scoring_batches: Mapped[list] = mapped_column(
+        JSON, nullable=False, default=list, server_default="[]"
+    )
     attempt_id: Mapped[str | None] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

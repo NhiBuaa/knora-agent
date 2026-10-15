@@ -1,5 +1,6 @@
 import React from "react";
 import { RunsView } from "@/components/operator/runs/RunsView";
+import { getSession } from "@/lib/auth/session";
 
 export default async function RunPage({
   params,
@@ -12,5 +13,12 @@ export default async function RunPage({
     params,
     searchParams ?? Promise.resolve({} as { workspaceId?: string }),
   ]);
-  return <RunsView workspaceId={workspaceId} runId={runId} />;
+  const session = await getSession();
+  return (
+    <RunsView
+      workspaceId={workspaceId}
+      runId={runId}
+      capabilities={session?.capabilities ?? []}
+    />
+  );
 }

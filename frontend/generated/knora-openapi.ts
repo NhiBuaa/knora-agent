@@ -43,6 +43,8 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}"
   | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/cases/{case_id}"
   | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/report"
+  | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/scoring"
+  | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/scoring/preflight"
   | "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}"
   | "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}"
   | "/v1/workspaces/{workspace_id}/operator/operations"
@@ -400,6 +402,14 @@ export type SaveCaseRequest = {
   case: Record<string, unknown>;
   expected_revision: number;
 };
+export type ScoreSavedRunRequest = {
+  preflight_id: string;
+  request_id: string;
+};
+export type ScoringPreflightRequest = {
+  case_ids: Array<string>;
+  profile_id: string;
+};
 export type SourceResponse = {
   byte_size: number;
   dataset_id: string;
@@ -545,6 +555,8 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}": RunResponse;
   "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/cases/{case_id}": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/report": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/scoring": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/scoring/preflight": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}": IngestionJobStatusResponse;
   "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}": OperatorEvaluationResponse;
   "/v1/workspaces/{workspace_id}/operator/operations": OperatorOperationsResponse;

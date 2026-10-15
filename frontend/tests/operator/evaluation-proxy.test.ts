@@ -17,6 +17,11 @@ import {
 } from "@/app/api/operator/evaluation/datasets/[datasetId]/proposals/route";
 import { POST as preflightProposals } from "@/app/api/operator/evaluation/datasets/[datasetId]/proposals/preflight/route";
 import { POST as importProposal } from "@/app/api/operator/evaluation/datasets/[datasetId]/proposals/[batchId]/drafts/[draftId]/import/route";
+import {
+  GET as getScoring,
+  POST as scoreSaved,
+} from "@/app/api/operator/evaluation/runs/[runId]/scoring/route";
+import { POST as preflightScoring } from "@/app/api/operator/evaluation/runs/[runId]/scoring/preflight/route";
 
 const target = (workspace: string) =>
   `/v1/workspaces/${workspace}/evaluation/runs`;
@@ -56,6 +61,41 @@ describe("Evaluation BFF admission and transport", () => {
   afterEach(() => {
     vi.resetAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("reads scoring privately and permits scorer launch without Q&A permission", async () => {
+    const params = Promise.resolve({ runId: "run/1" });
+    vi.mocked(getSession).mockResolvedValue({
+      ...session,
+      capabilities: ["operator:read"],
+    });
+    expect((await getScoring(request("GET"), { params })).status).toBe(200);
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      "http://127.0.0.1:8000/v1/workspaces/workspace-a/evaluation/runs/run%2F1/scoring",
+    );
+    vi.mocked(fetch).mockClear();
+    expect((await scoreSaved(request(), { params })).status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+    vi.mocked(getSession).mockResolvedValue({
+      ...session,
+      capabilities: ["operator:read", "evaluations:run"],
+    });
+    expect(
+      (
+        await preflightScoring(request("POST", "https://evil.example"), {
+          params,
+        })
+      ).status,
+    ).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await preflightScoring(request(), { params })).status).toBe(200);
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      "http://127.0.0.1:8000/v1/workspaces/workspace-a/evaluation/runs/run%2F1/scoring/preflight",
+    );
+    expect((await scoreSaved(request(), { params })).status).toBe(200);
+    expect(vi.mocked(fetch).mock.calls[1][0]).toBe(
+      "http://127.0.0.1:8000/v1/workspaces/workspace-a/evaluation/runs/run%2F1/scoring",
+    );
   });
 
   it("rejects cross-origin mutations before session lookup or backend effects", async () => {

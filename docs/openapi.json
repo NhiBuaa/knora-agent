@@ -2260,6 +2260,50 @@
         "title": "SaveCaseRequest",
         "type": "object"
       },
+      "ScoreSavedRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "preflight_id": {
+            "title": "Preflight Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preflight_id",
+          "request_id"
+        ],
+        "title": "ScoreSavedRunRequest",
+        "type": "object"
+      },
+      "ScoringPreflightRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "case_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Case Ids",
+            "type": "array"
+          },
+          "profile_id": {
+            "title": "Profile Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_ids",
+          "profile_id"
+        ],
+        "title": "ScoringPreflightRequest",
+        "type": "object"
+      },
       "SourceResponse": {
         "properties": {
           "byte_size": {
@@ -7026,6 +7070,183 @@
         "summary": "Read Report",
         "tags": [
           "evaluation-runs"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/scoring": {
+      "get": {
+        "operationId": "read_scoring_v1_workspaces__workspace_id__evaluation_runs__run_id__scoring_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Scoring V1 Workspaces  Workspace Id  Evaluation Runs  Run Id  Scoring Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Scoring",
+        "tags": [
+          "evaluation-scoring"
+        ]
+      },
+      "post": {
+        "operationId": "score_saved_run_v1_workspaces__workspace_id__evaluation_runs__run_id__scoring_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreSavedRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Score Saved Run V1 Workspaces  Workspace Id  Evaluation Runs  Run Id  Scoring Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Score Saved Run",
+        "tags": [
+          "evaluation-scoring"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/scoring/preflight": {
+      "post": {
+        "operationId": "preflight_scoring_v1_workspaces__workspace_id__evaluation_runs__run_id__scoring_preflight_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoringPreflightRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Preflight Scoring V1 Workspaces  Workspace Id  Evaluation Runs  Run Id  Scoring Preflight Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preflight Scoring",
+        "tags": [
+          "evaluation-scoring"
         ]
       }
     },

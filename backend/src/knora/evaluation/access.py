@@ -5,7 +5,7 @@ from typing import Literal
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 
-EvaluationAction = Literal["read", "read_source", "write", "upload", "approve", "run"]
+EvaluationAction = Literal["read", "read_source", "write", "upload", "approve", "run", "score"]
 
 _CAPABILITIES = {
     "read": ("operator:read",),
@@ -14,6 +14,7 @@ _CAPABILITIES = {
     "upload": ("operator:read", "evaluations:write", "documents:write"),
     "approve": ("operator:read", "evaluations:approve"),
     "run": ("operator:read", "evaluations:run", "questions:ask"),
+    "score": ("operator:read", "evaluations:run"),
 }
 
 
@@ -26,7 +27,7 @@ def authorize_evaluation(
     if action not in _CAPABILITIES:
         raise ValueError("Unknown evaluation action")
     # Legacy keys keep read compatibility, but do not acquire new execution/write authority.
-    if action in {"write", "upload", "approve", "run"} and principal.capabilities is None:
+    if action in {"write", "upload", "approve", "run", "score"} and principal.capabilities is None:
         raise KnoraError("CAPABILITY_ACCESS_DENIED")
     for capability in _CAPABILITIES[action]:
         principal.require_capability(capability)

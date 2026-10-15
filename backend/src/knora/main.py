@@ -13,6 +13,7 @@ from knora.adapters.http.conversations import router as conversations_router
 from knora.adapters.http.evaluation_catalog import router as evaluation_catalog_router
 from knora.adapters.http.evaluation_datasets import router as evaluation_datasets_router
 from knora.adapters.http.evaluation_runs import router as evaluation_runs_router
+from knora.adapters.http.evaluation_scoring import router as evaluation_scoring_router
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
 from knora.adapters.http.workspaces import router as workspaces_router
@@ -51,6 +52,7 @@ from knora.domain.errors import KnoraError
 from knora.evaluation.catalog import Milestone3Catalog
 from knora.evaluation.datasets import DatasetService
 from knora.evaluation.runs import EvaluationRunService
+from knora.evaluation.scoring import EvaluationScoringService
 from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.job_processing import (
@@ -250,11 +252,15 @@ def create_app(
     application.state.evaluation_catalog = Milestone3Catalog()
     # Live profiles are intentionally not registered until a separately approved
     # provider/runtime binding exists; the UI therefore exposes readiness as blocked.
+    evaluation_run_store = PostgresEvaluationRunStore(SessionFactory)
     application.state.evaluation_runs = EvaluationRunService(
         catalog=application.state.evaluation_catalog,
-        store=PostgresEvaluationRunStore(SessionFactory),
+        store=evaluation_run_store,
         profiles=(),
         datasets=application.state.dataset_service,
+    )
+    application.state.evaluation_scoring = EvaluationScoringService(
+        application.state.evaluation_runs, evaluation_run_store
     )
     application.state.object_lifecycle_worker = ObjectLifecycleWorker(
         maintenance=selected_lifecycle_maintenance,
@@ -454,6 +460,7 @@ def create_app(
             "EVALUATION_GOLD_NOT_READY": 409,
             "EVALUATION_PROPOSAL_NOT_READY": 409,
             "EVALUATION_PROPOSAL_REQUEST_CONFLICT": 409,
+            "EVALUATION_SCORING_NOT_READY": 409,
             "EVALUATION_GOLD_DIGEST_CONFLICT": 409,
             "EVALUATION_GOLD_VERSION_NOT_FOUND": 404,
             "EVALUATION_REVIEW_DECISION_INVALID": 422,
@@ -525,6 +532,7 @@ def create_app(
     application.include_router(evaluation_datasets_router)
     application.include_router(evaluation_catalog_router)
     application.include_router(evaluation_runs_router)
+    application.include_router(evaluation_scoring_router)
     application.include_router(router)
     if settings.m5_e2e_faults_enabled:
         from knora.api.m5_e2e_faults import M5E2EFaultController

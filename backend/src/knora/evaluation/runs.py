@@ -191,6 +191,7 @@ class EvaluationRunService:
         preflight = self._store.get_preflight(workspace_id, preflight_id)
         if (
             preflight is None
+            or preflight.get("purpose", "qa") != "qa"
             or preflight["workspace_id"] != workspace_id
             or preflight["generation"] != self._generation
             or datetime.fromisoformat(preflight["expires_at"]) <= datetime.now(UTC)
@@ -247,6 +248,38 @@ class EvaluationRunService:
         if run is None:
             raise KnoraError("EVALUATION_RUN_NOT_FOUND")
         return run
+
+    def saved_gold_cases(self, run: dict, principal: WorkspacePrincipal) -> dict[str, dict]:
+        """Resolve saved-run gold without preparing or dispatching a Q&A runtime."""
+        workspace_id = run["workspace_id"]
+        authorize_evaluation(workspace_id=workspace_id, principal=principal, action="read")
+        reference = run["selection"]["reference"]
+        if reference["format"] == "pdf-gold-v1":
+            authorize_evaluation(
+                workspace_id=workspace_id, principal=principal, action="read_source"
+            )
+            frozen = self._pdf_gold(workspace_id, principal, reference)
+            return {
+                case.case_id: {
+                    "question": case.question,
+                    "expected": case.expected,
+                    "reference_answer": case.reference_answer,
+                }
+                for case in frozen.gold.cases
+            }
+        if reference["format"] != "m3-native-v1":
+            raise KnoraError("EVALUATION_SCORING_NOT_READY")
+        entry = self._catalog.get_dataset(workspace_id, reference["dataset_id"])
+        if asdict(entry.reference) != reference:
+            raise KnoraError("EVALUATION_SCORING_NOT_READY")
+        return {
+            case.id: {
+                "question": case.question,
+                "expected": case.expected_behavior,
+                "reference_answer": case.answer_expectations.reference_answer,
+            }
+            for case in entry.dataset.cases
+        }
 
     async def process_run(self, workspace_id: str, run_id: str) -> bool:
         attempt_id = self._store.claim(workspace_id, run_id)

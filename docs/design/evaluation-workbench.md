@@ -113,3 +113,32 @@ Runs detail polls progress; Case/Report screens label saved snapshots and offer 
 Original PDF links use the existing authorized BFF route. Neither gold nor legacy metric contracts
 change. Real-model UI acceptance, an owned runtime binding and provider quota approval remain
 separate from this offline integration checkpoint.
+
+## Supplementary A3/R2 implementation checkpoints
+
+A3 proposes at most twelve drafts from retained PDF extraction snapshots through a registered
+server profile. Draft import requires explicit selection of existing source anchors; it creates
+an unreviewed A2 case, never gold or freeze approval. Unsupported categories, missing extraction
+and missing profiles remain explicit readiness failures. Backend endpoints and fixed same-origin
+BFF routes cover preflight, proposal batches and draft import. Live proposal profiles are blocked;
+default application wiring has no proposal provider.
+
+R2 scores exact saved observations without starting another Q&A run. The initial mappings resolve
+the complete native M3 manifest or the exact frozen Builder PDF version/digest. Issue #153's PDF
+format is explicitly unsupported until separately verified. REFUSAL, missing reference, missing
+generation evidence and unavailable captures remain visible with per-metric applicability. No
+semantic scores overwrite the deterministic report or imply quality acceptance.
+
+Scoring preflight binds the selected saved inputs, dataset, binding, model, prompt version and
+configuration. A scoring-purpose preflight cannot admit Q&A. The existing run stores append-only
+supplementary batches with request idempotency; each dispatched case is durably marked uncertain
+before its judge callback. Interrupted requests return the saved batch without replay. Callback
+input, result and configuration snapshots are copied so callback mutation cannot rewrite input
+provenance. Results must match the original run/case/trace, input digest and scorer identity.
+
+Runs detail exposes profile readiness, case selection, preflight, scoring and saved per-case
+metrics/rationale plus existing Case/Trace links. Read and launch capabilities remain distinct;
+the browser cannot provide endpoints, paths, credentials or a scorer callback. Scoring profiles
+are trusted server registrations. Default wiring registers none and live profiles are blocked
+pending exact provider/egress/quota/budget authorization. Tests exercise the existing DeepEval
+Cloudflare adapter through MockTransport only; no live acceptance is implied.

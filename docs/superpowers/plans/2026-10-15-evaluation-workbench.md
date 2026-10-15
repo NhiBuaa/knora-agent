@@ -92,3 +92,43 @@ status. Legacy references remain format-specific and retain native digests.
 - [ ] Prepare UI walkthrough/evidence for PDF → manual review/freeze → new Q&A → deterministic
   report, then supplementary Ragas/DeepEval evidence within approved live bounds.
 - [ ] Owner acceptance, rather than SDK installation or green plumbing tests, closes the MVP.
+
+## Technical checkpoint — 2026-10-16
+
+The checklists above remain the acceptance scope, not an assertion that product acceptance is
+complete. PR #202 contains the contract, R1, A1/A2, R3 and A3 technical checkpoints. R2 is added
+on the same coordinator branch after independent review; no additional framework or issue.
+
+R2 touches the existing run persistence/table plus migration0051 (after unmerged0050), HTTP/main
+wiring, native evaluator/DeepEval wheel inclusions, fixed BFF routes, Runs UI and regenerated
+OpenAPI. Dependencies do not change. Its supported mappings are M3 and explicit Builder PDF gold;
+#153's existing PDF contract is not assumed compatible. Saved Q&A, deterministic reports and gold
+remain unchanged. Default provider registries remain empty; live profiles are blocked.
+
+Local R2 evidence (Python3.12, existing evaluation-pilot venv; no model or network transport):
+
+| Verification | Result |
+| --- | --- |
+| Evaluation suite + HTTP datasets/runs/scoring + SQL dataset/run tests + native DeepEval/Ragas tests | 214 passed |
+| Operator/Runs UI and BFF tests | 131 passed, 16 files |
+| Ruff format, format check and lint | Passed |
+| Frontend format, format check and typecheck | Passed |
+| OpenAPI exporter check | Passed |
+| Alembic heads | Single proposed head0051; not applied |
+| Backend wheel build and native scorer/evaluator inclusion check | Passed |
+
+Independent review found callback mutation could change provenance and cancellation could label
+a dispatched judge call NOT_RUN. Regression tests failed before fixes and pass afterward. Input,
+result and scorer configuration are now isolated snapshots; dispatch checkpoints uncertainty
+before calling the judge, with idempotent recovery and no replay.
+
+At coordinator cc0cc48, Ubuntu, Database, Frontend and Keycloak CI jobs passed; Windows failed
+waiting20s for a launcher fixture's DEV_READY. The exact Windows test passed locally in5.81s.
+No timeout or validation was relaxed. This is not proof the CI failure is resolved; the updated
+PR head still needs its required CI result.
+
+Remaining product evidence: explicitly owned browser/runtime walkthrough, actual PostgreSQL
+concurrency behavior for new scoring batches, runtime binding and separately approved live model
+quality/calibration. No shared services or databases were started/changed. Do not mark slices
+accepted or #192 Done from offline technical tests. Keep #188 shadow outputs supplementary, reuse
+native source/capture identities, and serialize shared file/migration integration with #153/#188.

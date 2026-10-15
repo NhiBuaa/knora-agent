@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { browserRequest } from "@/lib/api/browser-client";
+import { DeepEvalScoring } from "./DeepEvalScoring";
 
 type Case = { id: string; question: string; expected_behavior: string };
 type Dataset = {
@@ -249,6 +250,14 @@ function WorkspaceRuns({ workspaceId, runId, capabilities = [] }: RunsProps) {
                 </Link>
               </p>
             )}
+            <DeepEvalScoring
+              workspaceId={workspaceId}
+              runId={run.run_id}
+              caseIds={run.selection.selected_case_ids}
+              canScore={["operator:read", "evaluations:run"].every((c) =>
+                capabilities.includes(c),
+              )}
+            />
           </>
         )}
       </section>

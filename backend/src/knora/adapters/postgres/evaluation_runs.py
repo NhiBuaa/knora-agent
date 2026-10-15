@@ -57,6 +57,7 @@ class PostgresEvaluationRunStore:
             "quality_status": row.quality_status,
             "observations": row.observations,
             "report": row.report,
+            "scoring_batches": row.scoring_batches,
         }
 
     def create(self, run: dict, key: str) -> dict:
@@ -160,3 +161,49 @@ class PostgresEvaluationRunStore:
             row.quality_status = report["quality_status"] if report else "UNAVAILABLE"
             row.report = report
             row.finished_at = func.now()
+
+    def reserve_scoring_batch(
+        self, workspace_id: str, run_id: str, batch: dict
+    ) -> tuple[dict, bool]:
+        with self._sessions.begin() as session:
+            row = session.scalar(
+                select(EvaluationRunTable)
+                .where(
+                    EvaluationRunTable.workspace_id == workspace_id,
+                    EvaluationRunTable.run_id == run_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("EVALUATION_RUN_NOT_FOUND")
+            for previous in row.scoring_batches:
+                if previous["request_id"] == batch["request_id"]:
+                    if previous["request_digest"] != batch["request_digest"]:
+                        raise KnoraError("EVALUATION_IDEMPOTENCY_CONFLICT")
+                    return previous, False
+            row.scoring_batches = [*row.scoring_batches, batch]
+            return batch, True
+
+    def checkpoint_scoring_batch(self, workspace_id: str, run_id: str, batch: dict) -> dict:
+        with self._sessions.begin() as session:
+            row = session.scalar(
+                select(EvaluationRunTable)
+                .where(
+                    EvaluationRunTable.workspace_id == workspace_id,
+                    EvaluationRunTable.run_id == run_id,
+                )
+                .with_for_update()
+            )
+            if row is None:
+                raise KnoraError("EVALUATION_RUN_NOT_FOUND")
+            previous = next((b for b in row.scoring_batches if b["id"] == batch["id"]), None)
+            if (
+                previous is None
+                or previous["status"] != "INDETERMINATE"
+                or previous["request_digest"] != batch["request_digest"]
+            ):
+                raise KnoraError("EVALUATION_CHECKPOINT_CONFLICT")
+            row.scoring_batches = [
+                batch if b["id"] == batch["id"] else b for b in row.scoring_batches
+            ]
+            return batch

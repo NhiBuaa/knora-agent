@@ -287,6 +287,8 @@ it("clears a run immediately when workspace changes", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
+      if (url.includes("/scoring"))
+        return Response.json({ profiles: [], batches: [] });
       if (url.includes("workspaceId=other"))
         return new Promise<Response>(() => {});
       return Response.json({
@@ -422,8 +424,10 @@ it("selects native cases, shows blocked readiness, and never starts a blocked ru
 it("renders persisted failed case and pending report after reload", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () =>
-      Response.json({
+    vi.fn(async (url: string) => {
+      if (url.includes("/scoring"))
+        return Response.json({ profiles: [], batches: [] });
+      return Response.json({
         run_id: "run-1",
         execution_status: "COMPLETED",
         quality_status: "SEMANTIC_PENDING",
@@ -443,8 +447,8 @@ it("renders persisted failed case and pending report after reload", async () => 
           retrieval: { denominator: 0 },
           quality_status: "SEMANTIC_PENDING",
         },
-      }),
-    ),
+      });
+    }),
   );
   render(<RunsView workspaceId="evaluation-m3-v1" runId="run-1" />);
   expect(
