@@ -1,6 +1,7 @@
 """Reviewed PDF binding snapshots, kept outside immutable gold and legacy runners."""
 
 from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from math import isfinite
 from time import perf_counter
@@ -24,6 +25,58 @@ class PdfRuntimeProfile:
     # Preparation must read the owned runtime corpus afresh; snapshots are never browser supplied.
     prepare: Callable[[FrozenDataset], dict]
     execute: Callable[[Case, dict], Awaitable[dict]]
+
+
+def reviewed_pdf_preparation(
+    *, binding: dict, corpus_reader: object
+) -> Callable[[FrozenDataset], dict]:
+    """Return a preparation callback that rechecks a reviewed dense corpus snapshot."""
+    snapshot = deepcopy(binding)
+
+    def prepare(frozen: FrozenDataset) -> dict:
+        validate_pdf_binding(frozen, snapshot)
+        corpus = corpus_reader.read_active_corpus(workspace_id=frozen.reference.workspace_id)
+        if getattr(corpus, "workspace_id", None) != frozen.reference.workspace_id:
+            raise ValueError("PDF runtime corpus workspace mismatch")
+        documents = tuple(getattr(corpus, "documents", ()))
+        expected = {
+            source.document_version_id: source
+            for source in frozen.gold.sources
+            if snapshot["sources"][source.document_version_id]["status"] == "READY"
+        }
+        actual: dict[str, object] = {}
+        for document in documents:
+            source_key = getattr(document, "source_key", "")
+            if source_key and not source_key.startswith(
+                f"evaluation/{frozen.reference.dataset_id}/"
+            ):
+                continue
+            version_id = getattr(document, "document_version_id", None)
+            if not isinstance(version_id, str) or version_id in actual:
+                raise ValueError("PDF runtime corpus population mismatch")
+            actual[version_id] = document
+        if set(actual) != set(expected):
+            raise ValueError("PDF runtime corpus population mismatch")
+        seen_chunks: set[str] = set()
+        for version_id, source in expected.items():
+            document = actual[version_id]
+            source_binding = snapshot["sources"][version_id]
+            chunk_ids = tuple(getattr(document, "chunk_ids", ()))
+            if (
+                getattr(document, "raw_sha256", None) != source.raw_sha256
+                or getattr(document, "chunk_set_id", None) != source_binding["chunk_set_id"]
+                or getattr(document, "embedding_set_id", None) != source_binding["embedding_set_id"]
+                or getattr(document, "embedding_configuration_id", None)
+                != snapshot["embedding_configuration_id"]
+                or chunk_ids != tuple(source_binding["chunk_ids"])
+                or len(chunk_ids) != len(set(chunk_ids))
+                or seen_chunks.intersection(chunk_ids)
+            ):
+                raise ValueError("PDF runtime corpus identity mismatch")
+            seen_chunks.update(chunk_ids)
+        return deepcopy(snapshot)
+
+    return prepare
 
 
 def validate_pdf_binding(frozen: FrozenDataset, binding: dict) -> None:
