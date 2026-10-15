@@ -37,6 +37,10 @@ class PostgresAnsweringStore(AnsweringStore):
     def __init__(self, session_factory: sessionmaker) -> None:
         self._session_factory = session_factory
 
+    def require_lexical_corpus(self, workspace_id: str, lexical_policy_id: str) -> None:
+        # S2.2 supplies authoritative lexical readiness; never reuse embedding activation.
+        raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
     def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str) -> None:
         with self._session_factory() as session:
             self._require_compatible_corpus(
@@ -65,10 +69,14 @@ class PostgresAnsweringStore(AnsweringStore):
         *,
         workspace_id: str,
         query_text: str,
-        query_vector: tuple[float, ...],
-        embedding_configuration: EmbeddingConfiguration,
+        query_vector: tuple[float, ...] | None,
+        embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult:
+        if retrieval_configuration.strategy == "bm25-only":
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        if query_vector is None or embedding_configuration is None:
+            raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
         if len(query_vector) != embedding_configuration.dimensions:
             raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
         if retrieval_configuration.id in {

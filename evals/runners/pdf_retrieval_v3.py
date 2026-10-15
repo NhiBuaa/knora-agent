@@ -12,6 +12,7 @@ import httpx
 from evals.runners.evaluation import write_report_atomic
 from evals.runners.milestone_3 import (
     ObservationFailure,
+    project_generation_evidence,
     validate_public_citations_against_trace,
     validate_public_response,
 )
@@ -32,12 +33,14 @@ class PdfHttpExecutor:
         workspace_id,
         run_id,
         embedding_configuration_id,
+        retrieval_configuration_id="retrieval-evidence-containment-v1",
         poll_interval=1.0,
         max_polls=900,
     ):
         self.client, self.headers, self.reader = client, headers, reader
         self.workspace_id, self.run_id = workspace_id, run_id
         self.embedding_configuration_id = embedding_configuration_id
+        self.retrieval_configuration_id = retrieval_configuration_id
         self.poll_interval, self.max_polls = poll_interval, max_polls
         self.counters = None
 
@@ -162,7 +165,7 @@ class PdfHttpExecutor:
                 payload.get("workspace_id") != self.workspace_id
                 or trace.trace_id != row["trace_id"]
                 or trace.workspace_id != self.workspace_id
-                or trace.retrieval_configuration_id != "retrieval-evidence-containment-v1"
+                or trace.retrieval_configuration_id != self.retrieval_configuration_id
                 or trace.embedding_configuration_id != self.embedding_configuration_id
                 or (trace.decision, trace.answer, trace.refusal_reason, tuple(trace.parsed_markers))
                 != (public.decision, public.answer, public.refusal_reason, public.answer_marker_ids)
@@ -209,6 +212,7 @@ class PdfHttpExecutor:
                 ],
                 retrieval_latency_ms=trace.retrieval_latency_ms,
                 provider_metadata=trace.provider_metadata,
+                retrieval_diagnostics=project_retrieval_diagnostics(trace),
             )
         except ObservationFailure as error:
             row["failure_code"] = str(error)
@@ -226,6 +230,31 @@ class PdfHttpExecutor:
             row["failure_code"] = "OBSERVATION_FAILED"
         row["end_to_end_latency_ms"] = (perf_counter() - started) * 1000
         return row
+
+
+def project_retrieval_diagnostics(trace):
+    """Supplement only: never infer missing historical stages or change metric contracts."""
+    decisions = getattr(trace, "candidate_decisions", None)
+    observations = getattr(trace, "branch_observations", None)
+    if decisions is None or observations is None:
+        return {"schema_version": 1, "status": "unavailable", "reason": "TRACE_FIELDS_UNAVAILABLE"}
+    ordered = [c.chunk_id for c in trace.candidates]
+    if [d.get("chunk_id") for d in decisions] != ordered:
+        raise ObservationFailure("CANDIDATE_DIAGNOSTICS_MISMATCH")
+    project_generation_evidence(trace)
+    return {
+        "schema_version": 1,
+        "status": "observed",
+        "trace_schema_version": trace.trace_schema_version,
+        "branch_observation_schema_version": trace.branch_observation_schema_version,
+        "ordered_candidate_ids": ordered,
+        "generation_evidence_chunk_ids": list(trace.alias_mapping.values()),
+        "candidate_decisions": list(decisions),
+        "branch_observations": list(observations),
+        "score_policy": trace.provider_metadata.get("retrieval", {}).get("score_policy"),
+        "scope": "bounded_trace_observations",
+        "unobserved_candidates": "unknown",
+    }
 
 
 def build_report(dataset, observations, bindings, response_reviews, *, source_results=None):
@@ -278,6 +307,28 @@ def build_report(dataset, observations, bindings, response_reviews, *, source_re
                 result.update(
                     evidence_group_coverage=list(coverage), all_groups_covered=all(coverage)
                 )
+            diagnostic = row.get("retrieval_diagnostics")
+            if diagnostic is not None:
+                coverage = None
+                if diagnostic["status"] == "observed" and "all_groups_covered" in result:
+                    coverage = {
+                        name: list(group_coverage(case.evidence_groups, bindings, ids))
+                        for name, ids in {
+                            "retrieved_top8": diagnostic["ordered_candidate_ids"][:8],
+                            "retrieved_top200": diagnostic["ordered_candidate_ids"][:200],
+                            "generation_selected": diagnostic["generation_evidence_chunk_ids"],
+                        }.items()
+                    }
+                result["retrieval_diagnostics"] = diagnostic | {
+                    "coverage": coverage,
+                    "coverage_scope": "observed_ordered_candidates_only",
+                    "candidate_order": "post_revalidation",
+                    "generation_selection_scope": "trace_actual_evidence",
+                    "comparison_limit": (
+                        "Baseline B candidates are post-vector-threshold 0.65; "
+                        "BM25 raw scores have no calibrated cutoff."
+                    ),
+                }
             review = response_reviews.get(case.id)
             if review:
                 if (
