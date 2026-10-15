@@ -220,9 +220,12 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
     assert trace.retrieval_latency_ms >= 0
     assert corpus.documents[0].normalized_content_checksum
     assert corpus.documents[0].document_version_id
+    assert corpus.documents[0].raw_sha256 is None
     assert corpus.documents[0].chunk_set_id
+    assert corpus.documents[0].embedding_set_id
     assert corpus.documents[0].chunking_configuration_id == "chunking-m1-v1"
     assert corpus.documents[0].embedding_configuration_id == "embedding-local-m1-v2"
+    assert corpus.documents[0].chunk_ids
     assert corpus.documents[0].chunk_references == ("support/refund-policy#0",)
 
     with pytest.raises(LookupError, match="evaluation trace not found"):

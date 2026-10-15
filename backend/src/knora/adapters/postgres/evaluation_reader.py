@@ -111,6 +111,9 @@ class ActiveCorpusDocumentProjection:
     chunking_configuration_id: str
     embedding_configuration_id: str
     chunk_references: tuple[str, ...]
+    raw_sha256: str | None = None
+    embedding_set_id: str | None = None
+    chunk_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -287,11 +290,13 @@ class PostgresEvaluationReader:
                 .order_by(DocumentTable.source_key, ChunkTable.ordinal)
             ).all()
         grouped: dict[str, list] = {}
+        chunk_id_groups: dict[str, list[str]] = {}
         identities: dict[str, tuple] = {}
         for document, version, chunk_set, embedding_set, chunk in rows:
             grouped.setdefault(document.source_key, []).append(
                 f"{document.source_key}#{chunk.ordinal}"
             )
+            chunk_id_groups.setdefault(document.source_key, []).append(chunk.id)
             identities[document.source_key] = (version, chunk_set, embedding_set)
         documents = tuple(
             ActiveCorpusDocumentProjection(
@@ -302,6 +307,9 @@ class PostgresEvaluationReader:
                 chunking_configuration_id=identities[source_key][1].chunking_configuration_id,
                 embedding_configuration_id=identities[source_key][2].embedding_configuration_id,
                 chunk_references=tuple(grouped[source_key]),
+                raw_sha256=identities[source_key][0].raw_sha256,
+                embedding_set_id=identities[source_key][2].id,
+                chunk_ids=tuple(chunk_id_groups[source_key]),
             )
             for source_key in sorted(grouped)
         )
