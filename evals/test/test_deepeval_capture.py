@@ -248,14 +248,15 @@ def test_capture_derives_answer_and_exact_context_only_from_report() -> None:
 
 def test_free_preflight_requires_fresh_bound_approval() -> None:
     digest = "sha256:" + "a" * 64
+    now = datetime.now(UTC)
     record = {
         "run_id": "run-1",
         "capture_sha256": digest,
         "account_id": "b" * 32,
         "plan": "Workers Free",
-        "observed_at_utc": datetime.now(UTC).isoformat(),
-        "trial_started_at_utc": datetime.now(UTC).isoformat(),
-        "quota_resets_at_utc": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+        "observed_at_utc": now.isoformat(),
+        "trial_started_at_utc": now.isoformat(),
+        "quota_resets_at_utc": (now + timedelta(hours=1)).isoformat(),
         "reviewed_by": "owner",
         "used_neurons_today": 0,
         "remaining_neurons_today": 1000,
@@ -263,16 +264,20 @@ def test_free_preflight_requires_fresh_bound_approval() -> None:
         "approved_data_classification": "synthetic",
     }
     assert validate_free_preflight(record, run_id="run-1", capture_sha256=digest) == "b" * 32
+    record["trial_started_at_utc"] = (now + timedelta(microseconds=1)).isoformat()
+    with pytest.raises(JudgeError, match="FREE_PREFLIGHT_UNVERIFIED"):
+        validate_free_preflight(record, run_id="run-1", capture_sha256=digest)
+    record["trial_started_at_utc"] = now.isoformat()
     record["plan"] = "unknown"
     with pytest.raises(JudgeError, match="FREE_PREFLIGHT_UNVERIFIED"):
         validate_free_preflight(record, run_id="run-1", capture_sha256=digest)
     record["plan"] = "Workers Free"
     record["trial_started_at_utc"] = record["observed_at_utc"]
-    record["quota_resets_at_utc"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+    record["quota_resets_at_utc"] = (now - timedelta(seconds=1)).isoformat()
     with pytest.raises(JudgeError, match="FREE_PREFLIGHT_UNVERIFIED"):
         validate_free_preflight(record, run_id="run-1", capture_sha256=digest)
-    record["plan"] = "Workers Free"
-    record["trial_started_at_utc"] = (datetime.now(UTC) - timedelta(minutes=61)).isoformat()
+    record["quota_resets_at_utc"] = (now + timedelta(hours=1)).isoformat()
+    record["trial_started_at_utc"] = (now - timedelta(minutes=61)).isoformat()
     with pytest.raises(JudgeError, match="FREE_PREFLIGHT_UNVERIFIED"):
         validate_free_preflight(record, run_id="run-1", capture_sha256=digest)
 

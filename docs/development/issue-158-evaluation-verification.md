@@ -8,7 +8,12 @@ Worktree: `C:/Developer/Projects/knora-agent-worktree/issue-158-evaluation-pilot
 Knora datasets, gold, manifests, runs, reports and gates remain authoritative. DeepEval consumes
 captured answers; Ragas drafts require owner review; Langfuse export stays off. Guardrails shadow
 implementation belongs to #188. No merge, runtime deployment, model download or quality acceptance
-is implied by these tests. See [ADR 0017](../adr/0017-knora-evaluation-tool-authority.md).
+is implied by these tests. See [ADR 0018](../adr/0018-knora-evaluation-tool-authority.md).
+
+Issue #153 owns the 16-PDF/60-question gold and Retrieval V3 baseline. Ragas is reserved for
+proposing later needed additions, with owner review; it does not regenerate those 60 questions.
+Code may merge after CI/review pass without live quality results. Issue #158 remains In Progress
+until owner quality acceptance. No model call is authorized by plan/quota verification alone.
 
 The read-only Cloudflare subscriptions request returned HTTP 403 / code 10000. This does not prove
 Free or Paid. Workers Free and current quota were not verified, so the conditional DeepEval pilot
@@ -26,8 +31,29 @@ required in addition to dependency resolution; Ragas exposed a LangChain compati
 during this work. DeepEval and Ragas are Apache 2.0; Langfuse's Python SDK is MIT. Optional extras
 keep these tools out of normal runtime installation. CI installs them for offline contract tests
 with discovery/telemetry disabled. Ragas 0.4.3 failed to import with LangChain Community 0.4.2;
-the optional extra pins Community 0.3.31, resolving LangChain 0.3.30, Core 0.3.86 and OpenAI 0.3.35.
-The resulting 149-package environment passes `uv pip check`.
+the optional extra pins Community 0.3.31. That pin permits multiple compatible LangChain versions;
+it does not pin the entire family. Actual installed package metadata and CI logs give:
+
+| Distribution | Local Python 3.12.15 | Ubuntu CI run 38598587672 |
+| --- | --- | --- |
+| langchain-community | 0.3.31 | 0.3.31 |
+| langchain | 0.3.30 | 1.4.5 |
+| langchain-core | 0.3.86 | 1.6.10 |
+| langchain-openai | 0.3.35 | 1.1.9 |
+| openai | 2.54.0 | 1.109.1 |
+
+Community 0.3.31 declares `langchain>=0.3.27,<2` and `langchain-core>=0.3.78,<2`.
+Local langchain 0.3.30 and langchain-openai 0.3.35 additionally require Core below 1; local
+langchain-openai permits OpenAI `>=1.104.2,<3`. Both tested resolutions satisfy their own
+installed constraints. The 149-package local environment passes `uv pip check`, and a dry-run
+of all optional extras resolves successfully. The Ubuntu run passed all 17 actual-package Ragas
+contracts; its sole failure was the independent Free-preflight timestamp fixture below.
+No additional pin or dependency upgrade is needed for that test fix.
+
+Current [LangChain installation guidance](https://docs.langchain.com/oss/python/langchain/install)
+separates provider integration packages; it does not promise one family version from the
+Community pin. These are observed compatibility results, not a blanket claim for every future
+resolution. The optional integration continues to use an explicit Knora provider and opt-outs.
 
 Test shells normalize the machine's malformed IPv6 `NO_PROXY` entry to `127.0.0.1,localhost`;
 this is process-local. The database gate uses a temporary, labeled `knora158-evaluation-tests`
@@ -83,6 +109,36 @@ Each integration received task review and regression re-review. The whole-branch
 the two issues above; the single consolidated fix wave received a scoped re-review with both
 findings addressed, zero open findings and no new breakage. Live quality remains unaccepted.
 
+## PR 190 review follow-up — 15 October 2026
+
+[Ubuntu CI run 38598587672](https://github.com/NhiBuaa/knora-agent/actions/runs/38598587672)
+failed only `test_free_preflight_requires_fresh_bound_approval`: 1 failed, 1,359 passed,
+621 deselected. The valid fixture sampled observation time before trial start in separate clock
+reads. Linux preserved that microsecond difference, correctly violating `started <= observed`.
+The earlier Windows pass did not reproduce this finer-clock failure.
+
+The fixture now derives its timestamps from one UTC instant. A start one microsecond after
+observation must still fail, and the expired-trial case restores a valid quota reset first so
+it tests the trial boundary independently. Production validation is unchanged.
+
+- DeepEval capture, Ragas review and Langfuse bridge tests: **54 passed, 5.69 s**. Actual optional
+  package APIs use mocked HTTP; no model or Cloud export call was made.
+- Ruff format: 385 files unchanged; format check: 385 files formatted; lint: all checks passed.
+- `uv pip check`: 149 packages compatible. All optional extras resolve in a dry-run; no new
+  dependency pin or install was required for this follow-up.
+- Git whitespace check passed. The earlier full-suite result above belongs to the earlier tree;
+  hosted CI must verify the pushed follow-up on Linux and the other required partitions.
+- Compose configuration validation passed with synthetic credentials and no service startup.
+- Scoped review found one unconditional future-Ragas acceptance statement; it is now conditional
+  on an approved expansion. Re-review confirmed the finding addressed with no open findings.
+- The evaluation ADR moves from 0017 to **0018**, including all maintained references. PR #184
+  retains `0017-structured-generated-lists.md`. The compatibility table above records the actual
+  local and Ubuntu resolutions rather than inferring a fixed LangChain family from Community.
+
+This follow-up documents the owner's #153/#158 boundary and separates code review/CI readiness
+from quality acceptance. It does not run Ragas generation, enlarge gold, authorize a live model
+call, enable Cloud export or enforcement, or merge the PR.
+
 ## Decisions made during execution
 
 - Keep Guardrails implementation in #188 as requested. If the split is wrong, security integration
@@ -94,7 +150,10 @@ findings addressed, zero open findings and no new breakage. Live quality remains
 
 ## Remaining acceptance
 
-Human comparison of judge results, owner review of generated multi-hop questions, a separately
-approved Ragas call inventory, and approved Langfuse access/serialized payload/deletion readback
-remain required. Mock success and package installation do not establish evaluation quality,
-seven-day Cloud retention or Guardrails detection/false-positive performance.
+Human comparison of judge results remains pending for actual quality acceptance. A later,
+separately approved Ragas expansion requires an approved call inventory and owner review of
+generated multi-hop questions before gold promotion. Before Langfuse Cloud activation, approve
+access and the serialized payload and verify deletion/readback. These activation checks do not
+block review/CI acceptance of the offline integration. Mock success and package installation do
+not establish evaluation quality, seven-day Cloud retention or Guardrails detection/false-positive
+performance.

@@ -235,8 +235,15 @@ before ingesting. Free-tier rate limits are project/model scoped; pace scorer re
 
 These integrations extend Knora Evaluation. Knora remains the sole authority for datasets, gold,
 manifests, runs, reports and release gates; installing or passing mocked tool contracts is not
-quality acceptance. [ADR 0017](adr/0017-knora-evaluation-tool-authority.md) records the approved
+quality acceptance. [ADR 0018](adr/0018-knora-evaluation-tool-authority.md) records the approved
 boundary. Existing citation, refusal and security checks retain their authority.
+
+Issue #153 owns the 16-PDF/60-question Gold Dataset and Retrieval V3 baseline. Issue #158
+integrates the tools with Knora's existing datasets, provenance, runners and reports. Ragas is
+available to propose new questions, particularly multi-hop, only for a later needed expansion;
+it does not regenerate those 60 cases. Every proposed gold addition requires owner review.
+CI and code review may establish merge readiness for this integration without live quality
+evaluation. Issue #158 stays In Progress until the owner accepts actual quality.
 
 | Component | Responsibility | Activation boundary |
 | --- | --- | --- |
@@ -269,11 +276,15 @@ Private inputs without external-use permission stay local. A public URL alone is
 No Ollama infrastructure, automatic model downloads, paid-provider fallback or plan upgrades are
 part of this integration.
 
-The authorized first DeepEval trial has **paid budget USD 0**, at most **24 HTTP attempts** and
+An explicitly approved DeepEval trial has **paid budget USD 0**, at most **24 HTTP attempts** and
 at most **60 minutes**. Every nested judge call and timeout counts before dispatch; resuming does
 not reset the attempt count. Unused attempts do not authorize Ragas generation or application
 baseline calls. Unknown Workers plan/quota blocks inference. The historical USD 2 proposal is
 superseded.
+
+The current task authorizes code/CI fixes only. Obtain approval for the particular live run before
+calling a model, even after Free/quota verification. Dashboard evidence can establish Free/quota
+when the billing API returns 403; that response alone cannot.
 
 Before a live trial, select the exact inference account in the dashboard and positively verify
 **Workers Free** under Manage Account → Billing → Subscriptions, then observe today's Workers AI

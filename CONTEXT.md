@@ -394,6 +394,9 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   awaiting the owner's review. Ragas may prepare Vietnamese/English multi-hop drafts; at least two
   necessary evidence steps must be demonstrated before approval. Draft generation never promotes
   gold or enlarges the approved pilot corpus automatically.
+  Issue #153 owns the 16-PDF/60-question Gold Dataset and Retrieval V3 baseline; Issue #158
+  integrates evaluation tools. Ragas proposes additions for a later needed expansion, without
+  regenerating #153's cases; every gold addition requires owner review.
 - **Evaluation Data Permission** records whether the exact evaluation inputs may be sent to the
   chosen provider. Approved public/synthetic inputs may use Cloudflare Workers AI; private inputs
   without external-use permission remain local. A public URL alone is not permission.
