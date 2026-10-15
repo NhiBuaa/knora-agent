@@ -57,13 +57,14 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
         if provider_identity == "cloudflare-workers-ai":
             content = {
                 "decision": "ANSWER",
-                "blocks": [
+                "before": [
                     {
-                        "kind": "paragraph",
                         "text": "Refunds are available for thirty days.",
                         "support": ["E1"],
                     }
                 ],
+                "items": [],
+                "after": [],
                 "refusal_reason": None,
             }
             if len(generation_requests) == 1:
@@ -178,7 +179,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
         )
         assert trace.provider_metadata["generation"]["provider"] == provider_identity
         assert trace.provider_metadata["generation"]["prompt_version"] == (
-            "cloudflare-gpt-oss-cited-answer-v15"
+            "cloudflare-gpt-oss-cited-answer-v16"
             if provider_identity == "cloudflare-workers-ai"
             else "m1-cited-answer-v1"
         )

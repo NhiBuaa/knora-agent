@@ -218,7 +218,11 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
         content = json.dumps(
             {
                 "decision": decision,
-                "blocks": blocks if decision == "ANSWER" else [],
+                "before": [{k: v for k, v in blocks[0].items() if k != "kind"}]
+                if decision == "ANSWER"
+                else [],
+                "items": blocks[1]["items"] if case == "list" else [],
+                "after": [],
                 "refusal_reason": None if decision == "ANSWER" else "INSUFFICIENT_EVIDENCE",
             }
         )
@@ -267,7 +271,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v15"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v16"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

@@ -7,7 +7,8 @@ Continue PR #184 as Draft; Project remains In Progress.
 
 ## Bounded design
 
-Q9 approved on 2026-10-14: Cloudflare alone returns private paragraph/list blocks.
+Q17 supersedes the Q9/Q12 wire layout: Cloudflare alone returns fixed `before`,
+`items`, `after` arrays, with one main list between introductory/concluding paragraphs.
 Every paragraph or item has a nonempty `support` array of supplied Evidence Aliases.
 The adapter checks shape and Evidence Set membership, preserves the received item
 order, then composes the existing Markdown `GenerationResult`. The owner approved
@@ -53,6 +54,32 @@ merge/split qualifications, conditional figures/tables/symbols sections, member
 selection and source order. Fixture/prompt tests are not runtime acceptance.
 Q9 authorizes code/tests only. Keep GPT-OSS 20B and production cap 1024; no further
 model calls until the owner approves the concrete verification proposal.
+
+## Q17: approved fixed slots (2026-10-15)
+
+The owner approved A after Q16's schema-only comparison returned HTTP200 but
+exhausted1024 completion tokens without answer content. Code/tests/docs only;
+no further inference. One main list group per answer is an explicit approved
+layout limitation. #191 may refactor separately from67a149f; #183 does not move
+modules. Scope/approval were posted to both Issues before intersecting edits.
+
+- [x] Observe RED for fixed-slot list/prose/refusal composition before code.
+- [x] Replace the wire block union and selected-schema augmentation with required
+  before/items/after arrays. Map validated slots to the existing composer.
+  Retain empty refusal, list/prose/count gates, literal bold, aliases and escaping.
+- [x] Update answer prompt/version to v16; retain presentation-v1, both-request
+  metadata, model/cap/default settings and generic-provider behavior.
+- [x] Adapt composer/provider/HTTP fixtures and test the one-list layout,
+  before/after source validation, count lead, refusal content in every slot,
+  legacy/nested payload rejection and existing no-retry/truncation gates.
+- [x] Update CONTEXT, ADR0017 and runtime checkpoint.
+- [ ] Finish focused/full tests, formatting/lint, OpenAPI/Compose checks and review;
+  commit/push and verify exact-head required CI. Record all failures/limits.
+- [ ] Publish exact new diff/results to #183/PR184/#191, keep Draft, and present a
+  separately approved bounded runtime proposal. No model calls under Q17.
+
+No promise that simplification fixes truncation or semantics. If runtime still
+fails token/content checks, report and stop without adding contract complexity.
 
 ## Q12: approved presentation selection (2026-10-15)
 

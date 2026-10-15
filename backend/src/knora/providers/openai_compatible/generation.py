@@ -8,7 +8,7 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-from knora.providers.openai_compatible.answer_blocks import answer_schema, compose_answer
+from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA, compose_answer
 from knora.providers.openai_compatible.presentation import (
     PRESENTATION_PROMPT_VERSION,
     PRESENTATION_SCHEMA,
@@ -22,10 +22,13 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v15"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v16"
 CLOUDFLARE_SYSTEM_PROMPT = (
     "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
-    "ANSWER requires nonempty blocks and null refusal_reason. REFUSAL requires empty blocks and "
+    "Return before (introductory paragraphs), items (one main list), and after (concluding "
+    "paragraphs), in that order. Each paragraph or item has text and support; paragraphs may "
+    "also have bold. Do not return block kinds or nested lists. ANSWER requires content in "
+    "these slots and null refusal_reason. REFUSAL requires all three arrays empty and "
     "INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: "
     "a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, "
     "not supporting quotes or source metadata. "
@@ -39,13 +42,15 @@ CLOUDFLARE_SYSTEM_PROMPT = (
     "qualifications from all relevant evidence. "
     "Write natural prose in the question's language; preserve quoted titles/technical terms. "
     "Each text field is one line without citation markers; the server adds bullets and citations. "
-    "Keep a short single-fact answer as a paragraph. Any enumeration of two or more distinct items "
-    "must be a list block, never embedded in paragraph text. Preserve the source order when "
+    "For selected prose or count_prose, items must be empty; keep single facts as paragraphs. "
+    "For selected list or count_list, put at least two distinct evidenced members in items. "
+    "Never embed an enumeration in paragraph text. Preserve the source order when "
     "it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing "
     "meaning. Each item has its own supporting aliases. "
-    "For count questions, even when only how many is asked, lead with a natural paragraph "
-    "stating the proven total, then list the evidenced members. One member stays in prose; "
-    "zero needs no member list. Set paragraph bold to the literal number-and-unit phrase "
+    "For count modes, even when only how many is asked, before must start with a natural "
+    "paragraph stating the proven total, then list evidenced members in items for count_list. "
+    "One member stays in prose; zero needs no member list. Set the leading paragraph's bold "
+    "to the literal number-and-unit phrase "
     "occurring exactly once in its text. Count leads must include bold: use null when the "
     "total is unproven. Never write Markdown stars in text fields. "
     "The server adds emphasis. "
@@ -115,7 +120,7 @@ class OpenAICompatibleGenerationProvider:
                 if cloudflare
                 else SYSTEM_PROMPT,
                 content,
-                answer_schema(presentation) if cloudflare else STRUCTURED_RESULT_SCHEMA,
+                ANSWER_BLOCK_SCHEMA if cloudflare else STRUCTURED_RESULT_SCHEMA,
             )
             payload, choice, structured = self._decode(response)
             if cloudflare:

@@ -467,18 +467,26 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   Clear source order and important qualifications must be retained. Contiguous
   content sharing evidence prefers a citation after its last block; every needed
   source must remain cited. These are semantic obligations, not schema guarantees.
-  Q9's private Cloudflare paragraph/list contract carries supporting Evidence
+  Q17's private Cloudflare contract uses fixed `before`, `items`, `after` arrays:
+  introductory paragraphs, at most one main list, and concluding paragraphs.
+  It carries supporting Evidence
   Aliases for each paragraph or item. The adapter checks Evidence Set membership
   and composes Markdown; it no longer checks literal quotes or source positions.
   A valid alias does not prove semantic support, count completeness or source order.
   Q12 adds a private Cloudflare presentation choice before generation, with no
-  answer/member content in that choice. Selected list contracts require a list;
-  count contracts require a lead paragraph with explicit nullable literal
+  answer/member content in that choice. Local selected-list gates require at least
+  two items; prose requires empty items. Count
+  contracts require a lead paragraph with explicit nullable literal
   emphasis. Zero/one known member permits count prose. Every contract permits
   evidence refusal; malformed selection/output remains an error without retry.
   Safe per-stage trace metadata and complete aggregate token fields account for
   both requests. This adds quota/latency, not semantic guarantees or a shared
-  prompt-management architecture (#191). Real-provider acceptance is pending.
+  prompt-management architecture (#191). Q17 removes per-block kinds/unions and
+  advanced schema position constraints; the adapter maps validated slots to the
+  existing composer. Refusal requires all slots empty. This simplification does
+  not prove provider compatibility, completion within the token cap, or semantics.
+  #191 refactors separately from `67a149f`; #183 retains prompt/schema behavior
+  and acceptance ownership, without moving modules. Real-provider acceptance is pending.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input

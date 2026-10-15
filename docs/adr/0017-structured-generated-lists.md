@@ -1,6 +1,6 @@
 # Compose generated lists from supported blocks
 
-Status: owner-approved behavior, Q9 simplification and Q12 presentation selection through Issue #183 (2026-10-15); implementation
+Status: owner-approved behavior, Q9 simplification, Q12 presentation selection and Q17 fixed slots through Issue #183 (2026-10-15); implementation
 and runtime acceptance pending in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
@@ -16,7 +16,8 @@ arrangement is allowed without changing meaning. Citations prefer the end of
 contiguous content sharing evidence; accuracy takes precedence over avoiding
 duplicate-looking chips.
 
-Cloudflare's private payload uses paragraph/list blocks with a nonempty array of
+Cloudflare's private payload uses fixed `before`, `items`, `after` arrays: introductory
+paragraphs, one main list, and concluding paragraphs, with a nonempty array of
 supporting Evidence Aliases for every paragraph or item. The adapter validates
 shape and membership in the supplied Evidence Set, escapes model text as literal
 Markdown content, and composes server-owned bullets and emphasis of one optional
@@ -61,7 +62,7 @@ request before generation. It returns only `prose`, `list`, `count_prose` or
 Evidence Set feed both requests. Zero/one evidenced member permits count prose;
 the selection does not establish a proven total or complete membership.
 
-The selected generation schema and local gates require a list for list modes,
+At Q12, the selected generation schema and local gates required a list for list modes,
 exclude lists for prose modes, and require an initial paragraph with an explicit
 literal `bold` field for count modes. Null is allowed for an unproven total; no
 count parser/proof system is added. Every mode permits the existing structured
@@ -69,7 +70,7 @@ refusal. Invalid selection stops before generation; invalid generation is an
 error without another call or repair. The existing composer and source grouping
 remain responsible for bullets, emphasis and citation markers.
 
-Prompt identities are `cloudflare-presentation-v1` and
+Q12 prompt identities were `cloudflare-presentation-v1` and
 `cloudflare-gpt-oss-cited-answer-v15`. Internal Generation Result/Question Trace
 metadata retains safe identities, finish reasons, request IDs and reported usage
 for both stages, with the selected presentation. Aggregate token fields are sums
@@ -83,6 +84,37 @@ not prove semantics or prevent an enumeration hidden inside an item. Q2–Q4 sti
 require source-based runtime review. Q12 authorizes code/tests only. It introduces
 no shared Prompt Policy/Builder/Versioning architecture from separate Issue #191,
 no retrieval/configuration change, provider retry, dependency or semantic judge.
+
+## Q17: fixed slots, one main list (2026-10-15)
+
+Q14/Q15 repeatedly returned HTTP400 before decoding. Q16 changed only the answer
+schema back to v14: HTTP200, but `finish_reason=length`, 1024 completion tokens and
+null answer content. This supports a problem involving the added schema
+constraints without identifying an unsupported keyword; truncation is a separate
+observed blocker. Neither response establishes successful generation or rendering.
+
+The owner approved Q17 A for code/tests first: retain selection, replace the
+heterogeneous block payload with fixed slots, and accept one main list per answer.
+No list groups can be interleaved. The wire schema has no per-block kind, block
+union, root answer/refusal `oneOf`, `contains` or `prefixItems`. Arrays remain
+required in every mode so refusal can return them all empty. Cross-field local
+gates enforce nonempty answer content/null refusal reason, empty refusal content,
+at least two items for list modes, no items for prose, and a first `before`
+paragraph with an explicit nullable literal `bold` field for count modes.
+
+Validated slots map directly to the existing ordered paragraph/list composer;
+escaping, aliases, item order and citation grouping remain unchanged. This is
+structural mapping, not parsing prose into members or reconstructing lists.
+Legacy block payloads are not accepted by the new private decoder; stored public
+answers/traces are never re-decoded or rewritten. Prompt identities are now
+`cloudflare-presentation-v1` and `cloudflare-gpt-oss-cited-answer-v16`.
+
+This reduces contract choices; it does not establish that GPT-OSS20B/1024 finishes
+or preserves evidence, conditions, totals or order. Q2–Q4 remain source-based
+acceptance obligations. No new inference allowance, model/cap/config change,
+retry, dependency, semantic judge or module move is authorized. #191 refactors
+separately from baseline `67a149f`; #183 owns behavior/prompt/schema and runtime
+acceptance. Coordinate intersecting changes through Issues before edits.
 
 Research and evidence: [contract research](../development/issue-183-provider-output-research.md),
 [plan](../development/issue-183-structured-list-plan.md),

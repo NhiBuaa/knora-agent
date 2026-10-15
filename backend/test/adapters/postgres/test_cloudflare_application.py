@@ -102,13 +102,14 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
             content = json.dumps(
                 {
                     "decision": "ANSWER",
-                    "blocks": [
+                    "before": [
                         {
-                            "kind": "paragraph",
                             "text": "Blue umbrellas.",
                             "support": ["E1"],
                         }
                     ],
+                    "items": [],
+                    "after": [],
                     "refusal_reason": None,
                 }
             )
@@ -296,10 +297,10 @@ def test_empty_workspace_refuses_without_generation(cloudflare_app) -> None:
     "content",
     [
         "fake-cloudflare-token-invalid-json",
-        '{"decision":"ANSWER","answer":"Blue umbrellas. [[E99]]",'
-        '"cited_evidence_ids":["E99"],"refusal_reason":null}',
-        '{"decision":"ANSWER","answer":"Blue umbrellas. [[E1]]",'
-        '"cited_evidence_ids":["E1"],"refusal_reason":"INSUFFICIENT_EVIDENCE"}',
+        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E99"]}],'
+        '"items":[],"after":[],"refusal_reason":null}',
+        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E1"]}],'
+        '"items":[],"after":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}',
     ],
 )
 def test_invalid_cloudflare_generation_returns_safe_error(cloudflare_app, content: str) -> None:

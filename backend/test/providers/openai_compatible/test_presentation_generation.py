@@ -24,7 +24,20 @@ PROSE = {"kind": "paragraph", "text": "Merging is allowed.", "support": ["E1"]}
 
 
 def _answer(blocks):
-    return {"decision": "ANSWER", "blocks": blocks, "refusal_reason": None}
+    before, items, after = [], [], []
+    for block in blocks:
+        if block.get("kind") == "list":
+            items = block["items"]
+        else:
+            paragraph = {key: value for key, value in block.items() if key != "kind"}
+            (after if items else before).append(paragraph)
+    return {
+        "decision": "ANSWER",
+        "before": before,
+        "items": items,
+        "after": after,
+        "refusal_reason": None,
+    }
 
 
 def _provider(replies, requests):
@@ -107,18 +120,21 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
     assert selection_schema["additionalProperties"] is False
     assert selection_schema["required"] == ["presentation"]
     answer_schema = requests[1]["response_format"]["json_schema"]
-    answer_branch, refusal_branch = answer_schema["oneOf"]
-    assert answer_branch["properties"]["decision"] == {"const": "ANSWER"}
-    assert refusal_branch["properties"]["blocks"]["maxItems"] == 0
-    block_schema = answer_branch["properties"]["blocks"]
-    if presentation in ("list", "count_list"):
-        assert block_schema["contains"] == {"$ref": "#/$defs/_List"}
-    else:
-        assert block_schema["items"] == {"$ref": "#/$defs/_Paragraph"}
-    if presentation.startswith("count_"):
-        assert block_schema["prefixItems"] == [{"$ref": "#/$defs/_CountParagraph"}]
-        assert "bold" in answer_schema["$defs"]["_CountParagraph"]["required"]
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v15"
+    assert set(answer_schema["required"]) == {
+        "decision",
+        "before",
+        "items",
+        "after",
+        "refusal_reason",
+    }
+    assert answer_schema["properties"]["items"]["type"] == "array"
+    assert answer_schema["properties"]["before"]["items"] == {"$ref": "#/$defs/_Paragraph"}
+    assert answer_schema["additionalProperties"] is False
+    assert not any(
+        key in json.dumps(answer_schema)
+        for key in ('"oneOf"', '"contains"', '"prefixItems"', '"discriminator"')
+    )
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v16"
     assert result.usage == {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
     assert result.cost["amount_usd"] == "0.00004"
     assert [stage["provider_request_id"] for stage in result.stages] == ["stage-1", "stage-2"]
@@ -132,7 +148,13 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
 @pytest.mark.parametrize("presentation", ["prose", "list", "count_prose", "count_list"])
 async def test_every_selected_contract_allows_evidence_refusal(presentation):
     requests = []
-    refusal = {"decision": "REFUSAL", "blocks": [], "refusal_reason": "INSUFFICIENT_EVIDENCE"}
+    refusal = {
+        "decision": "REFUSAL",
+        "before": [],
+        "items": [],
+        "after": [],
+        "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    }
     provider = _provider(
         [({"presentation": presentation}, "stop", {}), (refusal, "stop", {})], requests
     )

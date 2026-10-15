@@ -1,7 +1,6 @@
 """Private Cloudflare output; public answers retain the existing Markdown contract."""
 
-from copy import deepcopy
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -20,54 +19,22 @@ class _Statement(_Model):
 
 
 class _Paragraph(_Statement):
-    kind: Literal["paragraph"]
     bold: str | None = Field(default=None, min_length=1)
 
 
 class _List(_Model):
-    kind: Literal["list"]
     items: list[_Statement] = Field(min_length=2)
 
 
 class _Result(_Model):
     decision: Literal["ANSWER", "REFUSAL"]
-    blocks: list[Annotated[_Paragraph | _List, Field(discriminator="kind")]]
+    before: list[_Paragraph]
+    items: list[_Statement]
+    after: list[_Paragraph]
     refusal_reason: Literal["INSUFFICIENT_EVIDENCE"] | None
 
 
 ANSWER_BLOCK_SCHEMA = _Result.model_json_schema()
-
-
-def answer_schema(presentation: Presentation) -> dict:
-    schema = deepcopy(ANSWER_BLOCK_SCHEMA)
-    blocks = deepcopy(schema["properties"]["blocks"])
-    blocks["minItems"] = 1
-    if presentation in ("list", "count_list"):
-        blocks["contains"] = {"$ref": "#/$defs/_List"}
-    else:
-        blocks["items"] = {"$ref": "#/$defs/_Paragraph"}
-    if presentation in ("count_prose", "count_list"):
-        lead = deepcopy(schema["$defs"]["_Paragraph"])
-        lead["required"].append("bold")
-        schema["$defs"]["_CountParagraph"] = lead
-        blocks["prefixItems"] = [{"$ref": "#/$defs/_CountParagraph"}]
-    schema["oneOf"] = [
-        {
-            "properties": {
-                "decision": {"const": "ANSWER"},
-                "blocks": blocks,
-                "refusal_reason": {"type": "null"},
-            }
-        },
-        {
-            "properties": {
-                "decision": {"const": "REFUSAL"},
-                "blocks": {"type": "array", "maxItems": 0},
-                "refusal_reason": {"const": "INSUFFICIENT_EVIDENCE"},
-            }
-        },
-    ]
-    return schema
 
 
 def _invalid() -> None:
@@ -105,25 +72,36 @@ def compose_answer(
     except ValidationError:
         raise KnoraError("GENERATION_OUTPUT_INVALID") from None
     if result.decision == "REFUSAL":
-        if result.blocks or result.refusal_reason != "INSUFFICIENT_EVIDENCE":
+        if (
+            result.before
+            or result.items
+            or result.after
+            or result.refusal_reason != "INSUFFICIENT_EVIDENCE"
+        ):
             _invalid()
         return None, ()
-    if not result.blocks or result.refusal_reason is not None:
+    if not (result.before or result.items or result.after) or result.refusal_reason is not None:
         _invalid()
 
-    has_list = any(isinstance(block, _List) for block in result.blocks)
+    has_list = bool(result.items)
+    if has_list and len(result.items) < 2:
+        _invalid()
     if presentation is not None:
         if has_list != (presentation in ("list", "count_list")):
             _invalid()
-        if presentation in ("count_prose", "count_list"):
-            lead = result.blocks[0]
-            if not isinstance(lead, _Paragraph) or "bold" not in lead.model_fields_set:
-                _invalid()
+        if presentation in ("count_prose", "count_list") and (
+            not result.before or "bold" not in result.before[0].model_fields_set
+        ):
+            _invalid()
 
+    blocks: list[_Paragraph | _List] = [*result.before]
+    if has_list:
+        blocks.append(_List(items=result.items))
+    blocks.extend(result.after)
     available_ids = {entry.evidence_id for entry in evidence}
     texts: list[str] = []
     aliases: list[list[str]] = []
-    for block in result.blocks:
+    for block in blocks:
         if isinstance(block, _List):
             references = []
             for item in block.items:
@@ -156,7 +134,7 @@ def compose_answer(
                 if alias not in group:
                     group.append(alias)
             cursor += 1
-        separator = "\n\n" if isinstance(result.blocks[end], _List) else " "
+        separator = "\n\n" if isinstance(blocks[end], _List) else " "
         texts[end] += separator + " ".join(f"[[{alias}]]" for alias in group)
         cited.extend(group)
         start = end + 1

@@ -13,18 +13,67 @@ private literal-quote and quote-position gates; public citation validation stays
 
 ## Current implementation candidate
 
-The Q12 code candidate retains private Cloudflare paragraph/list blocks, nonempty support
-arrays of Evidence Aliases, and Markdown composition. It removes Q6's quote
-matching and quote-position checks. Other providers and the public generation,
+The Q17 code candidate uses fixed `before`, `items`, `after` slots, nonempty support
+arrays of Evidence Aliases, and the existing Markdown composer. The owner approved
+one main list group per answer; no interleaved list groups. It retains Q9's removal
+of Q6 quote matching and quote-position checks. Other providers and the public generation,
 citation, refusal, access and historical-source contracts remain unchanged.
 Composer tests cover literal Markdown escaping, shared source qualifications,
 singleton/zero count prose, missing-member disclosure and optional literal emphasis.
 Structural tests are not runtime acceptance or proof of semantic support.
-It adds a presentation-only request and selected schema/local structural gates
-before the existing composer (details below). Q9/v14 remains the last actual
-provider observation; Q12 has no real-provider/browser result yet.
+It retains Q12's presentation-only request and local structural gates. Q17 removes
+wire block kinds/unions and schema position constraints; cross-field conditions
+remain local so refusal is valid in every mode. Count requires a leading `before`
+paragraph with explicit literal/null bold, list requires at least two items, prose
+requires empty items, refusal requires all slots empty. New prompt identity v16;
+selection stays presentation-v1. No new provider/browser result exists for Q17.
 
-## Q10 failure and Q12 approved code-only follow-up
+## Q13–Q16 observations and Q17 code-only approval
+
+Q13 stopped after2 requests due to an ignored local helper's Windows UTF-8 read
+bug before answer admission; it was fixed offline. Q14 stopped after3 requests:
+selection returned count_list with the full outline supplied, answer v15 returned
+HTTP400 before decode/composer. Q15 replayed the identical answer request once:
+HTTP400/code3030/Internal Server Error, without a keyword-specific cause.
+
+[Q16](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6186509117)
+changed only the answer schema to the captured v14 schema. Its one request returned
+HTTP200/10.598s, finish length, null content,1358 prompt+1024 completion tokens and
+52.6181292 reported neurons. No answer reached composition. This supports a problem
+involving added schema constraints without isolating a keyword; token exhaustion
+remains a separate observed blocker. Combined Q13–Q16=7 physical requests. All
+windows closed; no leftover allowance. Free/account/paid0USD were checked before
+each approved run; absent usage in earlier failures was unknown, not zero.
+
+Q13/Q14 desktop/mobile viewport browser runs showed System error; Q15/Q16 were
+direct HTTP diagnostics, not persisted Turns or acceptance. Other list/short cases
+remain unrun on v15; no bullets/citation or source-review acceptance. Preserve all
+failed observations and the Q12 full-suite/PDF limits below.
+
+[Q17 approved scope/coordination](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6186607494)
+permits only code/tests/docs for fixed slots. No provider call, production change,
+model/cap/config/retrieval change or module extraction. #191 may refactor separately
+from67a149f; #183 retains behavior/prompt/schema and acceptance ownership. A new
+runtime proposal must await owner approval after tests/CI. Simpler schema does not
+prove completion within1024, correct selection, supported totals/members,
+conditions/order or citations. Repeated runtime token/content failure must be
+reported and stopped without further contract complexity.
+
+Q17 verification before code commit: new direct-slot tests observed RED (five
+expected failures), then GREEN. The focused composer/generation set passed90
+tests; HTTP/Postgres provider integration plus question routes passed10 tests
+(existing Starlette deprecation warning). Independent review reran94 offline
+provider tests and found one missed PostgreSQL fixture; its happy/invalid payloads
+were updated to the new wire shape and rechecked. No remaining actionable review
+finding. Ruff format/check/lint, shared format/check, OpenAPI, Compose config and
+diff checks passed; Compose retained unset ambient MinIO warnings.
+
+The full local suite is running on the separate15483 test database with ambient
+proxy variables removed only in its child shell. Its final verdict and exact-head
+CI are pending and will be recorded in #183/PR184; do not infer a full-suite pass
+from these focused checks. No real AI requests were sent in Q17.
+
+## Historical Q10 failure and Q12 implementation/verification
 
 [Q10 runtime ledger](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6183587668)
 records two of six physical requests, then a stop on the first failed count

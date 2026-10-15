@@ -12,11 +12,24 @@ def item(text: str, *aliases: str) -> dict:
 
 
 def paragraph(text: str, *aliases: str) -> dict:
-    return {"kind": "paragraph", **item(text, *aliases)}
+    return item(text, *aliases)
 
 
 def answer(*blocks: dict) -> dict:
-    return {"decision": "ANSWER", "blocks": list(blocks), "refusal_reason": None}
+    before, items, after = [], [], []
+    for block in blocks:
+        if block.get("kind") == "list":
+            items = block["items"]
+        else:
+            block.pop("kind", None)
+            (after if items else before).append(block)
+    return {
+        "decision": "ANSWER",
+        "before": before,
+        "items": items,
+        "after": after,
+        "refusal_reason": None,
+    }
 
 
 EVIDENCE = (
@@ -44,7 +57,13 @@ def test_single_fact_stays_prose_and_refusal_stays_empty() -> None:
         ("E2",),
     )
     assert compose_answer(
-        {"decision": "REFUSAL", "blocks": [], "refusal_reason": "INSUFFICIENT_EVIDENCE"},
+        {
+            "decision": "REFUSAL",
+            "before": [],
+            "items": [],
+            "after": [],
+            "refusal_reason": "INSUFFICIENT_EVIDENCE",
+        },
         (),
     ) == (None, ())
 
@@ -241,7 +260,7 @@ def test_invalid_blocks_fail_closed(fault: str) -> None:
     elif fault == "count_block":
         lead["kind"] = "count"
     elif fault == "extra_field":
-        members["extra"] = True
+        payload["extra"] = True
     else:
         payload.update(decision="REFUSAL", refusal_reason="INSUFFICIENT_EVIDENCE")
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
