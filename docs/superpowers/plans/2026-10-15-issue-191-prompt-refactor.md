@@ -1,6 +1,6 @@
 # Issue #191 — prompt extraction audit and proposed plan
 
-Status: file scope approved by the owner in chat; implementation in progress.
+Status: implementation and offline verification complete; owner acceptance pending.
 Date: 2026-10-15.
 
 ## Authority and baseline
@@ -205,8 +205,51 @@ Any new one is returned to the owner using grilling before implementation procee
   schema selection follow the exact Q17 definitions. No #191 edits to their behavior.
 - Captured the replacement fixture through actual adapters in the clean #183
   checkout at exact `c775a83`, with MockTransport only; no builder dependency.
-  The original fixture remains recoverable in the original extraction checkpoint.
+  The original fixture is also recoverable in ancestor `dd18354` at
+  `backend/test/providers/fixtures/prompt-baseline-67a149f.json`.
 
 - Post-Q17 focused regression: **392 passed**, 2 dependency deprecation warnings,
   19.33 seconds. Ruff format/check/lint and diff whitespace checks passed. Generic,
   Ollama and selector fixture cases are identical to the original baseline.
+
+### Review and final verification checkpoint
+
+- Independent read-only review of `c775a83..016a0fa`: no severity findings; 92
+  focused parity/identity/provenance tests passed, including spawned-process cases.
+  Reviewer separately evaluated the original committed policy/version constants and
+  both serializers with empty/Unicode/quotes/newlines input; no drift found.
+- Initial full run at `016a0fa`: 1994 passed, 16 skipped, 20 failed. Failures entered
+  through inherited proxy environment (SOCKS without socksio; malformed no_proxy
+  IPv6 entry), not an authorized dependency/code fix. Removing uppercase names alone
+  left lowercase variables intact and reproduced the same 20 failures (70 passed).
+  Removing the actual proxy variable names from the test command environment made
+  bootstrap's 58 tests pass. No machine settings or dependencies changed.
+- Clean-environment full rerun at source head `016a0fa`: **2014 passed, 16 skipped,
+  28 dependency deprecation warnings**, 501.99 seconds, exit 0. Proxy variables were
+  removed by their actual names only in the test command environment. No code fix.
+  Skips retain existing gates: 3 manual PDF acceptance cases, 12 workspace concurrency
+  cases requiring their specifically named isolated DB, and 1 real Ollama opt-in.
+  Full-suite logs are outside the repository in session TEMP; no source/evidence
+  payload added to the refactor. The final checkpoint changes documentation only.
+- Ruff format/check/lint and whitespace checks passed. OpenAPI exporter check passed.
+  Compose config passed with warnings for unset canonical MinIO credential variables.
+- Discussion refresh: Q18 correction comments #183 `6191882261` / #191 `6191882858`
+  add runtime evidence and limitations, no maintained change. PR184 head remains
+  `c775a8355b13fde26cb3eb59619239d1536286ca`, Draft/unaccepted. No Q18 behavior fix
+  ported into #191; provider requests remain forbidden in this refactor.
+- Project readback: In Progress / Next. This work remains local, with no push, PR,
+  merge, closure or Done transition. Required exact-head CI and owner acceptance
+  remain integration gates; only an explicitly chosen Draft stacked PR is eligible
+  while #183 is unaccepted.
+
+### Handoff
+
+- Review source range: `c775a8355b13fde26cb3eb59619239d1536286ca..016a0fa`.
+  The later documentation checkpoint records evidence only; use `c775a83...HEAD`
+  for the complete #191-only diff. No upstream schema/composer/application fixture
+  file appears in that diff. Original baseline `67a149f` remains separately recorded.
+- Worktree and branch retained for owner review. Disposable DB container is stopped
+  after verification and remains available as `knora-issue191-postgres` for reruns.
+- Next: owner reviews/accepts #191; refresh approved #183 discussion/head again before
+  any publishing/integration choice. Required CI has not run for this local branch.
+  No model calls, runtime acceptance or HTTP400 changes were made by #191.
