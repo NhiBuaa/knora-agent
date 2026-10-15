@@ -21,6 +21,19 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/documents/{document_id}/archive"
   | "/v1/workspaces/{workspace_id}/documents/{document_id}/deletion-request"
   | "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/original"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/pages/{physical_page}"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/retry"
+  | "/v1/workspaces/{workspace_id}/evaluation/preflight"
+  | "/v1/workspaces/{workspace_id}/evaluation/profiles"
+  | "/v1/workspaces/{workspace_id}/evaluation/runs"
+  | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}"
+  | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/cases/{case_id}"
+  | "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/report"
   | "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}"
   | "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}"
   | "/v1/workspaces/{workspace_id}/operator/operations"
@@ -34,6 +47,28 @@ export type Body_ingest_document_v1_workspaces__workspace_id__documents_post = {
 };
 export type Body_resolve_workspace_v1_workspaces_resolve_post = {
   hint_id?: string | null;
+};
+export type Body_upload_source_v1_workspaces__workspace_id__evaluation_datasets__dataset_id__sources_post = {
+  file: string;
+};
+export type CatalogCaseResponse = {
+  category: string;
+  expected_behavior: "ANSWER" | "REFUSAL";
+  id: string;
+  question: string;
+};
+export type CatalogDatasetResponse = {
+  case_count: number;
+  cases?: Array<CatalogCaseResponse>;
+  format: string;
+  id: string;
+  name: string;
+  reference: DatasetReference | LegacyDatasetReference | null;
+  status: "DRAFT" | "FROZEN";
+  workspace_id: string;
+};
+export type CatalogResponse = {
+  items: Array<CatalogDatasetResponse>;
 };
 export type CitationResponse = {
   content_checksum: string;
@@ -69,6 +104,30 @@ export type ConversationResponse = {
 };
 export type ConversationTurnRequest = {
   question: string;
+};
+export type CreateDatasetRequest = {
+  name: string;
+};
+export type DatasetDetailResponse = {
+  id: string;
+  name: string;
+  sources: Array<SourceResponse>;
+  status: string;
+  workspace_id: string;
+};
+export type DatasetReference = {
+  dataset_id: string;
+  digest: string;
+  format: string;
+  metric_contract: string;
+  version: number;
+  workspace_id: string;
+};
+export type DatasetResponse = {
+  id: string;
+  name: string;
+  status: string;
+  workspace_id: string;
 };
 export type DocumentDeletionRequestResponse = {
   document_id: string;
@@ -138,6 +197,14 @@ export type IngestionResponse = {
   embedding_set_id: string;
   outcome: "created" | "reused";
 };
+export type LegacyDatasetReference = {
+  dataset_id: string;
+  format: string;
+  metric_contract: string;
+  native_digest: string;
+  version: number;
+  workspace_id: string;
+};
 export type OperatorCandidateResponse = {
   chunk_id: string;
   chunk_ordinal: number;
@@ -194,12 +261,39 @@ export type OperatorTraceResponse = {
   validation_outcome: string;
   workspace_id: string;
 };
+export type PageResponse = {
+  configuration_sha256: string;
+  content_checksum: string;
+  document_version_id: string;
+  extraction_sha256: string;
+  physical_page: number;
+  snapshot_id: string;
+  source_id: string;
+  text: string;
+};
 export type PdfSubmissionResponse = {
   document_id: string;
   document_version_id: string;
   ingestion_job_id: string;
   status: "queued" | "processing" | "retry_scheduled" | "succeeded" | "superseded" | "failed";
   submission_outcome: "created" | "idempotency_replay" | "deduplicated";
+};
+export type PreflightRequest = {
+  case_ids: Array<string>;
+  dataset_id: string;
+  profile_id: string;
+};
+export type PreflightResponse = {
+  case_ids?: Array<string>;
+  context_only_case_ids?: Array<string>;
+  dataset_digest?: string | null;
+  dataset_id?: string | null;
+  expires_at?: string | null;
+  preflight_id: string;
+  profile_id?: string | null;
+  reasons: Array<string>;
+  status: string;
+  workspace_id?: string | null;
 };
 export type QuestionRequest = {
   question: string;
@@ -234,6 +328,33 @@ export type ReprocessResponse = {
 export type ResolutionResponse = {
   state: "ACTIVE" | "NO_ACTIVE_WORKSPACE";
   workspace: WorkspaceResponse | null;
+};
+export type RunResponse = {
+  binding: Record<string, unknown>;
+  execution_status: string;
+  observations: Record<string, unknown>;
+  profile_id: string;
+  quality_status: string;
+  report: Record<string, unknown> | null;
+  run_id: string;
+  selection: Record<string, unknown>;
+  selection_digest: string;
+  workspace_id: string;
+};
+export type SourceResponse = {
+  byte_size: number;
+  dataset_id: string;
+  document_id: string;
+  document_version_id: string;
+  failure_code: string | null;
+  filename: string;
+  id: string;
+  raw_sha256: string;
+  snapshot_id: string | null;
+  status: "PROCESSING" | "READY" | "FAILED";
+};
+export type StartRunRequest = {
+  preflight_id: string;
 };
 export type SuccessfulJobResultResponse = {
   document_version_id: string;
@@ -343,6 +464,19 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/documents/{document_id}/archive": DocumentResponse;
   "/v1/workspaces/{workspace_id}/documents/{document_id}/deletion-request": DocumentDeletionRequestResponse;
   "/v1/workspaces/{workspace_id}/documents/{document_id}/unarchive": DocumentResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets": CatalogResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}": DatasetDetailResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}": SourceResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/original": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/pages/{physical_page}": PageResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}/retry": SourceResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/preflight": PreflightResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/profiles": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/runs": RunResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}": RunResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/cases/{case_id}": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/runs/{run_id}/report": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/ingestion-jobs/{ingestion_job_id}": IngestionJobStatusResponse;
   "/v1/workspaces/{workspace_id}/operator/evaluations/{report_id}": OperatorEvaluationResponse;
   "/v1/workspaces/{workspace_id}/operator/operations": OperatorOperationsResponse;
