@@ -49,9 +49,9 @@ Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu �
 
 Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn.
 
-**Nguồn gốc screenshots:** chụp bằng Microsoft Edge bên ngoài vào **2026-10-15**, sử dụng development runtime source `d5f01f4`. PDF mẫu được upload mới và đạt Ready trong Workspace demo riêng; cả hai câu hỏi được gửi trong phiên này. Runtime sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation.
+**Nguồn gốc screenshots:** chụp bằng Microsoft Edge bên ngoài ở **dark mode** vào **2026-10-15**, sử dụng development runtime source `13f8911`. PDF ingestion và kết quả của cả hai câu hỏi được tạo trước đó trong cùng ngày trên `d5f01f4`, sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation. Lần chụp lại dùng trạng thái đã lưu, không gọi model mới.
 
-Toàn bộ nội dung trình duyệt được chụp ở chiều rộng 1912 pixel, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Giữ nguyên capture JPEG gốc, không cắt, phóng ảnh, làm nét hoặc chỉnh nội dung sản phẩm.
+Toàn bộ nội dung trình duyệt được chụp ở kích thước 1912×994, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Giữ nguyên capture JPEG gốc, không cắt, phóng ảnh, làm nét hoặc chỉnh nội dung sản phẩm.
 
 </details>
 

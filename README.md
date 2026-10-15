@@ -49,9 +49,9 @@ The upload creates a durable Ingestion Job. The sample reached **Ready** after w
 
 This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation.
 
-**Screenshot provenance:** captured in external Microsoft Edge on **2026-10-15**, using development runtime source `d5f01f4`. A fresh upload of the sample PDF reached Ready in a separate demo Workspace; both questions were submitted during this session. The runtime uses Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation.
+**Screenshot provenance:** captured in external Microsoft Edge in **dark mode** on **2026-10-15**, using development runtime source `13f8911`. The PDF ingestion and both question results were produced earlier that day on `d5f01f4`, using Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation. This recapture reused the stored state without new model calls.
 
-The full browser content was captured at 1912 pixels wide, with Dev Tools hidden through its built-in session control. Original JPEG captures are retained without cropping, upscaling, sharpening or editing product content.
+The full browser content was captured at 1912×994, with Dev Tools hidden through its built-in session control. Original JPEG captures are retained without cropping, upscaling, sharpening or editing product content.
 
 </details>
 
