@@ -682,7 +682,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "580b69e9a3d920f32ee2b13518622f18399e4d2e78a23371adab72c86d81e27d"
+      "sha256": "99aa965b375a6ec9037a872d6a9505f01a6096619bd0a4d221144c74268757f2"
     },
     {
       "path": ".gitattributes",
@@ -719,6 +719,10 @@
     {
       "path": "operational-evidence/final-validation.json",
       "sha256": "5c7cccea8b0b0bfe6261a29ba978a1cd7dc0fd13df9368ac0b723be885e9007a"
+    },
+    {
+      "path": "quality-analysis.md",
+      "sha256": "25b42204f5be9e8450dd155a3372dc0ed0ede8ff4f92fde0eecaeb0c3d1b2733"
     }
   ]
 }

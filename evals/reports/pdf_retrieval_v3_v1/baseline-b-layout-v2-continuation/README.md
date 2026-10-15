@@ -55,6 +55,10 @@ Generation usage saved in captures was 14,779 prompt tokens and 3,552 completion
 - **Refusal controls:**053–060 all refuse;053/056 call generation with evidence and return refusal, while the other six have no candidate. Correct decision labels do not by themselves prove the reasoning or hallucination safeguards are semantically accepted.
 - **Decision accounting:** expected52ANSWER/8REFUSAL versus actual9ANSWER/51REFUSAL gives9positive decision matches,43false-refusal labels and8no-answer decision matches (17/60total). All9answers require human review for facts, completeness, conditions and citations. SemanticPASS remains unclaimed.
 
+## Quality analysis
+
+The evidence-backed human review and retrieval diagnostics are in [quality-analysis.md](quality-analysis.md).
+
 ## Review sequence
 
 Use the same [60-case human packet](human-review.md) and saved captures for owner review, prioritizing the9answers and6generation-refusals, then inspect empty retrieval and extraction/mapping groups. Issue#158 may consume these same captures through its existing tools when separately authorized; no re-answer, judge or export was run here. The retrieval coverage of8/35does not meet a broad RetrievalV3 acceptance claim; keep threshold0.65 and preserve this baseline for later S2–S8 comparisons.
