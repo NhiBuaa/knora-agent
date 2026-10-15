@@ -23,8 +23,82 @@ from evals.runners.milestone_3 import (
     project_trace_candidates,
     score_retrieval,
     semantic_citation_input,
+    validate_public_citations_against_trace,
     verify_corpus_closure,
 )
+
+
+@pytest.mark.parametrize(
+    ("content", "offsets", "excerpt"),
+    [
+        ("A complete sentence.", {}, "A complete sentence."),
+        ("  A complete sentence.  ", {}, "A complete sentence."),
+        ("abcde " * 100, {}, "abcde " * 82 + "abcde …"),
+        (
+            "ục gợi ý dành cho báo cáo - Tài liệu t",
+            {"start_offset": 125, "end_offset": 163},
+            "… gợi ý dành cho báo cáo - Tài liệu …",
+        ),
+        ("A complete sentence.", {"start_offset": 0, "end_offset": 20}, "A complete sentence."),
+    ],
+    ids=("short-text", "outer-whitespace", "long-text", "pdf-interior", "pdf-complete"),
+)
+def test_citation_check_accepts_production_word_boundary_preview(content, offsets, excerpt):
+    candidate = SimpleNamespace(
+        chunk_id="chunk-1",
+        source_key="support/a",
+        content=content,
+        final_decision="SELECTED",
+        start_line=1,
+        end_line=1,
+        **offsets,
+    )
+    validate_public_citations_against_trace(
+        citations=(PublicCitation("E1", "support/a", excerpt, "support/a:1:1"),),
+        alias_mapping={"E1": "chunk-1"},
+        candidates=(candidate,),
+    )
+
+
+@pytest.mark.parametrize(
+    "excerpt",
+    ["A complete sentence. tampered", "A complete sentence", " A complete sentence. ", ""],
+)
+def test_citation_check_rejects_inexact_preview(excerpt):
+    candidate = SimpleNamespace(
+        chunk_id="chunk-1",
+        source_key="support/a",
+        content="A complete sentence.",
+        final_decision="SELECTED",
+        start_line=1,
+        end_line=1,
+    )
+    with pytest.raises(ObservationFailure, match="CITATION_STRUCTURAL_ERROR"):
+        validate_public_citations_against_trace(
+            citations=(PublicCitation("E1", "support/a", excerpt, "support/a:1:1"),),
+            alias_mapping={"E1": "chunk-1"},
+            candidates=(candidate,),
+        )
+
+
+def test_citation_check_rejects_raw_pdf_prefix_in_place_of_production_preview():
+    content = "partial one two trailing"
+    candidate = SimpleNamespace(
+        chunk_id="chunk-1",
+        source_key="support/a",
+        content=content,
+        final_decision="SELECTED",
+        start_line=1,
+        end_line=1,
+        start_offset=10,
+        end_offset=34,
+    )
+    with pytest.raises(ObservationFailure, match="CITATION_STRUCTURAL_ERROR"):
+        validate_public_citations_against_trace(
+            citations=(PublicCitation("E1", "support/a", content, "support/a:1:1"),),
+            alias_mapping={"E1": "chunk-1"},
+            candidates=(candidate,),
+        )
 
 
 def _binding() -> EvaluationEnvironmentBinding:

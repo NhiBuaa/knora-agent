@@ -1,4 +1,10 @@
-# Baseline B — dừng ở câu 001, chờ duyệt sửa evaluator
+# Baseline B — dừng ở câu 001
+
+**Cập nhật sau báo cáo ban đầu:** Owner đã duyệt sửa evaluator và revalidate offline tại
+[#153](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6185933495).
+[Kết quả revalidation](offline-revalidation/README.md) chấp nhận structure/provenance của cùng
+saved response/trace; chưa chọn vào collection hoặc resume B. Các kết quả và đề nghị Q1 bên dưới
+là lịch sử tại thời điểm dừng, không bị đổi thành PASS.
 
 Ngày 15/10/2026. Run `s1-runtime-binding-20261015-01`, code `ffcbd4283c8b29ae34afba26f087f9760c2f7f1c`. Đây là **partial report**, chưa hoàn thành Baseline B hoặc semantic acceptance. PR #189 giữ Draft.
 
