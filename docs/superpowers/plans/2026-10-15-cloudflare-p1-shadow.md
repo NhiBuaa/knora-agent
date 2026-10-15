@@ -9,6 +9,6 @@ The original proposal is preserved in local Git commit
 when that proposal was recorded). Its source findings remain in the
 [research note](../../research/issue-188-cloudflare-p1.md).
 
-P1 Step A/Q1 remains **undecided**. The Master includes it as phase P1; neither this
-historical proposal nor review of the Master grants code, inference, Gateway,
-budget, enforcement, export or merge permission.
+This proposal grants no authority. Consult the Master for the current owner decision
+and P1 offline evidence; inference, Gateway, budget, enforcement, export and merge
+remain separate permissions.

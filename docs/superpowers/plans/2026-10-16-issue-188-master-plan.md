@@ -39,7 +39,7 @@ Read on 2026-10-16: full #188 body and all 16 discussion comments, PR #199 body/
 | Secrets baseline | Implemented in Draft/Open PR #199, head `bd5f288da7822d81e99f17f97567ec5c3129d7bb`; CI required SUCCESS in [run 38735531328](https://github.com/NhiBuaa/knora-agent/actions/runs/38735531328). Real Guardrails integration is in a separate required dependency environment; no silent skip or base-backend dependency addition. | Owner retains experimental implementation baseline only; security quality not accepted; PR unmerged and says `Refs #188`. |
 | Secrets pilot | `pilot-003.json`: **3 TP, 1 FN, 1 FP, 3 TN**, recall 0.75, FPR 0.25. FN is split key; FP is public checksum. Exact reviewed fixture SHA256 `09d64242c694abee6017723b73c1dabd468f6125a0816c003337e05c40954d4a`. | Freeze historical results and labels. Presence does not establish unauthorized leakage. |
 | Saved PDF smoke | `pdf-smoke-002.json`: execution `not_run`, 2 unavailable/unreviewed units; **no usable detector result**. | No clean-output or PDF-security claim. |
-| P1 | Offline implementation in progress after approval. Existing generation uses Workers AI account REST URL, Authorization only, no Gateway selection; question/evidence JSON in user message, upstream non-streaming. | Step A approved; fixture labels, P1 quality and live trial unaccepted. Native verdict/log shape, segmentation/roles/threshold, Vietnamese accuracy and specific price unverified. |
+| P1 | Offline runner, 16 VI/EN fixtures, draft label packet and observation contract implemented; technical gates/review and handoff tracked in [P1 evidence](../../development/issue-188-p1-offline.md). Existing request serialization reused; no live transport added. | Step A approved; fixture labels, P1 quality and live trial unaccepted. Native verdict/log shape, segmentation/roles/threshold, Vietnamese accuracy and specific price unverified. |
 | Account preflight | On 2026-10-15 Gateway-list and subscriptions GET each returned 403/code 10000. | Plan, Gateway existence/log cohort, remaining quota and billing mode unknown. No inference or Gateway mutation performed. |
 | PII / Dangerous Output | Cloud candidates identified only; no detector implementation or real evaluation. | Entity coverage/taxonomy, labels, thresholds and candidate selection unapproved. |
 | Runtime / enforcement / export | No #188 runtime hook or enforcement; export OFF. | No runtime activation, enforcement, merge, deployment or security acceptance authorized. |
@@ -144,7 +144,7 @@ Arrows mean specific reviewed deliverables, not whole parent Issue completion. P
 | Phase | Current state | Can finish without live calls? |
 | --- | --- | --- |
 | P0 | Architecture and Master v1 approved 2026-10-16 | Yes |
-| P1 | Step A/Q1 approved; offline implementation in progress in `codex/issue-188-p1-offline`, based on PR #199 `bd5f288` plus unchanged research/Master docs | Yes |
+| P1 | Step A/Q1 approved; offline implementation/review evidence in [P1 note](../../development/issue-188-p1-offline.md), branch `codex/issue-188-p1-offline` stacked on PR #199 `bd5f288`. Exact-head CI/handoff pending; labels/quality unaccepted | Yes |
 | P2 | Research available; 403 account-access gap; exact packet not prepared | Yes; may end with documented unavailable capability, not live readiness |
 | P3 | Not run / not approved | No |
 | P4 | Baseline implemented; qualification not started or accepted | Yes for saved/synthetic local detector evidence; not application leak acceptance |
@@ -167,11 +167,11 @@ Every phase below inherits the global constraints, approval matrix and common De
 
 **Dependencies:** Owner approves a concrete P1 offline envelope under this Master; PR #199 code reuse/integration base selected; shared-helper changes ACKed if necessary. **Deliverables:** Small P1 runner/tests; 16 VI/EN fixtures (8 attack/8 control; each language 4+4), draft annotation review packet; additive supplementary observation contract reused by later groups. **Files:** P1 rows in section 4; only necessary narrow pure helper changes. No backend/CI/default dependencies.
 
-- [ ] Test input SHA/identity mismatch, duplicate units, labels bound to a different artifact, absent egress approval, unavailable exact evidence, and default no-network execution.
-- [ ] Construct the actual system + question/evidence envelope with existing serialization; preserve Unicode, evidence order/aliases and boundary positions without silent truncation.
-- [ ] Add reviewed-label path, explicit fixture provenance and safe report projection. Prepare labels for owner review; unreviewed cases may smoke offline but contribute no confusion metrics.
-- [ ] Mock HTTP success/positive/completed negative, detector failure, missing/truncated logs, schema drift, 403/429, timeout, unexpected 2016/2017 block and retry/restart accounting. Do not fabricate a production P1 JSON field: mock fixtures are explicitly hypothetical until P2/P3 provide native evidence.
-- [ ] Reuse atomic writer and existing aggregation semantics; version a supplement only if necessary. Default CLI prepares/imports artifacts with zero network. Live mode remains locked without an exact run authorization manifest; unsupported verdict shape returns unavailable.
+- [x] Test input SHA/identity mismatch, duplicate units, labels bound to a different artifact, absent egress approval, unavailable exact evidence, and default no-network execution.
+- [x] Construct the actual system + question/evidence envelope with existing serialization; preserve Unicode, evidence order/aliases and boundary positions without silent truncation.
+- [x] Add reviewed-label path, explicit fixture provenance and safe report projection. Prepare labels for owner review; unreviewed cases may smoke offline but contribute no confusion metrics.
+- [x] Mock HTTP success/positive/completed negative, detector failure, missing/truncated logs, schema drift, 403/429, timeout, unexpected 2016/2017 block and retry/restart accounting. Mock formats are explicitly hypothetical until P2/P3 provide native evidence.
+- [x] Reuse atomic writer and existing aggregation semantics; additive supplement v2 leaves Secrets v1 unchanged. Default CLI prepares/imports artifacts with zero network. Live mode rejects even a supplied manifest until a future approved native contract; unsupported verdict shape returns unavailable.
 
 **Acceptance:** All 16 cases and labels/provenance are reviewable; output contains no raw matches/reasons; failures remain in population; mocks are marked development evidence. **Tests:** Focused P1, existing Secrets/report regression, no-network audit and repository gates. **DoD:** Reviewed offline code/test evidence and immutable preparation artifact, Step A status updated; no claim of P1 quality or live readiness. Owner approved this offline phase on 2026-10-16; exact fixture labels still require separate digest-bound review.
 
