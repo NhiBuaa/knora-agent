@@ -16,6 +16,13 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.12"
+  DEEPEVAL_DISABLE_DOTENV: "1"
+  DEEPEVAL_DISABLE_LEGACY_KEYFILE: "1"
+  DEEPEVAL_TELEMETRY_OPT_OUT: "1"
+  DEEPEVAL_UPDATE_WARNING_OPT_IN: "0"
+  RAGAS_DO_NOT_TRACK: "true"
+  LANGSMITH_TRACING: "false"
+  LANGCHAIN_TRACING_V2: "false"
 
 jobs:
   frontend:
@@ -112,7 +119,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - name: Install backend dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]"
       - name: Portable backend checks
         if: ${{ matrix.suite == 'backend' }}
         shell: bash
@@ -124,14 +131,14 @@ jobs:
           python -m ruff format --check .
           python -m ruff check .
           python scripts/export_openapi.py --check
-          python -m pytest --rootdir=. backend/test evals/test --ci-suite=backend \
+          python -m pytest -p no:deepeval --rootdir=. backend/test evals/test --ci-suite=backend \
             --ci-selection=backend-selection.json --junitxml=backend-report.xml
           python scripts/ci_checks.py reports backend-report.xml
       - name: Windows backend checks
         if: ${{ matrix.suite == 'windows' }}
         shell: pwsh
         run: |
-          python -m pytest --rootdir=. backend/test evals/test --ci-suite=windows --ci-selection=windows-selection.json --junitxml=windows-report.xml
+          python -m pytest -p no:deepeval --rootdir=. backend/test evals/test --ci-suite=windows --ci-selection=windows-selection.json --junitxml=windows-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/ci_checks.py reports windows-report.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -178,7 +185,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - name: Install backend dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev]"
+        run: python -m pip install --upgrade pip && python -m pip install -e "./backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]"
       - name: Apply migrations
         working-directory: backend
         env:
@@ -193,14 +200,17 @@ jobs:
           docker run --rm --privileged --cgroupns private --memory 2g --network host \
             --mount "type=bind,source=$PWD,target=/work" --workdir /work \
             -e KNORA_DATABASE_URL -e KNORA_PROVIDER_MODE \
+            -e DEEPEVAL_DISABLE_DOTENV -e DEEPEVAL_DISABLE_LEGACY_KEYFILE \
+            -e DEEPEVAL_TELEMETRY_OPT_OUT -e DEEPEVAL_UPDATE_WARNING_OPT_IN \
+            -e RAGAS_DO_NOT_TRACK -e LANGSMITH_TRACING -e LANGCHAIN_TRACING_V2 \
             "python:${PYTHON_VERSION}-slim" bash -ec '
               mkdir /sys/fs/cgroup/ci-runner
               while read -r pid; do
                 echo "$pid" > /sys/fs/cgroup/ci-runner/cgroup.procs
               done < /sys/fs/cgroup/cgroup.procs
               echo +memory > /sys/fs/cgroup/cgroup.subtree_control
-              python -m pip install -e "./backend[dev]"
-              python -m pytest --rootdir=. backend/test evals/test --ci-suite=database --ci-selection=database-selection.json --junitxml=database-report.xml
+              python -m pip install -e "./backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]"
+              python -m pytest -p no:deepeval --rootdir=. backend/test evals/test --ci-suite=database --ci-selection=database-selection.json --junitxml=database-report.xml
             '
           python scripts/ci_checks.py reports database-report.xml
       - name: Upload database reports

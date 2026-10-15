@@ -387,6 +387,25 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   vector-only baseline and hybrid result are a paired comparison: immutable corpus and Chunk Set
   provenance, dataset, embedding, generation and scorer settings remain fixed; only Retrieval
   Configuration differs.
+- **Supplementary Evaluation** adds tool-specific quality observations to an existing Knora
+  Evaluation Run. Knora retains sole authority over datasets, gold, manifests, reports and release
+  gates. Supplementary observations join the same run, case, attempt and Question Trace; a missing
+  input or failed judge is explicit and has no quality score. DeepEval measures correctness,
+  answer relevancy and faithfulness; citation and refusal verification remain separate.
+- An **Evaluation Draft** is a proposed question, reference answer and anchored source evidence
+  awaiting the owner's review. Ragas may prepare Vietnamese/English multi-hop drafts; at least two
+  necessary evidence steps must be demonstrated before approval. Draft generation never promotes
+  gold or enlarges the approved pilot corpus automatically.
+  Issue #153 owns the 16-PDF/60-question Gold Dataset and Retrieval V3 baseline; Issue #158
+  integrates evaluation tools. Ragas proposes additions for a later needed expansion, without
+  regenerating #153's cases; every gold addition requires owner review.
+- **Evaluation Data Permission** records whether the exact evaluation inputs may be sent to the
+  chosen provider. Approved public/synthetic inputs may use Cloudflare Workers AI; private inputs
+  without external-use permission remain local. A public URL alone is not permission.
+- **Evaluation Observation Export** projects persisted Knora observations into opaque identifiers,
+  approved metadata and numeric diagnostics. Langfuse does not receive questions, answers,
+  references, evidence, source names, raw errors or credentials. Cloud export remains disabled
+  until separately approved; imported monotonic durations are not wall-clock spans.
 - A **Chunk Set Persisted Instance Identity** is the production `ChunkSet.id` UUID. It identifies
   one stored derivation instance and is not portable corpus provenance.
 - A **Chunk Set Provenance Identity** is an immutable manifest identity such as
