@@ -41,17 +41,17 @@ _An answer with its citation selected. The answer's “before 9 AM” statement 
 
 ![community-garden-guide.pdf uploaded and successfully processed, with its document status showing Ready](docs/assets/readme/pdf-upload.jpg)
 
-The upload creates a durable Ingestion Job. The sample reached **Ready** after worker processing. [Open the full-size screenshot](docs/assets/readme/pdf-upload.jpg).
+The upload creates a durable Ingestion Job. The sample reached **Ready** after worker processing.
 
 ### No supporting evidence
 
 ![Knora refusing a question about an office Wi-Fi password that is absent from the sample document](docs/assets/readme/refusal.jpg)
 
-This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation. [Open the full-size screenshot](docs/assets/readme/refusal.jpg).
+This question returned `INSUFFICIENT_EVIDENCE` without a generated answer or citation.
 
 **Screenshot provenance:** captured in external Microsoft Edge on **2026-10-15**, using development runtime source `d5f01f4`. A fresh upload of the sample PDF reached Ready in a separate demo Workspace; both questions were submitted during this session. The runtime uses Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) and GPT-OSS generation.
 
-The full browser content was captured at 1912 pixels wide, with Dev Tools hidden through its built-in session control. Original JPEG captures are retained without cropping, upscaling, sharpening or editing product content. Open the full-size images to inspect small text.
+The full browser content was captured at 1912 pixels wide, with Dev Tools hidden through its built-in session control. Original JPEG captures are retained without cropping, upscaling, sharpening or editing product content.
 
 </details>
 

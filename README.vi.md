@@ -41,17 +41,17 @@ _Câu trả lời với trích dẫn đang được chọn. Nội dung “before
 
 ![community-garden-guide.pdf đã upload và xử lý thành công, với trạng thái tài liệu Ready](docs/assets/readme/pdf-upload.jpg)
 
-Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu đạt trạng thái **Ready** sau khi worker xử lý. [Mở screenshot ở kích thước gốc](docs/assets/readme/pdf-upload.jpg).
+Upload tạo một Ingestion Job được lưu bền vững. Tài liệu mẫu đạt trạng thái **Ready** sau khi worker xử lý.
 
 ### Không có bằng chứng hỗ trợ
 
 ![Knora từ chối câu hỏi về mật khẩu Wi-Fi văn phòng không có trong tài liệu mẫu](docs/assets/readme/refusal.jpg)
 
-Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn. [Mở screenshot ở kích thước gốc](docs/assets/readme/refusal.jpg).
+Câu hỏi này trả về `INSUFFICIENT_EVIDENCE`, không tạo câu trả lời hoặc trích dẫn.
 
 **Nguồn gốc screenshots:** chụp bằng Microsoft Edge bên ngoài vào **2026-10-15**, sử dụng development runtime source `d5f01f4`. PDF mẫu được upload mới và đạt Ready trong Workspace demo riêng; cả hai câu hỏi được gửi trong phiên này. Runtime sử dụng Cloudflare Qwen3 embeddings (`embedding-cloudflare-qwen3-06b-v1`) và GPT-OSS generation.
 
-Toàn bộ nội dung trình duyệt được chụp ở chiều rộng 1912 pixel, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Giữ nguyên capture JPEG gốc, không cắt, phóng ảnh, làm nét hoặc chỉnh nội dung sản phẩm. Mở ảnh kích thước gốc để đọc chữ nhỏ.
+Toàn bộ nội dung trình duyệt được chụp ở chiều rộng 1912 pixel, với Dev Tools được ẩn bằng tùy chọn có sẵn cho phiên làm việc. Giữ nguyên capture JPEG gốc, không cắt, phóng ảnh, làm nét hoặc chỉnh nội dung sản phẩm.
 
 </details>
 
