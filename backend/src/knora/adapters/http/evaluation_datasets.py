@@ -42,6 +42,7 @@ class DatasetResponse(BaseModel):
     cases: list[dict] = Field(default_factory=list)
     reviews: list[dict] = Field(default_factory=list)
     reference: dict | None = None
+    proposal_batches: list[dict] = Field(default_factory=list)
 
 
 class SourceResponse(BaseModel):
@@ -88,6 +89,26 @@ class FreezeRequest(RevisionRequest):
     gold_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class ProposalInputRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_ids: list[str] = Field(min_length=1)
+    profile_id: str = Field(min_length=1, max_length=100)
+    language: Literal["vi", "en"]
+    count: int = Field(ge=1, le=12)
+
+
+class GenerateProposalsRequest(ProposalInputRequest):
+    expected_revision: int = Field(ge=0)
+    input_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_id: str = Field(min_length=1, max_length=100)
+
+
+class ImportProposalRequest(RevisionRequest):
+    question: str | None = Field(default=None, min_length=1)
+    reference_answer: str | None = Field(default=None, min_length=1)
+
+
 class PageResponse(BaseModel):
     source_id: str
     document_version_id: str
@@ -113,6 +134,7 @@ def _dataset_response(dataset: Dataset) -> DatasetResponse:
         cases=[asdict(case) for case in dataset.cases],
         reviews=[asdict(review) for review in dataset.reviews],
         reference=asdict(dataset.reference) if dataset.reference else None,
+        proposal_batches=list(getattr(dataset, "proposal_batches", ())),
     )
 
 
@@ -142,6 +164,94 @@ def get_dataset(
     return DatasetDetailResponse(
         **_dataset_response(dataset).model_dump(),
         sources=[_source_response(source) for source in sources],
+    )
+
+
+@router.get("/datasets/{dataset_id}/proposals", response_model=dict)
+def get_proposals(
+    workspace_id: str,
+    dataset_id: str,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> dict:
+    private(response)
+    profiles = service.proposal_profiles(workspace_id, principal)
+    dataset = service.get_dataset(workspace_id, dataset_id, principal)
+    return {"profiles": profiles, "batches": list(dataset.proposal_batches)}
+
+
+@router.post("/datasets/{dataset_id}/proposals/preflight", response_model=dict)
+def proposal_preflight(
+    workspace_id: str,
+    dataset_id: str,
+    payload: ProposalInputRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> dict:
+    private(response)
+    return service.proposal_preflight(
+        workspace_id,
+        dataset_id,
+        tuple(payload.source_ids),
+        payload.profile_id,
+        payload.language,
+        payload.count,
+        principal,
+    )
+
+
+@router.post("/datasets/{dataset_id}/proposals", response_model=dict)
+async def generate_proposals(
+    workspace_id: str,
+    dataset_id: str,
+    payload: GenerateProposalsRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> dict:
+    private(response)
+    return await service.generate_proposals(
+        workspace_id,
+        dataset_id,
+        tuple(payload.source_ids),
+        payload.profile_id,
+        payload.language,
+        payload.count,
+        payload.expected_revision,
+        payload.input_digest,
+        payload.request_id,
+        principal,
+    )
+
+
+@router.post(
+    "/datasets/{dataset_id}/proposals/{batch_id}/drafts/{draft_id}/import",
+    response_model=DatasetResponse,
+)
+def import_proposal(
+    workspace_id: str,
+    dataset_id: str,
+    batch_id: str,
+    draft_id: str,
+    payload: ImportProposalRequest,
+    response: Response,
+    principal: Annotated[WorkspacePrincipal, Depends(require_operator_read)],
+    service: Annotated[DatasetService, Depends(get_dataset_service)],
+) -> DatasetResponse:
+    private(response)
+    return _dataset_response(
+        service.import_proposal(
+            workspace_id,
+            dataset_id,
+            batch_id,
+            draft_id,
+            payload.expected_revision,
+            principal,
+            question=payload.question,
+            reference_answer=payload.reference_answer,
+        )
     )
 
 

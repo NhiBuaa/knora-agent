@@ -402,6 +402,14 @@
             "title": "Name",
             "type": "string"
           },
+          "proposal_batches": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Proposal Batches",
+            "type": "array"
+          },
           "reference": {
             "anyOf": [
               {
@@ -512,6 +520,14 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "proposal_batches": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Proposal Batches",
+            "type": "array"
           },
           "reference": {
             "anyOf": [
@@ -788,6 +804,66 @@
         "title": "FreezeRequest",
         "type": "object"
       },
+      "GenerateProposalsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "input_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Digest",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "vi",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "profile_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids",
+          "profile_id",
+          "language",
+          "count",
+          "expected_revision",
+          "input_digest",
+          "request_id"
+        ],
+        "title": "GenerateProposalsRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -819,6 +895,45 @@
           "service"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "ImportProposalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "reference_answer": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Answer"
+          }
+        },
+        "required": [
+          "expected_revision"
+        ],
+        "title": "ImportProposalRequest",
         "type": "object"
       },
       "IngestionJobStatusResponse": {
@@ -1733,6 +1848,47 @@
           "reasons"
         ],
         "title": "PreflightResponse",
+        "type": "object"
+      },
+      "ProposalInputRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "language": {
+            "enum": [
+              "vi",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "profile_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids",
+          "profile_id",
+          "language",
+          "count"
+        ],
+        "title": "ProposalInputRequest",
         "type": "object"
       },
       "QuestionRequest": {
@@ -5532,6 +5688,390 @@
           }
         },
         "summary": "Preview Gold",
+        "tags": [
+          "evaluation-datasets"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals": {
+      "get": {
+        "operationId": "get_proposals_v1_workspaces__workspace_id__evaluation_datasets__dataset_id__proposals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_id",
+            "required": true,
+            "schema": {
+              "title": "Dataset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Proposals V1 Workspaces  Workspace Id  Evaluation Datasets  Dataset Id  Proposals Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Proposals",
+        "tags": [
+          "evaluation-datasets"
+        ]
+      },
+      "post": {
+        "operationId": "generate_proposals_v1_workspaces__workspace_id__evaluation_datasets__dataset_id__proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_id",
+            "required": true,
+            "schema": {
+              "title": "Dataset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateProposalsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Generate Proposals V1 Workspaces  Workspace Id  Evaluation Datasets  Dataset Id  Proposals Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Proposals",
+        "tags": [
+          "evaluation-datasets"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals/preflight": {
+      "post": {
+        "operationId": "proposal_preflight_v1_workspaces__workspace_id__evaluation_datasets__dataset_id__proposals_preflight_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_id",
+            "required": true,
+            "schema": {
+              "title": "Dataset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalInputRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Proposal Preflight V1 Workspaces  Workspace Id  Evaluation Datasets  Dataset Id  Proposals Preflight Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Proposal Preflight",
+        "tags": [
+          "evaluation-datasets"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals/{batch_id}/drafts/{draft_id}/import": {
+      "post": {
+        "operationId": "import_proposal_v1_workspaces__workspace_id__evaluation_datasets__dataset_id__proposals__batch_id__drafts__draft_id__import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_id",
+            "required": true,
+            "schema": {
+              "title": "Dataset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Proposal",
         "tags": [
           "evaluation-datasets"
         ]

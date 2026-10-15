@@ -28,6 +28,9 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/freeze"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold-preview"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals/preflight"
+  | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals/{batch_id}/drafts/{draft_id}/import"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/revisions"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources"
   | "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}"
@@ -118,6 +121,7 @@ export type DatasetDetailResponse = {
   cases?: Array<Record<string, unknown>>;
   id: string;
   name: string;
+  proposal_batches?: Array<Record<string, unknown>>;
   reference?: Record<string, unknown> | null;
   reviews?: Array<Record<string, unknown>>;
   revision?: number;
@@ -137,6 +141,7 @@ export type DatasetResponse = {
   cases?: Array<Record<string, unknown>>;
   id: string;
   name: string;
+  proposal_batches?: Array<Record<string, unknown>>;
   reference?: Record<string, unknown> | null;
   reviews?: Array<Record<string, unknown>>;
   revision?: number;
@@ -175,12 +180,26 @@ export type FreezeRequest = {
   expected_revision: number;
   gold_digest: string;
 };
+export type GenerateProposalsRequest = {
+  count: number;
+  expected_revision: number;
+  input_digest: string;
+  language: "vi" | "en";
+  profile_id: string;
+  request_id: string;
+  source_ids: Array<string>;
+};
 export type HTTPValidationError = {
   detail?: Array<ValidationError>;
 };
 export type HealthResponse = {
   service: string;
   status: string;
+};
+export type ImportProposalRequest = {
+  expected_revision: number;
+  question?: string | null;
+  reference_answer?: string | null;
 };
 export type IngestionJobStatusResponse = {
   attempt_count: number;
@@ -316,6 +335,12 @@ export type PreflightResponse = {
   source_preparation?: Array<Record<string, unknown>>;
   status: string;
   workspace_id?: string | null;
+};
+export type ProposalInputRequest = {
+  count: number;
+  language: "vi" | "en";
+  profile_id: string;
+  source_ids: Array<string>;
 };
 export type QuestionRequest = {
   question: string;
@@ -505,6 +530,9 @@ export interface KnoraApiResponseByPath {
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/freeze": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/gold-preview": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals/preflight": KnoraApiResponse;
+  "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/proposals/{batch_id}/drafts/{draft_id}/import": DatasetResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/revisions": DatasetResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources": KnoraApiResponse;
   "/v1/workspaces/{workspace_id}/evaluation/datasets/{dataset_id}/sources/{source_id}": SourceResponse;

@@ -21,6 +21,7 @@ class DatasetDraftTable(Base):
     cases: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     reviews: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     reference: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    proposal_batches: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
