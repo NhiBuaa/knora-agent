@@ -64,7 +64,6 @@ class Settings(BaseSettings):
     keycloak_jwks_url: str | None = None
     keycloak_jwks_cache_ttl_seconds: int = 300
     m5_e2e_faults_enabled: bool = False
-    retrieval_configuration_id: str = "retrieval-m1-v1"
     provider_mode: str = "deterministic-local"
     embedding_provider: str | None = None
     generation_provider: str | None = None
@@ -93,13 +92,6 @@ class Settings(BaseSettings):
     cloudflare_embedding_configuration_id: str = "embedding-cloudflare-qwen3-06b-v1"
     cloudflare_generation_model: str = "@cf/openai/gpt-oss-20b"
     cloudflare_timeout_seconds: float = 60.0
-    semantic_scorer_base_url: str | None = None
-    semantic_scorer_api_key: SecretStr | None = None
-    semantic_scorer_model: str | None = None
-    semantic_scorer_timeout_seconds: float = 60.0
-    semantic_scorer_pricing_version: str | None = None
-    semantic_scorer_input_cost_per_million_tokens: Decimal | None = None
-    semantic_scorer_output_cost_per_million_tokens: Decimal | None = None
 
     # The root .env is shared by backend, frontend and local launchers. Ignore entries
     # owned by another process while keeping Knora settings typed and explicit here.
