@@ -1,0 +1,293 @@
+"""Build the #153 Baseline B packet once canonical live capture is stopped."""
+
+# ruff: noqa: E402 -- this ignored script adds repository roots before project imports.
+import hashlib
+import json
+import shutil
+import sys
+from collections import Counter
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+
+from evals.datasets.pdf_retrieval_v3_v1 import load_dataset, validate_approval
+from evals.runners.pdf_retrieval_v3 import (
+    build_report,
+    load_json,
+    selected_observations,
+    validate_artifact_identity,
+    validate_counter_identity,
+)
+from evals.runners.pdf_source_binding import digest, group_coverage, validate_binding_review
+
+RUN_ID = "s1-runtime-binding-20261015-01"
+WORKSPACE_ID = "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+PROPOSAL = "3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d"
+DERIVATION = "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2"
+CAPTURE = ROOT / ".verification/issue153/run"
+OPERATIONS = ROOT / ".verification/issue153/baseline-b"
+BINDING_REPORT = ROOT / "evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime"
+TARGET = ROOT / "evals/reports/pdf_retrieval_v3_v1/baseline-b-layout-v2"
+LAUNCHER = Path(__file__).with_name("baseline-b-runtime.py")
+SELFCHECK = Path(__file__).with_name("baseline-b-runtime-selfcheck.py")
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_json(path, value):
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def archive(source, target, manifest):
+    shutil.copyfile(source, target)
+    checksum = sha(source)
+    assert sha(target) == checksum, "archive byte mismatch"
+    manifest.append({"path": target.relative_to(TARGET).as_posix(), "sha256": checksum})
+
+
+def review_packet(dataset, by_case, report_cases, coverage_cases):
+    lines = [
+        "# Baseline B human response review",
+        "",
+        "All 60 frozen gold cases remain in order. Semantic review is pending; "
+        "this packet does not judge answers.",
+        "Failed rows remain failed, including saved public payloads, "
+        "and not-run cases remain not run.",
+        "",
+    ]
+    for case in dataset.cases:
+        row = by_case.get(case.id, {})
+        reported = report_cases[case.id]
+        coverage = coverage_cases[case.id]
+        lines += [f"## {case.id} — {reported['status']}", ""]
+        fields = {
+            "category": case.category,
+            "language": case.language,
+            "question": case.question,
+            "expected_behavior": case.expected_behavior,
+            "reference_answer": case.reference_answer,
+            "required_facts": case.required_facts,
+            "evidence_groups": case.evidence_groups,
+            "parent_case_id": case.parent_case_id,
+            "no_answer_scope": case.no_answer_scope,
+            "run_id": row.get("run_id", RUN_ID),
+            "attempt_id": row.get("attempt_id"),
+            "trace_id": row.get("trace_id"),
+            "conversation_id": row.get("conversation_id"),
+            "turn_id": row.get("turn_id"),
+            "response_sha256": row.get("response_sha256"),
+            "failure_code": row.get("failure_code"),
+            "observation_failure_code": row.get("observation_failure_code"),
+            "coverage": coverage,
+            "semantic_review": "pending",
+        }
+        public = row.get("public_response") or {}
+        fields.update(
+            actual_decision=public.get("decision"),
+            actual_answer=public.get("answer"),
+            actual_refusal_reason=public.get("refusal_reason"),
+            actual_citations=public.get("citations"),
+        )
+        for key, value in fields.items():
+            lines.append(f"- **{key}**: {json.dumps(value, ensure_ascii=False)}")
+        lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    if TARGET.exists():
+        raise ValueError("Baseline B report directory already exists; no overwrite")
+    dataset = load_dataset(
+        ROOT / "evals/datasets/pdf_retrieval_v3_v1.manifest.json",
+        ROOT / "evals/datasets/pdf_retrieval_v3_v1.jsonl",
+    )
+    validate_approval(dataset, load_json(ROOT / "evals/datasets/pdf_retrieval_v3_v1.approval.json"))
+    assert len(dataset.sources) == 16 and len(dataset.cases) == 60
+    chunks = load_json(CAPTURE / "chunks.json")
+    proposal = load_json(CAPTURE / "binding-proposals.json")
+    review = load_json(BINDING_REPORT / "binding-review.json")
+    assert len(chunks["chunks"]) == 47
+    assert {row["workspace_id"] for row in chunks["chunks"]} == {WORKSPACE_ID}
+    assert chunks["corpus_sha256"] == dataset.corpus_sha256
+    assert chunks["dataset_sha256"] == dataset.dataset_sha256
+    assert proposal == load_json(BINDING_REPORT / "proposals.json")
+    assert proposal["proposal_sha256"] == review["proposal_sha256"] == PROPOSAL
+    assert proposal["derivation_sha256"] == review["derivation_sha256"] == DERIVATION
+    assert proposal["corpus_sha256"] == dataset.corpus_sha256
+    assert proposal["dataset_sha256"] == dataset.dataset_sha256
+    assert review["run_id"] == RUN_ID and review["workspace_id"] == WORKSPACE_ID
+    bindings = validate_binding_review(proposal, review)
+    assert len(bindings) == 86
+    assert sum(bool(ids) for ids in bindings.values()) == 61
+    assert sum(not ids for ids in bindings.values()) == 25
+
+    counters = load_json(CAPTURE / "counters.json")
+    summary = load_json(CAPTURE / "baseline-b-stop-summary.json")
+    validate_counter_identity(counters, dataset, RUN_ID)
+    query = counters["query_embedding_attempts"]
+    generation = counters["baseline_b_generation_attempts"]
+    assert type(query) is type(generation) is int and 0 <= generation <= query <= 60
+    assert counters["embedding_http_attempts"] == 14
+    assert counters["embedding_inputs"] == 47 + query
+    assert counters["generation_attempts"] == generation
+    assert len(counters["attempted_sources"]) == 14
+    requests = counters["baseline_b_case_requests"]
+    assert set(requests) <= {case.id for case in dataset.cases}
+    assert sum(value.get("query") is True for value in requests.values()) == query
+    assert sum(value.get("generation") is True for value in requests.values()) == generation
+    assert summary["query_embedding_attempts"] == query
+    assert summary["generation_attempts"] == generation
+    assert summary["stop_reason"] in {"COMPLETE", counters["stop_reason"], "BATCH_REVIEW_NEEDED"}
+
+    rows = selected_observations(CAPTURE)
+    for row in rows:
+        validate_artifact_identity(row, dataset, RUN_ID, WORKSPACE_ID, derivation_sha256=DERIVATION)
+    by_case = {row["case_id"]: row for row in rows}
+    assert len(by_case) == len(rows)
+    sources = {
+        row["source_id"]: row for row in (load_json(path) for path in CAPTURE.glob("source-*.json"))
+    }
+    assert len(sources) == 16 and set(sources) == {source.id for source in dataset.sources}
+    for row in sources.values():
+        validate_artifact_identity(row, dataset, RUN_ID, WORKSPACE_ID)
+    report = build_report(dataset, rows, bindings, {}, source_results=sources)
+    report.update(
+        run_id=RUN_ID,
+        workspace_id=WORKSPACE_ID,
+        derivation_sha256=DERIVATION,
+        binding_review_sha256=digest(review),
+        request_counters=counters,
+    )
+    assert report["denominators"]["total"] == 60
+    assert report["denominators"]["attempted"] == len(rows)
+    report_cases = {case["case_id"]: case for case in report["cases"]}
+
+    coverage_cases = {}
+    candidate_all = selected_all = evaluable = 0
+    for case in dataset.cases:
+        row = by_case.get(case.id)
+        if row is None or row.get("failure_code") or not case.evidence_groups:
+            coverage_cases[case.id] = {"status": "not_evaluable"}
+            continue
+        if any(not any(bindings[anchor] for anchor in group) for group in case.evidence_groups):
+            coverage_cases[case.id] = {"status": "extraction_or_mapping_missing"}
+            continue
+        candidates = row["candidates"]
+        candidate_ids = [candidate["chunk_id"] for candidate in candidates]
+        selected_ids = [
+            candidate["chunk_id"]
+            for candidate in candidates
+            if candidate["final_decision"] == "SELECTED"
+        ]
+        assert len(candidate_ids) == len(set(candidate_ids))
+        assert selected_ids == row["selected_chunk_ids"]
+        candidate_groups = group_coverage(case.evidence_groups, bindings, candidate_ids)
+        selected_groups = group_coverage(case.evidence_groups, bindings, selected_ids)
+        assert all(
+            not covered or candidate_groups[index] for index, covered in enumerate(selected_groups)
+        )
+        coverage_cases[case.id] = {
+            "status": "evaluable",
+            "candidate_pool": "saved post-threshold candidates with final decisions",
+            "candidate_group_coverage": list(candidate_groups),
+            "selected_group_coverage": list(selected_groups),
+            "all_candidate_groups_covered": all(candidate_groups),
+            "all_selected_groups_covered": all(selected_groups),
+            "candidate_chunk_ids": candidate_ids,
+            "selected_chunk_ids": selected_ids,
+        }
+        evaluable += 1
+        candidate_all += all(candidate_groups)
+        selected_all += all(selected_groups)
+    assert evaluable == report["denominators"]["retrieval_evaluable"]
+    coverage = {
+        "schema_version": 1,
+        "dataset_sha256": dataset.dataset_sha256,
+        "corpus_sha256": dataset.corpus_sha256,
+        "denominators": report["denominators"],
+        "candidate_pool_definition": (
+            "saved row.candidates: post-threshold candidate final-decision pool, "
+            "not all vector branch hits"
+        ),
+        "selected_pool_definition": "the same saved candidates where final_decision is SELECTED",
+        "evaluable_cases": evaluable,
+        "all_candidate_groups_covered": candidate_all,
+        "all_selected_groups_covered": selected_all,
+        "candidate_coverage_rate": candidate_all / evaluable if evaluable else None,
+        "selected_coverage_rate": selected_all / evaluable if evaluable else None,
+        "cases": coverage_cases,
+    }
+
+    TARGET.mkdir(parents=True, exist_ok=False)
+    (TARGET / "captures").mkdir()
+    (TARGET / "operational-evidence").mkdir()
+    (TARGET / "source").mkdir()
+    manifest = []
+    capture_files = {
+        *CAPTURE.glob("case-*-attempt-*.json"),
+        *CAPTURE.glob("dispatch-*-attempt-*.json"),
+        *CAPTURE.glob("source-*.json"),
+        *(
+            CAPTURE / name
+            for name in (
+                "chunks.json",
+                "binding-proposals.json",
+                "counters.json",
+                "baseline-b-stop-summary.json",
+            )
+        ),
+    }
+    assert all(path.is_file() for path in capture_files)
+    for source in sorted(capture_files):
+        archive(source, TARGET / "captures" / source.name, manifest)
+    operational = sorted(OPERATIONS.glob("*.json"))
+    assert {"persistence-before-b.json", "free-before-batch-01.json"} <= {
+        path.name for path in operational
+    }
+    for source in operational:
+        archive(source, TARGET / "operational-evidence" / source.name, manifest)
+    for source in (LAUNCHER, SELFCHECK, Path(__file__)):
+        archive(source, TARGET / "source" / (source.name + ".txt"), manifest)
+    write_json(TARGET / "archive-manifest.json", {"files": manifest})
+    write_json(TARGET / "report.json", report)
+    write_json(TARGET / "candidate-vs-selected-coverage.json", coverage)
+    (TARGET / "human-review.md").write_text(
+        review_packet(dataset, by_case, report_cases, coverage_cases), encoding="utf-8"
+    )
+    decisions = Counter(row.get("decision") for row in rows if not row.get("failure_code"))
+    failures = Counter(row["failure_code"] for row in rows if row.get("failure_code"))
+    usage = Counter()
+    for row in rows:
+        for key, value in (
+            row.get("provider_metadata", {}).get("generation", {}).get("usage", {}).items()
+        ):
+            if type(value) is int:
+                usage[key] += value
+    print(
+        json.dumps(
+            {
+                "total": 60,
+                "attempted": len(rows),
+                "observed": report["denominators"]["observed"],
+                "not_run": report["denominators"]["not_run"],
+                "decisions": decisions,
+                "failures": failures,
+                "saved_generation_usage_tokens": usage,
+                "usage_scope": (
+                    "saved row provider_metadata only; failed-row provider usage may be unavailable"
+                ),
+                "query_attempts": query,
+                "generation_attempts": generation,
+                "stop_reason": summary["stop_reason"],
+                "report_dir": str(TARGET),
+            },
+            ensure_ascii=False,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

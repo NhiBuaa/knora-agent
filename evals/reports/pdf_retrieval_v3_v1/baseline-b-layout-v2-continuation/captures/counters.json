@@ -1,0 +1,682 @@
+{
+  "identity_sha256": "6f9f113d0f44b0acb24c60f887afa27e6a162d316a64535a308a74642248fe8a",
+  "generation_attempts": 15,
+  "embedding_inputs": 107,
+  "paused_until": null,
+  "stop_reason": null,
+  "run_identity": {
+    "run_id": "s1-runtime-binding-20261015-01",
+    "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+    "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+    "baseline": "pypdf-layout-v2/qwen3-06b/gpt-oss20b/containment0.65"
+  },
+  "free_preflight": {
+    "checked_at": "2026-10-15T07:13:55.5749119+00:00",
+    "plan": "Workers Free",
+    "account_id": "0815469773bb9f83177a1303be9a90f3",
+    "raw_neurons_used": 202.67,
+    "neurons_used": 203,
+    "daily_limit": 10000,
+    "models_free_eligible": true,
+    "no_paid_gateway": true,
+    "paid_budget_usd": 0,
+    "quota_coordination_confirmed": true,
+    "ci_required": {
+      "conclusion": "success",
+      "url": "https://github.com/NhiBuaa/knora-agent/actions/runs/38695387159",
+      "code_commit": "2787eb910b8183c264506b5fc31b051208f70f8f"
+    },
+    "evidence": {
+      "other_session": "#183 Q17 permits no inference; latest coordination6186608013",
+      "source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/ai/workers-ai/usage",
+      "limits": "Remaining12queries<=47generation, total60/60; next12 final; paid0USD",
+      "coordination": "https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6186472275",
+      "plan": "Workers plans UI refreshed07:13UTC: Free $0 Current plan; 10000 neurons/day",
+      "plan_source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/workers/plans",
+      "usage": "Fresh daily202.67/10k aftercheckpoint48; counter lag retained, not zero consumption.",
+      "pricing": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+      "checkpoint_review": "48query/13generation,13162input+3212output=>326.91236generationneurons rateestimate vs6000prorated; embeddingunknown. Conservatively subtract all326.92 as unsettled from dailyremaining9797.33 =>9470.41 still above8500 admission and1500remainingplanning. No errors/drift."
+    }
+  },
+  "embedding_http_attempts": 14,
+  "attempted_sources": [
+    "clean-01",
+    "clean-02",
+    "hierarchy-01",
+    "hierarchy-02",
+    "hierarchy-03",
+    "columns-01",
+    "columns-02",
+    "table-01",
+    "table-02",
+    "table-03",
+    "scan-02",
+    "academic-phobert",
+    "academic-phonlp",
+    "academic-vit5"
+  ],
+  "ingestion_only_authorization": {
+    "decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6184890856",
+    "paid_budget_usd": 0,
+    "embedding_http_attempt_limit": 14,
+    "embedding_input_limit": 47,
+    "query_generation_judge_limit": 0,
+    "offline_snapshot_sha256": "5653d9820541123883f5b2612d18b290742493e840a4d7c98b3f8d9de0ea83d6"
+  },
+  "runtime_provenance": {
+    "code_commit": "71bf691c67d20baa271a553799cd4673a0b78dc3",
+    "launcher_sha256": "10a902b2624020ecaf86bf6a1297df8480102757923f65b84b4499b44041b0fb",
+    "python": "3.13.15 (tags/v3.13.15:4061bc4, Aug  5 2026, 13:05:39) [MSC v.1944 64 bit (AMD64)]",
+    "database": "127.0.0.1:55453/knora153s1_baseline",
+    "http": "FastAPI TestClient in-process; no port8153 listener",
+    "credential_source": "primary .env: Cloudflare account/token keys only",
+    "automatic_retry": false,
+    "conversation_worker_started": false
+  },
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f",
+  "terminal_statuses": {
+    "clean-01": {
+      "ingestion_job_id": "14d4fad0-01ca-4623-961a-0820530d5be4",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:06.381001+00:00",
+      "started_at": "2026-10-15T05:14:06.420183+00:00",
+      "updated_at": "2026-10-15T05:14:08.095846+00:00",
+      "terminal_at": "2026-10-15T05:14:08.095846+00:00",
+      "target_document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "current_document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "served_document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb"
+      }
+    },
+    "clean-02": {
+      "ingestion_job_id": "a3d198cc-4605-46b3-bb35-873e514db58c",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:08.189973+00:00",
+      "started_at": "2026-10-15T05:14:08.214457+00:00",
+      "updated_at": "2026-10-15T05:14:10.899483+00:00",
+      "terminal_at": "2026-10-15T05:14:10.899483+00:00",
+      "target_document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "current_document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "served_document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9"
+      }
+    },
+    "hierarchy-01": {
+      "ingestion_job_id": "599396ac-e665-43c2-9813-f721fea0184a",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:10.990913+00:00",
+      "started_at": "2026-10-15T05:14:11.014000+00:00",
+      "updated_at": "2026-10-15T05:14:15.278387+00:00",
+      "terminal_at": "2026-10-15T05:14:15.278387+00:00",
+      "target_document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "current_document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "served_document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af"
+      }
+    },
+    "hierarchy-02": {
+      "ingestion_job_id": "261c4805-cfb6-4720-b81e-6d49c6bffa0b",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:15.390361+00:00",
+      "started_at": "2026-10-15T05:14:15.421168+00:00",
+      "updated_at": "2026-10-15T05:14:18.711583+00:00",
+      "terminal_at": "2026-10-15T05:14:18.711583+00:00",
+      "target_document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "current_document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "served_document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "3172814d-ea76-4213-af46-947fe702a103"
+      }
+    },
+    "hierarchy-03": {
+      "ingestion_job_id": "795931d3-8403-4fd1-a9bc-833ba3d6a859",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:18.800177+00:00",
+      "started_at": "2026-10-15T05:14:18.823231+00:00",
+      "updated_at": "2026-10-15T05:14:24.820691+00:00",
+      "terminal_at": "2026-10-15T05:14:24.820691+00:00",
+      "target_document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "current_document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "served_document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6"
+      }
+    },
+    "columns-01": {
+      "ingestion_job_id": "85746ef1-c61b-42a7-8a6d-8de17ec4bf2f",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:24.912485+00:00",
+      "started_at": "2026-10-15T05:14:24.941874+00:00",
+      "updated_at": "2026-10-15T05:14:26.207319+00:00",
+      "terminal_at": "2026-10-15T05:14:26.207319+00:00",
+      "target_document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "current_document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "served_document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db"
+      }
+    },
+    "columns-02": {
+      "ingestion_job_id": "5546d98c-93f4-4941-99ff-48ad307d0f3f",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:26.302368+00:00",
+      "started_at": "2026-10-15T05:14:26.327339+00:00",
+      "updated_at": "2026-10-15T05:14:27.638763+00:00",
+      "terminal_at": "2026-10-15T05:14:27.638763+00:00",
+      "target_document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a",
+      "current_document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a",
+      "served_document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a"
+      }
+    },
+    "table-01": {
+      "ingestion_job_id": "f52a05e4-f70a-41a3-b555-bfeb689e80cd",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:27.726868+00:00",
+      "started_at": "2026-10-15T05:14:27.749866+00:00",
+      "updated_at": "2026-10-15T05:14:30.378509+00:00",
+      "terminal_at": "2026-10-15T05:14:30.378509+00:00",
+      "target_document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "current_document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "served_document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f"
+      }
+    },
+    "table-02": {
+      "ingestion_job_id": "ab9d02ed-0bbd-41c1-96fd-755b221036f8",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:30.479060+00:00",
+      "started_at": "2026-10-15T05:14:30.507046+00:00",
+      "updated_at": "2026-10-15T05:14:36.060109+00:00",
+      "terminal_at": "2026-10-15T05:14:36.060109+00:00",
+      "target_document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "current_document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "served_document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08"
+      }
+    },
+    "table-03": {
+      "ingestion_job_id": "9397015c-3bc0-415b-b6e3-f69ad2176a1d",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:36.151999+00:00",
+      "started_at": "2026-10-15T05:14:36.177724+00:00",
+      "updated_at": "2026-10-15T05:14:38.572914+00:00",
+      "terminal_at": "2026-10-15T05:14:38.572914+00:00",
+      "target_document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "current_document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "served_document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3"
+      }
+    },
+    "scan-01": {
+      "ingestion_job_id": "12f52c50-63d4-4f30-8304-787247f53eeb",
+      "status": "failed",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:38.669794+00:00",
+      "started_at": "2026-10-15T05:14:38.696502+00:00",
+      "updated_at": "2026-10-15T05:14:39.474570+00:00",
+      "terminal_at": "2026-10-15T05:14:39.474570+00:00",
+      "target_document_version_id": "88e2395e-e1fa-4507-ac68-47911df17251",
+      "current_document_version_id": "88e2395e-e1fa-4507-ac68-47911df17251",
+      "served_document_version_id": null,
+      "serving_state": "unavailable",
+      "failure_reason": "terminal_input",
+      "error_code": "PDF_TEXT_INSUFFICIENT",
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0
+    },
+    "scan-02": {
+      "ingestion_job_id": "477d508c-8f7e-4d1c-be94-f8c95136511b",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:39.586869+00:00",
+      "started_at": "2026-10-15T05:14:39.616323+00:00",
+      "updated_at": "2026-10-15T05:14:43.884712+00:00",
+      "terminal_at": "2026-10-15T05:14:43.884712+00:00",
+      "target_document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e",
+      "current_document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e",
+      "served_document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e"
+      }
+    },
+    "scan-03": {
+      "ingestion_job_id": "9482f60f-bd92-48f0-8dff-8ecac29fafce",
+      "status": "failed",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:43.978484+00:00",
+      "started_at": "2026-10-15T05:14:44.006787+00:00",
+      "updated_at": "2026-10-15T05:14:44.762292+00:00",
+      "terminal_at": "2026-10-15T05:14:44.762292+00:00",
+      "target_document_version_id": "e586a7ef-cb73-411f-8f68-53183f812e5b",
+      "current_document_version_id": "e586a7ef-cb73-411f-8f68-53183f812e5b",
+      "served_document_version_id": null,
+      "serving_state": "unavailable",
+      "failure_reason": "terminal_input",
+      "error_code": "PDF_TEXT_INSUFFICIENT",
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0
+    },
+    "academic-phobert": {
+      "ingestion_job_id": "60e44998-3a87-4a3d-836e-2a560a9455da",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:44.869839+00:00",
+      "started_at": "2026-10-15T05:14:44.898936+00:00",
+      "updated_at": "2026-10-15T05:14:51.374231+00:00",
+      "terminal_at": "2026-10-15T05:14:51.374231+00:00",
+      "target_document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "current_document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "served_document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257"
+      }
+    },
+    "academic-phonlp": {
+      "ingestion_job_id": "6d7f2354-d809-46c8-8dd9-2d64000cc7b2",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:51.473388+00:00",
+      "started_at": "2026-10-15T05:14:51.497834+00:00",
+      "updated_at": "2026-10-15T05:14:54.614696+00:00",
+      "terminal_at": "2026-10-15T05:14:54.614696+00:00",
+      "target_document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "current_document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "served_document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7"
+      }
+    },
+    "academic-vit5": {
+      "ingestion_job_id": "1777f168-d8c4-4d10-bbae-bc018d7defbc",
+      "status": "succeeded",
+      "attempt_count": 1,
+      "max_attempts": 4,
+      "created_at": "2026-10-15T05:14:54.715235+00:00",
+      "started_at": "2026-10-15T05:14:54.741117+00:00",
+      "updated_at": "2026-10-15T05:14:56.467028+00:00",
+      "terminal_at": "2026-10-15T05:14:56.467028+00:00",
+      "target_document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "current_document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "served_document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "serving_state": "current",
+      "failure_reason": null,
+      "error_code": null,
+      "replacement_document_version_id": null,
+      "replacement_ingestion_job_id": null,
+      "reprocess_of_job_id": null,
+      "poll_after_seconds": 0,
+      "result": {
+        "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199"
+      }
+    }
+  },
+  "status": "ingestion_complete_pending_owner_binding_review",
+  "query_embedding_attempts": 60,
+  "baseline_b_generation_attempts": 15,
+  "baseline_b_case_requests": {
+    "pdf-v3-001": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-002": {
+      "query": true
+    },
+    "pdf-v3-003": {
+      "query": true
+    },
+    "pdf-v3-004": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-005": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-006": {
+      "query": true
+    },
+    "pdf-v3-007": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-008": {
+      "query": true
+    },
+    "pdf-v3-009": {
+      "query": true
+    },
+    "pdf-v3-010": {
+      "query": true
+    },
+    "pdf-v3-011": {
+      "query": true
+    },
+    "pdf-v3-012": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-013": {
+      "query": true
+    },
+    "pdf-v3-014": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-015": {
+      "query": true
+    },
+    "pdf-v3-016": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-017": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-018": {
+      "query": true
+    },
+    "pdf-v3-019": {
+      "query": true
+    },
+    "pdf-v3-020": {
+      "query": true
+    },
+    "pdf-v3-021": {
+      "query": true
+    },
+    "pdf-v3-022": {
+      "query": true
+    },
+    "pdf-v3-023": {
+      "query": true
+    },
+    "pdf-v3-024": {
+      "query": true
+    },
+    "pdf-v3-025": {
+      "query": true
+    },
+    "pdf-v3-026": {
+      "query": true
+    },
+    "pdf-v3-027": {
+      "query": true
+    },
+    "pdf-v3-028": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-029": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-030": {
+      "query": true
+    },
+    "pdf-v3-031": {
+      "query": true
+    },
+    "pdf-v3-032": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-033": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-034": {
+      "query": true
+    },
+    "pdf-v3-035": {
+      "query": true
+    },
+    "pdf-v3-036": {
+      "query": true
+    },
+    "pdf-v3-037": {
+      "query": true
+    },
+    "pdf-v3-038": {
+      "query": true
+    },
+    "pdf-v3-039": {
+      "query": true
+    },
+    "pdf-v3-040": {
+      "query": true
+    },
+    "pdf-v3-041": {
+      "query": true
+    },
+    "pdf-v3-042": {
+      "query": true
+    },
+    "pdf-v3-043": {
+      "query": true
+    },
+    "pdf-v3-044": {
+      "query": true
+    },
+    "pdf-v3-045": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-046": {
+      "query": true
+    },
+    "pdf-v3-047": {
+      "query": true
+    },
+    "pdf-v3-048": {
+      "query": true
+    },
+    "pdf-v3-049": {
+      "query": true
+    },
+    "pdf-v3-050": {
+      "query": true
+    },
+    "pdf-v3-051": {
+      "query": true
+    },
+    "pdf-v3-052": {
+      "query": true
+    },
+    "pdf-v3-053": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-054": {
+      "query": true
+    },
+    "pdf-v3-055": {
+      "query": true
+    },
+    "pdf-v3-056": {
+      "query": true,
+      "generation": true
+    },
+    "pdf-v3-057": {
+      "query": true
+    },
+    "pdf-v3-058": {
+      "query": true
+    },
+    "pdf-v3-059": {
+      "query": true
+    },
+    "pdf-v3-060": {
+      "query": true
+    }
+  },
+  "baseline_b_authorization": {
+    "owner_decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6185384722",
+    "paid_budget_usd": 0,
+    "query_embedding_attempt_limit": 60,
+    "generation_attempt_limit": 60,
+    "proposal_sha256": "3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d",
+    "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+    "binding_review_sha256": "7d7efbb47e548392eca3846a576552d238eb850f862bda7f9e16f7dc7bfb3288"
+  },
+  "baseline_b_runtime_provenance": {
+    "launcher_sha256": "f9a60614f48ec947ab39ce2feeee9b272fce971313221527d077fe0b4216af14",
+    "code_commit": "2787eb910b8183c264506b5fc31b051208f70f8f",
+    "python": "3.13.15",
+    "database": "127.0.0.1:55453/knora153s1_baseline",
+    "http": "in-process ASGI transport",
+    "run_id": "s1-runtime-binding-20261015-01",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f",
+    "baseline": "pypdf-layout-v2/qwen3-06b/gpt-oss20b/containment0.65"
+  },
+  "baseline_b_continuation_authorization": {
+    "owner_decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6186149890",
+    "selection_sha256": "c11b02c68114e5c1d65678c5d25cb35af9eaff4069d8841969d0c8fe02d6c799",
+    "initial_counter_sha256": "6dcfe55df345c39523d741c76806fcc743c14c4c081bfdfc7d291af6f4925e1e",
+    "original_stop_reason": "CASE_FAILED_NO_RETRY",
+    "original_query_attempts": 1,
+    "original_generation_attempts": 1,
+    "remaining_query_attempt_limit": 59,
+    "remaining_generation_attempt_limit": 59
+  },
+  "baseline_b_provenance_history": [
+    {
+      "launcher_sha256": "bd52c232a655d31701ac115fb87c735b930a00033e69e31a35cca018946ce771",
+      "code_commit": "ffcbd4283c8b29ae34afba26f087f9760c2f7f1c",
+      "python": "3.13.15",
+      "database": "127.0.0.1:55453/knora153s1_baseline",
+      "http": "in-process ASGI transport",
+      "run_id": "s1-runtime-binding-20261015-01",
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f",
+      "baseline": "pypdf-layout-v2/qwen3-06b/gpt-oss20b/containment0.65"
+    }
+  ]
+}

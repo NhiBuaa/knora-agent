@@ -1,0 +1,23 @@
+{
+  "captured_cases": 60,
+  "checked_at": "2026-10-15T07:14:44.827365+00:00",
+  "decisions": {
+    "ANSWER": 9,
+    "REFUSAL": 51
+  },
+  "generation_attempts": 15,
+  "generation_neurons_from_published_rates": 365.585474,
+  "model_calls_by_this_check": 0,
+  "paid_budget_usd": 0,
+  "planning_60_cases_neurons": 7500,
+  "planning_prorated_neurons": 7500.0,
+  "query_attempts": 60,
+  "saved_generation_usage_tokens": {
+    "completion_tokens": 3552,
+    "prompt_tokens": 14779,
+    "total_tokens": 18331
+  },
+  "selection_sha256": "c11b02c68114e5c1d65678c5d25cb35af9eaff4069d8841969d0c8fe02d6c799",
+  "semantic_review": "pending",
+  "usage_limits": "Embedding usage absent; neuron value is rate estimate, not invoice or complete account usage"
+}

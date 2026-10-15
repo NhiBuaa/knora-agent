@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-10-15T06:10:26.0574698+00:00",
+  "account_id": "0815469773bb9f83177a1303be9a90f3",
+  "plan": "Workers Free",
+  "daily_limit": 10000,
+  "raw_neurons_used": 114.07,
+  "before_neurons_used": 114.07,
+  "dashboard_delta": 0,
+  "measurement_status": "dashboard may lag; zero displayed delta is not zero model consumption",
+  "generation_usage": {
+    "total_tokens": 699,
+    "prompt_tokens": 543,
+    "completion_tokens": 156
+  },
+  "generation_neurons_at_documented_rates": 14.127414,
+  "embedding_usage": "unavailable in provider metadata",
+  "paid_budget_usd": 0,
+  "observed_invoice_usd": null,
+  "continuation": "blocked by observation failure; no next group",
+  "source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/ai/workers-ai/usage"
+}

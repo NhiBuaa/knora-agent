@@ -1,0 +1,72 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-034:1",
+  "candidates": [],
+  "case_id": "pdf-v3-034",
+  "conversation_id": "84f1eca8-11f3-42ef-b46b-6411d3c03d37",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 1103.1831000000238,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Chủ nhật nơi đó có nhận hàng không và cần xuất trình gì?",
+      "selected_turn_ids": [
+        "2124f15e-bea8-4efb-9cde-d0734baa8bbc"
+      ]
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acff0d9b7584e4-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 18.68560000002617
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 18.65910000014992,
+          "end_tick": 16321.4385912,
+          "start_tick": 16321.4199321
+        },
+        "evidence_selection": {
+          "duration_ms": 0.026499999876250513,
+          "end_tick": 16321.4386177,
+          "start_tick": 16321.4385912
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16321.4386177,
+          "start_tick": 16321.4386177
+        },
+        "query_embedding": {
+          "duration_ms": 602.2897000002558,
+          "end_tick": 16321.4199321,
+          "start_tick": 16320.8176424
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "fedbeb4e-8ae2-4ef4-b897-9af081a7d8e0",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "e31825c3357154e32924c4b1f8e89fd3f859cb05fc0cc3a5cdf7e39d5ff13feb",
+  "retrieval_latency_ms": 18.68560000002617,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "fedbeb4e-8ae2-4ef4-b897-9af081a7d8e0",
+  "turn_id": "48346ab7-b453-4bf3-848d-eb10c62025c4",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}
