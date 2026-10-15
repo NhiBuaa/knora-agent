@@ -11,8 +11,9 @@ giữ kết quả của proposer trước review; khuyến nghị trong packet �
 ở phạm vi nội dung offline này.
 
 [Runtime preparation / reuse inspection / ingestion inventory](runtime-preparation.md):
-đã kiểm tra read-only tài nguyên #153; chờ owner duyệt ingestion embedding-only.
-Actual runtime proposal SHA chưa có; corpus/gold và snapshot này giữ nguyên.
+owner đã duyệt ingestion sau inspection. [Actual runtime packet](../binding-layout-v2-runtime/README.md)
+đã có SHA/UUID thực và đối chiếu đủ 61 mappings/25 missing, đang chờ owner duyệt binding.
+Corpus/gold và snapshot offline này giữ nguyên.
 
 ## Phạm vi và danh tính
 

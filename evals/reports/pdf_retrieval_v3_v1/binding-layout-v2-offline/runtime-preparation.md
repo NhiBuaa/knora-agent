@@ -1,6 +1,6 @@
 # Runtime binding preparation — 2026-10-15
 
-**Trạng thái: đã kiểm tra reuse trong tài nguyên #153; chờ owner duyệt ingestion embedding-only. Chưa có actual runtime proposal SHA.**
+**Báo cáo chuẩn bị tại commit 71bf691, trước approval ingestion.** Owner đã duyệt và lượt ingestion sau đó hoàn tất; [actual runtime packet](../binding-layout-v2-runtime/README.md) trình SHA/IDs mới, đang chờ owner duyệt binding trước scoring. Nội dung bên dưới giữ bằng chứng và proposal tại thời điểm chuẩn bị.
 
 ## Phê duyệt và phạm vi giữ nguyên
 
