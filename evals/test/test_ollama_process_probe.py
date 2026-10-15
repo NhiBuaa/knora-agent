@@ -5,11 +5,93 @@ import threading
 import time
 from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
 
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
+
+RUNTIME_SOURCE_PATHS = {
+    "backend/src/knora/providers/ollama/generation.py",
+    "backend/src/knora/providers/generation.py",
+    "backend/src/knora/answering/generation_validation.py",
+    "backend/src/knora/providers/prompts/policy.py",
+    "backend/src/knora/providers/prompts/builder.py",
+    "backend/src/knora/providers/prompts/versioning.py",
+    "backend/src/knora/providers/structured_generation.py",
+    "backend/src/knora/providers/openai_compatible/presentation.py",
+    "backend/src/knora/providers/openai_compatible/answer_blocks.py",
+}
+PROMPT_DEPENDENCIES = (
+    "prompts.policy",
+    "prompts.builder",
+    "prompts.versioning",
+    "structured_generation",
+    "openai_compatible.presentation",
+    "openai_compatible.answer_blocks",
+)
+
+
+@pytest.fixture
+def committed_runtime_snapshot(monkeypatch):
+    from evals.runners import ollama_process_probe as module
+
+    root = Path(__file__).resolve().parents[2]
+    snapshot = {
+        relative: (root / relative).read_bytes().replace(b"\r\n", b"\n")
+        for relative in RUNTIME_SOURCE_PATHS
+    }
+
+    def git_show(command, *, cwd):
+        assert command[:2] == ["git", "show"]
+        assert cwd == root
+        return snapshot[command[2].removeprefix("HEAD:")]
+
+    monkeypatch.setattr(module.subprocess, "check_output", git_show)
+    return snapshot
+
+
+def test_runtime_guard_covers_prompt_building_and_schema_dependencies(committed_runtime_snapshot):
+    from evals.runners import ollama_process_probe as module
+
+    assert set(module.runtime_module_sources()) == RUNTIME_SOURCE_PATHS
+
+
+@pytest.mark.parametrize("dependency", PROMPT_DEPENDENCIES)
+def test_runtime_guard_rejects_prompt_dependency_from_another_checkout(
+    monkeypatch, committed_runtime_snapshot, dependency
+):
+    from evals.runners import ollama_process_probe as module
+
+    dependency_module = importlib.import_module(f"knora.providers.{dependency}")
+    expected = Path(dependency_module.__file__).resolve()
+    getfile = module.inspect.getfile
+
+    def runtime_file(symbol):
+        actual = getfile(symbol)
+        return (
+            str(expected.parent / "other-checkout.py")
+            if Path(actual).resolve() == expected
+            else actual
+        )
+
+    monkeypatch.setattr(module.inspect, "getfile", runtime_file)
+    with pytest.raises(ValueError, match="runtime checkout mismatch"):
+        module.runtime_module_sources()
+
+
+@pytest.mark.parametrize("dependency", PROMPT_DEPENDENCIES)
+def test_runtime_guard_rejects_prompt_dependency_source_drift(
+    committed_runtime_snapshot, dependency
+):
+    from evals.runners import ollama_process_probe as module
+
+    relative = f"backend/src/knora/providers/{dependency.replace('.', '/')}.py"
+    committed_runtime_snapshot[relative] += b"\n# committed source differs\n"
+
+    with pytest.raises(ValueError, match="runtime source differs from commit"):
+        module.runtime_module_sources()
 
 
 def test_supervisor_exception_stops_profile_before_starting_another_child(monkeypatch):
@@ -180,7 +262,7 @@ def test_spawned_adapter_returns_only_validated_result_and_actual_request_metada
         assert "PRIVATE_THINKING" not in repr(result) + json.dumps(provider.requests)
         assert provider.process_observations[0]["deadline_expired"] is False
         assert provider.process_observations[0]["runtime_sources"] == provider.runtime_sources
-        assert len(provider.runtime_sources) == 3
+        assert set(provider.runtime_sources) == RUNTIME_SOURCE_PATHS
     finally:
         server.shutdown()
         server.server_close()
