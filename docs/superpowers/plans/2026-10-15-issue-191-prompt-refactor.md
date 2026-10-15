@@ -11,15 +11,12 @@ Date: 2026-10-15.
   from #183 / Draft PR #184. This is **not an accepted release**.
 - Worktree: `C:/Developer/Projects/knora-agent-worktree/issue-191-prompt-policy`.
   Branch: `refactor/issue-191-prompt-policy`.
-- Latest #183 discussion read: Q17 **approved**, comment `6186608013`, mirrored in
-  #191 comment `6186607494`. Q16's schema-only diagnostic returned HTTP200 with
-  `length`/null answer at 1024 tokens. Q17 approves a simpler before/items/after
-  schema and prompt v16, but **no maintained commit exists yet**. Preserve the
-  baseline v15 during this extraction; do not copy uncommitted Q17 code here.
-  Before review/integration, port only the exact owner-approved Q17 commit/diff
-  and rerun parity against that revised baseline. No particular schema keyword or
-  token-limit cure is established.
-  #183 retains ownership of behavior/schema and its acceptance.
+- Initial discussion: Q17 approved in #183 comment `6186608013`, mirrored in
+  #191 comment `6186607494`. It is now committed upstream as
+  `c775a8355b13fde26cb3eb59619239d1536286ca`: fixed before/items/after slots,
+  prompt v16, no runtime acceptance. The refactor is rebased onto this exact commit.
+  #183 retains ownership of behavior/schema and acceptance. No inference or HTTP400
+  investigation is authorized by #191.
 - Project #191 is In Progress / Next. #153/#158 keep their priority and resources.
 
 ## Audit: profiles and ownership
@@ -30,7 +27,7 @@ Date: 2026-10-15.
 | Ollama Qwen 8b/4b | `ollama/generation.py` | `ollama-qwen3-cited-answer-v5`; grounding/few-shot text; JSON keys `evidence`, `current_question` |
 | Ollama GPT-OSS 20b | `ollama/generation.py` | Exact model predicate, appended example and sorted schema text; composite `ollama-gpt-oss-low-schema-v3:ollama-qwen3-cited-answer-v5` |
 | Cloudflare selector | `openai_compatible/presentation.py` | `cloudflare-presentation-v1`; same question/evidence serializer; four presentation choices |
-| Cloudflare answer | `openai_compatible/generation.py` | `cloudflare-gpt-oss-cited-answer-v15`; exact selected-presentation suffix; each of four selected schemas |
+| Cloudflare answer | `openai_compatible/generation.py` | `cloudflare-gpt-oss-cited-answer-v16` after Q17; exact selected-presentation suffix; unchanged fixed-slot schema |
 
 All serializers retain Unicode handling, whitespace, key ordering and escaping.
 Cloudflare retains two ordered calls and existing per-stage/aggregate metadata.
@@ -75,8 +72,9 @@ Paths below are relative to this worktree.
 
 **Tests/fixtures to create or adapt:**
 
-- `backend/test/providers/fixtures/prompt-baseline-67a149f.json`: synthetic offline
-  request/result fixture captured from the untouched baseline, before extraction.
+- `backend/test/providers/fixtures/prompt-baseline-c775a83.json`: synthetic offline
+  request fixture captured from untouched Q17 adapters. Original `67a149f` fixture
+  remains in historical checkpoint `9033ed0`; replacing it records approved #183 sync.
 - `backend/test/providers/test_prompt_parity.py`: complete adapter request parity
   through MockTransport; generic, Qwen 8b/4b, GPT-OSS and all Cloudflare presentations;
   context absent/present, Unicode/quotes/newlines, alias/evidence order.
@@ -136,10 +134,9 @@ semantic compliance claim. Offline parity does not accept #183.
 ## Coordination and integration safeguard
 
 - #183 keeps working. Refresh its discussion/head before editing shared files,
-  before commit/PR and immediately before any integration. Q17 is approved but
-  uncommitted; keep its behavior/schema/prompt changes separate until a commit is
-  available. Port that exact diff into a separately recorded revised baseline,
-  then rerun parity. Do not silently reinterpret or fix it here.
+  before commit/PR and immediately before any integration. Q17 is committed at
+  `c775a83`; use it as the revised baseline. Port future approved commits separately
+  and rerun parity. Do not silently reinterpret or fix behavior here.
 - Review #191 with `git diff <recorded-baseline>...HEAD` and
   `git log <recorded-baseline>..HEAD`. Never describe the full main-to-HEAD diff as #191.
 - While #183 is unaccepted, keep work local or, after the owner's integration choice,
@@ -150,7 +147,7 @@ semantic compliance claim. Offline parity does not accept #183.
 - No push, merge, issue closure, Done transition or branch/worktree deletion in
   this audit turn. Keep this worktree for owner review and the next approved step.
 
-## Evidence from this audit turn
+## Historical audit evidence (before implementation)
 
 - Worktree initially clean at the exact baseline; provider module import path checked.
 - Existing focused offline run: **267 passed, 1 skipped**, 36.63 seconds.
@@ -169,7 +166,7 @@ semantic compliance claim. Offline parity does not accept #183.
   with local connection refused; decisions were checked in live issues and code.
 - Current #191-only diff is this uncommitted plan document.
 
-## Approval requested
+## Approval recorded
 
 The owner approved this file scope, schema-preserving identity design and integration
 safeguard in chat. There is no unresolved product-behavior decision from the audit.
@@ -198,3 +195,18 @@ Any new one is returned to the owner using grilling before implementation procee
   including provider/application/bootstrap/context/Cloudflare Postgres and focused
   evaluation callers. Ruff format/check/lint and diff check passed. Spawned process
   provenance checks and full pytest run after the source is committed.
+
+### Q17 synchronization
+
+- Original extraction checkpoint: `9033ed0` against owner baseline `67a149f`.
+- Rebased extraction: `dd18354`, parent `c775a83`. Review only
+  `git diff c775a8355b13fde26cb3eb59619239d1536286ca...HEAD` for #191.
+- Kept Q17 schema/composer/tests upstream; only the extracted Cloudflare policy and
+  schema selection follow the exact Q17 definitions. No #191 edits to their behavior.
+- Captured the replacement fixture through actual adapters in the clean #183
+  checkout at exact `c775a83`, with MockTransport only; no builder dependency.
+  The original fixture remains recoverable in the original extraction checkpoint.
+
+- Post-Q17 focused regression: **392 passed**, 2 dependency deprecation warnings,
+  19.33 seconds. Ruff format/check/lint and diff whitespace checks passed. Generic,
+  Ollama and selector fixture cases are identical to the original baseline.

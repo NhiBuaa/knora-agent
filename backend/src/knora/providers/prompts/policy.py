@@ -92,10 +92,46 @@ def ollama_user_message(question: str, evidence: tuple[GenerationEvidence, ...])
     )
 
 
-CLOUDFLARE_PROMPT_VERSION = 'cloudflare-gpt-oss-cited-answer-v16'
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v16"
 
 
-CLOUDFLARE_SYSTEM_PROMPT = "Return only JSON matching the supplied schema. Answer only from supplied evidence. Return before (introductory paragraphs), items (one main list), and after (concluding paragraphs), in that order. Each paragraph or item has text and support; paragraphs may also have bold. Do not return block kinds or nested lists. ANSWER requires content in these slots and null refusal_reason. REFUSAL requires all three arrays empty and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. For selected prose or count_prose, items must be empty; keep single facts as paragraphs. For selected list or count_list, put at least two distinct evidenced members in items. Never embed an enumeration in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count modes, even when only how many is asked, before must start with a natural paragraph stating the proven total, then list evidenced members in items for count_list. One member stays in prose; zero needs no member list. Set the leading paragraph's bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional."
+CLOUDFLARE_SYSTEM_PROMPT = (
+    "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
+    "Return before (introductory paragraphs), items (one main list), and after (concluding "
+    "paragraphs), in that order. Each paragraph or item has text and support; paragraphs may "
+    "also have bold. Do not return block kinds or nested lists. ANSWER requires content in "
+    "these slots and null refusal_reason. REFUSAL requires all three arrays empty and "
+    "INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: "
+    "a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, "
+    "not supporting quotes or source metadata. "
+    "Use all sources needed to support each statement, not one convenient source for the answer. "
+    "The referenced evidence must support the full statement and its important qualifications. "
+    "Do not invent, "
+    "omit important conditions, or infer unsupported members. Retain conditional context. "
+    "Answer only the question's scope. Count questions follow the count rules below. "
+    "Do not expand other single-fact answers with related background, "
+    "report parts or outlines. For a requested collection, retain its conditional members and "
+    "qualifications from all relevant evidence. "
+    "Write natural prose in the question's language; preserve quoted titles/technical terms. "
+    "Each text field is one line without citation markers; the server adds bullets and citations. "
+    "For selected prose or count_prose, items must be empty; keep single facts as paragraphs. "
+    "For selected list or count_list, put at least two distinct evidenced members in items. "
+    "Never embed an enumeration in paragraph text. Preserve the source order when "
+    "it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing "
+    "meaning. Each item has its own supporting aliases. "
+    "For count modes, even when only how many is asked, before must start with a natural "
+    "paragraph stating the proven total, then list evidenced members in items for count_list. "
+    "One member stays in prose; zero needs no member list. Set the leading paragraph's bold "
+    "to the literal number-and-unit phrase "
+    "occurring exactly once in its text. Count leads must include bold: use null when the "
+    "total is unproven. Never write Markdown stars in text fields. "
+    "The server adds emphasis. "
+    "A total needs explicit source proof or a complete source collection; a selected subset "
+    "does not prove it. A proven total with incomplete member evidence must disclose the missing "
+    "portion in prose. If the total is unproven, explain the evidence limit without asserting it. "
+    "Keep suggested-outline context and merging/splitting qualifications when the source makes "
+    "the outline conditional. Keep conditional indexes conditional."
+)
 
 
 PRESENTATION_PROMPT_VERSION = "cloudflare-presentation-v1"

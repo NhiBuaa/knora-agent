@@ -1,5 +1,5 @@
 {
-  "baseline": "67a149fb462f7acc5abc41a7a439a6bdae1d5fe7",
+  "baseline": "c775a8355b13fde26cb3eb59619239d1536286ca",
   "question": "Câu hỏi có \\\"trích dẫn\\\" và newline?\nTiếp theo",
   "evidence": [
     {
@@ -234,7 +234,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. ANSWER requires nonempty blocks and null refusal_reason. REFUSAL requires empty blocks and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. Keep a short single-fact answer as a paragraph. Any enumeration of two or more distinct items must be a list block, never embedded in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count questions, even when only how many is asked, lead with a natural paragraph stating the proven total, then list the evidenced members. One member stays in prose; zero needs no member list. Set paragraph bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: prose."
+          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. Return before (introductory paragraphs), items (one main list), and after (concluding paragraphs), in that order. Each paragraph or item has text and support; paragraphs may also have bold. Do not return block kinds or nested lists. ANSWER requires content in these slots and null refusal_reason. REFUSAL requires all three arrays empty and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. For selected prose or count_prose, items must be empty; keep single facts as paragraphs. For selected list or count_list, put at least two distinct evidenced members in items. Never embed an enumeration in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count modes, even when only how many is asked, before must start with a natural paragraph stating the proven total, then list evidenced members in items for count_list. One member stays in prose; zero needs no member list. Set the leading paragraph's bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: prose."
         },
         {
           "role": "user",
@@ -243,30 +243,6 @@
       ],
       "schema": {
         "$defs": {
-          "_List": {
-            "additionalProperties": false,
-            "properties": {
-              "kind": {
-                "const": "list",
-                "title": "Kind",
-                "type": "string"
-              },
-              "items": {
-                "items": {
-                  "$ref": "#/$defs/_Statement"
-                },
-                "minItems": 2,
-                "title": "Items",
-                "type": "array"
-              }
-            },
-            "required": [
-              "kind",
-              "items"
-            ],
-            "title": "_List",
-            "type": "object"
-          },
           "_Paragraph": {
             "additionalProperties": false,
             "properties": {
@@ -282,11 +258,6 @@
                 "minItems": 1,
                 "title": "Support",
                 "type": "array"
-              },
-              "kind": {
-                "const": "paragraph",
-                "title": "Kind",
-                "type": "string"
               },
               "bold": {
                 "anyOf": [
@@ -304,8 +275,7 @@
             },
             "required": [
               "text",
-              "support",
-              "kind"
+              "support"
             ],
             "title": "_Paragraph",
             "type": "object"
@@ -345,25 +315,25 @@
             "title": "Decision",
             "type": "string"
           },
-          "blocks": {
+          "before": {
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "list": "#/$defs/_List",
-                  "paragraph": "#/$defs/_Paragraph"
-                },
-                "propertyName": "kind"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/_Paragraph"
-                },
-                {
-                  "$ref": "#/$defs/_List"
-                }
-              ]
+              "$ref": "#/$defs/_Paragraph"
             },
-            "title": "Blocks",
+            "title": "Before",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/_Statement"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "after": {
+            "items": {
+              "$ref": "#/$defs/_Paragraph"
+            },
+            "title": "After",
             "type": "array"
           },
           "refusal_reason": {
@@ -381,47 +351,15 @@
         },
         "required": [
           "decision",
-          "blocks",
+          "before",
+          "items",
+          "after",
           "refusal_reason"
         ],
         "title": "_Result",
-        "type": "object",
-        "oneOf": [
-          {
-            "properties": {
-              "decision": {
-                "const": "ANSWER"
-              },
-              "blocks": {
-                "items": {
-                  "$ref": "#/$defs/_Paragraph"
-                },
-                "title": "Blocks",
-                "type": "array",
-                "minItems": 1
-              },
-              "refusal_reason": {
-                "type": "null"
-              }
-            }
-          },
-          {
-            "properties": {
-              "decision": {
-                "const": "REFUSAL"
-              },
-              "blocks": {
-                "type": "array",
-                "maxItems": 0
-              },
-              "refusal_reason": {
-                "const": "INSUFFICIENT_EVIDENCE"
-              }
-            }
-          }
-        ]
+        "type": "object"
       },
-      "version": "cloudflare-gpt-oss-cited-answer-v15",
+      "version": "cloudflare-gpt-oss-cited-answer-v16",
       "presentation": "prose",
       "wire": "direct"
     },
@@ -430,7 +368,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. ANSWER requires nonempty blocks and null refusal_reason. REFUSAL requires empty blocks and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. Keep a short single-fact answer as a paragraph. Any enumeration of two or more distinct items must be a list block, never embedded in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count questions, even when only how many is asked, lead with a natural paragraph stating the proven total, then list the evidenced members. One member stays in prose; zero needs no member list. Set paragraph bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: list."
+          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. Return before (introductory paragraphs), items (one main list), and after (concluding paragraphs), in that order. Each paragraph or item has text and support; paragraphs may also have bold. Do not return block kinds or nested lists. ANSWER requires content in these slots and null refusal_reason. REFUSAL requires all three arrays empty and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. For selected prose or count_prose, items must be empty; keep single facts as paragraphs. For selected list or count_list, put at least two distinct evidenced members in items. Never embed an enumeration in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count modes, even when only how many is asked, before must start with a natural paragraph stating the proven total, then list evidenced members in items for count_list. One member stays in prose; zero needs no member list. Set the leading paragraph's bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: list."
         },
         {
           "role": "user",
@@ -439,30 +377,6 @@
       ],
       "schema": {
         "$defs": {
-          "_List": {
-            "additionalProperties": false,
-            "properties": {
-              "kind": {
-                "const": "list",
-                "title": "Kind",
-                "type": "string"
-              },
-              "items": {
-                "items": {
-                  "$ref": "#/$defs/_Statement"
-                },
-                "minItems": 2,
-                "title": "Items",
-                "type": "array"
-              }
-            },
-            "required": [
-              "kind",
-              "items"
-            ],
-            "title": "_List",
-            "type": "object"
-          },
           "_Paragraph": {
             "additionalProperties": false,
             "properties": {
@@ -478,11 +392,6 @@
                 "minItems": 1,
                 "title": "Support",
                 "type": "array"
-              },
-              "kind": {
-                "const": "paragraph",
-                "title": "Kind",
-                "type": "string"
               },
               "bold": {
                 "anyOf": [
@@ -500,8 +409,7 @@
             },
             "required": [
               "text",
-              "support",
-              "kind"
+              "support"
             ],
             "title": "_Paragraph",
             "type": "object"
@@ -541,25 +449,25 @@
             "title": "Decision",
             "type": "string"
           },
-          "blocks": {
+          "before": {
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "list": "#/$defs/_List",
-                  "paragraph": "#/$defs/_Paragraph"
-                },
-                "propertyName": "kind"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/_Paragraph"
-                },
-                {
-                  "$ref": "#/$defs/_List"
-                }
-              ]
+              "$ref": "#/$defs/_Paragraph"
             },
-            "title": "Blocks",
+            "title": "Before",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/_Statement"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "after": {
+            "items": {
+              "$ref": "#/$defs/_Paragraph"
+            },
+            "title": "After",
             "type": "array"
           },
           "refusal_reason": {
@@ -577,64 +485,15 @@
         },
         "required": [
           "decision",
-          "blocks",
+          "before",
+          "items",
+          "after",
           "refusal_reason"
         ],
         "title": "_Result",
-        "type": "object",
-        "oneOf": [
-          {
-            "properties": {
-              "decision": {
-                "const": "ANSWER"
-              },
-              "blocks": {
-                "items": {
-                  "discriminator": {
-                    "mapping": {
-                      "list": "#/$defs/_List",
-                      "paragraph": "#/$defs/_Paragraph"
-                    },
-                    "propertyName": "kind"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/$defs/_Paragraph"
-                    },
-                    {
-                      "$ref": "#/$defs/_List"
-                    }
-                  ]
-                },
-                "title": "Blocks",
-                "type": "array",
-                "minItems": 1,
-                "contains": {
-                  "$ref": "#/$defs/_List"
-                }
-              },
-              "refusal_reason": {
-                "type": "null"
-              }
-            }
-          },
-          {
-            "properties": {
-              "decision": {
-                "const": "REFUSAL"
-              },
-              "blocks": {
-                "type": "array",
-                "maxItems": 0
-              },
-              "refusal_reason": {
-                "const": "INSUFFICIENT_EVIDENCE"
-              }
-            }
-          }
-        ]
+        "type": "object"
       },
-      "version": "cloudflare-gpt-oss-cited-answer-v15",
+      "version": "cloudflare-gpt-oss-cited-answer-v16",
       "presentation": "list",
       "wire": "direct"
     },
@@ -643,7 +502,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. ANSWER requires nonempty blocks and null refusal_reason. REFUSAL requires empty blocks and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. Keep a short single-fact answer as a paragraph. Any enumeration of two or more distinct items must be a list block, never embedded in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count questions, even when only how many is asked, lead with a natural paragraph stating the proven total, then list the evidenced members. One member stays in prose; zero needs no member list. Set paragraph bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: count_prose."
+          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. Return before (introductory paragraphs), items (one main list), and after (concluding paragraphs), in that order. Each paragraph or item has text and support; paragraphs may also have bold. Do not return block kinds or nested lists. ANSWER requires content in these slots and null refusal_reason. REFUSAL requires all three arrays empty and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. For selected prose or count_prose, items must be empty; keep single facts as paragraphs. For selected list or count_list, put at least two distinct evidenced members in items. Never embed an enumeration in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count modes, even when only how many is asked, before must start with a natural paragraph stating the proven total, then list evidenced members in items for count_list. One member stays in prose; zero needs no member list. Set the leading paragraph's bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: count_prose."
         },
         {
           "role": "user",
@@ -652,30 +511,6 @@
       ],
       "schema": {
         "$defs": {
-          "_List": {
-            "additionalProperties": false,
-            "properties": {
-              "kind": {
-                "const": "list",
-                "title": "Kind",
-                "type": "string"
-              },
-              "items": {
-                "items": {
-                  "$ref": "#/$defs/_Statement"
-                },
-                "minItems": 2,
-                "title": "Items",
-                "type": "array"
-              }
-            },
-            "required": [
-              "kind",
-              "items"
-            ],
-            "title": "_List",
-            "type": "object"
-          },
           "_Paragraph": {
             "additionalProperties": false,
             "properties": {
@@ -691,11 +526,6 @@
                 "minItems": 1,
                 "title": "Support",
                 "type": "array"
-              },
-              "kind": {
-                "const": "paragraph",
-                "title": "Kind",
-                "type": "string"
               },
               "bold": {
                 "anyOf": [
@@ -713,8 +543,7 @@
             },
             "required": [
               "text",
-              "support",
-              "kind"
+              "support"
             ],
             "title": "_Paragraph",
             "type": "object"
@@ -742,50 +571,6 @@
             ],
             "title": "_Statement",
             "type": "object"
-          },
-          "_CountParagraph": {
-            "additionalProperties": false,
-            "properties": {
-              "text": {
-                "minLength": 1,
-                "title": "Text",
-                "type": "string"
-              },
-              "support": {
-                "items": {
-                  "type": "string"
-                },
-                "minItems": 1,
-                "title": "Support",
-                "type": "array"
-              },
-              "kind": {
-                "const": "paragraph",
-                "title": "Kind",
-                "type": "string"
-              },
-              "bold": {
-                "anyOf": [
-                  {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Bold"
-              }
-            },
-            "required": [
-              "text",
-              "support",
-              "kind",
-              "bold"
-            ],
-            "title": "_Paragraph",
-            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -798,25 +583,25 @@
             "title": "Decision",
             "type": "string"
           },
-          "blocks": {
+          "before": {
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "list": "#/$defs/_List",
-                  "paragraph": "#/$defs/_Paragraph"
-                },
-                "propertyName": "kind"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/_Paragraph"
-                },
-                {
-                  "$ref": "#/$defs/_List"
-                }
-              ]
+              "$ref": "#/$defs/_Paragraph"
             },
-            "title": "Blocks",
+            "title": "Before",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/_Statement"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "after": {
+            "items": {
+              "$ref": "#/$defs/_Paragraph"
+            },
+            "title": "After",
             "type": "array"
           },
           "refusal_reason": {
@@ -834,52 +619,15 @@
         },
         "required": [
           "decision",
-          "blocks",
+          "before",
+          "items",
+          "after",
           "refusal_reason"
         ],
         "title": "_Result",
-        "type": "object",
-        "oneOf": [
-          {
-            "properties": {
-              "decision": {
-                "const": "ANSWER"
-              },
-              "blocks": {
-                "items": {
-                  "$ref": "#/$defs/_Paragraph"
-                },
-                "title": "Blocks",
-                "type": "array",
-                "minItems": 1,
-                "prefixItems": [
-                  {
-                    "$ref": "#/$defs/_CountParagraph"
-                  }
-                ]
-              },
-              "refusal_reason": {
-                "type": "null"
-              }
-            }
-          },
-          {
-            "properties": {
-              "decision": {
-                "const": "REFUSAL"
-              },
-              "blocks": {
-                "type": "array",
-                "maxItems": 0
-              },
-              "refusal_reason": {
-                "const": "INSUFFICIENT_EVIDENCE"
-              }
-            }
-          }
-        ]
+        "type": "object"
       },
-      "version": "cloudflare-gpt-oss-cited-answer-v15",
+      "version": "cloudflare-gpt-oss-cited-answer-v16",
       "presentation": "count_prose",
       "wire": "direct"
     },
@@ -888,7 +636,7 @@
       "messages": [
         {
           "role": "system",
-          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. ANSWER requires nonempty blocks and null refusal_reason. REFUSAL requires empty blocks and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. Keep a short single-fact answer as a paragraph. Any enumeration of two or more distinct items must be a list block, never embedded in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count questions, even when only how many is asked, lead with a natural paragraph stating the proven total, then list the evidenced members. One member stays in prose; zero needs no member list. Set paragraph bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: count_list."
+          "content": "Return only JSON matching the supplied schema. Answer only from supplied evidence. Return before (introductory paragraphs), items (one main list), and after (concluding paragraphs), in that order. Each paragraph or item has text and support; paragraphs may also have bold. Do not return block kinds or nested lists. ANSWER requires content in these slots and null refusal_reason. REFUSAL requires all three arrays empty and INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, not supporting quotes or source metadata. Use all sources needed to support each statement, not one convenient source for the answer. The referenced evidence must support the full statement and its important qualifications. Do not invent, omit important conditions, or infer unsupported members. Retain conditional context. Answer only the question's scope. Count questions follow the count rules below. Do not expand other single-fact answers with related background, report parts or outlines. For a requested collection, retain its conditional members and qualifications from all relevant evidence. Write natural prose in the question's language; preserve quoted titles/technical terms. Each text field is one line without citation markers; the server adds bullets and citations. For selected prose or count_prose, items must be empty; keep single facts as paragraphs. For selected list or count_list, put at least two distinct evidenced members in items. Never embed an enumeration in paragraph text. Preserve the source order when it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing meaning. Each item has its own supporting aliases. For count modes, even when only how many is asked, before must start with a natural paragraph stating the proven total, then list evidenced members in items for count_list. One member stays in prose; zero needs no member list. Set the leading paragraph's bold to the literal number-and-unit phrase occurring exactly once in its text. Count leads must include bold: use null when the total is unproven. Never write Markdown stars in text fields. The server adds emphasis. A total needs explicit source proof or a complete source collection; a selected subset does not prove it. A proven total with incomplete member evidence must disclose the missing portion in prose. If the total is unproven, explain the evidence limit without asserting it. Keep suggested-outline context and merging/splitting qualifications when the source makes the outline conditional. Keep conditional indexes conditional. Selected presentation: count_list."
         },
         {
           "role": "user",
@@ -897,30 +645,6 @@
       ],
       "schema": {
         "$defs": {
-          "_List": {
-            "additionalProperties": false,
-            "properties": {
-              "kind": {
-                "const": "list",
-                "title": "Kind",
-                "type": "string"
-              },
-              "items": {
-                "items": {
-                  "$ref": "#/$defs/_Statement"
-                },
-                "minItems": 2,
-                "title": "Items",
-                "type": "array"
-              }
-            },
-            "required": [
-              "kind",
-              "items"
-            ],
-            "title": "_List",
-            "type": "object"
-          },
           "_Paragraph": {
             "additionalProperties": false,
             "properties": {
@@ -936,11 +660,6 @@
                 "minItems": 1,
                 "title": "Support",
                 "type": "array"
-              },
-              "kind": {
-                "const": "paragraph",
-                "title": "Kind",
-                "type": "string"
               },
               "bold": {
                 "anyOf": [
@@ -958,8 +677,7 @@
             },
             "required": [
               "text",
-              "support",
-              "kind"
+              "support"
             ],
             "title": "_Paragraph",
             "type": "object"
@@ -987,50 +705,6 @@
             ],
             "title": "_Statement",
             "type": "object"
-          },
-          "_CountParagraph": {
-            "additionalProperties": false,
-            "properties": {
-              "text": {
-                "minLength": 1,
-                "title": "Text",
-                "type": "string"
-              },
-              "support": {
-                "items": {
-                  "type": "string"
-                },
-                "minItems": 1,
-                "title": "Support",
-                "type": "array"
-              },
-              "kind": {
-                "const": "paragraph",
-                "title": "Kind",
-                "type": "string"
-              },
-              "bold": {
-                "anyOf": [
-                  {
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Bold"
-              }
-            },
-            "required": [
-              "text",
-              "support",
-              "kind",
-              "bold"
-            ],
-            "title": "_Paragraph",
-            "type": "object"
           }
         },
         "additionalProperties": false,
@@ -1043,25 +717,25 @@
             "title": "Decision",
             "type": "string"
           },
-          "blocks": {
+          "before": {
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "list": "#/$defs/_List",
-                  "paragraph": "#/$defs/_Paragraph"
-                },
-                "propertyName": "kind"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/_Paragraph"
-                },
-                {
-                  "$ref": "#/$defs/_List"
-                }
-              ]
+              "$ref": "#/$defs/_Paragraph"
             },
-            "title": "Blocks",
+            "title": "Before",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/_Statement"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "after": {
+            "items": {
+              "$ref": "#/$defs/_Paragraph"
+            },
+            "title": "After",
             "type": "array"
           },
           "refusal_reason": {
@@ -1079,69 +753,15 @@
         },
         "required": [
           "decision",
-          "blocks",
+          "before",
+          "items",
+          "after",
           "refusal_reason"
         ],
         "title": "_Result",
-        "type": "object",
-        "oneOf": [
-          {
-            "properties": {
-              "decision": {
-                "const": "ANSWER"
-              },
-              "blocks": {
-                "items": {
-                  "discriminator": {
-                    "mapping": {
-                      "list": "#/$defs/_List",
-                      "paragraph": "#/$defs/_Paragraph"
-                    },
-                    "propertyName": "kind"
-                  },
-                  "oneOf": [
-                    {
-                      "$ref": "#/$defs/_Paragraph"
-                    },
-                    {
-                      "$ref": "#/$defs/_List"
-                    }
-                  ]
-                },
-                "title": "Blocks",
-                "type": "array",
-                "minItems": 1,
-                "contains": {
-                  "$ref": "#/$defs/_List"
-                },
-                "prefixItems": [
-                  {
-                    "$ref": "#/$defs/_CountParagraph"
-                  }
-                ]
-              },
-              "refusal_reason": {
-                "type": "null"
-              }
-            }
-          },
-          {
-            "properties": {
-              "decision": {
-                "const": "REFUSAL"
-              },
-              "blocks": {
-                "type": "array",
-                "maxItems": 0
-              },
-              "refusal_reason": {
-                "const": "INSUFFICIENT_EVIDENCE"
-              }
-            }
-          }
-        ]
+        "type": "object"
       },
-      "version": "cloudflare-gpt-oss-cited-answer-v15",
+      "version": "cloudflare-gpt-oss-cited-answer-v16",
       "presentation": "count_list",
       "wire": "direct"
     }
