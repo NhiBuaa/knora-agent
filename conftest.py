@@ -25,6 +25,12 @@ WINDOWS_FILES = {
     "evals/test/test_ollama_process_probe.py",
 }
 WINDOWS_NODES = {
+    # Real PDF extraction needs the Windows Job Object or delegated Linux cgroups.
+    "backend/test/evaluation/test_datasets.py::test_upload_prepares_real_pdf_without_activation",
+    "backend/test/evaluation/test_datasets.py::test_invalid_or_scanned_pdf_remains_explicit",
+    "backend/test/evaluation/test_datasets.py::test_processing_source_can_be_retried_after_interruption",
+    "backend/test/evaluation/test_gold_review.py::test_anchored_offsets_must_match_exact_extraction_snapshot",
+    "backend/test/evaluation/test_pdf_workflow.py::test_retained_pdf_to_reviewed_gold_to_new_observations_and_report",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_cli_preflight_proves_pdf_child_memory_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_rejects_missing_job_object_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_blocks_a_child_that_exceeds_256_mib",
