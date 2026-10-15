@@ -13,13 +13,70 @@ private literal-quote and quote-position gates; public citation validation stays
 
 ## Current implementation candidate
 
-The Q9 candidate uses private Cloudflare paragraph/list blocks, nonempty support
+The Q12 code candidate retains private Cloudflare paragraph/list blocks, nonempty support
 arrays of Evidence Aliases, and Markdown composition. It removes Q6's quote
 matching and quote-position checks. Other providers and the public generation,
 citation, refusal, access and historical-source contracts remain unchanged.
 Composer tests cover literal Markdown escaping, shared source qualifications,
 singleton/zero count prose, missing-member disclosure and optional literal emphasis.
 Structural tests are not runtime acceptance or proof of semantic support.
+It adds a presentation-only request and selected schema/local structural gates
+before the existing composer (details below). Q9/v14 remains the last actual
+provider observation; Q12 has no real-provider/browser result yet.
+
+## Q10 failure and Q12 approved code-only follow-up
+
+[Q10 runtime ledger](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6183587668)
+records two of six physical requests, then a stop on the first failed count
+answer. Containment supplied the complete outline and merge/split qualifications;
+the model returned one paragraph, literal stars, no member list or qualifications.
+Finish was `stop`, not truncation. Composer = stored Turn/trace = browser DOM;
+the citation opened the correct document/version on desktop and mobile viewport.
+No remaining Q10 allowance may be used after that stop.
+
+The owner approved recommendation B (Q12): select presentation, then generate
+against its schema. `cloudflare-presentation-v1` returns only one bounded choice;
+`cloudflare-gpt-oss-cited-answer-v15` supplies the existing blocks with aliases.
+List modes must contain a list; count modes start with a paragraph containing an
+explicit literal `bold` field (nullable for unproven totals). Count prose allows
+zero/one known member; a proven total may still be larger, with disclosure.
+Every mode permits refusal. Invalid selection stops before request two; invalid
+output/truncation/HTTP failure stops without retry or conversion to refusal.
+
+Internal traces retain both stage identities/versions/finish reasons/request IDs,
+reported usage and selection; aggregate token fields require both observations.
+No raw prompt/evidence/reasoning is added. Existing renderer, alias validation,
+source grouping, public API, source excerpts and historical answers are unchanged.
+Other providers keep their existing request path. No new dependency or #191
+implementation. GPT-OSS20B and configured per-request cap1024 remain; two requests
+can consume more tokens and latency per turn. Retrieval defaults are unchanged.
+
+New transport tests observed RED (selection was treated as an answer by v14),
+then GREEN: **78 composer/transport tests**, plus **17 HTTP/Postgres tests**
+(one existing Starlette deprecation warning). Provider HTTP is mocked; these
+checks exercise routing, selected shape rejection, count leads, refusal, unknown
+aliases, stage failures/no retries, trace persistence, aggregate usage/cost,
+authorization and source/citation provenance. They are not model acceptance.
+
+Independent review found no critical/important issue and reran all 78 provider
+tests successfully. Ruff format/check/lint, shared format/check, OpenAPI, Compose
+and diff checks passed; Compose retained unset ambient MinIO warnings.
+
+The first full Q12 suite ended **33 failed /1927 passed /16 skipped /27 warnings**
+in 456.36 seconds. Twenty failures involved inherited proxy/HTTP client setup;
+HTTPX reproduced `Invalid port: ':1'` from an ambient IPv6 NO_PROXY entry. The
+isolated launcher regression passed after removing NO_PROXY alongside proxy
+variables only in the test process. Thirteen Ollama probe tests rejected the
+uncommitted GenerationResult source against HEAD, as their immutable-source guard
+requires. Do not weaken that guard. Commit the reviewed code, then rerun the
+complete suite with isolated proxy settings; this first run is not a pass.
+
+Committed-head full-suite/CI results will be recorded in the next checkpoint.
+No real provider call is authorized by Q12. A new bounded allowance
+must count one query embedding plus two generation requests per question, with
+Workers Free/paid budget0USD preflight, and await owner approval. Selection may be
+wrong; schema cannot prove members, conditions, total or order. Do not claim #183
+complete, merge, close the Issue or move Project to Done.
 
 ## Historical v12 provider observations
 

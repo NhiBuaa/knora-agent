@@ -471,6 +471,14 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   Aliases for each paragraph or item. The adapter checks Evidence Set membership
   and composes Markdown; it no longer checks literal quotes or source positions.
   A valid alias does not prove semantic support, count completeness or source order.
+  Q12 adds a private Cloudflare presentation choice before generation, with no
+  answer/member content in that choice. Selected list contracts require a list;
+  count contracts require a lead paragraph with explicit nullable literal
+  emphasis. Zero/one known member permits count prose. Every contract permits
+  evidence refusal; malformed selection/output remains an error without retry.
+  Safe per-stage trace metadata and complete aggregate token fields account for
+  both requests. This adds quota/latency, not semantic guarantees or a shared
+  prompt-management architecture (#191). Real-provider acceptance is pending.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input

@@ -53,3 +53,44 @@ merge/split qualifications, conditional figures/tables/symbols sections, member
 selection and source order. Fixture/prompt tests are not runtime acceptance.
 Q9 authorizes code/tests only. Keep GPT-OSS 20B and production cap 1024; no further
 model calls until the owner approves the concrete verification proposal.
+
+## Q12: approved presentation selection (2026-10-15)
+
+The owner approved recommendation B after Q10 returned a paragraph-only count
+answer. Implement code/tests first; no additional inference allowance. Issue #191
+stays separate and unimplemented.
+
+- [x] Add transport-level tests in `backend/test/providers/openai_compatible/`
+  that first return a presentation choice, then exercise the selected output
+  contract. Observe RED before changing production code.
+- [x] Add private `presentation.py`: select only `prose`, `list`, `count_prose`
+  or `count_list` from the same question and Evidence Set. It produces no answer,
+  total or members. Count modes distinguish zero/one known member from two or
+  more; they do not claim the total is proven.
+- [x] Extend `answer_blocks.py` with selected schemas and matching local gates:
+  prose excludes list blocks; list requires a list; count requires an initial
+  paragraph with explicit literal `bold` (nullable when no proven total).
+  Count-list also requires a list. Every mode allows the existing refusal.
+  Reuse escaping, per-statement aliases, ordering and citation grouping.
+- [x] Adapt Cloudflare in `generation.py` to two sequential requests, using the
+  existing endpoint/model/per-request token setting. Invalid selection stops
+  before generation; invalid generation stops after request two. No retry,
+  heuristic repair, member reconstruction or semantic verifier. Generic
+  OpenAI-compatible and other providers remain on their existing path.
+- [x] Extend internal `GenerationResult` and `AnswerQuestion` trace metadata
+  with safe stage identities/versions/finish/usage/request IDs and presentation.
+  Aggregate usage only for fields reported by both requests; never invent cost
+  for absent usage. Keep public answers/citations unchanged.
+- [x] Update provider/Postgres fixtures. Cover list rejection of paragraph-only
+  output, count lead/emphasis, incomplete proven counts, unknown totals,
+  zero/one members, refusal in every mode, malformed/extra selection fields,
+  unknown aliases, truncation, HTTP/timeout failures and no retries.
+- [ ] Update ADR0017, CONTEXT and runtime status; run focused and full pytest,
+  Ruff formatting/lint, shared formatting and Compose checks. Review, push and
+  verify CI required on the exact head; publish results to #183/PR #184 Draft.
+
+The first selection can be wrong; structural acceptance cannot prove semantic
+support, completeness, conditions or source order. Two calls increase latency and
+quota use, and the 1024 cap is per request, not a combined turn cap. Keep GPT-OSS
+20B, production settings and retrieval defaults. Before any real calls, present a
+new bounded runtime proposal including both stages; wait for owner approval.

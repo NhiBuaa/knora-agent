@@ -95,7 +95,8 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
         )
 
     async def generation_endpoint(request: httpx.Request) -> httpx.Response:
-        state["generation_requests"].append(json.loads(request.content))
+        payload = json.loads(request.content)
+        state["generation_requests"].append(payload)
         content = state["generation_content"]
         if content is None:
             content = json.dumps(
@@ -111,6 +112,8 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
                     "refusal_reason": None,
                 }
             )
+        if "presentation" in payload["response_format"]["json_schema"]["properties"]:
+            content = json.dumps({"presentation": "prose"})
         return httpx.Response(
             200,
             headers={"x-request-id": f"generate-{len(state['generation_requests'])}"},
@@ -245,6 +248,7 @@ def test_cloudflare_pdf_public_journey_preserves_citation_and_provenance(cloudfl
     assert "queries" in state["embedding_requests"][1]
     assert state["generation_requests"][0]["max_tokens"] == 1024
     assert state["generation_requests"][0]["response_format"]["type"] == "json_schema"
+    assert len(state["generation_requests"]) == 2
 
 
 def test_cross_workspace_requests_stop_before_cloudflare(cloudflare_app) -> None:

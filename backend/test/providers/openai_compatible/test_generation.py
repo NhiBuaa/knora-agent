@@ -186,6 +186,7 @@ async def test_openai_compatible_generation_normalizes_failures_without_retry(
 @pytest.mark.parametrize("case", ["paragraph", "list", "refusal"])
 async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: str) -> None:
     observed = {}
+    calls = 0
     decision = "REFUSAL" if case == "refusal" else "ANSWER"
     blocks = [
         {
@@ -211,6 +212,8 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
         expected = "There are **2 parts**.\n\n- Alpha\n- Beta\n\n[[E1]]"
 
     async def endpoint(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
         observed["request"] = request
         content = json.dumps(
             {
@@ -219,6 +222,8 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
                 "refusal_reason": None if decision == "ANSWER" else "INSUFFICIENT_EVIDENCE",
             }
         )
+        if calls == 1:
+            content = json.dumps({"presentation": "count_list" if case == "list" else "prose"})
         return httpx.Response(
             200,
             json={
@@ -241,10 +246,11 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
 
     result = await provider.generate(
-        question="Báo cáo có bao nhiêu chương?",
+        question="Báo cáo có bao nhiêu chương?" if case == "list" else "What is the refund policy?",
         evidence=(GenerationEvidence("E1", "Refunds. Alpha; Beta."),),
     )
     request = observed["request"]
+    assert calls == 2
     payload = __import__("json").loads(request.content)
     assert request.url.path.endswith("/ai/v1/chat/completions")
     assert payload["model"] == "@cf/openai/gpt-oss-20b"
@@ -256,13 +262,12 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     ]
     assert result.answer == (expected if decision == "ANSWER" else None)
     assert result.cited_evidence_ids == (("E1",) if decision == "ANSWER" else ())
-    assert (
-        __import__("json").loads(payload["messages"][1]["content"])["question"]
-        == "Báo cáo có bao nhiêu chương?"
+    assert __import__("json").loads(payload["messages"][1]["content"])["question"] == (
+        "Báo cáo có bao nhiêu chương?" if case == "list" else "What is the refund policy?"
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v14"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v15"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

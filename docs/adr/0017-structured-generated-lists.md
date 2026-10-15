@@ -1,6 +1,6 @@
 # Compose generated lists from supported blocks
 
-Status: owner-approved behavior and Q9 simplification through Issue #183 (2026-10-14); implementation
+Status: owner-approved behavior, Q9 simplification and Q12 presentation selection through Issue #183 (2026-10-15); implementation
 and runtime acceptance pending in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
@@ -21,7 +21,7 @@ supporting Evidence Aliases for every paragraph or item. The adapter validates
 shape and membership in the supplied Evidence Set, escapes model text as literal
 Markdown content, and composes server-owned bullets and emphasis of one optional
 literal phrase in a paragraph. It preserves the provider's item order.
-The public Generation Result and application validator stay unchanged. Short
+The public answer contract and application validator stay unchanged. Short
 single facts remain prose; a single counted member also remains prose.
 
 Q6 removes the dedicated count block and its basis/witness/member-length checks.
@@ -51,6 +51,38 @@ reconstruction is introduced. This removes checks of literal span existence and 
 the public validator does not replace them. Source-order and semantic acceptance
 requirements remain unchanged. Only code/tests are authorized in Q9; further
 inference requires a separately approved bounded allowance.
+
+Q10 supplied the complete outline to v14, but the model returned only a count
+paragraph and literal Markdown stars. The composer, stored Turn and browser
+agreed; this was not lost renderer structure or a truncated response. The owner
+approved Q12 recommendation B: a small Cloudflare-only presentation selection
+request before generation. It returns only `prose`, `list`, `count_prose` or
+`count_list`, without a total or answer/member content. The same question and
+Evidence Set feed both requests. Zero/one evidenced member permits count prose;
+the selection does not establish a proven total or complete membership.
+
+The selected generation schema and local gates require a list for list modes,
+exclude lists for prose modes, and require an initial paragraph with an explicit
+literal `bold` field for count modes. Null is allowed for an unproven total; no
+count parser/proof system is added. Every mode permits the existing structured
+refusal. Invalid selection stops before generation; invalid generation is an
+error without another call or repair. The existing composer and source grouping
+remain responsible for bullets, emphasis and citation markers.
+
+Prompt identities are `cloudflare-presentation-v1` and
+`cloudflare-gpt-oss-cited-answer-v15`. Internal Generation Result/Question Trace
+metadata retains safe identities, finish reasons, request IDs and reported usage
+for both stages, with the selected presentation. Aggregate token fields are sums
+only when both stages reported that field. Missing usage remains unknown, with no
+invented zero cost. No prompt, evidence or model reasoning is added to metadata.
+
+This adds a request and latency/quota use, retaining the existing model and
+per-request cap (1024 for the configured Cloudflare runtime, not a combined turn
+cap). A mistaken selector can still choose prose, and structural compliance does
+not prove semantics or prevent an enumeration hidden inside an item. Q2–Q4 still
+require source-based runtime review. Q12 authorizes code/tests only. It introduces
+no shared Prompt Policy/Builder/Versioning architecture from separate Issue #191,
+no retrieval/configuration change, provider retry, dependency or semantic judge.
 
 Research and evidence: [contract research](../development/issue-183-provider-output-research.md),
 [plan](../development/issue-183-structured-list-plan.md),
