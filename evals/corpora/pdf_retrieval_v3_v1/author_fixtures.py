@@ -803,7 +803,8 @@ def write_reviews(manifest):
             EXPOSURE,
             "",
             f"Status: batch {batch + 1} approved by NhiBuaa on {approval_date}. "
-            "Full dataset is not frozen; binding and baseline B are not approved.",
+            "Corpus and gold frozen by NhiBuaa on 2026-10-15 at commit 2ce2fe6; "
+            "binding and baseline B are not approved.",
             "",
             f"Corpus SHA-256: `{manifest['corpus_sha256']}`",
             f"Dataset SHA-256: `{manifest['dataset_sha256']}`",
@@ -874,8 +875,8 @@ def write_reviews(manifest):
                 [
                     "Approval scope: cases 049-060 approved unchanged by NhiBuaa on "
                     "2026-10-15. All five batches have been reviewed; final corpus/dataset "
-                    "hash approval and freeze remain pending. Binding and baseline B "
-                    "require separate gates.",
+                    "hash approval and freeze were granted at commit 2ce2fe6. "
+                    "Binding and baseline B require separate gates.",
                     "",
                     "Agent source check (2026-10-14): cases 049-052 require both "
                     "registry mapping and destination facts. The registry has no destination "

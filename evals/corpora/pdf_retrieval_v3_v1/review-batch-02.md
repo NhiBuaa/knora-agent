@@ -2,7 +2,7 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: batch 2 approved by NhiBuaa on 2026-10-14. Full dataset is not frozen; binding and baseline B are not approved.
+Status: batch 2 approved by NhiBuaa on 2026-10-14. Corpus and gold frozen by NhiBuaa on 2026-10-15 at commit 2ce2fe6; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
 Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`

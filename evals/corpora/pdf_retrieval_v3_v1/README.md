@@ -1,7 +1,9 @@
-# PDF Retrieval V3 V1: source gold review candidate
+# PDF Retrieval V3 V1: frozen source gold
 
-**Status: all five batches approved; final corpus/dataset hash approval pending.**
-This corpus and gold packet is not frozen or a claim about baseline quality.
+**Status: corpus and gold frozen by NhiBuaa on 2026-10-15 at commit `2ce2fe6`.**
+[Owner approval record](../../datasets/pdf_retrieval_v3_v1.approval.json) binds both
+final hashes to the approved commit and [owner decision](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6183549793).
+This freeze is not binding approval, baseline B authorization or a claim about baseline quality.
 Historical authoring exposure for all questions and synthetic content remains:
 `agent-authored; no model calls; owner review pending`.
 
@@ -19,10 +21,10 @@ phrase "not 24"; case 044 accepts equivalent base/large typography while preserv
 both version identities and the count of two. Its facts describe the version meanings
 rather than requiring a particular hyphen or subscript spelling. Batch 5 (049-060)
 was approved unchanged on 2026-10-15. All 60 cases have now completed batch review.
-This does not freeze the full dataset or approve chunk bindings or baseline B;
-explicit approval of the final corpus/dataset hashes remains pending.
+NhiBuaa subsequently approved the full corpus/gold freeze at commit `2ce2fe6` with
+the hashes below. Chunk bindings and baseline B retain their separate gates.
 
-Final hashes proposed for owner approval (unchanged by Batch 5 approval):
+Frozen content hashes (unchanged since Batch 4):
 
 - Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
 - Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
@@ -130,6 +132,31 @@ keys and compact separators. Dataset SHA-256 binds JSONL bytes after CRLF/CR nor
 to LF. Thus visible gold/locator edits invalidate corpus approval; question/fact/parent
 edits invalidate dataset approval. Owner approval must explicitly match both hashes and
 owner `NhiBuaa` through `validate_approval`; packet status never grants approval.
+The unchanged manifest status and exposure describe the original candidate authoring
+state; the separate approval record is the owner authorization for these exact hashes.
+The runner's `validate` stage only checks dataset structure and emits a fixed
+`owner_review_pending` label; check owner approval with the existing validator:
+
+```powershell
+@'
+import json
+from pathlib import Path
+from evals.datasets.pdf_retrieval_v3_v1 import load_dataset, validate_approval
+
+root = Path("evals/datasets")
+dataset = load_dataset(
+    root / "pdf_retrieval_v3_v1.manifest.json",
+    root / "pdf_retrieval_v3_v1.jsonl",
+)
+approval = json.loads(
+    (root / "pdf_retrieval_v3_v1.approval.json").read_text(encoding="utf-8")
+)
+validate_approval(dataset, approval)
+print(approval["status"])
+'@ | ./.venv/Scripts/python -
+```
+
+This command is read-only and does not dispatch upload, inference, binding or scoring.
 
 All 15 synthetic pages were rendered with Poppler and visually inspected for legible
 diacritics, columns, table geometry, scan text and clipping. Academic positive facts were

@@ -2,14 +2,14 @@
 
 agent-authored; no model calls; owner review pending
 
-Status: batch 5 approved by NhiBuaa on 2026-10-15. Full dataset is not frozen; binding and baseline B are not approved.
+Status: batch 5 approved by NhiBuaa on 2026-10-15. Corpus and gold frozen by NhiBuaa on 2026-10-15 at commit 2ce2fe6; binding and baseline B are not approved.
 
 Corpus SHA-256: `c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0`
 Dataset SHA-256: `2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae`
 
 Evidence groups: outer AND; anchors within each bracket are OR alternatives. Locators use 1-based PDF pages, not printed journal page numbers.
 
-Approval scope: cases 049-060 approved unchanged by NhiBuaa on 2026-10-15. All five batches have been reviewed; final corpus/dataset hash approval and freeze remain pending. Binding and baseline B require separate gates.
+Approval scope: cases 049-060 approved unchanged by NhiBuaa on 2026-10-15. All five batches have been reviewed; final corpus/dataset hash approval and freeze were granted at commit 2ce2fe6. Binding and baseline B require separate gates.
 
 Agent source check (2026-10-14): cases 049-052 require both registry mapping and destination facts. The registry has no destination values; destination PDFs do not mention the lookup codes. Case 049 uses raster evidence; case 052 needs the TB-27 row and Total column with the minutes unit, not just the isolated cell 60.
 
