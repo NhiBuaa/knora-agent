@@ -372,6 +372,28 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   metadata includes retrieval configuration ID, fusion-policy version, and embedding/chunk-set
   provenance once per invocation. A candidate's fused rank is retrieval rank, not its later
   Evidence Set position.
+- The **Evaluation Workbench** has two application workflows sharing one Canonical Dataset
+  Contract: **Dataset Builder** prepares original PDF sources, obtains human case/evidence review
+  and freezes gold; **Evaluation Runner** consumes a frozen dataset to execute new Q&A and publish
+  observations/reports. Neither creates another dataset, runner or release authority.
+- A **Frozen Gold Dataset** binds its version and digest to the owner's approval of source-backed
+  cases. PDF evidence anchors refer to the original raw PDF digest and Document Version, physical
+  page and reviewed quote/region; extraction offsets additionally bind an exact extraction snapshot.
+  Runtime binding is independent and may remain incomplete at freeze. Runtime readiness and
+  permission to send data to a provider are not implied by gold approval.
+- An **Evaluation Selection** binds selected case IDs to an unchanged dataset/version/digest.
+  Ordered context-only dependencies remain explicit and do not enter scored populations. Missing
+  extraction/binding and failed/not-run/indeterminate observations remain visible for every selected
+  case, with metric-specific applicability, denominators and reasons for unavailable scores.
+- **PDF Evidence-Group Coverage V1** applies to new Builder PDF datasets, using all ordered fused
+  candidates before evidence selection, with AND across required groups and OR among reviewed
+  alternatives. It adds no cutoff K; generation-evidence coverage is a separate diagnostic. A
+  missing/ambiguous required binding is unscorable, a valid miss is zero and an empty denominator
+  is null. M3 and Issue #153 preserve their respective metric contracts.
+- **Evaluation Execution Status** records job progress independently of **Quality Status** and
+  owner acceptance. A deterministic report can disclose pending semantic review; it cannot replace
+  a complete M3 release report or fabricate semantic PASS. Supplementary scorers consume saved
+  captures without causing another Q&A run. See [Workbench design](docs/design/evaluation-workbench.md).
 - An **Evaluation Case** is a versioned question fixture. Its contract separates retrieval
   relevance applicability and acceptable relevant Chunks from answer expectations (including
   non-empty required facts for an answerable case) and evidence expectations (expected source
