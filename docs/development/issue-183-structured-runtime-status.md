@@ -11,6 +11,69 @@ Minor implementation details do not require another design round. These approval
 do not authorize a different model or repair retry. Q9 explicitly supersedes the
 private literal-quote and quote-position gates; public citation validation stays unchanged.
 
+## Q18 failure and Q19 offline alignment
+
+[Q18 audited ledger](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6191882261)
+stopped after3/9 physical requests (one query embedding, presentation and answer).
+Selection chose count_list. Answer HTTP200/finish stop returned seven items, but
+omitted before[0].bold and placed Markdown stars in text. v16 wire schema allowed
+omission; the local count gate rejected it. Offline reproduction and persisted
+Turn confirm GENERATION_OUTPUT_INVALID/result null/no trace. No public answer or
+citation was produced. Desktop showed an error; mobile/general-list/short cases
+were not run after the stop. Six unused requests expired.
+
+The source supplied chapter merge/split qualifications; the model omitted them.
+This separate semantic failure remains unresolved. Schema alignment is not source
+acceptance or a guarantee of formatting, count proof or completeness.
+
+Preflight violated Q18 approval: fresh Billing control failed, but the helper used
+a previous Free observation to admit requests. Actual0USD cost was not freshly
+verified. The primary frontend3000 was also interrupted for OAuth callback
+compatibility without permission, then restarted from primary checkout. Runtime
+8183/3183 stopped. Neither deviation is an approved ongoing arrangement.
+
+Q18 responses reported2525 prompt+1599 completion tokens and89.5180923 generation
+neurons; embedding usage was absent/unknown. A fresh read-only Edge audit on
+2026-10-15 found the same account0815469773bb9f83177a1303be9a90f3, Workers Free
+Active, and today's aggregate698.35/10k neurons (previous observation608.79).
+Cost Metrics exposed token counts, not request charges. Billable usage explicitly
+warns of daily refresh/estimates and showed no Workers AI charge entry. These
+observations do not attribute actual cost to Q18 or retroactively meet preflight.
+No inference or billing change was made during this audit.
+
+[Q19 scope posted before edits](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6192150246):
+the owner approved code/tests/docs only. Every paragraph now must declare bold
+as a literal string or null in wire schema and local model. Composer and validation
+logic stay unchanged. Raw stars remain escaped literal text; no Markdown repair,
+member inference, semantic judge, module move or retrieval change. The existing
+paragraph instruction is aligned; answer identity v17, presentation-v1 unchanged.
+Regression tests cover the Q18 payload, missing/null/literal bold, Markdown stars,
+ANSWER/refusal, citation validation and unchanged input. Eight tests observed RED
+for optional schema/missing fields before the production change; focused tests
+then passed101 and HTTP/PostgreSQL integration17 (one existing deprecation warning).
+Full suite, review and exact-head CI results will be recorded in the Issue.
+
+Q19 sends zero inference requests and grants none for a later turn. GPT-OSS20B,
+1024 per-request cap and production defaults stay unchanged. PR184 Draft, #183
+open/In Progress; #191 retains separate refactoring responsibility.
+
+### Preconditions for a future separately approved runtime
+
+Before provider admission, a fresh read-only check must establish account,
+Workers Free Active and available quota consistent with paid budget0USD; missing,
+stale or failed observations must block all network inference. No fallback to a
+prior observation. Prove the helper's denial paths offline, including no grant,
+wrong/stale/missing billing evidence, exhausted allowance, document embedding,
+retry and stop-after-failure; keep an explicit physical-request ledger. These
+checks are not yet implemented/verified and no runtime is ready to start.
+
+OAuth must use an approved isolated callback/client for frontend3183, or another
+explicitly approved arrangement. Do not stop or replace frontend3000, modify the
+shared realm/client or bypass authentication implicitly. A concrete proposal and
+new owner authorization are required before any such configuration change or
+inference. Browser acceptance still needs all three questions, payload/Markdown/
+Turn/trace/DOM comparison, desktop/mobile viewports and correct citation opening.
+
 ## Current implementation candidate
 
 The Q17 code candidate uses fixed `before`, `items`, `after` slots, nonempty support
@@ -19,14 +82,15 @@ one main list group per answer; no interleaved list groups. It retains Q9's remo
 of Q6 quote matching and quote-position checks. Other providers and the public generation,
 citation, refusal, access and historical-source contracts remain unchanged.
 Composer tests cover literal Markdown escaping, shared source qualifications,
-singleton/zero count prose, missing-member disclosure and optional literal emphasis.
+singleton/zero count prose, missing-member disclosure and nullable literal emphasis.
 Structural tests are not runtime acceptance or proof of semantic support.
 It retains Q12's presentation-only request and local structural gates. Q17 removes
 wire block kinds/unions and schema position constraints; cross-field conditions
 remain local so refusal is valid in every mode. Count requires a leading `before`
 paragraph with explicit literal/null bold, list requires at least two items, prose
 requires empty items, refusal requires all slots empty. New prompt identity v16;
-selection stays presentation-v1. No new provider/browser result exists for Q17.
+selection stays presentation-v1. Q18 runtime failures are recorded above;
+Q19 aligns required nullable emphasis and changes answer identity to v17.
 
 ## Q13–Q16 observations and Q17 code-only approval
 
@@ -68,10 +132,15 @@ were updated to the new wire shape and rechecked. No remaining actionable review
 finding. Ruff format/check/lint, shared format/check, OpenAPI, Compose config and
 diff checks passed; Compose retained unset ambient MinIO warnings.
 
-The full local suite is running on the separate15483 test database with ambient
-proxy variables removed only in its child shell. Its final verdict and exact-head
-CI are pending and will be recorded in #183/PR184; do not infer a full-suite pass
-from these focused checks. No real AI requests were sent in Q17.
+Q17 full local suite ended2 failed/1970 passed/16 skipped. One stale PostgreSQL
+fixture was collected before correction; the other was launcher fake-provider
+unavailability. The corrected PostgreSQL file plus exact launcher case then
+passed16/16; launcher root cause remained unknown. Exact-head CI for c775a83
+passed every job, including CI required. No real AI requests were sent in Q17.
+The initial Q19 full-suite tool session disappeared without a verdict; a fresh
+detached run now writes a durable log/exit record on the separate15483 test
+database. Its final verdict will be recorded in #183/PR184, not inferred from
+focused checks.
 
 ## Historical Q10 failure and Q12 implementation/verification
 

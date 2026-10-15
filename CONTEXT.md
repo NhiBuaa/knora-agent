@@ -477,7 +477,10 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   answer/member content in that choice. Local selected-list gates require at least
   two items; prose requires empty items. Count
   contracts require a lead paragraph with explicit nullable literal
-  emphasis. Zero/one known member permits count prose. Every contract permits
+  emphasis. Q19 also requires every paragraph to declare `bold` as a literal
+  string or null in the wire schema and local model; omission is invalid in every
+  mode. The composer does not repair model Markdown or prove semantic support.
+  Zero/one known member permits count prose. Every contract permits
   evidence refusal; malformed selection/output remains an error without retry.
   Safe per-stage trace metadata and complete aggregate token fields account for
   both requests. This adds quota/latency, not semantic guarantees or a shared

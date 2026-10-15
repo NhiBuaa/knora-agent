@@ -12,7 +12,7 @@ def item(text: str, *aliases: str) -> dict:
 
 
 def paragraph(text: str, *aliases: str) -> dict:
-    return item(text, *aliases)
+    return {**item(text, *aliases), "bold": None}
 
 
 def answer(*blocks: dict) -> dict:

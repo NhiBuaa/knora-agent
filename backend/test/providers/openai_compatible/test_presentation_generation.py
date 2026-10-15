@@ -20,7 +20,7 @@ LIST = {
     "kind": "list",
     "items": [{"text": "Alpha", "support": ["E1"]}, {"text": "Beta", "support": ["E1"]}],
 }
-PROSE = {"kind": "paragraph", "text": "Merging is allowed.", "support": ["E1"]}
+PROSE = {"kind": "paragraph", "text": "Merging is allowed.", "support": ["E1"], "bold": None}
 
 
 def _answer(blocks):
@@ -134,7 +134,7 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
         key in json.dumps(answer_schema)
         for key in ('"oneOf"', '"contains"', '"prefixItems"', '"discriminator"')
     )
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v16"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v17"
     assert result.usage == {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
     assert result.cost["amount_usd"] == "0.00004"
     assert [stage["provider_request_id"] for stage in result.stages] == ["stage-1", "stage-2"]
@@ -175,7 +175,7 @@ async def test_every_selected_contract_allows_evidence_refusal(presentation):
         ("count_list", [{key: value for key, value in LEAD.items() if key != "bold"}, LIST]),
         ("prose", [LIST]),
         ("count_prose", [LEAD, LIST]),
-        ("count_prose", [PROSE]),
+        ("count_prose", [{key: value for key, value in PROSE.items() if key != "bold"}]),
         ("list", [{"kind": "list", "items": [LIST["items"][0]]}]),
         (
             "list",
@@ -261,7 +261,9 @@ async def test_proven_total_with_zero_or_one_known_member_stays_prose(members):
         "support": ["E1"],
     }
     blocks = [lead] + (
-        [{"kind": "paragraph", "text": members[0], "support": ["E1"]}] if members else []
+        [{"kind": "paragraph", "text": members[0], "support": ["E1"], "bold": None}]
+        if members
+        else []
     )
     provider = _provider(
         [({"presentation": "count_prose"}, "stop", {}), (_answer(blocks), "stop", {})], requests

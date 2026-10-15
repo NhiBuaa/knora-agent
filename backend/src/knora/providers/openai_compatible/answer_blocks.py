@@ -19,7 +19,7 @@ class _Statement(_Model):
 
 
 class _Paragraph(_Statement):
-    bold: str | None = Field(default=None, min_length=1)
+    bold: str | None = Field(min_length=1)
 
 
 class _List(_Model):
