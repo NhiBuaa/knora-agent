@@ -21,7 +21,7 @@ def generation():
         document_version_id="version",
         chunk_set_id="chunks",
         index_generation_id="index-1",
-        lexical_policy_id="bm25-unicode-multilingual-v1",
+        lexical_policy_id="bm25-unicode-word-v1",
     )
 
 
@@ -63,7 +63,7 @@ def observation(item, *, status="ELIGIBLE", reason=None):
         raw_score=item.bm25_score,
         score_kind="bm25",
         index_generation_id="index-1",
-        lexical_policy_id="bm25-unicode-multilingual-v1",
+        lexical_policy_id="bm25-unicode-word-v1",
         decision_reason=reason,
     )
 
@@ -103,7 +103,7 @@ class LexicalStore:
                 branch="bm25",
                 status="NO_CONTRIBUTION",
                 score_kind="bm25",
-                lexical_policy_id="bm25-unicode-multilingual-v1",
+                lexical_policy_id="bm25-unicode-word-v1",
             ),
         )
         self.result = stores.RetrievalResult(
@@ -152,7 +152,7 @@ async def test_bm25_answers_without_embedding_or_embedding_set(provider):
     assert response.decision == "ANSWER"
     assert response.citations[0].document_version_id == "version"
     assert generator.calls == 1
-    assert store.ready == [("workspace", "bm25-unicode-multilingual-v1")]
+    assert store.ready == [("workspace", "bm25-unicode-word-v1")]
     assert store.requests[0]["query_vector"] is None
     assert store.requests[0]["embedding_configuration"] is None
     trace = store.traces[0]
@@ -457,7 +457,7 @@ async def test_lexical_observation_invariants_reject_before_generation(drift):
             branch="bm25",
             status="NO_CONTRIBUTION",
             score_kind="bm25",
-            lexical_policy_id="bm25-unicode-multilingual-v1",
+            lexical_policy_id="bm25-unicode-word-v1",
         )
         store.result = replace(
             store.result, branch_observations=store.result.branch_observations + (extra,)

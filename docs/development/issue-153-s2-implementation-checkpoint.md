@@ -56,6 +56,13 @@ Corrections:
 - Required CI for this implementation head is pending, not inherited from S2.1.
 - No full local suite, migration execution, Qdrant query or application E2E claim.
 
+## S2.3 offline native staging checkpoint
+
+The Qdrant adapter now builds, offline only, a one-shard native BM25 collection body, a single 1–64 point staging batch, and an exact persisted-point readback request. It shares the approved `word` profile and NFKC/lowercase normalization with query construction. Readback returns a `StageReceipt` only after exact point count, deterministic UUID identity, profile/checksum/content-digest payload validation; HTTP/upsert acknowledgement alone is rejected. No transport, Qdrant service, collection, migration or runtime activation was performed. Details and tests: `.verification/s2-native-stage-report.md`.
+
+The BM25 policy identifier is now `bm25-unicode-word-v1`; Baseline B's vector threshold and all historical artifacts are unchanged.
+
+Offline verification on this head: focused S2 tests **272 passed**. The broader evaluation-reader selection was not included in that count because its five tests attempted a developer PostgreSQL at `127.0.0.1:5432` and failed password authentication; no test failure was caused by the S2 code, and no database was modified. Ruff format/check and `git diff --check` pass.
 ## Tokenizer spike
 
 Owner approved changing to native `word` under a new profile and a <=2h offline spike.

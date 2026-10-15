@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
 from typing import Any
 from unicodedata import normalize
 
 from knora.ingestion.search_indexing import (
+    LexicalChunk,
+    LexicalGeneration,
     LexicalGenerationError,
     LexicalProfile,
+    StageReceipt,
     lexical_point_id,
 )
 
@@ -45,6 +50,112 @@ class QdrantSearchIndex:
     collection_name: str
     profile: LexicalProfile
 
+    def _document(self, text: str) -> dict[str, Any]:
+        return {
+            "text": normalized_lexical_text(text),
+            "model": "qdrant/bm25",
+            "options": {
+                "k": self.profile.k1,
+                "b": self.profile.b,
+                "avg_len": self.profile.avg_len,
+                "tokenizer": self.profile.tokenizer,
+                "lowercase": True,
+                "ascii_folding": False,
+                "stemmer": {"type": "none"},
+                "stopwords": {},
+            },
+        }
+
+    def collection_body(self) -> dict[str, Any]:
+        return {
+            "vectors": {},
+            "sparse_vectors": {"bm25": {"modifier": "idf"}},
+            "shard_number": 1,
+        }
+
+    def _validate_generation(self, generation: LexicalGeneration) -> None:
+        if generation.lexical_profile.digest() != self.profile.digest():
+            raise LexicalGenerationError("generation profile differs from index profile")
+        if not 1 <= len(generation.chunks) <= 64:
+            raise LexicalGenerationError("native staging requires one batch of at most 64 points")
+
+    @staticmethod
+    def _point_payload(
+        generation: LexicalGeneration, chunk: LexicalChunk, content_digest: str
+    ) -> dict[str, str]:
+        return {
+            "workspace_id": generation.workspace_id,
+            "generation_id": generation.generation_id,
+            "chunk_id": chunk.chunk_id,
+            "profile_id": generation.lexical_profile.id,
+            "profile_digest": generation.lexical_profile.digest(),
+            "content_checksum": chunk.content_checksum,
+            "content_digest": content_digest,
+        }
+
+    def stage_body(
+        self, generation: LexicalGeneration, chunk_texts: Mapping[str, str]
+    ) -> dict[str, Any]:
+        """Build one native batch from PostgreSQL-authoritative chunk text."""
+        self._validate_generation(generation)
+        if not isinstance(chunk_texts, Mapping) or set(chunk_texts) != {
+            chunk.chunk_id for chunk in generation.chunks
+        }:
+            raise LexicalGenerationError("authoritative texts differ from generation manifest")
+        points = []
+        content_digest = generation.content_digest()
+        for chunk in generation.chunks:
+            text = chunk_texts[chunk.chunk_id]
+            if (
+                not isinstance(text, str)
+                or not text.strip()
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != chunk.content_checksum
+            ):
+                raise LexicalGenerationError("authoritative chunk text checksum is invalid")
+            points.append(
+                {
+                    "id": lexical_point_id(generation.generation_id, chunk.chunk_id),
+                    "vector": {"bm25": self._document(text)},
+                    "payload": self._point_payload(generation, chunk, content_digest),
+                }
+            )
+        return {"points": points}
+
+    def persisted_points_body(self, generation: LexicalGeneration) -> dict[str, Any]:
+        self._validate_generation(generation)
+        return {"ids": list(generation.point_ids()), "with_payload": True, "with_vector": False}
+
+    def parse_stage_response(
+        self, generation: LexicalGeneration, points: list[dict[str, Any]]
+    ) -> StageReceipt:
+        """Verify retrieved persisted points, never an upsert operation response."""
+        self._validate_generation(generation)
+        if not isinstance(points, list) or len(points) != len(generation.chunks):
+            raise ProjectionResponseError("persisted generation point count is incomplete")
+        content_digest = generation.content_digest()
+        expected = {
+            lexical_point_id(generation.generation_id, chunk.chunk_id): self._point_payload(
+                generation, chunk, content_digest
+            )
+            for chunk in generation.chunks
+        }
+        seen = set()
+        for point in points:
+            if not isinstance(point, dict):
+                raise ProjectionResponseError("persisted point is not an object")
+            point_id = point.get("id")
+            if (
+                not isinstance(point_id, str)
+                or point_id not in expected
+                or point_id in seen
+                or point.get("payload") != expected[point_id]
+            ):
+                raise ProjectionResponseError(
+                    "persisted point identity or digest differs from manifest"
+                )
+            seen.add(point_id)
+        return StageReceipt(generation.generation_id, len(seen), content_digest)
+
     def _validate_snapshot(self, snapshot: AuthorizedLexicalSnapshot) -> None:
         if (snapshot.profile_id, snapshot.profile_digest) != (
             self.profile.id,
@@ -73,20 +184,7 @@ class QdrantSearchIndex:
         }
         return {
             "using": "bm25",
-            "query": {
-                "text": normalized_lexical_text(query_text),
-                "model": "qdrant/bm25",
-                "options": {
-                    "k": self.profile.k1,
-                    "b": self.profile.b,
-                    "avg_len": self.profile.avg_len,
-                    "tokenizer": self.profile.tokenizer,
-                    "lowercase": True,
-                    "ascii_folding": False,
-                    "stemmer": {"type": "none"},
-                    "stopwords": {},
-                },
-            },
+            "query": self._document(query_text),
             "filter": scope,
             "params": {"idf": {"corpus": scope}},
             "limit": limit,
