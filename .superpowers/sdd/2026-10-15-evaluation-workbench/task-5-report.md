@@ -53,3 +53,16 @@ DeepEval/Ragas; full frontend previously had a build-hook timeout. This is not f
 
 Next: integrate the reviewed R3 checkpoint in the coordinator, finish A3/R2 on saved artifacts,
 prepare the concrete owned-runtime/Free quota/live-call approval for UI acceptance, and submit PRs.
+
+## First PR CI correction (2026-10-15)
+
+CI run 38745977669 found five real-PDF tests wrongly routed to portable Ubuntu without
+cgroup delegation, plus two fixture geometry assertions that still assumed three Operator tabs.
+Exact-node routing now executes those five tests in the existing required Windows job; extractor
+limits, validation and assertions remain active. Geometry checks cover all five navigation tabs.
+
+Evidence: 78 CI-route/Builder/gold/workflow tests passed; the full collected-partition coverage test
+passed on Python 3.12 with optional evaluation dependencies; both desktop/mobile Operator lookup
+Playwright fixtures passed (2 tests). Ruff whole-repo formatting/lint, frontend Prettier/typecheck
+and diff check passed. Fixture server was test-owned and stopped after the run; no shared runtime
+or provider was used. Full remote CI must still pass on the corrected commit.
