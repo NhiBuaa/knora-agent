@@ -226,20 +226,6 @@ def test_local_worker_is_bounded_and_hides_process_errors(monkeypatch):
     }
 
 
-def test_real_validator_runs_without_network_or_temp_leak(tmp_path, monkeypatch):
-    import importlib.util
-
-    from evals.scorers.security_shadow import scan_local
-
-    if importlib.util.find_spec("guardrails") is None:
-        pytest.skip("security-shadow optional packages are not installed")
-    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
-    result = scan_local("Mật khẩu giả cho kiểm thử.\npassword = 'KnoraCanary_188_x8k2'\n")
-    assert result["status"] in {"detected", "clear"}
-    assert result["diagnostics"]["blocked_network_attempts"] == 0
-    assert list(tmp_path.iterdir()) == []
-
-
 def test_review_is_bound_to_exact_artifact():
     from evals.runners.run_security_shadow import apply_review
 

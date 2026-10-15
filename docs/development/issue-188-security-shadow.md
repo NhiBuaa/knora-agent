@@ -34,6 +34,18 @@ The saved #153 smoke input is used only as unlabelled evidence. Its source SHA25
 `evals/reports/security_shadow/pdf-smoke-002.json` records two unavailable, unreviewed units and
 does not reinterpret the original failure or answer.
 
+The PDF smoke was run without `--execute`: it has no usable detector result. It does not
+establish that the saved output is free of secrets. Pilot findings remain 3 TP, 1 FN (split key),
+1 FP (public checksum), and 3 TN; the implementation is an experimental baseline, without
+security-quality acceptance.
+
+## CI separation
+
+Pure tests remain under `evals/test/test_security_shadow.py`. The real validator test lives in
+`evals/integration/test_security_shadow.py`, executed by the required Security shadow CI job with
+only its own pinned dependencies and pytest. Missing dependencies fail the test, never skip it.
+Backend dependencies remain unchanged. Enforcement and export remain OFF.
+
 ## Boundaries
 
 Only secrets-presence was trialled. Prompt injection, PII, and dangerous-output detection remain
