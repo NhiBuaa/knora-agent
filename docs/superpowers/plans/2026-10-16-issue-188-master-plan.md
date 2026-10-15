@@ -144,7 +144,7 @@ Arrows mean specific reviewed deliverables, not whole parent Issue completion. P
 | Phase | Current state | Can finish without live calls? |
 | --- | --- | --- |
 | P0 | Architecture and Master v1 approved 2026-10-16 | Yes |
-| P1 | Step A/Q1 approved; offline implementation/review evidence in [P1 note](../../development/issue-188-p1-offline.md), branch `codex/issue-188-p1-offline` stacked on PR #199 `bd5f288`. Exact-head CI/handoff pending; labels/quality unaccepted | Yes |
+| P1 | Offline deliverables implemented and independently reviewed; [P1 evidence](../../development/issue-188-p1-offline.md), Draft [PR #205](https://github.com/NhiBuaa/knora-agent/pull/205), stacked on PR #199 `bd5f288`. Exact-head CI/handoff recorded on PR/#188; labels/quality remain unaccepted | Yes |
 | P2 | Research available; 403 account-access gap; exact packet not prepared | Yes; may end with documented unavailable capability, not live readiness |
 | P3 | Not run / not approved | No |
 | P4 | Baseline implemented; qualification not started or accepted | Yes for saved/synthetic local detector evidence; not application leak acceptance |
@@ -343,6 +343,6 @@ Update the state row in section 6 with exact code SHA/PR, input/config/label/rep
 - [x] Owner approved architecture and Master v1, including phase/permission boundaries (2026-10-16).
 - [x] Owner required Detection Completed / Protection Enabled distinction.
 - [x] Owner approved Q1 / P1 Step A offline and autonomous technical repairs.
-- [ ] Complete P1 evidence/review and present remaining P2 prerequisites.
+- [x] Prepare P1 offline artifacts, independent review and P2 prerequisite handoff in the P1 evidence note; exact-head CI and final handoff remain explicit PR/#188 gates.
 
 Only P1 offline implementation is currently authorized. No inference, Gateway activation, cost, runtime activation, enforcement, export, merge or deployment authority follows from Master approval.

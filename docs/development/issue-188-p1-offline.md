@@ -4,6 +4,11 @@ Authority: [owner approval](https://github.com/NhiBuaa/knora-agent/issues/188#is
 and [single Master Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md), phase P1.
 This is an implementation/evidence note, not another implementation plan.
 
+Review artifact: Draft [PR #205](https://github.com/NhiBuaa/knora-agent/pull/205), stacked on
+PR #199 `bd5f288`. Code subject `e7a6e28d42475389e9c35e3b083f6876c8976413`; this follow-up
+changes only handoff documentation. Exact-head unified CI is linked on PR/#188, using manual
+branch dispatch because the existing PR trigger covers `main`, not this stacked base.
+
 ## Scope and reuse
 
 `evals.runners.cloudflare_p1_shadow` prepares exact system + question/evidence messages using
@@ -101,7 +106,8 @@ neither is established here; enforcement OFF cannot support any attack-preventio
 
 Independent review found contradictory restart accounting and missing safe subgroup metadata.
 Regression tests were first observed failing, then both defects repaired and independently
-re-reviewed: spec and code quality approved for the fixes. Focused result: **40 P1 + 16 Secrets
+re-reviewed: spec and code quality approved for the fixes. A final whole-P1 review also approved
+both spec compliance and code quality, with no remaining findings. Focused result: **40 P1 + 16 Secrets
 tests passed**. The real Secrets integration also passed in its existing isolated pinned
 environment; no dependency was added to backend. Portable backend/evaluation suite ran with the
 existing installed evaluation environment, no dependency installation. Final exact-head CI and
@@ -115,7 +121,8 @@ tests passing); the subsequent run passed 1417 tests before three review regress
 **Final portable run: 1420 passed, 621 deselected, zero skips/errors/failures**, including those
 three regressions; 101.66 seconds. The 621 are explicit existing CI partitions for Windows,
 database and runtime, not hidden P1 skips. Audit-hook verification of fixture preparation and
-report digests saw **zero socket/DNS/subprocess attempts**. Existing deprecation warnings are
+report digests saw **zero socket/DNS/subprocess attempts**. Report directory LF attributes keep
+the recorded byte hashes stable. Existing deprecation warnings are
 not a detector quality result. No full local database/services/runtime activation was performed.
 
 ## P2 entry conditions still missing
@@ -135,3 +142,15 @@ not a detector quality result. No full local database/services/runtime activatio
 
 No model inference, Gateway/config/logging mutation, cost, runtime activation, enforcement,
 export or merge occurred in this phase. PR #199 remains a separate unmerged Secrets baseline.
+
+### Acceptance handoff
+
+- P1 offline technical deliverables, tests, preparation artifacts and independent review are
+  complete; final technical DoD additionally requires exact-head unified CI success as recorded
+  on PR/#188. This does not mean owner acceptance of detection quality.
+- Sixteen fixture labels await digest-bound owner review. No real P1 execution or TP/FP/FN/TN
+  result exists; mock tests demonstrate orchestration only.
+- `Detection Completed: no` for the final agreed #188 scope/quality.
+- `Protection Enabled: no`; enforcement and runtime activation remain OFF/unapproved.
+- P2 has not started and is not authorized by this handoff. Its concrete missing conditions are
+  listed above. Retain Draft/Open and Project In Progress until owner disposition.
