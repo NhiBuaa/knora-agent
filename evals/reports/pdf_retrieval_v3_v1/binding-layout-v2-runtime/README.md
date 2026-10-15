@@ -1,6 +1,6 @@
 # Review binding gold → chunks: actual runtime pypdf layout-v2
 
-**Trạng thái: chờ owner duyệt actual proposal/IDs. Chưa collect/scoring/B 60 câu.**
+**Trạng thái: owner đã duyệt actual runtime binding tại `a4b9bd8`; validator chấp nhận approved record. Chưa collect/scoring/B 60 câu.**
 
 - Run: `s1-runtime-binding-20261015-01`; Workspace: `ee8acee6-6fea-4aaf-b472-d5ae1609516f`.
 - Actual proposal SHA: `3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d`.
@@ -21,7 +21,7 @@ Launcher local đã được kiểm bằng MockTransport, capability denial và 
 
 47/47 chunk có rawSHA, parser/normalizer/chunker, page/range, checksum và nội dung giống offline snapshot. 86/86 anchor có cùng trạng thái và các occurrence; 61 mappings được đối chiếu theo nguồn/trang/offset/checksum, giữ25 missing. Chỉ workspace/version/chunk-set/chunk identity đổi thành UUID persisted thực; vì vậy actual proposal/derivation SHA khác offline. Không fuzzy matching hoặc thay gold/parser. Đây chưa phải kết quả retrieval quality.
 
-[chunks.json](chunks.json) chứa toàn bộ nội dung/provenance; [proposals.json](proposals.json) là output nguyên bản của proposer hiện có. [review-candidate.json](review-candidate.json) chứa choices **pending**, không phải approved record. Không mang số index offline sang runtime nếu chưa đối chiếu occurrence.
+[chunks.json](chunks.json) chứa toàn bộ nội dung/provenance; [proposals.json](proposals.json) là output nguyên bản của proposer hiện có. [review-candidate.json](review-candidate.json) giữ nguyên candidate lịch sử **pending**; record có hiệu lực là [binding-review.json](binding-review.json), được owner duyệt sau khi đối chiếu occurrence thực.
 
 ## Từng binding và bằng chứng vị trí
 
@@ -116,6 +116,14 @@ Exact evidence text cùng source/physical page nằm trong review-candidate; ki�
 | v53 | academic-vit5 | 1 | — | missing | — |
 | v54 | academic-vit5 | 1 | — | missing | — |
 
-## Quyết định cần owner duyệt
+## Approval và validation
 
-Duyệt actual proposal SHA ở trên với 58 unique mappings, g5/g6/t17 tại các vị trí đã đối chiếu trong bảng/candidate, và giữ25 missing? Sau quyết định mới ghi approved binding record theo cơ chế hiện có. Chưa cấp quyền chạy Baseline B/query/generation/scoring từ approval này. PR#189 tiếp tục Draft, chưa merge/deploy/Done.
+[Quyết định owner](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6185163833): duyệt 58 unique mappings và `g5→#0`, `g6→#1`, `t17→#1`; giữ 25 missing, corpus/gold/config hiện tại. Approval chỉ dành cho runtime binding.
+
+[Kết quả kiểm chứng](approval-validation.json): `validate_binding_review` chấp nhận record và trả 61 mappings/25 rỗng. Năm kiểm tra âm từ chối pending, sai owner, sai proposal SHA, thiếu choice và sửa runtime chunk ID trong proposal. Không mở rộng validator.
+
+Validator trực tiếp kiểm owner/status/decision URL, digest proposal và choices đầy đủ/hợp lệ. `approved_commit`, ngày, run/workspace và các SHA bổ sung được ghi metadata. Kiểm chứng provenance riêng tái tạo nguyên proposal từ 47 chunks, kiểm derivation SHA, runtime UUID/workspace/version/set, source SHA, cấu hình/checksum và từng exact range; đối chiếu 47/47 nội dung với offline, 16 PDF cùng manifest/gold với frozen commit. Proposal/chunks/candidate/run evidence giữ nguyên so với `a4b9bd8`.
+
+Persistence được đối chiếu với bằng chứng SQL read-only đã lưu lúc `2026-10-15T05:15:28.778029+00:00`, không phải truy vấn database mới. Lượt ghi approval này không khởi động runtime/DB/Docker, không gọi model và không scoring. Run evidence vẫn giữ trạng thái lịch sử trước approval. Trước B phải đọc lại persisted derivation thực và khớp approved proposal.
+
+Kế hoạch B được trình riêng tại [baseline-b-plan.md](baseline-b-plan.md); chưa được phép chạy. PR #189 tiếp tục Draft, chưa merge/deploy/Done; ngân sách trả phí 0 USD.

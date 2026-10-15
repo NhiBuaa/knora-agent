@@ -274,6 +274,8 @@ Không thay thế đánh giá retrieval. Với 58 candidates duy nhất: 33 câu
 
 ## Boundary trước scoring và runtime binding còn phải duyệt
 
+Cập nhật 15/10/2026: phần dưới mô tả checkpoint lịch sử. Owner đã duyệt [actual runtime binding](../binding-layout-v2-runtime/README.md) tại `a4b9bd8`; approved record gắn actual proposal/UUIDs đã được ghi riêng. Baseline B vẫn chờ phê duyệt riêng.
+
 Runtime chunk IDs/chunk-set IDs được tạo UUID4 khi persist kết quả ingestion thành công, sau `embed_documents`. Reader chỉ trả active/current completed chunk+embedding sets. Snapshot này không chứng minh có hay không có một derivation đã persist trong session khác; không truy cập runtime dùng chung khi chưa phối hợp.
 
 Code đối chiếu: `backend/src/knora/ingestion/job_processing.py` (`PdfDerivationHandler.execute`), `backend/src/knora/adapters/postgres/ingestion_jobs/coordination.py` (success persistence), `backend/src/knora/adapters/postgres/evaluation_reader.py` (`read_pdf_chunks`), `evals/runners/pdf_retrieval_v3.py` (propose/collect), `evals/runners/pdf_source_binding.py` (digest/review).
