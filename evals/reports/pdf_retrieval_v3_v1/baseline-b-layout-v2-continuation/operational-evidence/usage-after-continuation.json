@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-15T07:33:39.982799+00:00",
+  "account_id": "0815469773bb9f83177a1303be9a90f3",
+  "source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/ai/workers-ai/usage",
+  "plan": "Workers Free",
+  "plan_last_verified_at": "2026-10-15T07:13:30+00:00",
+  "raw_neurons_used": 608.79,
+  "daily_limit": 10000,
+  "remaining_neurons": 9391.21,
+  "before_continuation_neurons": 202.67,
+  "dashboard_delta": 406.12,
+  "saved_generation_usage_tokens": {
+    "prompt_tokens": 14779,
+    "completion_tokens": 3552,
+    "total_tokens": 18331
+  },
+  "generation_neurons_from_published_rates": 365.585474,
+  "limitations": "Daily delta may lag and include shared account traffic. Embedding usage unavailable; rate estimate is not invoice.",
+  "paid_budget_usd": 0,
+  "paid_gateway": false,
+  "upgrade": false,
+  "model_calls_by_this_check": 0,
+  "query_attempts": 60,
+  "generation_attempts": 15,
+  "runtime_container_state": "stopped; retained volume/objects"
+}

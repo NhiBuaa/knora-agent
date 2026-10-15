@@ -682,7 +682,43 @@
     },
     {
       "path": "README.md",
-      "sha256": "b9e257b071f995f4f1a1c9ec28bdad0aa510ee3ad0ca16c4c034eb30e7af62cd"
+      "sha256": "580b69e9a3d920f32ee2b13518622f18399e4d2e78a23371adab72c86d81e27d"
+    },
+    {
+      "path": ".gitattributes",
+      "sha256": "65ed635c7ed0b41c0eecbaa606db4d5f3d661ff6a559387bb6fef3b6aafaf5bc"
+    },
+    {
+      "path": "operational-evidence/usage-after-continuation.json",
+      "sha256": "b2c944d2fee624805ddec6b6000b22f8d3047f8e853b1d6f1cdb8accbe2a0959"
+    },
+    {
+      "path": "source/launch-baseline-b-continuation.py.txt",
+      "sha256": "a731277a1ee813506c2c9145852b34b6079a57d0bc97fb6259b83d4727b8708c"
+    },
+    {
+      "path": "source/baseline-b-continuation-selfcheck.py.txt",
+      "sha256": "8f756eb62d322f2cc14187e2c3b5c58e928d01d142a4d775418f60af7bb38957"
+    },
+    {
+      "path": "source/baseline-b-checkpoint.py.txt",
+      "sha256": "bef4b75309f61cedbb08c9395e46ca62e1e5f19c34f9b61b935da1eb72074da2"
+    },
+    {
+      "path": "source/baseline-b-read-continuation-preflight.py.txt",
+      "sha256": "4ca16456da64bd27f7dc6b2c0856104032227927fef1cfc1f9fb7e686a0c2848"
+    },
+    {
+      "path": "source/baseline-b-read-continuation-final.py.txt",
+      "sha256": "9f6fa04c6a3a4da90e9eee9cbe5c478dbf4a972990bebb85e3168a3ec6dabbb7"
+    },
+    {
+      "path": "source/baseline-b-continuation-report-selfcheck.py.txt",
+      "sha256": "652ab429760b7ea961dfbb67252300da91da8fe70f97d615084ad1023d618ec3"
+    },
+    {
+      "path": "operational-evidence/final-validation.json",
+      "sha256": "5c7cccea8b0b0bfe6261a29ba978a1cd7dc0fd13df9368ac0b723be885e9007a"
     }
   ]
 }

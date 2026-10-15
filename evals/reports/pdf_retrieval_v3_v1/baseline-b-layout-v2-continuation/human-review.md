@@ -1,7 +1,7 @@
 # Baseline B human response review
 
 All 60 frozen gold cases remain in order. Semantic review is pending; this packet does not judge answers.
-Failed rows remain failed, including saved public payloads, and not-run cases remain not run.
+Historical raw001 remains failed. Its owner-approved same-attempt revalidation selection supplies the observed row below; no re-answer or attempt2. Other failed/not-run rows would remain explicit; this run has none.
 
 ## pdf-v3-001 — observed
 
@@ -1562,4 +1562,3 @@ Failed rows remain failed, including saved public payloads, and not-run cases re
 - **actual_answer**: null
 - **actual_refusal_reason**: "INSUFFICIENT_EVIDENCE"
 - **actual_citations**: []
-

@@ -1,0 +1,42 @@
+"""Pass only owned database credentials to the already-reviewed guarded launcher."""
+
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from urllib.parse import quote
+
+root = Path.cwd().resolve()
+info = json.loads(
+    subprocess.check_output(["docker", "inspect", "knora153s1-postgres-1"], text=True)
+)[0]
+assert info["State"]["Running"]
+assert info["Config"]["Labels"]["com.docker.compose.project"] == "knora153s1"
+assert Path(info["Config"]["Labels"]["com.docker.compose.project.working_dir"]).resolve() == root
+assert info["HostConfig"]["PortBindings"]["5432/tcp"] == [
+    {"HostIp": "127.0.0.1", "HostPort": "55453"}
+]
+launcher = Path(__file__).with_name("baseline-b-runtime.py")
+archive = root / (
+    "evals/reports/pdf_retrieval_v3_v1/baseline-b-layout-v2/continuation/source/"
+    "baseline-b-runtime.py.txt"
+)
+assert (
+    hashlib.sha256(launcher.read_bytes()).digest() == hashlib.sha256(archive.read_bytes()).digest()
+)
+values = dict(item.split("=", 1) for item in info["Config"]["Env"] if "=" in item)
+environment = os.environ.copy()
+environment["KNORA_DATABASE_URL"] = (
+    f"postgresql+psycopg://{quote(values['POSTGRES_USER'], safe='')}:"
+    f"{quote(values['POSTGRES_PASSWORD'], safe='')}@127.0.0.1:55453/knora153s1_baseline"
+)
+environment["PYTHONUTF8"] = "1"
+environment["PYTHONIOENCODING"] = "utf-8"
+environment["PYTHONPATH"] = str(root) + os.pathsep + str(root / "backend/src")
+raise SystemExit(
+    subprocess.run(
+        [sys.executable, "-X", "utf8", str(launcher), *sys.argv[1:]], env=environment
+    ).returncode
+)
