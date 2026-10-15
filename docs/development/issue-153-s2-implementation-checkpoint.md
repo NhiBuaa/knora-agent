@@ -53,7 +53,7 @@ Corrections:
   collection as approved by the plan. A manual run requires `KNORA_S2_ISOLATED_TESTS=1`
   and asserts loopback port15433/database `knora_153_s2` before any DB access.
   Do not count these tests as passing or silently skip them within CI reports.
-- Required CI for this implementation head is pending, not inherited from S2.1.
+- Required CI for implementation head `b789e90` succeeded in run `38787182780`; the newer staging commit has its own run `38788924901` in progress.
 - No full local suite, migration execution, Qdrant query or application E2E claim.
 
 ## S2.3 offline native staging checkpoint
