@@ -11,6 +11,12 @@ import { getSession } from "@/lib/auth/session";
 import { proxyEvaluationPath } from "@/app/api/operator/_evaluation-proxy";
 import { GET as getGold } from "@/app/api/operator/evaluation/datasets/[datasetId]/gold/route";
 import { POST as reviewCase } from "@/app/api/operator/evaluation/datasets/[datasetId]/cases/[caseId]/review/route";
+import {
+  GET as getProposals,
+  POST as generateProposals,
+} from "@/app/api/operator/evaluation/datasets/[datasetId]/proposals/route";
+import { POST as preflightProposals } from "@/app/api/operator/evaluation/datasets/[datasetId]/proposals/preflight/route";
+import { POST as importProposal } from "@/app/api/operator/evaluation/datasets/[datasetId]/proposals/[batchId]/drafts/[draftId]/import/route";
 
 const target = (workspace: string) =>
   `/v1/workspaces/${workspace}/evaluation/runs`;
@@ -218,4 +224,57 @@ describe("Evaluation BFF admission and transport", () => {
       ),
     ).toBe("5");
   });
+
+  it("routes saved proposals privately and enforces source access", async () => {
+    const params = Promise.resolve({ datasetId: "set /1" });
+    const denied = await getProposals(request("GET"), { params });
+    expect(denied.status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+    vi.mocked(getSession).mockResolvedValue({
+      ...session,
+      capabilities: ["operator:read", "documents:read"],
+    });
+    const result = await getProposals(request("GET"), { params });
+    expect(result.headers.get("cache-control")).toBe("no-store");
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      "http://127.0.0.1:8000/v1/workspaces/workspace-a/evaluation/datasets/set%20%2F1/proposals",
+    );
+  });
+
+  it.each([
+    ["preflight", preflightProposals, "/preflight"],
+    ["generate", generateProposals, ""],
+    ["import", importProposal, "/batch%2F1/drafts/draft%2F1/import"],
+  ] as const)(
+    "protects proposal %s with writer/source permissions and same-origin JSON",
+    async (_name, handler, suffix) => {
+      const params = Promise.resolve({
+        datasetId: "set-1",
+        batchId: "batch/1",
+        draftId: "draft/1",
+      });
+      const denied = await handler(request(), { params });
+      expect(denied.status).toBe(403);
+      expect(fetch).not.toHaveBeenCalled();
+      vi.mocked(getSession).mockResolvedValue({
+        ...session,
+        capabilities: ["operator:read", "evaluations:write", "documents:read"],
+      });
+      const crossOrigin = await handler(
+        request("POST", "https://evil.example"),
+        { params },
+      );
+      expect(crossOrigin.status).toBe(403);
+      expect(fetch).not.toHaveBeenCalled();
+      const result = await handler(request(), { params });
+      expect(result.status).toBe(200);
+      const [url, options] = vi.mocked(fetch).mock.calls[0];
+      expect(url).toBe(
+        `http://127.0.0.1:8000/v1/workspaces/workspace-a/evaluation/datasets/set-1/proposals${suffix}`,
+      );
+      expect(new TextDecoder().decode(options?.body as Uint8Array)).toBe(
+        '{"dataset_id":"set-1"}',
+      );
+    },
+  );
 });
