@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** v1 proposed for owner review, 2026-10-16 (Asia/Saigon). Planning/publication only is authorized. Q21 is postponed. No implementation Goal or live inference window is active under this plan.
+**Status:** Owner approved v1 at `f5631b2`, retained P0–P6 and authorized P1 offline ([approval record](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6207043333)). P1 investigation is complete; its exact proposal below awaits owner approval before P2 behavior changes. Q21 remains postponed; no live inference window is active.
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
@@ -19,6 +19,7 @@
 - [Initial verification](../../development/issue-183-list-formatting-verification.md), [research](../../development/issue-183-provider-output-research.md) and [runtime checkpoint](../../development/issue-183-structured-runtime-status.md) retain dated facts. Their next-step proposals are superseded here; preserve failures and historical results.
 - Follow AGENTS, CONTEXT, domain/issue-tracker guides, architecture and M1/M2 seams. Reuse `C:/Developer/Projects/knora-agent-worktree/issue-183-answer-lists`, branch `fix/issue-183-answer-lists`. Never modify another worktree/runtime.
 - Master approval, phase execution, live-request allowance, product acceptance and integration/merge approval are distinct. Dependencies do not grant permission. Q1–Q20 windows are closed; Q21 is postponed, not a reusable quota reservation.
+- Owner resolved acceptance scope when starting P1: generation with sufficient supplied evidence. Default M1 retrieval belongs to #153; neither containment rollout nor M1 acceptance is implied. P4 still requires its own exact runtime/configuration/window approval.
 - Reuse #188's structure, not its permissions/infrastructure: [Master publication](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6198892594), [phase-specific approval](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6199169575). Technical completion, quality acceptance and integration remain separate.
 
 ## 2. Verified baseline and remaining work
@@ -106,6 +107,77 @@ P1 compares exact instruction ordering, existing qualifier-slot capacity and cap
 
 Before intersecting code edits, post base SHA, exact paths/hunks, behavioral impact and tests to183/191 and obtain an explicit coordination ACK for overlapping work. Silence is not agreement. #183 owns behavior/prompt/schema/acceptance; #191 owns extraction/parity. Do not import PR200 into184 as a semantic fix. [Current191 boundary](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6193697128).
 
+### 4.1 P1 offline investigation and decision package
+
+Investigated unchanged product baseline `305f8b9` through documentation head `f5631b2`; zero new inference. Original PDF, Q18/Q20 requests, safe final JSON text, safe usage metadata and current code were compared. Private artifacts stay in ignored `frontend/test-results/issue183/master-plan-review/`; no raw reasoning was inspected or published.
+
+| Artifact | SHA-256 / result |
+| --- | --- |
+| Original12-page PDF, updated25/08/2024; Document Version `b9c52a63-185d-4078-956c-ec42bdd807af` | `219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6` |
+| Q18 answer request | `95320870a030a5dc805cb8d32ac8139ce5a79f572617a6567d10bf1584627ac0` |
+| Q18 final JSON text | `45d0329ea145b1c3e3d7240ead3da6ef1b858c609887223426e5e720a7334016` |
+| Q20 answer request | `715a0706abb4c66112dac977d4ad3d9c6aec88ee49ba9f647864f58ab1aa846d` |
+| Q20 final JSON text | `88e6063e7644625ee047e14b4160197996e6865ffc6b0563dfd292eeeda9f63d` |
+| E2 UTF-8 content, identical in Q18/Q20 | `52a86d817d05454f5c7c3bc8972afb71673ae2d1559f2880915884f9778e51bf` |
+| Q20 offline composed Markdown | `b000fda867c83b696eb1a7e5a2258aaca0478efbd3539ca80874416fdc601d07` |
+
+Q18/Q20 have identical question/Evidence Set/user messages. Both finals have one lead, seven members, no `after`, and neither merge/split condition. Q18 is rejected for missing bold; Q20 matches the current outgoing v17 policy and wire schema exactly, composes seven bullets/bold/one E2 marker unchanged, and is accepted structurally. Q20 HTTP200/stop/548 completion tokens rules out observed truncation; it does not explain why the model omitted conditions. No literal-quote/coverage gate exists to reject this semantic omission. Existing `test_fixed_slots_render_one_list_between_supported_paragraphs` already preserves supplied qualifications; adding a duplicate composer mechanism would not fix generation.
+
+**Source expectations frozen before another candidate:** PDF physical p.1–2 and index guidance p.10 were inspected as rendered pages as well as extracted text. Count: suggested software-project outline, titles1–7 in source order, small-report merging3/4 (possibly5) depending on report length, and splitting5 when needed for more specific/clear content. Other-list: prescribed cover/information pages, contents/index pages, abstract, references, required/conditional appendices without duplicate categories; image/table/formula indexes stay conditional. P.10 also treats image/table/symbol indexes as conditional and forbids an empty table index when no table exists. Do not assert p.10-only detail unless supplied evidence supports it. Outline and detailed frontmatter have different granularity/order; retain an actual clear local sequence without inventing a common global order or a fixed bullet count. The short answer should state the common goal of a comprehensive view of the group's research and implementation; no unrelated outline. Abstract length is not required merely to name parts; any voluntarily added fact needs support.
+
+**Bounded hypothesis, not a proven model-internal cause:** v17 already explicitly requires qualifications, including merging/splitting. There is no demonstrated contradiction. However, `after` is described only as concluding paragraphs, while scope/background rules do not explicitly say that conditions governing an answer belong within its scope. The exact candidate below makes that scope and placement explicit using existing slots. It does not force a nonempty after, duplicate a condition already stated, append unrelated background to short prose, or inspect source text with product matching code. One candidate is proposed; no offline assertion proves it improves GPT-OSS20B compliance.
+
+| Decision | Benefit | Cost/limit |
+| --- | --- | --- |
+| **A — recommend the exact v18 policy-only candidate below** | Reuses selection, schema, composer and existing aliases; states where relevant shared/member conditions go. | More explicit policy still may be ignored. Needs one separately approved final-candidate runtime window; stop on the first failure, no prompt search loop. |
+| B — qualification collection/coverage schema | Exposes a qualification field structurally. | Empty/wrong extraction still passes; requires identification/checking logic and expands the contract already simplified after failures. No evidence justifies that complexity inside183. |
+| C — retain v17/Draft | No change or quota. | Known semantic failure remains; two missing cases cannot make AC2 pass. |
+
+**P2 envelope requested, not yet granted:** Only the exact Cloudflare policy/version hunk in4.2; update the three version expectations shown there, extend existing transport/slot fixtures only where needed, and document this approved hypothesis in ADR0017/CONTEXT. No schema, selector, composer, transport algorithm, retrieval, model/cap, retry, dependency or module movement. Before edits, obtain191 overlap ACK on this exact base/hunk. Reuse the existing qualifier fixture and test a generic supplied member condition plus shared merge/split conditions without question-specific product logic; fixtures prove preservation only. Assert actual outgoing policy/version and unchanged user/evidence/schema/model/cap in MockTransport, keeping refusal/errors/no-retry coverage. Re-run focused/application/PostgreSQL/full formatting/config/CI gates and independent review under P2. P3 may prepare offline denial/readiness checks after technical pass; no runtime/OAuth/inference permission is requested by this patch.
+
+**Offline evidence:** `p1_replay.py` asserts safe captured final content through current composer, current Q20 prompt/schema equality, E2 equality and no mutation: PASS. Existing `test_answer_slots.py` + `test_answer_blocks.py`: **55 passed**; `test_presentation_generation.py`: **32 passed**. These are unchanged baseline tests, not candidate or model-compliance passes. CI atf5631b2 is all SUCCESS ([run38787263237](https://github.com/NhiBuaa/knora-agent/actions/runs/38787263237)). Full application suite is not rerun for this documentation-only investigation. Owner approval and191 ACK are still pending; semantic FAIL remains.
+
+### 4.2 Exact proposed P2 behavior diff — NOT applied
+
+The following unified diff applies to product baseline305f8b9 (same affected files atf5631b2). It is review text only. Tests may add the technical regression assertions described above without expanding behavior; any different behavior hunk requires another owner decision.
+
+<!-- P1_EXACT_DIFF -->
+
+```diff
+--- a/backend/src/knora/providers/openai_compatible/generation.py
++++ b/backend/src/knora/providers/openai_compatible/generation.py
+@@ -25 +25 @@
+-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v17"
++CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v18"
+@@ -39,2 +39,7 @@
+-    "omit important conditions, or infer unsupported members. Retain conditional context. "
+-    "Answer only the question's scope. Count questions follow the count rules below. "
++    "omit important conditions, or infer unsupported members. For lists, keep relevant source "
++    "conditions on an individual member in that item's text. Put relevant shared source "
++    "conditions not already stated in before or items in after, with all supporting aliases; "
++    "use after=[] only when no such conditions remain. "
++    "Answer only the question's scope, including source conditions that govern the total, "
++    "member inclusion or applicability of a listed structure. "
++    "Count questions follow the count rules below. "
+--- a/backend/test/providers/openai_compatible/test_generation.py
++++ b/backend/test/providers/openai_compatible/test_generation.py
+@@ -275 +275 @@
+-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v17"
++    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v18"
+--- a/backend/test/providers/openai_compatible/test_presentation_generation.py
++++ b/backend/test/providers/openai_compatible/test_presentation_generation.py
+@@ -137 +137 @@
+-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v17"
++    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v18"
+--- a/backend/test/providers/openai_compatible/test_application_integration.py
++++ b/backend/test/providers/openai_compatible/test_application_integration.py
+@@ -183 +183 @@
+-            "cloudflare-gpt-oss-cited-answer-v17"
++            "cloudflare-gpt-oss-cited-answer-v18"
+```
+
+<!-- END_P1_EXACT_DIFF -->
+
 ## 5. Acceptance criteria and evidence reuse
 
 | ID | Required outcome | Current gap |
@@ -145,10 +217,10 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 
 | Phase | Status now | Completion boundary |
 | --- | --- | --- |
-| P0 | Baseline/document checks complete; publication followed by owner review. | Publishing commit and Issue readback identify the delivered version; owner review separate. |
-| P1 | Not started as a Goal. | Concrete remediation decision, or justified blocked outcome. |
+| P0 | Accepted by owner atf5631b2. | Approval recorded in183; seven phases retained. |
+| P1 | Offline investigation complete; exact proposal4.2 awaiting owner choice. | Decision/approval remains before P2; no product edits/inference. |
 | P2 | Blocked by P1 design/execution approval and shared-file ACK. | Technical pass, not semantic acceptance. |
-| P3 | Not authorized. | Offline readiness, not live permission. |
+| P3 | Offline preparation follows approved P2 envelope/technical pass; pending that gate. | Offline readiness, not OAuth/live permission. |
 | P4 | Not authorized; Q21 postponed. | Finite measurement complete; quality may still FAIL. |
 | P5 | Blocked by quality pass/final CI. | Explicit product acceptance, not merge. |
 | P6 | Not authorized. | Actual approved integration; deployment separate. |
@@ -161,7 +233,7 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 
 - [x] Audit current decisions/code/captures/source and classify failures versus unknowns.
 - [x] Validate five documents,24 local links, phase/AC/permission coverage and docs-only diff. Publication is identified by this file's Git commit and the #183 link/readback, not by self-approving the document.
-- [ ] Obtain owner review before any implementation Goal.
+- [x] Obtain owner review before any implementation Goal; P0 accepted and P1 offline authorized in the approval record above.
 
 **Tests/acceptance/DoD:** One forward plan, Q1–Q20 accounted for, known blocker visible, `git diff --check` and local-link checks pass; no source/runtime/test/config change. Publication does not approve P1.
 
@@ -171,10 +243,10 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 
 **Deliverables:** Update sections3/4/phase status here with digest-bound Q18/Q20 comparison, source expectations, exact smallest proposed diff, impacted callers/tests, alternatives/limits and owner choice. Private source remains ignored.
 
-- [ ] Read original PDF p.1–2 and relevant index guidance; record PDF digest/version/physical pages and actual request E2 identity. Missing capture stays unavailable, not reconstructed from memory.
-- [ ] Replay captured Q20 final JSON through `compose_answer` offline; confirm conditions absent before composition. Compare existing `test_fixed_slots_render_one_list_between_supported_paragraphs` so supplied-condition preservation is not implemented twice.
-- [ ] Freeze count/general-list/short expectations, merge/split conditions, conditional indexes and all needed supporting sources. Expected facts stay in verification evidence, never product matching code.
-- [ ] Evaluate routeA once as an exact policy/generation proposal with an identified ambiguity/priority hypothesis and before/after diff. Compare routeB's burden without implementing it. Keep current schema/model/cap unless owner chooses a different design.
+- [x] Read original PDF p.1–2 and relevant index guidance; record PDF digest/version/physical pages and actual request E2 identity. Missing capture stays unavailable, not reconstructed from memory.
+- [x] Replay captured Q20 final JSON through `compose_answer` offline; confirm conditions absent before composition. Compare existing `test_fixed_slots_render_one_list_between_supported_paragraphs` so supplied-condition preservation is not implemented twice.
+- [x] Freeze count/general-list/short expectations, merge/split conditions, conditional indexes and all needed supporting sources. Expected facts stay in verification evidence, never product matching code.
+- [x] Evaluate routeA once as an exact policy/generation proposal with an identified ambiguity/priority hypothesis and before/after diff. Compare routeB's burden without implementing it. Keep current schema/model/cap unless owner chooses a different design.
 - [ ] Use `grilling` to present concrete route/tradeoffs and await approval before P2. Resolve retrieval acceptance scope before a live acceptance claim.
 
 **Tests:** Existing composer/qualifier fixtures and offline captured-payload replay; static caller/version/schema comparison. These establish preservation/contract facts only. Do not invent a failing “model semantics” test whose fixture already supplies the desired text.
@@ -197,7 +269,7 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 
 ### P3 — Offline runtime readiness and fail-closed proof
 
-**Dependencies:** P2 technical pass, separate P3 approval, proposed retrieval scope and read-only corpus identity verification.
+**Dependencies:** P2 technical pass and approved P2/P3 offline envelope, sufficient-evidence acceptance scope and read-only corpus identity verification. Owner authorized preparing P3 after the exact P2 design is approved; no inference/OAuth is implied.
 
 **Deliverables/files:** Reuse private Q20 guard/helpers/tests in ignored183 evidence; readiness result and exact live proposal linked here. No product or generic framework change.
 
@@ -263,8 +335,8 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | Action | Permission now | Future gate |
 | --- | --- | --- |
 | Read/audit/write/publish this Master/pointers | Authorized current task. | Documentation only. |
-| Create/start phase Goal | Not now; owner reviews first. | Explicit named phase/outcome approval; no cross-gate mega-Goal. |
-| P1 offline design/replay | Proposed only. | Master+P1 approval, no product edits/inference. |
+| Create/start phase Goal | P1 authorized; overall owner Goal already active. | Goal API allows one unfinished objective/thread; retain full objective and record bounded phase outcomes here rather than falsely completing it. |
+| P1 offline design/replay | Authorized; investigation/proposal delivered. | No product edits/inference; exact P2 decision pending. |
 | P2 code/tests/review/repair | Not granted by publication. | Exact P1 design/P2 envelope approved, overlap ACK. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
@@ -272,7 +344,7 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | Default retrieval/production/account/billing changes | None. | Separate proposal/approval; no containment rollout by inference. |
 | Product acceptance/Draft change/merge/closure/Done/deployment | None. | Explicit owner disposition at each applicable boundary. |
 
-After approval, create **one finite Codex Goal per approved phase**. Objective references this Master commit/phase, worktree/base, files/behavior permissions, dependencies/ACKs, tests, deliverables and stop rules. Set no token budget unless owner explicitly supplies one. Do not create a Goal or automation in this planning turn.
+Owner requested **one finite Codex Goal per approved phase**; the current API supports one unfinished Goal per thread and already holds the owner's complete P0–P6 objective. Keep it active without redefining completion as P1. This is a tool limitation, not authority to skip phase gates: each finite outcome below remains separately tracked here and starts only with its approved envelope. Do not create a duplicate thread/roadmap or falsely complete the overall objective to replace it. Set no token budget unless explicitly supplied.
 
 Finite Goal outcomes:
 
@@ -319,10 +391,10 @@ Each phase result records approval link, Master commit, candidate/base, files, s
 
 Owner review decisions:
 
-1. Approve/revise Master structure and separate phase/Goal permissions. Recommended first future Goal: **P1 offline only**.
+1. **Resolved:** Owner approved Master v1 atf5631b2, kept P0–P6, accepted P0 and started P1 offline. Existing active overall Goal/tool limitation is recorded in section7.
 2. After P1, approve exact generation remediation and P2 envelope; existing-contract reuse recommended, no particular prompt/schema patch is approved here.
-3. Before runtime acceptance, choose containment-scoped183 acceptance versus default-M1 prerequisite. Keep retrieval implementation separate unless expressly approved.
-4. Approve P3 setup and separately bounded P4 live envelope once exact candidate/readiness exists. Proposed9 calls are not a grant.
+3. **Resolved in P1 authorization:**183 accepts generation with sufficient supplied evidence; default-M1 retrieval belongs to153. P4 must still pin and separately approve its runtime-only retrieval profile; no rollout/default-M1 acceptance.
+4. Prepare P3 offline inside the approved P2/P3 envelope; separately approve P4 OAuth/runtime/live allowance once exact candidate/readiness exists. Proposed9 calls are not a grant.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Owner reviews the committed Master. Q21 stays postponed; publication authorizes no implementation, inference, cost, production change or merge.
+**Immediate next action:** Owner reviews the exact P1 proposal in4.2 before P2 behavior changes; obtain191 overlap ACK before edit. Q21 stays postponed; no inference/OAuth/cost/production/merge permission is granted by P1 completion.
