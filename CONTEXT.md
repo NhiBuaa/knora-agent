@@ -490,6 +490,14 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   not prove provider compatibility, completion within the token cap, or semantics.
   #191 refactors separately from `67a149f`; #183 retains prompt/schema behavior
   and acceptance ownership, without moving modules. Real-provider acceptance is pending.
+
+  The owner-approved #183 v18 policy adds only placement guidance for source
+  conditions: list-member conditions stay with the item, and shared conditions
+  not already stated in `before` or `items` go in `after` with their Evidence
+  Aliases. Conditions governing a count, member inclusion or listed-structure
+  applicability remain in scope. This does not prove model compliance or add a
+  semantic gate; schema, composer, citations, refusal, model and token cap remain
+  unchanged. #191's extraction remains separate until #183 acceptance/integration.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input

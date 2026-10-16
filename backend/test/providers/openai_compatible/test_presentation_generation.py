@@ -116,6 +116,11 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
     assert [request["max_tokens"] for request in requests] == [1024, 1024]
     assert all(request["model"] == "@cf/openai/gpt-oss-20b" for request in requests)
     assert requests[0]["messages"][1] == requests[1]["messages"][1]
+    answer_policy = requests[1]["messages"][0]["content"]
+    assert "conditions on an individual member in that item's text" in answer_policy
+    assert "conditions not already stated in before or items in after" in answer_policy
+    assert "use after=[] only when no such conditions remain" in answer_policy
+    assert "conditions that govern the total, member inclusion or applicability" in answer_policy
     selection_schema = requests[0]["response_format"]["json_schema"]
     assert selection_schema["additionalProperties"] is False
     assert selection_schema["required"] == ["presentation"]
@@ -134,11 +139,12 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
         key in json.dumps(answer_schema)
         for key in ('"oneOf"', '"contains"', '"prefixItems"', '"discriminator"')
     )
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v17"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v18"
     assert result.usage == {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
     assert result.cost["amount_usd"] == "0.00004"
     assert [stage["provider_request_id"] for stage in result.stages] == ["stage-1", "stage-2"]
     assert result.stages[0]["prompt_version"] == "cloudflare-presentation-v1"
+    assert result.stages[1]["prompt_version"] == "cloudflare-gpt-oss-cited-answer-v18"
     assert result.stages[0]["presentation"] == presentation
     assert result.stages[1]["usage"] == usage
     assert all("messages" not in stage for stage in result.stages)

@@ -136,3 +136,20 @@ merge/split conditions. Schema validity, alias membership and correct item shape
 do not prove source fidelity. Q2–Q4 and real-provider/browser acceptance still
 apply. No additional inference or rollout is authorized. #191 was notified
 before shared edits and retains separate module-refactoring ownership.
+
+## Q20/P2: explicit condition placement policy (2026-10-16)
+
+Offline replay of Q18 and Q20 proved that the supplied Evidence Set contained
+the chapter merge/split qualifications, while the v17 answer payload omitted
+them before composition. Q20 finished `stop` with 548 completion tokens and its
+payload matched the v17 schema; this is a generation-fidelity omission, not a
+renderer or observed truncation failure. The owner approved one bounded v18
+policy clarification: for lists, keep relevant conditions on an individual
+member in that item; put relevant shared conditions not already stated in
+`before` or `items` into `after` with supporting aliases; conditions governing
+the total, member inclusion or applicability remain within question scope.
+
+This is a generation instruction, not a semantic validator or guarantee. The
+schema, selector, composer, citation/refusal validation, model, token cap and
+retrieval remain unchanged. A runtime candidate must still compare all claims
+with the supplied source; a passing shape/alias check does not prove meaning.

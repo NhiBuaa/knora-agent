@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner approved v1 at `f5631b2`, retained P0–P6 and authorized P1 offline ([approval record](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6207043333)). P1 investigation is complete; its exact proposal below awaits owner approval before P2 behavior changes. Q21 remains postponed; no live inference window is active.
+**Status:** Owner approved v1 at `f5631b2`, retained P0–P6 and accepted P0/P1. Exact A at `fe1a1c9`4.2 and P2/P3 offline are [approved](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6207141718); [191 overlap ACK](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6207154818) received before edits. P2 implementation/review is complete pending candidate CI; P3 mock-only readiness evidence is prepared. Q21 remains postponed; no live inference window is active.
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
@@ -133,13 +133,13 @@ Q18/Q20 have identical question/Evidence Set/user messages. Both finals have one
 | B — qualification collection/coverage schema | Exposes a qualification field structurally. | Empty/wrong extraction still passes; requires identification/checking logic and expands the contract already simplified after failures. No evidence justifies that complexity inside183. |
 | C — retain v17/Draft | No change or quota. | Known semantic failure remains; two missing cases cannot make AC2 pass. |
 
-**P2 envelope requested, not yet granted:** Only the exact Cloudflare policy/version hunk in4.2; update the three version expectations shown there, extend existing transport/slot fixtures only where needed, and document this approved hypothesis in ADR0017/CONTEXT. No schema, selector, composer, transport algorithm, retrieval, model/cap, retry, dependency or module movement. Before edits, obtain191 overlap ACK on this exact base/hunk. Reuse the existing qualifier fixture and test a generic supplied member condition plus shared merge/split conditions without question-specific product logic; fixtures prove preservation only. Assert actual outgoing policy/version and unchanged user/evidence/schema/model/cap in MockTransport, keeping refusal/errors/no-retry coverage. Re-run focused/application/PostgreSQL/full formatting/config/CI gates and independent review under P2. P3 may prepare offline denial/readiness checks after technical pass; no runtime/OAuth/inference permission is requested by this patch.
+**P2 envelope approved:** Only the exact Cloudflare policy/version hunk in4.2; update the three version expectations shown there, extend existing transport/slot fixtures only where needed, and document this approved hypothesis in ADR0017/CONTEXT. No schema, selector, composer, transport algorithm, retrieval, model/cap, retry, dependency or module movement.191 overlap ACK on this exact base/hunk is recorded above. Reuse the existing qualifier fixture and test a generic supplied member condition plus shared merge/split conditions without question-specific product logic; fixtures prove preservation only. Assert actual outgoing policy/version and unchanged user/evidence/schema/model/cap in MockTransport, keeping refusal/errors/no-retry coverage. Re-run focused/application/PostgreSQL/full formatting/config/CI gates and independent review under P2. P3 may prepare offline denial/readiness checks after technical pass; no runtime/OAuth/inference permission is granted by this patch.
 
-**Offline evidence:** `p1_replay.py` asserts safe captured final content through current composer, current Q20 prompt/schema equality, E2 equality and no mutation: PASS. Existing `test_answer_slots.py` + `test_answer_blocks.py`: **55 passed**; `test_presentation_generation.py`: **32 passed**. These are unchanged baseline tests, not candidate or model-compliance passes. CI atf5631b2 is all SUCCESS ([run38787263237](https://github.com/NhiBuaa/knora-agent/actions/runs/38787263237)). Full application suite is not rerun for this documentation-only investigation. Owner approval and191 ACK are still pending; semantic FAIL remains.
+**Offline P1 evidence:** `p1_replay.py` asserts safe captured final content through baseline composer, Q20 prompt/schema equality, E2 equality and no mutation: PASS. Existing `test_answer_slots.py` + `test_answer_blocks.py`: **55 passed**; `test_presentation_generation.py`: **32 passed**. These are unchanged baseline tests, not candidate or model-compliance passes. CI atf5631b2 is all SUCCESS ([run38787263237](https://github.com/NhiBuaa/knora-agent/actions/runs/38787263237)). Full application suite was not rerun for documentation-only P1. Owner approval and191 ACK were subsequently received; semantic FAIL remains pending final-candidate verification.
 
-### 4.2 Exact proposed P2 behavior diff — NOT applied
+### 4.2 Exact approved P2 behavior diff — baseline reference
 
-The following unified diff applies to product baseline305f8b9 (same affected files atf5631b2). It is review text only. Tests may add the technical regression assertions described above without expanding behavior; any different behavior hunk requires another owner decision.
+The following unified diff applies to product baseline305f8b9 (same affected files atfe1a1c9). Owner approved it before P2 edits. Tests may add the technical regression assertions described above without expanding behavior; any different behavior hunk requires another owner decision. This reference remains pinned to the reviewed baseline, not a patch to reapply after implementation.
 
 <!-- P1_EXACT_DIFF -->
 
@@ -218,8 +218,8 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | Phase | Status now | Completion boundary |
 | --- | --- | --- |
 | P0 | Accepted by owner atf5631b2. | Approval recorded in183; seven phases retained. |
-| P1 | Offline investigation complete; exact proposal4.2 awaiting owner choice. | Decision/approval remains before P2; no product edits/inference. |
-| P2 | Blocked by P1 design/execution approval and shared-file ACK. | Technical pass, not semantic acceptance. |
+| P1 | Complete; owner approved exact A/P2/P3 offline. | Approved decision delivered; no inference. |
+| P2 | In progress after owner approval and191 ACK. | Technical pass, not semantic acceptance. |
 | P3 | Offline preparation follows approved P2 envelope/technical pass; pending that gate. | Offline readiness, not OAuth/live permission. |
 | P4 | Not authorized; Q21 postponed. | Finite measurement complete; quality may still FAIL. |
 | P5 | Blocked by quality pass/final CI. | Explicit product acceptance, not merge. |
@@ -247,7 +247,7 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 - [x] Replay captured Q20 final JSON through `compose_answer` offline; confirm conditions absent before composition. Compare existing `test_fixed_slots_render_one_list_between_supported_paragraphs` so supplied-condition preservation is not implemented twice.
 - [x] Freeze count/general-list/short expectations, merge/split conditions, conditional indexes and all needed supporting sources. Expected facts stay in verification evidence, never product matching code.
 - [x] Evaluate routeA once as an exact policy/generation proposal with an identified ambiguity/priority hypothesis and before/after diff. Compare routeB's burden without implementing it. Keep current schema/model/cap unless owner chooses a different design.
-- [ ] Use `grilling` to present concrete route/tradeoffs and await approval before P2. Resolve retrieval acceptance scope before a live acceptance claim.
+- [x] Use `grilling` to present concrete route/tradeoffs and await approval before P2. Owner selected A; sufficient-evidence generation acceptance scope resolved, default M1 remains153.
 
 **Tests:** Existing composer/qualifier fixtures and offline captured-payload replay; static caller/version/schema comparison. These establish preservation/contract facts only. Do not invent a failing “model semantics” test whose fixture already supplies the desired text.
 
@@ -259,13 +259,13 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 
 **Deliverables/files:** Approved subset of section4 files; all affected caller/fixture/test updates, version/provenance change when policy changes, ADR/CONTEXT for confirmed decisions; candidate SHA and191 porting diff.
 
-- [ ] Search every caller/import/fixture of changed symbols and list scope before editing.
-- [ ] For changed deterministic behavior: meaningful failing test→observed RED→minimal shared fix→GREEN. For prompt-only changes: outgoing policy/version/envelope tests and qualifier-preservation composition checks, explicitly not model-compliance proof.
-- [ ] Reuse existing tests; add only missing boundary regression: supplied qualifiers, mixed/repeated aliases, nullable/missing bold, literal Markdown, singleton/prose, refusal all modes, bad alias, truncation/HTTP/no retry/input immutability.
-- [ ] Run focused provider/application/PostgreSQL then section8 full/format/config checks; fix in-scope technical defects without skips, relaxed deadlines/guards or model/cap changes.
-- [ ] Independent code review; repair findings within approved behavior. A new UX/schema/algorithm/dependency direction stops for owner decision. Push, verify required CI and publish exact diff/results/limits to183/191.
+- [x] Search every caller/import/fixture of changed symbols and list scope before editing.
+- [x] For the prompt-only change, the outgoing-policy test is RED against the v17 policy (4 failures) and GREEN with v18; qualifier-preservation composition checks remain explicitly separate from model-compliance proof.
+- [x] Reuse existing tests and add only the approved generic supplied-member/shared-condition fixture plus v18 policy/version assertions; schema, composer, refusal, citation, truncation and no-retry paths remain covered by existing tests.
+- [x] Focused provider/application/PostgreSQL checks: **130 passed**. Ruff format/check, OpenAPI check, compose config and `git diff --check` passed. The fresh local full run reached **2007 passed, 20 failed, 16 skipped**; the failures are in unchanged launcher/bootstrap/M3 environment tests (profile resolution/invalid proxy test fixtures), not the P2 files. The exact candidate still requires CI as the authoritative full gate.
+- [x] Independent read-only review found no actionable issue. The candidate is pushed next for required CI; no behavioral drift beyond the approved hunk was introduced.
 
-**Tests/acceptance/DoD:** Approved diff and all affected fixtures/callers complete, meaningful regressions/full applicable gates green, no unresolved actionable review finding, CI required SUCCESS at candidate. Semantic correctness remains P4. No provider/runtime/production change.
+**Tests/acceptance/DoD:** Approved diff and affected fixtures/callers are complete, focused gates and review pass, and CI required must be SUCCESS at the candidate before P2 is closed. Local full-run unrelated failures are retained, not hidden or weakened. Semantic correctness remains P4. No provider/runtime/production change.
 
 ### P3 — Offline runtime readiness and fail-closed proof
 
@@ -273,7 +273,9 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 
 **Deliverables/files:** Reuse private Q20 guard/helpers/tests in ignored183 evidence; readiness result and exact live proposal linked here. No product or generic framework change.
 
-- [ ] Exercise actual sync/async adapters through MockTransport, UTF-8 reads and Windows child-import self-check. Missing/stale/future/wrong account/Billing/quota, paid/unknown plan/budget, wrong host/model/cap/schema, document embedding, duplicates, stopped/exhausted window and timeout must block unauthorized sends.
+- [x] Prepared a separate ignored **mock-only** derivative (`frontend/test-results/issue183/p3-offline/`) with no credential reads, live mode or inherited Q20 grant. It exercises sync admission and a durable pending marker, wrong/future candidate denial, real-transport denial before send, non-JSON HTTP error capture and malformed-body stop. **5/5 offline tests passed.**
+- [x] The P3 audit found the Q20 live helper is not reusable as-is: it admits a new request after an orphaned send and can treat `ConversationRunner`'s boolean completion as success after a stored failed Turn. These remain explicit P3/P4 guard requirements; no product/runtime code was changed.
+- [ ] Exercise the remaining existing Q20 sync/async adapter cases through the mock-only derivative and add the minimal durable exclusive-admission/terminal-Turn checks before proposing a live window. Missing/stale/future/wrong account/Billing/quota, paid/unknown plan/budget, wrong host/model/cap/schema, document embedding, duplicates, stopped/exhausted window and timeout must block unauthorized sends.
 - [ ] Propose at most9 physical requests:3 query embeddings+6 generations. Enforce per-kind/total before send; exclusive durable admissions; no worker/transport retry. Count errors/indeterminate sends; unknown outcome closes the window.
 - [ ] Keep600s freshness; timestamp each observation at actual read, bind digest/window/candidate, check before every send. Prepare worker/browser first. Fresh reads between healthy cases require explicit live-envelope permission; never renew after denial/stop or relabel old timestamps.
 - [ ] Verify safe status/error-body/finish/usage/latency capture. Failed Turns without traces remain without traces; no invented IDs. Test repaired guard branches before reuse.
@@ -336,8 +338,8 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | --- | --- | --- |
 | Read/audit/write/publish this Master/pointers | Authorized current task. | Documentation only. |
 | Create/start phase Goal | P1 authorized; overall owner Goal already active. | Goal API allows one unfinished objective/thread; retain full objective and record bounded phase outcomes here rather than falsely completing it. |
-| P1 offline design/replay | Authorized; investigation/proposal delivered. | No product edits/inference; exact P2 decision pending. |
-| P2 code/tests/review/repair | Not granted by publication. | Exact P1 design/P2 envelope approved, overlap ACK. |
+| P1 offline design/replay | Complete and owner-approved. | Baseline source/replay evidence retained. |
+| P2 code/tests/review/repair | Exact A/P2/P3 offline approved;191 overlap ACK. | No inference/OAuth; behavioral drift outside4.2 needs owner decision. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
 | OAuth/runtime mutation/inference | None; old windows closed/Q21 postponed. | Exact approved window and fresh fail-closed preflight. Free quota is not consent. |
@@ -392,9 +394,9 @@ Each phase result records approval link, Master commit, candidate/base, files, s
 Owner review decisions:
 
 1. **Resolved:** Owner approved Master v1 atf5631b2, kept P0–P6, accepted P0 and started P1 offline. Existing active overall Goal/tool limitation is recorded in section7.
-2. After P1, approve exact generation remediation and P2 envelope; existing-contract reuse recommended, no particular prompt/schema patch is approved here.
+2. **Resolved:** Owner approved exact A atfe1a1c9 section4.2 plus P2/P3 offline;191 ACK recorded. No schema change is approved.
 3. **Resolved in P1 authorization:**183 accepts generation with sufficient supplied evidence; default-M1 retrieval belongs to153. P4 must still pin and separately approve its runtime-only retrieval profile; no rollout/default-M1 acceptance.
 4. Prepare P3 offline inside the approved P2/P3 envelope; separately approve P4 OAuth/runtime/live allowance once exact candidate/readiness exists. Proposed9 calls are not a grant.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Owner reviews the exact P1 proposal in4.2 before P2 behavior changes; obtain191 overlap ACK before edit. Q21 stays postponed; no inference/OAuth/cost/production/merge permission is granted by P1 completion.
+**Immediate next action:** Complete approved P2 technical verification/review/CI, then P3 offline readiness. Q21 stays postponed; P4 runtime/OAuth/requests and P6 merge/closure require separate owner approval.

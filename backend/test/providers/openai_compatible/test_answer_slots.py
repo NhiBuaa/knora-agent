@@ -24,6 +24,39 @@ def test_fixed_slots_render_one_list_between_supported_paragraphs():
     )
 
 
+def test_supplied_member_and_shared_conditions_keep_aliases_and_input():
+    evidence = (
+        GenerationEvidence("E1", "Suggested two parts. The parts may be merged for a short work."),
+        GenerationEvidence("E2", "Part Beta applies when needed. Parts may be split for clarity."),
+    )
+    payload = {
+        "decision": "ANSWER",
+        "before": [{"text": "Suggested: 2 parts.", "support": ["E1"], "bold": "2 parts"}],
+        "items": [
+            {"text": "Alpha", "support": ["E1"]},
+            {"text": "Beta, when needed", "support": ["E2"]},
+        ],
+        "after": [
+            {
+                "text": (
+                    "For short work the parts may be merged; split them for clarity when needed."
+                ),
+                "support": ["E1", "E2"],
+                "bold": None,
+            }
+        ],
+        "refusal_reason": None,
+    }
+    original = copy.deepcopy(payload)
+    assert compose_answer(payload, evidence, presentation="count_list") == (
+        "Suggested: **2 parts**.\n\n- Alpha\n- Beta, when needed\n\n"
+        "For short work the parts may be merged; split them for clarity when needed. "
+        "[[E1]] [[E2]]",
+        ("E1", "E2"),
+    )
+    assert payload == original
+
+
 @pytest.mark.parametrize("slot", ["before", "items", "after"])
 def test_refusal_cannot_hide_content_in_any_slot(slot):
     payload = {

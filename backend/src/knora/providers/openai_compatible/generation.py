@@ -22,7 +22,7 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v17"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v18"
 CLOUDFLARE_SYSTEM_PROMPT = (
     "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
     "Return before (introductory paragraphs), items (one main list), and after (concluding "
@@ -36,8 +36,13 @@ CLOUDFLARE_SYSTEM_PROMPT = (
     "Use all sources needed to support each statement, not one convenient source for the answer. "
     "The referenced evidence must support the full statement and its important qualifications. "
     "Do not invent, "
-    "omit important conditions, or infer unsupported members. Retain conditional context. "
-    "Answer only the question's scope. Count questions follow the count rules below. "
+    "omit important conditions, or infer unsupported members. For lists, keep relevant source "
+    "conditions on an individual member in that item's text. Put relevant shared source "
+    "conditions not already stated in before or items in after, with all supporting aliases; "
+    "use after=[] only when no such conditions remain. "
+    "Answer only the question's scope, including source conditions that govern the total, "
+    "member inclusion or applicability of a listed structure. "
+    "Count questions follow the count rules below. "
     "Do not expand other single-fact answers with related background, "
     "report parts or outlines. For a requested collection, retain its conditional members and "
     "qualifications from all relevant evidence. "
