@@ -460,6 +460,14 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
 
 ### Provider boundaries
 
+- A **Prompt Definition** is the static production-answer input definition for one
+  provider profile/stage: its existing readable version, system text, selected
+  output schema and serializer identity. Its fingerprint excludes dynamic questions,
+  Evidence Sets and model/token settings. The internal Prompt Builder produces
+  messages from that definition; application context selection and provider transport
+  retain their existing ownership. Baseline parity/drift checks do not establish
+  model compliance or semantic acceptance. See [ADR 0019](docs/adr/0019-production-answer-prompt-ownership.md).
+
 - A **Generation Provider** turns a Question and its Evidence Set into generated answer text.
   Issue #183's approved answer policy keeps multi-item enumerations as separate
   bullets and short facts as prose. Counts require source proof independently of

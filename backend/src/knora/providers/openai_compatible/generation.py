@@ -8,58 +8,14 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA, compose_answer
-from knora.providers.openai_compatible.presentation import (
-    PRESENTATION_PROMPT_VERSION,
-    PRESENTATION_SCHEMA,
-    PRESENTATION_SYSTEM_PROMPT,
-    PresentationChoice,
+from knora.providers.openai_compatible.answer_blocks import compose_answer
+from knora.providers.openai_compatible.presentation import PresentationChoice
+from knora.providers.prompts.builder import BuiltPrompt, build_prompt
+from knora.providers.prompts.policy import (
+    CLOUDFLARE_PROMPT_VERSION as CLOUDFLARE_PROMPT_VERSION,
 )
-from knora.providers.structured_generation import (
-    PROMPT_VERSION,
-    STRUCTURED_RESULT_SCHEMA,
-    SYSTEM_PROMPT,
-    user_message,
-)
-
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v17"
-CLOUDFLARE_SYSTEM_PROMPT = (
-    "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
-    "Return before (introductory paragraphs), items (one main list), and after (concluding "
-    "paragraphs), in that order. Each paragraph or item has text and support; paragraphs must "
-    "also have bold (a literal phrase or null). Do not return block kinds or nested lists. "
-    "ANSWER requires content in "
-    "these slots and null refusal_reason. REFUSAL requires all three arrays empty and "
-    "INSUFFICIENT_EVIDENCE when evidence cannot support an answer. Each statement has support: "
-    "a nonempty array of supplied Evidence Aliases such as E1 or E2. Return aliases only, "
-    "not supporting quotes or source metadata. "
-    "Use all sources needed to support each statement, not one convenient source for the answer. "
-    "The referenced evidence must support the full statement and its important qualifications. "
-    "Do not invent, "
-    "omit important conditions, or infer unsupported members. Retain conditional context. "
-    "Answer only the question's scope. Count questions follow the count rules below. "
-    "Do not expand other single-fact answers with related background, "
-    "report parts or outlines. For a requested collection, retain its conditional members and "
-    "qualifications from all relevant evidence. "
-    "Write natural prose in the question's language; preserve quoted titles/technical terms. "
-    "Each text field is one line without citation markers; the server adds bullets and citations. "
-    "For selected prose or count_prose, items must be empty; keep single facts as paragraphs. "
-    "For selected list or count_list, put at least two distinct evidenced members in items. "
-    "Never embed an enumeration in paragraph text. Preserve the source order when "
-    "it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing "
-    "meaning. Each item has its own supporting aliases. "
-    "For count modes, even when only how many is asked, before must start with a natural "
-    "paragraph stating the proven total, then list evidenced members in items for count_list. "
-    "One member stays in prose; zero needs no member list. Set the leading paragraph's bold "
-    "to the literal number-and-unit phrase "
-    "occurring exactly once in its text. Count leads must include bold: use null when the "
-    "total is unproven. Never write Markdown stars in text fields. "
-    "The server adds emphasis. "
-    "A total needs explicit source proof or a complete source collection; a selected subset "
-    "does not prove it. A proven total with incomplete member evidence must disclose the missing "
-    "portion in prose. If the total is unproven, explain the evidence limit without asserting it. "
-    "Keep suggested-outline context and merging/splitting qualifications when the source makes "
-    "the outline conditional. Keep conditional indexes conditional."
+from knora.providers.prompts.policy import (
+    CLOUDFLARE_SYSTEM_PROMPT as CLOUDFLARE_SYSTEM_PROMPT,
 )
 
 
@@ -102,27 +58,27 @@ class OpenAICompatibleGenerationProvider:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         try:
             cloudflare = self._provider_identity == "cloudflare-workers-ai"
-            content = user_message(question, evidence)
             presentation = None
             stages = []
             if cloudflare:
-                response = await self._complete(
-                    PRESENTATION_SYSTEM_PROMPT, content, PRESENTATION_SCHEMA
+                selection_prompt = build_prompt(
+                    "cloudflare-selector", question=question, evidence=evidence
                 )
+                response = await self._complete(selection_prompt)
                 payload, choice, structured = self._decode(response)
                 presentation = PresentationChoice.model_validate(structured).presentation
                 stages.append(
-                    self._metadata(response, payload, choice, PRESENTATION_PROMPT_VERSION)
+                    self._metadata(response, payload, choice, selection_prompt.definition.version)
                 )
                 stages[0]["presentation"] = presentation
-            version = CLOUDFLARE_PROMPT_VERSION if cloudflare else PROMPT_VERSION
-            response = await self._complete(
-                CLOUDFLARE_SYSTEM_PROMPT + f" Selected presentation: {presentation}."
-                if cloudflare
-                else SYSTEM_PROMPT,
-                content,
-                ANSWER_BLOCK_SCHEMA if cloudflare else STRUCTURED_RESULT_SCHEMA,
+            prompt = build_prompt(
+                "cloudflare-answer" if cloudflare else "generic",
+                question=question,
+                evidence=evidence,
+                presentation=presentation,
             )
+            version = prompt.definition.version
+            response = await self._complete(prompt)
             payload, choice, structured = self._decode(response)
             if cloudflare:
                 answer, cited_ids = compose_answer(structured, evidence, presentation=presentation)
@@ -174,22 +130,19 @@ class OpenAICompatibleGenerationProvider:
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             raise KnoraError("GENERATION_OUTPUT_INVALID") from None
 
-    async def _complete(self, system: str, content: str, schema: dict) -> httpx.Response:
+    async def _complete(self, prompt: BuiltPrompt) -> httpx.Response:
         request_body = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": content},
-            ],
+            "messages": prompt.messages,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": (
-                    schema
+                    prompt.definition.schema
                     if self._direct_json_schema
                     else {
                         "name": "knora_structured_generation_result",
                         "strict": True,
-                        "schema": schema,
+                        "schema": prompt.definition.schema,
                     }
                 ),
             },
