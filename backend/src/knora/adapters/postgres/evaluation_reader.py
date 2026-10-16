@@ -286,7 +286,11 @@ class PostgresEvaluationReader:
                     DocumentVersionTable.id == ChunkSetTable.document_version_id,
                 )
                 .join(ChunkTable, ChunkTable.chunk_set_id == ChunkSetTable.id)
-                .where(DocumentTable.workspace_id == workspace_id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    EmbeddingSetTable.status == "completed",
+                )
                 .order_by(DocumentTable.source_key, ChunkTable.ordinal)
             ).all()
         grouped: dict[str, list] = {}
