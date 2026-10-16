@@ -1,5 +1,5 @@
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -52,18 +52,22 @@ def test_reviewed_preparation_rechecks_corpus_and_isolates_approval_snapshot():
         prepare(frozen)
 
 
-def test_reviewed_preparation_ignores_other_workspace_sources():
+@pytest.mark.parametrize(
+    "source_key", ["documents/other-source", "evaluation/other-dataset/source"]
+)
+def test_reviewed_preparation_rejects_other_active_workspace_sources(source_key):
     frozen = frozen_dataset()
     corpus = corpus_for(frozen)
     unrelated = deepcopy(corpus.documents[0])
-    unrelated.source_key = "documents/other-source"
+    unrelated.source_key = source_key
     unrelated.document_version_id = "other-version"
     corpus.documents += (unrelated,)
     prepare = pdf_runtime.reviewed_pdf_preparation(
         binding=binding_for(frozen),
         corpus_reader=SimpleNamespace(read_active_corpus=lambda **_: corpus),
     )
-    assert prepare(frozen)["reference"] == asdict(frozen.reference)
+    with pytest.raises(ValueError, match="corpus population mismatch"):
+        prepare(frozen)
 
 
 @pytest.mark.parametrize(

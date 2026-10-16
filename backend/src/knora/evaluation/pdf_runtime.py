@@ -45,12 +45,8 @@ def reviewed_pdf_preparation(
             if snapshot["sources"][source.document_version_id]["status"] == "READY"
         }
         actual: dict[str, object] = {}
+        # Q&A searches the workspace corpus; source-key prefixes do not scope retrieval.
         for document in documents:
-            source_key = getattr(document, "source_key", "")
-            if source_key and not source_key.startswith(
-                f"evaluation/{frozen.reference.dataset_id}/"
-            ):
-                continue
             version_id = getattr(document, "document_version_id", None)
             if not isinstance(version_id, str) or version_id in actual:
                 raise ValueError("PDF runtime corpus population mismatch")

@@ -104,6 +104,9 @@ anchor-to-chunk alternatives. The binding review digest is independent of freeze
 never grants provider-call permission. A profile must verify its owned runtime corpus afresh.
 Preflight, admission and the queued worker recheck the snapshot before dispatch. Default application
 wiring registers no executable profiles; live profiles remain blocked pending separate approval.
+The dense HTTP profile requires the actual workspace corpus to match the reviewed sources exactly.
+A dataset source-key prefix does not filter Q&A retrieval; extra active sources block preparation
+instead of producing a misleading READY result. Gold and saved reports remain unchanged.
 
 PDF runs reuse RunStore and its fenced claim/checkpoint/finish lifecycle. The initial deterministic
 report preserves every selected gold case and retained-source preparation state before execution;
