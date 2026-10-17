@@ -1,0 +1,138 @@
+{
+  "accounting": {
+    "attempted": 0,
+    "completed": 0,
+    "observed": 0,
+    "retries": 0,
+    "selected": 1
+  },
+  "case_count": 1,
+  "cases": [
+    {
+      "attempt": 1,
+      "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-001:1",
+      "boundary": "unknown",
+      "case_id": "pdf-v3-001",
+      "conversation_id": "d2adebf7-d1c6-4dca-b18a-c0255a7294de",
+      "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+      "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+      "decision": "ANSWER",
+      "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+      "diagnostics": {
+        "error": "missing_input"
+      },
+      "evidence_status": "unavailable",
+      "failure_code": "CASE_FAILED_NO_RETRY",
+      "family": "unknown",
+      "finding_type": null,
+      "fixture_provenance": "native-saved-capture",
+      "input_bytes": 0,
+      "input_characters": 0,
+      "input_sha256": null,
+      "label": "unreviewed",
+      "language": "unknown",
+      "length": "unavailable",
+      "observation_failure_code": "CITATION_STRUCTURAL_ERROR",
+      "observation_status": "unavailable",
+      "response_sha256": "771c285f4bc78ddbfcba89c5d4e181673e322c5a91ba0a9417773d59d0513c9f",
+      "restart_state": "not_sent",
+      "run_id": "s1-runtime-binding-20261015-01",
+      "scope": "generation_evidence",
+      "source_artifact_sha256": "sha256:6daa50d8876efa79663ae433c7a0b2b8028a6f0091a8602d4fdd080dc7224729",
+      "status": "unavailable",
+      "trace_id": "1540271b-3946-4565-bbe6-aec3a901eb73",
+      "turn_id": "4dd3c00a-072a-4985-b69d-843feeaf0eae",
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "configuration_sha256": "sha256:d1088b6abca6c805187d4d43de646aad8725b3b0188570be54bc8a48f8304c20",
+  "detection_completed": false,
+  "detector": "cloudflare_p1",
+  "enforcement": "off",
+  "evidence_kind": "offline_preparation",
+  "execution": "prepared_offline",
+  "export": "off",
+  "groups": [
+    {
+      "language": "unknown",
+      "metrics": null,
+      "population": {
+        "errors": 0,
+        "evaluable": 0,
+        "reviewed": 0,
+        "timeouts": 0,
+        "total": 1,
+        "unavailable": 1,
+        "unknown": 0,
+        "unreviewed": 1
+      },
+      "scope": "generation_evidence"
+    }
+  ],
+  "live_requests": 0,
+  "metrics": null,
+  "population": {
+    "errors": 0,
+    "evaluable": 0,
+    "reviewed": 0,
+    "timeouts": 0,
+    "total": 1,
+    "unavailable": 1,
+    "unknown": 0,
+    "unreviewed": 1
+  },
+  "protection_enabled": false,
+  "provider_quality_evidence": false,
+  "release_gate": false,
+  "replay_permitted": false,
+  "report_digest": "sha256:b458a6f946b680262e0d43089a86af31b2c498118fa79049f5b9d4085ec78bed",
+  "schema_version": "knora-security-observation-v2",
+  "source_artifact_sha256": "sha256:6daa50d8876efa79663ae433c7a0b2b8028a6f0091a8602d4fdd080dc7224729",
+  "subgroups": [
+    {
+      "dimension": "family",
+      "metrics": null,
+      "population": {
+        "errors": 0,
+        "evaluable": 0,
+        "reviewed": 0,
+        "timeouts": 0,
+        "total": 1,
+        "unavailable": 1,
+        "unknown": 0,
+        "unreviewed": 1
+      },
+      "value": "unknown"
+    },
+    {
+      "dimension": "boundary",
+      "metrics": null,
+      "population": {
+        "errors": 0,
+        "evaluable": 0,
+        "reviewed": 0,
+        "timeouts": 0,
+        "total": 1,
+        "unavailable": 1,
+        "unknown": 0,
+        "unreviewed": 1
+      },
+      "value": "unknown"
+    },
+    {
+      "dimension": "length",
+      "metrics": null,
+      "population": {
+        "errors": 0,
+        "evaluable": 0,
+        "reviewed": 0,
+        "timeouts": 0,
+        "total": 1,
+        "unavailable": 1,
+        "unknown": 0,
+        "unreviewed": 1
+      },
+      "value": "unavailable"
+    }
+  ]
+}

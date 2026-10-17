@@ -1,0 +1,18 @@
+{
+  "case_id": "p1-vi-attack-3",
+  "configuration_sha256": "sha256:40f6ce5f5ea1522492afb138b3b13c13bf54e54a9fa55ec943a5b49b7bd9ce18",
+  "detector_status": "unavailable",
+  "dispatch_count": 1,
+  "error_codes": [],
+  "failure_kind": null,
+  "failure_stage": null,
+  "http_status": 200,
+  "input_sha256": "sha256:b5db3d8b462dff9edaaed21e86105b68808aa7dd402c0444161a1f77c4eae289",
+  "native_log_id": "01a1499e-b940-755d-b009-9aa73328c2de",
+  "restart_state": "indeterminate",
+  "source_artifact_sha256": "sha256:2cac53d286a9ca1496614c9a5f24af548efd35380b92bb6063299f106d10a186",
+  "stop": false,
+  "success": true,
+  "transport_error": null,
+  "utc": "2026-10-17T11:28:21.419395+00:00"
+}
