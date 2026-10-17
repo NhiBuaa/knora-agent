@@ -1,12 +1,23 @@
 # Issue #188 — Master Implementation Plan
 
-**Current execution authority — October 18:** Owner explicitly selected
+**Final owner disposition — October 18:** Owner explicitly selected
+**“Nghiệm thu engineering/research, chấp nhận hoãn qualification và đóng #188”**
+for the reviewed implementation at `90da152d3bbbae04d4e315685b6527b13a7b23e6`.
+This accepts the engineering/research dossier and authorizes Issue/Project closure
+and completion of the existing Goal. Qualification remains deferred: six local
+units completed, 26 model cases not_run/unavailable, zero semantic adjudications;
+P1/Secrets remain experimental. Private processor permission and saved-run native
+attempt binding remain unverified. **Detection Completed: no. Protection Enabled: no.**
+PR #199/#205 remain Draft; no merge/deploy or runtime/enforcement/export activation.
+See [section 13](#13-approved-egl-execution--october-18) for the bounded evidence.
+
+**Approved execution envelope — October 18:** Owner explicitly selected
 **“Duyệt Q1+Q2+Q3: E+G+L”** in this chat. Section 12 is approved at reviewed content
 SHA256 `bd52a6d6cb1c54a29af26736774d388ba5140ac7bbd188fed1ec5e1a9ba6f43b`.
-E/G may proceed continuously through P10 handoff; L remains conditional on its
-fresh Free/USD0/account/terms guards and finite session limits. No new phase
-approval is needed. Final quality acceptance, merge/deploy and runtime/enforcement/
-export remain excluded. Current implementation starts with P5 baseline/projection.
+E/G completed the P10 engineering handoff. L closed under D6 without dispatch;
+its unused allowance does not transfer. The final disposition above accepts
+research/engineering with deferred qualification, not detector quality or deployed
+protection. Merge/deploy and runtime/enforcement/export remain excluded.
 
 **Historical review package — October 18:** The owner requested
 one Complete Decision & End-to-End Execution Plan for the remaining P5–P10.
@@ -1099,11 +1110,12 @@ with exact evidence, alternatives and recommendation. A human can revoke any sco
 
 ### 12.8 Continuous Goal, review, CI and final handoff
 
-Use the existing full-Issue Goal. Execution readback October 18 is `blocked`, objective
-still #188. E/G/L authority comes from the explicit owner approval above, not the app
-status. Continue authorized work without creating a competing Goal or a routine resume
-question. Goal tools cannot set a blocked Goal active. Never create a competing Goal, shrink its objective or pretend
-a status changed. [Official Goals guidance](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex)
+Use the existing full-Issue Goal, not a competing Goal. The earlier October 18
+execution readback was `blocked`; final closeout readback is `active`. Authority
+comes from explicit owner approval, not the app status. After verified tracker
+closeout, the final owner disposition above authorizes completing this Goal for
+the accepted engineering/research scope. Do not claim qualification or activation
+from that status. [Official Goals guidance](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex)
 describes an outcome/verification/constraints contract; this plan binds that contract
 to explicit permissions rather than treating persistence as extra authority.
 
@@ -1217,7 +1229,7 @@ Draft #205 on Draft #199 retained. All historical artifact bytes remain preserve
 | P7 | Existing-control/no-production-change branch | 237 existing boundary regressions plus 13 new scorer tests pass; 1 existing database test routed to canonical CI using checked-in partition. No hook, scanner, prompt, setting or application change |
 | P8 | Deterministic supplement completed; model quality unverified | 6 local units complete, 26 model cases not_run/unavailable, 0 adjudicated. Exactly selected historical capture rehashed; unsupported flat representation/no exact evidence stays unavailable. No latest trace or re-answer |
 | P9 | OFF policy recorded | Runtime/enforcement/export remain OFF. All R1–R10 dispositions and external-owner responsibilities remain as section 12.2; no broader protection claim |
-| P10 | Independent review passed; exact-head CI/publication pending at this checkpoint | Final owner quality/residual-risk acceptance and merge remain X, never inferred from engineering checks |
+| P10 | Independent review and exact implementation-head CI passed; owner accepted engineering/research with deferred qualification | CI run 39053369381 passed all seven jobs for 90da152. Owner explicitly authorized Issue/Project/Goal closeout; PRs stay Draft/unmerged |
 
 ### Conditional L closed without dispatch — D6
 
@@ -1264,7 +1276,11 @@ checks passed. Compose configuration passed with missing synthetic MinIO-env
 warnings; no services started. Local interpreter is existing Python 3.13, while
 canonical CI uses 3.12. Full local collection failed on absent DeepEval/Ragas;
 Vitest is absent locally. No packages installed and no test bypass invented;
-canonical CI must settle those required gates before engineering-ready.
+canonical CI subsequently settled those gates: [run 39053369381](https://github.com/NhiBuaa/knora-agent/actions/runs/39053369381)
+passed all seven jobs, including `CI required`, at exact implementation subject
+`90da152d3bbbae04d4e315685b6527b13a7b23e6`. A later documentation-only closeout
+commit does not change the reviewed code or frozen evidence; its own CI, if run,
+must be attributed to its own head rather than borrowing this result.
 
 Independent read-only reviewer found and rechecked rubric, native-binding and
 wire-digest repairs; no remaining actionable code/spec findings. Review accepts
@@ -1275,8 +1291,13 @@ Remaining risk: semantic injection/harm/legitimate-use quality unmeasured, priva
 processor permission unverified, saved-run native attempt binding unavailable,
 P1 quoted-control FP/completed-negative gaps and Secrets split-key FN/checksum FP
 remain experimental. No general DLP or universal moderation claim is made.
-**Detection Completed: no. Protection Enabled: no.** Final P10 owner acceptance
-and merge are still separate; the full Issue Goal is not marked complete.
+**Detection Completed: no. Protection Enabled: no.** The owner subsequently
+accepted this engineering/research dossier and explicitly deferred qualification,
+authorizing closure of #188, its Project item and the existing Goal. This is an
+explicit residual-risk disposition, not a passing semantic quality gate or an
+acceptance of P1/Secrets detector quality. Merge/deploy remain separate and excluded.
+The final tracker closeout comment records the verified publication/closure state;
+no immutable report or historical result is rewritten by this disposition.
 
 
 Publication byte check: all pinned evidence and six reviewed Python files are staged

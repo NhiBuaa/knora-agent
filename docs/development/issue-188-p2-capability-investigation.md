@@ -1296,3 +1296,17 @@ boundary/scorer tests passed. Ruff/OpenAPI/Compose passed. Missing local
 DeepEval/Ragas/Vitest defer required coverage to exact-head CI under G; no installs.
 See Master for frozen SHA, limits, claim matrix and final owner gates. Runtime,
 enforcement and export remain OFF; no quality acceptance or merge is inferred.
+
+## Final owner disposition — October 18
+
+After readback of implementation `90da152d3bbbae04d4e315685b6527b13a7b23e6`
+and all seven successful jobs in [CI run 39053369381](https://github.com/NhiBuaa/knora-agent/actions/runs/39053369381),
+the owner explicitly selected **“Nghiệm thu engineering/research, chấp nhận hoãn
+qualification và đóng #188”**. This authorizes Issue/Project/Goal closeout for the
+engineering/research scope recorded in Master section 13. Six local units are
+complete; 26 model cases remain not_run/unavailable and zero are semantically
+adjudicated. P1/Secrets remain experimental; private processor permission and
+native saved-attempt binding remain unverified. Historical evidence/draft labels
+are unchanged. Detection Completed: no; Protection Enabled: no. PR #199/#205 stay
+Draft/unmerged; no renewed live session, merge/deploy or runtime/enforcement/export
+activation follows from this acceptance.
