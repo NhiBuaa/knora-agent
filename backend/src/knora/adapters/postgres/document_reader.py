@@ -257,7 +257,10 @@ class PostgresDocumentReader:
             self._begin_snapshot(session)
             rows = session.scalars(
                 select(DocumentTable)
-                .where(DocumentTable.workspace_id == workspace_id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    ~DocumentTable.source_key.like("evaluation/%"),
+                )
                 .order_by(DocumentTable.source_key)
             ).all()
             return DocumentListProjection(tuple(self._projection(session, row) for row in rows))
@@ -271,7 +274,9 @@ class PostgresDocumentReader:
             self._begin_snapshot(session)
             row = session.scalar(
                 select(DocumentTable).where(
-                    DocumentTable.id == document_id, DocumentTable.workspace_id == workspace_id
+                    DocumentTable.id == document_id,
+                    DocumentTable.workspace_id == workspace_id,
+                    ~DocumentTable.source_key.like("evaluation/%"),
                 )
             )
             if row is None:
@@ -287,7 +292,9 @@ class PostgresDocumentReader:
                 row = session.scalar(
                     select(DocumentTable)
                     .where(
-                        DocumentTable.id == document_id, DocumentTable.workspace_id == workspace_id
+                        DocumentTable.id == document_id,
+                        DocumentTable.workspace_id == workspace_id,
+                        ~DocumentTable.source_key.like("evaluation/%"),
                     )
                     .with_for_update()
                 )
@@ -347,7 +354,9 @@ class PostgresDocumentReader:
         with self._session_factory.begin() as session:
             document = session.scalar(
                 select(DocumentTable).where(
-                    DocumentTable.id == document_id, DocumentTable.workspace_id == workspace_id
+                    DocumentTable.id == document_id,
+                    DocumentTable.workspace_id == workspace_id,
+                    ~DocumentTable.source_key.like("evaluation/%"),
                 )
             )
             if document is None:

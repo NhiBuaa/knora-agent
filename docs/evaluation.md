@@ -442,7 +442,12 @@ Live mode additionally requires a reviewed local `--preflight` record and
 `KNORA_CF_EVALUATION_TOKEN`. The record binds the exact account, report-derived run ID and selected
 capture digest to Workers Free, a same-day quota observation, public/synthetic permission and the
 original trial start. Read the implementation's `validate_free_preflight` contract when recording
-that evidence. Do not populate an approval record from the 403 response. The CLI permits at most
+that evidence. The record must include a positive integer `max_output_tokens`; missing, boolean,
+fractional or nonpositive limits are rejected before judge construction. The adapter sends this
+reviewed value as `max_tokens` on every judge request, including nested metric calls. Supplements
+record it as `requested_max_output_tokens`. This records the requested cap, not proof of server
+enforcement over reasoning or billed output; the separate provider-compatibility and live-approval
+gates remain required. Do not populate an approval record from the 403 response. The CLI permits at most
 two answer cases; nested judge calls are bounded by the durable 24-attempt/60-minute ledger under
 ignored `evals/reports/.deepeval-ledgers`. Scores and rationales remain local and cannot establish
 a release gate. No live judge result exists from this implementation session.

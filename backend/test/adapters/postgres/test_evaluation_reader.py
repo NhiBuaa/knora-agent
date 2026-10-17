@@ -2,7 +2,8 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.orm import sessionmaker
 
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
@@ -220,13 +221,54 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
     assert trace.retrieval_latency_ms >= 0
     assert corpus.documents[0].normalized_content_checksum
     assert corpus.documents[0].document_version_id
+    assert corpus.documents[0].raw_sha256 is None
     assert corpus.documents[0].chunk_set_id
+    assert corpus.documents[0].embedding_set_id
     assert corpus.documents[0].chunking_configuration_id == "chunking-m1-v1"
     assert corpus.documents[0].embedding_configuration_id == "embedding-local-m1-v2"
+    assert corpus.documents[0].chunk_ids
     assert corpus.documents[0].chunk_references == ("support/refund-policy#0",)
 
     with pytest.raises(LookupError, match="evaluation trace not found"):
         reader.read_trace(trace_id=result.trace_id, workspace_id="another-workspace")
+
+    with SessionFactory.begin() as session:
+        document = session.scalar(
+            select(DocumentTable).where(DocumentTable.workspace_id == workspace_id)
+        )
+        document_id = document.id
+        document.archived = True
+    assert reader.read_active_corpus(workspace_id=workspace_id).documents == ()
+    with SessionFactory.begin() as session:
+        assert session.get(DocumentVersionTable, corpus.documents[0].document_version_id)
+        assert session.get(ChunkSetTable, corpus.documents[0].chunk_set_id)
+        assert session.get(EmbeddingSetTable, corpus.documents[0].embedding_set_id)
+        session.get(DocumentTable, document_id).archived = False
+    assert reader.read_active_corpus(workspace_id=workspace_id) == corpus
+    assert reader.read_trace(trace_id=result.trace_id, workspace_id=workspace_id) == trace
+
+    # Shadow only this relation to test the read guard without weakening active-pointer triggers.
+    with SessionFactory() as session:
+        connection = session.connection()
+        connection.execute(
+            text("CREATE TEMP TABLE embedding_sets (LIKE public.embedding_sets) ON COMMIT DROP")
+        )
+        connection.execute(
+            text("INSERT INTO pg_temp.embedding_sets SELECT * FROM public.embedding_sets")
+        )
+        connection.execute(
+            text("UPDATE pg_temp.embedding_sets SET status = 'processing' WHERE id = :id"),
+            {"id": corpus.documents[0].embedding_set_id},
+        )
+        snapshot_reader = PostgresEvaluationReader(
+            sessionmaker(bind=connection, join_transaction_mode="create_savepoint")
+        )
+        assert snapshot_reader.read_active_corpus(workspace_id=workspace_id).documents == ()
+        connection.execute(
+            text("UPDATE pg_temp.embedding_sets SET status = 'completed' WHERE id = :id"),
+            {"id": corpus.documents[0].embedding_set_id},
+        )
+        assert snapshot_reader.read_active_corpus(workspace_id=workspace_id) == corpus
 
 
 def test_evaluation_reader_binds_persisted_budget_evidence_end_to_end() -> None:

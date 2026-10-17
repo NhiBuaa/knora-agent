@@ -93,6 +93,7 @@ class CloudflareJudge(DeepEvalBaseLLM):
         endpoint: str,
         token: str,
         model: str,
+        max_output_tokens: int,
         ledger: AttemptLedger,
         client: httpx.Client | None = None,
     ) -> None:
@@ -103,10 +104,13 @@ class CloudflareJudge(DeepEvalBaseLLM):
             )
             or not token
             or model != "@cf/openai/gpt-oss-20b"
+            or type(max_output_tokens) is not int
+            or max_output_tokens < 1
         ):
             raise JudgeError("JUDGE_CONFIGURATION_INVALID")
         super().__init__(model=model)
         self.endpoint, self.token, self.ledger = endpoint, token, ledger
+        self.max_output_tokens = max_output_tokens
         self.client = client or httpx.Client(timeout=30, follow_redirects=False)
 
     def load_model(self):
@@ -120,6 +124,7 @@ class CloudflareJudge(DeepEvalBaseLLM):
         body = {
             "model": self.model,
             "temperature": 0,
+            "max_tokens": self.max_output_tokens,
             "messages": [{"role": "user", "content": prompt}],
         }
         if schema is not None:
@@ -262,6 +267,7 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
         "tool": "deepeval-4.2.8",
         "method": "direct-measure-v1",
         "model": judge.get_model_name(),
+        "requested_max_output_tokens": getattr(judge, "max_output_tokens", None),
         "input_status": capture.get("evidence_status"),
         "input_sha256": _scoring_input_sha256(capture),
         "http_attempts": judge.ledger.count() - attempts_before if measure else 0,
@@ -323,6 +329,8 @@ def validate_free_preflight(record: dict, *, run_id: str, capture_sha256: str) -
             and record["plan"] == "Workers Free"
             and record["approved_data_classification"] in {"public", "synthetic"}
             and record["zero_paid_budget_confirmed"] is True
+            and type(record["max_output_tokens"]) is int
+            and record["max_output_tokens"] > 0
             and type(record["used_neurons_today"]) is int
             and record["used_neurons_today"] >= 0
             and type(record["remaining_neurons_today"]) is int

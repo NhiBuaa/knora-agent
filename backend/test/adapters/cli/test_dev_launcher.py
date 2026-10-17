@@ -737,6 +737,8 @@ def launcher_runtime(tmp_path: Path):
     wrapper = root / "invoke.ps1"
     wrapper.write_text(
         "function docker { $global:LASTEXITCODE = 0; if ($args -contains 'exec') { '1' } }\n"
+        "Add-Type -Path $env:FIXTURE_NATIVE\n"
+        "Write-Output 'FIXTURE_NATIVE_READY'\n"
         "& $env:FIXTURE_LAUNCHER -NoBrowser -EnvFile $env:FIXTURE_ENV "
         "-PythonExe $env:FIXTURE_PYTHON -EmbeddingProvider deterministic-local "
         "-GenerationProvider deterministic-local -ApiPort $env:FIXTURE_API_PORT "
@@ -803,6 +805,7 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         TEMP=str(root),
         TMP=str(root),
         FIXTURE_LAUNCHER=str(root / "scripts/start-dev.ps1"),
+        FIXTURE_NATIVE=str(root / "scripts/dev-process-job.cs"),
         FIXTURE_ENV=str(root / "empty.env"),
         FIXTURE_PYTHON=sys.executable,
         FIXTURE_API_PORT=str(api_port),
@@ -842,11 +845,24 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                     known.update(owner.children(recursive=True))
             return log_path.read_text(errors="replace")
 
+        # Match native-job tests' compile bound; runtime readiness and cleanup keep their bounds.
+        _wait_until(lambda: "FIXTURE_NATIVE_READY" in observe(), timeout=40)
         if scenario == "startup-failure":
             _wait_until(lambda: observe() and launcher.poll() is not None)
             assert "DEV_RUNTIME_FAILED" in observe()
         else:
-            _wait_until(lambda: "DEV_READY" in observe())
+            try:
+                _wait_until(lambda: "DEV_READY" in observe())
+            except pytest.fail.Exception:
+                service_logs = "\n".join(
+                    f"{path.name}:\n{path.read_text(errors='replace')[-4000:]}"
+                    for path in sorted((root / "knora-dev-runtime").glob("*.log"))
+                )
+                pytest.fail(
+                    f"Launcher readiness timeout; exit={launcher.poll()}\n"
+                    f"{observe()}\n{service_logs}",
+                    pytrace=False,
+                )
             if scenario == "exited-root":
                 frontend_pid = int(re.search(r"FRONTEND_PID=(\d+)", observe())[1])
                 frontend_root = next(process for process in known if process.pid == frontend_pid)
