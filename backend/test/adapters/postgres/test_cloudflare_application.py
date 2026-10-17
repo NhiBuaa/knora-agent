@@ -95,17 +95,27 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
         )
 
     async def generation_endpoint(request: httpx.Request) -> httpx.Response:
-        state["generation_requests"].append(json.loads(request.content))
+        payload = json.loads(request.content)
+        state["generation_requests"].append(payload)
         content = state["generation_content"]
         if content is None:
             content = json.dumps(
                 {
                     "decision": "ANSWER",
-                    "answer": "Blue umbrellas. [[E1]]",
-                    "cited_evidence_ids": ["E1"],
+                    "before": [
+                        {
+                            "text": "Blue umbrellas.",
+                            "support": ["E1"],
+                            "bold": None,
+                        }
+                    ],
+                    "items": [],
+                    "after": [],
                     "refusal_reason": None,
                 }
             )
+        if "presentation" in payload["response_format"]["json_schema"]["properties"]:
+            content = json.dumps({"presentation": "prose", "conditions": []})
         return httpx.Response(
             200,
             headers={"x-request-id": f"generate-{len(state['generation_requests'])}"},
@@ -240,6 +250,7 @@ def test_cloudflare_pdf_public_journey_preserves_citation_and_provenance(cloudfl
     assert "queries" in state["embedding_requests"][1]
     assert state["generation_requests"][0]["max_tokens"] == 1024
     assert state["generation_requests"][0]["response_format"]["type"] == "json_schema"
+    assert len(state["generation_requests"]) == 2
 
 
 def test_cross_workspace_requests_stop_before_cloudflare(cloudflare_app) -> None:
@@ -287,10 +298,10 @@ def test_empty_workspace_refuses_without_generation(cloudflare_app) -> None:
     "content",
     [
         "fake-cloudflare-token-invalid-json",
-        '{"decision":"ANSWER","answer":"Blue umbrellas. [[E99]]",'
-        '"cited_evidence_ids":["E99"],"refusal_reason":null}',
-        '{"decision":"ANSWER","answer":"Blue umbrellas. [[E1]]",'
-        '"cited_evidence_ids":["E1"],"refusal_reason":"INSUFFICIENT_EVIDENCE"}',
+        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E99"],"bold":null}],'
+        '"items":[],"after":[],"refusal_reason":null}',
+        '{"decision":"ANSWER","before":[{"text":"Blue umbrellas.","support":["E1"],"bold":null}],'
+        '"items":[],"after":[],"refusal_reason":"INSUFFICIENT_EVIDENCE"}',
     ],
 )
 def test_invalid_cloudflare_generation_returns_safe_error(cloudflare_app, content: str) -> None:

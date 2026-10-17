@@ -21,6 +21,7 @@ class GenerationResult:
     provider_request_id: str | None = None
     usage: dict[str, int] = field(default_factory=dict)
     cost: dict[str, str] = field(default_factory=dict)
+    stages: tuple[dict[str, object], ...] = ()
 
 
 class GenerationProvider(Protocol):

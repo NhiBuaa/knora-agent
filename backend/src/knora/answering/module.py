@@ -465,6 +465,8 @@ class AnswerQuestion:
                 "usage": generation.usage,
                 "cost": generation.cost,
             }
+            if generation.stages:
+                provider_metadata["generation"]["stages"] = list(generation.stages)
         candidate_decisions = []
         for index, item in enumerate(selection.decisions, start=1):
             if item.outcome == "TOKEN_BUDGET_EXCEEDED":

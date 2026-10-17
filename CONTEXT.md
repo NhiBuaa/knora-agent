@@ -482,6 +482,59 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
 ### Provider boundaries
 
 - A **Generation Provider** turns a Question and its Evidence Set into generated answer text.
+  Issue #183's approved answer policy keeps multi-item enumerations as separate
+  bullets and short facts as prose. Counts require source proof independently of
+  selected-member completeness; incomplete members require explicit disclosure.
+  Clear source order and important qualifications must be retained. Contiguous
+  content sharing evidence prefers a citation after its last block; every needed
+  source must remain cited. These are semantic obligations, not schema guarantees.
+  Q17's private Cloudflare contract uses fixed `before`, `items`, `after` arrays:
+  introductory paragraphs, at most one main list, and concluding paragraphs.
+  It carries supporting Evidence
+  Aliases for each paragraph or item. The adapter checks Evidence Set membership
+  and composes Markdown; it no longer checks literal quotes or source positions.
+  A valid alias does not prove semantic support, count completeness or source order.
+  Q12 adds a private Cloudflare presentation choice before generation, originally
+  without answer/member content in that choice. Local selected-list gates require at least
+  two items; prose requires empty items. Count
+  contracts require a lead paragraph with explicit nullable literal
+  emphasis. Q19 also requires every paragraph to declare `bold` as a literal
+  string or null in the wire schema and local model; omission is invalid in every
+  mode. The composer does not repair model Markdown or prove semantic support.
+  Zero/one known member permits count prose. Every contract permits
+  evidence refusal; malformed selection/output remains an error without retry.
+  Safe per-stage trace metadata and complete aggregate token fields account for
+  both requests. This adds quota/latency, not semantic guarantees or a shared
+  prompt-management architecture (#191). Q17 removes per-block kinds/unions and
+  advanced schema position constraints; the adapter maps validated slots to the
+  existing composer. Refusal requires all slots empty. This simplification does
+  not prove provider compatibility, completion within the token cap, or semantics.
+  #191 refactors separately from `67a149f`; #183 retains prompt/schema behavior
+  and acceptance ownership, without moving modules. Real-provider acceptance is pending.
+
+  The owner-approved #183 v18 policy adds only placement guidance for source
+  conditions: list-member conditions stay with the item, and shared conditions
+  not already stated in `before` or `items` go in `after` with their Evidence
+  Aliases. Conditions governing a count, member inclusion or listed-structure
+  applicability remain in scope. This does not prove model compliance or add a
+  semantic gate; schema, composer, citations, refusal, model and token cap remain
+  unchanged. #191's extraction remains separate until #183 acceptance/integration.
+  After v18 still omitted supplied shared conditions, the owner approved Master
+  section 4.4 for offline implementation: the selector also returns shared list
+  conditions as literal text with Evidence Aliases, but no total/member collection.
+  The adapter validates these paragraphs before the second request, passes them as
+  separate user-message data alongside the original question/evidence, and appends
+  them after a valid list answer's concluding paragraphs using the existing composer.
+  Valid refusal adds no selected notes; existing answer/list/count gates run first.
+  Prose/count prose require empty selected conditions. The answer wire schema,
+  public validation and other providers remain unchanged; there are still two
+  Cloudflare requests with the existing model and per-request cap. The identities
+  become `cloudflare-presentation-conditions-v2` and
+  `cloudflare-gpt-oss-cited-answer-v19`. This guarantees transfer of validated
+  selected notes, not correct/complete selection or evidence entailment. Duplicates,
+  conflicts and omitted individual-item conditions remain acceptance failures;
+  there is no automatic semantic deduplication or repair. Live compatibility and
+  semantic acceptance remain pending separate runtime approval.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input
