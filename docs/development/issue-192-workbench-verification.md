@@ -292,3 +292,75 @@ The documentation checkpoint commit `ae5a44be9c9c56255fb088089fb803f772e21d54` h
 [CI 39032513816](https://github.com/NhiBuaa/knora-agent/actions/runs/39032513816): all six jobs,
 including CI required, SUCCESS. The closeout ledger change has its own later commit/CI scope.
 Project status and the outstanding quality/live/integration gates above are unchanged.
+
+## Approved local L2 — 17 October 2026, runtime and browser access
+
+The owner resumed the precise [L2 proposal](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6234552279)
+with “tiếp tục” in chat. This approves one local window of at most 30 minutes, using only the
+retained L1 storage, identity, Workspace, dataset, three synthetic PDFs and two drafts. It does
+not approve the Cloudflare probe or any live profile. No new upload, case, dataset, proposal,
+migration, historical-cluster access or model dispatch is permitted by this window.
+
+The independent cleanup admission gate passed before startup: a one-shot Windows scheduled task
+ran a harmless marker at **20:51:26 Asia/Saigon**, with task result 0. It used the current
+interactive user, Limited run level, no stored password, no elevation and no recurring trigger.
+The smoke task was removed after verification. The actual one-shot cleanup was then registered
+and read back, targeting the exact two retained container IDs with Compose project/service checks
+and application processes with PID, creation-time and command-line checks. Its action uses the
+installed Python without a visible window; an additional local watchdog is secondary protection.
+The scheduled cleanup and target manifest are independent of the Codex exec session.
+
+The fixed hard deadline is **21:22:47 Asia/Saigon**, set before startup; cleanup begins at
+**21:21:47**. The first container-start invocation was at **20:53:08**, and application readiness
+was observed at **20:53:45**. Retries do not reset the deadline. Four ports were unoccupied and
+both containers exited before startup; current application listeners use the same loopback
+ports. Existing containers were started without recreation or migration replay. Deterministic
+provider configuration and absence of model credentials were asserted before API startup.
+
+Read-only assertions against the retained L1 database still find exactly one DRAFT dataset at
+revision 5, three sources, two unreviewed cases and two extraction snapshots. Reviews, gold
+versions, proposal batches, runs and preflights remain zero. These are fresh pre-handoff facts,
+not proof of a later human review. No review note, accept/reject or freeze was submitted by the
+agent. An authenticated read of the retained Keycloak owner configuration confirmed the same
+subject and exactly `operator:read, documents:read, evaluations:approve`, without changing any
+realm/user setting. Fresh L2 browser OIDC/session verification has not yet been completed.
+
+The integrated browser's tab inventory shows the previous Workbench connection-error page.
+Attempting to acquire that tab was rejected by the browser URL security policy. The agent stopped
+that browser action and asked the owner to reload the normal HTTP application route in the
+integrated browser. No external browser, alternate file-serving route, browser settings change
+or policy bypass was attempted. L2 original-PDF transport/rendering diagnosis and human handoff
+therefore remain pending browser access; the earlier L1 original-rendering evidence keeps its
+original scope. Cleanup is registered, but successful L2 shutdown is not claimed before closeout.
+
+The [L2 start checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6234698872)
+records source HEAD `e5bc5de655621f5bda16516a12417d2d431e2dc1`, its six successful CI jobs and
+the exact local envelope. Project 5 read-back returns #192 to In Progress for this authorized
+work; #196/#197 remain Blocked. Provider calls/retries remain **0**, paid cost **USD 0**.
+No gold/threshold/history mutation, profile unlock, billing change, export/enforcement,
+merge/deploy or quality acceptance follows from this local startup.
+
+### Subsequent finite coordination with #153
+
+- [Q10 round1 finite ACK](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6234741170)
+  covers only patch LF SHA256 `ef318832867fed6c64e9891fc25fae4bdffba90d43aad9791276d73b2eba82d0`
+  on the eight exact manifest base snapshots. All 16 base/candidate hashes and current base files
+  were checked. This is a working-snapshot delta with S2 prerequisites, not a standalone patch
+  on commit `4e0134d` or an ACK of those omitted prerequisites. Parent-link trigger, transactional
+  replay/rollback and concurrent parent-update/child-insert runtime evidence remain open; no S2
+  database was started by this review. Combined migration integration with Workbench is separate.
+- [PDF runner finite review](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6234759447)
+  withholds ACK for LF SHA256 `a3746638f86bdf2b78c6e10fdf228c1467ba989238f3ea87a3bedf10a6204d39`.
+  An isolated pure-function reproduction shows that reordering a saved native rank-9 row ahead
+  of ranks 1–8 changes reported Top8 coverage from false to true, because the comparison slices
+  array order without validating/canonicalizing saved ranks. This is a malformed-input finding,
+  not a claim that a real native capture was corrupt. A focused validation fix and renewed exact
+  diff are requested. No shared file or frozen artifact was edited by either peer review.
+- The subsequent [round1 scoped re-review and finite ACK](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6234801881)
+  covers new full patch LF SHA256 `70befd4684f3fb7e8c9757dfa6381e4da4ab5c50b09c0e0700dc1c27f29a865c`
+  on the same two pinned bases. It shares the native-rank validator between capture and saved
+  comparison. Independent exact-function assertions confirm reordered rank 9 stays outside Top8,
+  remains inside Top200, inputs are unchanged, an empty window is valid, and six invalid rank
+  windows fail closed. This addresses the finding above; it does not establish CLI, all-60,
+  runtime, provenance, semantic quality or combined integration acceptance. Full/fix-only and
+  candidate/base hashes were rechecked before the finite ACK. No shared file was applied here.
