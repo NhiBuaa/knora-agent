@@ -494,6 +494,7 @@ async def test_real_deepeval_adapter_scores_saved_pdf_only_through_mock_transpor
             endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
             token="fixture-only",
             model="@cf/openai/gpt-oss-20b",
+            max_output_tokens=64,
             client=client,
             ledger=AttemptLedger(
                 tmp_path / "attempts.sqlite3",

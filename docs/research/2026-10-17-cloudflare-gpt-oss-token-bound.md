@@ -54,6 +54,15 @@ An authoritative model/endpoint-specific provider contract covering these points
 the inspected evidence. This note supplies no live-call authorization or inherited quota, and
 does not change the blocked profile or its acceptance state.
 
+### Subsequent offline request wiring
+
+The follow-up after `fd37eda` requires a positive integer `max_output_tokens` in the judge
+constructor and CLI preflight, sends that value as `max_tokens` on each judge HTTP request, and
+records `requested_max_output_tokens` in supplements. Missing or invalid limits fail before
+dispatch. Real DeepEval metric tests and the CLI path exercise this through MockTransport only.
+This supersedes the earlier local-code observation that no token-limit parameter is sent; the
+provider-side enforcement/accounting unknowns above remain unchanged. No live admission follows.
+
 ## Retrieval record
 
 - Context7 library `/websites/developers_cloudflare_workers-ai` was queried for this exact model

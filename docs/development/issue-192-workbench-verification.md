@@ -167,3 +167,30 @@ unknown quota/token compatibility, ambiguous transport or exhausted budget must 
 
 No provider call, model download, billing/configuration change, live-profile unlock, merge,
 deployment, Langfuse export or Guardrails enforcement was performed in this follow-up.
+
+## Subsequent read-only access and offline token-request follow-up
+
+The owner subsequently chose the integrated browser and signed in there, superseding the earlier
+external-Edge-only instruction. At 2026-10-17 11:13 UTC (18:13 Asia/Saigon), the same authenticated
+account's Workers plans page showed **Free / Current plan / $0** and Workers AI daily usage showed
+**78.11/10,000 neurons**. Arithmetic remaining was **9,921.89**, not a quota reservation. The daily
+reset label was 00:00 UTC / 07:00 Asia/Saigon. Account identifiers are omitted from the public
+[read-only checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6233226216).
+Runtime account binding and quota freshness still need validation before any future dispatch.
+
+The DeepEval adapter/CLI now require an explicit positive integer `max_output_tokens`, send it as
+`max_tokens` on every judge request and retain `requested_max_output_tokens` in supplements.
+Missing/invalid caps fail before dispatch; there is no implicit default. The saved input digest,
+gold, thresholds and historical runs remain unchanged. This supersedes the earlier missing-field
+code observation only: MockTransport proves request construction, not the provider's treatment of
+reasoning or billed output. Live Workbench admission remains denied, and no provider was called.
+
+Verification: baseline 40 focused tests passed; new request/configuration/preflight assertions
+failed before implementation, and the CLI wiring test failed before its required argument was
+connected. After the change, 54 scorer/Workbench scoring tests pass. The wider existing evaluation
+partition (`evals/test` plus `backend/test/evaluation`, `--ci-suite backend`) passes **618 tests**,
+with 30 Windows-partition cases deselected and no skips, in 46.89s. Independent review found no
+actionable findings; the reviewer did not rerun tests. Ruff format/check/lint, shared formatting,
+OpenAPI exporter check, Compose configuration and diff check pass. Compose retains the missing
+local MinIO credential warnings. No application/database runtime started for this follow-up; the
+earlier full-suite/PostgreSQL evidence retains its original commit scope. Exact new-commit CI is separate.
