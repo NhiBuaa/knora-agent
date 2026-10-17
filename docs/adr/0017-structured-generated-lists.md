@@ -2,8 +2,8 @@
 
 Status: owner-approved behavior through Issue #183, including Q9 simplification,
 Q12 presentation selection, Q17 fixed slots and Master section 4.4 selected-condition
-retention (2026-10-17); offline amendment verification and runtime acceptance pending
-in PR #184.
+retention (2026-10-17); offline amendment implemented/tested/reviewed at1477838,
+with required CI passing. Runtime acceptance remains pending in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
 v8 produced selected successful layouts, but a general-list observation omitted
