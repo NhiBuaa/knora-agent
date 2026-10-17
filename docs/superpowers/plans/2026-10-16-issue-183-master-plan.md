@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner approved P0/P1, exact v18 and subsequent section4.4 offline amendments with their respective191 ACKs. Product `1477838` passed maintained tests/review/required CI. Historical v18 P4 closed3/9 with omitted source qualifications; first v19 setup closed0/9 on a session-secret race. Owner then approved recovery at docs head `55f99e9`: sequential setup succeeded, but **P4-CONDITIONS-V19-RECOVERY closed3/9, quality FAIL**. Selector chose `count_prose` despite seven supplied members; answer HTTP200/stop failed local parsing/validation, with exact violation unavailable because the private capture wrote final content only after validation. No valid answer/trace/citation or final-candidate desktop/mobile acceptance exists. Six unused requests expired; other-list/short remain unrun. Exact OAuth/services cleanup is recorded below. P5/P6 remain blocked, PR184 Draft/183 open/In Progress;191/200 separate. Q21 stays postponed and no live window is active.
+**Status:** Owner approved P0/P1, exact v18 and subsequent section4.4 offline amendments with their respective191 ACKs. Product `1477838` passed maintained tests/review/required CI. Historical v18 P4 closed3/9 with omitted source qualifications; first v19 setup closed0/9 on a session-secret race. Owner then approved recovery at docs head `55f99e9`: sequential setup succeeded, but **P4-CONDITIONS-V19-RECOVERY closed3/9, quality FAIL**. Selector chose `count_prose` despite seven supplied members; answer HTTP200/stop failed local parsing/validation, with exact violation unavailable because the private capture wrote final content only after validation. No valid answer/trace/citation or final-candidate desktop/mobile acceptance exists. Six unused requests expired; other-list/short remain unrun. Exact OAuth/services cleanup is recorded below. P5/P6 remain blocked, PR184 Draft/183 open/In Progress;191/200 separate. Q21 stays postponed and no live window is active. The separately owner-approved finite offline assessment is complete in4.5; its exact capture-only proposal remains unimplemented and awaits owner review.
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
@@ -509,6 +509,175 @@ Private artifacts under `frontend/test-results/issue183/conditions-recovery/` re
 
 **Next owner frontier:** Keep this and all prior windows closed. Recommend one finite **offline** selector/source/capture-boundary assessment and an exact narrow private proposal to retain final assistant content separately from reasoning before parse/compose, with safe failure category/location and unchanged fail-closed behavior. Synthetic malformed/invalid-final fixtures must demonstrate any subsequently approved correction. Do not loosen validation, build a semantic checker, change prompt/schema/model/cap, or request a live replay to replace lost historical data. The observed wrong selection does not yet justify a particular product fix. Owner approval is required for this new post-failure direction; shared product edits additionally need renewed191 coordination. P5/P6 remain blocked by AC1/AC2 and unrun AC4/AC5/AC6 plus incomplete AC8 capture.
 
+
+### 4.5 Recovery follow-up — finite offline assessment and exact capture proposal, unimplemented
+
+**Authority:** After the4b0e2b3 recovery failure report, owner chose A in chat: analyze selector/source/capture offline and present an exact private capture diff only. No code/test implementation, inference, OAuth, retry, prompt/schema/model/cap/default/production change or merge. This subsection stays in the sole Master; it is not a new roadmap, a new live window or a revision of AC2. Product1477838 and all historical helpers/captures/grants/stops remain unchanged.
+
+#### Selector assessment result
+
+| Boundary | Evidence and conclusion | What it does not establish |
+| --- | --- | --- |
+| Source coverage | Both captured stages carry the same complete E2, seven suggested members and both qualifications. Original PDF/E2 hashes and policy/schema match4.4's recovery audit. | Default-M1 acceptance or support for an unconditional mandatory seven. |
+| Policy | Current selector-v2 retains v1's explicit >=2-known-members/count_list rule, including a question asking only how many. Added conditions rules restrict prose/count_prose to empty notes. | No established policy contradiction or proof that extra selector responsibility caused the wrong mode. A short answer question and a count with known members remain distinct requirements. |
+| Wire/local shape | All four presentation enum values are allowed. PresentationChoice validates shape; generation rejects nonempty notes in prose modes and validates note lines/aliases. count_prose/empty notes therefore pass. | Neither JSON Schema nor these gates infer the right question/evidence classification or semantic completeness. |
+| Stage handoff | Captured selector=count_prose flows unchanged into request2's Selected presentation and retained_conditions=[]. Composer requires mode/items agreement. | No evidence that composer chose the wrong mode or could preserve notes never selected. A good composer cannot repair this selector choice. |
+| Unknown answer | HTTP200/stop748; final content absent from retained artifacts because capture follows parse/compose. Dispatch missing-trace assertion follows stored generation failure. | Exact JSON/schema/composer violation, final condition omission, output list presence, renderer loss or cap termination cannot be concluded. |
+| Historical comparison | v1/v18 selected count_list on the prior sufficient E2 but omitted qualifications; v2/v19 selected count_prose in this run. | Different policies/requests and one result per candidate are not a controlled comparison or reliability rate. No causal model-capability conclusion. |
+
+**Product diff remains empty.** Another wording trial is unsupported by these records. Requiring count_list universally would break count-without-known-members and short-prose behavior; choosing a per-question schema still needs a trustworthy classification. Parsing source prose/questions with ad hoc rules would exceed the approved general behavior. Removing the selector or changing model/cap introduces a separate design decision; old v14/Q5 results do not prove that direction works. No retry/judge/coverage subsystem is proposed. The finite offline result is that the wrong mode is observable, while its internal cause and exact second-stage failure remain unresolved. Do not promise a product fix from a diagnostic change.
+
+#### Recommended private capture correction
+
+**Apply only after owner approval:** create a new ignored mock-only derivative directory `frontend/test-results/issue183/conditions-capture-offline/`, copy the reviewed baseline `conditions-offline/conditions_guard.py` (SHA256 `6875d74f91a2ca8522a1347b234656382afa4bc8a050710670d6ae6877606aae`) there, then apply the exact patch below to that copy. No grant, credentials, runtime.py, OAuth helper, live transport or old admission directory is copied. Preserve all historical files byte for byte; do not edit the baseline in place. The patch header is relative to that prospective copied directory, not permission to mutate the historical source.
+
+- One method only: MockOnlyGuard.observe. Retain a separate exclusive `final-content-generation-<slot>.json` before finish/JSON/composer checks. Store exact string content, explicit missing/null/non-text state; never serialize a non-text object, message, reasoning/reasoning_content fields, whole provider body or exception text. These private final strings may contain source text or unwanted text emitted into the final field; they remain ignored and must not be published. Field separation cannot prove the model never put unintended reasoning into content.
+- Keep `contract-generation-<slot>.json` as the existing **validated** artifact. An earlier final-content artifact is diagnostic, never a successful answer, semantic PASS or admission for another case.
+- Track fixed boundary labels and whitelisted exception class names in the existing safe response metadata. This locates final JSON parsing versus selector validation versus answer-compose; it does not invent a field-level explanation hidden by GENERATION_OUTPUT_INVALID. No duplicate validator, private product-model import or exception-message scraping.
+- Attempt the existing permanent stop before a best-effort diagnostic update; retain counters, pending markers, no-retry behavior and all validations. When stop persistence succeeds, preserve the original failure even if the diagnostic write fails. If stop persistence itself raises an OSError, baseline behavior propagates that storage error and may mask the original failure; do not suppress it or claim a durable stop. Pending exclusion remains, and no recovery/new dispatch is authorized. No failed historical answer is recoverable from this change.
+- New mock-only tests, once approved, reuse existing synthetic builders/dummy credentials with external network/credential loaders denied. No live wrapper/hash rebinding is proposed here; future wiring needs its own exact review and owner runtime gate.
+
+**Exact prospective patch** (SHA256 `1a82e01985b6dde31d0af93dee96b293086be48a8ed19eb5aa6f6dcad39941e6`; text only, not applied):
+
+```diff
+--- a/conditions_guard.py
++++ b/conditions_guard.py
+@@ -350,6 +350,7 @@
+         kind, slot, started = admission
+         path = self.directory / f"response-{kind}-{slot}.json"
+         record = {"kind": kind, "slot": slot, "seconds": time.monotonic() - started}
++        phase = "physical-response"
+         try:
+             if error is not None or response is None:
+                 record["error_type"] = type(error).__name__ if error else "UnknownOutcome"
+@@ -404,8 +405,10 @@
+                     pass
+             durable(path, record)
+             require(200 <= response.status_code < 300, "provider-http-error-or-redirect")
++            phase = "response-json"
+             body = response.json()
+             if kind == "generation":
++                phase = "generation-envelope"
+                 require(len(body["choices"]) == 1, "choice contract")
+                 choice = body["choices"][0]
+                 record["finish_reason"] = (
+@@ -421,13 +424,37 @@
+                     if type(usage.get(key)) is int and usage[key] >= 0
+                 }
+                 durable(path, record)
++                phase = "final-content-capture"
++                message = choice.get("message")
++                final = message.get("content") if isinstance(message, dict) else None
++                captured = {
++                    "content_present": isinstance(message, dict) and "content" in message,
++                    "content_type": (
++                        "string"
++                        if isinstance(final, str)
++                        else "null"
++                        if final is None
++                        else "non-text"
++                    ),
++                }
++                if isinstance(final, str) or final is None:
++                    captured["content"] = final
++                # Preserve only the final field; never serialize message/reasoning or the raw body.
++                durable(
++                    self.directory / f"final-content-{kind}-{slot}.json", captured, exclusive=True
++                )
++                phase = "generation-finish"
+                 require(choice.get("finish_reason") == "stop", "token-or-content-error")
++                phase = "final-json"
+                 structured = json.loads(choice["message"]["content"])
++                phase = "request-evidence"
+                 request = read(self.directory / f"request-{kind}-{slot}.json")
+                 stage = read(self.admissions / f"{kind}-{slot}.json")["stage"]
+                 if stage == "presentation":
+                     _, evidence = self._user(request["messages"][1]["content"])
++                    phase = "selector-contract"
+                     selection = PresentationChoice.model_validate(structured)
++                    phase = "selector-conditions"
+                     require(
+                         not selection.conditions
+                         or selection.presentation in ("list", "count_list"),
+@@ -435,11 +462,13 @@
+                     )
+                     condition_paragraphs(selection.conditions, evidence)
+                 else:
++                    phase = "answer-context"
+                     _, evidence = self._user(request["messages"][1]["content"], answer=True)
+                     selection = PresentationChoice.model_validate(
+                         read(self.directory / f"contract-generation-{slot - 1}.json")
+                     )
+                     notes = condition_paragraphs(selection.conditions, evidence)
++                    phase = "answer-compose"
+                     answer, aliases = compose_answer(
+                         structured,
+                         evidence,
+@@ -452,8 +481,10 @@
+                         aliases=aliases,
+                         refusal_reason=structured["refusal_reason"],
+                     )
++                phase = "validated-contract-capture"
+                 durable(self.directory / f"contract-{kind}-{slot}.json", structured, exclusive=True)
+             else:
++                phase = "embedding-contract"
+                 # Adapter validates vectors; this closes the window before any later request.
+                 result = body["result"]
+                 data = result["data"]
+@@ -471,12 +502,34 @@
+                     "embedding response contract",
+                 )
+                 record["shape"] = result["shape"]
++            phase = "response-finalize"
+             record["known_outcome"] = True
+             durable(path, record)
+             require(not (self.directory / "stopped.json").exists(), "concurrent window stop")
+             (self.directory / "pending.json").unlink()
+-        except BaseException:
++        except BaseException as exc:
+             self.stop("response-or-unknown-outcome")
++            record["failure_phase"] = phase
++            name = type(exc).__name__
++            record["failure_type"] = (
++                name
++                if name
++                in (
++                    "JSONDecodeError",
++                    "ValidationError",
++                    "KnoraError",
++                    "P3Denied",
++                    "KeyError",
++                    "IndexError",
++                    "TypeError",
++                    "ValueError",
++                    "OSError",
++                )
++                else "OtherError"
++            )
++            # A diagnostic write must not replace the original failure or reopen the window.
++            with contextlib.suppress(Exception):
++                durable(path, record)
+             raise
+
+     def review_case(self, turn, trace, *, authorize_next=False):
+```
+
+#### Offline verification envelope proposed for owner approval
+
+Tests are **planned, not authored or run**. A later approval can authorize the copied helper and these regressions, independent review, Ruff and child-import checks without another product design:
+
+1. RED/GREEN via both sync/async MockTransport paths: malformed final JSON, parsed but invalid selector, invalid answer slots/aliases/list-mode/bold/refusal. Exact final string retained; proper boundary/type recorded; validated contract absent on failure; permanent stop/pending/admission counts intact; second handler call denied.
+2. String final plus separate reasoning/reasoning_content sentinel fields: only final saved, no sentinel in diagnostic artifacts. Missing/null/non-text content saves state without serializing nested objects; unknown/extra fields are not copied. This covers extraction, not a semantic privacy detector.
+3. HTTP200/length/string or null: diagnostic final state survives; original finish gate still stops. Malformed outer JSON or choice envelope: safe digest/status/failure boundary only, no whole body. Existing non-2xx/timeout denials remain.
+4. Simulated exclusive capture conflict/write failure and secondary diagnostic-write failure: no overwrite of earlier final data; where stop is writable, durable stop/no retry/new send and original exception preserved. Separately simulate stop-write failure: existing storage exception propagates, original may be masked, pending remains; no claim of durable stop, successful recovery or new dispatch. Do not alter the baseline stop-failure policy.
+5. Valid selector/answer/refusal and selected notes: unchanged parsed contracts/composed text/citations/metadata and next-case permission rules. Run the copied baseline denial suite and affected adapter-level mock checks; historical suites/files/hashes remain unchanged. Product suite/real provider/real browser need not run for private capture-only work.
+
+**Static evidence now:** exact baseline hash confirmed; full prospective source reconstructed/formatted in memory and AST parsed without saving/importing/executing candidate Python. AST of every function except observe is unchanged. `git apply --check --whitespace=error` against the baseline path succeeds without applying; new tests/helpers/grants do not exist. These checks prove proposal consistency only, not the proposed runtime behavior or a semantic fix.
+
+**Independent proposal review:** Confirmed exact patch/hash/apply-check and unchanged non-observe AST. One prose overclaim was corrected: failed stop persistence may mask the original exception under existing baseline behavior; no helper stop-policy change is proposed. No remaining actionable design finding in the reviewed scope. Report `conditions-recovery/capture-proposal-review.md`, SHA256 `892725513616b06b57136e8e3f7dd12bdc50561d3353f3e8a6cdb9cc050264b4`. Reviewer did not apply/import/execute the patch, write/run tests, connect services or call provider. This is design review, not an implementation PASS.
+
+**Owner frontier:** A — approve this exact copied helper plus offline regressions/review, no product/live changes; B — keep Draft unchanged. Recommended A closes a verified diagnostic defect before any future live proposal. Selector remediation remains open; no new inference follows even after offline PASS. New product responsibility/schema changes need a separately justified exact proposal and renewed191 coordination;191/200 remains frozen. Keep P4 closed3/9, AC1/AC2/AC4/AC5/AC6/AC8 unmet and P5/P6 blocked.
+
 ## 5. Acceptance criteria and evidence reuse
 
 | ID | Required outcome | Current gap |
@@ -788,4 +957,4 @@ Owner review decisions:
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Publish the completed recovery failure/audit and documentation CI, then await owner disposition on the finite offline selector/capture assessment above. No product fix or new live allowance follows from this failure. P2 product1477838 remains unchanged; v19 selection/compliance is not accepted. Old grants/stops cannot be reset or reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
+**Immediate next action:** Publish this completed owner-approved offline assessment and exact unimplemented capture proposal in4.5 with documentation CI, then await owner disposition before helper/tests implementation. No product fix or new live allowance follows from this failure. P2 product1477838 remains unchanged; v19 selection/compliance is not accepted. Old grants/stops cannot be reset or reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
