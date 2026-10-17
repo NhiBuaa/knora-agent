@@ -178,6 +178,35 @@ The following unified diff applies to product baseline305f8b9 (same affected fil
 
 <!-- END_P1_EXACT_DIFF -->
 
+### 4.3 Post-P4 finite offline assessment — no justified minimal product diff
+
+Owner selected **A** in chat on 2026-10-17: assess existing PDF/captures offline and present one justified minimal remedy/exact diff, or conclude the evidence does not support one. This approves investigation and its record only, not another behavior change, prompt trial, provider request or runtime/OAuth window. P4 remains closed at3/9; none of its unused allowance revives.
+
+**Result:** No minimal product diff is sufficiently justified by the available evidence. This is a bounded negative finding, not proof that no solution exists. The exact proposed product diff is **empty**; no v19 policy or schema is proposed. Keep AC2 unchanged and PR184 Draft. Sections4.1/4.2 retain the historical rationale and approved v18 diff; P4 disproved successful remediation for the observed case, not the existence of the earlier ambiguity.
+
+Read-only assessment covered the current policy/selector/user-message builder, fixed-slot schema/composer, relevant regression fixtures, Q18/Q20/P4 safe captures, PDF/E2 hashes, ADR0017 and current191/PR200 ownership. No model reasoning, credential, OAuth state or private source was published.
+
+| Boundary | Verified observation | Consequence |
+| --- | --- | --- |
+| Input/policy | P4 system text equals current v18 plus selected `count_list`; outgoing schema equals current `ANSWER_BLOCK_SCHEMA`; model/cap remain20B/1024. Q20/P4 user messages are identical, including complete E2. Original PDF/E2 SHA256 match the identities in4.1/P4. | No observed stale-policy/schema substitution or missing supplied merge/split evidence explains this result. Default retrieval is a separate boundary. |
+| Generation | P4 returns one lead/seven items/no after; neither qualification appears elsewhere. HTTP200/stop,922 completion tokens. Q20 also omitted both with stop/548. | Observed omission happens in generated content. These two observations do not establish a failure rate, prove model incapacity, identify its internal cause or show truncation. Reported completion usage is not a count of visible JSON tokens. |
+| Local contract | `after` is required as an array but may be empty; aliases validate supplied identity, not meaning. A source qualification may legitimately already be in before/items, and some lists have no material qualification. | Accepting this payload is consistent with the approved structural contract. Requiring an arbitrary nonempty after is not a semantic completeness check. |
+| Composer/storage | Read-only replay of the saved contract through current `compose_answer` equals the retained response, stored Turn answer and trace answer; seven bullets and one E2 alias. Existing slot fixtures already preserve supplied member/shared qualifications. | No demonstrated text loss to fix in composition, persistence or rendering. Repeating those fixtures cannot establish generation compliance. |
+| Selection | Current selector produces only a presentation enum and explicitly cannot supply answer/member content. Its count_list choice was correct here. | Extending it to identify qualifications changes its responsibility and contract; that is a new design hypothesis, not a bug fix proven by this trace. |
+
+The read-only revalidation exited0: exact policy/schema/user-message comparisons, PDF/E2 digests and contract→Markdown→Turn/trace equality passed. No capture was overwritten. No new test, fixture, product/config edit, provider request or successful live acceptance case was created. Full tests/runtime/browser checks were not rerun; P4 browser/source findings and P2/P3 technical evidence remain historical, with their stated limits.
+
+| Considered route | Benefit | Why it is not a justified next product diff |
+| --- | --- | --- |
+| Reword/reorder policy, rename after, or move qualifications earlier | Small code change; existing slots suffice to represent a correct answer. | v18 already explicitly requires scope/member/shared conditions and their placement, yet this case failed. Another phrasing/ordering remains an untested compliance hypothesis; captures do not establish it as the cause or support another prompt search. |
+| Require after≥1, a qualification field, or a model-declared completeness flag | Can reject an empty slot or expose an asserted qualification. | A filler/wrong/incomplete statement still passes; correct conditions may already be elsewhere or genuinely absent. Unconditional requirements can reject valid concise/list answers and need refusal-aware rules. This does not supply the missing semantic reference. |
+| Extend selector to collect conditions, or add a second semantic check/repair | Makes qualification selection explicit and could detect some omissions if the reference is correct. | The same model can omit/misread a condition in that step. Requires a new contract, coverage authority, error/refusal policy and token/quota/latency decisions. Existing layout selector is not independent semantic evidence; this is beyond the approved minimal change and risks duplicating153/158. |
+| Append source sentences/excerpts deterministically or restore quote/range selection | Copied text can retain selected wording and avoid paraphrase loss. | Need a justified way to select every relevant condition and exclude unrelated text; a source range/alias alone does not prove coverage. Copying whole chunks duplicates titles/background, changes natural-answer UX and may add irrelevant conditions. No question/count/keyword special case, regex repair, quote catalog or source-excerpt rewrite is justified. |
+| Change model/cap or refactor191 | Could alter future behavior or maintainability. | No observed P4 truncation; earlier bounded20B/120B comparison did not pass. Module extraction does not add a semantic reference/check. No evidence or permission supports these changes as a183 remedy. |
+| Retain v18/Draft and the failed AC | Preserves verified work, source truth, scope and closed request limits. | Does not complete183. **Recommended current disposition**, rather than presenting an unproven patch as a fix. |
+
+**Owner frontier:** Holding Draft requires no new implementation. Continuing beyond this negative assessment requires an explicit design disposition: what bounded mechanism/UX tradeoff may change to establish or preserve relevant source conditions. Do not silently relax AC2, mandate verbatim output in place of approved natural paraphrases, build a general semantic evaluator, or fund another prompt/model trial. No implementation plan for such a mechanism is approved here. Any eventual concrete shared-code diff needs owner approval and a new191 overlap ACK before edit; old P2 ACK covers only its exact hunk. P5/P6 remain blocked by AC2 and unrun list/short cases. The sole Master and P0–P6 remain intact.
+
 ## 5. Acceptance criteria and evidence reuse
 
 | ID | Required outcome | Current gap |
@@ -357,7 +386,7 @@ Private artifact identities (SHA256; files stay ignored):
 | `count-mobile.jpg` | `db2e0d4dd797b7400340e8e6fc83086780673bd066ca500c47ab3195e8dea3e5` |
 | `citation-mobile.jpg` | `98c4fdb9c9396fe41416292c441fdc397d790cd778261bed16c81b687b09dd17` |
 
-**Owner frontier:** The approved minimal policy hypothesis failed this case. Do not automatically change another prompt, schema, model/cap, retrieval or semantic architecture, waive AC2, or open another live window. Recommendation for owner review: a finite **offline-only design assessment** using these captures, to determine whether an existing-contract/source-constrained remedy is justified and present one exact proposed diff/limits, or explicitly conclude no minimal remedy is supported. This is a proposal, not new implementation/inference authority. Holding Draft without further work is the alternative. Keep P0–P6 and this sole Master; do not create Q22 or another roadmap.
+**Owner frontier:** The approved minimal policy hypothesis failed this case. Owner subsequently approved the finite offline assessment; section4.3 records its negative result and alternatives. No justified minimal product diff was identified. Do not automatically change another prompt, schema, model/cap, retrieval or semantic architecture, waive AC2, or open another live window. Keep Draft, P0–P6 and this sole Master; no new behavior/implementation/inference authority follows from investigation approval.
 
 ### P5 — Final review and product acceptance readiness
 
@@ -457,4 +486,4 @@ Owner review decisions:
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Owner reviews the failed P4 evidence and chooses whether to authorize the finite offline design assessment above or hold Draft. No product edit or provider/OAuth action follows automatically. Q21 stays postponed; P5 acceptance is blocked by AC2 and unrun AC4/AC5. P6 merge/closure requires separate owner approval.
+**Immediate next action:** Owner reviews the completed finite offline assessment in4.3. Recommendation: retain Draft/unchanged AC2; no supported minimal product patch is ready for approval. Any further remediation design needs an explicit mechanism/UX scope decision before dependent work; no product edit or provider/OAuth action follows automatically. Q21 stays postponed; P5 acceptance is blocked by AC2 and unrun AC4/AC5. P6 merge/closure requires separate owner approval.
