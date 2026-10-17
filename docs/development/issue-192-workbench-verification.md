@@ -194,3 +194,73 @@ actionable findings; the reviewer did not rerun tests. Ruff format/check/lint, s
 OpenAPI exporter check, Compose configuration and diff check pass. Compose retains the missing
 local MinIO credential warnings. No application/database runtime started for this follow-up; the
 earlier full-suite/PostgreSQL evidence retains its original commit scope. Exact new-commit CI is separate.
+
+## Approved local L1 — one owner, sequential capability phases
+
+The owner approved the local envelope in
+[comment6233445354](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6233445354)
+in chat, then explicitly approved the ownership correction from
+[comment6233631658](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6233631658):
+one real Keycloak owner, changing reader → author → reviewer capabilities sequentially.
+This verifies phases of the same owner, not independent-person review. Each phase ended with
+logout/session revocation and at least 65 seconds before signing in again; access-token TTL is
+60 seconds. Write and approve were never granted simultaneously. Agent accept/reject/freeze
+remains prohibited; human review is pending.
+
+Runtime began at **2026-10-17 19:03:12 Asia/Saigon**. The original hard stop is **20:33:12**;
+startup corrections and restart did not reset that deadline. Only the new
+`knora-wb192-l1` PostgreSQL/Keycloak containers and dedicated storage are used, with loopback
+ports 15492/18192/18092/13092. Existing images/dependencies only; no old PostgreSQL cluster was
+started, recovered, copied or queried. Application providers are deterministic-local with no
+Cloudflare/OpenAI/Gemini credentials and no evaluation live profiles or worker dispatch.
+
+| Local L1 identity/artifact | Value |
+| --- | --- |
+| Issuer | `http://127.0.0.1:18192/realms/knora-wb192-l1` |
+| Owner subject | `95932186-5415-4307-9db4-e5394fb99b18` |
+| Workspace | `73caf42b-d350-4f19-a9b2-9707a6eaa9d4` |
+| New dataset | `a1734dd6-545e-46e7-836b-38ff8b73b069`, `L1 local UI walkthrough — drafts only` |
+| Dataset state before human handoff | DRAFT, revision 5; two UNREVIEWED cases; no reviews/reference |
+| ANSWER draft | `e066fa4c-4928-4135-b4f7-41b0af69bc06`, watering seedlings before 9 AM, one original-PDF page 1 anchor |
+| REFUSAL draft | `1fe9c064-deed-482c-891d-415296af9835`, absent private password, explicit one-document scope note |
+
+Three synthetic PDFs were selected together and uploaded through the actual Builder UI.
+`community-garden-guide.pdf` and `fictional-garden-notes.pdf` became READY with separate retained
+extraction snapshots. `text-empty-fixture.pdf` became FAILED / `PDF_TEXT_INSUFFICIENT`, retained
+its original, and has no extraction snapshot. Both ready extracted pages were inspected in UI.
+No retry, Ragas proposal, scorer, runtime binding or Q&A run was submitted.
+
+Reader UI exposed no creation/review controls. Author created the dataset and exactly two manual
+drafts, with no approve/freeze controls. After a fresh reviewer login, the session endpoint
+reported the same subject and exactly `operator:read, documents:read, evaluations:approve`;
+the Builder exposed review controls and omitted upload/edit/create controls. Accept/reject stay
+disabled until a review note is supplied. The agent left that note empty and handed off the page.
+Read-only assertions against this new database confirmed one dataset, three sources, two cases,
+two extraction snapshots, zero reviews/gold versions/proposal batches/runs/preflights.
+
+Temporary setup corrections were confined to this L1 runtime: Docker bridge networking with
+explicit loopback publishing; an admin-only managed multivalued capability attribute on the new
+realm; preserving synthetic profile fields during capability updates; frontend launch cwd set to
+its project directory so Tailwind scans the correct sources. No maintained product file changed.
+
+**Original-PDF visual gate is still open.** Original endpoints returned HTTP 200, but the integrated
+browser showed a blank PDF both in the iframe and a separate original tab. Correcting Tailwind
+restored the iframe's intended height, not PDF rendering. No cause for the remaining blank viewer
+has been established. The retained garden original rendered correctly with existing local
+Poppler; its preview was supplied for human comparison. This does not establish that embedded
+original review works or that the human has accepted the cases/product.
+
+Local evidence is retained under `%TEMP%/knora-wb192-l1/evidence`, including upload/failure/source
+screenshots, author drafts, reviewer controls/session, phase transition times, database assertions
+and the rendered original. Credentials and runtime environment files stay local and unpublished.
+The owned watchdog stops application process trees and these two containers at the original
+deadline or explicit completion, retaining storage. Runtime remains at human handoff until then.
+
+Source HEAD/PR202 remains `ebb934279136e47b5d598c50323f7409c393d002` before this ledger update.
+[Exact-head CI 39028447642](https://github.com/NhiBuaa/knora-agent/actions/runs/39028447642)
+has six successful jobs including CI required. No repeated implementation test run is claimed.
+Project 5 read-back: #158/#192/#193/#194/#195/#198 In Progress; #196/#197 Blocked. No issue is Done.
+Provider calls/retries **0**, paid cost **USD 0**. The Cloudflare probe and all live validation
+remain unapproved; historical gold/thresholds/runs, billing/config, export/enforcement and shared
+#153/#188 source/migrations are unchanged. L1 narrows upload/extraction/identity evidence gaps;
+it does not complete quality, A3/R3, human acceptance or combined migration integration.
