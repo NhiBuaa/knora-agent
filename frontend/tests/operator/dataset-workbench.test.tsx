@@ -63,6 +63,39 @@ const extractedPage = {
   content_checksum: "d".repeat(64),
 };
 
+it("downloads the selected original PDF in the current Workspace", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string) =>
+      Response.json(
+        input.includes("/pages/")
+          ? { ...extractedPage, source_id: "s2" }
+          : {
+              ...dataset,
+              sources: [source, { ...source, id: "s2", filename: "notes.pdf" }],
+            },
+      ),
+    ),
+  );
+  render(
+    <DatasetWorkbench
+      workspaceId="w1"
+      initialDatasetId="d1"
+      capabilities={["operator:read", "documents:read", "evaluations:approve"]}
+    />,
+  );
+  await userEvent.click(
+    await screen.findByRole("button", { name: "notes.pdf" }),
+  );
+
+  const download = screen.getByRole("link", { name: "Download original PDF" });
+  expect(download).toHaveAttribute(
+    "href",
+    "/api/operator/evaluation/datasets/d1/sources/s2/original?workspaceId=w1#page=1",
+  );
+  expect(download).toHaveAttribute("download", "notes.pdf");
+});
+
 it("clears loaded extraction when the physical page changes", async () => {
   vi.stubGlobal(
     "fetch",

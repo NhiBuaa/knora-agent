@@ -1023,6 +1023,13 @@ function DatasetWorkspace({
               {selected.failure_code && (
                 <p role="status">{selected.failure_code}</p>
               )}
+              <a
+                className="text-action-text underline"
+                href={`${base}/${encodeURIComponent(dataset.id)}/sources/${encodeURIComponent(selected.id)}/original?workspaceId=${encodeURIComponent(workspaceId)}#page=${pageNumber}`}
+                download={selected.filename}
+              >
+                Download original PDF
+              </a>
               <div className="grid gap-4 lg:grid-cols-2">
                 <iframe
                   title="Original PDF"

@@ -447,3 +447,71 @@ CLI lexical wiring, Q12/Q13 choices and actual fresh-upload/serving evidence rem
 After local closeout, Project 5 #192 is Blocked pending viewer/human acceptance and separately
 authorized runtime/live gates; #196/#197 remain Blocked. No issue is Done. The last successful
 source CI above retains its exact-head scope; closeout documentation commits have separate CI.
+
+## Approved read-only L3 — 17 October 2026, diagnosis and early closeout
+
+The owner explicitly approved [L3 proposal](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6235070285)
+in chat. The fixed clock began at **21:28:09 Asia/Saigon**, before any temporary launcher;
+cleanup was registered for 21:47:09, hard deadline 21:48:09. Same retained storage, owner,
+Workspace/dataset, three sources and two drafts; no product edits, uploads, review/freeze,
+binding/preflight/run, worker, migrations or model dispatch were authorized.
+
+Preparation detected one stale L2 closeout filename in the temporary runner. The harmless
+admission helper was stopped without releasing application startup, the reference was corrected
+and AST/prior-window guards passed. The original clock was retained. The replacement helper,
+launched by an owned Windows scheduled task, was independently checked alive with the same
+PID/creation time/command after its originating tool call. Independent cleanup was registered
+and read back before the admission release. Both tasks used current interactive user/Limited,
+without stored password, elevation or recurrence. There was exactly one product startup attempt:
+21:29:08.803, ready at 21:29:33.840. Launcher/API/frontend identities were still alive at 21:32:36;
+this is bounded persistence evidence, not proof that the earlier L1/L2 disappearance cause is known.
+
+A fresh browser OIDC login using the existing generated synthetic owner credentials succeeded;
+the normal session route showed the same subject and only reviewer capabilities. No identity or
+realm configuration changed. The original garden endpoint was also read with a real reviewer
+token from the already-enabled local direct grant: HTTP 200, `application/pdf`, content length
+2309, no-store/nosniff, SHA256 `91c195401b5201a2d77fa01fbc65c4eb819572f36d195a4c881f6ccc52388ee5`.
+The response bytes exactly match the retained original. This proves **backend** transport only.
+No token/password/session secret is included in published evidence.
+
+The original tab on the normal BFF route has DOM `document.contentType = application/pdf` and an
+empty body, with blank gray rendering. Extraction remains readable. Browser page-assets inventory
+has no assets for that PDF document, and its supported bundling kinds do not expose PDF bytes;
+console warnings/errors are empty. Browser BFF headers/bytes were not captured. Thus backend bytes
+and browser MIME are verified, while BFF byte equivalence, embedded rendering and root cause remain
+unproven. No browser setting, alternate file server, session synthesis or dependency workaround
+was used. Relevant local evidence: `l3-backend-transport.json`, `l3-backend-original.pdf`,
+`l3-browser-original.json`, `l3-viewer-extraction.jpg`, `l3-process-persistence.json`.
+
+Final read-only DB transaction at **21:32:37** still finds DRAFT revision 5, two cases, reviews[],
+reference null, no proposals; three sources/two snapshots, zero gold versions/runs/preflights.
+The read-only diagnostic reached its available-tool limit, so the agent requested early stop.
+Owned cleanup began **21:33:13.364** and finished **21:33:19.207**, success with no errors/open ports,
+before the fixed deadline. Docker independently reports exact containers exited at 21:33:13.696
+and 21:33:14.689; fresh process-identity/port checks passed. Both owned scheduled tasks were removed
+only after verified shutdown. Storage/evidence retained; no restart or post-shutdown DB query.
+
+Model/provider calls/retries **0**, paid **USD0**. Authentication and read-only local HTTP requests
+above are not model dispatch. Gold/threshold/history, billing/config, live profiles, export,
+enforcement and shared #153/#188 source remain unchanged. L3 did not approve a product change.
+The owner subsequently approved the exact Download-original link separately, as recorded below;
+embedded-viewer acceptance remains a separate gate.
+Project #192/#196/#197 remain Blocked after closeout. Goal and quality acceptance are incomplete.
+
+## Approved original-PDF download link — 18 October 2026, offline verification
+
+The owner approved one **Download original PDF** anchor in Source review, using the existing
+iframe BFF URL and `download={selected.filename}`. The link stays inside the existing source-read
+capability condition. No endpoint, dependency, authentication, provider, binding, gold or metric
+change is included. No runtime window was authorized by this approval.
+
+The regression selects the second source as a reviewer with source-read permission and checks
+the literal dataset/source/Workspace URL and filename. It first failed because the accessible link
+was absent; after adding the anchor, all **20 Dataset Workbench tests pass**. Frontend format,
+format check and TypeScript typecheck pass. The prior exact-head CI for
+`2e401bfcf725c6ad5cb1658256e1acfadddc3bb4` completed with all six jobs successful; the download-link
+commit requires its own CI evidence.
+
+Browser download bytes/filename and BFF equivalence still need a separately approved bounded local
+runtime window. This offline result does not establish embedded PDF rendering, human review/freeze,
+quality acceptance or any live-model gate. The retained L3 data and historical runs are unchanged.
