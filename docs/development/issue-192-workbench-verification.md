@@ -515,3 +515,46 @@ commit requires its own CI evidence.
 Browser download bytes/filename and BFF equivalence still need a separately approved bounded local
 runtime window. This offline result does not establish embedded PDF rendering, human review/freeze,
 quality acceptance or any live-model gate. The retained L3 data and historical runs are unchanged.
+
+## Approved download L4 — 18 October 2026, two attempts and early closeout
+
+The owner explicitly approved [L4 scope](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6237268050)
+in chat. Fixed clock **00:09:13 Asia/Saigon**, cleanup scheduled for 00:23:13, hard deadline
+00:24:13; one product startup at **00:10:25.808**, ready **00:11:07.763**, on source HEAD
+`c306693feb31f2d17e7e8c7adf2a8143a224ee64`. Same storage, identity, Workspace and retained dataset.
+
+The scheduled-task launcher survived its originating call. The local XML verifier initially
+misread the exported encoding declaration, path escaping and omitted default RunLevel; its read
+checks were corrected before release, without changing task configuration or resetting the clock.
+The actual scheduled-task principal was independently Limited/Interactive. Launcher identity and
+registered cleanup were verified before ALLOW-L4; no application restart was attempted.
+
+Normal fresh reviewer OIDC login succeeded. The session route shows subject
+`95932186-5415-4307-9db4-e5394fb99b18` and only `operator:read`, `documents:read`,
+`evaluations:approve`. Source review displays **Download original PDF**, with the correct retained
+dataset/source/Workspace BFF URL and `download="community-garden-guide.pdf"`. Extraction remains
+readable and the original iframe blank gray. Screenshot `evidence/l4-download-link.jpg` records
+the source context; `l4-session.txt` and `l4-browser-download.json` record the observed session/link.
+
+Exactly **two download attempts**: ordinary click with a download-event listener, then documented
+file-link `downloadMedia`, each timed out after 20 seconds without returning a saved path. The DOM
+stayed on Builder and console warnings/errors were empty. Backend access logs show original GET200
+for the iframe and both attempts; they do not prove BFF/browser response bytes or successful file
+delivery. **No browser file/size/SHA256 verification was possible.** No additional attempts, hidden
+cookie/token extraction, session synthesis, security/browser setting or alternate-server workaround.
+
+Final read-only DB **00:13:08.027**: DRAFT revision5, two cases, reviews[], reference null, no
+proposals; three sources/two snapshots, zero gold versions/runs/preflights. Launcher/API/frontend
+process identities were verified live before early stop. Cleanup **00:13:08.961–00:13:14.984**
+succeeded with no errors/open ports, before deadline. Independent checks found no matching owned
+processes, all four ports closed and both exact containers stopped; both owned tasks were removed.
+Evidence/storage retained; no restart or post-shutdown DB query. Model calls/retries **0**, paid
+**USD0**; no quota consumed, provider/profile/config change, worker or review/freeze.
+
+L4 is closed. The link is implemented and visible; successful browser download, BFF byte equivalence,
+embedded rendering and human product acceptance remain unproven. No new runtime approval follows
+from these failures. The broader quality/live/integration gates and Project blocked statuses remain.
+
+Source HEAD `c306693feb31f2d17e7e8c7adf2a8143a224ee64` has exact-head CI
+**39052367661 SUCCESS**, all six jobs including CI required. Later closeout documentation commits
+have their own CI scope; this success is not browser-download or quality acceptance.
