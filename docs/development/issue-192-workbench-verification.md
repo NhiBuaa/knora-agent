@@ -364,3 +364,74 @@ merge/deploy or quality acceptance follows from this local startup.
   windows fail closed. This addresses the finding above; it does not establish CLI, all-60,
   runtime, provenance, semantic quality or combined integration acceptance. Full/fix-only and
   candidate/base hashes were rechecked before the finite ACK. No shared file was applied here.
+
+### L2 browser handoff and finite review — 17 October 2026, 21:12 Asia/Saigon
+
+After the owner requested reopening in the integrated browser, a new tab on the normal HTTP
+Builder route opened successfully. The rejected old connection-error tab was not reused or
+bypassed. A normal account logout was followed by a fresh OIDC authorize/callback using the
+retained Keycloak SSO session; no password re-entry is claimed. The session endpoint reported
+the same owner subject and exactly `operator:read, documents:read, evaluations:approve`.
+The tab was placed at Cases and marked for human handoff. The review note remains empty and
+the agent has not accepted, rejected or frozen either case. No human review result has arrived
+at this checkpoint; the pre-handoff database assertions above do not describe later actions.
+
+The original garden PDF remains blank gray both in the iframe and a separate normal HTTP tab;
+the extracted page is readable. API logs record two original GET responses with status 200.
+Console warnings/errors were empty. Browser-visible original response headers/bytes were not
+captured, so no end-to-end byte-equivalence claim follows. Source inspection finds an
+`application/pdf` backend response and a BFF stream forwarding content type; this does not prove
+the actual browser response or establish the cause. No viewer code, browser setting, alternate
+file server or security workaround was added. The local original render is comparison evidence
+only and leaves the original-viewer acceptance gate open.
+
+Local evidence includes `l2-reviewer-session.txt`, `l2-source-garden.jpg`,
+`l2-original-direct.jpg`, `l2-reviewer-handoff.jpg` and `l2-browser-check.json` under the retained
+evidence directory. The fixed cleanup trigger remains **21:21:47**, hard deadline **21:22:47**
+Asia/Saigon. The independent one-shot task is registered; successful shutdown is still pending
+observation. No extension is implied by this handoff.
+
+The [Q11 population-guard finite ACK](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6234899417)
+covers LF patch SHA256 `21b56ce7cf01f1d4395c9c7603950a58899ee8911d8342823213c2f59248cbab`
+on its three pinned current bases/four candidates. Independent import-path assertions ensured
+the TEMP candidates, not current worktree modules, were tested: **154 offline tests passed**,
+covering the new guards, S2 contracts, dense processing, generation loading and private population
+validation. The exact private repeated-content snapshots and limitations are pinned in that ACK.
+No actionable finite source finding remains; no shared patch was applied here. Runtime manifest,
+native measurement, Q12/Q13 choices, S2 main/HTTP wiring, full corpus, migrations/concurrency and
+combined integration remain outside this ACK.
+
+Source checkpoint `25c6368a64e76d3184ceb0fe639e7fd234d4f7d0` has
+[exact-head CI 39038997330](https://github.com/NhiBuaa/knora-agent/actions/runs/39038997330)
+SUCCESS. This subsequent documentation update has separate commit/CI scope. Provider calls/retries
+remain **0**, paid cost **USD 0**; quality, human acceptance and live approvals remain open.
+
+### L2 final data observation — 17 October 2026, 21:20 Asia/Saigon
+
+At 21:20:07, listeners 18092/13092 and the recorded application/watchdog PIDs were absent;
+only the two owned containers remained running. Their reason for stopping is unestablished.
+No service was restarted. The independent one-shot cleanup task remained Ready with its original
+21:21:47 trigger. This corrects any inference that the browser remained available throughout
+handoff. No human review result has been received.
+
+A read-only transaction against the retained database at **21:20:28** confirmed the same dataset
+is still DRAFT revision 5 with exactly two cases, empty reviews/proposal batches and no gold
+reference. Counts remain three sources, two snapshots, zero gold versions/runs/preflights.
+`evidence/l2-final-db.json` records this observation. No later database state is claimed.
+
+### L2 closeout — 17 October 2026, 21:22 Asia/Saigon
+
+The independent scheduled task ran at **21:21:47**, result **0**. Its closeout records cleanup
+start 21:21:47.866 and finish **21:21:53.618**, before the fixed 21:22:47 deadline, with no errors
+or open L2 ports. Fresh Docker inspection confirms the exact PostgreSQL/Keycloak containers
+exited at 21:21:48.227 and 21:21:49.159. Independent checks found no listeners on all four ports
+and no recorded application/watchdog process identities. Child PID 16568 had been reused by a
+new Python process at 21:19:55 (the former child was Node); that unrelated process was untouched.
+Only after these checks was the exact owned
+one-shot task removed. Storage and evidence remain retained; no services were restarted.
+
+Thus L2 cleanup succeeded within its authorization, while the earlier application availability
+gap and original-viewer/human acceptance gates remain unresolved. No human review/freeze outcome
+was received. The final read-only data observation above proves both cases were unreviewed at
+21:20:28; no database query was made after shutdown. Calls/retries remain **0**, paid cost
+**USD 0**. This closes the local window, not #192/#158 or their quality/live/integration gates.
