@@ -1,0 +1,13 @@
+{
+  "diagnostics": {
+    "blocked_network_attempts": 0
+  },
+  "elapsed_ms": 4209.025,
+  "finding_type": null,
+  "packages": {
+    "detect-secrets": "1.5.0",
+    "guardrails-ai": "0.11.0",
+    "guardrails-ai-secrets-present": "0.1.0"
+  },
+  "status": "clear"
+}

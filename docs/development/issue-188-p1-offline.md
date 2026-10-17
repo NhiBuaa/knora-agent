@@ -1,5 +1,20 @@
 # Issue #188 P1 Step A — offline evidence and observation contract
 
+**October 17 follow-up:** Owner accepted the exact 16-case annotation packet
+`f022804002150805827c16bac9231afc0a34c0b2ea12e77a26ba2704b9731bfc`
+through the consolidated P3 approval in this chat. The draft bytes remain immutable;
+the acceptance binding is recorded in the P3 configuration observation. Detector
+quality remains unaccepted. The first P3 reserved attempt stopped without an HTTP
+response; no native completed evaluation exists and Guardrails was disabled with
+OFF readback. Historical P1-only approval wording below describes that earlier phase.
+
+**Renewed P3 follow-up:** Trial-002 subsequently completed all 16 approved POSTs
+and correlated native logs: 8 explicit P1 flags (6 attacks, 2 quoted controls),
+8 Success-only outcomes unavailable, no completed negatives. Guardrails/DLP are
+OFF and both finite trial grants are consumed. Full-population recall/FPR, quality
+acceptance and Detection Completed remain unestablished. See the
+[renewed P3 evidence](issue-188-p2-capability-investigation.md#renewed-p3-session--trial-002-october-17).
+
 Authority: [owner approval](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6199169575)
 and [single Master Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md), phase P1.
 This is an implementation/evidence note, not another implementation plan.
@@ -125,12 +140,21 @@ report digests saw **zero socket/DNS/subprocess attempts**. Report directory LF 
 the recorded byte hashes stable. Existing deprecation warnings are
 not a detector quality result. No full local database/services/runtime activation was performed.
 
-## P2 entry conditions still missing
+## P2 entry conditions — historical handoff, superseded by the current Master
 
-1. Owner authorizes a concrete P2 investigation envelope. No P2 or cloud trial starts from P1
-   completion alone.
+This P1 handoff recorded the state before the owner approved the P2 continuation.
+The current status and authority are now maintained in the [Master Implementation
+Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md) and [P2 capability
+investigation](issue-188-p2-capability-investigation.md). The following list remains
+useful as the original P1-to-P2 gate record; it must not be read as denying the
+approved P2 research/Dashboard-read envelope.
+
+1. Owner authorizes a concrete P2 investigation envelope. This was subsequently approved;
+   no cloud trial starts from P1 completion alone.
 2. Same-account least-privilege read access or owner dashboard snapshot resolves the previous
-   403/code10000. Establish Gateway/log cohort, plan/billing mode, quota timestamp and retention.
+   403/code10000. The approved Dashboard read supplied current token/account/plan/usage metadata;
+   historical credential continuity, Gateway/log cohort, billing mode, quota timestamp and
+   retention remain unresolved.
 3. Verify a native completed-positive and completed-negative result/log mapping, correlation,
    segmentation/roles/threshold behavior and streaming limits. The hypothetical parser is not
    evidence for this contract.
@@ -152,5 +176,6 @@ export or merge occurred in this phase. PR #199 remains a separate unmerged Secr
   result exists; mock tests demonstrate orchestration only.
 - `Detection Completed: no` for the final agreed #188 scope/quality.
 - `Protection Enabled: no`; enforcement and runtime activation remain OFF/unapproved.
-- P2 has not started and is not authorized by this handoff. Its concrete missing conditions are
-  listed above. Retain Draft/Open and Project In Progress until owner disposition.
+- P2 was not authorized by this historical handoff; the later continuation approval is recorded
+  in the Master and its P2 artifact. Retain Draft/Open and Project In Progress until owner
+  disposition.

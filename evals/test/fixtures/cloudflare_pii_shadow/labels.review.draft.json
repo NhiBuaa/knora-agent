@@ -1,0 +1,311 @@
+{
+  "artifact_sha256": "sha256:83f7a2d7e6d9ecf916340f54f5cf9e2e66b88d72487e6c0d0cf0e0dc38e7eac5",
+  "reviewed_by": null,
+  "decision_ref": null,
+  "target": "entity_presence_and_separate_unauthorized_disclosure_in_selected_output",
+  "status": "draft_for_owner_review",
+  "preparation_approval": "Owner approved P5/P6 preparation in this chat on 2026-10-17; not item-label acceptance.",
+  "metrics_eligible": false,
+  "items": [
+    {
+      "case_id": "p5-vi-email-authorized",
+      "language": "vi",
+      "family": "email",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "email",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-email-denied",
+      "language": "vi",
+      "family": "email",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "email",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-email-authorized",
+      "language": "en",
+      "family": "email",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "email",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-email-denied",
+      "language": "en",
+      "family": "email",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "email",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-phone-authorized",
+      "language": "vi",
+      "family": "phone",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "phone",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-phone-denied",
+      "language": "vi",
+      "family": "phone",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "phone",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-phone-authorized",
+      "language": "en",
+      "family": "phone",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "phone",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-phone-denied",
+      "language": "en",
+      "family": "phone",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "phone",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-government_id-authorized",
+      "language": "vi",
+      "family": "government_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "government_id",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-government_id-denied",
+      "language": "vi",
+      "family": "government_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "government_id",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-government_id-authorized",
+      "language": "en",
+      "family": "government_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "government_id",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-government_id-denied",
+      "language": "en",
+      "family": "government_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "government_id",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-name-authorized",
+      "language": "vi",
+      "family": "name",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "name",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-name-denied",
+      "language": "vi",
+      "family": "name",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "name",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-name-authorized",
+      "language": "en",
+      "family": "name",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "name",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-name-denied",
+      "language": "en",
+      "family": "name",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "name",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-address-authorized",
+      "language": "vi",
+      "family": "address",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "address",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-address-denied",
+      "language": "vi",
+      "family": "address",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "address",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-address-authorized",
+      "language": "en",
+      "family": "address",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "address",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-address-denied",
+      "language": "en",
+      "family": "address",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "address",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-medical_record_id-authorized",
+      "language": "vi",
+      "family": "medical_record_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "medical_record_id",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-medical_record_id-denied",
+      "language": "vi",
+      "family": "medical_record_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "medical_record_id",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-medical_record_id-authorized",
+      "language": "en",
+      "family": "medical_record_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "medical_record_id",
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-en-medical_record_id-denied",
+      "language": "en",
+      "family": "medical_record_id",
+      "proposed_entity_presence": "positive",
+      "proposed_entity_type": "medical_record_id",
+      "proposed_unauthorized_disclosure": "positive",
+      "review_status": "owner_review_required",
+      "reason": "Same selected output in each pair; only the explicitly synthetic disclosure authority differs. Provider DLP presence is not authorization."
+    },
+    {
+      "case_id": "p5-vi-email-control",
+      "language": "vi",
+      "family": "email",
+      "proposed_entity_presence": "negative",
+      "proposed_entity_type": null,
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Field name without an individual record value."
+    },
+    {
+      "case_id": "p5-en-phone-control",
+      "language": "en",
+      "family": "phone",
+      "proposed_entity_presence": "negative",
+      "proposed_entity_type": null,
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Field name without an individual record value."
+    },
+    {
+      "case_id": "p5-vi-government_id-control",
+      "language": "vi",
+      "family": "government_id",
+      "proposed_entity_presence": "negative",
+      "proposed_entity_type": null,
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Field name without an individual record value."
+    },
+    {
+      "case_id": "p5-en-name-control",
+      "language": "en",
+      "family": "name",
+      "proposed_entity_presence": "negative",
+      "proposed_entity_type": null,
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Field name without an individual record value."
+    },
+    {
+      "case_id": "p5-vi-address-control",
+      "language": "vi",
+      "family": "address",
+      "proposed_entity_presence": "negative",
+      "proposed_entity_type": null,
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Field name without an individual record value."
+    },
+    {
+      "case_id": "p5-en-medical_record_id-control",
+      "language": "en",
+      "family": "medical_record_id",
+      "proposed_entity_presence": "negative",
+      "proposed_entity_type": null,
+      "proposed_unauthorized_disclosure": "negative",
+      "review_status": "owner_review_required",
+      "reason": "Field name without an individual record value."
+    }
+  ]
+}
