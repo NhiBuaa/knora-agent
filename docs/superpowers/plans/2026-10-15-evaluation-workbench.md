@@ -140,3 +140,13 @@ and main lifecycle tests pass223 cases. No provider/corpus preparation runs duri
 This closes the host-composition seam only: actual retained-source corpus preparation, reviewed
 binding construction and approved live admission remain implementation/acceptance work, not just
 permission to press Run. See the current product audit in Issue192 comment6199348185.
+
+## Takeover checkpoint — 17 October 2026
+
+The preceding paragraphs are historical checkpoints. At `7ee019d`, all six CI checks, including
+CI required, succeeded. The reviewed corpus adapter and new deterministic UI run now exist; the older statements
+that those were missing are superseded. The run remains SEMANTIC_PENDING with a false refusal and
+coverage 0/1. Runtime files are retained, but the old services are stopped and logical database
+recovery has not been verified. See the [current acceptance matrix and evidence](../../development/issue-192-workbench-verification.md)
+for exact identities, PostgreSQL concurrency follow-up, shared-file ACK and remaining acceptance.
+No historical result, gold, threshold or activation restriction is changed by that update.

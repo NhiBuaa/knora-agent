@@ -157,3 +157,17 @@ access and the serialized payload and verify deletion/readback. These activation
 block review/CI acceptance of the offline integration. Mock success and package installation do
 not establish evaluation quality, seven-day Cloud retention or Guardrails detection/false-positive
 performance.
+
+## Workbench takeover — 17 October 2026
+
+PR #190 has merged; Issue #158 quality remains unaccepted. Workbench PR #202 at `7ee019d` has
+successful CI and a saved deterministic UI execution, but its expected ANSWER case returned
+REFUSAL with zero candidates. No ANSWER capture in that run can be supplied to DeepEval. The
+Workbench scoring/proposal services still deny live profiles, and fresh same-account Workers
+Free/quota proof plus an exact USD 0 execution envelope remain prerequisites, not approvals.
+The owner uses external Edge without Computer Use; no credentials should be sent in chat.
+
+The [current Workbench checkpoint](issue-192-workbench-verification.md) records acceptance gaps,
+retained runtime availability and the separate PostgreSQL contention tests. Earlier test results
+in this document retain their original SHAs and scope. Gold, thresholds and historical runs are
+unchanged; Langfuse export and Guardrails enforcement remain OFF.
