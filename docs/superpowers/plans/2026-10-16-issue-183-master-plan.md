@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner approved v1 at `f5631b2`, retained P0–P6 and accepted P0/P1. Exact A at `fe1a1c9`4.2 and P2/P3 offline are [approved](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6207141718); [191 overlap ACK](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6207154818) received before edits. P2 technical gates pass; P3 mock-only readiness and the separate P4 approval proposal are recorded below. Q21 remains postponed; no live inference window is active.
+**Status:** Owner approved v1 at `f5631b2`, retained P0–P6 and accepted P0/P1. Exact A at `fe1a1c9`4.2 and P2/P3 offline are [approved](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6207141718); [191 overlap ACK](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6207154818) received before edits. P2/P3 technical gates pass. [Approved P4](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6219191457) executed at `78362ae` and stopped on **semantic FAIL, 3/9 requests**: v18 still omitted both supplied merge/split qualifications. Cleanup is verified; six unused requests expired. P5 acceptance is blocked pending an owner decision. Q21 remains postponed; no live window is active.
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
@@ -182,15 +182,15 @@ The following unified diff applies to product baseline305f8b9 (same affected fil
 
 | ID | Required outcome | Current gap |
 | --- | --- | --- |
-| AC1 | Count question without “hãy liệt kê”: natural lead, bold proven number/unit, individual chapter bullets; no hardcoded question/count/title logic. | Q20 format/order succeeded once; qualifications fail. Seven is source-derived expected evidence, not a product constant. |
-| AC2 | All material assertions/members/totals/conditions supported; no dropped conditions, concealed incomplete members, duplicate members, or “may/should” promoted to “must”. | Q20 merge/split FAIL; older general-list conditional-index/support FAIL. |
+| AC1 | Count question without “hãy liệt kê”: natural lead, bold proven number/unit, individual chapter bullets; no hardcoded question/count/title logic. | P4 v18 count layout/order passed; qualifications fail AC2. Seven is source-derived expected evidence, not a product constant. |
+| AC2 | All material assertions/members/totals/conditions supported; no dropped conditions, concealed incomplete members, duplicate members, or “may/should” promoted to “must”. | P4 v18 repeats Q20 merge/split FAIL despite complete E2; older general-list conditional-index/support FAIL. |
 | AC3 | Source order and all necessary citations; correct source/version/page/locator; chip after last consecutive shared-source group where possible, no source discarded to reduce repetition. | Single-source Q20 mapping reusable; actual support of each new output must be reviewed. Mixed/repeated aliases retain offline coverage. |
-| AC4 | “Báo cáo cần có những phần nào ngoài các chương nội dung?” gives distinct, supported bullets in source order with conditional indexes/appendices intact. | No v17 success; older v8 is not final-policy acceptance. |
-| AC5 | “Mục tiêu chung của mọi báo cáo là gì?” gives concise prose about a comprehensive view of group research/implementation, without unrelated chapter outline. | No v17 runtime result. |
-| AC6 | Real Edge1440×960 and mobile viewport390×844: inspect actual screenshots/DOM, visible bullets/bold, no clipping/overflow/raw markers/duplicate chip artifacts; open every resulting citation/source. | Q20 DOM is partial evidence, not comprehensive visual QA/physical phone proof. |
+| AC4 | “Báo cáo cần có những phần nào ngoài các chương nội dung?” gives distinct, supported bullets in source order with conditional indexes/appendices intact. | Unrun in P4 because count failed; no final-policy acceptance. |
+| AC5 | “Mục tiêu chung của mọi báo cáo là gì?” gives concise prose about a comprehensive view of group research/implementation, without unrelated chapter outline. | Unrun in P4 because count failed; no final-policy runtime result. |
+| AC6 | Real Edge1440×960 and mobile viewport390×844: inspect actual screenshots/DOM, visible bullets/bold, no clipping/overflow/raw markers/duplicate chip artifacts; open every resulting citation/source. | P4 count screenshot/DOM/source opening passed both viewports; other two cases unrun. Mobile viewport is not a physical phone. |
 | AC7 | Preserve169/178 language, source excerpts/history, citation validation/mapping, refusal and Workspace access. Invalid generation stays error, not repair or fabricated refusal. | Existing regression baseline; rerun affected/full gates for changed candidate. No extra live refusal/ACL requests by default. |
 | AC8 | Correlate exact code/prompt/schema/provider/model/cap/config/source through both payloads→Markdown→Turn/trace→DOM. Final tests/format/review/CI pass; failures/skips/unknown cost reported. | Q19 technical pass is historical; new code/base needs fresh gates. |
-| AC9 | Authorized bounded physical ledger, fresh fail-closed account/Free/quota, isolated OAuth/runtime, cleanup; explicit accepted retrieval scope. | No active permission. Q18 deviation cannot be repaired retroactively; actual request-specific costs unknown. |
+| AC9 | Authorized bounded physical ledger, fresh fail-closed account/Free/quota, isolated OAuth/runtime, cleanup; explicit accepted retrieval scope. | Approved P4 closed at3/9; fresh preflight/containment-only/cleanup recorded below. Q18 deviation cannot be repaired retroactively; actual request-specific costs unknown. |
 
 **Retrieval acceptance scope resolved by owner:**183 accepts generation with sufficient supplied evidence; default `retrieval-m1-v1` coverage belongs to153. Runtime-only containment may supply that evidence only under a separately approved P4 window. This does not pass default M1 or authorize containment rollout, a new retrieval implementation, Issue or waived AC.
 
@@ -221,7 +221,7 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | P1 | Complete; owner approved exact A/P2/P3 offline. | Approved decision delivered; no inference. |
 | P2 | Technical complete at product2621676; CI SUCCESS at docs8054d68. | Technical pass, not semantic acceptance; later docs head requires its own CI. |
 | P3 | Mock-only readiness checks complete; final review/publication recorded below. | Offline readiness, not OAuth/live permission. |
-| P4 | Not authorized; Q21 postponed. | Finite measurement complete; quality may still FAIL. |
+| P4 | Approved window executed at78362ae; semantic FAIL, stopped3/9 and cleaned up. | Bounded execution complete; AC2 blocks quality acceptance. No remaining live allowance. |
 | P5 | Blocked by quality pass/final CI. | Explicit product acceptance, not merge. |
 | P6 | Not authorized. | Actual approved integration; deployment separate. |
 
@@ -289,7 +289,7 @@ Independent targeted re-review confirms the reproduced race is resolved; **94 pa
 
 **Tests/acceptance/DoD:** Denial tests prove zero unauthorized sends; valid simulated sequences bounded; duplicate/timeout cannot reopen. Existing38 Q20 tests reused/adapted, count honestly. Zero real embedding/generation. Readiness is not P4 permission.
 
-#### P3 live-window proposal — awaiting separate owner approval
+#### P3 live-window proposal — subsequently approved and executed as P4 below
 
 This proposal grants nothing by itself. It fixes the intended P4 envelope so approval need not become a series of exploratory prompt/request rounds:
 
@@ -320,6 +320,44 @@ Pinned SHA256: answer-policy UTF-8 `2d2c611936f2e48fb809e05ae6c4345c698bd576a703
 **Tests:** The three real-provider questions, original-PDF assertion/qualification review, both-stage payload-to-public-result correlation, desktop/mobile visual/DOM/source-opening checks and post-run admission/cleanup audit. No fixture or prompt-string assertion substitutes for these checks.
 
 **Acceptance/DoD:** A completed report can have quality FAIL. Quality PASS requires all ACs and three final-candidate cases in explicitly approved retrieval scope. Failure blocks P5 acceptance and requires new owner decision, not Goal continuation/increased complexity or a fresh allowance.
+
+#### P4 execution — 2026-10-17, quality FAIL; window closed
+
+**Authority/identity:** [Proposal](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6217495808), [owner approval record](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6219191457), Master/candidate `78362aef6994ed1f2f4729908733ef3e95f36a16`, product `2621676d7377f5a2bed9571ca97ea1c8be679321`. Exact-candidate [CI38914626842](https://github.com/NhiBuaa/knora-agent/actions/runs/38914626842) required/all five components SUCCESS was read again before setup. Working tree and all four pinned policy/schema hashes matched. No product code, schema, composer, selector, model/cap, default retrieval or module changed. Use existing account `0815469773bb9f83177a1303be9a90f3`, GPT-OSS20B/1024, original source/version/23 chunks and23 vectors; containment only in this isolated runtime.
+
+**Offline wiring:** Ignored `frontend/test-results/issue183/p4/` reuses the hash-pinned P3 guard without changing P3/Q20. API/frontend prepare with a dummy credential and deny all provider execution; only the explicit worker loads provider credentials after live preflight. Strict transports disable retries, redirects, environment proxies and mounted transports. Independent review found startup/descriptor/credential-loader errors lacked a durable stop; four regressions reproduced RED and then passed after fixing the private helper. Final parent run: **121 passed in10.38s** (94 P3+27 P4), child-import/Ruff checks passed; independent reviewer27 passed and no remaining actionable finding in the reviewed scope. These are private offline checks, not maintained product tests or model evidence.
+
+**Fresh preflight:** Through the external Edge browser connector, account read at02:17:05.471 UTC, Billing row **Workers Free Active** at02:17:20.821 UTC, Workers AI **Neurons used today:0/10k** at02:17:51.952 UTC. These were actual new reads bound by SHA256/window/candidate to the live grant, not cached Q20 observations. Every send below was within600s of every observation. Paid budget0USD remained policy; the dashboard is aggregate and does not establish actual per-request charges. No billing/account changes occurred. User requested no Computer Use; subsequent browser work used the external Edge connector.
+
+| Physical request | Admission UTC | HTTP / outcome | Usage / latency |
+| --- | --- | --- | --- |
+| Query embedding0 |02:18:38.527 |200, one1024-dimensional vector | Usage not returned by retained embedding record;1.659s. |
+| Presentation0 |02:18:40.318 |200/stop; `count_list` |1093 prompt+215 completion=1308 tokens;2.238s. |
+| Answer1 |02:18:42.594 |200/stop; ANSWER, valid fixed slots/aliases |1496 prompt+922 completion=2418 tokens;9.259s. |
+
+Exactly **3 physical attempts**, no errors/unknown outcomes/retries/replay/document embeddings/re-ingestion. Generation totals2589 prompt+1137 completion=3726 tokens; aggregate recorded provider latency13.156s across three calls, not end-to-end latency. Other-list/short questions were **not submitted**; the six unused requests expired on semantic failure. No request-specific charge is asserted.
+
+**Result/source review:** Turn `b6b5e0f4-528f-43b2-a9aa-b0d0204f57ad`, Conversation `da60adad-eaf7-43f9-8d6c-fade72e97e35`, trace `d82c2e85-3f30-4ee0-b13f-52f398aa5e41`. Stored status answered/final_validated, trace generation completed/validation valid. Natural suggested-outline lead, bold **7 chương**, seven supported chapter items in source order, one E2 citation. However, final slots contain before1/items7/**after0** and omit both small-report merge3/4(possibly5 depending length) and chapter5 split qualifications. Original PDF p.1 and exact supplied E2 (unchanged SHA256 `52a86d817d05454f5c7c3bc8972afb71673ae2d1559f2880915884f9778e51bf`) contain both. Independent source review and exact offline composer replay confirm final contract→Markdown→stored Turn/trace equality: the omission occurs before composition/persistence, not as a demonstrated renderer loss. HTTP200/stop/922 below1024 shows no observed truncation. The model-internal reason remains unknown. **v18 did not resolve AC2; structural/citation validation is insufficient to detect this omission.** Durable stop was written at02:19:11.941 UTC; no next-case authorization was created.
+
+**Browser/citations:** Real external Edge at1440×960 and390×844; saved screenshots/DOM show seven `<li>`, one strong number/unit, one chip, no raw marker or duplicate-chip artifact. Mobile article width/scrollWidth350 and viewport/page width390 show no horizontal overflow; screenshot text wraps. Desktop chip and mobile drawer open Report guidelines.pdf, p.1, lines15–34, historical version `b9c52a63-185d-4078-956c-ec42bdd807af`; Open document serves that exact current/served version. Excerpt is a bounded preview, not the full E2; original PDF/full evidence was separately reviewed. This verifies the failed count case only, not other-list/short cases or physical-phone behavior.
+
+**Cleanup:** Normal PKCE/self-login succeeded with a separate localhost3183 session; only exact callback/origin/logout entries were added to existing local knora-web. Cleanup reread/removed only owned entries; final client representation equals pre-run representation. Owned API8183/frontend3183 stopped and listeners absent; viewport reset and runtime tab closed. Primary3000 was absent before/after and never started/stopped/replaced. Recovered Postgres15483 and existing Keycloak8180 were retained, with no primary config edits. Old Q20 captures/source/history unchanged. PR184 remains Draft;183 open/In Progress;191/200 separate. P5/P6 are not authorized by this failed window.
+
+Private artifact identities (SHA256; files stay ignored):
+
+| Artifact under `frontend/test-results/issue183/p4/` | SHA256 |
+| --- | --- |
+| `p4_guard.py` | `597f3a7ebfd3ab5b940ccfc4c7da63bb05d3f6b88e6d3a420d7b9c1451957229` |
+| `runtime.py` | `52062002403a54ed1bc04fc324c742ba5f845519fa4f233f826f54cbfa114de6` |
+| `test_p4_guard.py` | `80d8d56dfe46be0944f2e3edc50b845bcf730a2c05adbf119193718bb1370e65` |
+| `request-generation-1.json` | `4cec422a8de103ca12f84822a83b222f5444a930edb845054f0850e6f886ee0f` |
+| `contract-generation-1.json` | `7d60d94e6707c7c572c48c74f7a3b1e648091b4ab891a1d323be49e3adffebbd` |
+| `terminal-0.json` | `990f9202bdcfa0bcc0a469dae2979ea5ef7bb9651e8b6c67f329d3538550ee49` |
+| `count-desktop.jpg` | `d4b885810fc2a7e843a8e0bdfd33d060b6cb222ef40f083fd752f83ed3aa66ac` |
+| `count-mobile.jpg` | `db2e0d4dd797b7400340e8e6fc83086780673bd066ca500c47ab3195e8dea3e5` |
+| `citation-mobile.jpg` | `98c4fdb9c9396fe41416292c441fdc397d790cd778261bed16c81b687b09dd17` |
+
+**Owner frontier:** The approved minimal policy hypothesis failed this case. Do not automatically change another prompt, schema, model/cap, retrieval or semantic architecture, waive AC2, or open another live window. Recommendation for owner review: a finite **offline-only design assessment** using these captures, to determine whether an existing-contract/source-constrained remedy is justified and present one exact proposed diff/limits, or explicitly conclude no minimal remedy is supported. This is a proposal, not new implementation/inference authority. Holding Draft without further work is the alternative. Keep P0–P6 and this sole Master; do not create Q22 or another roadmap.
 
 ### P5 — Final review and product acceptance readiness
 
@@ -362,7 +400,7 @@ Pinned SHA256: answer-policy UTF-8 `2d2c611936f2e48fb809e05ae6c4345c698bd576a703
 | P2 code/tests/review/repair | Exact A/P2/P3 offline approved;191 overlap ACK. | No inference/OAuth; behavioral drift outside4.2 needs owner decision. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
-| OAuth/runtime mutation/inference | None; old windows closed/Q21 postponed. | Exact approved window and fresh fail-closed preflight. Free quota is not consent. |
+| OAuth/runtime mutation/inference | None remaining; approved P4 stopped3/9, unused six expired; old windows closed/Q21 postponed. | A new exact owner-approved window and fresh fail-closed preflight are required. Free quota is not consent. |
 | Default retrieval/production/account/billing changes | None. | Separate proposal/approval; no containment rollout by inference. |
 | Product acceptance/Draft change/merge/closure/Done/deployment | None. | Explicit owner disposition at each applicable boundary. |
 
@@ -416,7 +454,7 @@ Owner review decisions:
 1. **Resolved:** Owner approved Master v1 atf5631b2, kept P0–P6, accepted P0 and started P1 offline. Existing active overall Goal/tool limitation is recorded in section7.
 2. **Resolved:** Owner approved exact A atfe1a1c9 section4.2 plus P2/P3 offline;191 ACK recorded. No schema change is approved.
 3. **Resolved in P1 authorization:**183 accepts generation with sufficient supplied evidence; default-M1 retrieval belongs to153. P4 must still pin and separately approve its runtime-only retrieval profile; no rollout/default-M1 acceptance.
-4. Prepare P3 offline inside the approved P2/P3 envelope; separately approve P4 OAuth/runtime/live allowance once exact candidate/readiness exists. Proposed9 calls are not a grant.
+4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Review the P3 live-window proposal and separately approve or decline P4. Q21 stays postponed; no provider send/OAuth mutation follows from P2/P3 completion. P6 merge/closure requires separate owner approval.
+**Immediate next action:** Owner reviews the failed P4 evidence and chooses whether to authorize the finite offline design assessment above or hold Draft. No product edit or provider/OAuth action follows automatically. Q21 stays postponed; P5 acceptance is blocked by AC2 and unrun AC4/AC5. P6 merge/closure requires separate owner approval.
