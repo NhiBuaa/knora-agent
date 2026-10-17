@@ -435,3 +435,15 @@ gap and original-viewer/human acceptance gates remain unresolved. No human revie
 was received. The final read-only data observation above proves both cases were unreviewed at
 21:20:28; no database query was made after shutdown. Calls/retries remain **0**, paid cost
 **USD 0**. This closes the local window, not #192/#158 or their quality/live/integration gates.
+
+The subsequent [upload-readiness finite ACK and Q10 race source review](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6235046377)
+pins runner patch LF SHA256 `214e03e1d894634bf94df15abba21f42ad57d7db232ea983b729a906faf02ee8`
+and race-test source SHA256 `83161efd2c706a8cea19619d9ae9cfd479b127de0ad0a860260a76320d7e1684`.
+Independent actual-candidate import/hash checks and 54 mocked offline tests pass. Connected source
+review found no actionable issue in the finite runner delta or two lock-observing test schedules.
+The latter were **not executed** against PostgreSQL here; no runtime/concurrency acceptance follows.
+CLI lexical wiring, Q12/Q13 choices and actual fresh-upload/serving evidence remain separate.
+
+After local closeout, Project 5 #192 is Blocked pending viewer/human acceptance and separately
+authorized runtime/live gates; #196/#197 remain Blocked. No issue is Done. The last successful
+source CI above retains its exact-head scope; closeout documentation commits have separate CI.
