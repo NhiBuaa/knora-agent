@@ -67,6 +67,7 @@ async def test_openai_compatible_generation_returns_structured_result_and_safe_m
     assert payload["response_format"]["type"] == "json_schema"
     assert "E1" in payload["messages"][1]["content"]
     assert "Refunds last thirty days." in payload["messages"][1]["content"]
+    assert "retained_conditions" not in json.loads(payload["messages"][1]["content"])
     assert result.decision == "ANSWER"
     assert result.answer == "Refunds last thirty days. [[E1]]"
     assert result.cited_evidence_ids == ("E1",)
@@ -228,7 +229,9 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
             }
         )
         if calls == 1:
-            content = json.dumps({"presentation": "count_list" if case == "list" else "prose"})
+            content = json.dumps(
+                {"presentation": "count_list" if case == "list" else "prose", "conditions": []}
+            )
         return httpx.Response(
             200,
             json={
@@ -272,7 +275,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v18"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v19"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

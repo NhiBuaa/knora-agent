@@ -473,8 +473,8 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   Aliases for each paragraph or item. The adapter checks Evidence Set membership
   and composes Markdown; it no longer checks literal quotes or source positions.
   A valid alias does not prove semantic support, count completeness or source order.
-  Q12 adds a private Cloudflare presentation choice before generation, with no
-  answer/member content in that choice. Local selected-list gates require at least
+  Q12 adds a private Cloudflare presentation choice before generation, originally
+  without answer/member content in that choice. Local selected-list gates require at least
   two items; prose requires empty items. Count
   contracts require a lead paragraph with explicit nullable literal
   emphasis. Q19 also requires every paragraph to declare `bold` as a literal
@@ -498,6 +498,22 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   applicability remain in scope. This does not prove model compliance or add a
   semantic gate; schema, composer, citations, refusal, model and token cap remain
   unchanged. #191's extraction remains separate until #183 acceptance/integration.
+  After v18 still omitted supplied shared conditions, the owner approved Master
+  section 4.4 for offline implementation: the selector also returns shared list
+  conditions as literal text with Evidence Aliases, but no total/member collection.
+  The adapter validates these paragraphs before the second request, passes them as
+  separate user-message data alongside the original question/evidence, and appends
+  them after a valid list answer's concluding paragraphs using the existing composer.
+  Valid refusal adds no selected notes; existing answer/list/count gates run first.
+  Prose/count prose require empty selected conditions. The answer wire schema,
+  public validation and other providers remain unchanged; there are still two
+  Cloudflare requests with the existing model and per-request cap. The identities
+  become `cloudflare-presentation-conditions-v2` and
+  `cloudflare-gpt-oss-cited-answer-v19`. This guarantees transfer of validated
+  selected notes, not correct/complete selection or evidence entailment. Duplicates,
+  conflicts and omitted individual-item conditions remain acceptance failures;
+  there is no automatic semantic deduplication or repair. Live compatibility and
+  semantic acceptance remain pending separate runtime approval.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input

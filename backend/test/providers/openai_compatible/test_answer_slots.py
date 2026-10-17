@@ -5,7 +5,11 @@ import pytest
 
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
-from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA, compose_answer
+from knora.providers.openai_compatible.answer_blocks import (
+    ANSWER_BLOCK_SCHEMA,
+    _Paragraph,
+    compose_answer,
+)
 
 EVIDENCE = (GenerationEvidence("E1", "Suggested: Alpha; Beta. Merging allowed."),)
 ANSWER = {
@@ -22,6 +26,74 @@ def test_fixed_slots_render_one_list_between_supported_paragraphs():
         "Suggested: **2 parts**.\n\n- Alpha\n- Beta\n\nMerging is allowed. [[E1]]",
         ("E1",),
     )
+
+
+def test_selected_condition_appends_after_model_after_without_mutating_payload():
+    payload = copy.deepcopy(ANSWER)
+    original = copy.deepcopy(payload)
+    notes = (_Paragraph(text="Shared condition *literal*.", support=["E1"], bold=None),)
+    assert compose_answer(payload, EVIDENCE, presentation="count_list", conditions=notes) == (
+        "Suggested: **2 parts**.\n\n- Alpha\n- Beta\n\n"
+        "Merging is allowed.\n\nShared condition \\*literal\\*. [[E1]]",
+        ("E1",),
+    )
+    assert payload == original
+
+
+@pytest.mark.parametrize("presentation", ["list", "count_list"])
+def test_selected_condition_citations_group_each_alias_once(presentation):
+    evidence = (
+        GenerationEvidence("E1", "First part."),
+        GenerationEvidence("E2", "Second part and shared condition."),
+        GenerationEvidence("E3", "Additional condition."),
+    )
+    payload = {
+        "decision": "ANSWER",
+        "before": (
+            [{"text": "2 parts.", "support": ["E1"], "bold": "2 parts"}]
+            if presentation == "count_list"
+            else []
+        ),
+        "items": [{"text": "Alpha", "support": ["E1"]}, {"text": "Beta", "support": ["E2"]}],
+        "after": [{"text": "Extra note.", "support": ["E3"], "bold": None}],
+        "refusal_reason": None,
+    }
+    notes = (_Paragraph(text="Shared condition.", support=["E2", "E1", "E2"], bold=None),)
+    answer, aliases = compose_answer(payload, evidence, presentation=presentation, conditions=notes)
+    assert answer.endswith("Extra note.\n\nShared condition. [[E1]] [[E2]] [[E3]]")
+    assert aliases == ("E1", "E2", "E3")
+
+
+@pytest.mark.parametrize("slot", ["before", "items", "after"])
+def test_selected_condition_cannot_rescue_malformed_refusal(slot):
+    payload = {
+        "decision": "REFUSAL",
+        "before": [],
+        "items": [],
+        "after": [],
+        "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    }
+    notes = (_Paragraph(text="Condition.", support=["E1"], bold=None),)
+    assert compose_answer(payload, EVIDENCE, presentation="list", conditions=notes) == (None, ())
+    payload[slot] = ANSWER[slot]
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        compose_answer(payload, EVIDENCE, presentation="list", conditions=notes)
+
+
+@pytest.mark.parametrize("fault", ["empty", "singleton", "no_lead", "missing_bold"])
+def test_selected_condition_cannot_rescue_invalid_list(fault):
+    payload = copy.deepcopy(ANSWER)
+    if fault == "empty":
+        payload["items"] = []
+    elif fault == "singleton":
+        payload["items"].pop()
+    elif fault == "no_lead":
+        payload["before"] = []
+    else:
+        del payload["before"][0]["bold"]
+    notes = (_Paragraph(text="Condition.", support=["E1"], bold=None),)
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        compose_answer(payload, EVIDENCE, presentation="count_list", conditions=notes)
 
 
 def test_supplied_member_and_shared_conditions_keep_aliases_and_input():

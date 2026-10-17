@@ -1,7 +1,9 @@
 # Compose generated lists from supported blocks
 
-Status: owner-approved behavior, Q9 simplification, Q12 presentation selection and Q17 fixed slots through Issue #183 (2026-10-15); implementation
-and runtime acceptance pending in PR #184.
+Status: owner-approved behavior through Issue #183, including Q9 simplification,
+Q12 presentation selection, Q17 fixed slots and Master section 4.4 selected-condition
+retention (2026-10-17); offline amendment verification and runtime acceptance pending
+in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
 v8 produced selected successful layouts, but a general-list observation omitted
@@ -153,3 +155,44 @@ This is a generation instruction, not a semantic validator or guarantee. The
 schema, selector, composer, citation/refusal validation, model, token cap and
 retrieval remain unchanged. A runtime candidate must still compare all claims
 with the supplied source; a passing shape/alias check does not prove meaning.
+
+## Master section 4.4: retain selected shared conditions (2026-10-17)
+
+P4 on v18 again omitted both supplied merge/split qualifications before composition,
+despite a valid answer shape, `finish_reason=stop` and 922 completion tokens. The
+payload, composer, Turn and trace agreed; this is not evidence of renderer loss
+or observed truncation. The model's internal reason for omission remains unknown.
+
+The owner approved the exact three-file behavior diff in the sole
+[Master section 4.4](../superpowers/plans/2026-10-16-issue-183-master-plan.md#44-proposed-retention-of-selected-shared-conditions--approved-for-offline-implementation).
+A new [replacement technical overlap ACK from #191](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6233675217)
+permits offline implementation without waiting for the separate extraction.
+The selector now requires `conditions`, containing shared list qualifications as
+literal `text` and supporting aliases. It cannot generate the total/member collection;
+conditions only applying to one member remain that item's responsibility.
+Prose/count prose must return an empty conditions array.
+
+Before request two, reuse the paragraph, one-line text and alias checks. The
+second user-message JSON retains the original question/evidence and adds
+`retained_conditions` as generated data, never as system instructions or new
+evidence. The answer wire schema stays unchanged. Existing ANSWER/REFUSAL/list/count
+gates run before the composer appends selected paragraphs after model `after`
+paragraphs, retaining text, order and citations. Valid REFUSAL returns no answer or
+citations without appending notes. Invalid output remains an error without repair.
+
+The identities become `cloudflare-presentation-conditions-v2` and
+`cloudflare-gpt-oss-cited-answer-v19`. This retains two generation calls, the
+existing model/per-request cap and safe stage metadata; no module moves, shared
+serializer change, dependency or semantic judge is introduced. Other providers,
+public citation/refusal/access and storage contracts, source excerpts and historical
+answer content stay unchanged. Newly generated Turn/trace answer content includes
+selected conditions after composition. #191 must later adapt extracted policy/builder/parity to the accepted
+actual upstream candidate, after #183 acceptance and PR184 merge.
+
+This only guarantees transfer of conditions already selected and structurally
+validated. The selector can still omit or misstate a condition or cite an alias
+that does not support its meaning. Notes always appear at the end; duplicates or
+conflicts are not automatically removed and remain acceptance failures. More
+selector output/answer input may increase tokens and latency; provider schema
+compatibility and semantic correctness are unverified. Offline tests/CI cannot
+establish AC2 or authorize inference, OAuth, production changes or merge.

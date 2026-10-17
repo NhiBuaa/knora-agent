@@ -1,3 +1,4 @@
+import copy
 import json
 from decimal import Decimal
 
@@ -104,7 +105,10 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
     requests = []
     usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
     provider = _provider(
-        [({"presentation": presentation}, "stop", usage), (_answer(blocks), "stop", usage)],
+        [
+            ({"presentation": presentation, "conditions": []}, "stop", usage),
+            (_answer(blocks), "stop", usage),
+        ],
         requests,
     )
     result = await provider.generate(
@@ -115,15 +119,21 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
     assert len(requests) == 2
     assert [request["max_tokens"] for request in requests] == [1024, 1024]
     assert all(request["model"] == "@cf/openai/gpt-oss-20b" for request in requests)
-    assert requests[0]["messages"][1] == requests[1]["messages"][1]
+    first_user = json.loads(requests[0]["messages"][1]["content"])
+    second_user = json.loads(requests[1]["messages"][1]["content"])
+    assert second_user == {**first_user, "retained_conditions": []}
     answer_policy = requests[1]["messages"][0]["content"]
     assert "conditions on an individual member in that item's text" in answer_policy
-    assert "conditions not already stated in before or items in after" in answer_policy
-    assert "use after=[] only when no such conditions remain" in answer_policy
+    assert "conditions not already covered by retained_conditions" in answer_policy
+    assert "Use after=[] when no additional relevant shared conditions remain" in answer_policy
     assert "conditions that govern the total, member inclusion or applicability" in answer_policy
     selection_schema = requests[0]["response_format"]["json_schema"]
     assert selection_schema["additionalProperties"] is False
-    assert selection_schema["required"] == ["presentation"]
+    assert selection_schema["required"] == ["presentation", "conditions"]
+    note_schema = selection_schema["$defs"]["SourceCondition"]
+    assert note_schema["required"] == ["text", "support"]
+    assert note_schema["additionalProperties"] is False
+    assert note_schema["properties"]["support"]["minItems"] == 1
     answer_schema = requests[1]["response_format"]["json_schema"]
     assert set(answer_schema["required"]) == {
         "decision",
@@ -139,15 +149,107 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
         key in json.dumps(answer_schema)
         for key in ('"oneOf"', '"contains"', '"prefixItems"', '"discriminator"')
     )
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v18"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v19"
     assert result.usage == {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
     assert result.cost["amount_usd"] == "0.00004"
     assert [stage["provider_request_id"] for stage in result.stages] == ["stage-1", "stage-2"]
-    assert result.stages[0]["prompt_version"] == "cloudflare-presentation-v1"
-    assert result.stages[1]["prompt_version"] == "cloudflare-gpt-oss-cited-answer-v18"
+    assert result.stages[0]["prompt_version"] == "cloudflare-presentation-conditions-v2"
+    assert result.stages[1]["prompt_version"] == "cloudflare-gpt-oss-cited-answer-v19"
     assert result.stages[0]["presentation"] == presentation
     assert result.stages[1]["usage"] == usage
     assert all("messages" not in stage for stage in result.stages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_after", [[], [{"text": "Additional limit.", "support": ["E1"], "bold": None}]]
+)
+async def test_selected_conditions_survive_final_after_and_preserve_payloads(model_after):
+    requests = []
+    selection = {
+        "presentation": "list",
+        "conditions": [{"text": "Grouping may vary for short work.", "support": ["E1"]}],
+    }
+    answer = _answer([LIST])
+    answer["after"] = model_after
+    original_selection, original_answer = copy.deepcopy(selection), copy.deepcopy(answer)
+    provider = _provider([(selection, "stop", {}), (answer, "stop", {})], requests)
+
+    result = await provider.generate(question="Which parts?", evidence=EVIDENCE)
+
+    assert result.answer == (
+        "- Alpha\n- Beta\n\n"
+        + ("Additional limit.\n\n" if model_after else "")
+        + "Grouping may vary for short work. [[E1]]"
+    )
+    assert result.cited_evidence_ids == ("E1",)
+    assert validate_generation(result, available_evidence_ids=("E1",)).parsed_markers == ("E1",)
+    assert len(requests) == 2
+    first = json.loads(requests[0]["messages"][1]["content"])
+    second = json.loads(requests[1]["messages"][1]["content"])
+    assert second == {
+        **first,
+        "retained_conditions": [
+            {"text": "Grouping may vary for short work.", "support": ["E1"], "bold": None}
+        ],
+    }
+    assert "Grouping may vary for short work." not in requests[1]["messages"][0]["content"]
+    assert "Grouping may vary for short work." not in json.dumps(result.stages)
+    assert selection == original_selection
+    assert answer == original_answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("presentation", ["list", "count_list"])
+async def test_selected_conditions_do_not_override_valid_refusal(presentation):
+    requests = []
+    refusal = {
+        "decision": "REFUSAL",
+        "before": [],
+        "items": [],
+        "after": [],
+        "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    }
+    selection = {
+        "presentation": presentation,
+        "conditions": [{"text": "Parts may be merged.", "support": ["E1"]}],
+    }
+    provider = _provider([(selection, "stop", {}), (refusal, "stop", {})], requests)
+    result = await provider.generate(question="Which parts?", evidence=EVIDENCE)
+    assert (result.answer, result.cited_evidence_ids) == (None, ())
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "selection",
+    [
+        {"presentation": "list"},
+        {"presentation": "list", "conditions": None},
+        {"presentation": "list", "conditions": {}},
+        {"presentation": "list", "conditions": [{}]},
+        {"presentation": "list", "conditions": [{"text": "Condition.", "support": []}]},
+        {"presentation": "list", "conditions": [{"text": "Condition.", "support": [1]}]},
+        {
+            "presentation": "list",
+            "conditions": [{"text": "Condition.", "support": ["E1"], "extra": 1}],
+        },
+        {"presentation": "list", "conditions": [{"text": " ", "support": ["E1"]}]},
+        {"presentation": "list", "conditions": [{"text": "First\nsecond", "support": ["E1"]}]},
+        {"presentation": "list", "conditions": [{"text": "First\rsecond", "support": ["E1"]}]},
+        {"presentation": "list", "conditions": [{"text": "[[E1]]", "support": ["E1"]}]},
+        {"presentation": "list", "conditions": [{"text": "bad ]] marker", "support": ["E1"]}]},
+        {"presentation": "list", "conditions": [{"text": "Condition.", "support": ["E99"]}]},
+        {"presentation": "prose", "conditions": [{"text": "Condition.", "support": ["E1"]}]},
+        {"presentation": "count_prose", "conditions": [{"text": "Condition.", "support": ["E1"]}]},
+    ],
+)
+async def test_invalid_selected_conditions_stop_before_final_request(selection):
+    requests = []
+    provider = _provider([(selection, "stop", {})], requests)
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        await provider.generate(question="Which parts?", evidence=EVIDENCE)
+    assert len(requests) == 1
 
 
 @pytest.mark.asyncio
@@ -162,7 +264,8 @@ async def test_every_selected_contract_allows_evidence_refusal(presentation):
         "refusal_reason": "INSUFFICIENT_EVIDENCE",
     }
     provider = _provider(
-        [({"presentation": presentation}, "stop", {}), (refusal, "stop", {})], requests
+        [({"presentation": presentation, "conditions": []}, "stop", {}), (refusal, "stop", {})],
+        requests,
     )
     result = await provider.generate(question="Unknown?", evidence=EVIDENCE)
     assert result.answer is None
@@ -192,7 +295,11 @@ async def test_every_selected_contract_allows_evidence_refusal(presentation):
 async def test_wrong_selected_shape_or_alias_is_an_error_without_repair(presentation, blocks):
     requests = []
     provider = _provider(
-        [({"presentation": presentation}, "stop", {}), (_answer(blocks), "stop", {})], requests
+        [
+            ({"presentation": presentation, "conditions": []}, "stop", {}),
+            (_answer(blocks), "stop", {}),
+        ],
+        requests,
     )
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
         await provider.generate(question="Any collection?", evidence=EVIDENCE)
@@ -203,10 +310,11 @@ async def test_wrong_selected_shape_or_alias_is_an_error_without_repair(presenta
 @pytest.mark.parametrize(
     "selection",
     [
-        {"presentation": "invented"},
-        {"presentation": "list", "members": ["Alpha"]},
+        {"presentation": "invented", "conditions": []},
+        {"presentation": "list", "conditions": [], "members": ["Alpha"]},
         {},
-        {"presentation": None},
+        {"presentation": None, "conditions": []},
+        {"presentation": "list"},
         ["list"],
     ],
 )
@@ -223,7 +331,7 @@ async def test_invalid_selection_stops_before_generation(selection):
 @pytest.mark.parametrize("failure", ["http", "timeout", "length"])
 async def test_either_stage_failure_stops_without_retry(stage, failure):
     requests = []
-    content = {"presentation": "prose"} if stage == 1 else _answer([PROSE])
+    content = {"presentation": "prose", "conditions": []} if stage == 1 else _answer([PROSE])
     failed = (
         (content, "length", {})
         if failure == "length"
@@ -231,7 +339,7 @@ async def test_either_stage_failure_stops_without_retry(stage, failure):
         if failure == "http"
         else httpx.ReadTimeout("secret-canary")
     )
-    replies = [({"presentation": "prose"}, "stop", {})] * (stage - 1) + [failed]
+    replies = [({"presentation": "prose", "conditions": []}, "stop", {})] * (stage - 1) + [failed]
     provider = _provider(replies, requests)
     code = "GENERATION_OUTPUT_INVALID" if failure == "length" else "PROVIDER_REQUEST_FAILED"
     with pytest.raises(KnoraError, match=code) as captured:
@@ -247,7 +355,10 @@ async def test_missing_stage_usage_is_unknown_not_partial_turn_cost(missing_stag
     usage = [{"prompt_tokens": 10, "completion_tokens": 5}] * 2
     usage[missing_stage] = {}
     provider = _provider(
-        [({"presentation": "prose"}, "stop", usage[0]), (_answer([PROSE]), "stop", usage[1])],
+        [
+            ({"presentation": "prose", "conditions": []}, "stop", usage[0]),
+            (_answer([PROSE]), "stop", usage[1]),
+        ],
         requests,
     )
     result = await provider.generate(question="Any fact?", evidence=EVIDENCE)
@@ -272,7 +383,11 @@ async def test_proven_total_with_zero_or_one_known_member_stays_prose(members):
         else []
     )
     provider = _provider(
-        [({"presentation": "count_prose"}, "stop", {}), (_answer(blocks), "stop", {})], requests
+        [
+            ({"presentation": "count_prose", "conditions": []}, "stop", {}),
+            (_answer(blocks), "stop", {}),
+        ],
+        requests,
     )
     result = await provider.generate(
         question="How many parts?",
