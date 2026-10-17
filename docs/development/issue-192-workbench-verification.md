@@ -264,3 +264,31 @@ Provider calls/retries **0**, paid cost **USD 0**. The Cloudflare probe and all 
 remain unapproved; historical gold/thresholds/runs, billing/config, export/enforcement and shared
 #153/#188 source/migrations are unchanged. L1 narrows upload/extraction/identity evidence gaps;
 it does not complete quality, A3/R3, human acceptance or combined migration integration.
+
+### L1 closeout — 17 October 2026, 20:35 Asia/Saigon
+
+The automatic follow-up at 20:34:35 found the original 20:33:12 deadline had elapsed.
+Exec watchdog handle 77075 was missing; recorded API/frontend PIDs 22356/40952 and listeners
+18092/13092 were absent. Both owned Docker containers were still running with their explicit
+loopback ports. Thus the promised watchdog cleanup was **not verified and did not fully occur**.
+The earlier ready state file was stale; it is not evidence of a live watchdog or available UI.
+The reason for the missing handle/processes is unestablished.
+
+After checking exact container IDs and Compose project labels, the agent explicitly stopped only
+these two containers. Docker records PostgreSQL exit at **20:35:00.329** and Keycloak exit at
+**20:35:00.637**: approximately 108 seconds after the approved deadline. A fresh check confirms no
+listeners on any of the four L1 ports and both application PIDs absent. Storage/evidence are
+retained; no services were restarted and no final database query was performed after expiry.
+The pre-handoff DB assertions above retain their original scope, not proof of subsequent human
+actions. No human review result or permission to extend/reopen L1 has been supplied.
+
+This supersedes the earlier statement that the runtime remained available for handoff until the
+deadline. L1 is now stopped with human review and original viewer evidence still incomplete.
+Another runtime window requires explicit approval and reliable cleanup verification first;
+the original 90-minute authorization is exhausted. Provider calls/retries remain 0 and paid cost
+USD 0. Cleanup observations and exact exited IDs are saved locally in `evidence/closeout.json`.
+
+The documentation checkpoint commit `ae5a44be9c9c56255fb088089fb803f772e21d54` has
+[CI 39032513816](https://github.com/NhiBuaa/knora-agent/actions/runs/39032513816): all six jobs,
+including CI required, SUCCESS. The closeout ledger change has its own later commit/CI scope.
+Project status and the outstanding quality/live/integration gates above are unchanged.
