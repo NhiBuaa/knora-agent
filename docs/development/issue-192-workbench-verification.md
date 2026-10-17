@@ -115,6 +115,14 @@ was stopped and removed. The retained native Workbench cluster and other contain
   The test interpreter is the existing local
   `.venv-eval` (Python 3.13.15), since this worktree has no `.venv`.
 
+Hosted CI for follow-up `2cd9a77ac300adbf7643a5d5525ef8e96f533350`:
+[run 39012903508](https://github.com/NhiBuaa/knora-agent/actions/runs/39012903508) Database job
+succeeded. Downloaded `database-reports` artifact 12093378579 records 382 tests, zero failures,
+errors or skips; its selection and JUnit reports explicitly include all three new contention
+cases as passed. This verifies the tests run on hosted PostgreSQL rather than being skipped.
+All six jobs, including CI required, subsequently succeeded for this exact PR head. The
+`ci-subject` artifact binds the PR head to its tested merge checkout; these are distinct refs.
+
 ## Shared edits and activation boundaries
 
 The exact #153 Q8 patch was reviewed and
@@ -134,6 +142,15 @@ profiles; merely registering a callback does not make an approved execution enve
 Cloudflare judge has durable HTTP-attempt/time limits, but no explicit output-token limit in its
 request. Provider-specific token enforcement, exact input approval and profile admission remain
 work before any live validation. The false-refusal run cannot supply missing ANSWER captures.
+The eight committed M3 vector/hybrid reports were also inspected: their observations retain
+metrics and source bindings, without saved public answers or exact generation evidence required
+by the current capture mapper. They cannot be imported directly as an alternative scorer input.
+
+The [pinned primary-source token-bound research](../research/2026-10-17-cloudflare-gpt-oss-token-bound.md)
+finds model schema support for `max_tokens` and Workers binding types for both token parameters,
+but no inspected model/endpoint-specific guarantee that the ceiling covers all billed reasoning
+and output. This remains an evidence gap, not proof that the parameters are ignored. No live
+compatibility probe or admission change follows from type declarations.
 
 The owner requires external Edge, without Computer Use. An attempted terminal launch of Edge was
 rejected by automatic policy; no alternate launch mechanism was attempted. Browser sign-in and
