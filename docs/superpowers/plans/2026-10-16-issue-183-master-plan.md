@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner approved P0/P1, exact v18 and subsequent section4.4 offline amendments with their respective191 ACKs. Product `1477838` passed maintained tests/review/required CI. Historical v18 P4 closed3/9 with omitted source qualifications; first v19 setup closed0/9 on a session-secret race. Owner then approved recovery at docs head `55f99e9`: sequential setup succeeded, but **P4-CONDITIONS-V19-RECOVERY closed3/9, quality FAIL**. Selector chose `count_prose` despite seven supplied members; answer HTTP200/stop failed local parsing/validation, with exact violation unavailable because the private capture wrote final content only after validation. No valid answer/trace/citation or final-candidate desktop/mobile acceptance exists. Six unused requests expired; other-list/short remain unrun. Exact OAuth/services cleanup is recorded below. P5/P6 remain blocked, PR184 Draft/183 open/In Progress;191/200 separate. Q21 stays postponed and no live window is active. The separately owner-approved finite offline assessment and exact capture-only helper/tests are complete in4.5. The new helper is mock-only; no live wiring or semantic fix is established.
+**Status:** P0/P1 approved; exact amendments through section4.7 implemented with owner approvals and191 ACKs. Product ed9399b/v20 passed offline checks/review/required CI. The latest separately approved P4 recovery at docs0748a38 closed2/9 on selector HTTP200/length/content=null after1024 completion tokens, before answer generation. No final-candidate list/qualification/citation acceptance; other-list/short unrun. All historical windows remain closed and no live allowance remains. OAuth/services cleanup verified. P5/P6 blocked, PR184 Draft/183 open/In Progress;191/200 separate. Q21 postponed. See the dated recovery report below; this documentation update grants no new code or inference authority.
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
@@ -11,9 +11,11 @@ docs e1f508f passed all CI jobs and renewed #191 overlap ACK6231612445 preceded
 product edits. The exact three-module count-intent/independent-conditions diff is
 implemented as v20/count-conditions-v3; answer wire schema stays unchanged. Offline
 verification is recorded in4.7 below. Exact product head ed9399b passed all CI jobs.
-Owner subsequently approved P4 v20, but that window is now closed0/9 on the
-preflight-order breach recorded below; all three cases remain unrun. No live
-allowance remains and P4/P5/P6 acceptance is incomplete.
+Owner subsequently approved P4 v20; its first setup closed0/9 on the
+preflight-order breach. The separately approved recovery at docs0748a38 is now
+closed2/9: selector HTTP200/length exhausted1024 completion tokens with final
+content=null, before answer generation. All three acceptance cases remain unproven;
+other-list/short were not submitted. No live allowance remains; P4/P5/P6 are incomplete.
 
 **Architecture:** Reuse Cloudflare's presentation selector, fixed `before/items/after` contract, existing Markdown composer and public citation validator. Treat generation fidelity, retrieval coverage and rendering as separate boundaries. Put a finite remediation-design gate before implementation; do not build a semantic evaluation subsystem.
 
@@ -1188,6 +1190,112 @@ Provider credentials may be loaded only by the existing guarded runtime loader.
 Keep the preceding9-request/no-retry/in-app-only scope; do not reset this stop or
 transfer its allowance. A new runtime/OAuth window needs an owner decision.
 
+#### P4 v20 recovery — selector token failure, closed2/9 (2026-10-18)
+
+**Authority/identity:** Owner explicitly approved one recovery window after the
+closed0/9 setup, conditional on exact docs CI SUCCESS. Subject
+`0748a38363b680ea5923aa0faa4aa91e78346c68`, unchanged product
+`ed9399b65840594bfa434906507bf06cb368d658`, count-conditions-v3/answer-v20,
+GPT-OSS20B/max_tokens1024 per call, answer schema unchanged. Exact docs
+[CI39099005937](https://github.com/NhiBuaa/knora-agent/actions/runs/39099005937)
+was completed SUCCESS for required/all five components before recovery;
+product CI39098071062 was already SUCCESS. Only this Master changes in the report.
+
+**Preparation:** New ignored `selector-v20-recovery/` copied only the five reviewed
+helper/test sources, not old grants/stops/secrets/captures. Hash-pinned P3 base,
+wire fingerprint and all old windows remain unchanged. New derivative offline
+77 passed in16.91s; Ruff format/check and Windows child import passed. API ready
+preceded frontend startup. A sealed fresh grant/envelope existed before temporary
+local OAuth/admin credentials; provider credential loading occurred only inside
+runtime preflight after refreshed observations. No provider dotenv metadata
+lookup occurred. Owner completed normal Keycloak login as the unchanged retained
+Workspace owner; no password reset, account or ownership change.
+
+**Fresh preflight:** In-app browser only, account
+0815469773bb9f83177a1303be9a90f3. Billing **Workers Free Active** at08:54:36.388UTC;
+new quota/account page read at08:54:56.275UTC showed **40.38/10000 neurons today**.
+Updated observation digests were bound to the same new grant and envelope checked
+before guarded credential loading/dispatch. Every provider send below was less
+than55s after each observation, with the guard rechecking before each admission.
+Paid budget0USD remains the Free-only admission policy; aggregate dashboard usage
+does not prove actual per-request charges. No billing/plan change occurred.
+Same original PDF SHA219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6,
+retained document/version and23chunks/vectors were verified read-only; no ingestion.
+Containment remains this isolated runtime's configuration, not a default rollout.
+
+| Physical request | Admission UTC | HTTP / observed outcome | Usage / provider latency |
+| --- | --- | --- | --- |
+| Query embedding0 |08:55:21.436 |200, one1024-dimensional vector | Retained record has no usage;0.589s. |
+| Selector0 |08:55:22.172 |200/**length**, final message.content explicitly **null** |1116 prompt+1024 completion=2140 tokens;9.195s. |
+
+Exactly **2 physical attempts**: one query embedding, one selector; no answer
+request, retry/replay/document embedding/re-ingestion or unknown HTTP outcome.
+Durable stop `response-or-unknown-outcome` at08:55:31.387UTC was written by the
+existing generic failure path; the retained response establishes the specific
+failure as **generation-finish**, not an unknown HTTP response. No parsed selector
+contract exists. Seven unused requests expired; cases2/3 were never submitted.
+The provider completion-token count is not a claim that1024 visible answer tokens
+were returned: final content is null. No sibling reasoning/raw response body was
+saved. Model-internal reason for consuming the allowance remains unknown.
+
+**Observed boundary:** Unlike the prior selector-mode failure, this attempt cannot
+evaluate count_question, selected conditions, members or list/prose choice: no
+selector final contract was returned. The failure precedes stage2, composer,
+persistence of an answer and rendering. Increasing cap/model, retrying an unchanged
+prompt, weakening validation or attributing this to the renderer is not supported
+or authorized. This is a concrete token-limit failure for this request, not proof
+that every20B/1024 request fails or that any particular schema field caused it.
+
+**Application/browser correlation:** Turn
+`b6f15248-3cf1-406b-b23d-544271f87b9a`, Conversation
+`3a80404b-f93d-43f1-830a-762e749ab6bd`; retained Turn is failed/failure,
+result=null, error CONVERSATION_EXECUTION_FAILED; exact Turn trace count0.
+Worker subsequently asserted that one terminal trace should exist; that reporting
+assertion is secondary to the earlier captured provider stop and did not cause
+or precede the token failure. In-app desktop1440x960/mobile390x844 screenshots
+and DOM both show System error; Try again was **not** clicked. No answer/citation
+exists to certify list layout, source qualifications, raw markers, duplicate chips
+or citation opening. Error screenshots are not answer-acceptance evidence.
+AC1/AC2/AC4/AC5 and final-candidate citation/browser acceptance remain unresolved;
+historical Q20/v18 evidence is retained, not relabeled as v20 PASS.
+
+**Cleanup/cost:** Fresh local-client readback after removing only owned3183
+callback/origin/logout entries equals the before representation exactly. Only
+owned API/frontend process trees stopped;3183/8183 and primary3000 listeners absent.
+Primary3000 was never replaced/stopped. Existing Postgres15483/Keycloak8180 remain
+available. Temporary Knora/Billing tabs closed; viewport reset. Grant/admissions,
+pending/dispatcher.pending/stop and all failures remain; no reset or allowance
+transfer. Post-run dashboard refresh at08:56:27.481UTC still showed40.38/10000;
+aggregate lag/no displayed change does **not** establish zero actual billed cost.
+Actual request-specific charge remains unknown; no inference follows from this report.
+
+Private artifact SHA256 under `frontend/test-results/issue183/selector-v20-recovery/`:
+
+| Artifact | SHA256 |
+| --- | --- |
+| `p4_guard.py` | `0af04b30aa8084db865415cd09a776b504289febd194c4410549cf170a6e13a1` |
+| `runtime.py` | `f396a4af9acf4af279a4d71e264880187fdeeb894020d1e1b29d48760adf7bae` |
+| `grant.json` | `75712ac9ea92c6cca682f75a34c35bc6d9b6e73ca0be17a1d571020bad028986` |
+| `request-generation-0.json` | `3e73f7215a1011bbc6820716025310de0b3553fa0d7ba6a6f88d1a8909811114` |
+| `response-generation-0.json` | `1a558bac9137ea5b941a3be703292dc76e4cc6f1e205fe2320bd8556a9fb4ec2` |
+| `final-content-generation-0.json` | `8ae9c150a1673b4f14c32604160d254806484f19f1ed6e0a3be8dc775b0cb25c` |
+| `failed-turn.json` | `cf8ae09089b6c3658f002e91915c96c18d478609a3d09af9db2aeae216274125` |
+| `stopped.json` | `93655c385340be6c25f67cdcfa1876387f488d6d1bbd7a1ed3406f3cfe1b86d5` |
+| `desktop-system-error.jpg` | `627e911fcb99f2bd40adc8463710c5cb87e7537d90997bc1e69a0e4374976c5f` |
+| `mobile-system-error.jpg` | `5f60bd60852470ecdd76aa1102793a8c29919005726ad313342806ae65c9288e` |
+| `cleanup.json` | `9f9a4988900b444eba37bfb0f2dba7e8f462a2f582e4bd971429296efa5d926d` |
+
+**Next owner frontier:** No additional inference/OAuth/code change is authorized.
+Recommend one finite offline assessment of the selector's current request/schema,
+token-failure capture and stage responsibilities, using existing v19/v20 evidence
+without rerunning inference; present minimal options/exact proposed diff in this
+same Master before any product/test implementation. This does not predetermine
+prompt/schema/model/cap changes or add a semantic framework. Alternatively hold
+v20/Draft. Any new behavior needs owner approval and191 overlap coordination; any
+new runtime needs a separate fail-closed grant. Keep184 Draft,183 open/In Progress,
+191/200 separate; P5/P6 remain blocked. Full product tests were not repeated for
+this documentation-only report; their tree-specific evidence remains in4.7.
+
 ## 5. Acceptance criteria and evidence reuse
 
 | ID | Required outcome | Current gap |
@@ -1229,9 +1337,9 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | --- | --- | --- |
 | P0 | Accepted by owner atf5631b2. | Approval recorded in183; seven phases retained. |
 | P1 | Complete; owner approved exact A/P2/P3 offline. | Approved decision delivered; no inference. |
-| P2 | Section4.7 exact v20 diff implemented after owner approval/new191 ACK; local maintained2008 passed/16 skipped plus final focused132, independent product review clean. Exact-head CI pending. | Section4.4/v18 gates remain historical; no semantic acceptance. |
-| P3 | v20 mock-only derivative166 passed parent and independent runs; safe final capture, Windows child/Ruff and baseline hashes checked in4.7. | No live mode/grant or fresh account/Billing/OAuth validation. P4 requires separate approval and wiring review. |
-| P4 | v18 semantic FAIL closed3/9; first v19 setup closed0/9; recovery closed3/9 with wrong selector mode/invalid answer. Section4.6 direct diagnostic closed1/1 with a valid count-prose answer, no reproduced historical stage2 failure. All windows closed. | No final-candidate application/browser acceptance. Diagnostic still lacks list/qualifications and cannot recover the missing historical final. Unused allowances expired; no requests authorized. |
+| P2 | Section4.7 exact v20 diff implemented after owner approval/new191 ACK; local maintained2008 passed/16 skipped plus final focused132, independent product review clean. Product ed9399b and docs0748a38 required/all-component CI SUCCESS. | Section4.4/v18 gates remain historical; no semantic acceptance. |
+| P3 | v20 mock-only derivative166 passed parent and independent runs; safe final capture, Windows child/Ruff and baseline hashes checked in4.7. | Recovery live wiring77 offline tests passed; owner-approved grant/fresh observations/OAuth were used then closed in P4. No current live authority. |
+| P4 | v18 semantic FAIL closed3/9; first v19 setup closed0/9; recovery closed3/9 with wrong selector mode/invalid answer. Section4.6 direct diagnostic closed1/1 with a valid count-prose answer, no reproduced historical stage2 failure. v20 setup closed0/9; separately approved recovery closed2/9 on selector HTTP200/length/content=null at1024, before answer. All windows closed. | No final-candidate application/browser acceptance. Diagnostic still lacks list/qualifications and cannot recover the missing historical final. Unused allowances expired; no requests authorized. |
 | P5 | Blocked by quality pass/final CI. | Explicit product acceptance, not merge. |
 | P6 | Not authorized. | Actual approved integration; deployment separate. |
 
@@ -1407,10 +1515,10 @@ Private artifact identities (SHA256; files stay ignored):
 | Read/audit/write/publish this Master/pointers | Authorized current task. | Documentation only. |
 | Create/start phase Goal | P1 authorized; overall owner Goal already active. | Goal API allows one unfinished objective/thread; retain full objective and record bounded phase outcomes here rather than falsely completing it. |
 | P1 offline design/replay | Complete and owner-approved. | Baseline source/replay evidence retained. |
-| P2 code/tests/review/repair | Exact4.2/4.4 amendments implemented with their191 ACKs; owner approved exact4.7 offline at5260004. | Section4.7 implementation waits for docs CI SUCCESS and new191 overlap ACK. No inference/OAuth; further behavior drift needs owner decision. |
+| P2 code/tests/review/repair | Exact4.2/4.4 amendments implemented with their191 ACKs; owner approved exact4.7 offline at5260004. | Section4.7 implemented after docs CI/new191 ACK, product ed9399b required CI SUCCESS. No further inference/OAuth; behavior drift needs owner decision. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
-| OAuth/runtime mutation/inference | None remaining; P4 stopped3/9, unused six expired; section4.6 diagnostic closed1/1; all old windows closed/Q21 postponed. | A new exact owner-approved window and fresh fail-closed preflight are required. Free quota is not consent. |
+| OAuth/runtime mutation/inference | None remaining; latest v20 recovery stopped2/9, unused seven expired; all historical windows/section4.6 closed, Q21 postponed. | A new exact owner-approved window and fresh fail-closed preflight are required. Free quota is not consent. |
 | Default retrieval/production/account/billing changes | None. | Separate proposal/approval; no containment rollout by inference. |
 | Product acceptance/Draft change/merge/closure/Done/deployment | None. | Explicit owner disposition at each applicable boundary. |
 
@@ -1467,4 +1575,4 @@ Owner review decisions:
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:**4.6 diagnostic executed and permanently closed1/1. New answer passed local validation, historical stage2 failure not reproduced; selector/list/condition correctness remains unresolved. Owner approved exact4.7 offline at5260004; await docs CI SUCCESS and renewed191 ACK before any product/test edit, then execute the approved regression/implementation/review gates autonomously. No inference. Do not replay unchanged inference to seek PASS. P2 product1477838 remains unchanged; v19 selection/compliance is not accepted. Old grants/stops cannot be reset or reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
+**Immediate next action:** v20 recovery is permanently closed2/9 on a selector token failure (HTTP200/length/content=null,1024 completion tokens), before answer generation. Product ed9399b/v20 and docs0748a38 CI are SUCCESS; this does not establish runtime acceptance. Await owner decision on the finite offline assessment recommended in the recovery report, or hold Draft; no new product/test change or inference is authorized. Old grants/stops cannot be reset/reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
