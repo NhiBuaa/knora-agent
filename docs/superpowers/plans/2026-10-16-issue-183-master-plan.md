@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner approved section4.9 A and P2 code/tests/docs offline on2026-10-18. Docs CI39115464051 at a7955c6 passed every job; renewed191 ACK6248362063 preceded edits. Product implementation is7f189d3/v21; candidate a0936ad passed full local checks/review and primary CI39118938672/all jobs. Newly merged main188 causes two advisory Security Shadow failures; owner approved the exact three-file offline compatibility extension and main6db745a update into this feature branch below. That extension's checks/CI remain pending. Historical windows remain closed; no inference/OAuth/production/PR merge authority. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
+**Status:** Owner approved section4.9 A and P2 code/tests/docs offline on2026-10-18. Docs CI39115464051 at a7955c6 passed every job; renewed191 ACK6248362063 preceded edits. Product implementation is7f189d3/v21; accepted main6db745a was merged into this feature branch and the approved three-file Security Shadow compatibility extension is applied at bd1c9de. RED reproduced both stale-contract failures; GREEN security unit170, integration1, provider62, frontend470 and full maintained Backend/evaluation2197 passed/16 skipped/26 warnings. Ruff, formatting, OpenAPI, Compose and independent review passed. Exact-head CI for bd1c9de remains pending. Historical windows remain closed; no inference/OAuth/production/PR merge authority. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
 
 **Goal:** Present enumerated answer members as readable Markdown bullets while preserving every accepted generated text field, its order and citation mapping through composition, storage and rendering. Preserve169/178, refusal and access. Semantic completeness against the entire PDF is a separate concern, not a183 delivery gate.
 
@@ -1837,6 +1837,17 @@ diff --git a/evals/test/test_security_outcomes_runner.py b/evals/test/test_secur
 ```
 
 **If A is approved:** coordinate this new shared-caller dependency in183/191 and the archived188 discussion, update the feature branch only, reproduce both failures offline, apply the three-file patch, run affected provider/security unit+integration partitions, full maintained checks, independent review and exact-head CI. Any conflict requiring a new behavior decision stops that part for owner review; do not edit191/PR200. Old selection/capture/report fingerprints remain history; new preparation derives a new payload/code identity rather than relabeling old reports. This still grants no P4/OAuth/inference/retry/model/token/production/merge/closure authority. Prepare the separate P3/P4 envelope only after the compatibility outcome is disposed.
+
+#### Approved extension execution — bd1c9de (offline only)
+
+Owner approved A after the proposal. Accepted main `6db745ae0d2c1f609bf919d4b68398a14b41e05d` was merged cleanly into the feature branch; only the approved three files changed afterward. Coordination was recorded in the archived #188 discussion at [comment 6248783017](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6248783017). No product source, #191/PR200, production, OAuth or provider request changed.
+
+- RED: the two stale-contract tests failed as expected before the edit: the current fixed-slot adapter rejected the legacy REFUSAL payload, and the envelope test rejected the current system prompt. No network was used.
+- GREEN affected checks: Security Shadow unit **170 passed**; Security Shadow integration **1 passed**; provider regression **62 passed**; independent review **53 passed** with no actionable finding. The runner now imports `ANSWER_BLOCK_SCHEMA`, the test uses the current `CLOUDFLARE_SYSTEM_PROMPT`, and the mock uses empty fixed slots for REFUSAL. Frozen case/rubric bytes, history/evidence order, no-network boundaries, model and fixture `max_tokens=512` remain unchanged.
+- Full maintained Python/evaluation suite: **2197 passed, 16 skipped, 26 warnings**, exit0 in546.67s. Full Frontend **470 passed / 52 files**; typecheck/lint/format/shared-format, Ruff, OpenAPI and both Compose configurations passed. Existing lint/deprecation/Compose warnings remain disclosed. The isolated venv initially lacked optional evaluation extras; installing the already-declared CI extras with uv resolved collection without changing dependency files.
+- Plain `git diff --check` reports the runner's existing CRLF style on added lines; repository-aware `git -c core.whitespace=cr-at-eol diff --check` passes. This is line-ending evidence, not a code defect.
+
+Exact-head CI and the advisory Security Shadow workflow remain required before this extension is called technically complete. This offline result does not authorize P3/P4, inference, OAuth, production, merge, closure or semantic/model acceptance.
 
 ## 5. Acceptance criteria and evidence reuse
 
