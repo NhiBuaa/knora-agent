@@ -68,8 +68,6 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
                 "after": [],
                 "refusal_reason": None,
             }
-            if len(generation_requests) == 1:
-                content = {"count_question": False, "conditions": []}
         return httpx.Response(
             200,
             headers={"x-request-id": f"generation-{len(generation_requests)}"},
@@ -165,7 +163,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
     assert answered.json()["answer"].endswith("[[E1]]")
     assert answered.json()["citations"][0]["source_key"] == "support/refunds"
     assert len(embedding_requests) == 2
-    expected_requests = 2 if provider_identity == "cloudflare-workers-ai" else 1
+    expected_requests = 1
     assert len(generation_requests) == expected_requests
     with SessionFactory() as session:
         trace = session.scalar(
@@ -180,22 +178,15 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
         )
         assert trace.provider_metadata["generation"]["provider"] == provider_identity
         assert trace.provider_metadata["generation"]["prompt_version"] == (
-            "cloudflare-gpt-oss-cited-answer-v20"
+            "cloudflare-gpt-oss-cited-answer-v21"
             if provider_identity == "cloudflare-workers-ai"
             else "m1-cited-answer-v1"
         )
         assert trace.provider_metadata["generation"]["cost"] == {
-            "amount_usd": "0.00004" if expected_requests == 2 else "0.00002",
+            "amount_usd": "0.00002",
             "currency": "USD",
             "pricing_version": "test-pricing-v1",
         }
         metadata = trace.provider_metadata["generation"]
-        assert metadata["usage"]["total_tokens"] == 15 * expected_requests
-        if expected_requests == 2:
-            assert [stage["provider_request_id"] for stage in metadata["stages"]] == [
-                "generation-1",
-                "generation-2",
-            ]
-            assert metadata["stages"][0]["count_question"] is False
-        else:
-            assert "stages" not in metadata
+        assert metadata["usage"]["total_tokens"] == 15
+        assert "stages" not in metadata

@@ -1,10 +1,8 @@
 # Compose generated lists from supported blocks
 
 Status: owner-approved behavior through Issue #183, including Q9 simplification,
-Q12 presentation selection, Q17 fixed slots, Master section 4.4 selected-condition
-retention and section 4.7 count-intent simplification (2026-10-18). Section 4.4's
-offline gates passed at1477838; section 4.7 is now implemented with technical
-verification in progress. Runtime acceptance remains pending in PR #184.
+Q12 presentation selection, Q17 fixed slots, and the section 4.9 one-call
+presentation simplification (2026-10-18). Runtime acceptance remains pending in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
 v8 produced selected successful layouts, but a general-list observation omitted
@@ -228,3 +226,16 @@ conditions and members can still be wrong, incomplete, duplicated or contradicto
 Only selected-note transfer is guaranteed. No provider compatibility, token/latency
 or source-fidelity claim follows from offline mocks. A changed candidate needs
 separate runtime approval and fresh guard fingerprints; historical grants stay closed.
+
+## Master section 4.9: one-call presentation policy (2026-10-18)
+
+Section 4.9 supersedes the selector and selected-condition orchestration for the narrowed
+presentation scope. Cloudflare now sends the original question and Evidence Set to one fixed-slot
+answer request using `cloudflare-gpt-oss-cited-answer-v21`. The `before/items/after` schema,
+composer validation and escaping, citation grouping, refusal rules, model, cap and transport stay
+unchanged. Selector-only generated notes, count classification, retained-condition appending and
+stage aggregation are removed; `GenerationResult.stages` is not part of the public projection.
+
+This preserves every accepted payload field in slot/member order and does not infer or reconstruct
+lists. Semantic completeness, source qualification selection and renderer behavior remain separate
+concerns; the simplification is not evidence of a semantic fix or provider runtime acceptance.

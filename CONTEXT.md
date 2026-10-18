@@ -654,3 +654,11 @@ evidence fails closed.
 - Issue #19 implementation and acceptance evidence: [.agents/issue-19-feature-delivery.json](.agents/issue-19-feature-delivery.json)
 - Issue #50 dataset contract and acceptance evidence:
   [.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl](.agents/manual-tests/milestone-3/50-evaluation-dataset.evaluations.jsonl)
+# Issue #183 current implementation note (2026-10-18)
+
+The owner-approved Master section 4.9 presentation simplification uses one Cloudflare answer call
+with prompt identity `cloudflare-gpt-oss-cited-answer-v21`. The original question and Evidence Set
+feed the unchanged fixed `before/items/after` schema and composer. Selector count/condition
+generation, retained-note appending and selector-only stage metadata are removed; model, cap,
+transport, validation, citation/refusal behavior and other providers remain unchanged. This is a
+presentation simplification, not a semantic-completeness guarantee or runtime acceptance.

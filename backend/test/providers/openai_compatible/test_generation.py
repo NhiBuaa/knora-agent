@@ -228,8 +228,6 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
                 "refusal_reason": None if decision == "ANSWER" else "INSUFFICIENT_EVIDENCE",
             }
         )
-        if calls == 1:
-            content = json.dumps({"count_question": case == "list", "conditions": []})
         return httpx.Response(
             200,
             json={
@@ -256,7 +254,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
         evidence=(GenerationEvidence("E1", "Refunds. Alpha; Beta."),),
     )
     request = observed["request"]
-    assert calls == 2
+    assert calls == 1
     payload = __import__("json").loads(request.content)
     assert request.url.path.endswith("/ai/v1/chat/completions")
     assert payload["model"] == "@cf/openai/gpt-oss-20b"
@@ -273,7 +271,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v20"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v21"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

@@ -114,8 +114,6 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
                     "refusal_reason": None,
                 }
             )
-        if "count_question" in payload["response_format"]["json_schema"]["properties"]:
-            content = json.dumps({"count_question": False, "conditions": []})
         return httpx.Response(
             200,
             headers={"x-request-id": f"generate-{len(state['generation_requests'])}"},
@@ -250,7 +248,7 @@ def test_cloudflare_pdf_public_journey_preserves_citation_and_provenance(cloudfl
     assert "queries" in state["embedding_requests"][1]
     assert state["generation_requests"][0]["max_tokens"] == 1024
     assert state["generation_requests"][0]["response_format"]["type"] == "json_schema"
-    assert len(state["generation_requests"]) == 2
+    assert len(state["generation_requests"]) == 1
 
 
 def test_cross_workspace_requests_stop_before_cloudflare(cloudflare_app) -> None:
