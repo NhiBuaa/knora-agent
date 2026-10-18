@@ -11,23 +11,34 @@ No AI provider credentials, developer `.env` files, model benchmarks, or real ap
 services are used by pull request CI. Browser fixtures are synthetic and offline.
 
 Issue #188 remains research-only / archived. The independent, non-required
-`.github/workflows/security-shadow.yml` workflow owns the `Security shadow (offline integration)`
-job. It runs automatically for pull requests targeting `main` and pushes to `main` only when
-its `paths` filter matches Security Shadow code, tests, fixtures, dependencies, pytest hooks,
+`.github/workflows/security-shadow.yml` workflow owns the `Security shadow (offline unit)` and
+`Security shadow (offline integration)` jobs. It runs automatically for pull requests targeting
+`main` and pushes to `main` only when its `paths` filter matches Security Shadow code, tests, fixtures, dependencies, pytest hooks,
 or CI evidence/gate tooling. Documentation-only and unrelated application changes do not trigger it.
 `workflow_dispatch` permits manual execution on a selected ref, independently of path filters.
 GitHub requires the workflow to exist on the default branch before manual dispatch is available.
 
-The job retains its isolated runner, Python version, dependency pins, timeout, `pip check`,
-real local validator test, strict JUnit validation and always-run report upload. Missing
-packages, dependency drift, test failure, skipped/empty/missing reports, or upload failure
+The integration job retains its isolated runner, Python version, dependency pins, timeout,
+`pip check`, real local validator test, strict JUnit validation and always-run report upload.
+The separate unit job installs the existing `backend[dev]` dependencies without evaluation
+extras or Guardrails, then runs `evals/test` with `--ci-suite=security-shadow` and retains its
+strict JUnit report plus selected/deselected node manifest. Missing packages, dependency drift, test failure, skipped/empty/missing reports, or upload failure
 remain workflow failures; no `continue-on-error` or optional test skip is introduced.
 There is no model inference, provider credential, export, or production runtime integration.
-Pure shadow tests remain in the required Backend suite, whose dependencies are unchanged.
+The seven Issue #188 unit modules stay at their existing paths, with assertions and fixtures
+unchanged. `SECURITY_SHADOW_FILES` in root `conftest.py` owns their explicit partition (plus
+the standalone integration file). Required Backend, Windows and Database partitions exclude
+these files before importing them; Shadow collection excludes unrelated modules before import.
+Default local pytest without `--ci-suite` still discovers all the existing unit modules.
+The required collection-conservation gate excludes research modules before import and checks
+all remaining Backend/Evaluation nodes belong to exactly one required or explicit runtime
+partition. Partition contract tests also prove each Shadow module routes independently and
+cross-surface imports cannot occur during collection; other tests keep their existing routes.
+CI gate tests remain required. Backend dependency declarations are unchanged.
 `CI required` requires only Frontend, Backend, Database and Keycloak; it does not depend on
-Security Shadow. Keep Security Shadow out of required branch/ruleset checks. Its failures
-remain visible in the separate workflow and its `security-shadow-report` artifact; historical
-reports and evaluation evidence are preserved.
+either Shadow job. Keep Security Shadow out of required branch/ruleset checks. Its failures
+remain visible in the separate workflow and its `security-shadow-report` and
+`security-shadow-unit-reports` artifacts; historical reports and evaluation evidence are preserved.
 
 Database PDF integration tests run in a disposable Linux container with a 2 GiB memory limit
 and a delegated cgroup memory controller. That container requires privileged execution on the

@@ -12,12 +12,34 @@ on:
       - "evals/integration/test_security_shadow_integration.py"
       - "evals/scorers/__init__.py"
       - "evals/scorers/security_shadow.py"
+      - "evals/scorers/security_outcomes.py"
+      - "evals/scorers/cloudflare_dangerous_output.py"
+      - "evals/runners/evaluation.py"
       - "evals/runners/run_security_shadow.py"
+      - "evals/runners/cloudflare_p1_shadow.py"
+      - "evals/runners/cloudflare_p1_trial.py"
+      - "evals/runners/run_security_outcomes.py"
+      - "evals/runners/workbench_security_projection.py"
       - "evals/test/test_security_shadow.py"
+      - "evals/test/test_cloudflare_p1_shadow.py"
+      - "evals/test/test_cloudflare_p1_trial.py"
+      - "evals/test/test_cloudflare_dangerous_output.py"
+      - "evals/test/test_security_outcomes.py"
+      - "evals/test/test_security_outcomes_runner.py"
+      - "evals/test/test_workbench_security_projection.py"
       - "evals/test/fixtures/security_shadow/**"
+      - "evals/test/fixtures/security_outcomes/**"
+      - "evals/test/fixtures/cloudflare_p1_shadow/**"
+      - "evals/test/fixtures/cloudflare_dangerous_output/**"
       - "evals/requirements-security-shadow.txt"
       - "scripts/ci_checks.py"
       - "backend/test/config/test_ci_checks.py"
+      - "backend/pyproject.toml"
+      - "backend/src/knora/access/**"
+      - "backend/src/knora/answering/**"
+      - "backend/src/knora/domain/**"
+      - "backend/src/knora/providers/**"
+      - "backend/src/knora/workspaces/**"
   push:
     branches: [main]
     paths:
@@ -29,12 +51,34 @@ on:
       - "evals/integration/test_security_shadow_integration.py"
       - "evals/scorers/__init__.py"
       - "evals/scorers/security_shadow.py"
+      - "evals/scorers/security_outcomes.py"
+      - "evals/scorers/cloudflare_dangerous_output.py"
+      - "evals/runners/evaluation.py"
       - "evals/runners/run_security_shadow.py"
+      - "evals/runners/cloudflare_p1_shadow.py"
+      - "evals/runners/cloudflare_p1_trial.py"
+      - "evals/runners/run_security_outcomes.py"
+      - "evals/runners/workbench_security_projection.py"
       - "evals/test/test_security_shadow.py"
+      - "evals/test/test_cloudflare_p1_shadow.py"
+      - "evals/test/test_cloudflare_p1_trial.py"
+      - "evals/test/test_cloudflare_dangerous_output.py"
+      - "evals/test/test_security_outcomes.py"
+      - "evals/test/test_security_outcomes_runner.py"
+      - "evals/test/test_workbench_security_projection.py"
       - "evals/test/fixtures/security_shadow/**"
+      - "evals/test/fixtures/security_outcomes/**"
+      - "evals/test/fixtures/cloudflare_p1_shadow/**"
+      - "evals/test/fixtures/cloudflare_dangerous_output/**"
       - "evals/requirements-security-shadow.txt"
       - "scripts/ci_checks.py"
       - "backend/test/config/test_ci_checks.py"
+      - "backend/pyproject.toml"
+      - "backend/src/knora/access/**"
+      - "backend/src/knora/answering/**"
+      - "backend/src/knora/domain/**"
+      - "backend/src/knora/providers/**"
+      - "backend/src/knora/workspaces/**"
   workflow_dispatch:
 
 permissions:
@@ -55,6 +99,35 @@ env:
   LANGCHAIN_TRACING_V2: "false"
 
 jobs:
+  security_shadow_unit:
+    name: Security shadow (offline unit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install offline contract dependencies
+        run: python -m pip install -e "./backend[dev]"
+      - name: Run Security Shadow unit partition
+        run: |
+          python -m pip check
+          python -m pytest --rootdir=. evals/test --ci-suite=security-shadow --ci-selection=security-shadow-unit-selection.json --junitxml=security-shadow-unit-report.xml
+      - name: Validate unit execution evidence
+        if: ${{ always() }}
+        run: python scripts/ci_checks.py reports security-shadow-unit-report.xml
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: security-shadow-unit-reports
+          path: |
+            security-shadow-unit-report.xml
+            security-shadow-unit-selection.json
+          if-no-files-found: error
+
   security_shadow:
     name: Security shadow (offline integration)
     runs-on: ubuntu-latest

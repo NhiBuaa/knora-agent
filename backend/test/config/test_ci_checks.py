@@ -19,6 +19,16 @@ spec.loader.exec_module(plugin)
 ci_route = plugin.ci_route
 RUNTIME_NODES = plugin.RUNTIME_NODES
 JOBS = ("frontend", "backend", "database", "keycloak")
+SHADOW_FILES = (
+    "evals/test/test_security_shadow.py",
+    "evals/test/test_cloudflare_p1_shadow.py",
+    "evals/test/test_cloudflare_p1_trial.py",
+    "evals/test/test_cloudflare_dangerous_output.py",
+    "evals/test/test_security_outcomes.py",
+    "evals/test/test_security_outcomes_runner.py",
+    "evals/test/test_workbench_security_projection.py",
+    "evals/integration/test_security_shadow_integration.py",
+)
 
 
 def report(tmp_path: Path, body: str, name: str = "report.xml") -> Path:
@@ -189,6 +199,59 @@ def test_ci_routes_real_node(node: str, expected: str) -> None:
     assert ci_route(node) == expected
 
 
+@pytest.mark.parametrize("file", SHADOW_FILES)
+def test_shadow_nodes_have_an_independent_partition(file: str) -> None:
+    assert ci_route(f"{file}::test_contract") == "security-shadow"
+    assert ci_route(f"{file}::test_contract".replace("/", "\\")) == "security-shadow"
+
+
+@pytest.mark.parametrize("suite", ("backend", "windows", "database", "security-shadow"))
+def test_ci_partition_never_imports_other_surface(tmp_path: Path, suite: str) -> None:
+    (tmp_path / "conftest.py").write_bytes((ROOT / "conftest.py").read_bytes())
+    ordinary = {
+        "backend": "backend/test/answering/test_module.py",
+        "windows": "evals/test/test_process_probe.py",
+        "database": "backend/test/adapters/postgres/test_store.py",
+    }
+    selected_files = set(SHADOW_FILES) if suite == "security-shadow" else {ordinary[suite]}
+    for file in (*ordinary.values(), *SHADOW_FILES):
+        path = tmp_path / file
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # A cross-surface import fails collection before any test can be deselected.
+        body = (
+            "raise RuntimeError('wrong surface imported')\n"
+            if (file in SHADOW_FILES) != (suite == "security-shadow")
+            else "def test_contract():\n    assert True\n"
+        )
+        path.write_text(body, encoding="utf-8")
+    selection = tmp_path / "selection.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "no:deepeval",
+            "--rootdir=.",
+            "--collect-only",
+            "-q",
+            "backend/test",
+            "evals/test",
+            "evals/integration",
+            f"--ci-suite={suite}",
+            f"--ci-selection={selection}",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(selection.read_text(encoding="utf-8"))
+    assert set(data["selected"]) == {f"{file}::test_contract" for file in selected_files}
+    assert set(data["selected"]).isdisjoint(data["deselected"])
+
+
 def test_jobs_cli_accepts_only_complete_success_object() -> None:
     env = {**os.environ, "CI_NEEDS": json.dumps({name: {"result": "success"} for name in JOBS})}
     result = subprocess.run(
@@ -202,7 +265,7 @@ def test_jobs_cli_accepts_only_complete_success_object() -> None:
 
 
 def test_collected_ci_partitions_cover_default_collection(tmp_path: Path) -> None:
-    """Every collected node must be in one PR suite or an explicit runtime set."""
+    """Required and runtime partitions retain every non-research node exactly once."""
 
     def collect(*args: str) -> set[str]:
         result = subprocess.run(
@@ -220,7 +283,8 @@ def test_collected_ci_partitions_cover_default_collection(tmp_path: Path) -> Non
             if re.match(r"^(?:backend|evals)/.+::", line)
         }
 
-    full = collect("backend/test", "evals/test")
+    # Research modules must not be imported by the required collection gate either.
+    full = collect("backend/test", "evals/test", *(f"--ignore={file}" for file in SHADOW_FILES))
     selected: dict[str, set[str]] = {}
     for suite in ("backend", "windows", "database"):
         selection = tmp_path / f"{suite}.json"
@@ -250,6 +314,7 @@ def test_collected_ci_partitions_cover_default_collection(tmp_path: Path) -> Non
         selected[suite] = set(data["selected"])
         assert selected[suite].isdisjoint(data["deselected"])
         assert selected[suite] | set(data["deselected"]) == full
+        assert all(node.split("::", 1)[0] not in SHADOW_FILES for node in selected[suite])
 
     assert set.union(*selected.values()).isdisjoint(RUNTIME_NODES)
     assert set.union(*selected.values(), RUNTIME_NODES) == full
