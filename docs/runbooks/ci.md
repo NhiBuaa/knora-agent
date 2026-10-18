@@ -10,12 +10,24 @@ empty, failed, skipped or duplicate cases fail the job.
 No AI provider credentials, developer `.env` files, model benchmarks, or real application E2E
 services are used by pull request CI. Browser fixtures are synthetic and offline.
 
-The required `Security shadow (offline integration)` job installs
-`evals/requirements-security-shadow.txt` in its own runner environment and runs
-`evals/integration/test_security_shadow_integration.py`. This exercises the real local secrets validator,
-without model inference, provider credentials, or export. Missing dependencies fail explicitly;
-there is no optional skip. Pure shadow tests remain in the backend suite, whose dependencies
-are unchanged. The aggregate requires this job as well as the existing component jobs.
+Issue #188 remains research-only / archived. The independent, non-required
+`.github/workflows/security-shadow.yml` workflow owns the `Security shadow (offline integration)`
+job. It runs automatically for pull requests targeting `main` and pushes to `main` only when
+its `paths` filter matches Security Shadow code, tests, fixtures, dependencies, pytest hooks,
+or CI evidence/gate tooling. Documentation-only and unrelated application changes do not trigger it.
+`workflow_dispatch` permits manual execution on a selected ref, independently of path filters.
+GitHub requires the workflow to exist on the default branch before manual dispatch is available.
+
+The job retains its isolated runner, Python version, dependency pins, timeout, `pip check`,
+real local validator test, strict JUnit validation and always-run report upload. Missing
+packages, dependency drift, test failure, skipped/empty/missing reports, or upload failure
+remain workflow failures; no `continue-on-error` or optional test skip is introduced.
+There is no model inference, provider credential, export, or production runtime integration.
+Pure shadow tests remain in the required Backend suite, whose dependencies are unchanged.
+`CI required` requires only Frontend, Backend, Database and Keycloak; it does not depend on
+Security Shadow. Keep Security Shadow out of required branch/ruleset checks. Its failures
+remain visible in the separate workflow and its `security-shadow-report` artifact; historical
+reports and evaluation evidence are preserved.
 
 Database PDF integration tests run in a disposable Linux container with a 2 GiB memory limit
 and a delegated cgroup memory controller. That container requires privileged execution on the

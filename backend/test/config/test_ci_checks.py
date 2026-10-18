@@ -18,7 +18,7 @@ plugin = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(plugin)
 ci_route = plugin.ci_route
 RUNTIME_NODES = plugin.RUNTIME_NODES
-JOBS = ("frontend", "backend", "database", "keycloak", "security_shadow")
+JOBS = ("frontend", "backend", "database", "keycloak")
 
 
 def report(tmp_path: Path, body: str, name: str = "report.xml") -> Path:
