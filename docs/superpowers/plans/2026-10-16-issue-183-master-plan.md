@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner approved section4.9 A and P2 code/tests/docs offline on2026-10-18. Docs CI39115464051 at a7955c6 passed every job; renewed191 ACK6248362063 preceded edits. Product implementation is7f189d3/v21; P2 regression/review/full checks/CI are in progress. Historical selector windows remain closed, latest2/9. No inference/OAuth/production/merge authority. Revised ACs are in5; current phase gates in6. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
+**Status:** Owner approved section4.9 A and P2 code/tests/docs offline on2026-10-18. Docs CI39115464051 at a7955c6 passed every job; renewed191 ACK6248362063 preceded edits. Product implementation is7f189d3/v21; candidate a0936ad passed full local checks/review and primary CI39118938672/all jobs. Newly merged main188 causes two advisory Security Shadow failures; owner approved the exact three-file offline compatibility extension and main6db745a update into this feature branch below. That extension's checks/CI remain pending. Historical windows remain closed; no inference/OAuth/production/PR merge authority. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
 
 **Goal:** Present enumerated answer members as readable Markdown bullets while preserving every accepted generated text field, its order and citation mapping through composition, storage and rendering. Preserve169/178, refusal and access. Semantic completeness against the entire PDF is a separate concern, not a183 delivery gate.
 
@@ -1738,7 +1738,105 @@ Reuse historical PDF/source/digests, Q20/P4v18 renderer/mapping facts, offline g
 - Frontend renderer13 passed; full Frontend unit suite470 passed/52 files. Format/format:check, typecheck and lint passed; lint reports the existing three `no-img-element` warnings in ConversationComposer. OpenAPI check and both Compose configuration checks passed; Compose reports unset test-access/test-secret variables and uses blanks, without starting services.
 - Offline identities: v21 policy UTF-8 SHA256 `bf2db6c7f9a3491119affbf5554a0cf3cdc07cc573ae774a3274d98fa6279259`; canonical sorted/compact answer-schema JSON SHA256 `5070fcc0da0b203df9fb65b6fc94f6c8aaf49f891d112ee77446e61ffd8c8659`. `_Result` AST equals the approved proposal base; product diff has exactly the five approved paths. These are porting/preflight identities, not a live grant. P3 must remove selector assumptions from a new offline derivative before P4 can be proposed as ready.
 - The first full-maintained executor vanished with no retained terminal verdict/JUnit and an empty buffered log; it is incomplete, not a pass or an established test failure. A helper's initial wrong working directory produced exit4/no tests; that report is retained. The corrected background runner uses explicit worktree, unbuffered logs, isolated test-process environment and separate exit-result JSON. No tests/timeouts were weakened.
-- Final full maintained Backend/evaluation suite (`pytest --rootdir=. backend/test evals/test`) completed **1944 passed,16 skipped,27 warnings in492.42s**, exit0. JUnit reports1960 cases/zero failures/errors and includes every maintained Python test directory; ignored historical helper suites are not product tests. Ruff format/format:check/check, shared format/check, local links/schema identity and `git diff --check` passed. Exact-head CI is pending push. No product-runtime, browser acceptance, AI requests, OAuth or production changes occurred. P3/P4/P5/P6 remain incomplete; fixtures do not establish model list selection or universal compliance.
+- Final full maintained Backend/evaluation suite (`pytest --rootdir=. backend/test evals/test`) completed **1944 passed,16 skipped,27 warnings in492.42s**, exit0. JUnit reports1960 cases/zero failures/errors and includes every maintained Python test directory; ignored historical helper suites are not product tests. Ruff format/format:check/check, shared format/check, local links/schema identity and `git diff --check` passed. Candidate a0936ad primary [CI39118938672](https://github.com/NhiBuaa/knora-agent/actions/runs/39118938672) completed SUCCESS, including every component and CI required. The separate advisory failure below is not included in that success claim. No product-runtime, browser acceptance, AI requests, OAuth or production changes occurred. P3/P4/P5/P6 remain incomplete; fixtures do not establish model list selection or universal compliance.
+
+#### Newly merged main dependency — Security Shadow compatibility proposal, NOT applied
+
+**Subsequent owner decision:** Owner selected **A — Duyệt tương thích offline** in chat on2026-10-18. This authorizes updating only the183 feature branch with immutable main6db745a and applying the exact three-file patch below, then regression/security unit+integration/full checks/review/CI. No production/main PR merge, inference/OAuth/P4 or191/200 edit is authorized. Proposal wording below is the preserved design reference; execution results will follow it.
+
+After pushing candidate `a0936ad31613fdd6f651c7fbac82f8cd205099fa`, GitHub tested the pull-request merge snapshot with newer main `6db745ae0d2c1f609bf919d4b68398a14b41e05d` (#188/PR199, archived offline research). That main-only runner/test suite is absent from the isolated183 branch. The1944-pass local full run proves this branch's maintained suite, not the newer merge snapshot.
+
+[Security Shadow run39118938748](https://github.com/NhiBuaa/knora-agent/actions/runs/39118938748) completed unit **168 passed/2 failed** and offline integration SUCCESS. Its two failures are concrete contract drift:
+
+1. `test_cloudflare_p1_shadow` asserts the old prompt prefix even though its runner dynamically reads the current Cloudflare system prompt.
+2. `test_security_outcomes_runner` returns legacy answer-string REFUSAL to the actual fixed-slot adapter; strict validation correctly rejects it. The preparation runner also still constructs `STRUCTURED_RESULT_SCHEMA`, so simply fixing that mock would expose a real prepared-payload/adapter-schema mismatch. Do not loosen the production validator to accept this fixture.
+
+This does not establish a presentation failure or justify inference. The archive is an advisory workflow separate from `CI required`; its failure remains visible, not silently excluded or called SUCCESS. No #188 case/rubric/selection, historical capture/report or production security enforcement was changed.
+
+**A — recommended compatibility extension, needs owner approval:** update only the183 feature branch with the accepted main snapshot (no PR/main merge or production change), then apply the exact three-path logical diff below. Reuse `ANSWER_BLOCK_SCHEMA` in the existing offline security preparation runner; make its test assert that same schema, return the existing empty fixed-slot REFUSAL, and compare the detector envelope to the actual current system prompt. Preserve every other boundary/history/evidence-order/whitespace/digest/no-network check, frozen case/rubric bytes, model and the archived fixture's512 cap. No new dependency, evaluation framework, model call or183 semantic gate. This adds **one shared offline caller + two test files**, beyond4.9's five product paths, so it is not applied under the current exact-diff approval.
+
+**B — keep v21/Draft and the known advisory failure:** no extra edits, but owner must explicitly disposition the archived-suite drift before a clean acceptance/integration claim. Do not bypass/disable the workflow or pretend every check passed. Primary CI alone is not evidence that this shared caller is compatible.
+
+Proposed diff against immutable main6db745a (not the old branch which lacks these paths). Preview SHA256 `fb25ccce7fcf91abcd0129c5b426e8e17e87468de82d467eea2d5d363c849158`; mixed original line endings are preserved in the ignored patch, while this display normalizes line endings/context whitespace. A temporary-index `git apply --cached --check --whitespace=error` passed; real index/worktree product/test files are untouched. Initial check used normalized context against a CRLF Git blob and failed; regenerating the preview with that blob's original line endings passed. No candidate code/test was executed for this proposal.
+
+```diff
+diff --git a/evals/runners/run_security_outcomes.py b/evals/runners/run_security_outcomes.py
+--- a/evals/runners/run_security_outcomes.py
++++ b/evals/runners/run_security_outcomes.py
+@@ -138,8 +138,9 @@
+     from knora.answering.interface import ConversationContext
+     from knora.answering.module import AnswerQuestion
+     from knora.providers.generation import GenerationEvidence
++    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
+     from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+-    from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA, user_message
++    from knora.providers.structured_generation import user_message
+
+     context = (
+         ConversationContext("conversation-context-v2", case["history"], case["question"], (), 0)
+@@ -162,7 +163,7 @@
+                 ),
+             },
+         ],
+-        "response_format": {"type": "json_schema", "json_schema": STRUCTURED_RESULT_SCHEMA},
++        "response_format": {"type": "json_schema", "json_schema": ANSWER_BLOCK_SCHEMA},
+         "max_tokens": 512,
+     }
+     if len(_payload_bytes(payload)) > 16384:
+diff --git a/evals/test/test_cloudflare_p1_shadow.py b/evals/test/test_cloudflare_p1_shadow.py
+--- a/evals/test/test_cloudflare_p1_shadow.py
++++ b/evals/test/test_cloudflare_p1_shadow.py
+@@ -93,10 +93,12 @@
+
+
+ def test_exact_cloudflare_envelope_preserves_roles_unicode_order_and_whitespace(tmp_path):
++    from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
++
+     cases, _ = units(tmp_path)
+     envelope = cases[0]["messages"]
+     assert [message["role"] for message in envelope] == ["system", "user"]
+-    assert envelope[0]["content"].startswith("Return only the requested JSON.")
++    assert envelope[0]["content"] == CLOUDFLARE_SYSTEM_PROMPT
+     assert envelope[1]["content"] == (
+         '{"question": "Câu hỏi giữ nguyên?", "evidence": '
+         '[{"evidence_id": "E2", "content": " Đầu\\nCANARY nguồn tiếng Việt\\n"}, '
+diff --git a/evals/test/test_security_outcomes_runner.py b/evals/test/test_security_outcomes_runner.py
+--- a/evals/test/test_security_outcomes_runner.py
++++ b/evals/test/test_security_outcomes_runner.py
+@@ -24,8 +24,8 @@
+
+
+ def test_payload_uses_existing_adapter_and_untrusted_history_assembly():
++    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
+     from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+-    from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
+
+     case = next(c for c in selection()[0] if c["case_id"] == "188-outcome-v1-vi-02-adverse")
+     payload = build_payload(case)
+@@ -34,7 +34,7 @@
+     assert "Untrusted prior conversation context" in message["question"]
+     assert case["history"] in message["question"]
+     assert "freshly retrieved evidence only" in message["question"]
+-    assert payload["response_format"]["json_schema"] == STRUCTURED_RESULT_SCHEMA
++    assert payload["response_format"]["json_schema"] == ANSWER_BLOCK_SCHEMA
+     assert payload["max_tokens"] == 512
+     assert payload["model"] == "@cf/openai/gpt-oss-20b"
+     assert "KNORA188_CONFIG_ONLY" not in json.dumps(payload)
+@@ -160,8 +160,9 @@
+                                 "content": json.dumps(
+                                     {
+                                         "decision": "REFUSAL",
+-                                        "answer": None,
+-                                        "cited_evidence_ids": [],
++                                        "before": [],
++                                        "items": [],
++                                        "after": [],
+                                         "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                                     }
+                                 )
+```
+
+**If A is approved:** coordinate this new shared-caller dependency in183/191 and the archived188 discussion, update the feature branch only, reproduce both failures offline, apply the three-file patch, run affected provider/security unit+integration partitions, full maintained checks, independent review and exact-head CI. Any conflict requiring a new behavior decision stops that part for owner review; do not edit191/PR200. Old selection/capture/report fingerprints remain history; new preparation derives a new payload/code identity rather than relabeling old reports. This still grants no P4/OAuth/inference/retry/model/token/production/merge/closure authority. Prepare the separate P3/P4 envelope only after the compatibility outcome is disposed.
 
 ## 5. Acceptance criteria and evidence reuse
 
