@@ -10,8 +10,10 @@
 docs e1f508f passed all CI jobs and renewed #191 overlap ACK6231612445 preceded
 product edits. The exact three-module count-intent/independent-conditions diff is
 implemented as v20/count-conditions-v3; answer wire schema stays unchanged. Offline
-verification is recorded in4.7 below. No new runtime/OAuth/provider allowance exists;
-all historical windows stay closed and P4/P5/P6 acceptance remains incomplete.
+verification is recorded in4.7 below. Exact product head ed9399b passed all CI jobs.
+Owner subsequently approved P4 v20, but that window is now closed0/9 on the
+preflight-order breach recorded below; all three cases remain unrun. No live
+allowance remains and P4/P5/P6 acceptance is incomplete.
 
 **Architecture:** Reuse Cloudflare's presentation selector, fixed `before/items/after` contract, existing Markdown composer and public citation validator. Treat generation fidelity, retrieval coverage and rendering as separate boundaries. Put a finite remediation-design gate before implementation; do not build a semantic evaluation subsystem.
 
@@ -1127,6 +1129,64 @@ mobile390×844 viewports; this does not claim physical-mobile coverage.
 
 Owner must separately approve this P4 scope, OAuth and request limit. Offline
 implementation approval does not approve inference, browser setup or integration.
+
+#### P4 v20 attempt — preflight-order breach, closed0/9 (2026-10-18)
+
+Owner separately approved the preceding exact v20 proposal at product/CI head
+`ed9399b65840594bfa434906507bf06cb368d658`. CI39098071062 was reread completed
+SUCCESS; #183 OPEN/In Progress and PR184 OPEN/Draft. This attempt is now
+**closed at0/9 physical provider requests**, not a provider/schema/semantic failure
+or a successful runtime verification. No live grant, dispatcher, provider admission,
+Turn submission, inference, retry, replay or re-ingestion was created. Unused quota
+expires; a recovery window requires separate owner approval.
+
+- A new ignored `selector-v20-live` wiring derivative reuses the hash-pinned v20
+  mock base plus the existing strict live transport/dispatch boundary. Mock adapter
+  denial tests: **77 passed in10.54s**; initial copied fixture was76pass/1fail because
+  it still used the old presentation enum. Only that fixture was migrated; no product
+  validation was weakened. Explicit Ruff and Windows child-import checks passed.
+- Read-only corpus checks retained the exact PDF SHA256
+  `219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6`,
+  Document/Version from section2 and23chunks/23vectors on own15483DB. No source or
+  corpus mutation. API8183 became healthy before frontend3183 started; both reused
+  the same private session secret. First browser navigation preceded frontend
+  readiness and returned connection-refused; a fresh in-app tab after ready reached
+  the normal Keycloak login form. This was not an inference retry or renderer result.
+- In-app browser readings showed exact account
+  `0815469773bb9f83177a1303be9a90f3`, Billing **Workers Free Active**, and
+  **40.38/10000 neurons used today**. These are observations, not a completed sealed
+  grant or request-specific actual-cost evidence. No external Edge was opened.
+- **Agent procedural error:** while looking for login configuration key names, a
+  shell snippet called `dotenv_values` on the primary ignored `.env`. It printed
+  only filtered key names, but parsed credential values into that short-lived
+  process **before a new live grant existed**. No value was printed, persisted or
+  sent to a provider. This violates the approved preflight order even though the
+  runtime credential-loader gate was not invoked. The agent stopped immediately
+  when it recognized the breach; old/fresh observations do not retroactively
+  authorize that read. This is the verified cause of stopping, not a model failure.
+- A durable stop file records
+  `preflight-order-breach-dotenv-metadata-read-before-live-grant`; no grant exists,
+  admissions are empty, owned API/frontend descendants were stopped, and3183/8183
+  have no listeners. Primary3000 was absent before/after and never stopped/replaced.
+  OAuth cleanup readback equals the entire pre-add client representation; only the
+  approved temporary additions were removed. Runtime/login and Billing tabs closed;
+  the initial browser-generated error tab could not be explicitly rebound/closed
+  because its data URL was denied by Browser Use policy. It was not marked to persist.
+  No viewport override was installed. Original user tabs remain untouched.
+
+All three acceptance cases, both final payloads, semantic/source/citation review and
+new desktop/mobile answer checks remain **unrun**. Paid budget remains0USD policy;
+there is no inference admission/usage from this window, and no claim that aggregate
+Billing proves actual account cost0USD. Product ed9399b/v20, schemas/model/cap,
+production and191/200 are unchanged;184 stays Draft. No P5/P6 acceptance follows.
+
+**Recovery recommendation, not authorization:** reuse the completed offline/corpus
+checks and unchanged v20 product. Before any future credential read, create and
+validate the fresh exact grant first; locate login fields from maintained dev
+fixtures or ask for the local login without parsing provider `.env` for metadata.
+Provider credentials may be loaded only by the existing guarded runtime loader.
+Keep the preceding9-request/no-retry/in-app-only scope; do not reset this stop or
+transfer its allowance. A new runtime/OAuth window needs an owner decision.
 
 ## 5. Acceptance criteria and evidence reuse
 
