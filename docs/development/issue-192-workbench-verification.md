@@ -713,3 +713,33 @@ Actual owned binding/live admission, saved compatible ANSWER, judge calibration,
 review/freeze/R3 and product quality remain open. At that checkpoint code unconditionally denied live
 profiles; the subsequent offline Live Admission implementation is recorded above. The one-call
 synthetic exception is consumed; no replay, merge/deploy, Langfuse export or Guardrails enforcement.
+
+## Offline trusted-host composition proof — 18 October 2026
+
+`test_live_host_composition.py` exercises the existing EvaluationRunService, PDF HTTP observer,
+actual Q&A ASGI/auth route, AnswerQuestion and Cloudflare embedding/generation adapters together.
+Provider traffic uses MockTransport; answering and run persistence use in-memory ports. The test
+forbids default HTTP transports and SQLAlchemy engine connections. No server, retained database or
+real provider is started or contacted.
+
+The successful case proves zero requests at preflight, dispatch context reaching the sync embedding
+adapter across its thread boundary, two exact guarded requests, the actual answer/trace in the
+finished canonical report and no replay. An unscoped subsequent Q&A request cannot consume the
+third available attempt or save another trace. Separate cases prove denial outside dispatch and
+foreign-Workspace API-key denial before provider traffic. Client teardown is asserted.
+
+The focused host/admission/profile/observer/composition set passes **57 tests, exit0**,18.17s in
+the existing `.venv-eval` environment with DeepEval/Ragas installed. The primary repository's
+different environment lacked those optional packages; its two related scoring/proposals failures
+were dependency errors, not evidence of a production regression. No dependencies were installed.
+An in-memory mutation replacing context copying with an empty context makes the integrated success
+test fail before provider traffic. Independent review's missing final-report assertion was fixed;
+the reviewer then found no remaining actionable finding in this test scope.
+
+This proves same-process composition with mock I/O, not PostgreSQL persistence, BFF/browser behavior,
+production host wiring, real model compatibility or quality acceptance. Source baseline
+`351441c0bba5382db865a2c1d741b93846c48150` already has exact-head CI39097957983 SUCCESS/all6;
+that result precedes this test/documentation addition. The separate corpus-preparation decision
+remains pending in [the design question](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6245866319).
+No `corpus_prepare` purpose, runtime registration or corpus mutation was added. Gold, thresholds and
+historical runs remain unchanged; real calls/retries0, paidUSD0.
