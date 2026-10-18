@@ -1,0 +1,20 @@
+{
+  "boundary_and_scorer_tests_passed": 250,
+  "boundary_database_tests_deferred_to_canonical_ci": 1,
+  "canonical_ci": "pending",
+  "canonical_ci_python": "3.12",
+  "compose_config": "passed_with_missing_synthetic_minio_env_warnings",
+  "detector_calls": 0,
+  "frontend_local_render_test": "not_run_missing_vitest",
+  "full_local_collection": "failed_missing_deepeval_ragas",
+  "independent_review": "pending_final_recheck",
+  "new_tests_passed": 43,
+  "openapi_check": "passed",
+  "preserved_security_regressions_passed": 127,
+  "production_changes": 0,
+  "provider_calls": 0,
+  "python_version": "3.13.15",
+  "ruff_check": "passed",
+  "ruff_format_files": 401,
+  "schema": "issue188-local-verification-v1"
+}

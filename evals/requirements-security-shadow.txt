@@ -1,0 +1,3 @@
+guardrails-ai==0.11.0
+guardrails-ai-secrets-present==0.1.0
+detect-secrets==1.5.0

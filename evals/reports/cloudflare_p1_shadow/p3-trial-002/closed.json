@@ -1,0 +1,16 @@
+{
+  "authenticated_gets": 0,
+  "closed_utc": "2026-10-17T11:29:47.583587+00:00",
+  "dispatch_authority": "exhausted_16_of_16",
+  "dlp_readback": "off",
+  "external_posts": 16,
+  "guardrails_readback": "off",
+  "http_200_responses": 16,
+  "native_log_ids": 16,
+  "native_review_deadline_utc": "2026-10-17T11:37:07.052054+00:00",
+  "native_verdict_review": "pending; transport success is not detector clear",
+  "reason": "finite_dispatch_complete",
+  "replay_permitted": false,
+  "retries": 0,
+  "session_id": "p3-trial-002"
+}

@@ -1,0 +1,13 @@
+{
+  "approval_session": "closed_by_stop_policy",
+  "dlp_readback": "off",
+  "guardrails_readback": "off",
+  "http_responses_received": 0,
+  "native_evaluations_observed": 0,
+  "native_logs_first_inspection": "workers_logs_no_events_found",
+  "original_error_stage": "unknown_not_recorded",
+  "reason": "transport_failure_no_http_response",
+  "remaining_cases_not_run": 15,
+  "replay_permitted": false,
+  "reserved_attempts": 1
+}
