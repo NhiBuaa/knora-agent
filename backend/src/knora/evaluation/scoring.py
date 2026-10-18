@@ -14,6 +14,12 @@ from uuid import uuid4
 from knora.domain.errors import KnoraError
 from knora.evaluation.access import authorize_evaluation
 from knora.evaluation.contracts import digest_json
+from knora.evaluation.live_admission import (
+    LiveAdmission,
+    live_scope,
+    profile_authority,
+    profile_dispatch,
+)
 
 METRICS = ("correctness", "answer_relevancy", "faithfulness")
 
@@ -26,6 +32,8 @@ class ScoringProfile:
     prompt_version: str
     config: dict
     measure: Callable[[dict], dict]
+    admission: LiveAdmission | None = None
+    provider_client: object | None = None
 
     def provenance(self) -> dict:
         return {
@@ -160,8 +168,6 @@ class EvaluationScoringService:
             reasons.append("Q_AND_A_STILL_RUNNING")
         if profile is None:
             reasons.append("JUDGE_PROFILE_UNAVAILABLE")
-        elif profile.kind != "offline":
-            reasons.append("JUDGE_APPROVAL_REQUIRED")
         if not any(case["capture"] for case in cases):
             reasons.append("NO_APPLICABLE_CASES")
         payload = {
@@ -173,6 +179,14 @@ class EvaluationScoringService:
             "binding": run["binding"],
             "scorer": profile.provenance() if profile else None,
         }
+        if profile is not None:
+            scope = live_scope("scoring", profile_id, workspace_id, payload)
+            try:
+                provenance = profile_authority(profile, scope)
+                if provenance is not None:
+                    payload["scorer"]["live_admission"] = dict(scope=scope, provenance=provenance)
+            except ValueError:
+                reasons.append("JUDGE_APPROVAL_REQUIRED")
         return payload, reasons
 
     def preflight(self, workspace_id, principal, run_id, case_ids, profile_id):
@@ -266,7 +280,9 @@ class EvaluationScoringService:
             batch = {**batch, "results": {**batch["results"], case_id: uncertain}}
             self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
             try:
-                result = deepcopy(await to_thread(profile.measure, deepcopy(item["capture"])))
+                saved = payload["scorer"].get("live_admission", {})
+                with profile_dispatch(profile, saved.get("scope"), saved.get("provenance")):
+                    result = deepcopy(await to_thread(profile.measure, deepcopy(item["capture"])))
                 self._validate_result(item["capture"], result, profile)
                 value = {
                     **result,

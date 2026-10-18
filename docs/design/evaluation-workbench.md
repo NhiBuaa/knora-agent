@@ -151,3 +151,24 @@ a trusted server host. Defaults stay empty; composition itself neither prepares 
 calls a provider. This is not a browser registry, runtime activation or live approval mechanism.
 An actual corpus preparation/binding adapter and approved execution envelope are still required
 for an owner UI demonstration; injected service fixtures alone do not prove that workflow.
+
+## Trusted-host Live Admission
+
+The owner approved this implementation separately from real execution. An explicitly injected
+live profile requires an immutable host approval for the exact purpose, Workspace, profile and
+input digest. Preflight, persisted admission and dispatch all recheck that authority. Safe approval
+provenance is nested in existing run bindings, scoring inputs or proposal inputs; historical gold
+and results are not rewritten. Browser input cannot create or enlarge this authority.
+
+The host must supply fresh Workers Free/account/quota evidence, public or synthetic data authority,
+a zero paid budget, an absolute deadline and exact provider request digests. A FULL-synchronous
+SQLite journal reserves every HTTP attempt before egress and retains the stop latch and uncertain
+request across restart. Exact endpoint/model/token/body checks, no redirects or retries, bounded
+responses and a killable provider helper enforce the finite envelope. Missing evidence, drift,
+expired proof, exhausted quota, stop or an uncertain prior request denies further dispatch.
+
+Profiles must use the admission-created client at the actual provider boundary. This is a trusted
+host composition contract, not a sandbox for arbitrary callbacks. Remote Q&A HTTP helpers without
+an in-process guarded provider boundary remain blocked. Default profile registration stays empty.
+Offline mock verification and independent source review do not authorize runtime activation,
+provider calls, export, billing changes or merge; these require their separate owner decisions.

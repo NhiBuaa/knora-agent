@@ -16,6 +16,7 @@ from evals.runners.milestone_3 import (
 )
 
 from knora.evaluation.contracts import Case, DatasetSelection, FrozenDataset, digest_json
+from knora.evaluation.live_admission import LiveAdmission
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,8 @@ class PdfRuntimeProfile:
     # Preparation must read the owned runtime corpus afresh; snapshots are never browser supplied.
     prepare: Callable[[FrozenDataset], dict]
     execute: Callable[[Case, dict], Awaitable[dict]]
+    admission: LiveAdmission | None = None
+    provider_client: object | None = None
 
 
 def reviewed_pdf_preparation(
@@ -234,6 +237,7 @@ def pdf_http_profile(
     trace_reader: object,
     client: httpx.AsyncClient,
     prepare: Callable[[FrozenDataset], dict],
+    admission: LiveAdmission | None = None,
 ) -> PdfRuntimeProfile:
     """Use Knora's Q&A HTTP surface and existing public/trace validators, without re-answering."""
 
@@ -347,4 +351,17 @@ def pdf_http_profile(
                 else "EVALUATION_OBSERVATION_FAILURE",
             }
 
-    return PdfRuntimeProfile(profile_id, kind, prepare, execute)
+    if (
+        kind == "live"
+        and admission is not None
+        and getattr(client, "_knora_live_admission", None) is not admission
+    ):
+        raise ValueError("LIVE_PROVIDER_CLIENT_REQUIRED")
+    return PdfRuntimeProfile(
+        profile_id,
+        kind,
+        prepare,
+        execute,
+        admission,
+        client if kind == "live" else None,
+    )

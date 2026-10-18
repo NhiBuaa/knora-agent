@@ -21,6 +21,7 @@ from knora.evaluation.datasets import (
     ExtractionSnapshot,
     extraction_checksum,
 )
+from knora.evaluation.live_admission import LiveAdmission
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,8 @@ class ProposalProfile:
     model: str
     prompt_version: str
     generate: Callable[[list[dict], dict, str, int], Awaitable[dict]]
+    admission: LiveAdmission | None = None
+    provider_client: object | None = None
 
 
 def ragas_proposal_profile(

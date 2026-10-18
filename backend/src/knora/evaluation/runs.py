@@ -30,6 +30,7 @@ from knora.evaluation.contracts import (
     select_cases,
 )
 from knora.evaluation.datasets import DatasetService
+from knora.evaluation.live_admission import LiveAdmission, admitted_binding, binding_dispatch
 from knora.evaluation.pdf_metrics import score_pdf_run
 from knora.evaluation.pdf_runtime import PdfRuntimeProfile, pdf_case_readiness, validate_pdf_binding
 
@@ -55,6 +56,8 @@ class RuntimeProfile:
     kind: Literal["offline", "live"]
     prepare: Callable[[], tuple[EvaluationEnvironmentBinding, object]]
     execute: Callable[[object, VerifiedM3Environment], Awaitable[M3Observation]]
+    admission: LiveAdmission | None = None
+    provider_client: object | None = None
 
 
 def production_http_profile(
@@ -66,6 +69,7 @@ def production_http_profile(
     trace_reader: object,
     client: httpx.AsyncClient,
     prepare: Callable[[], tuple[EvaluationEnvironmentBinding, object]],
+    admission: LiveAdmission | None = None,
 ) -> RuntimeProfile:
     """Register an owned Q&A runtime through the existing M3 executor."""
 
@@ -78,7 +82,20 @@ def production_http_profile(
             environment=environment,
         ).execute(case)
 
-    return RuntimeProfile(profile_id, kind, prepare, execute)
+    if (
+        kind == "live"
+        and admission is not None
+        and getattr(client, "_knora_live_admission", None) is not admission
+    ):
+        raise ValueError("LIVE_PROVIDER_CLIENT_REQUIRED")
+    return RuntimeProfile(
+        profile_id,
+        kind,
+        prepare,
+        execute,
+        admission,
+        client if kind == "live" else None,
+    )
 
 
 class EvaluationRunService:
@@ -138,7 +155,8 @@ class EvaluationRunService:
         profile = self._profiles.get(profile_id)
         reasons: list[str] = []
         binding: EvaluationEnvironmentBinding | None = None
-        if profile is None or profile.kind == "live":
+        admitted = None
+        if profile is None or profile.kind == "live" and profile.admission is None:
             reasons.append(
                 "PROVIDER_APPROVAL_REQUIRED"
                 if profile_id == "live" or profile and profile.kind == "live"
@@ -150,6 +168,12 @@ class EvaluationRunService:
                 VerifiedM3Environment.prepare(binding=binding, corpus=corpus, manifest=entry.corpus)
                 if binding.dataset_manifest_identity != entry.reference.dataset_id:
                     raise ValueError("Dataset binding mismatch")
+                selection = dict(
+                    reference=asdict(entry.reference),
+                    selected_case_ids=list(case_ids),
+                    context_only_case_ids=[],
+                )
+                admitted = admitted_binding(profile, workspace_id, selection, asdict(binding))
             except Exception:
                 reasons.append("RUNTIME_BINDING_UNAVAILABLE")
         preflight_id = uuid4().hex
@@ -170,7 +194,7 @@ class EvaluationRunService:
                 {
                     **result,
                     "generation": self._generation,
-                    "binding": asdict(binding),
+                    "binding": admitted,
                 }
             )
         return result
@@ -203,14 +227,20 @@ class EvaluationRunService:
         if entry.reference.native_digest != preflight["dataset_digest"]:
             raise KnoraError("EVALUATION_PREFLIGHT_STALE")
         profile = self._profiles.get(preflight["profile_id"])
-        if profile is None or profile.kind != "offline":
+        if profile is None or profile.kind == "live" and profile.admission is None:
             raise KnoraError("EVALUATION_PREFLIGHT_STALE")
         try:
             binding, corpus = profile.prepare()
             VerifiedM3Environment.prepare(binding=binding, corpus=corpus, manifest=entry.corpus)
+            selection = dict(
+                reference=asdict(entry.reference),
+                selected_case_ids=preflight["case_ids"],
+                context_only_case_ids=preflight["context_only_case_ids"],
+            )
+            admitted = admitted_binding(profile, workspace_id, selection, asdict(binding))
         except Exception as error:
             raise KnoraError("EVALUATION_PREFLIGHT_STALE") from error
-        if asdict(binding) != preflight["binding"]:
+        if admitted != preflight["binding"]:
             raise KnoraError("EVALUATION_PREFLIGHT_STALE")
         selection = {
             "reference": asdict(entry.reference),
@@ -223,7 +253,7 @@ class EvaluationRunService:
             "selection": selection,
             "selection_digest": digest_json(selection),
             "profile_id": profile.profile_id,
-            "binding": asdict(binding),
+            "binding": admitted,
             "execution_status": "QUEUED",
             "quality_status": "UNAVAILABLE",
             "observations": {case_id: {"status": "NOT_RUN"} for case_id in preflight["case_ids"]},
@@ -232,7 +262,7 @@ class EvaluationRunService:
                 {
                     "selection": selection,
                     "profile_id": profile.profile_id,
-                    "binding": asdict(binding),
+                    "binding": admitted,
                 }
             ),
         }
@@ -297,10 +327,11 @@ class EvaluationRunService:
             if asdict(entry.reference) != run["selection"]["reference"]:
                 raise ValueError("Dataset reference drift")
             profile = self._profiles.get(run["profile_id"])
-            if profile is None or profile.kind != "offline":
+            if profile is None or profile.kind == "live" and profile.admission is None:
                 raise ValueError("Runtime profile unavailable")
             binding, corpus = profile.prepare()
-            if asdict(binding) != run["binding"]:
+            admitted = admitted_binding(profile, workspace_id, run["selection"], asdict(binding))
+            if admitted != run["binding"]:
                 raise ValueError("Runtime binding drift")
             environment = VerifiedM3Environment.prepare(
                 binding=binding, corpus=corpus, manifest=entry.corpus
@@ -313,7 +344,8 @@ class EvaluationRunService:
         observations: list[M3Observation] = []
         for case_id in case_ids:
             try:
-                observation = await profile.execute(by_id[case_id], environment)
+                with binding_dispatch(profile, admitted):
+                    observation = await profile.execute(by_id[case_id], environment)
                 if observation.case_id != case_id:
                     raise ValueError("Observation case mismatch")
             except Exception:
@@ -365,7 +397,8 @@ class EvaluationRunService:
         readiness = []
         if any(case.context_dependencies for case in frozen.gold.cases if case.case_id in case_ids):
             reasons.append("CONTEXT_EXECUTION_UNSUPPORTED")
-        if profile is None or profile.kind != "offline":
+        admitted = None
+        if profile is None or profile.kind == "live" and profile.admission is None:
             reasons.append(
                 "PROVIDER_APPROVAL_REQUIRED"
                 if profile_id == "live" or profile and profile.kind == "live"
@@ -376,6 +409,9 @@ class EvaluationRunService:
                 binding = profile.prepare(frozen)
                 validate_pdf_binding(frozen, binding)
                 readiness = pdf_case_readiness(frozen, selection, binding)
+                admitted = admitted_binding(
+                    profile, workspace_id, json.loads(selection.to_json()), binding
+                )
             except Exception:
                 reasons.append("RUNTIME_BINDING_UNAVAILABLE")
         result = {
@@ -395,7 +431,7 @@ class EvaluationRunService:
         }
         if not reasons:
             self._store.save_preflight(
-                {**result, "generation": self._generation, "binding": binding}
+                {**result, "generation": self._generation, "binding": admitted}
             )
         return result
 
@@ -429,13 +465,20 @@ class EvaluationRunService:
             frozen = self._pdf_gold(workspace_id, principal, preflight["dataset_reference"])
             selection = select_cases(frozen, tuple(preflight["case_ids"]))
             profile = self._pdf_profiles[preflight["profile_id"]]
-            if profile.kind != "offline" or any(
-                "CONTEXT_EXECUTION_UNSUPPORTED" in item["reasons"]
-                for item in preflight["case_readiness"]
+            if (
+                profile.kind == "live"
+                and profile.admission is None
+                or any(
+                    "CONTEXT_EXECUTION_UNSUPPORTED" in item["reasons"]
+                    for item in preflight["case_readiness"]
+                )
             ):
                 raise ValueError("Profile unavailable")
             binding = profile.prepare(frozen)
             validate_pdf_binding(frozen, binding)
+            binding = admitted_binding(
+                profile, workspace_id, json.loads(selection.to_json()), binding
+            )
             if binding != preflight["binding"]:
                 raise ValueError("Binding drift")
         except Exception as error:
@@ -479,10 +522,11 @@ class EvaluationRunService:
             frozen = self._pdf_gold(workspace_id, principal, run["selection"]["reference"])
             selection = DatasetSelection.from_json(canonical_json(run["selection"]), frozen)
             profile = self._pdf_profiles[run["profile_id"]]
-            if profile.kind != "offline":
+            if profile.kind == "live" and profile.admission is None:
                 raise ValueError("Live approval required")
             binding = profile.prepare(frozen)
             validate_pdf_binding(frozen, binding)
+            binding = admitted_binding(profile, workspace_id, run["selection"], binding)
             if binding != run["binding"]:
                 raise ValueError("Binding drift")
         except Exception:
@@ -522,7 +566,11 @@ class EvaluationRunService:
                 observation = {"status": "BLOCKED", "failure_code": ";".join(ready["reasons"])}
             else:
                 try:
-                    observation = await profile.execute(by_id[case_id], binding)
+                    with binding_dispatch(profile, binding):
+                        observation = await profile.execute(
+                            by_id[case_id],
+                            {k: v for k, v in binding.items() if k != "live_admission"},
+                        )
                     if observation.get("case_id") != case_id or observation.get("status") not in {
                         "OBSERVED",
                         "FAILED",

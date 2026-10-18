@@ -222,8 +222,6 @@ class DatasetService:
             reasons.append("EVALUATION_PROPOSAL_INPUT_INVALID")
         if profile is None:
             reasons.append("EVALUATION_PROPOSAL_PROFILE_NOT_CONFIGURED")
-        elif profile.kind != "offline":
-            reasons.append("LIVE_APPROVAL_REQUIRED")
         payload = {
             "source": identity,
             "profile_id": profile_id,
@@ -232,6 +230,16 @@ class DatasetService:
             "model": profile.model if profile else None,
             "prompt_version": profile.prompt_version if profile else None,
         }
+        from knora.evaluation.live_admission import live_scope, profile_authority
+
+        if profile is not None:
+            scope = live_scope("proposals", profile_id, workspace_id, payload)
+            try:
+                provenance = profile_authority(profile, scope)
+                if provenance is not None:
+                    payload["live_admission"] = dict(scope=scope, provenance=provenance)
+            except ValueError:
+                reasons.append("LIVE_APPROVAL_REQUIRED")
         return {
             "status": "BLOCKED" if reasons else "READY",
             "reasons": reasons,
@@ -303,7 +311,11 @@ class DatasetService:
             return batch
         profile = self._proposal_profiles[profile_id]
         try:
-            packet = await profile.generate(chunks, identity, language, count)
+            from knora.evaluation.live_admission import profile_dispatch
+
+            saved = preflight["input"].get("live_admission", {})
+            with profile_dispatch(profile, saved.get("scope"), saved.get("provenance")):
+                packet = await profile.generate(chunks, identity, language, count)
             if not isinstance(packet, dict) or len(packet.get("drafts", [])) > count:
                 raise ValueError("DRAFT_LIMIT")
             generator = packet.get("generator", {})

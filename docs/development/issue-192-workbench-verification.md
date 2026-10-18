@@ -137,8 +137,8 @@ OpenAPI artifacts and operator UI patches, with exact hashes and required post-a
 They do not cover later wiring, tie policy, parent-child linkage or runtime acceptance. #188 remains the
 consumer/projection owner for its shadow outputs; no enforcement or canonical contract expansion.
 
-Live Q&A, Ragas and DeepEval profiles remain denied. Current scoring/proposal services reject live
-profiles; merely registering a callback does not make an approved execution envelope. The existing
+At the earlier audit point, Live Q&A, Ragas and DeepEval profiles remained denied. Merely registering
+a callback did not make an approved execution envelope. The existing
 Cloudflare judge has durable HTTP-attempt/time limits, but no explicit output-token limit in its
 request. Provider-specific token enforcement, exact input approval and profile admission remain
 work before any live validation. The false-refusal run cannot supply missing ANSWER captures.
@@ -167,6 +167,44 @@ unknown quota/token compatibility, ambiguous transport or exhausted budget must 
 
 No provider call, model download, billing/configuration change, live-profile unlock, merge,
 deployment, Langfuse export or Guardrails enforcement was performed in this follow-up.
+
+## Live Admission implementation checkpoint
+
+The owner later approved implementation of a trusted-host Live Admission contract, while keeping
+real execution and provider calls disabled. `knora.evaluation.live_admission` now requires an exact
+purpose/profile/workspace/input digest, immutable approval provenance, public or synthetic data,
+Workers Free/account evidence, a zero paid budget, fresh proof, an absolute deadline and a quota
+cap. It persists the approval and every reserved HTTP attempt in a FULL-synchronous SQLite journal.
+The default remains deny: profiles without an injected admission stay blocked, and browser input
+cannot create a profile or enlarge the approved request set.
+
+The guard is checked at preflight, persisted run/batch admission and dispatch. It accepts only the
+approved Cloudflare account endpoints, model, method, token ceiling and canonical request digests;
+redirects, retries, ambiguous responses, duplicate JSON keys, output overage, timeout, stop and
+crash-pending requests fail closed and are never replayed. Real synchronous requests use a bounded,
+killable helper process with a child-side deadline; tests use only `httpx.MockTransport`. Native and
+PDF run bindings, scoring batches and proposal inputs retain safe admission provenance in their
+existing JSON snapshots; Gold v1, thresholds and historical runs are untouched. Remote HTTP helper
+profiles without a same-process guarded provider client remain blocked. Live factories reject an
+ordinary HTTP client when an admission is supplied; the client must be created by that admission.
+
+Offline evidence at this checkpoint: the Live Admission and profile integration tests with the
+existing evaluation subset together pass 100 tests. Ruff format/check and diff checks pass. Independent
+review found and the implementation fixed helper lifetime, duplicate-JSON exact-egress and Q&A
+provider-boundary gaps; no runtime, database deployment, model/provider call, billing change, merge,
+export or Guardrails enforcement was performed. This implementation does not establish live quality
+or end-to-end acceptance; a future live run still needs a fresh, concrete owner-approved envelope.
+
+Final local backend partition: **1602 passed, 633 deselected, exit0**,169.75s. The deselected nodes
+belong to the separate Windows/database/runtime partitions. An earlier full partition exposed a
+fixture registration dependency, fixed by importing the existing Builder fixture directly. A later
+run had eight ambient SOCKS-proxy setup failures; the final run removed inherited proxy variables
+only in its child shell and used CI telemetry-off settings. No dependency or machine proxy setting
+was changed. Strict XML validation, Ruff format/check and diff checks pass. Two independent source
+reviews returned PASS after the provider-boundary and cancellation fixes. The Workbench loopback
+ports and owned L1 container set were independently observed inactive. Project192 is In Progress;
+196/197 remain acceptance-blocked. Q19 cleanup round3 has separate finite source
+[ACK6245725578](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6245725578), not runtime authority.
 
 ## Subsequent read-only access and offline token-request follow-up
 
@@ -672,6 +710,6 @@ all six checks including CI required. That result precedes this documentation up
 [L5 closeout](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6245279332) was
 published and read back. #192 remains In Progress; #196/#197 remain Blocked; no issue is Done.
 Actual owned binding/live admission, saved compatible ANSWER, judge calibration, Ragas human
-review/freeze/R3 and product quality remain open. Current code unconditionally denies live
-profiles, so approval or registration alone cannot close the implementation gap. The one-call
+review/freeze/R3 and product quality remain open. At that checkpoint code unconditionally denied live
+profiles; the subsequent offline Live Admission implementation is recorded above. The one-call
 synthetic exception is consumed; no replay, merge/deploy, Langfuse export or Guardrails enforcement.
