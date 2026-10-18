@@ -804,3 +804,35 @@ Each exact patch was ACKed before applying; the round3 regression failed before 
 These ACKs are compatibility evidence only; they do not authorize runtime execution. Gold v1, thresholds and
 historical runs remain unchanged. Live corpus/binding, compatible ANSWER, judge calibration,
 Ragas human review/freeze/R3, viewer/download and product-quality gates remain open.
+
+## Continuation checkpoint — subset contract and fresh read-only Cloudflare proof — 18 October 2026
+
+The L6 read-only inspection found the retained frozen Gold v1 has three sources: two `READY` and
+one `FAILED` with `PDF_TEXT_INSUFFICIENT`. Owner decision A therefore keeps Gold unchanged and
+allows `CorpusPreparationPlan` to pin exactly two source identities as a subset of Gold; the
+PostgreSQL adapter remains the `READY` gate. Commit
+`6e2ed50be0a43d8e65eb1af22eb1dd99896254d8` adds the contract regression and documentation. The
+evaluation suite passed 263 tests, the focused corpus set passed 74 tests, Ruff/Compose checks
+passed, and exact-head CI required plus all component jobs are green.
+
+An offline envelope replay over the retained L1 objects extracted exactly the two READY PDFs,
+produced one page and one chunk per source, and generated exactly two MockTransport embedding
+requests. The socket guard observed zero real provider calls. No PostgreSQL service, worker,
+binding, activation, Gold write, threshold change or historical-run mutation occurred during
+that replay.
+
+Fresh read-only integrated-browser evidence shows the same Cloudflare account on Workers **Free**;
+Workers AI reports `88.63/10,000` neurons used today, and the model browser lists exactly one
+`qwen3-embedding-0.6b` model. This evidence is not live-dispatch approval. The proposed separate
+window remains capped at two embedding requests, zero retries, `max_neurons_per_attempt=512`,
+at least 1,024 remaining neurons at admission, a five-minute admission validity inside a
+maximum fifteen-minute host window, and fail-closed cleanup/drift conditions. No live request has
+been sent. See the corresponding [proposal](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6252343922),
+[quota evidence](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6252366738), and
+[model evidence](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6252371524).
+
+The current gates remain explicit: a fresh owner approval is required before Materialize + Activate;
+the saved run `faacf17180f24a2bb5ab6c9e36917c6a` remains `COMPLETED / SEMANTIC_PENDING` with
+ANSWER retrieval coverage `0/1`; DeepEval still lacks a compatible saved ANSWER; Ragas has not
+called a provider; embedded PDF rendering/download remains unproven. Historical Gold, thresholds,
+runs, Langfuse export and Guardrails enforcement remain unchanged.
