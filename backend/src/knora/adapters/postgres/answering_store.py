@@ -6,6 +6,11 @@ from sqlalchemy import and_, case, exists, func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from knora.adapters.postgres.lexical_retrieval import (
+    retrieve_lexical_candidates,
+    validate_population_in_transaction,
+)
+from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
     ChunkSetTable,
@@ -16,6 +21,7 @@ from knora.adapters.postgres.tables import (
     QuestionTraceTable,
     RetrievalV2CutoverTable,
 )
+from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
 from knora.answering.excerpt import citation_excerpt
 from knora.answering.generation_validation import validate_generation
 from knora.answering.interface import CitationProjection, QuestionResult
@@ -23,23 +29,102 @@ from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2_details
 from knora.answering.stores import (
     AnsweringStore,
     BranchObservation,
+    LexicalGeneration,
     QuestionTraceRecord,
     RetrievalCandidate,
     RetrievalConfiguration,
     RetrievalResult,
 )
 from knora.domain.errors import KnoraError
+from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.providers.generation import GenerationResult
 
 
 class PostgresAnsweringStore(AnsweringStore):
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker,
+        *,
+        lexical_index: NativeQdrantSearchIndex | None = None,
+        lexical_population: VerifiedLexicalPopulation | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        self._lexical_index = lexical_index
+        self._lexical_population = lexical_population
+
+    def revalidate_lexical_snapshot(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+        generations: tuple[LexicalGeneration, ...],
+    ) -> None:
+        with self._session_factory.begin() as session:
+            self._revalidate_lexical_population(
+                session, workspace_id, lexical_policy_id, generations
+            )
+
+    def _revalidate_lexical_population(
+        self,
+        session: Session,
+        workspace_id: str,
+        lexical_policy_id: str,
+        generations: tuple[LexicalGeneration, ...],
+    ) -> None:
+        authority = PostgresSearchIndexStore(self._session_factory)
+        authority.revalidate_lexical_snapshot_in_transaction(
+            session, workspace_id, lexical_policy_id, generations
+        )
+        current = authority.read_active_generations_in_snapshot(
+            session, workspace_id, lexical_policy_id
+        )
+        if {g.generation_id for g in current} != {g.index_generation_id for g in generations}:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        validate_population_in_transaction(session, workspace_id, current, self._lexical_population)
+
+    def _revalidate_lexical_trace(self, session: Session, trace: QuestionTraceRecord) -> None:
+        if trace.trace_schema_version != 3:
+            return
+        try:
+            retrieval = trace.provider_metadata["retrieval"]
+            if not isinstance(retrieval, dict) or retrieval.get("mode") != "bm25-only":
+                raise ValueError("invalid lexical trace mode")
+            data = retrieval["lexical_generations"]
+            if not isinstance(data, list) or not data:
+                raise ValueError("missing lexical trace snapshot")
+            if any(
+                not isinstance(item, dict)
+                or len(item) != 6
+                or any(not isinstance(value, str) or not value for value in item.values())
+                for item in data
+            ):
+                raise ValueError("invalid lexical trace snapshot")
+            generations = tuple(LexicalGeneration(**item) for item in data)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE") from exc
+        self._revalidate_lexical_population(
+            session, trace.workspace_id, generations[0].lexical_policy_id, generations
+        )
 
     def require_lexical_corpus(self, workspace_id: str, lexical_policy_id: str) -> None:
-        # S2.2 supplies authoritative lexical readiness; never reuse embedding activation.
-        raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        if self._lexical_index is None:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        with self._session_factory.begin() as session:
+            current = PostgresSearchIndexStore(
+                self._session_factory
+            ).read_active_generations_in_snapshot(session, workspace_id, lexical_policy_id)
+            snapshots = tuple(
+                LexicalGeneration(
+                    g.workspace_id,
+                    g.document_id,
+                    g.document_version_id,
+                    g.chunk_set_id,
+                    g.generation_id,
+                    g.lexical_profile.id,
+                )
+                for g in current
+            )
+            self._revalidate_lexical_population(session, workspace_id, lexical_policy_id, snapshots)
 
     def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str) -> None:
         with self._session_factory() as session:
@@ -74,7 +159,16 @@ class PostgresAnsweringStore(AnsweringStore):
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult:
         if retrieval_configuration.strategy == "bm25-only":
-            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+            if self._lexical_index is None:
+                raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+            return retrieve_lexical_candidates(
+                self._session_factory,
+                workspace_id,
+                query_text,
+                retrieval_configuration,
+                self._lexical_index,
+                population=self._lexical_population,
+            )
         if query_vector is None or embedding_configuration is None:
             raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
         if len(query_vector) != embedding_configuration.dimensions:
@@ -702,6 +796,7 @@ class PostgresAnsweringStore(AnsweringStore):
             "latency_ms": trace.latency_ms,
         }
         with self._session_factory.begin() as session:
+            self._revalidate_lexical_trace(session, trace)
             if trace.conversation_turn_id is None:
                 session.add(QuestionTraceTable(**values))
                 return trace_id

@@ -7,6 +7,170 @@ from evals.runners.pdf_retrieval_v3 import PdfHttpExecutor, build_report, publis
 from evals.runners.pdf_source_binding import digest
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "fault",
+    [
+        None,
+        "parent",
+        "document",
+        "workspace",
+        "version",
+        "index_failed",
+        "index_superseded",
+        "no_child",
+        "not_ready",
+        "not_served",
+        "index_changed",
+        "unavailable",
+    ],
+)
+async def test_lexical_upload_waits_for_linked_index_and_serving_snapshot(tmp_path, fault):
+    from evals.runners.milestone_3 import ObservationFailure
+
+    source_path = tmp_path / "fixture.pdf"
+    source_path.write_bytes(b"pdf")
+    submitted = {
+        "ingestion_job_id": "extraction",
+        "document_id": "document",
+        "document_version_id": "version",
+    }
+    terminal = {"ingestion_job_id": "extraction", "status": "succeeded"}
+    ready = {
+        "workspace_id": "workspace",
+        "document_id": "document",
+        "current_document_version_id": "version",
+        "ingestion_job_id": "extraction",
+        "indexing_job_id": "index",
+        "indexing_status": "succeeded",
+        "lexical_readiness": "ready",
+        "served_document_version_id": "version",
+        "answer_availability": "available",
+    }
+    if fault in {"parent", "document", "workspace", "version"}:
+        ready[
+            {
+                "parent": "ingestion_job_id",
+                "document": "document_id",
+                "workspace": "workspace_id",
+                "version": "current_document_version_id",
+            }[fault]
+        ] = "foreign"
+    elif fault in {"index_failed", "index_superseded"}:
+        ready["indexing_status"] = fault.removeprefix("index_")
+    elif fault == "no_child":
+        ready["indexing_job_id"] = None
+    elif fault == "not_ready":
+        ready["lexical_readiness"] = "not_indexed"
+    elif fault == "not_served":
+        ready["served_document_version_id"] = "previous"
+    elif fault == "index_changed":
+        ready["indexing_job_id"] = "foreign"
+    elif fault == "unavailable":
+        ready["answer_availability"] = "unavailable"
+    calls = []
+
+    def transport(request):
+        calls.append((request.method, request.url.path))
+        if request.method == "POST":
+            return httpx.Response(202, json=submitted)
+        if "ingestion-jobs" in request.url.path:
+            return httpx.Response(200, json=terminal)
+        if calls.count(("GET", request.url.path)) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    **ready,
+                    "indexing_job_id": "index"
+                    if fault == "index_changed"
+                    else ready["indexing_job_id"],
+                    "indexing_status": "processing",
+                    "lexical_readiness": "not_indexed",
+                    "served_document_version_id": None,
+                },
+            )
+        return httpx.Response(200, json=ready)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(transport), base_url="http://test"
+    ) as client:
+        executor = PdfHttpExecutor(
+            client=client,
+            headers={},
+            reader=None,
+            workspace_id="workspace",
+            run_id="run",
+            embedding_configuration_id=None,
+            poll_interval=0,
+            max_polls=3,
+        )
+        source = NS(id="source", path=source_path)
+        if fault:
+            expected = (
+                "LEXICAL_UPLOAD_IDENTITY_MISMATCH"
+                if fault in {"parent", "document", "workspace", "version", "index_changed"}
+                else "LEXICAL_INDEX_FAILED"
+                if fault in {"index_failed", "index_superseded"}
+                else "LEXICAL_INDEX_TIMEOUT"
+            )
+            with pytest.raises(ObservationFailure, match=expected):
+                await executor.upload(source)
+        else:
+            result = await executor.upload(source)
+            assert result["ingestion_job_id"] == "extraction"
+            assert result["status"] == "succeeded"
+            assert result["indexing_job_id"] == "index"
+            assert result["lexical_readiness"] == "ready"
+            assert calls == [
+                ("POST", "/v1/workspaces/workspace/documents"),
+                ("GET", "/v1/workspaces/workspace/ingestion-jobs/extraction"),
+                ("GET", "/v1/workspaces/workspace/documents/document"),
+                ("GET", "/v1/workspaces/workspace/documents/document"),
+            ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "embedding,status", [("dense-config", "succeeded"), (None, "failed"), (None, "superseded")]
+)
+async def test_upload_preserves_dense_and_failed_extraction_terminal_results(
+    tmp_path, embedding, status
+):
+    source_path = tmp_path / "fixture.pdf"
+    source_path.write_bytes(b"pdf")
+    calls = []
+    terminal = {"ingestion_job_id": "extraction", "status": status}
+
+    def transport(request):
+        calls.append(request.url.path)
+        if request.method == "POST":
+            return httpx.Response(
+                202,
+                json={
+                    "ingestion_job_id": "extraction",
+                    "document_id": "document",
+                    "document_version_id": "version",
+                },
+            )
+        assert request.url.path.endswith("/ingestion-jobs/extraction")
+        return httpx.Response(200, json=terminal)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(transport), base_url="http://test"
+    ) as client:
+        executor = PdfHttpExecutor(
+            client=client,
+            headers={},
+            reader=None,
+            workspace_id="workspace",
+            run_id="run",
+            embedding_configuration_id=embedding,
+            poll_interval=0,
+        )
+        assert await executor.upload(NS(id="source", path=source_path)) == terminal
+    assert len(calls) == 2
+
+
 def case(id="q1", parent=None):
     return NS(
         id=id,
@@ -89,6 +253,73 @@ def test_historical_trace_without_fields_stays_unavailable():
         "status": "unavailable",
         "reason": "TRACE_FIELDS_UNAVAILABLE",
     }
+
+
+def test_bm25_report_retains_native_depth_beyond_primary_candidates():
+    from evals.runners.pdf_retrieval_v3 import project_retrieval_diagnostics
+
+    persisted = trace()
+    persisted.candidates = ()
+    persisted.alias_mapping = {}
+    persisted.candidate_decisions = ()
+    persisted.trace_schema_version = 3
+    persisted.branch_observation_schema_version = 2
+    persisted.branch_observations = tuple(
+        {
+            "schema_version": 2,
+            "branch": "bm25",
+            "score_kind": "bm25",
+            "status": "REVOKED" if rank <= 8 else "RANK_LIMIT",
+            "chunk_id": str(rank),
+            "branch_rank": rank,
+            "raw_score": float(20 - rank),
+            "index_generation_id": "generation",
+            "lexical_policy_id": "profile",
+        }
+        for rank in range(1, 11)
+    )
+    persisted.provider_metadata["retrieval"] = {
+        "mode": "bm25-only",
+        "score_policy": {"candidate_limit": 8, "query_limit": 200},
+    }
+    diagnostic = project_retrieval_diagnostics(persisted)
+    assert diagnostic["native_top200"] == list(persisted.branch_observations)
+    row = {
+        "case_id": "q1",
+        "failure_code": None,
+        "response_sha256": "r",
+        "selected_chunk_ids": [],
+        "decision": "REFUSAL",
+        "retrieval_diagnostics": diagnostic,
+    }
+    dataset = NS(cases=(case(),), dataset_sha256="a", corpus_sha256="b")
+    supplement = build_report(dataset, [row], {"limit": ("9",)}, {})["cases"][0][
+        "retrieval_diagnostics"
+    ]
+    assert supplement["coverage"] == {
+        "retrieved_top8": [False],
+        "retrieved_top200": [True],
+        "generation_selected": [False],
+    }
+    assert supplement["coverage_scope"] == "native_top200_observations"
+    assert supplement["ordered_candidate_ids"] == []
+
+
+@pytest.mark.parametrize("ranks", [[2], [1, 1], list(range(1, 202))])
+def test_bm25_diagnostics_reject_incomplete_or_oversized_native_rank_window(ranks):
+    from evals.runners.milestone_3 import ObservationFailure
+    from evals.runners.pdf_retrieval_v3 import project_retrieval_diagnostics
+
+    persisted = trace()
+    persisted.candidates, persisted.candidate_decisions = (), ()
+    persisted.trace_schema_version, persisted.branch_observation_schema_version = 3, 2
+    persisted.provider_metadata["retrieval"] = {"mode": "bm25-only"}
+    persisted.branch_observations = tuple(
+        {"branch": "bm25", "status": "REVOKED", "branch_rank": rank, "chunk_id": str(index)}
+        for index, rank in enumerate(ranks)
+    )
+    with pytest.raises(ObservationFailure, match="NATIVE_DIAGNOSTICS_MISMATCH"):
+        project_retrieval_diagnostics(persisted)
 
 
 @pytest.mark.asyncio
@@ -248,6 +479,136 @@ def test_response_review_cannot_be_reused_for_another_answer():
             {"limit": ("one",)},
             {"q1": {"response_sha256": "old", "reviewer": "NhiBuaa", "correctness": True}},
         )
+
+
+def test_bm25_comparison_keeps_baseline_depth_selected_failures_and_full_denominator():
+    from evals.runners.pdf_retrieval_v3 import build_bm25_comparison
+
+    control = NS(id="control", evidence_groups=())
+    unmapped = NS(id="missing", evidence_groups=(("missing-anchor",),))
+    dataset = NS(
+        cases=(case(), unmapped, case("failed"), case("not-run"), control),
+        dataset_sha256="gold",
+        corpus_sha256="corpus",
+    )
+    bm25 = [
+        {
+            "case_id": "q1",
+            "failure_code": None,
+            "candidates": [{"chunk_id": "1"}],
+            "selected_chunk_ids": ["1"],
+            "retrieval_diagnostics": {
+                "native_top200": [
+                    {"branch": "bm25", "chunk_id": str(i), "branch_rank": i} for i in range(1, 11)
+                ]
+            },
+        },
+        {"case_id": "failed", "failure_code": "LEXICAL_RETRIEVAL_UNAVAILABLE"},
+        {
+            "case_id": "control",
+            "failure_code": None,
+            "candidates": [],
+            "selected_chunk_ids": [],
+            "retrieval_diagnostics": {"native_top200": []},
+        },
+    ]
+    baseline = [
+        {
+            "case_id": "q1",
+            "failure_code": None,
+            "candidates": [{"chunk_id": "9"}],
+            "selected_chunk_ids": [],
+        },
+        {"case_id": "missing", "failure_code": None, "candidates": [], "selected_chunk_ids": []},
+    ]
+    before = deepcopy((bm25, baseline))
+    report = build_bm25_comparison(dataset, bm25, baseline, {"limit": ("9",)})
+    assert report["denominator"] == 5
+    assert [row["case_id"] for row in report["cases"]] == [c.id for c in dataset.cases]
+    observed = report["cases"][0]
+    assert observed["bm25"]["top8_group_coverage"] == [False]
+    assert observed["bm25"]["top200_group_coverage"] == [True]
+    assert observed["bm25"]["selected_group_coverage"] == [False]
+    assert observed["baseline_b"]["candidate_group_coverage"] == [True]
+    assert observed["baseline_b"]["selected_group_coverage"] == [False]
+    assert observed["bm25"]["native_top200_ids"] == [str(i) for i in range(1, 11)]
+    assert report["cases"][1]["mapping_status"] == "extraction_or_mapping_missing"
+    assert report["cases"][1]["baseline_b"]["candidate_group_coverage"] is None
+    assert report["cases"][2]["bm25"] == {
+        "status": "observation_failed",
+        "failure_code": "LEXICAL_RETRIEVAL_UNAVAILABLE",
+    }
+    assert report["cases"][3]["bm25"] == {"status": "not_run"}
+    assert report["cases"][4]["mapping_status"] == "no_answer_control"
+    assert report["cases"][4]["bm25"]["top8_group_coverage"] is None
+    assert report["semantic_quality"] == "not_assessed"
+    assert (bm25, baseline) == before
+
+
+@pytest.mark.parametrize(
+    "fault", ["duplicate_case", "foreign_case", "refill", "selected_outside_top8"]
+)
+def test_bm25_comparison_rejects_bad_case_identity_or_refilled_evidence(fault):
+    from evals.runners.pdf_retrieval_v3 import build_bm25_comparison
+
+    dataset = NS(cases=(case(),), dataset_sha256="gold", corpus_sha256="corpus")
+    row = {
+        "case_id": "q1",
+        "failure_code": None,
+        "candidates": [{"chunk_id": "9"}],
+        "selected_chunk_ids": [],
+        "retrieval_diagnostics": {
+            "native_top200": [
+                {"branch": "bm25", "chunk_id": str(i), "branch_rank": i} for i in range(1, 11)
+            ]
+        },
+    }
+    rows = [row]
+    if fault == "duplicate_case":
+        rows.append(deepcopy(row))
+    elif fault == "foreign_case":
+        row["case_id"] = "foreign"
+    elif fault == "selected_outside_top8":
+        row["candidates"] = [{"chunk_id": "1"}]
+        row["selected_chunk_ids"] = ["9"]
+    with pytest.raises(ValueError):
+        build_bm25_comparison(dataset, rows, [], {"limit": ("9",)})
+
+
+@pytest.mark.parametrize("fault", ["reordered", "gap", "duplicate_rank", "oversized"])
+def test_saved_bm25_comparison_uses_validated_native_ranks_not_json_position(fault):
+    from evals.runners.pdf_retrieval_v3 import build_bm25_comparison
+
+    dataset = NS(cases=(case(),), dataset_sha256="gold", corpus_sha256="corpus")
+    native = [
+        {"branch": "bm25", "chunk_id": str(rank), "branch_rank": rank} for rank in range(1, 11)
+    ]
+    row = {
+        "case_id": "q1",
+        "failure_code": None,
+        "candidates": [],
+        "selected_chunk_ids": [],
+        "retrieval_diagnostics": {"native_top200": native},
+    }
+    if fault == "reordered":
+        native.insert(0, native.pop(8))
+        before = deepcopy(row)
+        report = build_bm25_comparison(dataset, [row], [], {"limit": ("9",)})
+        assert report["cases"][0]["bm25"]["top8_group_coverage"] == [False]
+        assert report["cases"][0]["bm25"]["native_top200_ids"] == [str(i) for i in range(1, 11)]
+        assert row == before
+    else:
+        if fault == "gap":
+            native.pop(1)
+        elif fault == "duplicate_rank":
+            native[1]["branch_rank"] = 1
+        else:
+            native.extend(
+                {"branch": "bm25", "chunk_id": str(rank), "branch_rank": rank}
+                for rank in range(11, 202)
+            )
+        with pytest.raises(ValueError, match="NATIVE_DIAGNOSTICS_MISMATCH"):
+            build_bm25_comparison(dataset, [row], [], {"limit": ("9",)})
 
 
 def test_publication_cannot_clobber_previous_run(tmp_path):

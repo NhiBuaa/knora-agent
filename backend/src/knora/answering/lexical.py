@@ -85,9 +85,11 @@ def validate_bm25_result(
         ):
             invalid()
     ranked.sort(key=lambda o: o.branch_rank)
-    if len({o.branch_rank for o in ranked}) != len(ranked) or [
-        (-o.raw_score, o.chunk_id) for o in ranked
-    ] != sorted((-o.raw_score, o.chunk_id) for o in ranked):
+    if len(ranked) > 200 or [o.branch_rank for o in ranked] != list(range(1, len(ranked) + 1)):
+        invalid()
+    native_full_window = len(ranked) == 200
+    order = [(-o.raw_score, o.branch_rank if native_full_window else o.chunk_id) for o in ranked]
+    if len({o.branch_rank for o in ranked}) != len(ranked) or order != sorted(order):
         invalid()
     if not result.branch_observations or set(eligible) != {c.chunk_id for c in result.candidates}:
         invalid()
@@ -118,7 +120,7 @@ def validate_bm25_result(
             != (o.branch_rank, o.raw_score, o.index_generation_id)
         ):
             invalid()
-        order = (-o.raw_score, c.chunk_id)
+        order = (-o.raw_score, o.branch_rank if native_full_window else c.chunk_id)
         if previous is not None and order < previous:
             invalid()
         previous = order

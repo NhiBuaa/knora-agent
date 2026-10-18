@@ -231,6 +231,10 @@ class AnswerQuestion:
         }
         if stage_callback is not None:
             stage_callback("generating")
+        if lexical:
+            self._store.revalidate_lexical_snapshot(
+                command.workspace_id, retrieval_configuration.lexical_policy_id, lexical_generations
+            )
         generation = await self._generation_provider.generate(
             question=generation_question,
             evidence=tuple(
@@ -483,6 +487,11 @@ class AnswerQuestion:
         }
         lexical = retrieval_configuration.strategy == "bm25-only"
         if lexical:
+            native_full_window = sorted(
+                observation["branch_rank"]
+                for observation in branch_observations
+                if observation["status"] != "NO_CONTRIBUTION"
+            ) == list(range(1, 201))
             provider_metadata["retrieval"].update(
                 mode="bm25-only",
                 lexical_generations=[asdict(g) for g in lexical_generations],
@@ -492,8 +501,11 @@ class AnswerQuestion:
                     "numeric_cutoff": None,
                     "cutoff_status": "not_calibrated",
                     "candidate_limit": retrieval_configuration.candidate_k,
-                    "observed_scope": "authorized_top_k",
-                    "beyond_limit": "unknown",
+                    "query_limit": 200,
+                    "observed_scope": "authorized_top_200",
+                    "tie_order": "native" if native_full_window else "score_desc_chunk_id_asc",
+                    "tie_boundary": "unknown" if native_full_window else "complete",
+                    "beyond_limit": "unknown" if native_full_window else "none",
                 },
             )
             provider_metadata["timing"]["phases"]["query_embedding"]["status"] = "not_run"

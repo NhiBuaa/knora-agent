@@ -50,6 +50,24 @@ class RetrievalConfiguration:
             lexical_policy_id="bm25-unicode-word-v1",
         )
 
+    @classmethod
+    def bm25_top8_v1(cls) -> "RetrievalConfiguration":
+        """Primary Top8 from one native Top200; no calibrated score cutoff."""
+        return replace(
+            cls.bm25_diagnostic_v1(),
+            id="retrieval-bm25-top8-v1",
+            candidate_k=8,
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+        )
+
+    @classmethod
+    def bm25_upload_fixture_top8_v1(cls) -> "RetrievalConfiguration":
+        return replace(
+            cls.bm25_top8_v1(),
+            id="retrieval-bm25-upload-fixture-top8-v1",
+            lexical_policy_id="bm25-word-upload-fixture-population-v1",
+        )
+
     def parity_semantics(self) -> dict[str, object]:
         """Project strategy semantics for vector/hybrid parity review, excluding identity."""
 
@@ -306,6 +324,13 @@ class QuestionTraceRecord:
 
 
 class AnsweringStore(Protocol):
+    def revalidate_lexical_snapshot(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+        generations: tuple[LexicalGeneration, ...],
+    ) -> None: ...
+
     def require_lexical_corpus(self, workspace_id: str, lexical_policy_id: str) -> None: ...
 
     def require_compatible_corpus(

@@ -4,9 +4,27 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
+from typing import TYPE_CHECKING, Protocol
 from uuid import NAMESPACE_URL, uuid5
+
+from knora.ingestion.job_processing import (
+    CancellationToken,
+    HandlerFailureKindV1,
+    IngestionWork,
+    PdfDerivationSuccess,
+    PdfExtractionSuccess,
+    WorkFailed,
+    WorkHandler,
+    WorkOutcome,
+    WorkSucceeded,
+    WorkSuperseded,
+)
+
+if TYPE_CHECKING:
+    from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 
 
 class LexicalGenerationError(ValueError):
@@ -15,6 +33,10 @@ class LexicalGenerationError(ValueError):
 
 class StaleGenerationError(LexicalGenerationError):
     """A generation or revision is no longer the requested one."""
+
+
+class LexicalProjectionUnavailable(RuntimeError):
+    """A transport-classified transient projection storage failure."""
 
 
 def lexical_point_id(generation_id: str, chunk_id: str) -> str:
@@ -177,3 +199,121 @@ class StageReceipt:
             or self.content_digest != generation.content_digest()
         ):
             raise LexicalGenerationError("generation acknowledgement does not match request")
+
+
+@dataclass(frozen=True, slots=True)
+class LexicalIndexInput:
+    generation: LexicalGeneration
+    chunk_texts: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LexicalIndexSuccess:
+    generation: LexicalGeneration
+    receipt: StageReceipt
+
+    def __post_init__(self) -> None:
+        self.receipt.validate(self.generation)
+
+
+class LexicalIndexStore(Protocol):
+    def load_generation(self, work: IngestionWork) -> LexicalIndexInput:
+        """Load authoritative text and reject a stale enqueue snapshot."""
+        ...
+
+
+class LexicalIndexPort(Protocol):
+    def stage_generation(
+        self, generation: LexicalGeneration, chunk_texts: Mapping[str, str]
+    ) -> StageReceipt: ...
+
+
+class LexicalIndexHandler:
+    """Stage one durable generation; fenced activation belongs to finalization."""
+
+    def __init__(
+        self,
+        *,
+        store: LexicalIndexStore,
+        index: LexicalIndexPort,
+        lexical_population: VerifiedLexicalPopulation | None = None,
+    ) -> None:
+        self._store = store
+        self._index = index
+        self._lexical_population = lexical_population
+
+    def execute(
+        self, work: IngestionWork, cancellation: CancellationToken
+    ) -> WorkOutcome[LexicalIndexSuccess]:
+        from knora.ingestion.lexical_population import LexicalPopulationError
+
+        del cancellation
+        if work.derivation_kind != "lexical_index":
+            return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+        try:
+            loaded = self._store.load_generation(work)
+            generation = loaded.generation
+            if (
+                generation.generation_id != work.lexical_generation_id
+                or generation.workspace_id != work.workspace_id
+                or generation.document_id != work.document_id
+                or generation.document_version_id != work.document_version_id
+                or (
+                    work.lexical_profile_digest is not None
+                    and generation.lexical_profile.digest() != work.lexical_profile_digest
+                )
+            ):
+                raise LexicalGenerationError("generation does not match claimed work")
+            texts = dict(loaded.chunk_texts)
+            if len(texts) != len(loaded.chunk_texts) or set(texts) != {
+                chunk.chunk_id for chunk in generation.chunks
+            }:
+                raise LexicalGenerationError("authoritative texts differ from generation")
+            for chunk in generation.chunks:
+                text = texts[chunk.chunk_id]
+                if (
+                    not isinstance(text, str)
+                    or not text.strip()
+                    or hashlib.sha256(text.encode("utf-8")).hexdigest() != chunk.content_checksum
+                ):
+                    raise LexicalGenerationError("authoritative text checksum is invalid")
+            if self._lexical_population is None:
+                raise LexicalGenerationError("verified lexical population is required")
+            self._lexical_population.validate_document(
+                work.source_sha256,
+                tuple(
+                    texts[chunk.chunk_id]
+                    for chunk in sorted(generation.chunks, key=lambda c: c.ordinal)
+                ),
+                generation.lexical_profile,
+            )
+            receipt = self._index.stage_generation(generation, texts)
+            if not isinstance(receipt, StageReceipt):
+                raise LexicalGenerationError("projection receipt is missing")
+            return WorkSucceeded(LexicalIndexSuccess(generation, receipt))
+        except StaleGenerationError:
+            return WorkSuperseded(terminal_outcome_code="stale_derivation_snapshot")
+        except (LexicalGenerationError, LexicalPopulationError):
+            return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+        except LexicalProjectionUnavailable:
+            return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
+
+
+class DerivationJobHandler:
+    """Dispatch durable kinds through the existing ingestion attempt runtime."""
+
+    def __init__(
+        self,
+        *,
+        pdf_handler: WorkHandler[PdfDerivationSuccess | PdfExtractionSuccess],
+        index_handler: WorkHandler[LexicalIndexSuccess],
+    ) -> None:
+        self._pdf_handler = pdf_handler
+        self._index_handler = index_handler
+
+    def execute(
+        self, work: IngestionWork, cancellation: CancellationToken
+    ) -> WorkOutcome[PdfDerivationSuccess | PdfExtractionSuccess | LexicalIndexSuccess]:
+        if work.derivation_kind == "lexical_index":
+            return self._index_handler.execute(work, cancellation)
+        return self._pdf_handler.execute(work, cancellation)

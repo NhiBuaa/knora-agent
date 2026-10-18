@@ -139,6 +139,88 @@ def test_parse_preserves_raw_scores_and_rejects_foreign_or_nonfinite_points() ->
         index().parse_response(snapshot(), nonfinite)
 
 
+def _query_point(chunk_id: str, score: float) -> dict:
+    return {
+        "id": lexical_point_id("generation-1", chunk_id),
+        "score": score,
+        "payload": {
+            "workspace_id": "workspace-1",
+            "generation_id": "generation-1",
+            "chunk_id": chunk_id,
+            "profile_digest": index().profile.digest(),
+        },
+    }
+
+
+def test_complete_native_population_canonicalizes_ties_after_score_validation() -> None:
+    parsed = index().parse_response(
+        snapshot(),
+        {
+            "points": [
+                _query_point("chunk-z", 2),
+                _query_point("chunk-a", 2),
+                _query_point("chunk-m", 1),
+            ]
+        },
+    )
+
+    assert [(hit["chunk_id"], hit["rank"]) for hit in parsed] == [
+        ("chunk-a", 1),
+        ("chunk-z", 2),
+        ("chunk-m", 3),
+    ]
+
+
+def test_full_native_population_preserves_tie_order_at_unknown_boundary() -> None:
+    chunk_ids = [f"chunk-{i:03d}" for i in range(200, 0, -1)]
+    parsed = index().parse_response(
+        snapshot(), {"points": [_query_point(chunk_id, 2) for chunk_id in chunk_ids]}
+    )
+
+    assert len(parsed) == 200
+    assert [(hit["chunk_id"], hit["rank"]) for hit in parsed[:2]] == [
+        ("chunk-200", 1),
+        ("chunk-199", 2),
+    ]
+    assert [(hit["chunk_id"], hit["rank"]) for hit in parsed[-2:]] == [
+        ("chunk-002", 199),
+        ("chunk-001", 200),
+    ]
+
+
+@pytest.mark.parametrize(
+    "limit,expected", [(2, ["chunk-z", "chunk-a"]), (3, ["chunk-a", "chunk-z"])]
+)
+def test_tie_completeness_uses_requested_window(limit, expected) -> None:
+    parsed = index().parse_response(
+        snapshot(),
+        {"points": [_query_point("chunk-z", 2), _query_point("chunk-a", 2)]},
+        limit=limit,
+    )
+    assert [hit["chunk_id"] for hit in parsed] == expected
+
+
+def test_response_cannot_exceed_requested_window() -> None:
+    with pytest.raises(ProjectionResponseError):
+        index().parse_response(
+            snapshot(),
+            {"points": [_query_point("chunk-z", 2), _query_point("chunk-a", 2)]},
+            limit=1,
+        )
+
+
+@pytest.mark.parametrize(
+    "points",
+    [
+        [_query_point("chunk-z", 1), _query_point("chunk-a", 2)],
+        [_query_point("chunk-a", 2), _query_point("chunk-a", 1)],
+    ],
+)
+def test_native_population_rejects_score_disorder_and_duplicate_chunks(points) -> None:
+    with pytest.raises(ProjectionResponseError):
+        index().parse_response(snapshot(), {"points": points})
+
+
 def test_profile_requires_measured_native_token_counts() -> None:
     with pytest.raises(LexicalGenerationError):
         LexicalProfile.from_native_token_counts(
@@ -269,6 +351,30 @@ def test_collection_and_persisted_point_readback_have_bounded_native_wire_shapes
         "with_payload": True,
         "with_vector": False,
     }
+
+
+def test_payload_keyword_indexes_cover_query_and_idf_filters_without_shared_mutation() -> None:
+    adapter = index()
+    expected = (
+        {
+            "field_name": "workspace_id",
+            "field_schema": {"type": "keyword", "is_tenant": True},
+        },
+        {"field_name": "generation_id", "field_schema": "keyword"},
+        {"field_name": "profile_digest", "field_schema": "keyword"},
+    )
+    bodies = adapter.payload_index_bodies()
+
+    assert bodies == expected
+    query = adapter.query_body(snapshot(), "hạn mức")
+    index_fields = sorted(body["field_name"] for body in bodies)
+    for scope in (query["filter"], query["params"]["idf"]["corpus"]):
+        assert index_fields == sorted(condition["key"] for condition in scope["must"])
+
+    bodies[0]["field_schema"]["is_tenant"] = False
+    bodies[1]["field_name"] = "foreign"
+    bodies[2]["field_schema"] = "integer"
+    assert adapter.payload_index_bodies() == expected
 
 
 @pytest.mark.parametrize(

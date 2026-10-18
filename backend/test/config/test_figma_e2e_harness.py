@@ -168,10 +168,11 @@ def compose_graph(*profiles: str) -> dict:
     return json.loads(result.stdout)
 
 
-def test_only_two_compose_entry_points_and_production_excludes_test_services() -> None:
+def test_compose_entry_points_and_production_excludes_test_services() -> None:
     assert {p.name for p in ROOT.glob("docker-compose*.yml")} == {
         "docker-compose.yml",
         "docker-compose.dev.yml",
+        "docker-compose.s2.yml",
     }
     production = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
     assert set(production["services"]) == {"postgres", "minio", "minio-init", "api"}

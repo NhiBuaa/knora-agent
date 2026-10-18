@@ -31,6 +31,14 @@ class DocumentProjection:
     last_processed_at: datetime | None = None
     answer_availability: AnswerAvailability = "unknown"
     deletion_request: "DocumentDeletionRequestProjection | None" = None
+    indexing_job_id: str | None = None
+    indexing_status: (
+        Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
+        | None
+    ) = None
+    lexical_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
+    derivation_kind: Literal["dense", "pdf_extraction", "lexical_index"] | None = None
+    desired_lexical_generation_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

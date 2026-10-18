@@ -20,6 +20,7 @@ from knora.ingestion.object_lifecycle import (
 from knora.ingestion.object_store import ObjectMetadata, ObjectStore
 from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.processing import ChunkingConfiguration
+from knora.ingestion.search_indexing import LexicalProfile
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.workspaces.ports import WorkspaceAdmissionStore
 
@@ -81,6 +82,14 @@ class PdfSubmissionConfiguration:
 
 
 @dataclass(frozen=True, slots=True)
+class PdfExtractionSubmissionConfiguration:
+    parser_configuration_id: str
+    normalizer_configuration_id: str
+    chunking_configuration: ChunkingConfiguration
+    lexical_profile: LexicalProfile
+
+
+@dataclass(frozen=True, slots=True)
 class PdfSubmissionCommand:
     workspace_id: str
     source_key: str
@@ -88,7 +97,7 @@ class PdfSubmissionCommand:
     media_type: str
     stream: BinaryIO
     idempotency_key: str
-    configuration: PdfSubmissionConfiguration
+    configuration: PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,7 +110,7 @@ class PreparedPdfSubmission:
     idempotency_operation: str
     idempotency_key: str
     idempotency_expires_at: datetime
-    configuration: PdfSubmissionConfiguration
+    configuration: PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +144,12 @@ class JobStatusProjection:
     replacement_document_version_id: str | None = None
     replacement_ingestion_job_id: str | None = None
     reprocess_of_job_id: str | None = None
+    indexing_job_id: str | None = None
+    indexing_status: PUBLIC_JOB_STATUSES | None = None
+    lexical_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
+    derivation_kind: Literal["dense", "pdf_extraction", "lexical_index"] | None = None
+    desired_lexical_generation_id: str | None = None
+    lexical_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +159,7 @@ class ReprocessDocumentVersionCommand:
     config_mode: REPROCESS_CONFIG_MODES
     config_source_job_id: str | None
     idempotency_key: str
+    expected_lexical_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +168,7 @@ class ReprocessContext:
     document_id: str
     document_version_id: str
     source_object: ObjectMetadata
-    configuration: PdfSubmissionConfiguration
+    configuration: PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration
     config_source_job_id: str | None
     prior_job_id: str | None
 
@@ -171,8 +187,9 @@ class PreparedReprocess:
     resolved_config_mode: REPROCESS_CONFIG_MODES
     config_source_job_id: str | None
     prior_job_id: str | None
-    configuration: PdfSubmissionConfiguration
+    configuration: PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration
     actor_key_id: str
+    expected_lexical_revision: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -392,6 +409,12 @@ class IngestionJobs:
             and command.config_source_job_id is not None
         ):
             raise KnoraError("CONFIG_SOURCE_JOB_NOT_ALLOWED")
+        if command.expected_lexical_revision is not None and (
+            command.config_mode != "same_as_job"
+            or type(command.expected_lexical_revision) is not int
+            or command.expected_lexical_revision < 0
+        ):
+            raise KnoraError("CONFIG_SOURCE_JOB_INVALID")
         if command.config_mode == "deployed" and self._deployed_embedding_configuration is None:
             raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
         request_fingerprint = self._reprocess_fingerprint(
@@ -436,6 +459,9 @@ class IngestionJobs:
             raise KnoraError("DOCUMENT_VERSION_NOT_FOUND")
         configuration = context.configuration
         if command.config_mode == "deployed":
+            if isinstance(configuration, PdfExtractionSubmissionConfiguration):
+                self._close_admission(admission_id)
+                raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
             configuration = replace(
                 configuration,
                 embedding_configuration=self._deployed_embedding_configuration,
@@ -479,6 +505,7 @@ class IngestionJobs:
             prior_job_id=context.prior_job_id,
             configuration=configuration,
             actor_key_id=principal.key_id,
+            expected_lexical_revision=command.expected_lexical_revision,
         )
         try:
             if admission_id is None:
@@ -559,6 +586,8 @@ class IngestionJobs:
             command.config_mode,
             command.config_source_job_id or "",
         ]
+        if command.expected_lexical_revision is not None:
+            fields.extend(("lexical-rollback-v1", str(command.expected_lexical_revision)))
         if command.config_mode == "deployed" and deployed_embedding_configuration is not None:
             fields.append(deployed_embedding_configuration.id)
         return "\n".join(fields)
@@ -566,6 +595,20 @@ class IngestionJobs:
     @staticmethod
     def _content_fingerprint(command: PdfSubmissionCommand, raw_sha256: str) -> str:
         config = command.configuration
+        if isinstance(config, PdfExtractionSubmissionConfiguration):
+            return "\n".join(
+                (
+                    "pdf-extraction-v1",
+                    "pdf_extraction",
+                    command.workspace_id,
+                    command.source_key,
+                    raw_sha256,
+                    config.parser_configuration_id,
+                    config.normalizer_configuration_id,
+                    config.chunking_configuration.id,
+                    config.lexical_profile.digest(),
+                )
+            )
         return "\n".join(
             (
                 command.workspace_id,

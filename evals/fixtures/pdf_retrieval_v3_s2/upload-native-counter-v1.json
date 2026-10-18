@@ -1,0 +1,46 @@
+{
+  "scope": "separate upstream native counter measurement for synthetic upload fixture",
+  "native_server_verified": false,
+  "source_sha256": "4ab63c9a21e8e2cb43e041df7ea02909df9726a521cd6acdea22f3483ed9c6ec",
+  "pdf_derivation_identity": "b3f21b341cae18d0a58fe1e46b73ffc3092e8bde6edd4d9fe76678152958b387",
+  "extraction_configuration": {
+    "parser_version": "pypdf-6.14.2-layout-v2",
+    "extraction_options_version": "pypdf-layout-lines-v2",
+    "normalizer_version": "pdf-normalizer-m2-v1",
+    "tokenizer_name": "cl100k_base",
+    "tokenizer_version": "tiktoken-0.12.0",
+    "chunking_policy_version": "page-block-v1",
+    "target_tokens": 500,
+    "overlap_tokens": 75,
+    "max_tokens": 650,
+    "max_raw_bytes": 26214400,
+    "max_pages": 500,
+    "max_page_stream_bytes": 4194304,
+    "max_total_stream_bytes": 67108864,
+    "extraction_timeout_seconds": 30.0,
+    "extractor_memory_bytes": 268435456,
+    "minimum_extracted_characters": 1
+  },
+  "counter_wasm_sha256": "36f2b5cb8879b5b62a06c477c5de818b1b84795261b4785400714d2854d16269",
+  "counter_launcher_sha256": "efd363a01df40b2fd08261b68070577600aa37579caccf6f7f2bbe2280436340",
+  "normalization": "NFKC/lowercase",
+  "counter_stdin_sha256": "280a83d12828621bdf498ec259e5f5902adea03b065676f2a0f52d4395ef442a",
+  "counter_stdout_sha256": "0c2984a6e61f423dd5c4aef2154290d0b4c75bf0d64cf661af0dc3a15fbe01f7",
+  "chunks": [
+    {
+      "ordinal": 0,
+      "content_checksum": "254e6bec461f75b6ba8f8cd905c0b208212ad7bc835ba0f6a143a6f820d7e86f",
+      "content": "Refund requests are accepted within 30 days.",
+      "native_token_count": 7,
+      "tokens": [
+        "refund",
+        "requests",
+        "are",
+        "accepted",
+        "within",
+        "30",
+        "days"
+      ]
+    }
+  ]
+}

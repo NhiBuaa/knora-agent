@@ -300,6 +300,39 @@ class IngestionJobTable(Base):
             "'succeeded', 'superseded', 'failed')",
             name="ck_ingestion_jobs_public_status",
         ),
+        CheckConstraint(
+            "(derivation_kind = 'dense' AND embedding_configuration_id IS NOT NULL "
+            "AND lexical_profile IS NULL AND lexical_generation_id IS NULL) OR "
+            "(derivation_kind = 'pdf_extraction' AND embedding_configuration_id IS NULL "
+            "AND lexical_profile IS NOT NULL AND lexical_generation_id IS NULL) OR "
+            "(derivation_kind = 'lexical_index' AND embedding_configuration_id IS NULL "
+            "AND lexical_profile IS NULL AND lexical_generation_id IS NOT NULL)",
+            name="ck_ingestion_jobs_derivation_configuration",
+        ),
+        CheckConstraint(
+            "(derivation_kind = 'dense' AND source_revision IS NULL "
+            "AND workspace_revision IS NULL) OR "
+            "(derivation_kind IN ('pdf_extraction', 'lexical_index') "
+            "AND source_revision IS NOT NULL AND source_revision >= 0 "
+            "AND workspace_revision IS NOT NULL AND workspace_revision >= 0)",
+            name="ck_ingestion_jobs_lexical_revisions",
+        ),
+        CheckConstraint(
+            "lexical_profile IS NULL OR json_typeof(lexical_profile) = 'object'",
+            name="ck_ingestion_jobs_lexical_profile_object",
+        ),
+        CheckConstraint(
+            "lexical_head_revision IS NULL OR "
+            "(derivation_kind = 'pdf_extraction' AND lexical_head_revision > 0)",
+            name="ck_ingestion_jobs_rollback_revision",
+        ),
+        UniqueConstraint("lexical_generation_id", name="uq_ingestion_jobs_lexical_generation"),
+        CheckConstraint(
+            "(derivation_kind = 'lexical_index' AND parent_ingestion_job_id IS NOT NULL) "
+            "OR (derivation_kind <> 'lexical_index' AND parent_ingestion_job_id IS NULL)",
+            name="ck_ingestion_jobs_index_parent",
+        ),
+        Index("uq_ingestion_jobs_parent_ingestion_job", "parent_ingestion_job_id", unique=True),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -322,8 +355,25 @@ class IngestionJobTable(Base):
     chunking_configuration_id: Mapped[str] = mapped_column(
         ForeignKey("chunking_configurations.id", ondelete="RESTRICT"), index=True
     )
-    embedding_configuration_id: Mapped[str] = mapped_column(
-        ForeignKey("embedding_configurations.id", ondelete="RESTRICT"), index=True
+    derivation_kind: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="dense", server_default="dense"
+    )
+    embedding_configuration_id: Mapped[str | None] = mapped_column(
+        ForeignKey("embedding_configurations.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    source_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    workspace_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    lexical_head_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    lexical_profile: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    lexical_generation_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "lexical_generations.id",
+            ondelete="RESTRICT",
+            name="fk_ingestion_jobs_lexical_generation",
+        ),
+        nullable=True,
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -351,6 +401,10 @@ class IngestionJobTable(Base):
     )
     replacement_ingestion_job_id: Mapped[str | None] = mapped_column(
         ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True
+    )
+    parent_ingestion_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="RESTRICT", name="fk_ingestion_jobs_parent"),
+        nullable=True,
     )
     reprocess_of_job_id: Mapped[str | None] = mapped_column(
         ForeignKey("ingestion_jobs.id", ondelete="RESTRICT"), nullable=True, index=True

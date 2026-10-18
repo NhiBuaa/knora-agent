@@ -73,6 +73,17 @@ class QdrantSearchIndex:
             "shard_number": 1,
         }
 
+    def payload_index_bodies(self) -> tuple[dict[str, Any], ...]:
+        """Build separate PUT /collections/{collection}/index request bodies."""
+        return (
+            {
+                "field_name": "workspace_id",
+                "field_schema": {"type": "keyword", "is_tenant": True},
+            },
+            {"field_name": "generation_id", "field_schema": "keyword"},
+            {"field_name": "profile_digest", "field_schema": "keyword"},
+        )
+
     def _validate_generation(self, generation: LexicalGeneration) -> None:
         if generation.lexical_profile.digest() != self.profile.digest():
             raise LexicalGenerationError("generation profile differs from index profile")
@@ -195,10 +206,14 @@ class QdrantSearchIndex:
         self,
         snapshot: AuthorizedLexicalSnapshot,
         response: dict[str, Any],
+        *,
+        limit: int = 200,
     ) -> tuple[dict[str, Any], ...]:
         self._validate_snapshot(snapshot)
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("native BM25 limit must be between one and two hundred")
         points = response.get("points")
-        if not isinstance(points, list) or len(points) > 200:
+        if not isinstance(points, list) or len(points) > limit:
             raise ProjectionResponseError("Qdrant points list is missing or exceeds limit")
         parsed = []
         seen = set()
@@ -237,4 +252,8 @@ class QdrantSearchIndex:
                     "score_policy_digest": snapshot.profile_digest,
                 }
             )
+        if len(parsed) < limit:
+            parsed.sort(key=lambda hit: (-hit["score"], hit["chunk_id"]))
+            for rank, hit in enumerate(parsed, start=1):
+                hit["rank"] = rank
         return tuple(parsed)

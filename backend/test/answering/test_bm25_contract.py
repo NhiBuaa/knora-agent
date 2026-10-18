@@ -21,7 +21,7 @@ def generation():
         document_version_id="version",
         chunk_set_id="chunks",
         index_generation_id="index-1",
-        lexical_policy_id="bm25-unicode-word-v1",
+        lexical_policy_id="bm25-word-frozen47-population-v1",
     )
 
 
@@ -63,7 +63,7 @@ def observation(item, *, status="ELIGIBLE", reason=None):
         raw_score=item.bm25_score,
         score_kind="bm25",
         index_generation_id="index-1",
-        lexical_policy_id="bm25-unicode-word-v1",
+        lexical_policy_id="bm25-word-frozen47-population-v1",
         decision_reason=reason,
     )
 
@@ -93,24 +93,27 @@ class LocalGenerator:
 
 
 class LexicalStore:
-    def __init__(self, items=None):
+    def __init__(self, items=None, *, lexical_policy_id="bm25-word-frozen47-population-v1"):
         self.items = (candidate(),) if items is None else items
         self.ready = []
         self.requests = []
         self.traces = []
+        self.revalidated = []
         observations = tuple(observation(c) for c in self.items) or (
             stores.BranchObservation(
                 branch="bm25",
                 status="NO_CONTRIBUTION",
                 score_kind="bm25",
-                lexical_policy_id="bm25-unicode-word-v1",
+                lexical_policy_id="bm25-word-frozen47-population-v1",
             ),
         )
         self.result = stores.RetrievalResult(
             candidates=self.items,
-            branch_observations=observations,
+            branch_observations=tuple(
+                replace(o, lexical_policy_id=lexical_policy_id) for o in observations
+            ),
             chunk_set_ids=("chunks",),
-            lexical_generations=(generation(),),
+            lexical_generations=(replace(generation(), lexical_policy_id=lexical_policy_id),),
         )
 
     def require_compatible_corpus(self, *args):
@@ -123,19 +126,25 @@ class LexicalStore:
         self.requests.append(kwargs)
         return self.result
 
+    def revalidate_lexical_snapshot(self, workspace_id, lexical_policy_id, generations):
+        assert workspace_id == "workspace"
+        assert lexical_policy_id == self.result.lexical_generations[0].lexical_policy_id
+        assert generations == self.result.lexical_generations
+        self.revalidated.append(generations)
+
     def persist_trace(self, trace):
         self.traces.append(trace)
         return "trace-1"
 
 
-async def execute(store, *, embedding_provider=None):
+async def execute(store, *, embedding_provider=None, configuration=None):
     generator = LocalGenerator()
     service = AnswerQuestion(
         embedding_provider=embedding_provider,
         embedding_configuration=None,
         generation_provider=generator,
         store=store,
-        retrieval_configuration=stores.RetrievalConfiguration.bm25_diagnostic_v1(),
+        retrieval_configuration=configuration or stores.RetrievalConfiguration.bm25_top8_v1(),
     )
     response = await service.execute(
         QuestionCommand(workspace_id="workspace", question="Fact?"),
@@ -152,7 +161,8 @@ async def test_bm25_answers_without_embedding_or_embedding_set(provider):
     assert response.decision == "ANSWER"
     assert response.citations[0].document_version_id == "version"
     assert generator.calls == 1
-    assert store.ready == [("workspace", "bm25-unicode-word-v1")]
+    assert store.revalidated == [(generation(),)]
+    assert store.ready == [("workspace", "bm25-word-frozen47-population-v1")]
     assert store.requests[0]["query_vector"] is None
     assert store.requests[0]["embedding_configuration"] is None
     trace = store.traces[0]
@@ -222,7 +232,7 @@ async def test_resolver_selects_lexical_mode_before_embedding_readiness():
         generation_provider=LocalGenerator(),
         store=store,
         retrieval_configuration_resolver=SimpleNamespace(
-            resolve=lambda **_: stores.RetrievalConfiguration.bm25_diagnostic_v1()
+            resolve=lambda **_: stores.RetrievalConfiguration.bm25_top8_v1()
         ),
     )
     result = await service.execute(
@@ -233,8 +243,8 @@ async def test_resolver_selects_lexical_mode_before_embedding_readiness():
 
 
 def test_bm25_configuration_is_uncalibrated_and_not_a_vector_threshold():
-    config = stores.RetrievalConfiguration.bm25_diagnostic_v1()
-    assert config.candidate_k == 200
+    config = stores.RetrievalConfiguration.bm25_top8_v1()
+    assert config.candidate_k == 8
     assert config.min_similarity is None
     assert config.strategy == "bm25-only"
     assert config.max_evidence_chunks == 5
@@ -306,8 +316,8 @@ async def test_dense_candidates_cannot_omit_embedding_identity():
 
 @pytest.mark.asyncio
 async def test_bm25_preserves_rank_rejection_without_selecting_it():
-    store = LexicalStore()
-    rejected = candidate(201, score=0.1)
+    store = LexicalStore(tuple(candidate(i, score=20 - i) for i in range(1, 9)))
+    rejected = candidate(9, score=0.1)
     store.result = replace(
         store.result,
         branch_observations=store.result.branch_observations
@@ -315,7 +325,8 @@ async def test_bm25_preserves_rank_rejection_without_selecting_it():
     )
     await execute(store)
     assert store.traces[0].branch_observations[-1]["decision_reason"] == "RANK_LIMIT"
-    assert store.traces[0].retrieved_chunk_ids == ("chunk-1",)
+    assert store.traces[0].retrieved_chunk_ids == tuple(f"chunk-{i}" for i in range(1, 9))
+    assert "chunk-9" not in store.traces[0].alias_mapping.values()
 
 
 def projections(store):
@@ -384,7 +395,7 @@ async def test_bm25_offline_reader_and_pdf_capture_preserve_scores_and_selection
             workspace_id="workspace",
             run_id="run",
             embedding_configuration_id=None,
-            retrieval_configuration_id="retrieval-bm25-diagnostic-v1",
+            retrieval_configuration_id="retrieval-bm25-top8-v1",
         )
         row = await executor.execute(
             SimpleNamespace(id="case", question="Fact?", parent_case_id=None)
@@ -397,7 +408,7 @@ async def test_bm25_offline_reader_and_pdf_capture_preserve_scores_and_selection
     assert diagnostic["candidate_decisions"][-1]["decision_reason"] == "CHUNK_COUNT_LIMIT"
     assert diagnostic["branch_observations"][0]["raw_score"] == 19
     assert diagnostic["score_policy"]["numeric_cutoff"] is None
-    assert diagnostic["score_policy"]["beyond_limit"] == "unknown"
+    assert diagnostic["score_policy"]["beyond_limit"] == "none"
     case = SimpleNamespace(id="case", expected_behavior="ANSWER", evidence_groups=(("anchor",),))
     dataset = SimpleNamespace(cases=(case,), dataset_sha256="gold", corpus_sha256="corpus")
     report = build_report(dataset, [row], {"anchor": ("chunk-7",)}, {})
@@ -457,7 +468,7 @@ async def test_lexical_observation_invariants_reject_before_generation(drift):
             branch="bm25",
             status="NO_CONTRIBUTION",
             score_kind="bm25",
-            lexical_policy_id="bm25-unicode-word-v1",
+            lexical_policy_id="bm25-word-frozen47-population-v1",
         )
         store.result = replace(
             store.result, branch_observations=store.result.branch_observations + (extra,)

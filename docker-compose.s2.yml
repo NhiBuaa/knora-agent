@@ -1,0 +1,78 @@
+name: knora-153-s2
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      POSTGRES_DB: knora_153_s2
+      POSTGRES_USER: knora_s2
+      POSTGRES_PASSWORD: isolated_s2
+    ports:
+      - "127.0.0.1:15433:5432"
+    cpus: 1
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knora_s2 -d knora_153_s2"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [isolated]
+
+  qdrant:
+    profiles: [index, application]
+    image: qdrant/qdrant:v1.19.2@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    ports:
+      - "127.0.0.1:16433:6333"
+    cpus: 2
+    mem_limit: 2g
+    volumes:
+      - qdrantdata:/qdrant/storage
+    networks: [isolated]
+
+  application:
+    profiles: [application]
+    image: knora-153-s2-application:verify
+    build:
+      context: ./backend
+    environment:
+      KNORA_DATABASE_URL: postgresql+psycopg://knora_s2:isolated_s2@postgres:5432/knora_153_s2
+      KNORA_PROVIDER_MODE: deterministic-local
+      KNORA_EMBEDDING_PROVIDER: deterministic-local
+      KNORA_GENERATION_PROVIDER: deterministic-local
+      KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID: embedding-local-m1-v2
+      KNORA_RETRIEVAL_CONFIGURATION_ID: retrieval-bm25-upload-fixture-top8-v1
+      KNORA_LEXICAL_POPULATION_MANIFEST: /app/evals/fixtures/pdf_retrieval_v3_s2/upload-lexical-population-v1.json
+      KNORA_LEXICAL_QDRANT_URL: http://qdrant:6333
+      KNORA_LEXICAL_QDRANT_COLLECTION: ${KNORA_S2_APPLICATION_COLLECTION:-s2_application_upload}
+      KNORA_OBJECT_STORE_BACKEND: filesystem
+      KNORA_OBJECT_STORE_ROOT: /s2-objects
+      KNORA_API_CREDENTIALS_JSON: ${KNORA_S2_API_CREDENTIALS_JSON:-[]}
+    ports:
+      - "127.0.0.1:18053:8000"
+    cpus: 1
+    mem_limit: 768m
+    volumes:
+      - ${KNORA_S2_OBJECT_STORE_ROOT:?S2 requires its private host object directory}:/s2-objects
+      - ./evals/fixtures/pdf_retrieval_v3_s2:/app/evals/fixtures/pdf_retrieval_v3_s2:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks: [isolated]
+
+networks:
+  isolated:
+    driver: bridge
+
+volumes:
+  pgdata:
+    name: knora-153-s2-pgdata
+  qdrantdata:
+    name: knora-153-s2-qdrantdata
+  objects:
+    name: knora-153-s2-objects

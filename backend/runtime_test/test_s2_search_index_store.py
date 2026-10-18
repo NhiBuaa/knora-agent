@@ -1,12 +1,16 @@
 """PostgreSQL lifecycle proof; invoke only in the owned S2 envelope."""
 
-import os
-from dataclasses import replace
+import hashlib
+import json
+from dataclasses import asdict, replace
+from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 
+from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
@@ -17,26 +21,75 @@ from knora.adapters.postgres.tables import (
     DocumentVersionTable,
     LexicalGenerationTable,
     LexicalHeadTable,
+    QuestionTraceTable,
     WorkspaceTable,
 )
+from knora.answering.stores import LexicalGeneration as RetrievedGeneration
+from knora.answering.stores import QuestionTraceRecord
+from knora.domain.errors import KnoraError
+from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 from knora.ingestion.search_indexing import (
     LexicalChunk,
     LexicalGeneration,
+    LexicalGenerationError,
     LexicalProfile,
     StageReceipt,
     StaleGenerationError,
 )
 
 
+def _manifest_row():
+    generation = LexicalGeneration(
+        "generation",
+        "workspace",
+        "document",
+        "version",
+        "set",
+        LexicalProfile("fixture", "word", "1.19.2", 1.2, 0.75, 4, "b" * 64),
+        1,
+        (LexicalChunk("chunk", 0, "a" * 64),),
+    )
+    return generation, SimpleNamespace(
+        id="generation",
+        workspace_id="workspace",
+        document_id="document",
+        document_version_id="version",
+        chunk_set_id="set",
+        revision=1,
+        profile_digest=generation.lexical_profile.digest(),
+        content_digest=generation.content_digest(),
+        expected_count=1,
+        manifest=json.loads(json.dumps(asdict(generation))),
+    )
+
+
+def test_manifest_decode_preserves_json_roundtrip() -> None:
+    generation, row = _manifest_row()
+    assert PostgresSearchIndexStore._decode_generation(row) == generation
+
+
+@pytest.mark.parametrize("corruption", ["identity", "profile", "chunk", "count", "shape"])
+def test_manifest_decode_rejects_changed_persisted_provenance(corruption) -> None:
+    _, row = _manifest_row()
+    if corruption == "identity":
+        row.manifest["workspace_id"] = "other-workspace"
+    elif corruption == "profile":
+        row.manifest["lexical_profile"]["tokenizer_version"] = "changed"
+    elif corruption == "chunk":
+        row.manifest["chunks"][0]["content_checksum"] = "c" * 64
+    elif corruption == "count":
+        row.expected_count = 2
+    else:
+        row.manifest["chunks"] = None
+    with pytest.raises(LexicalGenerationError):
+        PostgresSearchIndexStore._decode_generation(row)
+
+
 @pytest.fixture
 def lexical_generation():
-    assert os.environ.get("KNORA_S2_ISOLATED_TESTS") == "1", "owned S2 runtime required"
-    from sqlalchemy.engine import make_url
+    from backend.runtime_test.s2_runtime_guard import require_owned_s2_database
 
-    from knora.infrastructure.settings import settings
-
-    url = make_url(settings.database_url)
-    assert url.host == "127.0.0.1" and url.port == 15433 and url.database == "knora_153_s2"
+    require_owned_s2_database(SessionFactory.kw["bind"].url)
     ids = {
         key: str(uuid4())
         for key in ("workspace", "document", "version", "set", "chunk", "config", "generation")
@@ -187,4 +240,91 @@ def test_workspace_archive_cycle_fences_completion_without_explicit_revoke(
             StageReceipt(
                 generation.generation_id, len(generation.chunks), generation.content_digest()
             ),
+        )
+
+
+@pytest.mark.parametrize("change", ["document", "workspace", "revoke"])
+def test_trace_commit_revalidates_after_pre_provider_transaction_closes(lexical_generation, change):
+    population = VerifiedLexicalPopulation.from_mapping(
+        json.loads(
+            Path("evals/fixtures/pdf_retrieval_v3_s2/upload-lexical-population-v1.json").read_text()
+        )
+    )
+    content = "Refund requests are accepted within 30 days."
+    checksum = hashlib.sha256(content.encode()).hexdigest()
+    generation = replace(
+        lexical_generation,
+        lexical_profile=population.profile,
+        chunks=(replace(lexical_generation.chunks[0], content_checksum=checksum),),
+    )
+    with SessionFactory.begin() as session:
+        version = session.get(DocumentVersionTable, generation.document_version_id)
+        version.raw_sha256 = population.documents[0].source_sha256
+        version.media_type = "application/pdf"
+        chunk = session.get(ChunkTable, generation.chunks[0].chunk_id)
+        chunk.content, chunk.content_checksum, chunk.token_count = content, checksum, 8
+        chunk.page_start = chunk.page_end = 1
+        chunk.start_offset, chunk.end_offset = 0, len(content)
+    index_store = PostgresSearchIndexStore(SessionFactory)
+    index_store.request_generation(generation, expected_revision=0)
+    index_store.activate_ready(
+        generation,
+        StageReceipt(generation.generation_id, len(generation.chunks), generation.content_digest()),
+    )
+    snapshot = RetrievedGeneration(
+        generation.workspace_id,
+        generation.document_id,
+        generation.document_version_id,
+        generation.chunk_set_id,
+        generation.generation_id,
+        generation.lexical_profile.id,
+    )
+    answering = PostgresAnsweringStore(SessionFactory, lexical_population=population)
+    answering.revalidate_lexical_snapshot(
+        generation.workspace_id, generation.lexical_profile.id, (snapshot,)
+    )
+    # A separate transaction must obtain the lifecycle lock after the pre-provider call returns.
+    with SessionFactory.begin() as session:
+        session.execute(text("SET LOCAL lock_timeout = '1s'"))
+        if change == "revoke":
+            index_store.revoke_in_transaction(
+                session, workspace_id=generation.workspace_id, document_id=generation.document_id
+            )
+        else:
+            table, identity = (
+                (DocumentTable, generation.document_id)
+                if change == "document"
+                else (WorkspaceTable, generation.workspace_id)
+            )
+            row = session.get(table, identity)
+            row.archived = True
+            row.revision += 1
+    trace = QuestionTraceRecord(
+        workspace_id=generation.workspace_id,
+        question="Lifecycle fixture?",
+        retrieval_configuration_id="bm25-fixture",
+        embedding_configuration_id=None,
+        candidate_decisions=(),
+        retrieved_chunk_ids=(),
+        embedding_set_ids=(),
+        chunk_set_ids=(generation.chunk_set_id,),
+        decision="REFUSAL",
+        answer=None,
+        refusal_reason="INSUFFICIENT_EVIDENCE",
+        generation_status="not_called",
+        trace_schema_version=3,
+        provider_metadata={
+            "retrieval": {"mode": "bm25-only", "lexical_generations": [asdict(snapshot)]}
+        },
+    )
+    with pytest.raises(KnoraError, match="LEXICAL_RETRIEVAL_UNAVAILABLE"):
+        answering.persist_trace(trace)
+    with SessionFactory() as session:
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(QuestionTraceTable)
+                .where(QuestionTraceTable.workspace_id == generation.workspace_id)
+            )
+            == 0
         )

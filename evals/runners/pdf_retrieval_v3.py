@@ -75,12 +75,53 @@ class PdfHttpExecutor:
         response.raise_for_status()
         submitted = response.json()
         job_id = submitted["ingestion_job_id"]
-        return await self.poll(
+        uploaded = await self.poll(
             f"/v1/workspaces/{self.workspace_id}/ingestion-jobs/{job_id}",
             {"succeeded", "superseded", "failed"},
             id_field="ingestion_job_id",
             expected_id=job_id,
         )
+        if self.embedding_configuration_id is not None or uploaded["status"] != "succeeded":
+            return uploaded
+        index_id = None
+        for _ in range(self.max_polls):
+            self.assert_not_paused()
+            response = await self.client.get(
+                f"/v1/workspaces/{self.workspace_id}/documents/{submitted['document_id']}",
+                headers=self.headers,
+            )
+            response.raise_for_status()
+            document = response.json()
+            if (
+                document.get("workspace_id") != self.workspace_id
+                or document.get("document_id") != submitted["document_id"]
+                or document.get("current_document_version_id") != submitted["document_version_id"]
+                or document.get("ingestion_job_id") != job_id
+            ):
+                raise ObservationFailure("LEXICAL_UPLOAD_IDENTITY_MISMATCH")
+            child_id = document.get("indexing_job_id")
+            if index_id is not None and child_id != index_id:
+                raise ObservationFailure("LEXICAL_UPLOAD_IDENTITY_MISMATCH")
+            if isinstance(child_id, str) and child_id:
+                index_id = child_id
+                status = document.get("indexing_status")
+                if status in {"failed", "superseded"}:
+                    raise ObservationFailure("LEXICAL_INDEX_FAILED")
+                if (
+                    status == "succeeded"
+                    and document.get("lexical_readiness") == "ready"
+                    and document.get("served_document_version_id")
+                    == submitted["document_version_id"]
+                    and document.get("answer_availability") == "available"
+                ):
+                    return {
+                        **uploaded,
+                        "indexing_job_id": index_id,
+                        "indexing_status": status,
+                        "lexical_readiness": "ready",
+                    }
+            await asyncio.sleep(self.poll_interval)
+        raise ObservationFailure("LEXICAL_INDEX_TIMEOUT")
 
     async def conversation(self, root_case_id):
         response = await self.client.post(
@@ -232,6 +273,21 @@ class PdfHttpExecutor:
         return row
 
 
+def _native_bm25_observations(observations):
+    try:
+        native = [dict(item) for item in observations]
+        if any(item["branch"] != "bm25" or type(item["branch_rank"]) is not int for item in native):
+            raise ValueError("invalid native branch or rank")
+        native.sort(key=lambda item: item["branch_rank"])
+        if len(native) > 200 or [item["branch_rank"] for item in native] != list(
+            range(1, len(native) + 1)
+        ):
+            raise ValueError("incomplete native rank window")
+    except (KeyError, TypeError, ValueError) as error:
+        raise ObservationFailure("NATIVE_DIAGNOSTICS_MISMATCH") from error
+    return native
+
+
 def project_retrieval_diagnostics(trace):
     """Supplement only: never infer missing historical stages or change metric contracts."""
     decisions = getattr(trace, "candidate_decisions", None)
@@ -242,7 +298,7 @@ def project_retrieval_diagnostics(trace):
     if [d.get("chunk_id") for d in decisions] != ordered:
         raise ObservationFailure("CANDIDATE_DIAGNOSTICS_MISMATCH")
     project_generation_evidence(trace)
-    return {
+    diagnostic = {
         "schema_version": 1,
         "status": "observed",
         "trace_schema_version": trace.trace_schema_version,
@@ -255,6 +311,11 @@ def project_retrieval_diagnostics(trace):
         "scope": "bounded_trace_observations",
         "unobserved_candidates": "unknown",
     }
+    if trace.provider_metadata.get("retrieval", {}).get("mode") == "bm25-only":
+        diagnostic["native_top200"] = _native_bm25_observations(
+            item for item in observations if item["status"] != "NO_CONTRIBUTION"
+        )
+    return diagnostic
 
 
 def build_report(dataset, observations, bindings, response_reviews, *, source_results=None):
@@ -309,20 +370,30 @@ def build_report(dataset, observations, bindings, response_reviews, *, source_re
                 )
             diagnostic = row.get("retrieval_diagnostics")
             if diagnostic is not None:
+                native = diagnostic.get("native_top200")
+                retrieval_ids = (
+                    [item["chunk_id"] for item in native]
+                    if native is not None
+                    else diagnostic.get("ordered_candidate_ids", [])
+                )
                 coverage = None
                 if diagnostic["status"] == "observed" and "all_groups_covered" in result:
                     coverage = {
                         name: list(group_coverage(case.evidence_groups, bindings, ids))
                         for name, ids in {
-                            "retrieved_top8": diagnostic["ordered_candidate_ids"][:8],
-                            "retrieved_top200": diagnostic["ordered_candidate_ids"][:200],
+                            "retrieved_top8": retrieval_ids[:8],
+                            "retrieved_top200": retrieval_ids[:200],
                             "generation_selected": diagnostic["generation_evidence_chunk_ids"],
                         }.items()
                     }
                 result["retrieval_diagnostics"] = diagnostic | {
                     "coverage": coverage,
-                    "coverage_scope": "observed_ordered_candidates_only",
-                    "candidate_order": "post_revalidation",
+                    "coverage_scope": "native_top200_observations"
+                    if native is not None
+                    else "observed_ordered_candidates_only",
+                    "candidate_order": "native_query_rank"
+                    if native is not None
+                    else "post_revalidation",
                     "generation_selection_scope": "trace_actual_evidence",
                     "comparison_limit": (
                         "Baseline B candidates are post-vector-threshold 0.65; "
@@ -353,6 +424,110 @@ def build_report(dataset, observations, bindings, response_reviews, *, source_re
         "acceptance": "pending_owner_review_and_B",
         "paid_budget_usd": 0,
         "cost": {"observed_invoice_usd": None, "status": "unavailable"},
+    }
+
+
+def build_bm25_comparison(dataset, bm25_observations, baseline_observations, bindings):
+    """Compare saved retrieval populations; this never executes queries or grades answers."""
+    known = {case.id for case in dataset.cases}
+
+    def index(observations):
+        rows = {row["case_id"]: row for row in observations}
+        if len(rows) != len(observations) or set(rows) - known:
+            raise ValueError("comparison requires one selected attempt per known case")
+        return rows
+
+    bm25_rows, baseline_rows = index(bm25_observations), index(baseline_observations)
+
+    def view(case, row, *, bm25, evaluable):
+        if row is None:
+            return {"status": "not_run"}
+        if row.get("failure_code"):
+            return {
+                "status": "provider_failed"
+                if row["failure_code"] == "PROVIDER_FAILED"
+                else "observation_failed",
+                "failure_code": row["failure_code"],
+            }
+        candidate_ids = [item["chunk_id"] for item in row["candidates"]]
+        selected_ids = list(row["selected_chunk_ids"])
+        if (
+            len(set(candidate_ids)) != len(candidate_ids)
+            or len(set(selected_ids)) != len(selected_ids)
+            or not set(selected_ids) <= set(candidate_ids)
+        ):
+            raise ValueError("comparison candidate/selected identity mismatch")
+
+        def coverage(ids):
+            return list(group_coverage(case.evidence_groups, bindings, ids)) if evaluable else None
+
+        result = {
+            "status": "observed",
+            "candidate_ids": candidate_ids,
+            "selected_ids": selected_ids,
+            "selected_group_coverage": coverage(selected_ids),
+        }
+        if bm25:
+            native_ids = [
+                item["chunk_id"]
+                for item in _native_bm25_observations(row["retrieval_diagnostics"]["native_top200"])
+            ]
+            if (
+                len(native_ids) > 200
+                or len(set(native_ids)) != len(native_ids)
+                or not set(candidate_ids) <= set(native_ids[:8])
+            ):
+                raise ValueError("BM25 primary candidates must come from the single native Top8")
+            result.update(
+                native_top200_ids=native_ids,
+                top8_ids=native_ids[:8],
+                top8_group_coverage=coverage(native_ids[:8]),
+                top200_group_coverage=coverage(native_ids),
+            )
+        else:
+            result["candidate_group_coverage"] = coverage(candidate_ids)
+        return result
+
+    cases = []
+    for case in dataset.cases:
+        mapping_status = (
+            "no_answer_control"
+            if not case.evidence_groups
+            else "extraction_or_mapping_missing"
+            if any(
+                not any(bindings.get(anchor) for anchor in group) for group in case.evidence_groups
+            )
+            else "retrieval_evaluable"
+        )
+        cases.append(
+            {
+                "case_id": case.id,
+                "mapping_status": mapping_status,
+                "bm25": view(
+                    case,
+                    bm25_rows.get(case.id),
+                    bm25=True,
+                    evaluable=mapping_status == "retrieval_evaluable",
+                ),
+                "baseline_b": view(
+                    case,
+                    baseline_rows.get(case.id),
+                    bm25=False,
+                    evaluable=mapping_status == "retrieval_evaluable",
+                ),
+            }
+        )
+    return {
+        "schema_version": 1,
+        "dataset_sha256": dataset.dataset_sha256,
+        "corpus_sha256": dataset.corpus_sha256,
+        "denominator": len(dataset.cases),
+        "cases": cases,
+        "comparison_limit": (
+            "Baseline B observed candidates are post-vector-threshold 0.65; "
+            "BM25 raw scores have no calibrated cutoff. Top200 is diagnostic only."
+        ),
+        "semantic_quality": "not_assessed",
     }
 
 
@@ -499,6 +674,138 @@ def validate_counter_identity(counters, dataset, run_id):
         "baseline": "pypdf-layout-v2/qwen3-06b/gpt-oss20b/containment0.65",
     }:
         raise ValueError("runtime counter identity mismatch")
+
+
+def collect_bm25_cases(
+    dataset,
+    store,
+    baseline_observations,
+    output: Path,
+    *,
+    run_id,
+    workspace_id,
+    configuration,
+    derivation_sha256,
+):
+    """Q16: frozen B query context, one native window, no generation or automatic retry."""
+    from dataclasses import asdict
+
+    from knora.answering.evidence import select_evidence
+    from knora.answering.lexical import validate_bm25_result
+    from knora.answering.stores import RetrievalConfiguration
+    from knora.domain.errors import KnoraError
+
+    if configuration != RetrievalConfiguration.bm25_top8_v1():
+        raise ValueError("retrieval-only collection requires the frozen47 Top8 configuration")
+    baseline = {row["case_id"]: row for row in baseline_observations}
+    case_ids = {case.id for case in dataset.cases}
+    if len(baseline) != len(baseline_observations) or set(baseline) != case_ids:
+        raise ValueError("exactly one selected Baseline B observation is required per case")
+    prepared = []
+    for case in dataset.cases:
+        source = baseline[case.id]
+        if source.get("failure_code") or not source.get("response_sha256"):
+            raise ValueError("frozen Baseline B observation is unsuccessful or unpinned")
+        context = source.get("provider_metadata", {}).get("conversation_context")
+        query = case.question
+        query_source = "frozen_baseline_b_question"
+        if case.parent_case_id:
+            if (
+                not isinstance(context, dict)
+                or context.get("policy_id") != "conversation-context-v2"
+                or not context.get("selected_turn_ids")
+                or not isinstance(context.get("retrieval_query"), str)
+            ):
+                raise ValueError("frozen follow-up context is missing")
+            query = context["retrieval_query"]
+            if query != case.question and not query.endswith("Current question: " + case.question):
+                raise ValueError("frozen retrieval query does not match the current question")
+            query_source = "frozen_baseline_b_conversation_context"
+        elif context is not None and context.get("retrieval_query") != query:
+            raise ValueError("independent frozen retrieval query drift")
+        identity = {
+            "run_id": run_id,
+            "workspace_id": workspace_id,
+            "dataset_sha256": dataset.dataset_sha256,
+            "corpus_sha256": dataset.corpus_sha256,
+            "derivation_sha256": derivation_sha256,
+            "case_id": case.id,
+            "attempt": 1,
+            "retrieval_configuration": asdict(configuration),
+            "retrieval_query": query,
+            "retrieval_query_sha256": hashlib.sha256(query.encode("utf-8")).hexdigest(),
+            "query_source": query_source,
+            "baseline_response_sha256": source["response_sha256"],
+            "baseline_context_sha256": digest(context),
+        }
+        path = output / f"case-{case.id}-attempt-1.json"
+        pending = output / f"dispatch-{case.id}-attempt-1.json"
+        saved = load_json(path) if path.exists() else None
+        if saved is not None and any(saved.get(k) != v for k, v in identity.items()):
+            raise ValueError("resumed BM25 observation identity mismatch")
+        if saved is None and pending.exists():
+            raise ValueError(
+                "unresolved dispatch; retain it and use an explicitly authorized new run"
+            )
+        prepared.append((identity, path, pending, saved))
+
+    output.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for identity, path, pending, saved in prepared:
+        if saved is not None:
+            rows.append(saved)
+            continue
+        publish_json(pending, {**identity, "status": "dispatch_started"})
+        row = {
+            **identity,
+            "failure_code": None,
+            "dispatch_attempted": True,
+            "generation_status": "not_run",
+            "semantic_quality": "not_assessed",
+        }
+        started = perf_counter()
+        try:
+            result = store.retrieve_candidates(
+                workspace_id=workspace_id,
+                query_text=identity["retrieval_query"],
+                query_vector=None,
+                embedding_configuration=None,
+                retrieval_configuration=configuration,
+            )
+            validate_bm25_result(result, workspace_id=workspace_id, configuration=configuration)
+            selection = select_evidence(result.candidates, configuration)
+            observations = [item.as_mapping() for item in result.branch_observations]
+            native = _native_bm25_observations(
+                item for item in observations if item["status"] != "NO_CONTRIBUTION"
+            )
+            row.update(
+                candidates=[asdict(item) for item in result.candidates],
+                selected_chunk_ids=[item.candidate.chunk_id for item in selection.selected],
+                candidate_decisions=[
+                    {
+                        "chunk_id": item.candidate.chunk_id,
+                        "final_rank": rank,
+                        "selection_outcome": item.outcome,
+                        "budget_evidence": item.budget_evidence,
+                    }
+                    for rank, item in enumerate(selection.decisions, start=1)
+                ],
+                lexical_generations=[asdict(item) for item in result.lexical_generations],
+                retrieval_diagnostics={
+                    "schema_version": 3,
+                    "status": "observed",
+                    "branch_observations": observations,
+                    "native_top200": native,
+                    "tie_boundary": "unknown" if len(native) == 200 else "complete",
+                    "scope": "retrieval_only_with_frozen_baseline_b_context",
+                },
+            )
+        except KnoraError as error:
+            row["failure_code"] = error.code
+        row["retrieval_latency_ms"] = (perf_counter() - started) * 1000
+        publish_json(path, row)
+        rows.append(load_json(path))
+    return rows
 
 
 async def collect_cases(
