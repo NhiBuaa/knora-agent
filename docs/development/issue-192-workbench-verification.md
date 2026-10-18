@@ -631,3 +631,47 @@ Historical gold, thresholds and both saved runs remain unchanged. Langfuse expor
 enforcement remain OFF. The
 [continuation checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6238490765)
 records the source candidate, review boundaries and open gates.
+
+## L5 saved human freeze and closeout — 18 October 2026
+
+The owner's second review/freeze reply was followed by a fresh read-only DB observation at
+**10:38:30 ICT** and the actual Builder UI. Both now show dataset
+`a1734dd6-545e-46e7-836b-38ff8b73b069` in Workspace
+`73caf42b-d350-4f19-a9b2-9707a6eaa9d4` **FROZEN revision8**, with both manual ANSWER/REFUSAL
+cases **ACCEPTED**. Saved real Keycloak owner issuer/subject match; review timestamps are
+10:35:48 and10:36:02. Both review notes are literally `no`; no stronger rationale is inferred.
+Gold v1 uses `pdf-gold-v1` / `pdf-metrics-v1`, digest
+`eb8f22026be381e311ee38fb89271d78d6931379b5a54ee71ea6f122cdb4b183`.
+There are three retained sources, two extraction snapshots, one Gold version and zero
+runs/preflights/proposal batches. The human performed review/freeze; agent review mutations0.
+This supersedes the earlier timestamped DRAFT/reviews[] observation without rewriting it.
+
+L5 used one startup within its15-minute envelope, with cleanup scheduled10:41:59 and deadline
+10:42:59. After saving evidence, early cleanup ran **10:38:51–10:38:57 ICT**. Closeout reports
+success, before_deadline, errors[] and ports_open[]. Independent checks confirm both exact owned
+containers stopped, API/frontend identities gone and all15492/18192/18092/13092 listeners absent.
+Both owned scheduled tasks were removed afterward. Storage/evidence remain under
+`%TEMP%/knora-wb192-l1`, including `evidence/l5-frozen.jpg`, `l5-final-db.json` and
+`l5-closeout.json`. #153 received the verified release for its own fresh resource admission.
+
+The L5 download-event attempt timed out without a saved path; the embedded PDF remained gray.
+The separately rendered original was shown for human content review. Embedded rendering,
+browser download/BFF byte equivalence and viewer acceptance remain unproven. Freeze supplies no
+execution/egress authority. Provider calls/retries0, quota0, paidUSD0; no worker, profile unlock,
+binding or configuration/billing change. Historical gold, thresholds and runs are unchanged.
+
+Source coordination now has combined shared-seam round2 ACK6245141363, corrected runtime-source
+and Compose ACK6245182363 (21 offline tests), Compose inventory-test ACK6245227106 (RED/GREEN),
+and corrected HTTP admission-test ACK6245247508 (7 mocked tests). These are finite source/offline
+ACKs, not image provenance, actual migration, native runtime or quality acceptance. No shared
+maintained source was applied by this thread. The prior paragraph's pending round2 ACK and four
+runtime-source findings are superseded by these reviewed corrections.
+
+Source HEAD `f9f0544291dcf715e1198b7f6ba61908caf111c4` has exact-head CI39093373326 SUCCESS,
+all six checks including CI required. That result precedes this documentation update. The
+[L5 closeout](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6245279332) was
+published and read back. #192 remains In Progress; #196/#197 remain Blocked; no issue is Done.
+Actual owned binding/live admission, saved compatible ANSWER, judge calibration, Ragas human
+review/freeze/R3 and product quality remain open. Current code unconditionally denies live
+profiles, so approval or registration alone cannot close the implementation gap. The one-call
+synthetic exception is consumed; no replay, merge/deploy, Langfuse export or Guardrails enforcement.
