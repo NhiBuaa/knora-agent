@@ -229,9 +229,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
             }
         )
         if calls == 1:
-            content = json.dumps(
-                {"presentation": "count_list" if case == "list" else "prose", "conditions": []}
-            )
+            content = json.dumps({"count_question": case == "list", "conditions": []})
         return httpx.Response(
             200,
             json={
@@ -275,7 +273,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v19"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v20"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}

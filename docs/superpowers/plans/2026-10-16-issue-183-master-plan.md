@@ -6,6 +6,13 @@
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
+**Current offline amendment — 2026-10-18:** Owner approved exact section4.7 A at5260004;
+docs e1f508f passed all CI jobs and renewed #191 overlap ACK6231612445 preceded
+product edits. The exact three-module count-intent/independent-conditions diff is
+implemented as v20/count-conditions-v3; answer wire schema stays unchanged. Offline
+verification is recorded in4.7 below. No new runtime/OAuth/provider allowance exists;
+all historical windows stay closed and P4/P5/P6 acceptance remains incomplete.
+
 **Architecture:** Reuse Cloudflare's presentation selector, fixed `before/items/after` contract, existing Markdown composer and public citation validator. Treat generation fidelity, retrieval coverage and rendering as separate boundaries. Put a finite remediation-design gate before implementation; do not build a semantic evaluation subsystem.
 
 **Tech stack:** Existing Python/Pydantic/httpx, PostgreSQL, Next/React Markdown, Keycloak and Cloudflare Workers AI. No new dependency, framework or provider abstraction.
@@ -1017,6 +1024,110 @@ Independent static proposal review found no blocking design defect given these e
 
 **Owner decision — 2026-10-18:** Owner chose **A — Duyệt exact diff, code/tests/docs offline** at5260004 in chat, accepting the removed mode/items gate and prose-note tradeoffs above. No further owner behavior decision is pending for this exact patch. Implementation starts only after exact-head docs CI SUCCESS and renewed191 overlap ACK; the request/approval is published in the existing191 coordination comment6231612445. Product/tests remain unchanged while waiting. Approval covers affected regression/full tests, independent review and CI; no inference/OAuth/retry/model/cap/production/merge. P5/P6 still require semantic acceptance.
 
+#### Section4.7 implementation checkpoint — 2026-10-18
+
+Owner's offline approval and [renewed191 ACK](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6231612445)
+cover this exact candidate. Prerequisite docs e1f508f had all jobs SUCCESS in
+[CI39095559331](https://github.com/NhiBuaa/knora-agent/actions/runs/39095559331).
+The proposed three product hunks are now applied without module movement; reverse
+apply-check against the approved patch passes and `_Result` AST is unchanged.
+Maintained callers/fixtures and ADR0017/CONTEXT are updated. This checkpoint
+supersedes the unimplemented status of the historical proposal above, not its limits.
+
+- TDD: three new boundary regressions failed before the patch and passed afterward.
+  Final non-DB provider/composer suite: **132 passed in0.71s**, including strict null,
+  string and numeric count rejection, prose/count-prose notes, old selector rejection,
+  unchanged evidence handoff, refusal, singleton/lead/bold/alias gates and metadata.
+- Isolated PostgreSQL15483 integration: **17 passed/1 warning in12.75s** for maintained
+  Cloudflare application and generic/Cloudflare HTTP seams. An earlier command and
+  the reviewer's accidentally broad provider command reached default5432 and failed
+  authentication before test-body mutation; these are retained failures, not passes.
+- Independent connected product review: no remaining actionable finding; reviewer
+  reran132 non-DB tests and independently checked the exact frozen negative. Report
+  SHA256 `f25a1f43f8e10c4a0f0f9838049a115110e7faeea4a41eff5b567f9ac599f978`.
+- Frozen4.6 selector is rejected with no legacy conversion. Its exact final content
+  (SHA256 `ed3900bee566105066805f6b65dbd5a6d3813a5326503e4c2e9f578dee619f1a`)
+  still composes with count_question=true and before1/items0/after0, aliases E1/E2.
+  This remains **semantic FAIL**, not a regression fixture declared semantically
+  correct. Notes are not invented to repair it. Private check is `selector-v20/frozen-negative.json`.
+- Root Ruff format/check/lint, generated OpenAPI check, Compose config and diff
+  whitespace checks pass. Compose reports unset canonical MinIO credential warnings;
+  no credentials/config were changed.
+- The prior full-run tool handle disappeared and no183 pytest process remained;
+  its incomplete output is not a verdict. A new sequential clean child run writes
+  `selector-v20/full-clean.{log,xml}` and an explicit exit JSON on the isolated test
+  DB, removing inherited proxy/KNORA_/OIDC_/PYTHONPATH environment only in that child.
+  It covers backend/test and evals/test, not old ignored experiments pinned to v18/v19.
+  Completed **2008 passed/16 skipped/27 warnings in482.76s**, exit0. The null-flag
+  and extra count-prose-note parameters were added after this run collected its
+  cases; the final focused132-pass run above includes both. Exact-head CI must
+  collect the final maintained tests before the technical gate is declared complete.
+
+P3 preparation uses a new ignored `selector-v20-offline/` copy of the four reviewed
+mock-only source/test files from4.5; historical files/grants/stops are untouched.
+It binds the v3/v20 policy/schema fingerprint
+`4df473d34f9ad0a115f62829cee38a1f46b5710881bf41378b5575a86ea8b77f`,
+validates boolean count intent and independent notes across both captures, and
+retains pre-parse final-content capture, safe failure categories, admission,
+freshness/quota/model/cap/no-retry/pending/stop and terminal-review gates. Parent
+**166 passed in16.72s**, explicit Ruff and Windows child-import pass. Two initial
+copy adaptations failed10 then2 cases because old mode fixtures remained; those
+logs are retained and the final test run includes updated structural/nullable/count
+cases. Independent P3 review reran **166 passed in17.41s**, confirmed all four
+historical baseline hashes and ran six additional flag/prose-note mock checks;
+no remaining actionable findings. Review SHA256
+`ed7d7a1001618de4cd6c5f6c44c1a6cf242aabc76e6008fce61489bbd44fd794`.
+Guard SHA256 `2067f69827a34fe1ebdac6b195e8de210e3dfdf8bf9857565443ac4112fb8881`;
+tests `3575c1c03bf3eef9ee15369d2c1cf73e80c7d396fad677cb59813bdeff314691`
+and `07fd006f32de90858b4cfa255e2b4566b00f2875e3116c6f1e86a442814bd39e`.
+This derivative has no runtime/credential
+loader/live mode or active allowance and cannot authorize a real send.
+
+No inference/OAuth, production/default configuration, model/cap, source/history,
+#191/PR200 refactor, merge or Issue state changed. P4 still needs a separately
+approved fresh window after offline technical completion; no semantic PASS is claimed.
+
+#### Changed-candidate P4 proposal — pending separate owner approval
+
+After full maintained tests and exact-head CI required/components succeed, propose
+one new application window for v20/count-conditions-v3. This is not an active grant.
+The latest owner browser restriction supersedes the earlier Edge-surface wording:
+**in-app browser only; do not launch external Edge**. Use desktop1440×960 and
+mobile390×844 viewports; this does not claim physical-mobile coverage.
+
+- Same PDF/version/23 retained chunks/vectors, isolated API8183/frontend localhost3183
+  with normal self-login and exact temporary OAuth additions/cleanup; primary3000
+  remains untouched. Start API ready before frontend to avoid the recorded secret race.
+  No re-ingestion, document embedding or direct replay. Runtime-only containment supplies
+  sufficient evidence; default M1/retrieval rollout and191/200 stay outside this window.
+- Fixed order: count without asking to list, other list, then short answer (section5).
+  At most **3 query embeddings +6 generations =9 physical requests**, including
+  errors/timeouts; two generation stages per case,20B/1024 each. No retry/repair,
+  replay/reask, third request, changed prompt/schema/config or replacement allowance.
+- Before any credential loading or send, bind a new grant to exact candidate/CI,
+  policy/schema/source/corpus identities and fresh account, Billing/Workers Free and
+  quota observations from the in-app browser. Reread before each case; enforce
+  at most600s age before every physical send. Missing/stale/wrong/unverifiable data
+  means zero further sends. Paid budget0USD; aggregate dashboard observations do
+  not establish actual per-request cost0USD. New live wiring requires offline
+  adapter denial checks; the mock-only derivative alone cannot authorize live traffic.
+- Capture separate final assistant content for both stages before parsing/composition,
+  safe usage/latency/error phases only, never reasoning. Compare first-stage flag/notes,
+  original evidence, second-stage slots, composed Markdown, terminal Turn/trace and DOM.
+  Open every citation to the exact PDF/version/page; source excerpts/history are unchanged.
+- Before admitting the next case, review all assertions, members, order, counts and
+  conditions against full PDF/evidence: suggested seven-chapter outline plus both
+  merge/split qualifications; second list's conditional indexes/appendices; concise
+  short-answer prose without unrelated outline. No raw markers, duplicate-chip
+  artifacts or viewport overflow. Any provider/schema/token/semantic/format/citation
+  failure closes the whole window immediately; unused quota expires.
+- Reconcile physical admissions/outcomes/unknowns and cleanup exact OAuth additions,
+  owned processes and viewport. Keep184 Draft/183 open; no P5 quality PASS unless all
+  required cases/ACs pass. No automatic new direction or new window after failure.
+
+Owner must separately approve this P4 scope, OAuth and request limit. Offline
+implementation approval does not approve inference, browser setup or integration.
+
 ## 5. Acceptance criteria and evidence reuse
 
 | ID | Required outcome | Current gap |
@@ -1058,8 +1169,8 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | --- | --- | --- |
 | P0 | Accepted by owner atf5631b2. | Approval recorded in183; seven phases retained. |
 | P1 | Complete; owner approved exact A/P2/P3 offline. | Approved decision delivered; no inference. |
-| P2 | Section4.4 amendment technical pass at1477838 after new191 ACK: full maintained2014 passed/16 skipped, independent product review and required CI SUCCESS. | Historical v18 pass remains separate; neither result is semantic acceptance. |
-| P3 | Changed-candidate mock-only derivative109 passed parent run and109 passed independent review; no actionable finding. Exact hashes/Windows child/Ruff checks recorded in4.4. | Mock-only readiness is historical; recovery live setup/preflight succeeded but exposed failed-payload capture gap. No further live authority; semantic acceptance remains unproven. |
+| P2 | Section4.7 exact v20 diff implemented after owner approval/new191 ACK; local maintained2008 passed/16 skipped plus final focused132, independent product review clean. Exact-head CI pending. | Section4.4/v18 gates remain historical; no semantic acceptance. |
+| P3 | v20 mock-only derivative166 passed parent and independent runs; safe final capture, Windows child/Ruff and baseline hashes checked in4.7. | No live mode/grant or fresh account/Billing/OAuth validation. P4 requires separate approval and wiring review. |
 | P4 | v18 semantic FAIL closed3/9; first v19 setup closed0/9; recovery closed3/9 with wrong selector mode/invalid answer. Section4.6 direct diagnostic closed1/1 with a valid count-prose answer, no reproduced historical stage2 failure. All windows closed. | No final-candidate application/browser acceptance. Diagnostic still lacks list/qualifications and cannot recover the missing historical final. Unused allowances expired; no requests authorized. |
 | P5 | Blocked by quality pass/final CI. | Explicit product acceptance, not merge. |
 | P6 | Not authorized. | Actual approved integration; deployment separate. |

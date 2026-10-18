@@ -22,7 +22,7 @@ ANSWER = {
 
 
 def test_fixed_slots_render_one_list_between_supported_paragraphs():
-    assert compose_answer(ANSWER, EVIDENCE, presentation="count_list") == (
+    assert compose_answer(ANSWER, EVIDENCE, count_question=True) == (
         "Suggested: **2 parts**.\n\n- Alpha\n- Beta\n\nMerging is allowed. [[E1]]",
         ("E1",),
     )
@@ -32,7 +32,7 @@ def test_selected_condition_appends_after_model_after_without_mutating_payload()
     payload = copy.deepcopy(ANSWER)
     original = copy.deepcopy(payload)
     notes = (_Paragraph(text="Shared condition *literal*.", support=["E1"], bold=None),)
-    assert compose_answer(payload, EVIDENCE, presentation="count_list", conditions=notes) == (
+    assert compose_answer(payload, EVIDENCE, count_question=True, conditions=notes) == (
         "Suggested: **2 parts**.\n\n- Alpha\n- Beta\n\n"
         "Merging is allowed.\n\nShared condition \\*literal\\*. [[E1]]",
         ("E1",),
@@ -40,8 +40,8 @@ def test_selected_condition_appends_after_model_after_without_mutating_payload()
     assert payload == original
 
 
-@pytest.mark.parametrize("presentation", ["list", "count_list"])
-def test_selected_condition_citations_group_each_alias_once(presentation):
+@pytest.mark.parametrize("count_question", [False, True])
+def test_selected_condition_citations_group_each_alias_once(count_question):
     evidence = (
         GenerationEvidence("E1", "First part."),
         GenerationEvidence("E2", "Second part and shared condition."),
@@ -50,16 +50,16 @@ def test_selected_condition_citations_group_each_alias_once(presentation):
     payload = {
         "decision": "ANSWER",
         "before": (
-            [{"text": "2 parts.", "support": ["E1"], "bold": "2 parts"}]
-            if presentation == "count_list"
-            else []
+            [{"text": "2 parts.", "support": ["E1"], "bold": "2 parts"}] if count_question else []
         ),
         "items": [{"text": "Alpha", "support": ["E1"]}, {"text": "Beta", "support": ["E2"]}],
         "after": [{"text": "Extra note.", "support": ["E3"], "bold": None}],
         "refusal_reason": None,
     }
     notes = (_Paragraph(text="Shared condition.", support=["E2", "E1", "E2"], bold=None),)
-    answer, aliases = compose_answer(payload, evidence, presentation=presentation, conditions=notes)
+    answer, aliases = compose_answer(
+        payload, evidence, count_question=count_question, conditions=notes
+    )
     assert answer.endswith("Extra note.\n\nShared condition. [[E1]] [[E2]] [[E3]]")
     assert aliases == ("E1", "E2", "E3")
 
@@ -74,18 +74,16 @@ def test_selected_condition_cannot_rescue_malformed_refusal(slot):
         "refusal_reason": "INSUFFICIENT_EVIDENCE",
     }
     notes = (_Paragraph(text="Condition.", support=["E1"], bold=None),)
-    assert compose_answer(payload, EVIDENCE, presentation="list", conditions=notes) == (None, ())
+    assert compose_answer(payload, EVIDENCE, count_question=False, conditions=notes) == (None, ())
     payload[slot] = ANSWER[slot]
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(payload, EVIDENCE, presentation="list", conditions=notes)
+        compose_answer(payload, EVIDENCE, count_question=False, conditions=notes)
 
 
-@pytest.mark.parametrize("fault", ["empty", "singleton", "no_lead", "missing_bold"])
+@pytest.mark.parametrize("fault", ["singleton", "no_lead", "missing_bold"])
 def test_selected_condition_cannot_rescue_invalid_list(fault):
     payload = copy.deepcopy(ANSWER)
-    if fault == "empty":
-        payload["items"] = []
-    elif fault == "singleton":
+    if fault == "singleton":
         payload["items"].pop()
     elif fault == "no_lead":
         payload["before"] = []
@@ -93,7 +91,7 @@ def test_selected_condition_cannot_rescue_invalid_list(fault):
         del payload["before"][0]["bold"]
     notes = (_Paragraph(text="Condition.", support=["E1"], bold=None),)
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(payload, EVIDENCE, presentation="count_list", conditions=notes)
+        compose_answer(payload, EVIDENCE, count_question=True, conditions=notes)
 
 
 def test_supplied_member_and_shared_conditions_keep_aliases_and_input():
@@ -120,7 +118,7 @@ def test_supplied_member_and_shared_conditions_keep_aliases_and_input():
         "refusal_reason": None,
     }
     original = copy.deepcopy(payload)
-    assert compose_answer(payload, evidence, presentation="count_list") == (
+    assert compose_answer(payload, evidence, count_question=True) == (
         "Suggested: **2 parts**.\n\n- Alpha\n- Beta, when needed\n\n"
         "For short work the parts may be merged; split them for clarity when needed. "
         "[[E1]] [[E2]]",
@@ -138,21 +136,19 @@ def test_refusal_cannot_hide_content_in_any_slot(slot):
         "after": [],
         "refusal_reason": "INSUFFICIENT_EVIDENCE",
     }
-    assert compose_answer(payload, (), presentation="count_list") == (None, ())
+    assert compose_answer(payload, (), count_question=True) == (None, ())
     payload[slot] = ANSWER[slot]
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(payload, EVIDENCE, presentation="count_list")
+        compose_answer(payload, EVIDENCE, count_question=True)
 
 
 @pytest.mark.parametrize(
     "fault",
-    ["empty", "singleton", "no_lead", "missing_bold", "unknown_after", "nested_list", "legacy"],
+    ["singleton", "no_lead", "missing_bold", "unknown_after", "nested_list", "legacy"],
 )
 def test_invalid_slots_are_rejected_without_reconstructing_content(fault):
     payload = copy.deepcopy(ANSWER)
-    if fault == "empty":
-        payload["items"] = []
-    elif fault == "singleton":
+    if fault == "singleton":
         payload["items"].pop()
     elif fault == "no_lead":
         payload["before"] = []
@@ -165,7 +161,7 @@ def test_invalid_slots_are_rejected_without_reconstructing_content(fault):
     else:
         payload = {"decision": "ANSWER", "blocks": [], "refusal_reason": None}
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(payload, EVIDENCE, presentation="count_list")
+        compose_answer(payload, EVIDENCE, count_question=True)
 
 
 def test_short_answer_uses_prose_slots_without_bullets():
@@ -176,8 +172,22 @@ def test_short_answer_uses_prose_slots_without_bullets():
         "after": [{"text": "Merging is allowed.", "support": ["E1"], "bold": None}],
         "refusal_reason": None,
     }
-    assert compose_answer(payload, EVIDENCE, presentation="prose") == (
+    assert compose_answer(payload, EVIDENCE, count_question=False) == (
         "Merging is allowed. [[E1]]",
+        ("E1",),
+    )
+
+
+def test_count_question_allows_empty_items_with_valid_lead():
+    payload = {
+        "decision": "ANSWER",
+        "before": [{"text": "There are 2 parts.", "support": ["E1"], "bold": "2 parts"}],
+        "items": [],
+        "after": [],
+        "refusal_reason": None,
+    }
+    assert compose_answer(payload, EVIDENCE, count_question=True) == (
+        "There are **2 parts**. [[E1]]",
         ("E1",),
     )
 
@@ -194,8 +204,8 @@ def test_paragraph_wire_schema_requires_explicit_nullable_bold(slot):
 
 
 @pytest.mark.parametrize("slot", ["before", "after"])
-@pytest.mark.parametrize("presentation", [None, "prose", "count_prose"])
-def test_missing_bold_is_rejected_for_every_paragraph(slot, presentation):
+@pytest.mark.parametrize("count_question", [False, True])
+def test_missing_bold_is_rejected_for_every_paragraph(slot, count_question):
     payload = {
         "decision": "ANSWER",
         "before": [],
@@ -206,7 +216,7 @@ def test_missing_bold_is_rejected_for_every_paragraph(slot, presentation):
     payload["before"] = [{"text": "Total unknown.", "support": ["E1"], "bold": None}]
     payload[slot].append({"text": "Alpha.", "support": ["E1"]})
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(payload, EVIDENCE, presentation=presentation)
+        compose_answer(payload, EVIDENCE, count_question=count_question)
 
 
 def test_q18_missing_bold_payload_is_rejected_without_mutation():
@@ -233,12 +243,12 @@ def test_q18_missing_bold_payload_is_rejected_without_mutation():
     }
     original = json.dumps(payload, ensure_ascii=False)
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
-        compose_answer(payload, (GenerationEvidence("E2", "Outline."),), presentation="count_list")
+        compose_answer(payload, (GenerationEvidence("E2", "Outline."),), count_question=True)
     assert json.dumps(payload, ensure_ascii=False) == original
 
 
-@pytest.mark.parametrize("presentation", ["prose", "count_prose"])
-def test_null_bold_preserves_markdown_stars_as_literal_text(presentation):
+@pytest.mark.parametrize("count_question", [False, True])
+def test_null_bold_preserves_markdown_stars_as_literal_text(count_question):
     payload = {
         "decision": "ANSWER",
         "before": [{"text": "Total **unknown**.", "support": ["E1"], "bold": None}],
@@ -247,7 +257,7 @@ def test_null_bold_preserves_markdown_stars_as_literal_text(presentation):
         "refusal_reason": None,
     }
     original = copy.deepcopy(payload)
-    assert compose_answer(payload, EVIDENCE, presentation=presentation) == (
+    assert compose_answer(payload, EVIDENCE, count_question=count_question) == (
         r"Total \*\*unknown\*\*. [[E1]]",
         ("E1",),
     )

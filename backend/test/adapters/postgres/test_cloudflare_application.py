@@ -114,8 +114,8 @@ def cloudflare_app(tmp_path: Path, request: pytest.FixtureRequest):
                     "refusal_reason": None,
                 }
             )
-        if "presentation" in payload["response_format"]["json_schema"]["properties"]:
-            content = json.dumps({"presentation": "prose", "conditions": []})
+        if "count_question" in payload["response_format"]["json_schema"]["properties"]:
+            content = json.dumps({"count_question": False, "conditions": []})
         return httpx.Response(
             200,
             headers={"x-request-id": f"generate-{len(state['generation_requests'])}"},

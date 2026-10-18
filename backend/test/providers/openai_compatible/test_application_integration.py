@@ -69,7 +69,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
                 "refusal_reason": None,
             }
             if len(generation_requests) == 1:
-                content = {"presentation": "prose", "conditions": []}
+                content = {"count_question": False, "conditions": []}
         return httpx.Response(
             200,
             headers={"x-request-id": f"generation-{len(generation_requests)}"},
@@ -180,7 +180,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
         )
         assert trace.provider_metadata["generation"]["provider"] == provider_identity
         assert trace.provider_metadata["generation"]["prompt_version"] == (
-            "cloudflare-gpt-oss-cited-answer-v19"
+            "cloudflare-gpt-oss-cited-answer-v20"
             if provider_identity == "cloudflare-workers-ai"
             else "m1-cited-answer-v1"
         )
@@ -196,6 +196,6 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
                 "generation-1",
                 "generation-2",
             ]
-            assert metadata["stages"][0]["presentation"] == "prose"
+            assert metadata["stages"][0]["count_question"] is False
         else:
             assert "stages" not in metadata

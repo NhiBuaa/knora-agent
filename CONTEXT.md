@@ -474,8 +474,10 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   and composes Markdown; it no longer checks literal quotes or source positions.
   A valid alias does not prove semantic support, count completeness or source order.
   Q12 adds a private Cloudflare presentation choice before generation, originally
-  without answer/member content in that choice. Local selected-list gates require at least
-  two items; prose requires empty items. Count
+  without answer/member content in that choice. Master section 4.7 supersedes that
+  list/prose selection with strict `count_question` plus independent source conditions.
+  The answer step chooses whether to return items; a nonempty list requires at least
+  two items. Count
   contracts require a lead paragraph with explicit nullable literal
   emphasis. Q19 also requires every paragraph to declare `bold` as a literal
   string or null in the wire schema and local model; omission is invalid in every
@@ -499,21 +501,24 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   semantic gate; schema, composer, citations, refusal, model and token cap remain
   unchanged. #191's extraction remains separate until #183 acceptance/integration.
   After v18 still omitted supplied shared conditions, the owner approved Master
-  section 4.4 for offline implementation: the selector also returns shared list
+  section 4.4 for offline implementation: the selector also returns shared
   conditions as literal text with Evidence Aliases, but no total/member collection.
   The adapter validates these paragraphs before the second request, passes them as
   separate user-message data alongside the original question/evidence, and appends
-  them after a valid list answer's concluding paragraphs using the existing composer.
+  them after a valid answer's concluding paragraphs using the existing composer.
   Valid refusal adds no selected notes; existing answer/list/count gates run first.
-  Prose/count prose require empty selected conditions. The answer wire schema,
+  Section 4.7 permits relevant selected conditions for prose as well as lists; the
+  selector no longer restricts items or forces notes empty by presentation mode. The answer wire schema,
   public validation and other providers remain unchanged; there are still two
   Cloudflare requests with the existing model and per-request cap. The identities
-  become `cloudflare-presentation-conditions-v2` and
-  `cloudflare-gpt-oss-cited-answer-v19`. This guarantees transfer of validated
+  become `cloudflare-count-conditions-v3` and
+  `cloudflare-gpt-oss-cited-answer-v20`. This guarantees transfer of validated
   selected notes, not correct/complete selection or evidence entailment. Duplicates,
   conflicts and omitted individual-item conditions remain acceptance failures;
   there is no automatic semantic deduplication or repair. Live compatibility and
-  semantic acceptance remain pending separate runtime approval.
+  semantic acceptance remain pending separate runtime approval. Removing mode/items
+  agreement means an incorrect prose answer or unwanted list may pass structural
+  validation; the count flag is not evidence of a total or complete membership.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input

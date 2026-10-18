@@ -1,9 +1,10 @@
 # Compose generated lists from supported blocks
 
 Status: owner-approved behavior through Issue #183, including Q9 simplification,
-Q12 presentation selection, Q17 fixed slots and Master section 4.4 selected-condition
-retention (2026-10-17); offline amendment implemented/tested/reviewed at1477838,
-with required CI passing. Runtime acceptance remains pending in PR #184.
+Q12 presentation selection, Q17 fixed slots, Master section 4.4 selected-condition
+retention and section 4.7 count-intent simplification (2026-10-18). Section 4.4's
+offline gates passed at1477838; section 4.7 is now implemented with technical
+verification in progress. Runtime acceptance remains pending in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
 v8 produced selected successful layouts, but a general-list observation omitted
@@ -196,3 +197,34 @@ conflicts are not automatically removed and remain acceptance failures. More
 selector output/answer input may increase tokens and latency; provider schema
 compatibility and semantic correctness are unverified. Offline tests/CI cannot
 establish AC2 or authorize inference, OAuth, production changes or merge.
+
+## Master section 4.7: separate count intent from answer format (2026-10-18)
+
+The v19 recovery selected count prose despite supplied evidence identifying seven
+members. The section 4.6 diagnostic did not reproduce the unavailable historical
+answer error, but again returned prose without the members or shared qualifications.
+The observed list/prose restriction couples an incorrect first-stage choice to both
+empty items and empty conditions; the model's internal reason remains unknown.
+
+The owner approved the exact three-module section 4.7 diff after renewed #191
+overlap ACK. This supersedes the four-way presentation choice and mode/items
+agreement gate described above. The selector returns strict `count_question` and
+relevant shared conditions independently of eventual answer format, without totals
+or member collections. Stage two decides whether to return items; a nonempty list
+still requires at least two items, and a count answer requires an initial paragraph.
+Every paragraph still declares nullable literal `bold`; aliases, escaping, refusal,
+answer wire schema and public validation remain unchanged.
+
+Selected notes now append after any valid ANSWER's concluding paragraphs, including
+prose. Valid REFUSAL still returns before notes are appended. Conditions are checked
+before request two and remain generated user data, never new evidence or system
+instructions. No legacy enum fallback/conversion or semantic repair is introduced.
+Identities become `cloudflare-count-conditions-v3` and
+`cloudflare-gpt-oss-cited-answer-v20`, retaining two calls and the same model/cap.
+
+This removes the observed routing coupling, not the semantic acceptance obligation.
+A wrong prose answer or unnecessary list may now pass structure; count intent,
+conditions and members can still be wrong, incomplete, duplicated or contradictory.
+Only selected-note transfer is guaranteed. No provider compatibility, token/latency
+or source-fidelity claim follows from offline mocks. A changed candidate needs
+separate runtime approval and fresh guard fingerprints; historical grants stay closed.

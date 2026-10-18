@@ -26,7 +26,7 @@ from knora.providers.structured_generation import (
     user_message,
 )
 
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v19"
+CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v20"
 CLOUDFLARE_SYSTEM_PROMPT = (
     "Return only JSON matching the supplied schema. Answer only from supplied evidence. "
     "Return before (introductory paragraphs), items (one main list), and after (concluding "
@@ -55,13 +55,14 @@ CLOUDFLARE_SYSTEM_PROMPT = (
     "qualifications from all relevant evidence. "
     "Write natural prose in the question's language; preserve quoted titles/technical terms. "
     "Each text field is one line without citation markers; the server adds bullets and citations. "
-    "For selected prose or count_prose, items must be empty; keep single facts as paragraphs. "
-    "For selected list or count_list, put at least two distinct evidenced members in items. "
+    "Use items for two or more distinct evidenced members relevant to the question. "
+    "Keep single facts and zero or one known member as paragraphs with items=[]. "
     "Never embed an enumeration in paragraph text. Preserve the source order when "
     "it defines a clear sequence. Otherwise arrange multiple sources sensibly without changing "
     "meaning. Each item has its own supporting aliases. "
-    "For count modes, even when only how many is asked, before must start with a natural "
-    "paragraph stating the proven total, then list evidenced members in items for count_list. "
+    "For count questions, even when only how many is asked, before must start with a natural "
+    "paragraph stating the proven total. If the evidence identifies two or more members, "
+    "put those members in items even when the question does not explicitly ask to list them. "
     "One member stays in prose; zero needs no member list. Set the leading paragraph's bold "
     "to the literal number-and-unit phrase "
     "occurring exactly once in its text. Count leads must include bold: use null when the "
@@ -115,7 +116,7 @@ class OpenAICompatibleGenerationProvider:
         try:
             cloudflare = self._provider_identity == "cloudflare-workers-ai"
             content = user_message(question, evidence)
-            presentation = None
+            count_question = False
             conditions = ()
             answer_content = content
             stages = []
@@ -125,9 +126,7 @@ class OpenAICompatibleGenerationProvider:
                 )
                 payload, choice, structured = self._decode(response)
                 selection = PresentationChoice.model_validate(structured)
-                presentation = selection.presentation
-                if selection.conditions and presentation not in ("list", "count_list"):
-                    raise ValueError("Conditions require a list presentation")
+                count_question = selection.count_question
                 conditions = condition_paragraphs(selection.conditions, evidence)
                 answer_content = json.dumps(
                     {
@@ -139,10 +138,10 @@ class OpenAICompatibleGenerationProvider:
                 stages.append(
                     self._metadata(response, payload, choice, PRESENTATION_PROMPT_VERSION)
                 )
-                stages[0]["presentation"] = presentation
+                stages[0]["count_question"] = count_question
             version = CLOUDFLARE_PROMPT_VERSION if cloudflare else PROMPT_VERSION
             response = await self._complete(
-                CLOUDFLARE_SYSTEM_PROMPT + f" Selected presentation: {presentation}."
+                CLOUDFLARE_SYSTEM_PROMPT + f" Count question: {str(count_question).lower()}."
                 if cloudflare
                 else SYSTEM_PROMPT,
                 answer_content,
@@ -151,7 +150,7 @@ class OpenAICompatibleGenerationProvider:
             payload, choice, structured = self._decode(response)
             if cloudflare:
                 answer, cited_ids = compose_answer(
-                    structured, evidence, presentation=presentation, conditions=conditions
+                    structured, evidence, count_question=count_question, conditions=conditions
                 )
             else:
                 answer = structured["answer"]

@@ -76,17 +76,17 @@ def _provider(replies, requests):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("presentation", "blocks", "expected"),
+    ("count_question", "blocks", "expected"),
     [
-        ("prose", [PROSE], "Merging is allowed. [[E1]]"),
-        ("list", [LIST], "- Alpha\n- Beta\n\n[[E1]]"),
+        (False, [PROSE], "Merging is allowed. [[E1]]"),
+        (False, [LIST], "- Alpha\n- Beta\n\n[[E1]]"),
         (
-            "count_list",
+            True,
             [LEAD, LIST],
             "Suggested: **2 parts**; merging is allowed.\n\n- Alpha\n- Beta\n\n[[E1]]",
         ),
         (
-            "count_prose",
+            True,
             [
                 {
                     "kind": "paragraph",
@@ -100,13 +100,13 @@ def _provider(replies, requests):
     ],
 )
 async def test_selected_contract_composes_answer_and_records_both_stages(
-    presentation, blocks, expected
+    count_question, blocks, expected
 ):
     requests = []
     usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
     provider = _provider(
         [
-            ({"presentation": presentation, "conditions": []}, "stop", usage),
+            ({"count_question": count_question, "conditions": []}, "stop", usage),
             (_answer(blocks), "stop", usage),
         ],
         requests,
@@ -129,7 +129,7 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
     assert "conditions that govern the total, member inclusion or applicability" in answer_policy
     selection_schema = requests[0]["response_format"]["json_schema"]
     assert selection_schema["additionalProperties"] is False
-    assert selection_schema["required"] == ["presentation", "conditions"]
+    assert selection_schema["required"] == ["count_question", "conditions"]
     note_schema = selection_schema["$defs"]["SourceCondition"]
     assert note_schema["required"] == ["text", "support"]
     assert note_schema["additionalProperties"] is False
@@ -149,13 +149,14 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
         key in json.dumps(answer_schema)
         for key in ('"oneOf"', '"contains"', '"prefixItems"', '"discriminator"')
     )
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v19"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v20"
     assert result.usage == {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
     assert result.cost["amount_usd"] == "0.00004"
     assert [stage["provider_request_id"] for stage in result.stages] == ["stage-1", "stage-2"]
-    assert result.stages[0]["prompt_version"] == "cloudflare-presentation-conditions-v2"
-    assert result.stages[1]["prompt_version"] == "cloudflare-gpt-oss-cited-answer-v19"
-    assert result.stages[0]["presentation"] == presentation
+    assert result.stages[0]["prompt_version"] == "cloudflare-count-conditions-v3"
+    assert result.stages[1]["prompt_version"] == "cloudflare-gpt-oss-cited-answer-v20"
+    assert result.stages[0]["count_question"] is count_question
+    assert "presentation" not in result.stages[0]
     assert result.stages[1]["usage"] == usage
     assert all("messages" not in stage for stage in result.stages)
 
@@ -167,7 +168,7 @@ async def test_selected_contract_composes_answer_and_records_both_stages(
 async def test_selected_conditions_survive_final_after_and_preserve_payloads(model_after):
     requests = []
     selection = {
-        "presentation": "list",
+        "count_question": False,
         "conditions": [{"text": "Grouping may vary for short work.", "support": ["E1"]}],
     }
     answer = _answer([LIST])
@@ -200,8 +201,8 @@ async def test_selected_conditions_survive_final_after_and_preserve_payloads(mod
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("presentation", ["list", "count_list"])
-async def test_selected_conditions_do_not_override_valid_refusal(presentation):
+@pytest.mark.parametrize("count_question", [False, True])
+async def test_selected_conditions_do_not_override_valid_refusal(count_question):
     requests = []
     refusal = {
         "decision": "REFUSAL",
@@ -211,7 +212,7 @@ async def test_selected_conditions_do_not_override_valid_refusal(presentation):
         "refusal_reason": "INSUFFICIENT_EVIDENCE",
     }
     selection = {
-        "presentation": presentation,
+        "count_question": count_question,
         "conditions": [{"text": "Parts may be merged.", "support": ["E1"]}],
     }
     provider = _provider([(selection, "stop", {}), (refusal, "stop", {})], requests)
@@ -224,24 +225,24 @@ async def test_selected_conditions_do_not_override_valid_refusal(presentation):
 @pytest.mark.parametrize(
     "selection",
     [
-        {"presentation": "list"},
-        {"presentation": "list", "conditions": None},
-        {"presentation": "list", "conditions": {}},
-        {"presentation": "list", "conditions": [{}]},
-        {"presentation": "list", "conditions": [{"text": "Condition.", "support": []}]},
-        {"presentation": "list", "conditions": [{"text": "Condition.", "support": [1]}]},
+        {"count_question": False},
+        {"count_question": False, "conditions": None},
+        {"count_question": False, "conditions": {}},
+        {"count_question": False, "conditions": [{}]},
+        {"count_question": False, "conditions": [{"text": "Condition.", "support": []}]},
+        {"count_question": False, "conditions": [{"text": "Condition.", "support": [1]}]},
         {
-            "presentation": "list",
+            "count_question": False,
             "conditions": [{"text": "Condition.", "support": ["E1"], "extra": 1}],
         },
-        {"presentation": "list", "conditions": [{"text": " ", "support": ["E1"]}]},
-        {"presentation": "list", "conditions": [{"text": "First\nsecond", "support": ["E1"]}]},
-        {"presentation": "list", "conditions": [{"text": "First\rsecond", "support": ["E1"]}]},
-        {"presentation": "list", "conditions": [{"text": "[[E1]]", "support": ["E1"]}]},
-        {"presentation": "list", "conditions": [{"text": "bad ]] marker", "support": ["E1"]}]},
-        {"presentation": "list", "conditions": [{"text": "Condition.", "support": ["E99"]}]},
-        {"presentation": "prose", "conditions": [{"text": "Condition.", "support": ["E1"]}]},
-        {"presentation": "count_prose", "conditions": [{"text": "Condition.", "support": ["E1"]}]},
+        {"count_question": False, "conditions": [{"text": " ", "support": ["E1"]}]},
+        {"count_question": False, "conditions": [{"text": "First\nsecond", "support": ["E1"]}]},
+        {"count_question": False, "conditions": [{"text": "First\rsecond", "support": ["E1"]}]},
+        {"count_question": False, "conditions": [{"text": "[[E1]]", "support": ["E1"]}]},
+        {"count_question": False, "conditions": [{"text": "bad ]] marker", "support": ["E1"]}]},
+        {"count_question": False, "conditions": [{"text": "Condition.", "support": ["E99"]}]},
+        {"count_question": "true", "conditions": []},
+        {"count_question": 1, "conditions": []},
     ],
 )
 async def test_invalid_selected_conditions_stop_before_final_request(selection):
@@ -253,8 +254,8 @@ async def test_invalid_selected_conditions_stop_before_final_request(selection):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("presentation", ["prose", "list", "count_prose", "count_list"])
-async def test_every_selected_contract_allows_evidence_refusal(presentation):
+@pytest.mark.parametrize("count_question", [False, True])
+async def test_every_selected_contract_allows_evidence_refusal(count_question):
     requests = []
     refusal = {
         "decision": "REFUSAL",
@@ -264,7 +265,7 @@ async def test_every_selected_contract_allows_evidence_refusal(presentation):
         "refusal_reason": "INSUFFICIENT_EVIDENCE",
     }
     provider = _provider(
-        [({"presentation": presentation, "conditions": []}, "stop", {}), (refusal, "stop", {})],
+        [({"count_question": count_question, "conditions": []}, "stop", {}), (refusal, "stop", {})],
         requests,
     )
     result = await provider.generate(question="Unknown?", evidence=EVIDENCE)
@@ -276,27 +277,22 @@ async def test_every_selected_contract_allows_evidence_refusal(presentation):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("presentation", "blocks"),
+    ("count_question", "blocks"),
     [
-        ("list", [PROSE]),
-        ("count_list", [LEAD]),
-        ("count_list", [LIST, LEAD]),
-        ("count_list", [{key: value for key, value in LEAD.items() if key != "bold"}, LIST]),
-        ("prose", [LIST]),
-        ("count_prose", [LEAD, LIST]),
-        ("count_prose", [{key: value for key, value in PROSE.items() if key != "bold"}]),
-        ("list", [{"kind": "list", "items": [LIST["items"][0]]}]),
+        (True, [LIST]),
+        (False, [{"kind": "list", "items": [LIST["items"][0]]}]),
         (
-            "list",
+            False,
             [{"kind": "list", "items": [{"text": "Alpha", "support": ["E99"]}, LIST["items"][1]]}],
         ),
+        (True, [{"kind": "paragraph", "text": "Total unknown.", "support": ["E1"]}]),
     ],
 )
-async def test_wrong_selected_shape_or_alias_is_an_error_without_repair(presentation, blocks):
+async def test_wrong_selected_shape_or_alias_is_an_error_without_repair(count_question, blocks):
     requests = []
     provider = _provider(
         [
-            ({"presentation": presentation, "conditions": []}, "stop", {}),
+            ({"count_question": count_question, "conditions": []}, "stop", {}),
             (_answer(blocks), "stop", {}),
         ],
         requests,
@@ -311,10 +307,12 @@ async def test_wrong_selected_shape_or_alias_is_an_error_without_repair(presenta
     "selection",
     [
         {"presentation": "invented", "conditions": []},
-        {"presentation": "list", "conditions": [], "members": ["Alpha"]},
+        {"count_question": False, "conditions": [], "members": ["Alpha"]},
         {},
-        {"presentation": None, "conditions": []},
-        {"presentation": "list"},
+        {"count_question": "false", "conditions": []},
+        {"count_question": None, "conditions": []},
+        {"count_question": 1, "conditions": []},
+        {"count_question": False},
         ["list"],
     ],
 )
@@ -331,7 +329,7 @@ async def test_invalid_selection_stops_before_generation(selection):
 @pytest.mark.parametrize("failure", ["http", "timeout", "length"])
 async def test_either_stage_failure_stops_without_retry(stage, failure):
     requests = []
-    content = {"presentation": "prose", "conditions": []} if stage == 1 else _answer([PROSE])
+    content = {"count_question": False, "conditions": []} if stage == 1 else _answer([PROSE])
     failed = (
         (content, "length", {})
         if failure == "length"
@@ -339,7 +337,7 @@ async def test_either_stage_failure_stops_without_retry(stage, failure):
         if failure == "http"
         else httpx.ReadTimeout("secret-canary")
     )
-    replies = [({"presentation": "prose", "conditions": []}, "stop", {})] * (stage - 1) + [failed]
+    replies = [({"count_question": False, "conditions": []}, "stop", {})] * (stage - 1) + [failed]
     provider = _provider(replies, requests)
     code = "GENERATION_OUTPUT_INVALID" if failure == "length" else "PROVIDER_REQUEST_FAILED"
     with pytest.raises(KnoraError, match=code) as captured:
@@ -356,7 +354,7 @@ async def test_missing_stage_usage_is_unknown_not_partial_turn_cost(missing_stag
     usage[missing_stage] = {}
     provider = _provider(
         [
-            ({"presentation": "prose", "conditions": []}, "stop", usage[0]),
+            ({"count_question": False, "conditions": []}, "stop", usage[0]),
             (_answer([PROSE]), "stop", usage[1]),
         ],
         requests,
@@ -384,7 +382,7 @@ async def test_proven_total_with_zero_or_one_known_member_stays_prose(members):
     )
     provider = _provider(
         [
-            ({"presentation": "count_prose", "conditions": []}, "stop", {}),
+            ({"count_question": True, "conditions": []}, "stop", {}),
             (_answer(blocks), "stop", {}),
         ],
         requests,
