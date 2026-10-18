@@ -1,0 +1,39 @@
+{
+  "approval": "owner current-chat Q2 exact offline packet",
+  "capture": "C:\\Developer\\Projects\\knora-agent-worktree\\issue-153-pdf-baseline\\evals\\reports\\pdf_retrieval_v3_v1\\baseline-b-layout-v2\\captures\\case-pdf-v3-001-attempt-1.json",
+  "capture_sha256": "sha256:6daa50d8876efa79663ae433c7a0b2b8028a6f0091a8602d4fdd080dc7224729",
+  "code_file_sha256": {
+    "evals/runners/run_security_shadow.py": "sha256:ae5763dfa8ad889836fd0d70b3e6684bbe831a004d68e413ea595778bd1d0660",
+    "evals/scorers/security_shadow.py": "sha256:792374558ee9fc153b87988e86db0afb24503534c8ce0cc896096fce8d614447"
+  },
+  "credentials": "not_read",
+  "enforcement": "off",
+  "export": "off",
+  "fixture": "C:\\Developer\\Projects\\knora-agent-worktree\\issue-188-security-shadow\\evals\\test\\fixtures\\security_shadow\\cases.json",
+  "fixture_sha256": "sha256:09d64242c694abee6017723b73c1dabd468f6125a0816c003337e05c40954d4a",
+  "historical_file_sha256": {
+    "C:\\Developer\\Projects\\knora-agent-worktree\\issue-188-cloudflare-p1-research\\evals\\reports\\security_shadow\\pdf-smoke-002.json": "sha256:89c1317677eb889ecd2cb09b8f62ad1af5f43eebb85e870c57dd9c802b7f0e83",
+    "C:\\Developer\\Projects\\knora-agent-worktree\\issue-188-cloudflare-p1-research\\evals\\reports\\security_shadow\\pilot-003.json": "sha256:65d4a1b0280632341b72c623a4538913a3894fd008fa0a75651b5a163fce5df4",
+    "C:\\Developer\\Projects\\knora-agent-worktree\\issue-188-security-shadow\\evals\\reports\\security_shadow\\pdf-smoke-002.json": "sha256:034b296a4921823cccf85125fba5c93d948c5589f3b15b632e5b0e597969df53",
+    "C:\\Developer\\Projects\\knora-agent-worktree\\issue-188-security-shadow\\evals\\reports\\security_shadow\\pilot-003.json": "sha256:1d0e6b7fc0ca40df7c9664b305af6e668f7e5f5e57ae09d6daab58044bfa67fc"
+  },
+  "interpreter": "C:\\Developer\\Projects\\knora-agent-worktree\\issue-188-security-shadow\\.venv\\Scripts\\python.exe",
+  "label_review_ref": "https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6186983108",
+  "label_review_sha256": "sha256:2fda5a70f1457847db197bbe5a65c177d0a39f648b85907a30b66eda10754ab9",
+  "max_detector_invocations": 10,
+  "network": "off",
+  "p3_disposition": "experimental_unaccepted",
+  "packages": {
+    "detect-secrets": "1.5.0",
+    "guardrails-ai": "0.11.0",
+    "guardrails-ai-secrets-present": "0.1.0"
+  },
+  "per_invocation_seconds": 30,
+  "phase": "P4",
+  "pure_tests_passed": 16,
+  "python": "3.12.15",
+  "quality_accepted": false,
+  "retries": 0,
+  "session_seconds": 300,
+  "utc": "2026-10-17T11:44:27.225916+00:00"
+}

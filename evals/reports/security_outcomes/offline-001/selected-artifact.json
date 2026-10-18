@@ -1,0 +1,24 @@
+{
+  "attempted_detectors": 0,
+  "exact_generation_evidence": 0,
+  "latest_trace_discovery": false,
+  "native_identity": {
+    "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-001:1",
+    "case_id": "pdf-v3-001",
+    "conversation_id": "d2adebf7-d1c6-4dca-b18a-c0255a7294de",
+    "run_id": "s1-runtime-binding-20261015-01",
+    "trace_id": "1540271b-3946-4565-bbe6-aec3a901eb73",
+    "turn_id": "4dd3c00a-072a-4985-b69d-843feeaf0eae",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "pinned_workbench_read_run_attempt_id_exposed": false,
+  "pinned_workbench_source_commit": "853513092979a16d8883e6ad78131255baecc8c6",
+  "projection_quality": "unavailable_without_native_attempt_binding",
+  "reanswered": 0,
+  "reason": "unsupported_flat_capture_no_exact_generation_evidence",
+  "schema": "issue188-selected-artifact-v1",
+  "selected": 1,
+  "source_artifact_sha256": "6daa50d8876efa79663ae433c7a0b2b8028a6f0091a8602d4fdd080dc7224729",
+  "source_failure_code": "CASE_FAILED_NO_RETRY",
+  "status": "unavailable"
+}

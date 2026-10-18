@@ -1,0 +1,25 @@
+{
+  "all_segments_completed": null,
+  "case_id": "p1-vi-control-1",
+  "case_id_and_input_digest_match": true,
+  "configuration_sha256": "sha256:40f6ce5f5ea1522492afb138b3b13c13bf54e54a9fa55ec943a5b49b7bd9ce18",
+  "cost_usd_displayed": 0.0001502998497,
+  "evidence_kind": "sanitized_agent_dashboard_observation",
+  "guardrails": {
+    "prompt": {
+      "P1": "FLAG"
+    }
+  },
+  "input_sha256": "sha256:275a4c6256b7ba55136a0241f81b360f3c3f7c89457f91f6ce2b5fa46300e97d",
+  "inspection_rounds": 1,
+  "native_log_id": "01a1499a-3198-7247-ae37-fc7d2d0a8a93",
+  "native_negative_contract_verified": false,
+  "paid_charge_observed": null,
+  "raw_payload_retained": false,
+  "request_id_matches_response_log_id": true,
+  "request_outcome": "success",
+  "retry_count": 0,
+  "status_code": 200,
+  "ui_status": "Guardrails flagged",
+  "workers_logs_event_id": "01M54SMFE6E46386R2G7765WGV"
+}
