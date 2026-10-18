@@ -25,6 +25,34 @@ def test_fixed_slots_preserve_order_and_aliases_without_mutating_payload():
     assert payload == ANSWER
 
 
+def test_fixed_slots_preserve_repeated_unicode_markdown_text_and_mixed_aliases():
+    evidence = (
+        GenerationEvidence("E1", "Có thể gộp nếu ngắn."),
+        GenerationEvidence("E2", "Gợi ý hai phần: Mục *A* [giữ] & B."),
+    )
+    repeated = "Mục *A* [giữ] & B"
+    payload = {
+        "decision": "ANSWER",
+        "before": [{"text": "Gợi ý: 2 phần.", "support": ["E2", "E2"], "bold": "2 phần"}],
+        "items": [
+            {"text": repeated, "support": ["E2", "E1", "E2"]},
+            {"text": repeated, "support": ["E2"]},
+        ],
+        "after": [{"text": "Có thể gộp nếu ngắn.", "support": ["E1"], "bold": None}],
+        "refusal_reason": None,
+    }
+    original = copy.deepcopy(payload)
+
+    assert compose_answer(payload, evidence) == (
+        "Gợi ý: **2 phần**.\n\n"
+        "- Mục \\*A\\* \\[giữ\\] \\& B\n"
+        "- Mục \\*A\\* \\[giữ\\] \\& B\n\n"
+        "Có thể gộp nếu ngắn. [[E2]] [[E1]]",
+        ("E2", "E1"),
+    )
+    assert payload == original
+
+
 def test_refusal_cannot_hide_content_in_any_slot():
     payload = {
         "decision": "REFUSAL",

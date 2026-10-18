@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** Owner narrowed183 to list presentation and lossless formatting/rendering on2026-10-18. Section4.9 is the current exact design proposal, NOT implemented or approved for code. Product remains ed9399b/v20; historical selector windows are closed, latest2/9. No inference/OAuth/production/merge authority. Revised ACs are in5; current phase gates in6. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
+**Status:** Owner approved section4.9 A and P2 code/tests/docs offline on2026-10-18. Docs CI39115464051 at a7955c6 passed every job; renewed191 ACK6248362063 preceded edits. Product implementation is7f189d3/v21; P2 regression/review/full checks/CI are in progress. Historical selector windows remain closed, latest2/9. No inference/OAuth/production/merge authority. Revised ACs are in5; current phase gates in6. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
 
 **Goal:** Present enumerated answer members as readable Markdown bullets while preserving every accepted generated text field, its order and citation mapping through composition, storage and rendering. Preserve169/178, refusal and access. Semantic completeness against the entire PDF is a separate concern, not a183 delivery gate.
 
@@ -17,7 +17,7 @@ closed2/9: selector HTTP200/length exhausted1024 completion tokens with final
 content=null, before answer generation. All three acceptance cases remain unproven;
 other-list/short were not submitted. No live allowance remains; P4/P5/P6 are incomplete.
 
-**Architecture proposal:** Reuse the fixed `before/items/after` answer schema, Markdown composer and existing Frontend renderer; remove the presentation/condition selector and its second-stage coordination. One Cloudflare generation call, same20B/1024. Exact unimplemented diff and tradeoffs are in4.9; no191 module refactor.
+**Architecture:** Reuse the fixed `before/items/after` answer schema, Markdown composer and existing Frontend renderer; remove the presentation/condition selector and its second-stage coordination. One Cloudflare generation call, same20B/1024. Exact approved diff and tradeoffs are in4.9; no191 module refactor.
 
 **Tech stack:** Existing Python/Pydantic/httpx, PostgreSQL, Next/React Markdown, Keycloak and Cloudflare Workers AI. No new dependency, framework or provider abstraction.
 
@@ -35,7 +35,7 @@ other-list/short were not submitted. No live allowance remains; P4/P5/P6 are inc
 
 ## 2. Verified baseline and remaining work
 
-**Historical baseline:** This table and Q ledger retain their dated results, not the current product or revised acceptance. Current product is ed9399b/v20 and current scope is4.9.
+**Historical baseline:** This table and Q ledger retain their dated results, not the current product or revised acceptance. Current product is7f189d3/v21 and current scope is4.9.
 
 Inputs read for this plan: full #183 body/34 comments, PR184 body/12 comments/review state/commit and file lists, #191/PR200 decisions, maintained provider/composer/tests/docs, original PDF text and Q20 request/final payload/usage/guard. No fresh inference. PR184's generated summary overstates semantic rejection/preservation; its original bot guide still describes obsolete prompt v5. Neither is acceptance authority.
 
@@ -1404,9 +1404,11 @@ No such field/control is added; no claim assigns all1024 tokens to reasoning.
   answers/citations and final-candidate desktop/mobile coverage remain unverified.
   Existing2/9 window and its seven expired requests remain closed.
 
-### 4.9 Owner scope amendment — presentation only; exact proposal NOT implemented
+### 4.9 Owner scope amendment — presentation only; approved offline implementation
 
 **Authority:** Owner explicitly narrows183 to the original Markdown list presentation objective. Semantic completeness and missing PDF qualifications are no longer183 acceptance requirements. This authorizes analysis/Master revision and an exact scope/diff proposal only; no product/test edit, inference, OAuth, production change, merge, issue closure or Done. All prior windows stay closed. Changes below need owner design/code approval and a renewed191 overlap ACK before implementation.
+
+**Later execution approval:** Owner explicitly approved A's exact diff plus P2 code/tests/docs offline, after docs CI SUCCESS and renewed191 ACK. Both prerequisites were verified before implementation: [CI39115464051](https://github.com/NhiBuaa/knora-agent/actions/runs/39115464051) at a7955c6 and [ACK6248362063](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6248362063). The proposal/diff below remains the immutable design reference, not a new permission request. Implementation starts at7f189d3/v21; offline checks/review are recorded below. This approval grants no provider/runtime/OAuth/model/cap/production/merge/closure authority; P4 remains separate.
 
 #### Evidence and failure routing
 
@@ -1443,10 +1445,10 @@ A is **not** the previously testedv14 block-union contract: it reuses today's sh
 
 **Documentation after approval:** append the confirmed simplification/supersession to ADR0017 and CONTEXT, update dated current-runtime pointer, keep historical evidence intact and this Master the only forward plan. Coordinate exact five-file diff/test reach with191 before edits; PR200 remains frozen and no module movement occurs in184.
 
-#### Exact proposed product diff against adc8bfa — NOT applied
+#### Exact approved product diff against adc8bfa — proposal snapshot
 
 Patch SHA256: `65aa86f1392fd2a8a62a704cbe17e5831f63211e5eac2e5e819b1254e5ec5b03`.
-Only an ignored preview is written; candidate sources were reconstructed/AST-parsed in memory, not imported/executed. `git apply --check --cached --whitespace=error` passes without applying/staging the patch. `_Result` AST equality confirms no answer-schema change; that does not prove runtime compliance.
+At proposal publication only an ignored preview was written; candidate sources were reconstructed/AST-parsed in memory, not imported/executed. The patch check passed without applying/staging it. Subsequent implementation is7f189d3; the embedded diff remains unchanged as the approved reference. `_Result` AST equality confirms no answer-schema change; that does not prove runtime compliance.
 
 ```diff
 diff --git a/backend/src/knora/providers/openai_compatible/generation.py b/backend/src/knora/providers/openai_compatible/generation.py
@@ -1726,9 +1728,21 @@ Only after offline regressions/review/full gates/CI should a separate P4 proposa
 
 Reuse historical PDF/source/digests, Q20/P4v18 renderer/mapping facts, offline guards and failed captures. Do not repeat model comparisons, old schema probes or ingestion. Changed request/policy requires new final-candidate layout evidence; three cases show those cases, not universal stability. Record remaining generation limitations honestly in the acceptance packet.
 
+#### P2 v21 offline implementation — verification in progress
+
+- Prerequisites: exact-head docs CI/all components SUCCESS and renewed191 technical ACK linked above. Product commit7f189d3 implements the approved five-path deletion/simplification; no other product file changes. Frontend changes are regression tests only; the renderer is unchanged.
+- Controlled RED before product edit: `test_generation.py -k cloudflare_chat_uses_direct_schema_and_preserves_identity` produced3 failures/11 deselected in0.54s against the old selector flow; the one-call mocks were rejected as selector output. This result is retained in the implementer task/tool transcript, not a standalone log. The initial mistyped executable command is not RED evidence.
+- Initial focused mocked provider/public-validation checks:68 passed. Initial DB-inclusive checks produced51 passed/2 failed/14 setup errors at the developer-default5432 with a password-authentication failure, before the affected DB assertions. No credentials/configuration were changed. A prior parent command lost its executor session across context recovery and has no retained terminal verdict; it is not counted as a pass.
+- Restored the existing owned PostgreSQL container at15483 and verified database `knora_issue183_test`; this is the only DB used for final checks. Focused follow-up mocked tests62 passed; application2 passed and PostgreSQL Cloudflare15 passed. After upgrading the application fixture to preserve all slots, its final focused run is2 passed. Logs/JUnit stay ignored under `frontend/test-results/issue183/scope-presentation-review/`.
+- Independent read-only review found two P2 regression gaps: deleted Cloudflare truncation/timeout coverage and missing all-slot/repeated-literal transfer coverage. Both were repaired without product changes: null/valid-content length termination, malformed JSON and timeout reject safely after one send; exact Unicode/Markdown/repeated text and alias order survive composition/input immutability, API result, stored Turn and Question Trace; renderer tests verify visible literal text and selectable unique chips. Reviewer reread the follow-up diff and reported no remaining actionable finding within it.
+- Frontend renderer13 passed; full Frontend unit suite470 passed/52 files. Format/format:check, typecheck and lint passed; lint reports the existing three `no-img-element` warnings in ConversationComposer. OpenAPI check and both Compose configuration checks passed; Compose reports unset test-access/test-secret variables and uses blanks, without starting services.
+- Offline identities: v21 policy UTF-8 SHA256 `bf2db6c7f9a3491119affbf5554a0cf3cdc07cc573ae774a3274d98fa6279259`; canonical sorted/compact answer-schema JSON SHA256 `5070fcc0da0b203df9fb65b6fc94f6c8aaf49f891d112ee77446e61ffd8c8659`. `_Result` AST equals the approved proposal base; product diff has exactly the five approved paths. These are porting/preflight identities, not a live grant. P3 must remove selector assumptions from a new offline derivative before P4 can be proposed as ready.
+- The first full-maintained executor vanished with no retained terminal verdict/JUnit and an empty buffered log; it is incomplete, not a pass or an established test failure. A helper's initial wrong working directory produced exit4/no tests; that report is retained. The corrected background runner uses explicit worktree, unbuffered logs, isolated test-process environment and separate exit-result JSON. No tests/timeouts were weakened.
+- Final full maintained Backend/evaluation suite (`pytest --rootdir=. backend/test evals/test`) completed **1944 passed,16 skipped,27 warnings in492.42s**, exit0. JUnit reports1960 cases/zero failures/errors and includes every maintained Python test directory; ignored historical helper suites are not product tests. Ruff format/format:check/check, shared format/check, local links/schema identity and `git diff --check` passed. Exact-head CI is pending push. No product-runtime, browser acceptance, AI requests, OAuth or production changes occurred. P3/P4/P5/P6 remain incomplete; fixtures do not establish model list selection or universal compliance.
+
 ## 5. Acceptance criteria and evidence reuse
 
-**Owner-amended scope2026-10-18:** This table replaces the old semantic-completeness AC2 and related PDF-condition gates. Previous criteria/results remain in Git atadc8bfa and dated sections4.1–4.8, explicitly historical. No prior FAIL is relabeled PASS. New criteria are acceptance requirements; candidateA is not implemented yet.
+**Owner-amended scope2026-10-18:** This table replaces the old semantic-completeness AC2 and related PDF-condition gates. Previous criteria/results remain in Git atadc8bfa and dated sections4.1–4.8, explicitly historical. No prior FAIL is relabeled PASS. CandidateA is implemented offline; these criteria still require the separate final-candidate runtime evidence described below.
 
 | ID | Required outcome | Evidence / remaining work |
 | --- | --- | --- |
@@ -1739,7 +1753,7 @@ Reuse historical PDF/source/digests, Q20/P4v18 renderer/mapping facts, offline g
 | AC5 | Short single-fact answer stays natural prose, without forced list or unrelated outline. | Fixed question3 remains unrun on the final candidate. |
 | AC6 | In-app real browser at1440×960 and390×844: readable bullets/bold/literal text, no clipping/overflow/raw markers/duplicate chips; inspect actual screenshots and DOM, open every citation. | Historical count screenshots/source opening are reusable facts, not final-candidate coverage. Mobile viewport is not a physical phone. |
 | AC7 | Preserve169/178 language/scroll/history/source excerpts, citation/refusal and Workspace isolation. Invalid generation stays error; no repair/fabricated content/refusal. | Existing negative integration/public-validator/access tests plus affected/full gates; no extra live refusal/ACL inference by default. |
-| AC8 | Pin code/prompt/schema/model/cap/config/source; correlate the **single final payload**→composer→Turn/trace→DOM, usage/latency/unknowns. Offline checks/review/required CI pass. | New candidate not implemented; old two-stage logs remain historical. Test fixtures/prompt assertions do not prove provider compliance. |
+| AC8 | Pin code/prompt/schema/model/cap/config/source; correlate the **single final payload**→composer→Turn/trace→DOM, usage/latency/unknowns. Offline checks/review/required CI pass. | v21 is implemented offline; its checks/review/CI are recorded in4.9. Old two-stage logs remain historical. Test fixtures/prompt assertions do not prove provider compliance. |
 | AC9 | Separate authorized bounded ledger, fresh fail-closed account/Free/quota/paid-budget0USD, isolated runtime/OAuth, exact cleanup. | All historical windows closed; no current allowance. No actual-cost0USD assertion without evidence. |
 
 Original PDF/digests/23chunks and three fixed questions are reused:
@@ -1766,8 +1780,8 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | Phase | Status / dependencies | Deliverable, tests and completion gate |
 | --- | --- | --- |
 | P0 | Historical baseline accepted; owner narrowed scope. | Keep evidence/failed windows intact; revise only this Master/current issue pointers. Documentation links/diff checks; no code/inference. |
-| P1 | Current4.9 design complete, **awaiting owner exact-diff approval**. | Actual PR/renderer/payload audit, options, exact five-path diff and revisedACs. Owner chooses before implementation; no hidden semantic gate. |
-| P2 | Pending P1 approval **and renewed191 ACK**. | Apply only approved product/caller/tests/docs; RED/GREEN where meaningful, all preservation/refusal/alias negatives, one-call metadata/trace regressions, full applicable checks/independent review/required CI. Exact candidate handed to191, no port into200. |
+| P1 | Current4.9 design complete and owner approved A. | Actual PR/renderer/payload audit, options, exact five-path diff and revisedACs. Docs CI39115464051/all jobs SUCCESS and renewed191 ACK6248362063 precede P2. |
+| P2 | Authorized offline; product7f189d3/v21, verification in progress. | Apply only approved product/caller/tests/docs; RED/GREEN where meaningful, all preservation/refusal/alias negatives, one-call metadata/trace regressions, full applicable checks/independent review/required CI. Exact candidate handed to191, no port into200. |
 | P3 | Pending P2; offline only when authorized. | Reuse guard as single-generation derivative; deny stale/missing/paid/unknown grants, extra sends/retries and old windows; safe final capture before parsing. Mock tests prove zero denied sends and≤6 proposed future total. Submit separate live envelope. No OAuth/inference from P2/P3. |
 | P4 | No current authority; pending exact candidate CI/P3 and separate owner approval. | At most3 query+3 generation proposed, same source/three cases/in-app desktop+mobile. Compare full final→composer→Turn/trace→DOM; open sources, report scope-specific pass/fail, routed generation defects, ledger/unknown cost/exact cleanup. No retries or quota rollover. |
 | P5 | Pending revisedAC1–AC9 and final review. | Review actual PR diff, citation/refusal/access/preservation regressions and evidence packet; publish limitations/routed semantic defects. Owner acceptance/PR state decision is explicit, not CI-derived. |
@@ -1942,14 +1956,14 @@ Private artifact identities (SHA256; files stay ignored):
 
 ## 7. Permissions and Codex Goals contracts
 
-**Current authority:** Owner approved the presentation-only scope and this analysis/documentation; exact4.9 code/tests/docs approval and renewed191 ACK are pending. Historical offline/live approvals below are consumed and grant nothing forv21. No inference/OAuth rights remain.
+**Current authority:** Owner approved exact4.9 A for P2 code/tests/docs offline. Required docs CI SUCCESS and renewed191 ACK are verified above. Historical live approvals are consumed; none grants inference/OAuth forv21. P3/P4 need their own stated approval.
 
 | Action | Permission now | Future gate |
 | --- | --- | --- |
 | Read/audit/write/publish this Master/pointers | Authorized current task. | Documentation only. |
-| Create/start phase Goal | Overall owner objective exists; this turn authorizes design/documentation only. | Preserve the unfinished objective; each new phase still needs its stated approval. Do not infer implementation permission from resume/auto-continuation. |
-| P1 current presentation design |4.9 analysis/doc proposal complete; exact-diff decision pending. | Historical source/replay approvals/results retained; owner must approve new design before P2. |
-| P2 current one-call code/tests/docs | NOT authorized yet; product remains ed9399b. | Owner exact4.9 approval + renewed191 ACK + docs CI first. Prior4.2/4.4/4.7 approvals were consumed by historical candidates. |
+| Create/start phase Goal | Overall owner objective exists; current authorization is P2 offline. | Preserve the unfinished objective; each new phase still needs its stated approval. Do not infer live permission from resume/auto-continuation. |
+| P1 current presentation design |4.9 analysis/doc proposal complete; owner approved A. | Historical source/replay approvals/results retained. |
+| P2 current one-call code/tests/docs | Authorized offline; product7f189d3/v21, verification in progress. | Docs CI39115464051/all jobs SUCCESS and renewed191 ACK6248362063 verified before edits. No inference/OAuth or P4 grant. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
 | OAuth/runtime mutation/inference | None remaining; latest v20 recovery stopped2/9, unused seven expired; all historical windows/section4.6 closed, Q21 postponed. | A new exact owner-approved window and fresh fail-closed preflight are required. Free quota is not consent. |

@@ -1,3 +1,4 @@
+import asyncio
 from decimal import Decimal
 from uuid import uuid4
 
@@ -8,10 +9,13 @@ from sqlalchemy import select
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
+from knora.adapters.postgres.conversation_store import PostgresConversationStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import QuestionTraceTable, WorkspaceTable
+from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
+from knora.domain.access import WorkspacePrincipal
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import DocumentProcessor
 from knora.main import create_app
@@ -28,6 +32,14 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
     raw_key = f"key-{uuid4()}"
     embedding_requests: list[dict] = []
     generation_requests: list[dict] = []
+    expected_answer = (
+        "Gợi ý: **2 phần**.\n\n"
+        "- Mục \\*A\\* \\[giữ\\] \\& B\n"
+        "- Mục \\*A\\* \\[giữ\\] \\& B\n\n"
+        "Có thể gộp nếu ngắn. [[E1]]"
+        if provider_identity == "cloudflare-workers-ai"
+        else "Refunds are available for thirty days. [[E1]]"
+    )
 
     def embedding_endpoint(request: httpx.Request) -> httpx.Response:
         payload = __import__("json").loads(request.content)
@@ -59,13 +71,16 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
                 "decision": "ANSWER",
                 "before": [
                     {
-                        "text": "Refunds are available for thirty days.",
+                        "text": "Gợi ý: 2 phần.",
                         "support": ["E1"],
-                        "bold": None,
+                        "bold": "2 phần",
                     }
                 ],
-                "items": [],
-                "after": [],
+                "items": [
+                    {"text": "Mục *A* [giữ] & B", "support": ["E1", "E1"]},
+                    {"text": "Mục *A* [giữ] & B", "support": ["E1"]},
+                ],
+                "after": [{"text": "Có thể gộp nếu ngắn.", "support": ["E1"], "bold": None}],
                 "refusal_reason": None,
             }
         return httpx.Response(
@@ -121,6 +136,12 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
             ),
         )
     )
+    answer_question = AnswerQuestion(
+        embedding_provider=embedding_provider,
+        generation_provider=generation_provider,
+        store=PostgresAnsweringStore(SessionFactory),
+        embedding_configuration=configuration,
+    )
     client = TestClient(
         create_app(
             ingest_document=IngestDocument(
@@ -128,12 +149,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
                 embedding_provider=embedding_provider,
                 store=PostgresIngestionStore(SessionFactory),
             ),
-            answer_question=AnswerQuestion(
-                embedding_provider=embedding_provider,
-                generation_provider=generation_provider,
-                store=PostgresAnsweringStore(SessionFactory),
-                embedding_configuration=configuration,
-            ),
+            answer_question=answer_question,
             api_key_authenticator=authenticator,
             embedding_configuration=configuration,
         )
@@ -160,7 +176,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
     assert ingested.json()["embedding_configuration_id"] == configuration.id
     assert answered.status_code == 200
     assert answered.json()["decision"] == "ANSWER"
-    assert answered.json()["answer"].endswith("[[E1]]")
+    assert answered.json()["answer"] == expected_answer
     assert answered.json()["citations"][0]["source_key"] == "support/refunds"
     assert len(embedding_requests) == 2
     expected_requests = 1
@@ -170,6 +186,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
             select(QuestionTraceTable).where(QuestionTraceTable.id == answered.json()["trace_id"])
         )
         assert trace is not None
+        assert trace.answer == expected_answer
         assert trace.embedding_configuration_id == configuration.id
         assert trace.provider_metadata["embedding"]["provider_request_id"] == "embedding-2"
         assert (
@@ -190,3 +207,43 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
         metadata = trace.provider_metadata["generation"]
         assert metadata["usage"]["total_tokens"] == 15
         assert "stages" not in metadata
+
+    if provider_identity == "cloudflare-workers-ai":
+        conversation_store = PostgresConversationStore(SessionFactory)
+        conversation = conversation_store.create(workspace_id, f"conversation-{uuid4()}")
+        admission = conversation_store.submit_turn(
+            workspace_id,
+            conversation.id,
+            f"turn-{uuid4()}",
+            "What is the refund policy?",
+            "What is the refund policy?",
+            "a" * 64,
+        )
+        claim = conversation_store.claim_next_turn("issue-183-test", workspace_id)
+        assert claim is not None
+        request_count = len(generation_requests)
+        turn_result = asyncio.run(
+            answer_question.execute(
+                QuestionCommand(
+                    workspace_id=workspace_id,
+                    question=admission.turn.question,
+                    turn_id=admission.turn.id,
+                ),
+                WorkspacePrincipal(workspace_id=workspace_id, key_id="issue-183-test"),
+                workspace_admission=claim.workspace_admission,
+            )
+        )
+        assert len(generation_requests) == request_count + 1
+        assert conversation_store.finish_turn(claim.turn.id, claim.claim_token, turn_result, None)
+        stored_turn = conversation_store.get_turn(workspace_id, conversation.id, admission.turn.id)
+        with SessionFactory() as session:
+            stored_trace = session.get(QuestionTraceTable, turn_result.trace_id)
+        assert stored_turn is not None
+        assert stored_turn.result is not None
+        assert stored_trace is not None
+        assert (
+            turn_result.answer
+            == stored_turn.result.answer
+            == stored_trace.answer
+            == expected_answer
+        )

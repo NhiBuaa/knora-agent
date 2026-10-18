@@ -1,5 +1,10 @@
 # Compose generated lists from supported blocks
 
+> Current scope: Master section 4.9 supersedes the historical semantic-completeness acceptance
+> statements below. Issue #183 covers list presentation and preservation of accepted generated
+> content through formatting/rendering. Source-sufficient generation omissions remain recorded
+> defects, not a renderer fix or a completeness gate for #183.
+
 Status: owner-approved behavior through Issue #183, including Q9 simplification,
 Q12 presentation selection, Q17 fixed slots, and the section 4.9 one-call
 presentation simplification (2026-10-18). Runtime acceptance remains pending in PR #184.

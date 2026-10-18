@@ -335,3 +335,59 @@ async def test_cloudflare_chat_safely_normalizes_http_errors(status: int) -> Non
         await provider.generate(question="Unknown?", evidence=())
     assert "secret-canary" not in str(captured.value)
     assert calls == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["length-null", "length-valid", "malformed", "timeout"])
+async def test_cloudflare_chat_rejects_invalid_completion_without_retry(failure: str) -> None:
+    calls = 0
+    valid = json.dumps(
+        {
+            "decision": "ANSWER",
+            "before": [{"text": "Answer.", "support": ["E1"], "bold": None}],
+            "items": [],
+            "after": [],
+            "refusal_reason": None,
+        }
+    )
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if failure == "timeout":
+            raise httpx.ReadTimeout("secret-canary-timeout", request=request)
+        content = None if failure == "length-null" else valid if failure == "length-valid" else "{"
+        return httpx.Response(
+            200,
+            json={
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure.startswith("length") else "stop",
+                        "message": {"content": content},
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleGenerationProvider(
+        base_url="https://provider.example/ai/v1",
+        api_key="secret-canary",
+        model="@cf/openai/gpt-oss-20b",
+        input_cost_per_million_tokens=None,
+        output_cost_per_million_tokens=None,
+        pricing_version=None,
+        provider_identity="cloudflare-workers-ai",
+        max_tokens=1024,
+        direct_json_schema=True,
+        client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+
+    expected = "PROVIDER_REQUEST_FAILED" if failure == "timeout" else "GENERATION_OUTPUT_INVALID"
+    with pytest.raises(KnoraError, match=expected) as captured:
+        await provider.generate(
+            question="Question?", evidence=(GenerationEvidence("E1", "Answer."),)
+        )
+    assert str(captured.value) == expected
+    assert "secret-canary" not in str(captured.value)
+    assert calls == 1
