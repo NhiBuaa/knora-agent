@@ -743,3 +743,62 @@ that result precedes this test/documentation addition. The separate corpus-prepa
 remains pending in [the design question](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6245866319).
 No `corpus_prepare` purpose, runtime registration or corpus mutation was added. Gold, thresholds and
 historical runs remain unchanged; real calls/retries0, paidUSD0.
+
+## Offline corpus preparation authority — 18 October 2026
+
+Owner decision A selects a separate trusted-host `corpus_prepare` scope for materialization and
+activation of exactly two pinned READY PDF source versions. The implementation is in
+`evaluation/corpus_preparation.py` and the PostgreSQL adapter; it is not registered in the default
+application factory and adds no HTTP route, migration or browser capability.
+
+`CorpusPreparationPlan` binds the frozen Gold JSON/digest, owner issuer/subject, Workspace and
+dataset revisions, source/document/version IDs, source keys, original-object IDs/hashes/bytes,
+extraction snapshot IDs and digests, immutable layout/milestone configuration, job IDs and one
+attempt per source. The SQLite journal stores the plan before mutation, rejects replay and copied
+contexts after completion, and serializes stop/deadline checks with the host transaction. The
+adapter locks and rechecks owner, Workspace, frozen dataset, Gold, READY sources, originals,
+Document Versions, snapshots and configurations. It creates exactly two `processing` jobs with
+one open attempt, then rechecks the same pins before each guarded provider dispatch and the
+existing fenced PDF activation finalizer. Both derivations complete before their two activation
+finalizers share one outer transaction. A second-source failure rolls back both sources.
+Ordinary claim, heartbeat, retry, terminal/superseded transitions and expiry recovery reject
+`corpus_prepare`; missing callback authority fails closed. A bounded injected AttemptRuntime
+copies the dispatch context and polls authority/deadline during extraction, retaining the runner
+slot until a detached handler physically exits. Interrupted jobs are retained/fenced; the durable
+operation stops and no ordinary worker may resume them without a new reviewed authority.
+
+Stop intent is committed to a separate FULL-synchronous SQLite sidecar before waiting for the
+mutation journal lock. A concurrent stop therefore remains visible during a long host transaction;
+stop completion waits for that transaction to release its lock. Independent review reproduced the
+earlier five-second lock-contention failure and verified the corrected durable stop behavior.
+PostgreSQL statement and lock waits are bounded individually; this is not a proof of an overall
+PostgreSQL transaction deadline or production multi-process behavior.
+
+Offline evidence: `test_corpus_preparation.py`, `test_corpus_plan.py` and `test_corpus_store.py`
+plus the existing Live Admission and host composition tests are the focused verification set. The store
+tests use SQLite with a small Postgres-compatibility fixture; the integration test uses the actual
+PdfDerivationHandler shape, guarded Cloudflare embedding MockTransport, and the existing PostgreSQL
+coordination finalizer against SQLite. It proves two successful active pointers, two exact mock
+embedding requests, Gold JSON unchanged, ordinary-worker exclusion, source/owner/revision/config
+drift rollback, stop/expiry denial during blocked extraction, second-source atomic rollback,
+missing-authority denial and no replay. No service, retained
+database, real provider, quota, billing, export or runtime activation was used.
+
+Final focused verification: **77 passed, exit0**,9.67s, including claim replay after its exact
+round3 patch (RED before application). The broader offline backend CI selection passes
+**1,643 tests,634 deselected,exit0**,183.15s; that run excluded only the pending claim-replay
+test, which the final focused run covers. The first broad attempt had eight ambient SOCKS-proxy
+dependency failures; removing proxy variables only from the test process resolved all eight
+(61 related tests pass), without product changes or dependency installation. Ruff format/check/lint
+passes for437 Python files and `git diff --check` is clean. Compose configuration validation
+exits0 with missing canonical MinIO variable warnings; no service was started. Exact-head CI for
+this addition remains required after push.
+
+Shared coordination diff `532f4b7feca8bc9518bd5534f4af8eb08530da6bf19bf331dac9b55f8a8e73cc`
+was source-reviewed and ACKed at #192 comment6248208286 before application. The peer ACK is
+extended by ordinary-transition guard round2 ACK6248570738 (patch `7a8ef1f20fa5e9294289259591433675059f50d47237f2a3f3c297eacaae68f4`)
+and claim-replay guard round3 ACK6248681481 (patch `69aea62c5a96034138b3b2f6d11c18a790aeb30a04425501a149c16bec77946f`).
+Each exact patch was ACKed before applying; the round3 regression failed before application.
+These ACKs are compatibility evidence only; they do not authorize runtime execution. Gold v1, thresholds and
+historical runs remain unchanged. Live corpus/binding, compatible ANSWER, judge calibration,
+Ragas human review/freeze/R3, viewer/download and product-quality gates remain open.

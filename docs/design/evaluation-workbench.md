@@ -172,3 +172,27 @@ host composition contract, not a sandbox for arbitrary callbacks. Remote Q&A HTT
 an in-process guarded provider boundary remain blocked. Default profile registration stays empty.
 Offline mock verification and independent source review do not authorize runtime activation,
 provider calls, export, billing changes or merge; these require their separate owner decisions.
+
+## Separate corpus preparation authority
+
+The owner selected A: materialize and activate exactly two retained READY PDF versions under a
+separate `corpus_prepare` trusted-host scope. The frozen dataset/digest, owner, Workspace/dataset
+revisions, source/version/original/snapshot identities and hashes, document revisions and current
+and active pointers, immutable parser/chunking/embedding configuration, job IDs and exact embedding
+request digests are part of its input. The provider envelope pins the request budget and zero
+retries. Gold approval and read-only `reviewed_pdf_preparation` do not grant this authority.
+
+Admission durably records the operation before creating its two single-attempt processing jobs.
+The host supplies a bounded `AttemptRuntime` and the actual handler's guarded embedding client;
+the derivation thread receives the exact dispatch context. Stop or deadline cancels supervision
+and fences late egress. A detached thread keeps its runner slot until physical exit. Both
+derivations must succeed before their existing fenced activation finalizers share one transaction;
+failure of either rolls back both active pointers and derivations. Owner, frozen/source/config and
+revision pins are rechecked at provider dispatch and before/after activation.
+
+Ordinary workers cannot claim, renew, recover, retry or close these jobs. Interrupted operations
+remain durably stopped (or STARTED after a host crash), with admitted jobs retained and fenced;
+there is no implicit recovery/retry. Any reconciliation needs a new reviewed scope and approval.
+This adapter has no HTTP route, default registration or activation at startup. QA, scoring,
+proposals and binding approval retain separate authority. Offline/mock evidence supplies no live
+execution, quota, cost or runtime permission.

@@ -21,6 +21,8 @@ import httpx
 from knora.evaluation.contracts import digest_json
 
 _dispatch = ContextVar("evaluation_live_dispatch", default=None)
+_corpus_operation = ContextVar("evaluation_corpus_operation", default=None)
+_corpus_dispatch = ContextVar("evaluation_corpus_dispatch", default=None)
 _HEX = re.compile(r"[a-f0-9]{64}\Z")
 
 
@@ -100,7 +102,7 @@ class LiveAdmission:
             self._deadline = datetime.fromisoformat(p["deadline"])
             scope = p["scope"]
             _require(set(scope) == {"purpose", "profile_id", "workspace_id", "input_digest"})
-            _require(scope["purpose"] in {"qa", "scoring", "proposals"})
+            _require(scope["purpose"] in {"qa", "scoring", "proposals", "corpus_prepare"})
             _require(all(isinstance(v, str) and v for v in scope.values()))
             _require(_HEX.fullmatch(scope["input_digest"]))
             _require(
@@ -127,6 +129,9 @@ class LiveAdmission:
             endpoints = set()
             for provider in p["providers"]:
                 endpoint = provider["endpoint"]
+                if scope["purpose"] == "corpus_prepare":
+                    _require(endpoint.endswith("/ai/run/@cf/qwen/qwen3-embedding-0.6b"))
+                    _require(provider["model"] == "@cf/qwen/qwen3-embedding-0.6b")
                 base = f"https://api.cloudflare.com/client/v4/accounts/{p['account_id']}/ai/"
                 _require(
                     endpoint
@@ -178,10 +183,12 @@ class LiveAdmission:
                 "INSERT OR IGNORE INTO approvals(id,digest,policy) VALUES(?,?,?)",
                 (p["approval_id"], self._digest, json.dumps(p, sort_keys=True)),
             )
+        with self._db(stop_requests=True) as db:
+            db.execute("CREATE TABLE IF NOT EXISTS stop_requests (approval_id TEXT PRIMARY KEY)")
 
     @contextmanager
-    def _db(self):
-        db = sqlite3.connect(self._path, timeout=5)
+    def _db(self, *, stop_requests=False):
+        db = sqlite3.connect(self._path + (".stops" if stop_requests else ""), timeout=5)
         try:
             db.execute("PRAGMA synchronous=FULL")
             with db:
@@ -194,7 +201,11 @@ class LiveAdmission:
             "SELECT attempts,pending,stopped FROM approvals WHERE id=?",
             (self._policy["approval_id"],),
         ).fetchone()
-        return dict(attempts=row[0], pending=row[1], stopped=bool(row[2]))
+        with self._db(stop_requests=True) as stops:
+            requested = stops.execute(
+                "SELECT 1 FROM stop_requests WHERE approval_id=?", (self._policy["approval_id"],)
+            ).fetchone()
+        return dict(attempts=row[0], pending=row[1], stopped=bool(row[2] or requested))
 
     def snapshot(self):
         with self._db() as db:
@@ -222,8 +233,120 @@ class LiveAdmission:
         )
 
     def stop(self):
+        # Persist intent independently; serialize completion with the mutation transaction.
+        with self._db(stop_requests=True) as db:
+            db.execute(
+                "INSERT OR IGNORE INTO stop_requests VALUES(?)", (self._policy["approval_id"],)
+            )
+        while True:
+            try:
+                with self._db() as db:
+                    db.execute(
+                        "UPDATE approvals SET stopped=1 WHERE id=?", (self._policy["approval_id"],)
+                    )
+                return
+            except sqlite3.OperationalError as error:
+                if getattr(error, "sqlite_errorcode", None) not in (
+                    sqlite3.SQLITE_BUSY,
+                    sqlite3.SQLITE_LOCKED,
+                ):
+                    raise
+
+    @property
+    def valid_until(self):
+        return min(self._deadline, self._observed + timedelta(minutes=5))
+
+    def remaining_seconds(self):
+        return max(0.0, (self.valid_until - self._clock()).total_seconds())
+
+    def check_mutation(self, scope):
         with self._db() as db:
-            db.execute("UPDATE approvals SET stopped=1 WHERE id=?", (self._policy["approval_id"],))
+            self._check_corpus(db, scope)
+
+    def check_corpus_envelope(self, scope, *, request_digests, max_calls, max_retries):
+        if scope.get("purpose") != "corpus_prepare":
+            raise ValueError("CORPUS_AUTHORITY_REQUIRED")
+        self.verify(scope)
+        providers = self._policy["providers"]
+        if (
+            len(providers) != 1
+            or not providers[0]["endpoint"].endswith("/ai/run/@cf/qwen/qwen3-embedding-0.6b")
+            or set(providers[0]["request_digests"]) != set(request_digests)
+            or self._policy["max_attempts"] != max_calls
+            or max_retries != 0
+        ):
+            raise ValueError("CORPUS_ENVELOPE_MISMATCH")
+
+    def _check_corpus(self, db, scope):
+        if scope.get("purpose") != "corpus_prepare":
+            raise ValueError("CORPUS_AUTHORITY_REQUIRED")
+        if scope != self._policy["scope"]:
+            raise ValueError("LIVE_SCOPE_MISMATCH")
+        if _corpus_operation.get() != (self, scope):
+            raise ValueError("CORPUS_OPERATION_REQUIRED")
+        row = db.execute(
+            "SELECT status FROM corpus_operations WHERE approval_id=?",
+            (self._policy["approval_id"],),
+        ).fetchone()
+        if row != ("STARTED",):
+            raise ValueError("CORPUS_OPERATION_REQUIRED")
+        self._check(self._state(db), capacity=False)
+
+    @contextmanager
+    def corpus_mutation(self, scope):
+        """Serialize stop with a bounded host transaction, including its commit."""
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self._check_corpus(db, scope)
+            yield
+
+    @contextmanager
+    def corpus_operation(self, scope, payload):
+        if scope.get("purpose") != "corpus_prepare":
+            raise ValueError("CORPUS_AUTHORITY_REQUIRED")
+        if digest_json(payload) != scope.get("input_digest"):
+            raise ValueError("LIVE_SCOPE_MISMATCH")
+        self.verify(scope)
+        approval_id = self._policy["approval_id"]
+        with self._db() as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS corpus_operations "
+                "(approval_id TEXT PRIMARY KEY, input_json TEXT NOT NULL, "
+                "started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL)"
+            )
+            db.execute("BEGIN IMMEDIATE")
+            self._check(self._state(db))
+            if db.execute(
+                "SELECT 1 FROM corpus_operations WHERE approval_id=?", (approval_id,)
+            ).fetchone():
+                raise ValueError("CORPUS_OPERATION_EXISTS")
+            db.execute(
+                "INSERT INTO corpus_operations VALUES(?,?,?,NULL,'STARTED')",
+                (approval_id, json.dumps(payload, sort_keys=True), self._clock().isoformat()),
+            )
+        token = _corpus_operation.set((self, deepcopy(scope)))
+        try:
+            self.check_mutation(scope)
+            yield
+            with self._db() as db:
+                db.execute("BEGIN IMMEDIATE")
+                self._check_corpus(db, scope)
+                db.execute(
+                    "UPDATE corpus_operations SET status='COMPLETED',finished_at=? "
+                    "WHERE approval_id=?",
+                    (self._clock().isoformat(), approval_id),
+                )
+        except BaseException:
+            self.stop()
+            with self._db() as db:
+                db.execute(
+                    "UPDATE corpus_operations SET status='STOPPED',finished_at=? "
+                    "WHERE approval_id=?",
+                    (self._clock().isoformat(), approval_id),
+                )
+            raise
+        finally:
+            _corpus_operation.reset(token)
 
     def async_client(self, *, mock=None, **kwargs):
         client = httpx.AsyncClient(transport=self.async_transport(mock=mock), **kwargs)
@@ -248,10 +371,26 @@ class LiveAdmission:
         finally:
             _dispatch.reset(token)
 
+    @contextmanager
+    def corpus_dispatch(self, scope, validate):
+        self.check_mutation(scope)
+        token = _corpus_dispatch.set((self, validate))
+        try:
+            with self.dispatch(scope):
+                yield
+        finally:
+            _corpus_dispatch.reset(token)
+
     def _reserve(self, request, content):
         context = _dispatch.get()
         if context is None or context[0] is not self:
             raise ValueError("LIVE_DISPATCH_REQUIRED")
+        if context[1]["purpose"] == "corpus_prepare":
+            self.check_mutation(context[1])
+            validator = _corpus_dispatch.get()
+            if validator is None or validator[0] is not self:
+                raise ValueError("CORPUS_DISPATCH_REQUIRED")
+            validator[1]()
         self.verify(context[1])
         provider = next(
             (p for p in self._policy["providers"] if p["endpoint"] == str(request.url)), None

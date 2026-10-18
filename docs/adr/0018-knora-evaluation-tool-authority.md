@@ -52,3 +52,20 @@ semantic sections and do not weaken complete M3 report validation. Owner gold ap
 neither provider egress permission nor live execution authority. See
 [owner approval](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6185965119) and
 [design](../design/evaluation-workbench.md).
+
+## Corpus preparation authority
+
+The owner selected the separate `corpus_prepare` trusted-host scope for the Workbench. One
+immutable operation may materialize and activate exactly two pinned READY PDF Document Versions;
+it must retain their Document Version identities and cannot touch the FAILED source, another
+Workspace, Gold, thresholds or historical runs. The plan binds owner identity, Workspace/dataset
+revisions, raw and original-object hashes, extraction snapshots, chunking/embedding configurations,
+job IDs and one bounded attempt per source. Existing read-only binding preparation remains
+read-only, while Q&A, scoring, proposal and binding-review authorities stay separate.
+
+Admission records the plan before mutation and persists the stop/deadline state. The authority is
+rechecked before job admission, at each provider dispatch and immediately before and after the
+existing fenced activation finalizer. Ordinary worker claim and expiry recovery exclude these jobs;
+missing authority, drift, expiry, stop or an uncertain operation fails closed. This design is
+implemented and tested only with offline/mock I/O under the approved implementation scope; no
+runtime activation, real provider call, billing change, export or deployment follows from it.

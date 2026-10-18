@@ -165,9 +165,24 @@ successful CI and a saved deterministic UI execution, but its expected ANSWER ca
 REFUSAL with zero candidates. No ANSWER capture in that run can be supplied to DeepEval. The
 Workbench scoring/proposal services still deny live profiles, and fresh same-account Workers
 Free/quota proof plus an exact USD 0 execution envelope remain prerequisites, not approvals.
-The owner uses external Edge without Computer Use; no credentials should be sent in chat.
+At takeover the owner used external Edge. The later instruction selects the integrated Codex
+browser; no credentials should be sent in chat.
 
 The [current Workbench checkpoint](issue-192-workbench-verification.md) records acceptance gaps,
 retained runtime availability and the separate PostgreSQL contention tests. Earlier test results
 in this document retain their original SHAs and scope. Gold, thresholds and historical runs are
 unchanged; Langfuse export and Guardrails enforcement remain OFF.
+
+### Corpus authority implementation follow-up — 18 October 2026
+
+The owner subsequently approved trusted-host Live Admission code and selected A: a separate
+`corpus_prepare` authority to materialize and activate exactly two reviewed READY PDF versions.
+The [Workbench checkpoint](issue-192-workbench-verification.md) records its offline/mock tests,
+review and shared-coordinator ACKs. This supersedes the historical unconditional live-profile
+denial above: an explicitly injected profile now needs exact host authority and a guarded actual
+provider boundary; default registrations remain empty. The new corpus adapter does not start a
+runtime or authorize real calls. Gold v1, thresholds and historical runs remain unchanged.
+
+Actual corpus/binding verification and a compatible saved ANSWER are still needed before an
+approved judge/calibration trial. Ragas proposals, human review/freeze and R3 retain their separate
+gate. No offline result establishes real model compatibility, semantic quality or owner acceptance.

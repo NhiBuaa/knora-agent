@@ -424,6 +424,14 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
 - **Evaluation Data Permission** records whether the exact evaluation inputs may be sent to the
   chosen provider. Approved public/synthetic inputs may use Cloudflare Workers AI; private inputs
   without external-use permission remain local. A public URL alone is not permission.
+- A **Corpus Preparation Authority** is a separate trusted-host permission for one immutable
+  operation that materializes and activates exactly two pinned READY PDF Document Versions for a
+  frozen dataset. It binds the owner identity, Workspace and dataset revisions, source/original
+  hashes, extraction snapshots, immutable chunk/embedding configurations, one attempt per source,
+  provider request digests, deadline and stop latch. It is checked before admission, before each
+  provider dispatch and before/after the fenced activation transaction. It does not grant Q&A,
+  scoring, proposal, binding-review or Gold mutation authority; interrupted operations remain
+  stopped and require a new approval.
 - **Evaluation Observation Export** projects persisted Knora observations into opaque identifiers,
   approved metadata and numeric diagnostics. Langfuse does not receive questions, answers,
   references, evidence, source names, raw errors or credentials. Cloud export remains disabled
