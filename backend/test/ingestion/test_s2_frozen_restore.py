@@ -10,11 +10,32 @@ import pytest
 from backend.runtime_test import s2_frozen_restore
 
 
+@pytest.mark.parametrize("line_ending", [b"\n", b"\r\n"])
+def test_frozen_chunk_byte_pin_accepts_only_measured_checkout_representations(line_ending):
+    path = Path("evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime/chunks.json")
+    raw = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", line_ending)
+    s2_frozen_restore.require_frozen_chunk_bytes(raw)
+
+
+@pytest.mark.parametrize("fault", ["content", "whitespace", "mixed", "bom"])
+def test_frozen_chunk_byte_pin_rejects_unmeasured_bytes(fault):
+    path = Path("evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime/chunks.json")
+    raw = path.read_bytes().replace(b"\r\n", b"\n")
+    if fault == "content":
+        raw = raw.replace(b'"chunks"', b'"changed"', 1)
+    elif fault == "whitespace":
+        raw += b" "
+    elif fault == "mixed":
+        raw = raw.replace(b"\n", b"\r\n", 1)
+    else:
+        raw = b"\xef\xbb\xbf" + raw
+    with pytest.raises(ValueError, match="frozen chunk bytes changed"):
+        s2_frozen_restore.require_frozen_chunk_bytes(raw)
+
+
 def test_frozen47_metadata_is_complete_and_preserves_every_saved_field():
     path = Path("evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime/chunks.json")
-    assert hashlib.sha256(path.read_bytes()).hexdigest() == (
-        "146109370459186ef0d46e49e0165e1184ec719fe8a61a6b9cd55156e0b256f9"
-    )
+    s2_frozen_restore.require_frozen_chunk_bytes(path.read_bytes())
     chunks = json.loads(path.read_text(encoding="utf-8"))["chunks"]
     restored = s2_frozen_restore.frozen_chunk_metadata(chunks)
     assert len(restored) == 47

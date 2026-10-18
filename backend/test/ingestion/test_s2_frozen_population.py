@@ -1,9 +1,10 @@
 """The new finite pin preserves the frozen corpus and retained native counts."""
 
-import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
+
+from backend.runtime_test.s2_frozen_restore import require_frozen_chunk_bytes
 
 from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 
@@ -13,9 +14,7 @@ def test_frozen_population_matches_all_retained_chunks_without_runtime_ids():
     raw = json.loads(path.read_text(encoding="utf-8"))
     manifest = VerifiedLexicalPopulation.from_mapping(raw)
     frozen = Path("evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime/chunks.json")
-    assert hashlib.sha256(frozen.read_bytes()).hexdigest() == (
-        "146109370459186ef0d46e49e0165e1184ec719fe8a61a6b9cd55156e0b256f9"
-    )
+    require_frozen_chunk_bytes(frozen.read_bytes())
     chunks = json.loads(frozen.read_text(encoding="utf-8"))["chunks"]
     by_source = defaultdict(list)
     for chunk in chunks:

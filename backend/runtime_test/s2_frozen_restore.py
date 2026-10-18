@@ -13,6 +13,15 @@ from knora.adapters.pdf._pypdf_chunking import _encode
 from knora.ingestion.pdf import PdfExtractionConfiguration
 
 
+def require_frozen_chunk_bytes(raw: bytes) -> None:
+    # Pin both the historical CRLF artifact and its exact LF Git blob, without normalizing input.
+    if hashlib.sha256(raw).hexdigest() not in {
+        "146109370459186ef0d46e49e0165e1184ec719fe8a61a6b9cd55156e0b256f9",
+        "46093ced1a44ce05c7b7b67c95d5dde487bec11529d57ff3e01b7bd7627ff918",
+    }:
+        raise ValueError("frozen chunk bytes changed")
+
+
 def frozen_chunk_metadata(chunks):
     """Recover production ordinals, token counts and line numbers from complete page prefixes."""
     if len({row["chunk_id"] for row in chunks}) != len(chunks):
@@ -108,10 +117,7 @@ def load_frozen_inputs():
         "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
     ):
         raise ValueError("frozen dataset identity changed")
-    if sha(binding / "chunks.json") != (
-        "146109370459186ef0d46e49e0165e1184ec719fe8a61a6b9cd55156e0b256f9"
-    ):
-        raise ValueError("frozen chunk bytes changed")
+    require_frozen_chunk_bytes((binding / "chunks.json").read_bytes())
     chunks = read(binding / "chunks.json")["chunks"]
     proposal = propose_bindings(dataset, [SimpleNamespace(**row) for row in chunks])
     review = read(binding / "binding-review.json")

@@ -7,6 +7,22 @@ Whole-plan owner approval: PR203 `1346b7c`,
 
 ## Latest takeover state — uncommitted implementation
 
+### CI correction — 2026-10-19
+
+The implementation was committed/pushed as `71b25fe` after owner approval of the
+108-file packet. Full hosted [CI39119161527](https://github.com/NhiBuaa/knora-agent/actions/runs/39119161527)
+failed six Ubuntu cases and two Database cases; Frontend, Windows and Keycloak passed.
+The owner approved the minimal correction and another commit/push/full exact-head CI:
+strictly pin both the historical CRLF chunk bytes and the equivalent LF Git blob,
+route the real PDF fixture and Windows worker-environment check to required Windows
+CI, and add the persisted `derivation_kind` to the dense roundtrip test double.
+No frozen file, historical hash, extraction hard limit or assertion was removed.
+The new byte-pin regression rejects changed content, whitespace, mixed line endings
+and BOM. Fresh hashing confirms all 206 protected inputs unchanged. Independent
+review and the focused 88-case regression found no remaining defect. Local S2
+runtime/database remain stopped; Database verification belongs to hosted CI.
+Earlier uncommitted-state descriptions below are chronological records.
+
 HEAD remains `4e0134d760def994197678da1aef148a179272a7` on the existing branch/worktree.
 The changes below are local and uncommitted; historical CI does not cover them.
 Earlier resource observations and implementation descriptions below are chronological records.

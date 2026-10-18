@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from backend.runtime_test.s2_frozen_restore import require_frozen_chunk_bytes
 from backend.runtime_test.s2_runtime_guard import require_reference_file
 
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
@@ -28,7 +29,7 @@ def test_all_frozen_native_vectors_match_upstream_tokens_and_tf_weights(profile_
     murmur = Path(os.environ["KNORA_S2_MURMUR_REFERENCE"])
     frozen = Path("evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime/chunks.json")
     frozen_sha = hashlib.sha256(frozen.read_bytes()).hexdigest()
-    assert frozen_sha == "146109370459186ef0d46e49e0165e1184ec719fe8a61a6b9cd55156e0b256f9"
+    require_frozen_chunk_bytes(frozen.read_bytes())
     wasm_sha = hashlib.sha256((spike / "counter.wasm").read_bytes()).hexdigest()
     assert wasm_sha == "36f2b5cb8879b5b62a06c477c5de818b1b84795261b4785400714d2854d16269"
     require_reference_file(
