@@ -1890,9 +1890,9 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | --- | --- | --- |
 | P0 | Historical baseline accepted; owner narrowed scope. | Keep evidence/failed windows intact; revise only this Master/current issue pointers. Documentation links/diff checks; no code/inference. |
 | P1 | Current4.9 design complete and owner approved A. | Actual PR/renderer/payload audit, options, exact five-path diff and revisedACs. Docs CI39115464051/all jobs SUCCESS and renewed191 ACK6248362063 precede P2. |
-| P2 | **Offline technical DoD complete** at `41b677c`; product7f189d3/v21 and approved Security Shadow compatibility extension verified. | Approved product/caller/tests/docs applied; RED/GREEN, preservation/refusal/alias negatives, one-call metadata/trace regressions, full applicable checks, independent review and exact-head CI/Security Shadow SUCCESS. Candidate handed to191; no port into200. P3 guard and P4 runtime remain separately gated. |
-| P3 | Pending P2; offline only when authorized. | Reuse guard as single-generation derivative; deny stale/missing/paid/unknown grants, extra sends/retries and old windows; safe final capture before parsing. Mock tests prove zero denied sends and≤6 proposed future total. Submit separate live envelope. No OAuth/inference from P2/P3. |
-| P4 | No current authority; pending exact candidate CI/P3 and separate owner approval. | At most3 query+3 generation proposed, same source/three cases/in-app desktop+mobile. Compare full final→composer→Turn/trace→DOM; open sources, report scope-specific pass/fail, routed generation defects, ledger/unknown cost/exact cleanup. No retries or quota rollover. |
+| P2 | **Offline technical DoD complete** at `41b677c`; product7f189d3/v21 and approved Security Shadow compatibility extension verified. | Approved product/caller/tests/docs applied; RED/GREEN, preservation/refusal/alias negatives, one-call metadata/trace regressions, full applicable checks, independent review and exact-head CI/Security Shadow SUCCESS. Candidate handed to191; no port into200. P3 mock-only readiness is now separately complete; P4 runtime remains gated. |
+| P3 | **Offline mock-only readiness complete** in `p3-v21-offline/`; no live authority. | v21 single-generation derivative, fail-closed admission and safe capture; 95 focused tests, Ruff and child-import checks pass. Independent review checkpoint is recorded in §4.9. Submit a separate P4 envelope; no OAuth/inference from P3. |
+| P4 | No current authority; P3 and CI are complete, but separate owner approval is still required. | At most3 query+3 generation proposed, same source/three cases/in-app desktop+mobile. Compare full final→composer→Turn/trace→DOM; open sources, report scope-specific pass/fail, routed generation defects, ledger/unknown cost/exact cleanup. No retries or quota rollover. |
 | P5 | Pending revisedAC1–AC9 and final review. | Review actual PR diff, citation/refusal/access/preservation regressions and evidence packet; publish limitations/routed semantic defects. Owner acceptance/PR state decision is explicit, not CI-derived. |
 | P6 | Separate owner integration approval required. | Integrate approved184 only under repository gates, record actual main SHA/checks and191 handoff. No automatic200 merge, production change, closure/Done or branch deletion. |
 
@@ -1961,6 +1961,37 @@ Private evidence: `frontend/test-results/issue183/master-plan-review/p2-full-cle
 Independent targeted re-review confirms the reproduced race is resolved; **94 passed in7.10s**, no new actionable finding in the reviewed patch. This establishes the mock-only scope, not a live concurrency/cost/semantic guarantee. The guard must stay single-window/single-dispatcher when wired for P4; durable pending denies another dispatcher instead of coordinating multiple workers.
 
 **Tests/acceptance/DoD:** Denial tests prove zero unauthorized sends; valid simulated sequences bounded; duplicate/timeout cannot reopen. Existing38 Q20 tests reused/adapted, count honestly. Zero real embedding/generation. Readiness is not P4 permission.
+
+#### P3 v21 mock-only derivative — complete offline, no live authority
+
+Owner approved the v21 one-call derivative after the v20 selector window closed. The old
+`p3-offline/` v18/two-stage helper remains unchanged history. A new ignored copy was created at
+`frontend/test-results/issue183/p3-v21-offline/`; no maintained product/test path, credential,
+provider, OAuth or production file changed.
+
+- The guard now binds `cloudflare-gpt-oss-cited-answer-v21`, the current `CLOUDFLARE_SYSTEM_PROMPT`
+  and `ANSWER_BLOCK_SCHEMA`. It admits one query embedding followed by one answer generation per
+  case, with at most **3 query + 3 generation = 6 simulated requests**. Selector/presentation
+  imports, prefixes and two-stage assumptions are absent.
+- Fail-closed checks remain for missing/stale/future/tampered account, Free-plan, quota and
+  zero-paid-budget evidence; wrong host/model/cap/schema, redirects/auth/mounted real transport,
+  duplicate/retry, orphaned pending/stopped windows, timeouts, malformed/length/error responses,
+  terminal Turn mismatch and child-process reopening. Responses retain bounded metadata only; no
+  reasoning or raw provider body is stored.
+- TDD evidence is retained in `p3-v21-red.log` (collection failure against the stale v18 helper)
+  and `p3-v21-final-tests.log`. Focused suite: **95 passed in 7.75s** with JUnit
+  `p3-v21-junit.xml`; Ruff format/check/lint and the Windows UTF-8 child-import self-check passed.
+  The adapter regression exercises three query/answer pairs and denies a seventh physical send;
+  explicit tests deny generation before a query and a second answer before a new query. A follow-up
+  review added explicit rejection of real Authorization headers and extra response-format keys.
+- SHA256 identities: guard
+  `cb5a8e316718e29ba0bd56fc14a2c06c974ced380cd347f39ae05727513dad52`; tests
+  `31a2250ca16a223787c50b599dfdbad0656c8038cd20f0c139c4b53da749588d`.
+- Independent read-only review reran the original suite (94 passed in7.21s), found no actionable
+  correctness blocker, and the optional credential-boundary hardening is included above. This result
+  proves only offline admission/wiring safety and the six-request ceiling; it does not prove provider
+  compliance, semantic correctness, browser rendering or zero actual cost. P4 needs a fresh
+  owner-approved runtime window and preflight; no allowance is carried forward.
 
 #### P3 live-window proposal — subsequently approved and executed as P4 below
 
@@ -2065,7 +2096,7 @@ Private artifact identities (SHA256; files stay ignored):
 
 ## 7. Permissions and Codex Goals contracts
 
-**Current authority:** Owner approved exact4.9 A for P2 code/tests/docs offline. Required docs CI SUCCESS and renewed191 ACK are verified above. Historical live approvals are consumed; none grants inference/OAuth forv21. P3/P4 need their own stated approval.
+**Current authority:** Owner approved exact4.9 A for P2 code/tests/docs offline and the v21 P3 mock-only derivative. Required docs CI SUCCESS and renewed191 ACK are verified above. Historical live approvals are consumed; none grants inference/OAuth forv21. P4 still needs its own separate runtime approval and fresh fail-closed preflight.
 
 | Action | Permission now | Future gate |
 | --- | --- | --- |
@@ -2132,4 +2163,4 @@ Historical owner review decisions (current frontier is4.9):
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Owner reviews4.9 exact scope/diff and revisedACs5, then explicitly approves offline implementation or requests changes. New191 overlap ACK is required before edits. No product/test change, inference, OAuth, production change, merge or issue creation is authorized now. Keep producted9399b/v20, all historical windows closed, PR184Draft/183open/InProgress,191/200 separate. All historical negative findings remain visible; the scope change is an owner decision, not a successful semantic fix.
+**Immediate next action:** Complete the independent read-only review of the v21 mock-only derivative, publish this P3 checkpoint and its exact-head docs CI result, then submit a separate P4 runtime proposal. No inference, OAuth, production change, merge or issue closure is authorized. Keep PR184 Draft, #183 In Progress, and #191/PR200 separate; all historical windows remain closed and prior semantic failures remain visible.
