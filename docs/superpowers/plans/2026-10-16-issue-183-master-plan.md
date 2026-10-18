@@ -6,6 +6,8 @@
 
 **Goal:** Present enumerated answer members as readable Markdown bullets while preserving every accepted generated text field, its order and citation mapping through composition, storage and rendering. Preserve169/178, refusal and access. Semantic completeness against the entire PDF is a separate concern, not a183 delivery gate.
 
+**Latest execution — 2026-10-19:** P3 v21 is accepted by the owner. The separately approved P4 window for exact candidate `4b2174b90bc7b45cf8a3467c42ea608e86de6a4e` closed **0/6** at the runtime-dependency preflight gate: Docker Engine unavailable, PostgreSQL15483 and Keycloak8180 not listening. No provider request, credential loader, grant, Turn, OAuth mutation or service startup occurred. All three live acceptance cases remain NOT RUN; no product failure or success is inferred. See the dated P4 v21 report below. A fresh owner-approved recovery window is required after dependencies are restored; this window cannot be reopened.
+
 **Historical offline amendment — 2026-10-18 (not the new forward scope):** Owner approved exact section4.7 A at5260004;
 docs e1f508f passed all CI jobs and renewed #191 overlap ACK6231612445 preceded
 product edits. The exact three-module count-intent/independent-conditions diff is
@@ -1993,6 +1995,51 @@ provider, OAuth or production file changed.
   compliance, semantic correctness, browser rendering or zero actual cost. P4 needs a fresh
   owner-approved runtime window and preflight; no allowance is carried forward.
 
+#### P4 v21 attempt — runtime preflight blocked, closed0/6 (2026-10-19)
+
+**Authority:** Owner explicitly approved at most6 physical requests for PR184 candidate
+`4b2174b90bc7b45cf8a3467c42ea608e86de6a4e`, conditional on complete fresh preflight,
+unchanged v21/schema/GPT-OSS20B/1024 and isolated runtime. In-app browser only; three fixed
+questions, no retry, and immediate stop on any failed gate. Required [CI39147166477](https://github.com/NhiBuaa/knora-agent/actions/runs/39147166477)
+and [Security Shadow39147166479](https://github.com/NhiBuaa/knora-agent/actions/runs/39147166479)
+were read back SUCCESS at that exact head; the tracked working tree was clean.
+
+**Observed blocker:** `docker ps -a` reported the `dockerDesktopLinuxEngine` named pipe
+missing. Listener inspection found no PostgreSQL15483 or Keycloak8180 listener. The agent
+stopped before constructing a live guard/grant or starting services. This is a local
+dependency/preflight failure, not evidence of a provider, product, schema or renderer defect.
+No attempt was made to restart Docker or continue through the failed gate.
+
+**Accounting and cleanup:** New ignored evidence directory `frontend/test-results/issue183/p4-v21/`
+contains an exclusive durable stop and reconciled preflight/cleanup records. Exactly0 query,
+0 generation and0 document requests; no retry/replay/re-ingestion. All six unused slots expired.
+No provider credential loader, live grant, Turn, OAuth read/mutation, API/frontend startup or
+viewport override occurred. Read-only in-app Cloudflare observations did not become a completed
+preflight grant and are not reusable authority. The agent-created dashboard tab was closed;
+the in-app tab inventory was empty. Cleanup TCP checks found15483/8180/3000/3183/8183 unreachable;
+primary3000 was not replaced or stopped. Historical guards/captures/stop files remain untouched.
+No new request-specific cost exists to report; dashboard aggregate usage is not an actual-cost
+measurement. Paid-budget policy remains0USD.
+
+| Criterion | Current-window result | Evidence/limit |
+| --- | --- | --- |
+| Exact candidate and required CI | PASS | Exact4b2174b head; both named runs SUCCESS. |
+| Full fresh preflight and isolated ready runtime | FAIL | Required Docker/DB/Keycloak unavailable; no grant. |
+| Count question: natural lead, bold number/unit, separate chapter bullets | NOT RUN | `Báo cáo dự án phần mềm được gợi ý trình bày bao nhiêu chương?` not submitted. |
+| Other list: separate Markdown bullets | NOT RUN | `Báo cáo cần có những phần nào ngoài các chương nội dung?` not submitted. |
+| Short answer remains prose | NOT RUN | `Mục tiêu chung của mọi báo cáo là gì?` not submitted. |
+| JSON→Markdown→API/Turn→DOM preserves every generated text field/order | NOT VERIFIED | No new model payload, Turn or DOM. |
+| Desktop/mobile and source opening; no raw marker/duplicate chip | NOT VERIFIED | No application browser case ran. |
+| Stop/no-retry/accounting/cleanup | PASS within setup-only scope | Durable stop0/6; no runtime/OAuth/provider side effects. |
+
+Evidence SHA256: `stopped.json` `d98266c1e093a1735165827bf74fc6498954f6f7b454be408b8c7a04aee44b5e`;
+`preflight-failure.json` `da1b338aceb5a5ed69de078ade9e79d6f6a9d5a9a1bcc86445d3bebd4440ec03`;
+`cleanup.json` `177ba787d0c1c2773f01670101f7ff46407d75bdaa0aebf134f23dc3dd32afcc`.
+No semantic omission was newly observed; prior generation omissions remain separately classified
+under4.9. Product/schema/model/cap/default/production/#191/PR200 were not changed. PR184 remains
+Draft and183 open/InProgress; no merge/closure/Done. Restore dependencies, then obtain a new
+bounded recovery approval before any new live setup or send; never reset this stop.
+
 #### P3 live-window proposal — subsequently approved and executed as P4 below
 
 This proposal grants nothing by itself. It fixes the intended P4 envelope so approval need not become a series of exploratory prompt/request rounds:
@@ -2096,7 +2143,7 @@ Private artifact identities (SHA256; files stay ignored):
 
 ## 7. Permissions and Codex Goals contracts
 
-**Current authority:** Owner approved exact4.9 A for P2 code/tests/docs offline and the v21 P3 mock-only derivative. Required docs CI SUCCESS and renewed191 ACK are verified above. Historical live approvals are consumed; none grants inference/OAuth forv21. P4 still needs its own separate runtime approval and fresh fail-closed preflight.
+**Current authority:** Owner approved exact4.9 A for P2 code/tests/docs offline and accepted the v21 P3 mock-only result. The subsequent separate P4 approval for4b2174b was consumed by the2026-10-19 setup/preflight attempt, closed0/6 above. No live allowance remains. A new bounded owner-approved recovery and fresh fail-closed preflight are required before live setup or inference.
 
 | Action | Permission now | Future gate |
 | --- | --- | --- |
@@ -2106,7 +2153,7 @@ Private artifact identities (SHA256; files stay ignored):
 | P2 current one-call code/tests/docs | Authorized offline; product7f189d3/v21, verification in progress. | Docs CI39115464051/all jobs SUCCESS and renewed191 ACK6248362063 verified before edits. No inference/OAuth or P4 grant. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
-| OAuth/runtime mutation/inference | None remaining; latest v20 recovery stopped2/9, unused seven expired; all historical windows/section4.6 closed, Q21 postponed. | A new exact owner-approved window and fresh fail-closed preflight are required. Free quota is not consent. |
+| OAuth/runtime mutation/inference | None remaining; v21 P4 closed0/6 on runtime-dependency preflight, unused six expired; all historical windows/section4.6 closed, Q21 postponed. | Restore dependencies; a new exact owner-approved recovery and fresh fail-closed preflight are required. Free quota is not consent. |
 | Default retrieval/production/account/billing changes | None. | Separate proposal/approval; no containment rollout by inference. |
 | Product acceptance/Draft change/merge/closure/Done/deployment | None. | Explicit owner disposition at each applicable boundary. |
 
@@ -2163,4 +2210,4 @@ Historical owner review decisions (current frontier is4.9):
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Complete the independent read-only review of the v21 mock-only derivative, publish this P3 checkpoint and its exact-head docs CI result, then submit a separate P4 runtime proposal. No inference, OAuth, production change, merge or issue closure is authorized. Keep PR184 Draft, #183 In Progress, and #191/PR200 separate; all historical windows remain closed and prior semantic failures remain visible.
+**Immediate next action:** Restore Docker/isolated DB/Keycloak readiness, then request a separately approved bounded P4 recovery against the unchanged v21 product. The4b2174b P4 attempt is permanently closed0/6; do not reset its stop or carry unused allowance forward. No inference, OAuth, production change, merge or issue closure is authorized. Keep PR184 Draft, #183 In Progress and #191/PR200 separate; previous semantic failures and historical fixture collection limits remain visible.
