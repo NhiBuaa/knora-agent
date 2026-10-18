@@ -1,5 +1,24 @@
 # Issue #188 — Master Implementation Plan
 
+**Current disposition — research-only / archived, October 18:** The owner approved
+retaining the threat model, historical evidence and offline evaluators at this
+checkpoint, including their synchronization into `codex/test`, without reverting
+them. This ends the current research initiative; there is no planned automatic
+qualification or detector integration into runtime. "Archived" describes the
+initiative, not deletion of files, closure of PRs or archival of this repository.
+No merge into `main` as a runtime feature is authorized by this disposition.
+Existing PR review state is independent and must not be changed by this record.
+
+Existing Workspace/AuthZ, tenant/source/citation and browser-rendering controls
+remain mandatory. Future security work should address a demonstrated threat with
+the smallest justified control; a new detector needs measured benefit, legitimate-use
+and false-positive evidence. The six PII families and S1–S13 inventory do not mandate
+runtime scanners. PII presence alone never establishes prohibited disclosure.
+Any future runtime policy/integration/activation needs its own concrete scope;
+there is no blanket approval to create new implementation issues or adopt vendors.
+**Detection Completed: no. Protection Enabled: no. Runtime/enforcement/export: OFF.**
+Historical decisions and immutable results below remain unchanged.
+
 **Final owner disposition — October 18:** Owner explicitly selected
 **“Nghiệm thu engineering/research, chấp nhận hoãn qualification và đóng #188”**
 for the reviewed implementation at `90da152d3bbbae04d4e315685b6527b13a7b23e6`.

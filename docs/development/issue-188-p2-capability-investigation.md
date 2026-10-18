@@ -1310,3 +1310,17 @@ native saved-attempt binding remain unverified. Historical evidence/draft labels
 are unchanged. Detection Completed: no; Protection Enabled: no. PR #199/#205 stay
 Draft/unmerged; no renewed live session, merge/deploy or runtime/enforcement/export
 activation follows from this acceptance.
+
+## Subsequent disposition — research-only / archived, October 18
+
+The owner approved retaining #188 as completed research at the current checkpoint,
+preserving its threat model, historical evidence and offline evaluators in
+`codex/test`; no revert or deletion was selected. No further qualification or
+detector/runtime implementation is planned automatically. "Archived" is the
+initiative disposition, not a repository/worktree/PR operation. Main integration
+as a runtime feature, provider calls, new issues/vendors, activation and deployment
+are not authorized by this decision. PR review state is preserved independently.
+Future controls must address a concrete threat and demonstrate security value
+without preventing authorized PII-bearing Workspace Q&A. See the Master current
+disposition; all historical gaps remain recorded. Detection Completed: no;
+Protection Enabled: no; runtime/enforcement/export OFF.
