@@ -558,3 +558,76 @@ from these failures. The broader quality/live/integration gates and Project bloc
 Source HEAD `c306693feb31f2d17e7e8c7adf2a8143a224ee64` has exact-head CI
 **39052367661 SUCCESS**, all six jobs including CI required. Later closeout documentation commits
 have their own CI scope; this success is not browser-download or quality acceptance.
+
+## Approved continuation and source integration candidate — 18 October 2026
+
+The owner explicitly approved all pending sections of
+[checkpoint 6238297621](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6238297621)
+in chat. Work resumed within the stated finite envelopes. The current browser preference is the
+Codex integrated browser. This approval does not supply a human review result, quality acceptance,
+unlimited calls, billing changes or permission to merge/deploy. The original L1–L4 windows remain
+closed; their clocks were not extended.
+
+Source checkpoint `bbdd2a5c93ddde435a673408721da3e1625fae0d` was clean and all six exact-head CI
+checks were successful before this documentation update. A fresh authenticated same-account
+dashboard observation confirmed Workers Free, current plan $0, and 746.22/10,000 neurons used.
+
+The approved synthetic compatibility exception at
+[6233379439](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6233379439) is now
+consumed. Input was exactly `Return exactly OK.`, Cloudflare `@cf/openai/gpt-oss-20b`
+chat/completions, `max_tokens=32`, one HTTP attempt total, zero retries/redirect/fallback,
+30-second timeout and a 15-minute window. Fresh quota exceeded the required 9,000 remaining
+neurons; paid budget remained USD0. An exclusive, fsynced marker reserved the attempt before
+dispatch, including an ambiguous outcome. No PDF, gold or saved answer was sent.
+
+At **01:11:21 ICT**, the response was HTTP200, `finish_reason=length`, prompt tokens73,
+completion tokens32, total tokens105, reported neurons2.1999978, elapsed1.406 seconds. Response
+content was not retained. No second attempt or live Workbench profile unlock followed. This
+observes truncation for one response, not a universal reasoning/billed-output contract, successful
+judge scoring, an invoice or quality acceptance. Private evidence is retained under
+`%TEMP%/knora-192-approved-probe-20261018`; the
+[published result](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6238346906)
+was read back.
+
+A separate source-only candidate combines this Workbench checkpoint with S2 checkpoint
+`4e0134d760def994197678da1aef148a179272a7`, the 38 reviewed pins through Q15 round2, the disclosed
+14-file dependency closure, and the sequential PDF runner/readiness/Q16 ACK packages. Package,
+base and snapshot hashes were verified before overlay. Main composition responsibilities and both
+reader regression blocks are preserved; OpenAPI was regenerated from the combined app. No shared
+maintained source, Git ref, retained database or runtime was changed by preparing this candidate.
+
+Candidate checks: **218** focused backend tests pass using the existing evaluation environment,
+SQLite only, no external DB/real HTTP attempts; **63** runner tests pass with all DB/real HTTP
+denied. Python formatting/lint, frontend typecheck/format and OpenAPI check pass. Independent
+static review of the 14-file closure found no actionable finding. These are offline results.
+
+The complete source graph has 49 revisions and heads `20261016_0051`/`20261016_0155`, without
+missing parents. The candidate adds an empty merge revision `20261018_0052` preserving both
+parents and every historical revision. Alembic source checks find 50 revisions and one head;
+calling its empty upgrade/downgrade performs no DDL. Real migration, legacy-row admission and
+PostgreSQL constraints remain unverified.
+
+The exact shared-seam review is retained under `%TEMP%/knora-192-combined-review-20261018/round2`.
+Patch LF SHA256 is `f8b23154c6246d2800ce8271a7edd0a1bba6aeb82d89c7e9a00f5653cee5b421`:
+nine candidate snapshots, seven mutating diffs, with the evaluation reader and its regression
+file explicitly unchanged because S2 already has those candidate bytes. Fresh S2 bases and
+`git apply --check` match. Round2 changes base classification only; all nine candidate hashes are
+identical to the independently reviewed first round. Application still requires the coordinated
+exact-diff ACK and the relevant complete integration scope.
+
+Separate review of S2's private runtime sources found four blockers: effective DB routing can be
+overridden by URL query parameters; an unpinned archive manifest can self-authorize changed saved
+Baseline B context; restore replay omits Chunk Set parser/normalizer/chunking lineage checks; and
+reference JavaScript files lack approved hashes before execution. Findings were sent to #153 for
+correction and a new finite review. No restore, native service or provider was executed by this
+review. This is not evidence of a new production runtime failure.
+
+All three retained synthetic PDF hashes still match. The two text PDFs render visibly with
+Poppler; a human content-review packet for the two unreviewed cases was presented in chat.
+This does not prove the embedded viewer/download gate or record Accept/Freeze. Human review,
+saved compatible ANSWER, calibrated judge results, Ragas review/freeze/R3 and product quality
+remain unfinished. Project #192 is In Progress, verified by readback; no issue was marked Done.
+Historical gold, thresholds and both saved runs remain unchanged. Langfuse export and Guardrails
+enforcement remain OFF. The
+[continuation checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6238490765)
+records the source candidate, review boundaries and open gates.
