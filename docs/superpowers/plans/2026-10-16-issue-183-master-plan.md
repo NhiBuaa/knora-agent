@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
 
-**Status:** P0/P1 approved; exact amendments through section4.7 implemented with owner approvals and191 ACKs. Product ed9399b/v20 passed offline checks/review/required CI. The latest separately approved P4 recovery at docs0748a38 closed2/9 on selector HTTP200/length/content=null after1024 completion tokens, before answer generation. No final-candidate list/qualification/citation acceptance; other-list/short unrun. All historical windows remain closed and no live allowance remains. OAuth/services cleanup verified. P5/P6 blocked, PR184 Draft/183 open/In Progress;191/200 separate. Q21 postponed. See the dated recovery report below; this documentation update grants no new code or inference authority.
+**Status:** P0/P1 approved; exact amendments through section4.7 implemented with owner approvals and191 ACKs. Product ed9399b/v20 passed offline checks/review/required CI. The latest separately approved P4 recovery at docs0748a38 closed2/9 on selector HTTP200/length/content=null after1024 completion tokens, before answer generation. No final-candidate list/qualification/citation acceptance; other-list/short unrun. The owner-approved finite offline follow-up is complete in4.8 with no justified product patch; hold is recommended pending owner disposition. All historical windows remain closed and no live allowance remains. OAuth/services cleanup verified. P5/P6 blocked, PR184 Draft/183 open/In Progress;191/200 separate. Q21 postponed. See the dated recovery report below; this documentation update grants no new code or inference authority.
 
 **Goal:** Complete general answer-list presentation without losing source meaning, conditions, order, citations or accepted #169/#178 behavior; submit PR #184 for explicit acceptance and separately authorized integration.
 
@@ -1296,6 +1296,112 @@ new runtime needs a separate fail-closed grant. Keep184 Draft,183 open/In Progre
 191/200 separate; P5/P6 remain blocked. Full product tests were not repeated for
 this documentation-only report; their tree-specific evidence remains in4.7.
 
+### 4.8 Finite offline selector assessment — complete; no justified product patch
+
+**Authority and outcome:** After the recovery report at15a684a, owner selected
+A: finite offline comparison/options/exact proposal only. No product/test edit,
+inference, OAuth, retry, model/cap/production change or merge. This is a completed
+negative design assessment, not permission for another experiment. The proposed
+product diff is explicitly **empty**: the evidence does not justify claiming that
+one more contract/prompt change will resolve the remaining acceptance criteria.
+This follows section4's instruction to report when no justified minimal patch is
+found, rather than construct another hypothesis and call it a fix.
+
+#### Reconciled evidence and causal limit
+
+Parent and an independent read-only agent compared current modules with private
+`conditions-recovery` v19 and `selector-v20-recovery` v20 captures. Parent recomputed
+metrics into ignored `offline-selector-comparison.json`; no candidate code was
+imported/executed and no model reasoning inspected.
+
+| Retained selector request/result | v19 recovery | v20 recovery |
+| --- | --- | --- |
+| Request-file bytes |5862 |5335 |
+| System-prompt characters |1551 |1073 |
+| response_format characters (JSON serialized, not token count) |712 |663 |
+| Reported input tokens |1203 |1116 |
+| Reported completion / finish |229 / stop |1024 / length |
+| Final content |count_prose, conditions=[] |null |
+| Model / cap |GPT-OSS20B /1024 |Same |
+
+The **user-message bytes are identical**, SHA256
+`faa526eff289b54fefe1a9585512d62e4416a69b4e27ca20904cd7247b715b05`.
+Same question/E1/E2 contain all seven chapters and both merge/split qualifications.
+The v20 request is smaller: no observed evidence/model/cap drift or size increase
+explains this failure. Prompt/schema **meaning** changed, so these are not a
+controlled single-variable experiment. Neither shorter strings nor smaller field
+names are a demonstrated remedy. The model-internal cause, a particular schema
+keyword and a guaranteed sufficient budget cannot be inferred from these two runs.
+
+Current generation.py completes/decodes the selector before answer generation;
+_decode rejects length. Consequently this failure occurs before stage2/composer.
+A null final cannot be salvaged as a selector result. Accepting it, using a default
+count flag/empty notes, reading sibling reasoning or silently falling through to
+stage2 would add a new fallback/validation behavior and mask the first-stage failure.
+None is proposed or authorized. Existing no-retry/error handling remains unchanged.
+
+#### Responsibility review and options
+
+The selector already does more than intent classification: it identifies shared
+source qualifications, scope/modality/order, distinguishes shared versus individual
+conditions, paraphrases into the question language and chooses supporting aliases.
+The answer repeats source interpretation, handles member-specific/additional shared
+conditions and must avoid duplicating/contradicting retained notes. Composer
+preserves **selected** notes; it cannot establish their completeness or support.
+v19 conditions=[] was structurally permitted by its count_prose gate but omitted
+relevant source qualifications. Historical v17/v18 answer-stage omissions also
+remain semantic counterexamples, not violations of a selected-note transfer gate.
+
+| Option | Exact scope of change if later approved | Benefit | Acceptance cost / evidence limit |
+| --- | --- | --- | --- |
+| Count-only selector | Remove generated conditions from PresentationChoice/policy; remove conversion, retained_conditions payload/append path and dependent fixtures/docs; answer handles qualifications in existing items/after. | Smallest targeted reduction of selector work; two calls and current composer/citation mechanism can be reused. | Removes the approved selected-note retention guarantee. Returns qualification generation to the boundary that already omitted it. No evidence it will satisfy AC2 or prevent cap exhaustion; count classification can still be wrong. Not recommended as a complete183 fix. |
+| One structured-answer call | Remove selector prerequisite and note handoff; reuse fixed answer slots/composer/public validator. Decide count-lead gate explicitly rather than silently dropping it. | Removes one fallible call and duplicated generation/coordination. | Changes the approved two-stage contract and loses retained-note independence/count gate unless redesigned. Existing answer-stage policy omissions remain relevant, but do not directly test this proposed single-call pipeline; same cap may still truncate. Less code is not proof of source fidelity. Not recommended as a claimed fix. |
+| Hold current v20/Draft — recommended now | Product/test/prompt/schema/config diff empty; keep all stops closed and ACs unchanged. | Avoids spending more quota or exchanging safeguards for an unproven patch. |183 is not complete; owner must choose a new explicit tradeoff before further implementation. No future inference allowance. |
+
+No candidate above is proven to satisfy the unchanged ACs within20B/1024. A
+count-only selector is the smallest direct work reduction **if the owner chooses
+that tradeoff**; it must be labeled an unproven simplification, never acceptance,
+a semantic repair or an implicit waiver of the merge/split conditions. We do not
+recommend another prompt-shortening/compact-schema experiment, automatic retry,
+third request/judge, source-quote catalog/regex, hardcoded question/member count,
+new dependency or191 module extraction as a solution to this observation.
+
+#### Provider documentation check, not an applied parameter change
+
+Current official [Cloudflare GPT-OSS20B model documentation](https://developers.cloudflare.com/workers-ai/models/gpt-oss-20b/)
+labels reasoning levels and a medium default. However its model-specific
+[synchronous input schema](https://developers.cloudflare.com/workers-ai/models/gpt-oss-20b/sync-input.json)
+does not list reasoning_effort or a reasoning-budget field. The
+[OpenAI-compatible endpoint guide](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/)
+documents Chat Completions and GPT-OSS Responses support, but does not establish
+that this model accepts that control on the current endpoint. Context7's scoped
+query mostly returned other-model controls; those are not evidence for GPT-OSS.
+This documentation gap does **not** prove an unlisted parameter is unsupported.
+It does mean we cannot confidently propose reasoning_effort=low, inject a Harmony
+control string, change endpoint or disable reasoning as a verified minimal fix.
+No such field/control is added; no claim assigns all1024 tokens to reasoning.
+
+#### Exact recommended disposition and gates
+
+- **Product/test diff: empty.** Preserve current v20/count-conditions-v3, fixed
+  answer schema, both stages, selected-note composer, citations/refusal/access,
+  model/cap/default retrieval and every historical result.
+- **Repository deliverable:** this section in the sole Master plus accurate
+  phase/permission/status pointers. No second plan, ADR decision or product
+  guarantee is recorded from an unaccepted option.
+- **Checks performed:** read-only capture/hash/metric comparison, connected-code
+  responsibility review, independent fact audit and official provider-doc lookup;
+  local links/P0-P6/diff consistency. No new tests/fixtures/provider/browser run.
+  Docs CI is tree-specific and cannot resolve the semantic/provider blocker.
+- **Owner frontier:** accept the recommended hold, or explicitly select the
+  count-only/one-call tradeoff for an exact implementation design first. No
+  product code/test implementation follows from this analysis approval. Any
+  overlapping implementation needs a new191 ACK; runtime needs new separate
+  authorization/preflight. No cap/model/production or acceptance waiver implied.
+- **P4/P5/P6:** still incomplete. Other-list/short, source conditions, actual
+  answers/citations and final-candidate desktop/mobile coverage remain unverified.
+  Existing2/9 window and its seven expired requests remain closed.
+
 ## 5. Acceptance criteria and evidence reuse
 
 | ID | Required outcome | Current gap |
@@ -1575,4 +1681,4 @@ Owner review decisions:
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** v20 recovery is permanently closed2/9 on a selector token failure (HTTP200/length/content=null,1024 completion tokens), before answer generation. Product ed9399b/v20 and docs0748a38 CI are SUCCESS; this does not establish runtime acceptance. Await owner decision on the finite offline assessment recommended in the recovery report, or hold Draft; no new product/test change or inference is authorized. Old grants/stops cannot be reset/reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
+**Immediate next action:** Owner-approved finite offline assessment is complete in4.8; no justified product patch is recommended. Await owner disposition: hold v20/Draft (recommended), or explicitly select a changed tradeoff for exact design first. No product/test implementation or inference is authorized. Recovery remains closed2/9; old grants/stops cannot be reset/reused. Product ed9399b/v20 CI is SUCCESS, not runtime acceptance. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
