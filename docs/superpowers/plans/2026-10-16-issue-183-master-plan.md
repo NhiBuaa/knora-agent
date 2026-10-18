@@ -700,7 +700,7 @@ New cases exercise malformed final JSON, invalid selector/notes/answer slots/bol
 
 **Outcome/remaining gate:** The observed private capture defect is corrected and verified **offline only**. It cannot recover the lost historical answer, establish the exact stage2 failure or fix selector/source fidelity. No fresh live helper/grant is wired or approved; all old windows remain stopped, no allowance carries over. New capture contains final-field strings, which can include source or unintended text; it is private ignored data, never proof that model content itself contains no reasoning. No public raw reasoning/body/source or secrets are committed. Source/PDF/code/prompt/schema/model/cap/production remain unchanged;183 open/In Progress,184 Draft,191/200 frozen. Next product direction or any new runtime/OAuth/provider allowance needs owner disposition; do not run unchanged inference to seek PASS. AC1/AC2/AC4/AC5/AC6/AC8 and P5/P6 remain incomplete.
 
-### 4.6 Proposed one-request diagnostic window — NOT authorized or implemented
+### 4.6 Conditional one-request diagnostic — completed; closed1/1, not acceptance
 
 This is a bounded diagnostic proposal within existing P3/P4, not another phase, roadmap or product direction. Owner approval of4.5 covered the completed mock-only helper/tests; it did **not** authorize the live work below. Automatic Goal continuation grants no inference. Documentation checkpoint325763d [CI39057050348](https://github.com/NhiBuaa/knora-agent/actions/runs/39057050348) completed required/all five components SUCCESS; its158 private offline tests are separate evidence, not CI coverage.
 
@@ -737,7 +737,52 @@ Recommend A only as diagnostic evidence before considering another product chang
 
 **Diagnostic completion criteria:** Correlate frozen request SHA -> safe HTTP/usage/latency -> exact private final -> deterministic local parse/compose result or fixed failure boundary/type. Inspect newly retained final offline to identify supported **current** violations without publishing source/reasoning or inventing historical fields. Report request count0/1, failure/unknowns, fresh-preflight identities and cost uncertainty; publish sanitized result into this Master/183/191/184. If valid, state failure not reproduced; if invalid, describe only the demonstrated current violation and stop before choosing a product fix. Either outcome leaves wrong selector, semantic/list/short/browser acceptance and P5/P6 unresolved. No Turn/trace/DOM/citation-opening evidence is produced by a direct replay; do not credit AC1–AC9 or waive the eventual three-case application acceptance. Further behavior changes require a justified exact proposal and renewed191 coordination.184 stays Draft/183 open/In Progress,191/200 frozen; no production/merge/closure rights.
 
-**Current gate:** A/B owner decision pending. No candidate one-shot code/tests/grant created, no fresh live preflight, no credentials loaded and no inference authorized by this proposal.
+#### §4.6 pre-send checkpoint — owner A approved; offline gate complete (historical)
+
+Owner approved the conditional diagnostic package in chat on2026-10-18. Private helper only; product1477838/v19 and frozen request unchanged. Parent clean-child109 passed31.81s; independent109 passed32.58s; root/private Ruff format/check, UTF-8 child-import and42 historical hashes passed. Three reproduced helper findings (explicit proxy, stop during pending persistence, partial diagnostic read masking) were fixed with regressions. No provider request, live grant or credential load yet. Required/components CI39057870306 at exact subject4c9a405 SUCCESS.
+
+User subsequently instructed browser in app only; the agent-created external Edge tab was closed. All live preflight observations must be newly read in the in-app browser, replacing the older external-browser procedure. No OAuth/services/product/config changes.
+
+SHA256 before credentials:
+- `replay.py`: `b3aef0624d4118782c824f7976effedede259072b2a34c9e20ba2414a02e0f87`
+- `test_replay.py`: `659f9a72515e5dc7f3d65fdbbf08fde5143fb55492ebbc94e568a6aadd5b26ad`
+- `conftest.py`: `1c15dd631ae2b01d9b67ceaf17a2d06b31267206c54b7dba520e0497c2726be6`
+- `review.md`: `a42b51f64412cf659f0b6e767003a933b2443234343fbd9912e66e5fa7a13ac5`
+
+The sole Master working copy records this gate; HEAD remains the CI/approval subject4c9a405 for the exact-bound diagnostic. This Issue publication/readback pins the reviewed files before credentials; final docs will be committed after the bounded outcome. At most1 exact direct answer POST after all fresh account/Free/quota gates, otherwise0. Existing stopped windows untouched. Total diagnostic elapsed is not provider-only latency. No semantic/browser AC credit or historical-payload reconstruction; wrong selector remains unresolved. PR184 stays Draft;191/200 unchanged.
+
+#### §4.6 execution — 2026-10-18, diagnostic complete; closed1/1, not acceptance
+
+Owner explicitly chose conditional package A in chat; later replaced external Edge with **in-app browser only**. The agent-created external Edge tab was closed; no external-browser observation was admitted. No OAuth, API/frontend/DB/Keycloak setup, embedding, selector, re-ingestion, product edit or production change occurred.
+
+Fresh actual in-app dashboard reads: account0815469773bb9f83177a1303be9a90f3 at03:48:08.658UTC; Billing Workers Free Active at03:48:26.495UTC; daily Neurons0/10k at03:48:42.982UTC. Last24h graph separately displayed670.27 generation/0.03 embedding; that rolling aggregate is not today's counter. Grant binds these new files/digests to4c9a405/window; every read was <50s old at attempt03:48:57.091UTC. [Current Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and Context7 confirm Free daily10000 hard limit, requiring an explicit Paid upgrade for overage; GPT-OSS20B is not on the paid-only list. Exact direct endpoint/body has no AI Gateway billing field. Paid budget0USD is enforced as Free-only admission; dashboard/usage still does **not** establish actual per-request billed cost0USD. No plan/payment/account setting changed.
+
+Exactly **one physical answer POST**, exact body SHA8760b066f8fdfa87195f05567f5549e43c218b150313ec455f715316c372175f, no JSON reserialization. Same GPT-OSS20B/max_tokens1024/v19/schema/product1477838; historical count_prose/conditions[] context preserved. HTTP200/finish=stop;1549 prompt+448 completion=1997tokens;4.903s **total diagnostic elapsed** including preflight/credential loading, not provider-only latency. Body2348bytes/SHA0c1881e3ea1ac2b9a9776ea46de312a5a04e35d6ac4656d78570aedf1fa93d49. Final was retained before validation; existing parse/compose gates passed. Durable stop at03:49:01.994UTC; attempt/pending/stop remain. No retry/second request or remaining allowance.
+
+**Supported conclusion:** stage2's previous validation failure was **not reproduced**. New final is ANSWER/before1/items0/after0, one supported-count lead with bold number/unit and E1/E2 aliases, valid under the frozen count_prose contract. Composer preserves this structure; no renderer is involved. It does not enumerate chapters or retain merge/split qualifications. E2 supplies the seven-member outline and both qualifications; E1 does not itself substantiate the seven-member count, so accepted aliases alone are not proof of every citation's semantic relevance. The known selector count_prose/conditions[] decision remains unresolved and no new selector call was made. This new completion cannot reconstruct the lost historical final or prove its former failure boundary. No observed truncation in this new448/1024 stop, not a general token sufficiency guarantee.
+
+Independent read-only offline review reproduced final→contract→composer parity in a clean child with socket network denied;42 historical hashes match. Report `conditions-answer-diagnostic/diagnostic-review.md` SHA256 `5f6a72c3ef55cf6a24ce4a84bae10266e630a370d7027196aaca0c25d362656e`. Reviewer did not verify fresh preflight, actual charge or full source entailment.
+
+**Acceptance unchanged:** no Turn/trace/DOM/citation-opening evidence exists from this direct call; no AC1–AC9 PASS is credited. Known list/condition gap, other-list/short application cases, P5/P6 remain unresolved.42 historical hashes unchanged after execution. Full product/browser suites were not repeated for this private diagnostic. PR184 remains Draft,183 open/In Progress;191/PR200 untouched. Helpers/captures remain ignored/private; only this sole Master changes.
+
+Private artifact hashes under conditions-answer-diagnostic/live:
+
+| Artifact | SHA256 |
+| --- | --- |
+| `grant.json` | `5b99dd28992f86adcb2b5c837060be9aad889d2e2f2d2016ce635a2c61b98ba3` |
+| `account.json` | `304c5288a1172ef3b2df6ca176d8a651da49756e6970135afdf7062646f05778` |
+| `billing.json` | `f9fb35168f1f34befc4268db9a9d7133684c142741eca43398fb004880dd7989` |
+| `quota.json` | `af8861926ee0471a2053f07c7566d7018ec179d484e6cb659eb7d7dee87c9f0a` |
+| `review-gate.json` | `9ac9ee6839e02027f4f509cf97dfff7188391b75481aa3661de48dff350a685e` |
+| `ci.json` | `eb18f1563273bc1cf37fc1f8179e0be8ee97ded1284cf69a568f71d42bdf5cbd` |
+| `attempt.json` | `127e75d16a29f338a1bc187015ba62f0c0d218b6703113d077e4ea59f3a3a8ea` |
+| `pending.json` | `979f38f9ff028fa432db35d0a44692c11932940fe5cacdf54f2404b2bc443190` |
+| `stopped.json` | `7f1abc8a18e041c5a2e31ebdbc790763ae18bd141e00e7672a27748ee1108c56` |
+| `final-content.json` | `ed3900bee566105066805f6b65dbd5a6d3813a5326503e4c2e9f578dee619f1a` |
+| `validated-contract.json` | `918d00163d44cb847f4ac468fa45a924fd7d974a8d917d89c065461adee1a22d` |
+| `result.json` | `099fb27e9bb428812eacde8db44c2654261d03ac263d9d287fdae6368a06fb8e` |
+
+**Next decision, not implemented:** A—recommended finite offline analysis of why the existing selector chose count_prose with a complete supplied outline, including contract/local-gate options and exact minimal proposal only; no prompt experimentation, product/tests, inference or semantic framework. B—hold v19/Draft. The diagnostic gives no basis to weaken validation, force a list via question/count hardcoding, change model/cap, retry or claim a renderer fix. Owner must approve any new behavior/exact diff and191 overlap coordination before implementation; no new live allowance follows.
 
 ## 5. Acceptance criteria and evidence reuse
 
@@ -1018,4 +1063,4 @@ Owner review decisions:
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Owner-approved capture-only offline work/publication/CI in4.5 is complete. Publish the unimplemented one-request diagnostic proposal4.6 and await owner A/B; no helper/live implementation or inference before that decision. Selector/product remediation remains separately unresolved. Do not replay unchanged inference to seek PASS. No product fix or new live allowance follows from this failure. P2 product1477838 remains unchanged; v19 selection/compliance is not accepted. Old grants/stops cannot be reset or reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
+**Immediate next action:**4.6 diagnostic executed and permanently closed1/1. New answer passed local validation, historical stage2 failure not reproduced; selector/list/condition correctness remains unresolved. Publish final evidence/review/docs CI, then await owner choice of finite offline selector analysis versus hold; no automatic product edit or inference. Selector/product remediation remains separately unresolved. Do not replay unchanged inference to seek PASS. No product fix or new live allowance follows from this failure. P2 product1477838 remains unchanged; v19 selection/compliance is not accepted. Old grants/stops cannot be reset or reused. Keep Q21 postponed,184 Draft,183 open/In Progress,191/200 separate; P5/P6 blocked.
