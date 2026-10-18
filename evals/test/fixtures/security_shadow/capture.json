@@ -1,0 +1,10 @@
+{
+  "case_id":"capture-001",
+  "run_id":"run-1",
+  "attempt_id":"run-1:capture-001:1",
+  "trace_id":"trace-1",
+  "workspace_id":"workspace-1",
+  "public_response":{"answer":"Answer without exact evidence.","decision":"ANSWER","citations":[]},
+  "status":"observed"
+}
+
