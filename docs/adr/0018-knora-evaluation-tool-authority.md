@@ -57,6 +57,8 @@ neither provider egress permission nor live execution authority. See
 
 The owner selected the separate `corpus_prepare` trusted-host scope for the Workbench. One
 immutable operation may materialize and activate exactly two pinned READY PDF Document Versions;
+Gold may retain additional sources, including failed extraction records, while the plan pins only
+the two-source subset and the adapter rejects non-READY sources;
 it must retain their Document Version identities and cannot touch the FAILED source, another
 Workspace, Gold, thresholds or historical runs. The plan binds owner identity, Workspace/dataset
 revisions, raw and original-object hashes, extraction snapshots, chunking/embedding configurations,

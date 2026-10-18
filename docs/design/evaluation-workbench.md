@@ -176,7 +176,9 @@ provider calls, export, billing changes or merge; these require their separate o
 ## Separate corpus preparation authority
 
 The owner selected A: materialize and activate exactly two retained READY PDF versions under a
-separate `corpus_prepare` trusted-host scope. The frozen dataset/digest, owner, Workspace/dataset
+separate `corpus_prepare` trusted-host scope. Gold v1 may retain additional sources, including
+failed extraction records; the plan pins exactly two source identities as a subset of Gold, and
+the adapter admits only the two persisted READY sources. The frozen dataset/digest, owner, Workspace/dataset
 revisions, source/version/original/snapshot identities and hashes, document revisions and current
 and active pointers, immutable parser/chunking/embedding configuration, job IDs and exact embedding
 request digests are part of its input. The provider envelope pins the request budget and zero

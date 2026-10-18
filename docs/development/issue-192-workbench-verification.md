@@ -747,7 +747,9 @@ historical runs remain unchanged; real calls/retries0, paidUSD0.
 ## Offline corpus preparation authority — 18 October 2026
 
 Owner decision A selects a separate trusted-host `corpus_prepare` scope for materialization and
-activation of exactly two pinned READY PDF source versions. The implementation is in
+activation of exactly two pinned READY PDF source versions. Gold v1 may retain additional sources,
+including failed extraction records; the plan pins a two-source subset and the adapter rejects any
+non-READY source. The implementation is in
 `evaluation/corpus_preparation.py` and the PostgreSQL adapter; it is not registered in the default
 application factory and adds no HTTP route, migration or browser capability.
 

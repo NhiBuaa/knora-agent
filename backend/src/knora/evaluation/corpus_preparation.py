@@ -66,7 +66,7 @@ class CorpusPreparationPlan:
         try:
             frozen = FrozenDataset.from_json(self.frozen_json)
             _require(isinstance(self.sources, tuple) and len(self.sources) == 2)
-            _require(len(frozen.gold.sources) == 2)
+            _require(len(frozen.gold.sources) >= 2)
             _require(isinstance(self.profile_id, str) and 0 < len(self.profile_id) <= 50)
             _require(
                 (self.owner_issuer, self.owner_subject)
@@ -95,11 +95,14 @@ class CorpusPreparationPlan:
                     )
                 )
             _require(
-                {(p.document_id, p.document_version_id, p.raw_sha256) for p in self.sources}
-                == {
-                    (p.document_id, p.document_version_id, p.raw_sha256)
-                    for p in frozen.gold.sources
-                }
+                {
+                    (p.document_id, p.document_version_id, p.raw_sha256) for p in self.sources
+                }.issubset(
+                    {
+                        (p.document_id, p.document_version_id, p.raw_sha256)
+                        for p in frozen.gold.sources
+                    }
+                )
             )
             for pin in self.sources:
                 _require(

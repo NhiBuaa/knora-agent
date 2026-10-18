@@ -14,7 +14,11 @@ def plan_fixture():
     original = frozen_dataset()
     gold = replace(
         original.gold,
-        sources=(*original.gold.sources, PdfSource("document-2", "version-2", "b" * 64)),
+        sources=(
+            *original.gold.sources,
+            PdfSource("document-2", "version-2", "b" * 64),
+            PdfSource("document-3", "version-3", "c" * 64),
+        ),
     )
     frozen = freeze_dataset(gold, replace(original.approval, gold_digest=gold.digest))
     pins = tuple(
@@ -53,7 +57,7 @@ def plan_fixture():
     )
 
 
-def test_plan_requires_exactly_two_ready_gold_sources_and_pins_config():
+def test_plan_pins_two_sources_from_larger_frozen_gold_and_pins_config():
     plan = plan_fixture()
     assert plan.scope()["purpose"] == "corpus_prepare"
     assert plan.payload()["job_attempts_per_source"] == 1
