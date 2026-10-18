@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="366" viewBox="0 0 760 366" role="img" aria-labelledby="title desc">
+  <title id="title">Three ways Knora makes document Q&amp;A inspectable</title>
+  <desc id="desc">Document Ingestion: upload text-based PDFs and track processing to Ready. Evidence-backed Answers: inspect cited passages or receive an explicit refusal. Secure Workspaces: Keycloak sign-in and backend ownership checks.</desc>
+  <g font-family="Arial, sans-serif">
+    <rect x="1" y="1" width="758" height="110" rx="14" fill="#12201C" stroke="#2A3D36"/>
+    <rect x="1" y="128" width="758" height="110" rx="14" fill="#12201C" stroke="#2A3D36"/>
+    <rect x="1" y="255" width="758" height="110" rx="14" fill="#12201C" stroke="#2A3D36"/>
+    <g fill="none" stroke="#83DCA4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="27" y="25" width="44" height="59" rx="6"/>
+      <path d="M38 43H60M38 55H60M38 67H52"/>
+      <path d="M27 160H71V188H48L35 200V188H27Z"/>
+      <path d="M38 170H60M38 179H52"/>
+      <path d="m49 278 24 9v17c0 16-10 24-24 31-14-7-24-15-24-31v-17Z"/>
+      <path d="m38 306 8 8 15-18"/>
+    </g>
+    <g fill="#D7EFE6" font-size="36" font-weight="700">
+      <text x="96" y="47">Document Ingestion</text>
+      <text x="96" y="174">Evidence-backed Answers</text>
+      <text x="96" y="301">Secure Workspaces</text>
+    </g>
+    <g fill="#B8D1C6" font-size="32">
+      <text x="96" y="84">PDF upload → processing → Ready</text>
+      <text x="96" y="211">Cited passages or explicit refusal</text>
+      <text x="96" y="338">Keycloak + Workspace ownership checks</text>
+    </g>
+  </g>
+</svg>

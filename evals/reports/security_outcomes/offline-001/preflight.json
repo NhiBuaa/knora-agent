@@ -1,0 +1,27 @@
+{
+  "approved_package_sha256": "bd52a6d6cb1c54a29af26736774d388ba5140ac7bbd188fed1ec5e1a9ba6f43b",
+  "authenticated_gets": 0,
+  "cloud_mutations": 0,
+  "credential_read": false,
+  "enforcement": "off",
+  "export": "off",
+  "free_daily_neurons": 10000,
+  "live_status": "not_run",
+  "metadata_window_limit_minutes": 15,
+  "model_posts": 0,
+  "neurons_used_today_display": 669.5,
+  "no_paid_unified_path_freshly_verified": false,
+  "reason": "billing_unverified",
+  "rule": "D6",
+  "runtime": "off",
+  "schema": "issue188-security-preflight-v1",
+  "selected_envelope": [
+    "E",
+    "G",
+    "L"
+  ],
+  "standard_direct_billing_freshly_verified": false,
+  "view_limit": 4,
+  "views_used": 3,
+  "workers_plan": "free"
+}

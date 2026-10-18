@@ -635,19 +635,14 @@ def test_primary_smtp_reads_repository_dotenv_with_process_precedence(
     tmp_path: Path,
     process_password: str | None,
 ) -> None:
-    dotenv = "\n".join(
-        [
-            "# Local SMTP configuration",
-            "KC_SMTP_HOST=smtp.gmail.com",
-            "KC_SMTP_PORT=587",
-            "KC_SMTP_FROM=synthetic@example.com",
-            "KC_SMTP_USER=synthetic@example.com",
-            'KC_SMTP_PASSWORD="DOTENV_TEST_PASSWORD"',
-            "KC_SMTP_STARTTLS=true",
-            "KC_SMTP_AUTH=true",
-            "KNORA_GENERATION_PROVIDER=unrelated-value",
-        ]
-    )
+    dotenv = (ROOT / ".env.example").read_text(encoding="utf-8")
+    for name, value in {
+        "KC_SMTP_FROM": "synthetic@example.com",
+        "KC_SMTP_USER": "synthetic@example.com",
+        "KC_SMTP_PASSWORD": '"DOTENV_TEST_PASSWORD"',
+    }.items():
+        dotenv = re.sub(rf"^{name}=.*$", f"{name}={value}", dotenv, flags=re.MULTILINE)
+    dotenv += "\nKNORA_GENERATION_PROVIDER=unrelated-value\n"
     data = primary_data(smtp_server=None)
     prepared(data)
     result, after = run(

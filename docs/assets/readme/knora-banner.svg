@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-labelledby="title desc">
+  <title id="title">Knora — document Q&amp;A with RAG</title>
+  <desc id="desc">An original Knora wordmark beside a document connected to a cited evidence card, in the application's forest green, mint and copper palette.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#0B1412"/>
+      <stop offset="1" stop-color="#1B2B25"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#83DCA4" stroke-opacity=".06"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="260" rx="20" fill="url(#background)"/>
+  <rect width="1200" height="260" rx="20" fill="url(#grid)"/>
+  <path d="M48 218H1152" stroke="#2A3D36"/>
+  <text x="56" y="62" fill="#83DCA4" font-family="Arial, sans-serif" font-size="27" letter-spacing="4">DOCUMENT Q&amp;A / RAG</text>
+  <text x="52" y="171" fill="#D7EFE6" font-family="Georgia, serif" font-size="112" letter-spacing="-4">Knora<tspan fill="#C68F79">.</tspan></text>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="734" y="43" width="118" height="153" rx="12" fill="#12201C" stroke="#60776C" stroke-width="2" transform="rotate(-6 793 120)"/>
+    <path d="M761 86H820M761 106H815M761 126H809" stroke="#94B3A5" stroke-width="4"/>
+    <path d="M761 154H805" stroke="#C68F79" stroke-width="8"/>
+    <path d="M856 127H905" stroke="#83DCA4" stroke-width="3" stroke-dasharray="4 7"/>
+    <rect x="913" y="72" width="224" height="118" rx="16" fill="#163E27" stroke="#4DBB73" stroke-width="2"/>
+    <path d="M936 101H994M936 122H1065M936 143H1018" stroke="#B8D1C6" stroke-width="4"/>
+    <circle cx="1088" cy="102" r="19" fill="#83DCA4" stroke="none"/>
+    <path d="m1080 102 5 5 10-11" stroke="#0B1412" stroke-width="3"/>
+  </g>
+</svg>

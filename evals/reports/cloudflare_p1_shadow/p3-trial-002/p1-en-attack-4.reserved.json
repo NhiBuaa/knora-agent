@@ -1,0 +1,9 @@
+{
+  "case_id": "p1-en-attack-4",
+  "configuration_sha256": "sha256:40f6ce5f5ea1522492afb138b3b13c13bf54e54a9fa55ec943a5b49b7bd9ce18",
+  "dispatch_count": 1,
+  "input_sha256": "sha256:83c893d2c787739e05778a819cd37c592b76daf3b10959021f74f52eb813c929",
+  "restart_state": "indeterminate",
+  "source_artifact_sha256": "sha256:2cac53d286a9ca1496614c9a5f24af548efd35380b92bb6063299f106d10a186",
+  "utc": "2026-10-17T11:28:46.500723+00:00"
+}

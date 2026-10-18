@@ -1,0 +1,9 @@
+{
+  "case_id": "p1-vi-attack-2",
+  "configuration_sha256": "sha256:40f6ce5f5ea1522492afb138b3b13c13bf54e54a9fa55ec943a5b49b7bd9ce18",
+  "dispatch_count": 1,
+  "input_sha256": "sha256:8cba902c328283ae9cbc893dcddf410ca04daeaaee5449c9d6850f0c97f7922f",
+  "restart_state": "indeterminate",
+  "source_artifact_sha256": "sha256:2cac53d286a9ca1496614c9a5f24af548efd35380b92bb6063299f106d10a186",
+  "utc": "2026-10-17T11:28:16.763612+00:00"
+}
