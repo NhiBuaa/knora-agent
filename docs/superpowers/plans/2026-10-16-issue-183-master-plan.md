@@ -2055,7 +2055,12 @@ This proposal grants nothing by itself. It fixes the intended P4 envelope so app
 
 Pinned SHA256: answer-policy UTF-8 `2d2c611936f2e48fb809e05ae6c4345c698bd576a70391147fb2018848815c86`; answer-schema canonical JSON `5070fcc0da0b203df9fb65b6fc94f6c8aaf49f891d112ee77446e61ffd8c8659`; selector-policy `ebd64fa5076a414d34c85649922ced1edb8f70bb56e27d7cba8dc51cfda9e661`; selector-schema `5193b3003833a63ec79d7e8d030789b1cc08711d777682ea1f891f837673dae2`. Canonical JSON uses sorted keys and comma/colon separators, UTF-8. Source/corpus/CI/account values must be read again during actual preflight; hashes are identity evidence, not approval or current Billing proof.
 
-### P4 — Bounded real provider/browser/source verification
+### P4 — Historical two-stage verification envelope (superseded)
+
+The checklist below is retained historical evidence, **not the next execution instructions**.
+Section4.9, section5, the v21 P3/P4 reports above and section7 govern the current scope:
+one answer call, in-app browser only, no remaining allowance. The old selector/nine-request,
+Edge and exhaustive source-condition requirements below must not be revived by continuation.
 
 **Dependencies:** Separate owner approval for exact candidate, proposed≤9 physical requests, paid budget0USD, runtime-only retrieval profile and temporary OAuth scope; P3 and CI pass, login/fresh gates hold. Unknown prerequisites mean zero requests.
 
@@ -2143,7 +2148,7 @@ Private artifact identities (SHA256; files stay ignored):
 
 ## 7. Permissions and Codex Goals contracts
 
-**Current authority:** Owner approved exact4.9 A for P2 code/tests/docs offline and accepted the v21 P3 mock-only result. The subsequent separate P4 approval for4b2174b was consumed by the2026-10-19 setup/preflight attempt, closed0/6 above. No live allowance remains. A new bounded owner-approved recovery and fresh fail-closed preflight are required before live setup or inference.
+**Current authority (amended2026-10-19):** Owner chose continuous execution through the readiness-for-acceptance packet for existing PR184, without merge, and separately authorized starting exactly `knora-dev-keycloak-dev-db-1` and `knora-dev-keycloak-dev-1` with unchanged configuration/data. The continuous-execution contract at the end of this Master governs the new conditional preparation/P4 package. The previous4b2174b window remains permanently closed0/6; its allowance is never reused. Internal successful checks advance automatically; ownership, safety and the new finite-window stop rules remain binding. Product acceptance/PR-state change/merge/closure/production remain owner decisions.
 
 | Action | Permission now | Future gate |
 | --- | --- | --- |
@@ -2153,7 +2158,7 @@ Private artifact identities (SHA256; files stay ignored):
 | P2 current one-call code/tests/docs | Authorized offline; product7f189d3/v21, verification in progress. | Docs CI39115464051/all jobs SUCCESS and renewed191 ACK6248362063 verified before edits. No inference/OAuth or P4 grant. |
 | Small technical decisions | Autonomous inside approved phase. | Test names/fixtures/UTF-8/local commands/deterministic fixes that preserve approved behavior; no permission question per edit. |
 | New UX/schema/algorithm/dependency/fallback/model/cap/module boundary | Owner decision. | `grilling`: facts, choices, effects, recommendation; explicit response before dependent work. |
-| OAuth/runtime mutation/inference | None remaining; v21 P4 closed0/6 on runtime-dependency preflight, unused six expired; all historical windows/section4.6 closed, Q21 postponed. | Restore dependencies; a new exact owner-approved recovery and fresh fail-closed preflight are required. Free quota is not consent. |
+| OAuth/runtime mutation/inference | New conditional six-request package approved in the continuous-execution contract below; two named shared-container starts explicitly approved. Old windows remain closed. | Exact subject/CI, reviewed offline denial checks, owned runtime and fresh account/Free/quota gates must pass before credentials/send. Any failed active-window gate closes that window; no automatic retry. |
 | Default retrieval/production/account/billing changes | None. | Separate proposal/approval; no containment rollout by inference. |
 | Product acceptance/Draft change/merge/closure/Done/deployment | None. | Explicit owner disposition at each applicable boundary. |
 
@@ -2210,4 +2215,194 @@ Historical owner review decisions (current frontier is4.9):
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Restore Docker/isolated DB/Keycloak readiness, then request a separately approved bounded P4 recovery against the unchanged v21 product. The4b2174b P4 attempt is permanently closed0/6; do not reset its stop or carry unused allowance forward. No inference, OAuth, production change, merge or issue closure is authorized. Keep PR184 Draft, #183 In Progress and #191/PR200 separate; previous semantic failures and historical fixture collection limits remain visible.
+**Immediate next action:** Execute the continuous-execution contract below without permission pauses at successful internal checks. The4b2174b P4 attempt is permanently closed0/6; do not reset its stop or carry unused allowance forward. Keep PR184 Draft, #183 In Progress and #191/PR200 separate; previous semantic failures and historical fixture collection limits remain visible.
+
+### Read-only resumption and proposed P4 recovery — 2026-10-19
+
+**Scope/budget fixed before editing:** reconcile current authority and evidence, label the obsolete
+P4 checklist, and prepare a recovery proposal in this Master only. No product/test/helper edits,
+dependency installation, new harness or second plan. Zero provider requests, credential reads,
+OAuth operations, startup or recovery. Checks: current Issue/PR/CI identities, policy/schema and
+historical artifact hashes, read-only dependency/listener observations, local links and diff.
+No broad product suite or browser run is justified for this documentation-only change.
+
+**Fresh observations, not inherited readiness:** checkout/PR head
+`93c3bdc8e5d7ebc2b89fc8d3a1377ef8ea6f5f27`, branch `fix/issue-183-answer-lists`, initially clean;
+Issue183 OPEN and PR184 OPEN/Draft. At12:12:26–12:12:44UTC, Docker Server returned29.7.2;
+listeners3000/3183/8183/15483/8180 were absent. Docker is available now, superseding only the old
+dependency observation, not reopening its window. `knora-issue183-postgres` is exited and bound
+to127.0.0.1:15483; its name alone does not prove current ownership. Keycloak and its database are
+exited members of the **shared `knora-dev` project**. Do not restart or clean that stack under183.
+No HTTP health/login, database/source read, provider dashboard or browser was used in this session.
+
+**Commands and evidence (run from `<WORKTREE>`):**
+
+- `git status --short --branch`, `git rev-parse HEAD`, `gh issue view 183 --json number,title,state,body,comments,url`,
+  `gh pr view 184 --json state,isDraft,headRefOid,statusCheckRollup`: identities/status above; latest
+  [checkpoint6248705075](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6248705075)
+  still records the permanently closed0/6 window. No newer grant was found.
+- `gh run view 39152875484 --json headSha,event,status,conclusion,url` and the same command for39152875511:
+  completed/success for93c3bdc. Required CI has6/6 successful jobs; advisory Shadow has2/2 successful
+  jobs. `gh api repos/NhiBuaa/knora-agent/actions/artifacts/12145614506/zip`, read in memory:
+  `ci-subject.json` binds `pr_head_sha=93c3bdc8e5d7ebc2b89fc8d3a1377ef8ea6f5f27`,
+  `checkout_sha=54e53117e209dc1d6e61ca6192ce3332965211f3`, run39152875484/attempt1.
+  [CI39152875484](https://github.com/NhiBuaa/knora-agent/actions/runs/39152875484) and
+  [Shadow39152875511](https://github.com/NhiBuaa/knora-agent/actions/runs/39152875511) do not verify
+  this later dirty documentation diff or any application/runtime/AI acceptance.
+- `docker version --format '{{.Server.Version}}'`, `Get-NetTCPConnection -State Listen`, and
+  selected `docker inspect` fields (ID/image/status/project/service/port bindings only) establish
+  the bounded dependency observations above; no environment values or broad logs were read.
+- `Get-FileHash -Algorithm SHA256 -LiteralPath <artifact>`: both P3 guard/test hashes and all three
+  P4 stop/preflight/cleanup hashes exactly match their existing tables above (5/5). P4 still has
+  only those three records, no live runner/grant/admissions. AST policy inspection and local schema
+  serialization match v21 policy`bf2db6c7…79259` and schema`5070fcc0…8659` recorded in4.9.
+- Post-edit local link/scope assertions:7 links checked/0 missing,1 changed file, exit0;
+  `git -c core.whitespace=cr-at-eol diff --check`: exit0. Git's LF→CRLF notice is advisory.
+  The documentation remains uncommitted/unpublished; no fresh CI is claimed for this diff.
+
+| Evidence class | Result at resumption |
+| --- | --- |
+| Local/mock | Historical95-pass P3 report retained; hashes rechecked, tests not rerun. Product/renderer regressions exist; no new execution claim. |
+| CI | Exact93c3bdc PR head/merge-checkout identity verified above; later docs diff not CI Verified. |
+| Application/runtime | Dependencies not ready; all three section5 questions NOT RUN; JSON→Markdown→API/Turn/trace→DOM, desktop/mobile and every citation target UNVERIFIED on v21. |
+| AI semantic quality/cost | No new observation; no general compliance, semantic-completeness or actual-cost0USD claim. |
+
+**Proposed recovery, NOT approved or started:**
+
+Historical proposal status at resumption. Owner subsequently approved continuous execution and the
+two-container exception below; do not read this old status as a requirement to ask again at each step.
+
+1. Owner/operator restores the retained dependencies outside this session, or explicitly approves
+   exact resources and ownership before agent recovery. Shared `knora-dev` resources are excluded
+   from the agent proposal. Recheck readiness/source/version/23chunks read-only once available;
+   no re-ingestion, fresh synthetic corpus or mutation to rescue acceptance.
+2. Request a **new** P4 window pinned to the final published full head and its own required CI,
+   unchanged product7f189d3/v21, policy/schema hashes above, GPT-OSS20B/1024 and runtime-only
+   `retrieval-evidence-containment-v1`.93c3bdc is the pre-edit subject, not an approval for a later
+   head. No old grant/slot/stop is reused. Fix the approval subject before live preparation.
+3. Only after that approval, prepare a new private live derivative under the existing ignored183
+   evidence root, using the existing runtime patterns and P3 admission rules. Keep the P3 mock-only
+   guard intact. Independently review exact live wiring and run its offline denial/credential/stop
+   checks **before** credential loading. Failure closes the new window with zero sends.
+4. Own API127.0.0.1:8183 and frontendlocalhost:3183; prove process/session/source ownership, API ready
+   before frontend. Use **IAB only**, desktop1440×960/mobile390×844. Permit only explicitly approved
+   additive localhost3183 OAuth entries, with fresh readback and removal of just owned additions.
+   Never touch primary3000, shared stacks or frozen191/PR200; inability to isolate stops setup.
+5. At most **6 physical requests =3 query embeddings+3 answer generations**, section5 questions in
+   their fixed order. No selector, document embedding, retry, replay, replacement question or quota
+   carryover. Fresh account/active Workers Free/quota evidence must bind this window, used quota
+   known≤8000/10000 and age0–600s before **each send**, paid budget0USD/no paid fallback; coordinate
+   shared quota before admission. Missing/unknown/failed preflight means zero sends. Unknown send
+   outcome, provider/schema/token/format/citation failure or another required gate failure ends the
+   entire window; unused slots expire. An observed source-sufficient omission is recorded/routed
+   per4.9, not an exhaustive-PDF gate or permission to retry.
+6. Before advancing each case, correlate final JSON fields/order/aliases→composer Markdown→API
+   result/stored Turn/trace→DOM; inspect both viewports and open every chip against the pinned
+   document/version/page/locator, with no raw markers or duplicate chips. Preserve supplied
+   qualifications/repetitions exactly under existing formatting rules. Reconcile physical attempts,
+   failures/unrun cases, usage/latency/unknown cost and cleanup only owned resources. P5/P6, Draft,
+   merge/Done/production remain separately gated regardless of outcome.
+
+**Guidance use / evaluation limits:** session catalog and exact sources were checked before use;
+`using-superpowers`, `verification-before-completion`, existing-worktree/plan guidance and active
+`ponytail` constrain this bounded task. No Skill installed/edited or new trial dispatched. Guidance
+source for the evaluation target is user-scoped
+`<USER_HOME>/.codex/skills/verification-before-completion/SKILL.md`, SHA256
+`2befe7fc55bcadaa3d97dd9e8efeb633d2561c0ebe74c5a8b17c4d9e7e4520b3`;
+no version is declared. Guidance
+commit`1429d18001b4be17dab9dc108740482ed6efbb65` is not an ancestor of93c3bdc (exit1); its AGENTS,
+issue-tracker, CI, agent-environment, Feature Map and Skill Evals were read with `git show`, without
+merge/rebase/port. The deterministic application harness/Feature Map lacks terminal provider/PDF
+citation proof for183 and cannot replace this P4 envelope. Task quality/compliance are supported
+only by the named records and documentation diff; **all formal Skill Eval dimensions remain
+UNVERIFIED** without an independent assessor/frozen history-free cases. Improvement not demonstrated;
+there is no valid baseline. No test/provider rerun; one read-command retry corrected incompatible
+`gh issue view --comments --json` flags (first invocation returned usage/no issue result). Static
+file discovery also corrected a Windows wildcard and an assumed integration-test path; neither was
+a test failure. Effective model/effort and token cost are unknown. Reusable closeout: mark obsolete
+P4 instructions in their existing owner here; no new framework, hook or evidence store.
+
+### Continuous execution through PR184 acceptance readiness — owner approved2026-10-19
+
+**Authority:** In this chat the owner selected the proposed direction with `tôi chốt theo hướng này`:
+one execution package through evidence/review and PR184 delivery, no merge. In the subsequent exact
+resource question the owner selected `Cho phép bật đúng hai container` for
+`knora-dev-keycloak-dev-db-1` and `knora-dev-keycloak-dev-1`. This exception permits starting those
+existing containers only, retaining configuration/data; no shared-stack cleanup, recreation, upgrade
+or unrelated service start. It supersedes the earlier blanket recovery hold only for those resources.
+Accepted v21 behavior/AC1–AC9 and all previous failed/closed windows stay unchanged.
+
+**Outcome, reach and budget before implementation:** retain the sole Master and existing183 evidence
+root; prepare a separate private live derivative, then deliver the existing Draft PR184 with exact-head
+CI, criterion-linked evidence and remaining limits. No product redesign, new public API/dependency,
+Skill/hook/framework/store,191 edit, retrieval rollout or re-ingestion. One initial95-case P3 rerun;
+new helper tests use existing denial fixtures plus meaningful changed-boundary tests, with diagnostic
+reruns only for observed failures. Required CI is not replaced by these local checks. Live ceiling is
+**one new window,6 physical attempts total:3 query+3 answer,0 documents,0 selector,0 retry/replay**;
+unused slots expire at any active-window stop. No automatic second window or extra model budget.
+
+**Operational sequence (successful internal checks advance without asking):**
+
+1. [ ] Verify retained hashes/clean product diff, rerun existing P3 offline tests, validate this
+   document's links/authority and commit/push this documentation-only descendant of93c3bdc. Pin its
+   full SHA in the Issue checkpoint and require its own `CI required`/ci-subject identity. This
+   approval covers that mechanically selected docs-only subject with unchanged v21 product identities;
+   it does not authorize arbitrary later product changes. All runtime files/grants bind the selected
+   subject before setup. Failed CI is diagnosed/repaired within scope, never bypassed.
+2. [ ] Recheck exact container IDs, published ports and current foreign listeners. Recover retained
+   `knora-issue183-postgres` only after its historical183 identity/storage is confirmed; start only
+   the two explicitly named Keycloak containers, database first. No deletion, migration, realm reset,
+   dependency installation or broad Compose up/down. Use bounded readiness checks, preserving original
+   configuration/data. Cleanup never stops/removes shared Keycloak; record the authorized recovery.
+3. [ ] Create new ignored `frontend/test-results/issue183/p4-v21-continuation/` (must not exist) for
+   the live derivative/tests/evidence. Reuse hash-pinned P3 rules and previous runtime/capture patterns,
+   preserving every historical file. Do not edit the P3 guard or remove its MockTransport restriction.
+   Test the new derivative's grant/subject/CI/credential denial, one-query/one-answer sequencing,
+   six-attempt ceiling, stop/pending/restart, response errors and pre-validation final capture. Run
+   explicit Ruff and UTF-8 child import. Independent review must approve the exact wiring before
+   credentials. Offline test repair is autonomous; changed live authority or unreviewed wiring is not.
+4. [ ] Read the retained corpus/version/23chunks and original-source digest; establish isolation and
+   source/profile identity without changing corpus. Own API127.0.0.1:8183 and frontendlocalhost:3183,
+   API ready first; use IAB only. Temporary OAuth entries are additive for exact localhost3183
+   callback/origin/logout, with fresh before/readback and removal of only this window's additions.
+   Preserve primary3000, issuer/subject, source bytes and frozen191/PR200. No browser/provider
+   credentials may be copied to public artifacts; load provider credentials only after reviewed
+   wiring and a fresh exact-window grant admit that action.
+5. [ ] Open the new window only after dependency/source/subject/CI/offline-review prerequisites are
+   ready. Use newly observed account/active Workers Free/quota, known usage≤8000/10000, individually
+   timestamped and digest-bound, age0–600s before each send; paid budget0USD, no paid fallback.
+   Run section5's fixed questions in order under20B/1024/v21/containment-only. Every physical failure,
+   timeout or unknown counts. Compare final JSON→Markdown→API/Turn/trace→DOM; inspect1440×960 and
+   390×844 and every chip's PDF/version/page/locator before next admission. Stop on the approved
+   provider/schema/token/format/citation/safety failure; classify generation omissions per4.9.
+6. [ ] Reconcile attempts/usage/latency/unknown cost and all unrun cases. Remove only owned OAuth
+   additions/processes and reset only owned viewport state; verify foreign resources unchanged except
+   the explicitly approved Keycloak starts. Retain failures and immutable stop state. A failed live
+   window does not prevent completing its report/offline diagnosis, but cannot be reopened.
+7. [ ] Map AC1–AC9 to actual evidence, independently review connected PR changes and repair authorized
+   deterministic findings. Run impacted formatting/tests/export/config and exact-head required CI;
+   reuse unchanged evidence rather than rerun inference. Any behavior-changing repair invalidates
+   affected live acceptance and requires a new bounded allowance, not automatic retries.
+8. [ ] Update the existing Issue checkpoint and PR184 with sanitized commands/counts/full SHAs,
+   evidence hashes, reviewer scope and unverified limits. Deliver readiness for owner acceptance if
+   every AC is evidenced, otherwise the precise blocker/failure packet. Keep Draft until explicit
+   PR-state disposition; do not merge/main-update, close/Done, deploy, delete branches/worktrees or
+   integrate191/PR200. The owner makes the final product acceptance decision.
+
+**Autonomy boundary:** no permission questions for routine offline edits, tests, findings, commits,
+feature-branch pushes, CI observation or checkpoint/PR updates inside this package. Stop dependent
+live work only for exhausted/closed allowance, failed mandatory admission, lost isolation/ownership,
+unavailable credentials/interactive account access, or an action outside this exact scope. Report
+actual limits; do not promise acceptance regardless of model behavior. Progress remains here/183/184,
+not a second ledger. Independent implementation/review agents use existing evidence locations;
+generic Skill workspace defaults cannot create another evidence store.
+
+**Preparation evidence:** Fresh P3 run retained at existing
+`p3-v21-offline/continuation-20261019/`: first94 passed/1 failed in7.05s, exit1,
+`FileNotFoundError` opening the263-character fingerprint path (parent directory exists).
+The only rerun changes `--basetemp` to a fresh short OS-temp path: **95 passed in6.39s, exit0**.
+Both logs/JUnit remain; neither guard nor test bytes changed and the original failed run is not
+relabeled passed. No provider/network/runtime call occurred. Reproducible scoped command:
+`<PYTHON_ENV>/python -B -m pytest --rootdir=. -p no:cacheprovider frontend/test-results/issue183/p3-v21-offline/test_p3_guard.py -q --basetemp=<SHORT_OWNED_TEMP>/tmp --junitxml=<EXISTING_183_EVIDENCE>/p3-v21-offline/continuation-20261019/junit-short-temp.xml`.
+The test child removes inherited provider/auth/proxy configuration, uses explicit helper/backend
+import paths and UTF-8. This is current mock-only evidence, not live-wiring or browser acceptance.
