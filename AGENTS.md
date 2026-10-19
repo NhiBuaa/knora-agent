@@ -27,10 +27,11 @@ The behavior-preserving `PostgresIngestionJobStore` decomposition is complete th
 
 ## Skill policy
 
-The canonical skill source is `C:/Users/NhiBuaa/.codex/skills`.
-Select skills from the current session's catalog and read their `SKILL.md` before use.
-Verify that the selected skill exists under this source; discover the current inventory rather
-than assuming a skill is installed because an older document mentions it.
+Use the current session's skill catalog to discover availability and the exact `SKILL.md`
+location, including user, system and installed-plugin skills. Read that source before use;
+do not restrict discovery to one directory or assume an old document proves installation.
+Repository-owned document paths and authority rules take precedence over generic skill
+output-path defaults; do not create a parallel glossary, plan ledger or knowledge store.
 
 Use the installed skills according to their actual scope:
 
@@ -48,9 +49,10 @@ Use the installed skills according to their actual scope:
 - `diagram-design` for standalone diagrams; `writing-skills` for authorized skill authoring.
 
 Repository domain, issue-tracker, acceptance and Git rules apply throughout these workflows.
-Record confirmed domain decisions in `CONTEXT.md` and relevant ADRs. Record session progress and
-next steps in repository documents when continuity is needed. These tasks do not require a
-separate skill. For Milestone 5, also follow
+Record confirmed domain vocabulary in `CONTEXT.md` and architectural decisions in relevant ADRs.
+Keep progress and next steps in the relevant Issue/PR, not a competing session-state document.
+At closeout, follow [selective learning](docs/agents/issue-tracker.md#selective-closeout).
+These tasks do not require a separate skill. For Milestone 5, also follow
 [the M5 runbook](.agents/workflows/production-projections-user-operator-surfaces-verification-runbook.md).
 
 Do not install, activate, trust, or grant permissions to additional skills without explicit user
