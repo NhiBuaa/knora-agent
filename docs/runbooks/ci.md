@@ -26,8 +26,12 @@ work status in the relevant Issue/PR; this runbook owns the procedure, not a sec
    for diagnosis and verify owned cleanup. If the harness cannot exercise the behavior, report
    the gap; fixture rendering or unrelated smoke cannot substitute for it.
 6. **Conclude:** compare evidence to every acceptance criterion after the final edit. Record the
-   tested full SHA (and dirty diff if any), working directory, exact commands, scope/counts,
-   exit/result and sanitized report/run references. After later code edits, rerun affected checks
+   tested full SHA (and dirty diff if any), working directory, reproducible commands, scope/counts,
+   exit/result and sanitized report/run references. Before publishing commands, replace token,
+   password and other secret values with `[REDACTED]`, including literal arguments and inline
+   environment assignments. Preserve executable/subcommands, flag and variable names, quoting and
+   non-secret arguments; supply real secrets only through authorized local configuration.
+   After later code edits, rerun affected checks
    and refresh evidence. Separate verified scope from blockers and checks not run; with missing
    required evidence, report partial progress, not completion.
 

@@ -12,9 +12,11 @@
 
 Checkout/SHA đã kiểm tra (kèm dirty diff nếu có):
 
-| Lệnh chính xác / thư mục chạy | Phạm vi, số test và exit/result | Evidence / report / run |
-| ----------------------------- | ------------------------------- | ----------------------- |
-|                               |                                 |                         |
+<!-- Trước khi đăng lệnh, thay token/password và mọi giá trị bí mật bằng [REDACTED], kể cả đối số và giá trị môi trường nội tuyến. Giữ executable/subcommands, tên flags/biến, quoting và đối số không nhạy cảm để tái hiện; chỉ cấp secrets thật qua cấu hình local đã được phép. -->
+
+| Lệnh tái hiện (đã che secrets) / thư mục chạy | Phạm vi, số test và exit/result | Evidence / report / run |
+| --------------------------------------------- | ------------------------------- | ----------------------- |
+|                                               |                                 |                         |
 
 <!-- Giữ bằng chứng lần FAIL, nguyên nhân và kết quả chạy lại. Nêu test chưa chạy, blocker và vì sao browser/runtime cần hoặc không cần; fixture PASS không chứng minh live backend hay chất lượng AI. Chỉ dẫn evidence đã khử secrets. -->
 
