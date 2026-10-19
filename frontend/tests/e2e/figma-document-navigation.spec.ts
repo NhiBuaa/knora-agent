@@ -6,9 +6,6 @@ import realm from "../../../test/fixtures/keycloak/figma-realm.json";
 import { captureIdentity, openFigmaLogin } from "./support/figma-auth";
 import type { DocumentResponse } from "../../generated/knora-openapi";
 
-const evidence =
-  "../.verification/figma/q1/evidence/document-menu-destinations-2026-10-09/fix-http200-2026-10-09";
-
 // Keep projection reads in the authenticated browser. APIRequestContext omits
 // Secure cookies on http://127.0.0.1 while Chromium treats loopback as trustworthy.
 async function readProjection<T>(page: Page, pathname: string) {
@@ -23,7 +20,8 @@ async function readProjection<T>(page: Page, pathname: string) {
 
 test("Documents live navigation preserves owned source and menu lifecycle", async ({
   page,
-}) => {
+}, info) => {
+  const evidence = info.outputPath("evidence");
   test.setTimeout(120_000);
   const identity = realm.users.find(
     (user) => user.username === "m5-delete-user",

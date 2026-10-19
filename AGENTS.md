@@ -95,6 +95,9 @@ The sole container for every future non-primary Git worktree is
 
 ## Verification
 
+For browser startup, health/ownership checks, UI control, runtime evidence or cleanup, read
+[Agent environment](docs/runbooks/agent-environment.md) and its Feature Map before acting.
+
 Run from the repository root:
 
 ```powershell

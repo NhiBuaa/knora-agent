@@ -1,8 +1,12 @@
-param([switch]$CheckConfigurationOnly)
+param(
+    [switch]$CheckConfigurationOnly,
+    [ValidatePattern('(?-i)^knora-figma-e2e(?:-[a-z0-9][a-z0-9-]{0,39})?$')]
+    [string]$Project = 'knora-figma-e2e',
+    [scriptblock]$Run
+)
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
-$project = 'knora-figma-e2e'
 $issuer = 'http://127.0.0.1:8380/realms/knora-dev'
 # Reject ambient selectors before Docker, database, realm or user operations.
 foreach ($item in Get-ChildItem Env:) {
@@ -43,42 +47,86 @@ foreach ($volume in $config.volumes.PSObject.Properties) {
     if ($volume.Value.name -ne "${project}_$($volume.Name)") { throw 'FIGMA_VOLUME_REJECTED' }
 }
 if ($CheckConfigurationOnly) { Write-Output 'FIGMA_CONFIG_OK'; return }
+if ($Project -ne 'knora-figma-e2e' -and -not $Run) { throw 'FIGMA_DISPOSABLE_RUN_REQUIRED: supply -Run for verification and owned cleanup' }
+if ($Project -eq 'knora-figma-e2e' -and $Run) { throw 'FIGMA_DISPOSABLE_PROJECT_REQUIRED' }
 
-$running = @(& docker ps --format '{{.ID}}')
-if ($LASTEXITCODE -ne 0) { throw 'FIGMA_DOCKER_UNAVAILABLE' }
-$ownedPorts = @()
-foreach ($id in $running) {
-    $container = (& docker inspect $id | ConvertFrom-Json)[0]
-    foreach ($port in $container.NetworkSettings.Ports.PSObject.Properties) {
-        foreach ($mapping in @($port.Value)) {
-            if ($null -eq $mapping) { continue }
-            if ([int]$mapping.HostPort -in 3300,8800,8380,5543,9900,9901,1025,8025) {
-                if ($container.Config.Labels.'com.docker.compose.project' -ne $project) { throw 'FIGMA_PORT_OWNERSHIP_REJECTED' }
-                $ownedPorts += [int]$mapping.HostPort
+$reservation = $null
+$reservationPath = Join-Path ([IO.Path]::GetTempPath()) "knora-figma-reservation-$Project.lock"
+$startupAttempted = $false
+$cleanupSucceeded = $false
+try {
+    if ($Run) {
+        # CreateNew is atomic across worktrees; retain the claim if an orphaned Compose child could survive.
+        try { $reservation = [IO.File]::Open($reservationPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None) }
+        catch [IO.IOException] { throw "FIGMA_PROJECT_RESERVED: $reservationPath" }
+        foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
+            $existing = @(& docker @resource --filter "label=com.docker.compose.project=$Project" --quiet)
+            if ($LASTEXITCODE -ne 0) { throw 'FIGMA_RESOURCE_INSPECTION_FAILED' }
+            if ($existing.Count -gt 0) { throw 'FIGMA_PROJECT_NOT_FRESH' }
+        }
+        foreach ($resource in 'volume', 'network') {
+            $names = @(& docker $resource ls --format '{{.Name}}')
+            if ($LASTEXITCODE -ne 0) { throw 'FIGMA_RESOURCE_INSPECTION_FAILED' }
+            if ($names | Where-Object { $_.StartsWith("${Project}_") }) { throw 'FIGMA_PROJECT_NOT_FRESH' }
+        }
+    }
+
+    $running = @(& docker ps --format '{{.ID}}')
+    if ($LASTEXITCODE -ne 0) { throw 'FIGMA_DOCKER_UNAVAILABLE' }
+    $ownedPorts = @()
+    foreach ($id in $running) {
+        $container = (& docker inspect $id | ConvertFrom-Json)[0]
+        foreach ($port in $container.NetworkSettings.Ports.PSObject.Properties) {
+            foreach ($mapping in @($port.Value)) {
+                if ($null -eq $mapping) { continue }
+                if ([int]$mapping.HostPort -in 3300,8800,8380,5543,9900,9901,1025,8025) {
+                    if ($container.Config.Labels.'com.docker.compose.project' -ne $project) { throw 'FIGMA_PORT_OWNERSHIP_REJECTED' }
+                    $ownedPorts += [int]$mapping.HostPort
+                }
             }
         }
     }
-}
-foreach ($port in 3300,8800,8380,5543,9900,9901,1025,8025) {
-    $listener = New-Object Net.Sockets.TcpClient
-    try {
-        $connected = $listener.ConnectAsync('127.0.0.1', $port).Wait(150)
-        if ($connected -and $listener.Connected -and $port -notin $ownedPorts) { throw "FIGMA_PORT_IN_USE: $port" }
-    } catch [AggregateException] {
-        # Connection refused is an available port.
-    } finally { $listener.Dispose() }
-}
-& docker compose @compose up -d --build figma-postgres figma-keycloak-db figma-keycloak figma-mail figma-minio figma-minio-init figma-api
-if ($LASTEXITCODE -ne 0) { throw 'FIGMA_START_FAILED' }
-foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8800/health', 'http://127.0.0.1:8025/api/v1/info') {
-    $ready = $false
-    for ($attempt = 0; $attempt -lt 60; $attempt++) {
-        try { $null = Invoke-RestMethod -Uri $uri -TimeoutSec 3; $ready = $true; break }
-        catch { Start-Sleep -Seconds 2 }
+    foreach ($port in 3300,8800,8380,5543,9900,9901,1025,8025) {
+        $listener = New-Object Net.Sockets.TcpClient
+        try {
+            $connected = $listener.ConnectAsync('127.0.0.1', $port).Wait(150)
+            if ($connected -and $listener.Connected -and $port -notin $ownedPorts) { throw "FIGMA_PORT_IN_USE: $port" }
+        } catch [AggregateException] {
+            # Connection refused is an available port.
+        } finally { $listener.Dispose() }
     }
-    if (-not $ready) { throw 'FIGMA_HTTP_READINESS_FAILED' }
+    $startupAttempted = $true
+    & docker compose @compose up -d --build figma-postgres figma-keycloak-db figma-keycloak figma-mail figma-minio figma-minio-init figma-api
+    if ($LASTEXITCODE -ne 0) { throw 'FIGMA_START_FAILED' }
+    foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8800/health', 'http://127.0.0.1:8025/api/v1/info') {
+        $ready = $false
+        for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            try { $null = Invoke-RestMethod -Uri $uri -TimeoutSec 3; $ready = $true; break }
+            catch { Start-Sleep -Seconds 2 }
+        }
+        if (-not $ready) { throw 'FIGMA_HTTP_READINESS_FAILED' }
+    }
+    & docker compose @compose exec -T figma-api alembic upgrade head
+    if ($LASTEXITCODE -ne 0) { throw 'FIGMA_MIGRATIONS_FAILED' }
+    & (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Apply -BaseUrl 'http://127.0.0.1:8380' -Project $Project -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password'
+    Write-Output 'FIGMA_PREPARED'
+    if ($Run) { & $Run $Project $compose }
+} finally {
+    try {
+        if ($reservation -and $startupAttempted) {
+            & docker compose @compose down --volumes
+            if ($LASTEXITCODE -ne 0) { throw "FIGMA_CLEANUP_FAILED: inspect project $Project; do not reuse it" }
+            foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
+                $remaining = @(& docker @resource --filter "label=com.docker.compose.project=$Project" --quiet)
+                if ($LASTEXITCODE -ne 0 -or $remaining.Count -gt 0) { throw "FIGMA_CLEANUP_FAILED: inspect project $Project; do not reuse it" }
+            }
+            $cleanupSucceeded = $true
+            Write-Output "FIGMA_CLEANED=$Project"
+        }
+    } finally {
+        if ($reservation) {
+            $reservation.Dispose()
+            if (-not $startupAttempted -or $cleanupSucceeded) { [IO.File]::Delete($reservationPath) }
+        }
+    }
 }
-& docker compose @compose exec -T figma-api alembic upgrade head
-if ($LASTEXITCODE -ne 0) { throw 'FIGMA_MIGRATIONS_FAILED' }
-& (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Apply -BaseUrl 'http://127.0.0.1:8380' -Project $project -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password'
-Write-Output 'FIGMA_PREPARED'
