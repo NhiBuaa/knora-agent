@@ -95,13 +95,11 @@ The sole container for every future non-primary Git worktree is
 
 ## Verification
 
+For every code change and before a completion claim, follow the
+[Verification Contract](docs/runbooks/ci.md#verification-contract): select checks for the changed
+behavior, run and inspect them, and report evidence and unverified scope in the Issue/PR.
+Use `verification-before-completion` when available in the current catalog; if unavailable,
+report that limitation and follow the repository contract directly.
+
 For browser startup, health/ownership checks, UI control, runtime evidence or cleanup, read
 [Agent environment](docs/runbooks/agent-environment.md) and its Feature Map before acting.
-
-Run from the repository root:
-
-```powershell
-.\.venv\Scripts\python -m pytest
-.\.venv\Scripts\ruff check .
-docker compose config --quiet
-```
