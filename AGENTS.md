@@ -58,6 +58,9 @@ These tasks do not require a separate skill. For Milestone 5, also follow
 Do not install, activate, trust, or grant permissions to additional skills without explicit user
 authorization.
 
+For skill evaluation, suspected stale/ineffective guidance, or a changed skill/model/runbook,
+follow [Skill Evals](docs/agents/skill-evals.md); keep run evidence and decisions in the Issue/PR.
+
 ## Worktree location policy
 
 The sole container for every future non-primary Git worktree is
