@@ -139,6 +139,53 @@ def test_ordinary_preparation_has_no_resource_reset() -> None:
         assert destructive not in script
 
 
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize("resource", ["ps", "volume", "network"])
+def test_disposable_project_refuses_retained_resources_before_start(
+    tmp_path: Path, resource: str
+) -> None:
+    project = "knora-figma-e2e-agent-guard"
+    graph = compose_graph("figma")
+    graph["name"] = project
+    for name, volume in graph["volumes"].items():
+        volume["name"] = f"{project}_{name}"
+    graph_path = tmp_path / "graph.json"
+    graph_path.write_text(json.dumps(graph))
+    command = """
+function docker {
+    if ($args[0] -eq 'compose' -and $args -contains 'config') {
+        Get-Content -Raw $env:TEST_GRAPH
+    } elseif ($args[0] -eq $env:TEST_RESOURCE) {
+        'retained-resource'
+    } elseif ($args -contains 'up') {
+        throw 'MUTATION_MUST_NOT_RUN'
+    }
+    $global:LASTEXITCODE = 0
+}
+& ./scripts/prepare-figma-e2e.ps1 -Project knora-figma-e2e-agent-guard
+"""
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not re.match(
+            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)", key
+        )
+    }
+    environment.update(TEST_GRAPH=str(graph_path), TEST_RESOURCE=resource)
+    result = subprocess.run(
+        [POWERSHELL, "-NoProfile", "-Command", command],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "FIGMA_PROJECT_NOT_FRESH" in result.stderr
+    assert "MUTATION_MUST_NOT_RUN" not in result.stderr
+    assert "FIGMA_PROJECT_FRESH=" not in result.stdout
+
+
 def compose_graph(*profiles: str) -> dict:
     environment = {
         key: value

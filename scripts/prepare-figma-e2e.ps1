@@ -1,8 +1,11 @@
-param([switch]$CheckConfigurationOnly)
+param(
+    [switch]$CheckConfigurationOnly,
+    [ValidatePattern('(?-i)^knora-figma-e2e(?:-[a-z0-9][a-z0-9-]{0,39})?$')]
+    [string]$Project = 'knora-figma-e2e'
+)
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
-$project = 'knora-figma-e2e'
 $issuer = 'http://127.0.0.1:8380/realms/knora-dev'
 # Reject ambient selectors before Docker, database, realm or user operations.
 foreach ($item in Get-ChildItem Env:) {
@@ -44,6 +47,20 @@ foreach ($volume in $config.volumes.PSObject.Properties) {
 }
 if ($CheckConfigurationOnly) { Write-Output 'FIGMA_CONFIG_OK'; return }
 
+# Disposable runs must never adopt data left by another invocation.
+if ($Project -ne 'knora-figma-e2e') {
+    foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
+        $existing = @(& docker @resource --filter "label=com.docker.compose.project=$Project" --quiet)
+        if ($LASTEXITCODE -ne 0) { throw 'FIGMA_RESOURCE_INSPECTION_FAILED' }
+        if ($existing.Count -gt 0) { throw 'FIGMA_PROJECT_NOT_FRESH' }
+    }
+    foreach ($resource in 'volume', 'network') {
+        $names = @(& docker $resource ls --format '{{.Name}}')
+        if ($LASTEXITCODE -ne 0) { throw 'FIGMA_RESOURCE_INSPECTION_FAILED' }
+        if ($names | Where-Object { $_.StartsWith("${Project}_") }) { throw 'FIGMA_PROJECT_NOT_FRESH' }
+    }
+}
+
 $running = @(& docker ps --format '{{.ID}}')
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_DOCKER_UNAVAILABLE' }
 $ownedPorts = @()
@@ -68,6 +85,7 @@ foreach ($port in 3300,8800,8380,5543,9900,9901,1025,8025) {
         # Connection refused is an available port.
     } finally { $listener.Dispose() }
 }
+if ($Project -ne 'knora-figma-e2e') { Write-Output "FIGMA_PROJECT_FRESH=$Project" }
 & docker compose @compose up -d --build figma-postgres figma-keycloak-db figma-keycloak figma-mail figma-minio figma-minio-init figma-api
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_START_FAILED' }
 foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8800/health', 'http://127.0.0.1:8025/api/v1/info') {
@@ -80,5 +98,5 @@ foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8
 }
 & docker compose @compose exec -T figma-api alembic upgrade head
 if ($LASTEXITCODE -ne 0) { throw 'FIGMA_MIGRATIONS_FAILED' }
-& (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Apply -BaseUrl 'http://127.0.0.1:8380' -Project $project -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password'
+& (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Apply -BaseUrl 'http://127.0.0.1:8380' -Project $Project -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password'
 Write-Output 'FIGMA_PREPARED'

@@ -7,6 +7,27 @@ import {
 } from "./figma-environment";
 
 describe("isolated Figma identity environment", () => {
+  it("binds live ownership to an explicitly selected disposable project", () => {
+    const environment = figmaEnvironment({
+      FIGMA_TEST_PROJECT: "knora-figma-e2e-agent-a123",
+    });
+    expect(environment.project).toBe("knora-figma-e2e-agent-a123");
+    expect(
+      validateFigmaEnvironment(environment, {
+        FIGMA_TEST_PROJECT: "knora-figma-e2e-agent-a123",
+      }),
+    ).toEqual(environment);
+    expect(() => validateFigmaEnvironment(environment, {})).toThrow(/isolated/);
+    for (const project of [
+      "knora-dev",
+      "knora-figma-e2e-",
+      "../other",
+      "knora-figma-e2e-A",
+    ])
+      expect(() => figmaEnvironment({ FIGMA_TEST_PROJECT: project })).toThrow(
+        /project/,
+      );
+  });
   it("confines explicit M5 selection to the exact application refusal case", async () => {
     const { figmaTestSelection } = await import(
       "../../../playwright.figma.config"
