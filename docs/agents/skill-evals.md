@@ -7,8 +7,16 @@ state/CI identity; [Agent environment](../runbooks/agent-environment.md) owns br
 
 ## Prepare before running
 
-1. Audit the current session catalog and read the selected `SKILL.md`. Record its actual path,
-   scope (repo/user/system/plugin), content hash and available version/upstream provenance.
+1. Audit the current session catalog and confirm target activation is authorized by applicable
+   guidance or explicit user approval before reading/using its instructions or dispatching a trial.
+   For an external, non-mandatory target without authorization, request approval and record
+   **BLOCKED**; its activation and overall case remain **UNVERIFIED**, not FAIL. Do not activate
+   it while awaiting approval. Once authorized, read its `SKILL.md` and record scope
+   (repo/user/system/plugin), content hash and available version/upstream provenance.
+   Keep exact local paths private when needed; before publishing Issue/PR evidence, normalize
+   user-specific paths in commands, reports and excerpts, for example
+   `<USER_HOME>/.codex/skills/<skill>/SKILL.md`, `<WORKTREE>` or `<PYTHON_ENV>`. Preserve the
+   non-identifying source suffix, scope/hash/version and reproducible command structure.
    A file on disk or an old research note does not prove current-session availability.
    Distinguish external installed Skills from Knora-owned instructions. Reading/evaluating an
    external Skill does not authorize editing, installing, disabling or changing its permissions.
@@ -20,7 +28,11 @@ state/CI identity; [Agent environment](../runbooks/agent-environment.md) owns br
    Configuration defaults are not proof of the effective model. Mark unavailable metadata unknown.
 4. Use one history-free agent session per case in an isolated checkout, with unique output paths.
    For read-only trials, agents may share one frozen isolated checkout but not mutable outputs;
-   this is context/output isolation, not an OS security sandbox. Give each only its task and normal
+   disable pytest caching with `-p no:cacheprovider` or set `-o cache_dir=<case-owned-path>`.
+   Avoid cache-dependent selection such as `--lf` against shared state. Disable or isolate other
+   mutable test/tool state per case too; if that cannot be guaranteed, use separate checkouts or
+   report BLOCKED/UNVERIFIED. Preserve existing caches rather than clearing another case's state.
+   This is context/output isolation, not an OS security sandbox. Give each only its task and normal
    setup/safety constraints, not the answer key or implementation history. Keep mandatory Skills
    and rules active; avoid naming the target Skill in implicit-trigger prompts.
 
