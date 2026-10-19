@@ -2528,3 +2528,76 @@ unchanged product and source. Diagnose the concrete exit before proposing anothe
 window. Any new live window then needs explicit owner approval for a fresh subject/CI/review/grant,
 quota observations and owned setup/cleanup; no old grant or slot may be reused. This proposal does
 not authorize itself. Offline reporting/CI/checkpoint/PR delivery in the current package may finish.
+
+### API startup diagnosis — separately owner approved2026-10-19
+
+Owner selected `Cho phép chẩn đoán API giới hạn` after the0/6 stop/cleanup packet.
+Expected outcome: one supervised API startup with phase/exit/ready observations to locate the
+failure; no promise to fix or reopen inference. Scope: existing ignored183 evidence directory,
+private diagnostic entry point only, unchanged product/guard/grant/stop, same8183 and retained
+local dependencies. Budget: one API startup, up to20s readiness observation after imports, one
+local health GET, zero provider/document/selector requests, zero credential reads, zero OAuth,
+zero frontend. Deny nonlocal network and dotenv/private-secret reads before application import;
+self-check those denials, pin old evidence hashes, verify no foreign8183 listener, shut down only
+this owned server and verify listener absence. No live admission/retry allowance is granted.
+CodeGraph was first used at this diagnosis step: status/init on this worktree only, then MCP
+explore `build_provider_selection create_app lifespan` and `_build_selected_embedding
+_build_selected_generation`. The graph confirms bootstrap builds both selected providers; keep
+Cloudflare identities with a dummy token and deny external connections rather than substitute
+another provider. Graph is complete/no pending drift and is not runtime verification. Hindsight
+lookup for diagnosis returned connection refused; no memory claim was used.
+
+**Diagnosis execution result (separate from the closed window):** the first instrumented attempt
+imported the application, then its socket audit denied Windows asyncio's own socketpair before
+Uvicorn started. This is a diagnostic instrumentation failure, not a reproduction of the original
+API exit. Original log/JSON/exit1 were retained with `api-startup-diagnosis-denial` names. One
+reasoned correction constructs the owned Windows event loop before installing the audit; all
+application imports/provider construction still occur after denial installation and self-checks.
+No external-network exception was added and no application/product/guard code was changed.
+
+The corrected supervised run at13:18:38–13:18:40UTC: denials verified → application imported →
+Uvicorn ready on127.0.0.1:8183 → one `GET /health` **200** → owned server shutdown, **exit0**,
+PID31048. Readiness appeared about2.48s after process instrumentation began. Both attempts used
+only a dummy provider token and blocked credential-file reads/nonlocal connections. Actual API
+startup count1; one earlier attempt failed before server startup;1 local health request;
+0 provider requests,0 frontend,0 OAuth,0 provider credential reads. Old grant/stop/runtime/helper
+hashes unchanged. No listeners3000/3183/8183 afterwards; retained15483/8180 left running.
+This narrower supervised environment is not the original launcher execution: **original exit root
+cause remains UNKNOWN/not reproduced**. It supports supervised startup observation for a proposed
+future run, not a claim that the original problem was fixed or the application was accepted.
+
+Checks: denial self-checks before import; explicit Ruff format/check on diagnostic script pass;
+repository Ruff format404 unchanged, format-check404 formatted and lint pass. No broad product
+suite rerun for the documentation/ignored diagnostic change. CI for closeout subject
+`54c261e19c468d94f5ebcabc9e1b91ba4174bdd4` completed success6/6 in
+[run39257902997](https://github.com/NhiBuaa/knora-agent/actions/runs/39257902997);
+[Shadow39257902917](https://github.com/NhiBuaa/knora-agent/actions/runs/39257902917) success.
+The subsequent documentation-only diagnosis commit needs its own CI; publish the exact result in
+the existing checkpoint/PR rather than recursively creating commits just to embed their own SHA.
+
+Diagnostic command: `<PYTHON_ENV>/python -X utf8 -u -B <EXISTING_183_EVIDENCE>/p4-v21-continuation/api-startup-diagnosis.py`, supervised stdout/stderr/exit-code capture.
+No rerun of this script is authorized merely by this recorded command; the exact diagnosis has
+completed and the original live window remains permanently STOPPED0/6.
+
+| Diagnostic artifact | SHA256 |
+| --- | --- |
+| `api-startup-diagnosis.py` | `3a7c757fbc367386d53203232619c86e46c2789d0211495fefc42d2182d1ee32` |
+| `api-startup-diagnosis-denial.json` | `c8e19035c178bc94a59bb5a3ae30ddde1f36531bcc2325db06115561d30f9eb0` |
+| `api-startup-diagnosis-verified.json` | `aa858d285af0ec46ada2173163e19a8b0f0a3e9a461db3ca629d090564ff18b5` |
+| `api-startup-diagnosis-verified.stdout.log` | `2d2ac480b44415b5d4343c6b227ccde067feef0dc0f178e461af20f76626ff93` |
+| `api-startup-diagnosis-verified.stderr.log` | `111ecdf97e426f4212ec6eb496841b0f0d5b2e86e5c10701072bd3e3adc57d67` |
+
+**Current permission frontier — proposal only:** owner approval is now needed for any new live
+P4 window. Proposed smallest package: unchanged v21 product/source/questions/AC1–AC9, final
+published docs-only head with its own required CI and ci-subject identity; new private derivative
+with that exact subject and supervised owned API process/readiness (never reuse this closed grant),
+review exact changed wiring and denial tests before credentials; IAB only, same8183/3183 and
+additive owned OAuth entries; fresh exact-account Workers Free Active/quota known≤8000/10000,
+age0–600s for every send. One new window **6 physical attempts maximum =3 query+3 answer**,
+0 document/selector/retry/replay/re-ask, paid budget0/no paid fallback; same fixed three questions
+in order, stop first required failure/unknown, unused slots expire. Parent verifies JSON→Markdown→
+API/Turn/trace→DOM, desktop/mobile and every citation/PDF version/locator between admissions,
+then owned cleanup/report/PR update. No re-ingest, retrieval expansion,3000/#191/PR200 change,
+merge/Done or guaranteed semantic acceptance. Continued runtime uncertainty is disclosed;
+choosing to run again requires explicit new allowance, not interpreting diagnosis approval as it.
+All formal Skill Evals and live question/browser acceptance remain UNVERIFIED.
