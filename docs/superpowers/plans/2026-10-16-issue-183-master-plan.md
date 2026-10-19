@@ -2343,18 +2343,18 @@ unused slots expire at any active-window stop. No automatic second window or ext
 
 **Operational sequence (successful internal checks advance without asking):**
 
-1. [ ] Verify retained hashes/clean product diff, rerun existing P3 offline tests, validate this
+1. [x] Verify retained hashes/clean product diff, rerun existing P3 offline tests, validate this
    document's links/authority and commit/push this documentation-only descendant of93c3bdc. Pin its
    full SHA in the Issue checkpoint and require its own `CI required`/ci-subject identity. This
    approval covers that mechanically selected docs-only subject with unchanged v21 product identities;
    it does not authorize arbitrary later product changes. All runtime files/grants bind the selected
    subject before setup. Failed CI is diagnosed/repaired within scope, never bypassed.
-2. [ ] Recheck exact container IDs, published ports and current foreign listeners. Recover retained
+2. [x] Recheck exact container IDs, published ports and current foreign listeners. Recover retained
    `knora-issue183-postgres` only after its historical183 identity/storage is confirmed; start only
    the two explicitly named Keycloak containers, database first. No deletion, migration, realm reset,
    dependency installation or broad Compose up/down. Use bounded readiness checks, preserving original
    configuration/data. Cleanup never stops/removes shared Keycloak; record the authorized recovery.
-3. [ ] Create new ignored `frontend/test-results/issue183/p4-v21-continuation/` (must not exist) for
+3. [x] Create new ignored `frontend/test-results/issue183/p4-v21-continuation/` (must not exist) for
    the live derivative/tests/evidence. Reuse hash-pinned P3 rules and previous runtime/capture patterns,
    preserving every historical file. Do not edit the P3 guard or remove its MockTransport restriction.
    Test the new derivative's grant/subject/CI/credential denial, one-query/one-answer sequencing,
@@ -2375,7 +2375,7 @@ unused slots expire at any active-window stop. No automatic second window or ext
    timeout or unknown counts. Compare final JSON→Markdown→API/Turn/trace→DOM; inspect1440×960 and
    390×844 and every chip's PDF/version/page/locator before next admission. Stop on the approved
    provider/schema/token/format/citation/safety failure; classify generation omissions per4.9.
-6. [ ] Reconcile attempts/usage/latency/unknown cost and all unrun cases. Remove only owned OAuth
+6. [x] Reconcile attempts/usage/latency/unknown cost and all unrun cases. Remove only owned OAuth
    additions/processes and reset only owned viewport state; verify foreign resources unchanged except
    the explicitly approved Keycloak starts. Retain failures and immutable stop state. A failed live
    window does not prevent completing its report/offline diagnosis, but cannot be reopened.
@@ -2406,3 +2406,125 @@ relabeled passed. No provider/network/runtime call occurred. Reproducible scoped
 `<PYTHON_ENV>/python -B -m pytest --rootdir=. -p no:cacheprovider frontend/test-results/issue183/p3-v21-offline/test_p3_guard.py -q --basetemp=<SHORT_OWNED_TEMP>/tmp --junitxml=<EXISTING_183_EVIDENCE>/p3-v21-offline/continuation-20261019/junit-short-temp.xml`.
 The test child removes inherited provider/auth/proxy configuration, uses explicit helper/backend
 import paths and UTF-8. This is current mock-only evidence, not live-wiring or browser acceptance.
+
+### Continuous execution result — 2026-10-19, stopped before API readiness
+
+**Edit outcome/reach/budget:** close out this execution in the existing Master/checkpoint/PR184,
+correct the private runtime report's stale pre-review snapshot, and publish a documentation-only
+commit. No maintained product/test/helper behavior change. Checks: retained artifact hashes,
+OAuth before/cleanup equality, owned process/listener state, local links, diff and exact new-head
+CI. Zero additional inference or application startup. A stopped window cannot be reopened by this
+closeout. Steps4–5 stopped during setup; step6 completed; step7 product/static review completed,
+with exact final documentation-head CI recorded in the checkpoint/PR after publication. Step8
+returns a blocker packet, not product acceptance.
+
+**Verified subject:** `500bd9b3799f4335dc45cd040fc8b5eaccb32d9e`, clean tracked tree before
+runtime. [CI39253595991](https://github.com/NhiBuaa/knora-agent/actions/runs/39253595991)
+completed success,6/6 jobs. Advisory
+[Security Shadow39253595990](https://github.com/NhiBuaa/knora-agent/actions/runs/39253595990)
+also succeeded. Artifact12187765405 `ci-subject.json` binds PR head500bd9b to checkout
+`394d2eb5cee40727cf224b7554762042511b2236`, run39253595991/attempt1.
+Downloaded CI reports: Ubuntu backend1439, Windows backend244, database376, frontend474,
+frontend fixtures147, Keycloak26integration+19unit; each report records0 failures/errors; explicit skip fields are0, while Vitest does not report a skip field.
+These results verify this CI subject; the later closeout commit needs its own CI.
+
+**Environment/source:** exact retained183 PostgreSQL and the two owner-named Keycloak containers
+started with existing configuration/volumes. PostgreSQL readiness checks both exit0; local issuer
+is `http://127.0.0.1:8180/realms/knora-dev`. Source read used a read-only transaction; document
+`06541705-cf19-4377-a94c-e6b1fa180883`, version
+`b9c52a63-185d-4078-956c-ec42bdd807af`, embedding set
+`3faad421-c8c9-4a6e-9c2b-bbda7bf031b1`,23chunks/23vectors match the historical identities,
+order/checksums and original PDF SHA256
+`219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6`.
+No ingestion, lifecycle work or source mutation. A queued object-lifecycle work item was observed
+and left untouched. Wrong read-only column names and an omitted existing `.data` suffix were
+corrected during inspection; these were not successful executions or runtime retries.
+
+**Independent preparation review:** frozen private live derivative/runtime/OAuth suite **41 passed
+in4.28s, exit0**, one independent command,0 failures/errors/skips. This includes explicit denial
+under `python -O`. No network, credential read or service start in those tests. Guard final focused
+suite25 passed/3.62s; its report preserves13 implementation invocations and their reasons, including
+initial RED and failed expectations/setup. Runtime/OAuth history includes8 missing-module RED,
+snapshot RED2, redirect RED/call-signature correction,15-pass pre-review snapshot and final16 tests
+in the independent combined run. Do not sum these overlapping tests into product coverage.
+The independent connected product review read all18 maintained changed paths/callers/tests from
+merge-base`6db745a` to500bd9b and found no actionable finding. It is static review, not live proof.
+P3 original guard/test hashes remain unchanged. Private helpers are ignored, not shipped product.
+
+**New window:** `P4-V21-CONTINUATION-20261019` opened only after independent review and fresh
+IAB observations at13:05:50UTC: exact account, Workers Free Active, used0/10000. Observations,
+CI/source digests, full subject and six-attempt limit were bound in a new grant. A slow dashboard
+load caused two selector timeouts before fresh observations became available; no stale reading
+was substituted. No browser change, CAPTCHA or credential workaround.
+
+At13:06:21UTC, `Start-Process -WindowStyle Hidden` launched owned Python API PID25272 using
+`<PYTHON_ENV>/python -X utf8 -B <EXISTING_183_EVIDENCE>/p4-v21-continuation/runtime.py api`,
+cwd the private directory, separate stdout/stderr logs. At13:07:28UTC the PID was absent,
+8183 had no listener and both logs were empty. Read-only process inspection found no remaining
+Python process for this runtime. **API readiness failed; root cause UNKNOWN.** No health PASS,
+frontend start, browser login, queued case or provider credential load is claimed. Two subsequent
+stdlib-only print/sleep process probes (one background, one foreground) completed; they did not
+reproduce the application exit and do not diagnose its cause. No application restart attempted.
+
+The entire window was explicitly **STOPPED at0/6 physical requests** (0 query,0 answer,0 document,
+0 selector); all six unused slots expired. All three questions are **NOT RUN**. Historical4b2174b
+and this new window remain separate closed records. No retry, replay, re-ask or carryover.
+
+**Cleanup:** OAuth helper `add` changed exactly redirectUris/webOrigins/post-logout entries for
+localhost3183, with fresh compare and exact readback. `cleanup` removed only those owned additions;
+its readback equals the original before snapshot, marker`cleaned`. No uncertain PUT occurred.
+Owned API PID absent; frontend never started; no listeners3000/3183/8183 before/after. Only retained
+15483 and8180 listeners remain; shared Keycloak/its database were not stopped. No viewport override
+was applied. Primary checkout/3000 and frozen191/PR200 were not changed. No branch/worktree removed.
+
+| Criterion/evidence class | Current result |
+| --- | --- |
+| AC1 count/list, AC4 other list, AC5 short prose | Live NOT RUN; local product/mock evidence retained only. |
+| AC2 payload/format preservation across JSON→Markdown→API/Turn/trace→DOM | Live UNVERIFIED; no final generation payload exists in this window. |
+| AC3 every citation chip/PDF version/page/locator | Live UNVERIFIED. |
+| AC6 desktop1440×960/mobile390×844 | NOT RUN; no application DOM/screenshot acceptance. |
+| AC7 refusal/access/history/language/scroll | Existing CI/local regression evidence; application exercise NOT RUN. |
+| AC8 model/policy/schema/retrieval/usage | Identities pinned;0 physical attempts; no token/latency/actual-cost observation. Actual cost UNVERIFIED, not0USD. |
+| AC9 bounded grant, stop and owned cleanup | Grant/stop/cleanup evidenced; complete runtime acceptance remains UNVERIFIED because startup failed. |
+| Product acceptance/DoD | NOT MET; keep Draft/Open/In Progress; no merge/Done claim. |
+
+**Reviewable private evidence** remains under the existing
+`frontend/test-results/issue183/p4-v21-continuation/`. No secrets or user-local paths are published.
+
+| Artifact | SHA256 |
+| --- | --- |
+| `bounded-execution-review.md` | `8f380bf7bb0a3ccf62576310e881b27649539bf0534e7e1c0379eb2a6704b6d7` |
+| `bounded-execution-review-hashes.json` | `a7061e35b9d8ef63b147b435d74768349966bc3c2e5b932301f66410a13a5a54` |
+| `connected-product-review.md` | `fde2b8bf1b9ebb57d5d2dfb29df5f0ab44c86019fb7013853f70cac333971023` |
+| `connected-product-review-hashes.json` | `73a2de2ba1e63966443ed2e6957ef95640713f75aad2daaa6a643a6fbd1266b0` |
+| `grant.json` | `76ba3c19ad1cf30aef9e1639c51146b162fd95d1fdb91ad139b34e632f891922` |
+| `source-corpus.json` | `c5e9c18e844212989cf158eb74e913bac0940cd1beb015025da45b34181e634f` |
+| `stopped.json` | `2993984a45be8aa6c3e0eaebfffa6a915b2b308dd11680a5731fb8b2fcef36c9` |
+| `window-outcome.json` | `fda4dd9fd7e8afab7939daf77d065e0059964fee35071552fe99b4bda785a6fd` |
+| `cleanup.json` | `ec9aa23b3af50a8d452b6bdcf667386e2383b1b6054c1a49a3236a247a0ed7a1` |
+| API stdout/stderr, each0bytes | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+
+Commands: `Get-FileHash -Algorithm SHA256 -LiteralPath <artifact>`;
+`<PYTHON_ENV>/python -B -m pytest --rootdir=. -p no:cacheprovider <EXISTING_183_EVIDENCE>/p4-v21-continuation/test_p4_guard.py <EXISTING_183_EVIDENCE>/p4-v21-continuation/test_runtime.py <EXISTING_183_EVIDENCE>/p4-v21-continuation/test_oauth.py -q --basetemp=<SHORT_OWNED_TEMP> --junitxml=<EXISTING_183_EVIDENCE>/p4-v21-continuation/independent-review-junit.xml`;
+`<PYTHON_ENV>/python -X utf8 -B <EXISTING_183_EVIDENCE>/p4-v21-continuation/oauth.py add`
+and `cleanup` each exit0/exact readback; `Get-NetTCPConnection -State Listen` and selected
+`Get-CimInstance Win32_Process` fields establish the process/listener observations above.
+
+**Guidance/evaluation:** selected current catalog skills, applied actual review/verification outputs,
+kept mock guard intact, retained initial failures and classified live absence explicitly. Latest
+CodeGraph guidance does not require indexing for this known-location documentation closeout;
+no new code exploration or behavioral edit was made after it arrived. Formal Skill Evals remain
+**UNVERIFIED**; no independent frozen history-free trials or valid baseline, hence no causal
+improvement claim. One P3 diagnostic rerun,13 focused guard invocations and one independent41-test
+run are recorded separately. Agent capacity/usage errors after their completed reports were not
+substituted for new review and caused no provider attempt. Reusable lesson is recorded here:
+retain a supervised startup result/exit code and API readiness before granting frontend authority;
+passing import/mock checks does not establish application process survival.
+
+**Next permission frontier, proposal only:** the current window is permanently closed. First allow
+only a supervised API startup diagnosis on127.0.0.1:8183 with provider denied, owned foreground
+session/exit-code capture and no frontend/OAuth/credentials/inference, same retained dependencies,
+unchanged product and source. Diagnose the concrete exit before proposing another six-attempt
+window. Any new live window then needs explicit owner approval for a fresh subject/CI/review/grant,
+quota observations and owned setup/cleanup; no old grant or slot may be reused. This proposal does
+not authorize itself. Offline reporting/CI/checkpoint/PR delivery in the current package may finish.
