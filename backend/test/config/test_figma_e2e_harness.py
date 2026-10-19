@@ -5,6 +5,9 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
+import time
+import uuid
 from pathlib import Path
 
 import pytest
@@ -12,6 +15,246 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
+
+
+@pytest.fixture
+def disposable_runner(tmp_path: Path):
+    """Real launcher/OS reservation; replace only Docker, HTTP and realm mutation."""
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    fixtures = tmp_path / "test/fixtures/keycloak"
+    fixtures.mkdir(parents=True)
+    shutil.copy(ROOT / "test/fixtures/keycloak/figma-realm.json", fixtures)
+    (scripts / "configure-keycloak-auth-flow.ps1").write_text(
+        "param($Mode,$BaseUrl,$Project,$AdminUsername,$AdminPassword)\n"
+    )
+    project = f"knora-figma-e2e-agent-{uuid.uuid4().hex[:12]}"
+    graph = compose_graph("figma")
+    graph["name"] = project
+    for name, volume in graph["volumes"].items():
+        volume["name"] = f"{project}_{name}"
+    (tmp_path / "graph.json").write_text(json.dumps(graph))
+    command = r"""
+$ErrorActionPreference = 'Stop'
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'compose' -and
+        $args[[Array]::IndexOf($args, '--project-name') + 1] -cne $env:TEST_PROJECT) {
+        throw 'WRONG_PROJECT_TARGET'
+    }
+    if ($args -contains 'config') {
+        $graph = Get-Content -Raw $env:TEST_GRAPH | ConvertFrom-Json
+        $graph.name = $env:TEST_PROJECT
+        foreach ($volume in $graph.volumes.PSObject.Properties) {
+            $volume.Value.name = "$($env:TEST_PROJECT)_$($volume.Name)"
+        }
+        $graph | ConvertTo-Json -Depth 30
+    }
+    elseif ($args -contains 'up') {
+        Add-Content -LiteralPath $env:TEST_EVENTS -Value 'up'
+        if ($env:TEST_MODE -eq 'wait-start') {
+            while (-not (Test-Path -LiteralPath $env:TEST_RELEASE)) { Start-Sleep -Milliseconds 50 }
+        }
+        if ($env:TEST_MODE -in 'wait-start','start-failure') { $global:LASTEXITCODE = 1 }
+    } elseif ($args -contains 'down') {
+        Add-Content -LiteralPath $env:TEST_EVENTS -Value 'down'
+        if ($args -notcontains '--volumes') { throw 'VOLUMES_NOT_CLEANED' }
+        if ($env:TEST_MODE -eq 'wait-cleanup') {
+            while (-not (Test-Path -LiteralPath $env:TEST_RELEASE)) { Start-Sleep -Milliseconds 50 }
+        }
+        if ($env:TEST_MODE -eq 'cleanup-failure') { $global:LASTEXITCODE = 1 }
+    } elseif ($args[0] -eq 'ps' -and $env:TEST_MODE -eq 'retained') { 'foreign-container' }
+    elseif ($args[0] -eq 'ps' -and $env:TEST_MODE -eq 'cleanup-retained' -and
+        (Test-Path -LiteralPath $env:TEST_EVENTS) -and
+        (Get-Content -LiteralPath $env:TEST_EVENTS) -contains 'down') { 'leftover-container' }
+    elseif ($args[0] -eq 'ps' -and $env:TEST_MODE -eq 'inspection-failure') {
+        $global:LASTEXITCODE = 1
+    } elseif ($args[0] -eq $env:TEST_MODE -and $args -notcontains '--filter') {
+        "$($env:TEST_PROJECT)_retained"
+    }
+}
+function Invoke-RestMethod { @{} }
+function New-Object {
+    if ($args[0] -ne 'Net.Sockets.TcpClient') {
+        return Microsoft.PowerShell.Utility\New-Object @args
+    }
+    $client = [pscustomobject]@{ Connected = ($env:TEST_MODE -eq 'port-in-use') }
+    $client | Add-Member -MemberType ScriptMethod -Name ConnectAsync -Value {
+        [Threading.Tasks.Task]::FromResult($this.Connected)
+    }
+    $client | Add-Member -MemberType ScriptMethod -Name Dispose -Value {}
+    $client
+}
+$parameters = @{ Project = $env:TEST_PROJECT }
+# Reproduce the pre-fix race too, without requiring the new lifecycle parameter.
+if ($env:TEST_PROJECT -ne 'knora-figma-e2e' -and
+    (Get-Command ./scripts/prepare-figma-e2e.ps1).Parameters.ContainsKey('Run')) {
+    $parameters.Run = {
+        Add-Content -LiteralPath $env:TEST_EVENTS -Value 'verify'
+        if ($env:TEST_MODE -eq 'wait-verify') {
+            while (-not (Test-Path -LiteralPath $env:TEST_RELEASE)) { Start-Sleep -Milliseconds 50 }
+        }
+        if ($env:TEST_MODE -eq 'verification-failure') { throw 'VERIFY_FAILED' }
+    }
+}
+& ./scripts/prepare-figma-e2e.ps1 @parameters
+"""
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not re.match(
+            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)", key
+        )
+    }
+    environment.update(
+        TEST_GRAPH=str(tmp_path / "graph.json"),
+        TEST_PROJECT=project,
+        TEST_EVENTS=str(tmp_path / "events"),
+        TEST_RELEASE=str(tmp_path / "release"),
+    )
+
+    def start(mode: str, *, legacy: bool = False):
+        return subprocess.Popen(
+            [POWERSHELL, "-NoProfile", "-Command", command],
+            cwd=tmp_path,
+            env={
+                **environment,
+                "TEST_MODE": mode,
+                "TEST_PROJECT": "knora-figma-e2e" if legacy else project,
+            },
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+    claim = Path(tempfile.gettempdir()) / f"knora-figma-reservation-{project}.lock"
+    assert not claim.exists()
+    try:
+        yield start, tmp_path
+    finally:
+        # This unique test project uses only doubles; no Compose child can survive it.
+        claim.unlink(missing_ok=True)
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize(
+    ("phase", "before_release", "after_release"),
+    [
+        ("wait-start", ["up"], ["up", "down"]),
+        ("wait-verify", ["up", "verify"], ["up", "verify", "down"]),
+        ("wait-cleanup", ["up", "verify", "down"], ["up", "verify", "down"]),
+    ],
+)
+def test_disposable_reservation_rejects_concurrent_launcher(
+    disposable_runner, phase: str, before_release: list[str], after_release: list[str]
+) -> None:
+    start, directory = disposable_runner
+    first = start(phase)
+    second = None
+    try:
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            if (directory / "events").exists() and (
+                directory / "events"
+            ).read_text().splitlines() == before_release:
+                break
+            time.sleep(0.05)
+        assert (directory / "events").read_text().splitlines() == before_release
+        second = start("wait-start")
+        try:
+            output, error = second.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            pytest.fail("Competing invocation entered startup instead of refusing ownership")
+        assert second.returncode != 0
+        assert "FIGMA_PROJECT_RESERVED" in error
+        assert "FIGMA_PREPARED" not in output
+        assert (directory / "events").read_text().splitlines() == before_release
+    finally:
+        (directory / "release").touch()
+        first.communicate(timeout=15)
+        if second is not None:
+            second.communicate(timeout=15)
+    assert (directory / "events").read_text().splitlines() == after_release
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize(
+    ("mode", "error", "events"),
+    [
+        ("start-failure", "FIGMA_START_FAILED", ["up", "down"]),
+        ("verification-failure", "VERIFY_FAILED", ["up", "verify", "down"]),
+        ("retained", "FIGMA_PROJECT_NOT_FRESH", []),
+        ("volume", "FIGMA_PROJECT_NOT_FRESH", []),
+        ("network", "FIGMA_PROJECT_NOT_FRESH", []),
+        ("inspection-failure", "FIGMA_RESOURCE_INSPECTION_FAILED", []),
+        ("port-in-use", "FIGMA_PORT_IN_USE", []),
+        ("cleanup-failure", "FIGMA_CLEANUP_FAILED", ["up", "verify", "down"]),
+    ],
+)
+def test_disposable_cleanup_only_after_owned_startup(
+    disposable_runner, mode: str, error: str, events: list[str]
+) -> None:
+    start, directory = disposable_runner
+    process = start(mode)
+    _, stderr = process.communicate(timeout=20)
+    assert process.returncode != 0
+    assert error in stderr
+    path = directory / "events"
+    assert (path.read_text().splitlines() if path.exists() else []) == events
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_disposable_reservation_released_after_cleanup(disposable_runner) -> None:
+    start, directory = disposable_runner
+    for _ in range(2):
+        process = start("success")
+        output, error = process.communicate(timeout=20)
+        assert process.returncode == 0, error
+        assert "FIGMA_PREPARED" in output
+    assert (directory / "events").read_text().splitlines() == [
+        "up",
+        "verify",
+        "down",
+        "up",
+        "verify",
+        "down",
+    ]
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_killed_launcher_keeps_claim_before_compose_can_create_resources(disposable_runner) -> None:
+    start, directory = disposable_runner
+    first = start("wait-start")
+    try:
+        deadline = time.monotonic() + 15
+        while not (directory / "events").exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert (directory / "events").read_text().splitlines() == ["up"]
+    finally:
+        first.kill()
+        first.communicate(timeout=15)
+    # A surviving native Compose child may still be building: resource lists are empty.
+    second = start("success")
+    _, error = second.communicate(timeout=20)
+    assert second.returncode != 0
+    assert "FIGMA_PROJECT_RESERVED" in error
+    assert (directory / "events").read_text().splitlines() == ["up"]
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize("mode", ["cleanup-failure", "cleanup-retained"])
+def test_failed_cleanup_keeps_claim_instead_of_allowing_reuse(disposable_runner, mode: str) -> None:
+    start, directory = disposable_runner
+    first = start(mode)
+    _, error = first.communicate(timeout=20)
+    assert first.returncode != 0
+    assert "FIGMA_CLEANUP_FAILED" in error
+    second = start("success")
+    _, error = second.communicate(timeout=20)
+    assert second.returncode != 0
+    assert "FIGMA_PROJECT_RESERVED" in error
+    assert (directory / "events").read_text().splitlines() == ["up", "verify", "down"]
 
 
 def test_figma_compose_has_exact_isolated_loopback_bindings() -> None:
@@ -133,10 +376,15 @@ def test_prepare_rejects_untrusted_completion_origin_before_docker(
     assert "DOCKER_MUST_NOT_RUN" not in result.stdout
 
 
-def test_ordinary_preparation_has_no_resource_reset() -> None:
-    script = (ROOT / "scripts/prepare-figma-e2e.ps1").read_text()
-    for destructive in ("volume rm", "compose down", "compose rm", "prepare-local-e2e"):
-        assert destructive not in script
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_ordinary_preparation_has_no_resource_reset(disposable_runner) -> None:
+    start, directory = disposable_runner
+    for _ in range(2):
+        process = start("success", legacy=True)
+        output, error = process.communicate(timeout=20)
+        assert process.returncode == 0, error
+        assert "FIGMA_PREPARED" in output
+    assert (directory / "events").read_text().splitlines() == ["up", "up"]
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
@@ -162,7 +410,9 @@ function docker {
     }
     $global:LASTEXITCODE = 0
 }
-& ./scripts/prepare-figma-e2e.ps1 -Project knora-figma-e2e-agent-guard
+& ./scripts/prepare-figma-e2e.ps1 -Project knora-figma-e2e-agent-guard -Run {
+    throw 'VERIFICATION_MUST_NOT_RUN'
+}
 """
     environment = {
         key: value

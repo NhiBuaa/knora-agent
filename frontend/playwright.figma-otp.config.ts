@@ -6,6 +6,10 @@ import {
 } from "./tests/e2e/support/figma-environment";
 
 const environment = figmaEnvironment();
+if (environment.project !== "knora-figma-e2e")
+  throw new Error(
+    "OTP supports only the knora-figma-e2e project; suffixed projects are unsupported.",
+  );
 const runtime = figmaRuntimeEnvironment(environment);
 process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
 

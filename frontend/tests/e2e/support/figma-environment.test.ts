@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   figmaEnvironment,
@@ -7,6 +7,28 @@ import {
 } from "./figma-environment";
 
 describe("isolated Figma identity environment", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("rejects suffixed projects before the OTP config can launch a server", async () => {
+    vi.stubEnv("FIGMA_TEST_PROJECT", "knora-figma-e2e-agent-otp");
+    vi.resetModules();
+    await expect(
+      import("../../../playwright.figma-otp.config"),
+    ).rejects.toThrow(/OTP.*only.*knora-figma-e2e/);
+  });
+
+  it.each([undefined, "knora-figma-e2e"])(
+    "keeps the legacy OTP config for project %s",
+    async (project) => {
+      vi.stubEnv("FIGMA_TEST_PROJECT", project);
+      vi.resetModules();
+      const { default: config } = await import(
+        "../../../playwright.figma-otp.config"
+      );
+      expect(config.testMatch).toBe("figma-otp-native.spec.ts");
+      expect(config.webServer).toMatchObject({ reuseExistingServer: false });
+    },
+  );
   it("binds live ownership to an explicitly selected disposable project", () => {
     const environment = figmaEnvironment({
       FIGMA_TEST_PROJECT: "knora-figma-e2e-agent-a123",

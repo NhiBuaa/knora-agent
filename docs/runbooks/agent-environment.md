@@ -34,7 +34,7 @@ existing Dockerfiles to build application images; it can download declared appli
 dependencies, but does not install host tools. Stop if that network use is not authorized.
 
 Choose a fresh project and result directory for **each** attempt. Keep these variables in
-the same PowerShell session, including cleanup after a failed launch:
+the same PowerShell session:
 
 ```powershell
 $repoRoot = (git rev-parse --show-toplevel).Trim()
@@ -43,18 +43,17 @@ $runRoot = Join-Path $repoRoot "frontend/test-results/$project"
 if (Test-Path -LiteralPath $runRoot) { throw 'Evidence directory already exists' }
 $composeArgs = @('--project-name', $project, '--project-directory', $repoRoot,
     '-f', (Join-Path $repoRoot 'docker-compose.dev.yml'), '--profile', 'figma')
-$ownedAttempt = $false
 ./scripts/prepare-figma-e2e.ps1 -Project $project -CheckConfigurationOnly
-./scripts/prepare-figma-e2e.ps1 -Project $project | ForEach-Object {
-    if ($_ -ceq "FIGMA_PROJECT_FRESH=$project") { $ownedAttempt = $true }
-    $_
-}
 ```
 
-Success is `FIGMA_CONFIG_OK`, `FIGMA_PROJECT_FRESH=<project>`, then `FIGMA_PREPARED`: services ready, migrations applied,
-synthetic users imported and native registration/login flow configured. Suffixed projects
-refuse retained containers, volumes or networks before startup; never adopt the legacy
-`knora-figma-e2e` project's data. Namespace selection changes storage identity, not ports.
+`FIGMA_CONFIG_OK` is configuration validation only. Launch using the `-Run` block below:
+`FIGMA_PREPARED` means services ready, migrations applied, synthetic users imported and
+native registration/login flow configured. The launcher atomically creates an exclusive
+reservation file in the OS temp directory, shared by same-user sessions across worktrees,
+and holds it through startup, the entire block and cleanup. A competing invocation
+fails with `FIGMA_PROJECT_RESERVED`, without starting or cleaning anything. Suffixed projects
+require `-Run` and refuse retained containers, volumes or networks before startup; never adopt
+the legacy `knora-figma-e2e` project's data. Namespace selection changes storage identity, not ports.
 Only one browser verification stack can use these loopback ports at a time:
 frontend 3300, API 8800, Keycloak 8380, PostgreSQL 5543, MinIO 9900/9901,
 SMTP 1025 and Mailpit 8025. A foreign listener is a blocker, not permission to stop it.
@@ -62,8 +61,8 @@ The frontend is started and owned by Playwright, not by the preparation script.
 
 ## Doctor (read-only)
 
-Before a browser mutation, confirm both ownership and readiness; HTTP 200 alone cannot
-identify the right build. Record the tested SHA/dirty diff and each container image ID:
+Before a browser mutation, confirm both ownership and readiness **inside `-Run`**; HTTP 200
+alone cannot identify the right build. Record the tested SHA/dirty diff and each container image ID:
 
 ```powershell
 docker compose @composeArgs ps -a
@@ -87,6 +86,8 @@ Ambient Compose, Docker, Knora, Keycloak, session and legacy E2E overrides are r
 Inspect conflicting variable **names**, not secret values; do not silently clear someone's
 settings to target a different environment. `FIGMA_TEST_PROJECT` is the explicit browser
 ownership selector and must equal the launcher project.
+OTP's separate launcher and `playwright.figma-otp.config.ts` support only the legacy
+`knora-figma-e2e` project; the OTP config explicitly refuses suffixed selections.
 
 ## Drive and observe
 
@@ -95,12 +96,22 @@ From the repository root, the following existing journeys cover UI login, Worksp
 creation, synchronous Markdown ingestion, document archive/restore/deletion-request,
 and Workspace/Conversation read-only boundaries. They do not call an AI provider:
 
+Run the Doctor commands above at the beginning of this block, before Playwright:
+
 ```powershell
-$env:FIGMA_TEST_PROJECT = $project
-$env:FIGMA_TEST_MODE = 'application'
-$env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $runRoot 'smoke.xml'
-node frontend/node_modules/@playwright/test/cli.js test --config frontend/playwright.figma.config.ts figma-document-navigation.spec.ts figma-ui-interactions.spec.ts --grep 'Documents live navigation|owned Workspace restores|live account logout and forced sign-in at 1440$' --reporter list,junit --output "$runRoot/results"
-if ($LASTEXITCODE -ne 0) { throw 'Agent smoke failed; preserve evidence and clean up' }
+try {
+    ./scripts/prepare-figma-e2e.ps1 -Project $project -Run {
+        param($project, $composeArgs)
+        # Run the read-only Doctor checks above here before browser mutations.
+        $env:FIGMA_TEST_PROJECT = $project
+        $env:FIGMA_TEST_MODE = 'application'
+        $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $runRoot 'smoke.xml'
+        node frontend/node_modules/@playwright/test/cli.js test --config frontend/playwright.figma.config.ts figma-document-navigation.spec.ts figma-ui-interactions.spec.ts --grep 'Documents live navigation|owned Workspace restores|live account logout and forced sign-in at 1440$' --reporter list,junit --output "$runRoot/results"
+        if ($LASTEXITCODE -ne 0) { throw 'Agent smoke failed; preserve evidence' }
+    }
+} finally {
+    Remove-Item Env:FIGMA_TEST_PROJECT,Env:FIGMA_TEST_MODE,Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
+}
 ```
 
 Use accessible roles/labels from the Feature Map, not visual coordinates or guessed
@@ -124,27 +135,30 @@ run a broad glob as this smoke workflow. Keep their historical evidence untouche
 
 ## Isolation and cleanup
 
-Keep the fresh project name and the container IDs observed during Launch/Doctor. In a
-`finally` block (also after startup/test failure), recheck that this is the disposable
-namespace created by **this invocation**, then use the exact Compose arguments above:
+The launcher's `finally` block runs project-scoped `down --volumes` **before releasing
+the reservation**, and only if this invocation created it, passed freshness/port checks and
+attempted startup. This includes partial startup and verification failures. Refused launches
+never clean existing resources. The default legacy invocation (no `-Project`/`-Run`) keeps
+its idempotent, non-cleaning behavior for the existing runtime/OTP harness.
+
+After the launcher returns, require `FIGMA_CLEANED=<project>` if startup was attempted,
+and check the fresh project name and resource queries:
 
 ```powershell
-if ($project -cnotmatch '^knora-figma-e2e-agent-[a-f0-9]{12}$') { throw 'Not an owned smoke project' }
-if (-not $ownedAttempt) { throw 'No fresh-project marker acquired; leave existing resources untouched' }
-docker compose @composeArgs down --volumes
-if ($LASTEXITCODE -ne 0) { throw 'Cleanup failed' }
 docker ps -a --filter "label=com.docker.compose.project=$project" --quiet
 docker volume ls --filter "label=com.docker.compose.project=$project" --quiet
 docker network ls --filter "label=com.docker.compose.project=$project" --quiet
-Remove-Item Env:FIGMA_TEST_PROJECT,Env:FIGMA_TEST_MODE,Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
 ```
 
 All three resource queries must be empty; verify the run's listeners are gone and foreign
-container IDs/statuses are unchanged. A namespace string alone is not ownership: the marker
-is emitted only after freshness and port checks, immediately before startup, so it also
-permits cleanup of a partially failed startup. A launch refused because resources already
-existed emits no marker; leave those resources untouched. Keep the marker in this
-invocation's session only.
+container IDs/statuses are unchanged. A namespace or stdout marker is not cleanup authority;
+keep the lifecycle inside `-Run`, not a later unguarded `compose down`. This reservation is
+for same-user agents sharing the OS temp directory and local Docker Desktop, not multi-user,
+multi-host or remote-daemon orchestration. If the process is force-killed or cleanup fails,
+the reservation remains even if Docker has not created resources yet: a surviving Compose
+child may still be building. Report the project, reservation path and leftovers; use a new
+project only after checking the old attempt is inactive. Never automatically steal/delete a
+stale claim. Ordinary refusals before startup release only their own new reservation.
 Use process handles/owned Job Objects for a stuck frontend, never `taskkill` by image name
 or a generic port-kill. Do not run Docker prune, delete other worktrees, remove historical
 volumes, or remove evidence. Images/build cache are intentionally retained; Docker's
