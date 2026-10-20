@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from backend.runtime_test.s2_runtime_guard import reserve_native_request
 
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
 from knora.adapters.qdrant.search_index import AuthorizedLexicalSnapshot, QdrantSearchIndex
@@ -43,20 +44,7 @@ def native(request):
 
     def capture(response):
         response.read()
-        assert response.request.url.host == "127.0.0.1"
-        assert response.request.url.port == 16433
-        assert len(calls) < 100, "structural run call budget exceeded"
-        calls.append(
-            {
-                "method": response.request.method,
-                "url": str(response.request.url),
-                "request": json.loads(response.request.content)
-                if response.request.content
-                else None,
-                "status": response.status_code,
-                "response": response.json(),
-            }
-        )
+        calls[-1].update(status=response.status_code, response=response.json())
 
     profile = LexicalProfile(
         "structural-word-v1", "word", "qdrant-1.19.2", 1.2, 0.75, 3, "three-token-fixtures"
@@ -66,7 +54,10 @@ def native(request):
         base_url="http://127.0.0.1:16433",
         timeout=10,
         trust_env=False,
-        event_hooks={"response": [capture]},
+        event_hooks={
+            "request": [lambda request: reserve_native_request(request, calls, limit=100)],
+            "response": [capture],
+        },
     ) as client:
         assert client.get("/").json()["version"] == "1.19.2"
         port = NativeQdrantSearchIndex(index=index, client=client)

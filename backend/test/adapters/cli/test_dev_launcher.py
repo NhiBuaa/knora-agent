@@ -25,10 +25,23 @@ ACCOUNT = "a" * 32
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
 @pytest.mark.parametrize("parameter", ["ApiPort", "FrontendPort"])
-def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path, parameter):
+def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path, parameter, shell):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
     env_file = tmp_path / ".env"
     env_file.write_text("# isolated\n")
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        "param([string]$EnvFile, [string]$PythonExe, [string]$OllamaBaseUrl, "
+        "[int]$ApiPort, [int]$FrontendPort)\n"
+        # Port safety must work even when the NetTCPIP/CIM provider is unavailable.
+        "function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }\n"
+        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters\n"
+        "exit $LASTEXITCODE\n"
+    )
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen()
@@ -39,12 +52,12 @@ def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path,
         other_parameter = "FrontendPort" if parameter == "ApiPort" else "ApiPort"
         result = subprocess.run(
             [
-                _powershell(),
+                executable,
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                str(SCRIPT),
+                str(wrapper),
                 "-EnvFile",
                 str(env_file),
                 "-PythonExe",
@@ -59,8 +72,9 @@ def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path,
             capture_output=True,
             text=True,
             timeout=20,
+            env={**os.environ, "KNORA_TEST_SCRIPT": str(SCRIPT)},
         )
-        assert result.returncode == 2
+        assert result.returncode == 2, result.stderr
         assert f"PORT_IN_USE:{parameter}:{port}" in result.stderr
         assert "DEV_READY" not in result.stdout
         # The pre-existing listener belongs to another session and must remain intact.

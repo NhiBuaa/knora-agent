@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import httpx
 import test_s2_job_recovery as recovery
+from backend.runtime_test.s2_runtime_guard import reserve_native_request
 
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
@@ -41,26 +42,19 @@ def test_crash_after_native_readback_recovers_without_duplicate_points(loaded_in
 
     def capture(response):
         response.read()
-        assert response.request.url.host == "127.0.0.1" and response.request.url.port == 16433
-        assert len(report["calls"]) < 20
-        report["calls"].append(
-            {
-                "method": response.request.method,
-                "url": str(response.request.url),
-                "request": json.loads(response.request.content)
-                if response.request.content
-                else None,
-                "status": response.status_code,
-                "response": response.json(),
-            }
-        )
+        report["calls"][-1].update(status=response.status_code, response=response.json())
 
     try:
         with httpx.Client(
             base_url="http://127.0.0.1:16433",
             timeout=10,
             trust_env=False,
-            event_hooks={"response": [capture]},
+            event_hooks={
+                "request": [
+                    lambda request: reserve_native_request(request, report["calls"], limit=20)
+                ],
+                "response": [capture],
+            },
         ) as client:
             assert client.get("/").json()["version"] == "1.19.2"
             port = NativeQdrantSearchIndex(

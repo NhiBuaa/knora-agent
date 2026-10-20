@@ -1,9 +1,20 @@
-"""Explicit, opt-in pytest partitions for required CI jobs."""
+"""Explicit, opt-in pytest partitions for required and research CI jobs."""
 
 import json
 from pathlib import Path
 
 import pytest
+
+SECURITY_SHADOW_FILES = {
+    "evals/test/test_security_shadow.py",
+    "evals/test/test_cloudflare_p1_shadow.py",
+    "evals/test/test_cloudflare_p1_trial.py",
+    "evals/test/test_cloudflare_dangerous_output.py",
+    "evals/test/test_security_outcomes.py",
+    "evals/test/test_security_outcomes_runner.py",
+    "evals/test/test_workbench_security_projection.py",
+    "evals/integration/test_security_shadow_integration.py",
+}
 
 DATABASE_FILES = {
     "backend/test/adapters/cli/test_ingest.py",
@@ -42,6 +53,8 @@ RUNTIME_NODES = {
 def ci_route(nodeid: str) -> str:
     node = nodeid.replace("\\", "/")
     file = node.split("::", 1)[0]
+    if file in SECURITY_SHADOW_FILES:
+        return "security-shadow"
     if node in RUNTIME_NODES:
         return "runtime"
     if file in WINDOWS_FILES or node in WINDOWS_NODES:
@@ -52,8 +65,19 @@ def ci_route(nodeid: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--ci-suite", choices=("backend", "windows", "database"))
+    parser.addoption("--ci-suite", choices=("backend", "windows", "database", "security-shadow"))
     parser.addoption("--ci-selection", type=Path)
+
+
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
+    suite = config.getoption("--ci-suite")
+    if suite and collection_path.is_file():
+        relative = collection_path.relative_to(Path(__file__).parent).as_posix()
+        is_shadow = relative in SECURITY_SHADOW_FILES
+        # Isolate imports before collection, rather than only deselecting executed tests.
+        if is_shadow != (suite == "security-shadow"):
+            return True
+    return None
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

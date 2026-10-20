@@ -124,7 +124,10 @@ def test_query_classifies_status_without_retry_or_empty_evidence(wire, status) -
     ["timeout", "connect", "protocol", "proxy", "gzip", "json", "result", "status", "error-null"],
 )
 def test_transport_and_malformed_responses_stay_distinct(wire, fault) -> None:
+    requests = []
+
     def serve(request):
+        requests.append(request)
         if fault == "timeout":
             raise httpx.ReadTimeout("private", request=request)
         if fault == "connect":
@@ -162,6 +165,7 @@ def test_transport_and_malformed_responses_stay_distinct(wire, fault) -> None:
         with pytest.raises(expected) as error:
             NativeQdrantSearchIndex(index=wire, client=client).query(snapshot, "hạn mức")
         assert "private" not in str(error.value)
+        assert len(requests) == 1
     finally:
         client.close()
 
@@ -217,7 +221,9 @@ def test_collection_setup_is_replayable_and_marks_only_workspace_as_tenant(wire)
     try:
         adapter = NativeQdrantSearchIndex(index=wire, client=client)
         adapter.ensure_collection()
+        assert len(requests) == 6
         adapter.ensure_collection()
+        assert len(requests) == 11
     finally:
         client.close()
     creates = [item for item in requests if item[0:2] == ("PUT", "/collections/knora_s2")]

@@ -1,0 +1,23 @@
+{
+  "phase": "P4",
+  "review": "independent_read_only_evidence_review",
+  "actionable_findings": 0,
+  "detector_or_test_reruns_by_reviewer": 0,
+  "verified": [
+    "source_review_code_and_report_digests",
+    "historical_artifacts_unchanged",
+    "ten_serial_invocations_within_time_limits",
+    "fixture_metrics_and_populations",
+    "saved_capture_native_identities_and_failure_provenance",
+    "integration_junit",
+    "no_copied_raw_input_or_output_text",
+    "quality_and_protection_claims_limited"
+  ],
+  "completed_file_sha256": "7aaf8bc239243556cb913987b08a6422029d2c381f8c6110bd5c7a4bb9e02b72",
+  "fixtures_file_sha256": "76adc307b22b9493e59dbe10aae3e4e0dc045e7abf8762f1d705e86b61ad5ff9",
+  "saved_output_file_sha256": "52a7d0f482ceb1290f3cac7313c4ba1ef20fc6aade29a938a0529c3085cc0f90",
+  "quality_accepted": false,
+  "detection_completed": false,
+  "protection_enabled": false,
+  "further_execution_authorized": false
+}

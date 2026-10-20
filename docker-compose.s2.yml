@@ -71,8 +71,8 @@ networks:
 
 volumes:
   pgdata:
-    name: knora-153-s2-pgdata
+    name: ${KNORA_S2_POSTGRES_VOLUME:?S2 requires a fresh PostgreSQL volume name}
   qdrantdata:
-    name: knora-153-s2-qdrantdata
+    name: ${KNORA_S2_QDRANT_VOLUME:?S2 requires a fresh Qdrant volume name}
   objects:
     name: knora-153-s2-objects

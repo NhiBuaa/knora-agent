@@ -9,7 +9,11 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from backend.runtime_test.s2_runtime_guard import require_owned_s2_database, require_reference_file
+from backend.runtime_test.s2_runtime_guard import (
+    require_owned_s2_database,
+    require_reference_file,
+    reserve_native_request,
+)
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -33,23 +37,10 @@ def test_fresh_upload_two_jobs_native_question_citation_and_archive_fence(monkey
     generate = DeterministicGenerationProvider.generate
 
     def capture(self, request):
-        assert (request.url.scheme, request.url.host, request.url.port) == (
-            "http",
-            "127.0.0.1",
-            16433,
-        ), "only the owned native service may receive real HTTP"
-        assert len(report["native_calls"]) < 40
+        record = reserve_native_request(request, report["native_calls"], limit=40)
         response = transport(self, request)
         response.read()
-        report["native_calls"].append(
-            {
-                "method": request.method,
-                "url": str(request.url),
-                "request": json.loads(request.content) if request.content else None,
-                "status": response.status_code,
-                "response": response.json(),
-            }
-        )
+        record.update(status=response.status_code, response=response.json())
         return response
 
     def forbidden_embedding(*_args, **_kwargs):

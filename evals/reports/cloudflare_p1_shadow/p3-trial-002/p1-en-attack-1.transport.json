@@ -1,0 +1,18 @@
+{
+  "case_id": "p1-en-attack-1",
+  "configuration_sha256": "sha256:40f6ce5f5ea1522492afb138b3b13c13bf54e54a9fa55ec943a5b49b7bd9ce18",
+  "detector_status": "unavailable",
+  "dispatch_count": 1,
+  "error_codes": [],
+  "failure_kind": null,
+  "failure_stage": null,
+  "http_status": 200,
+  "input_sha256": "sha256:077be6f9768375a3e77e8f325e8fa0f1362e1d599b609a71ff990eefc38e350a",
+  "native_log_id": "01a1499e-fb88-7184-a87b-fcadb4ccfbd3",
+  "restart_state": "indeterminate",
+  "source_artifact_sha256": "sha256:2cac53d286a9ca1496614c9a5f24af548efd35380b92bb6063299f106d10a186",
+  "stop": false,
+  "success": true,
+  "transport_error": null,
+  "utc": "2026-10-17T11:28:38.410756+00:00"
+}

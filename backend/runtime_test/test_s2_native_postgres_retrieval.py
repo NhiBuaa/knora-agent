@@ -10,6 +10,7 @@ from uuid import uuid4
 import httpx
 import pytest
 import test_s2_search_index_store as lifecycle
+from backend.runtime_test.s2_runtime_guard import reserve_native_request
 from test_s2_lexical_retrieval import _structural_population
 
 from knora.adapters.postgres.database import SessionFactory
@@ -52,19 +53,7 @@ def test_native_query_hydrates_only_still_authorized_postgres_content(
 
     def capture(response):
         response.read()
-        assert response.request.url.host == "127.0.0.1" and response.request.url.port == 16433
-        assert len(report["calls"]) < 20
-        report["calls"].append(
-            {
-                "method": response.request.method,
-                "url": str(response.request.url),
-                "request": json.loads(response.request.content)
-                if response.request.content
-                else None,
-                "status": response.status_code,
-                "response": response.json(),
-            }
-        )
+        report["calls"][-1].update(status=response.status_code, response=response.json())
         if archive_after_query and response.request.url.path.endswith("/points/query"):
             with SessionFactory.begin() as session:
                 session.get(DocumentTable, generation.document_id).archived = True
@@ -77,7 +66,12 @@ def test_native_query_hydrates_only_still_authorized_postgres_content(
             base_url="http://127.0.0.1:16433",
             timeout=10,
             trust_env=False,
-            event_hooks={"response": [capture]},
+            event_hooks={
+                "request": [
+                    lambda request: reserve_native_request(request, report["calls"], limit=20)
+                ],
+                "response": [capture],
+            },
         ) as client:
             port = NativeQdrantSearchIndex(
                 index=QdrantSearchIndex("s2_pg_native_" + run_id, generation.lexical_profile),

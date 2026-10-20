@@ -48,6 +48,14 @@ def test_python_source_snapshot_changes_for_add_modify_and_delete(tmp_path: Path
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("idle", [False, True])
+async def test_once_worker_never_claims_a_second_job(idle) -> None:
+    runner = _FakeRunner(lambda _worker_id, _calls: NoEligibleJob() if idle else object())
+    assert await run_worker(once=True, poll_seconds=0.01, application=_fake_app(runner)) is False
+    assert runner.calls == 1
+
+
+@pytest.mark.asyncio
 async def test_idle_worker_restarts_without_claiming_a_second_job(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
     source.write_text("value = 1\n", encoding="utf-8")

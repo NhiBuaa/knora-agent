@@ -19,7 +19,7 @@ from knora.adapters.postgres.tables import (
     QuestionTraceTable,
 )
 from knora.answering.evidence import select_evidence
-from knora.answering.generation_validation import validate_generation
+from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
 from knora.answering.lexical import validate_bm25_result
 from knora.answering.retrieval_configuration import (
     CALIBRATED_M3_VECTOR_MIN_SIMILARITY,
@@ -158,6 +158,7 @@ def project_bm25_trace(
     record: QuestionTraceRecord,
     candidates: tuple[EvaluationCandidateProjection, ...],
     authorized_generations: tuple[LexicalGeneration, ...],
+    include_invalid_generation: bool = False,
 ) -> EvaluationTraceProjection:
     """Project a trusted lexical snapshot offline; does not establish database readiness.
 
@@ -291,8 +292,11 @@ def project_bm25_trace(
         aliases = {f"E{i}": d.candidate.chunk_id for i, d in enumerate(selection.selected, 1)}
         if record.alias_mapping != aliases or record.decision not in {"ANSWER", "REFUSAL"}:
             raise ValueError("lexical alias mismatch")
+        invalid_generation = include_invalid_generation and record.validation_outcome == "invalid"
         if aliases:
-            if record.generation_status != "completed" or record.validation_outcome != "valid":
+            if record.generation_status != "completed" or (
+                record.validation_outcome != "valid" and not invalid_generation
+            ):
                 raise ValueError("lexical generation state mismatch")
         elif (record.decision, record.generation_status, record.validation_outcome) != (
             "REFUSAL",
@@ -300,17 +304,27 @@ def project_bm25_trace(
             "not_applicable",
         ):
             raise ValueError("lexical empty-selection state mismatch")
-        validated = validate_generation(
-            GenerationResult(
-                decision=record.decision,
-                answer=record.answer,
-                refusal_reason=record.refusal_reason,
-                cited_evidence_ids=record.parsed_markers,
-            ),
-            available_evidence_ids=tuple(aliases),
-        )
-        if validated.parsed_markers != record.parsed_markers:
-            raise ValueError("lexical markers mismatch")
+        if invalid_generation:
+            # Operator diagnostics retain the stored failure; evaluation stays strict by default.
+            markers = (
+                tuple(MARKER_PATTERN.findall(record.answer))
+                if isinstance(record.answer, str)
+                else ()
+            )
+            if markers != record.parsed_markers:
+                raise ValueError("lexical invalid-generation markers mismatch")
+        else:
+            validated = validate_generation(
+                GenerationResult(
+                    decision=record.decision,
+                    answer=record.answer,
+                    refusal_reason=record.refusal_reason,
+                    cited_evidence_ids=record.parsed_markers,
+                ),
+                available_evidence_ids=tuple(aliases),
+            )
+            if validated.parsed_markers != record.parsed_markers:
+                raise ValueError("lexical markers mismatch")
         latency = _retrieval_latency(record.provider_metadata)
     except (
         KeyError,
@@ -374,9 +388,11 @@ class PostgresEvaluationReader:
         session_factory: sessionmaker,
         *,
         lexical_population: VerifiedLexicalPopulation | None = None,
+        include_invalid_generation: bool = False,
     ) -> None:
         self._session_factory = session_factory
         self._lexical_population = lexical_population
+        self._include_invalid_generation = include_invalid_generation
 
     @staticmethod
     def _begin_lexical_snapshot(session) -> None:
@@ -501,6 +517,7 @@ class PostgresEvaluationReader:
                 record=QuestionTraceRecord(**values),
                 candidates=candidates,
                 authorized_generations=snapshots,
+                include_invalid_generation=self._include_invalid_generation,
             )
         except (KnoraError, ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
             raise LookupError("evaluation lexical trace provenance is invalid") from exc

@@ -13,7 +13,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from backend.runtime_test.s2_frozen_restore import require_frozen_chunk_bytes
-from backend.runtime_test.s2_runtime_guard import require_reference_file
+from backend.runtime_test.s2_runtime_guard import require_reference_file, reserve_native_request
 
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
 from knora.adapters.qdrant.search_index import QdrantSearchIndex
@@ -141,26 +141,19 @@ def test_all_frozen_native_vectors_match_upstream_tokens_and_tf_weights(profile_
 
     def capture(response):
         response.read()
-        assert response.request.url.host == "127.0.0.1" and response.request.url.port == 16433
-        assert len(report["calls"]) < 20
-        report["calls"].append(
-            {
-                "method": response.request.method,
-                "url": str(response.request.url),
-                "request": json.loads(response.request.content)
-                if response.request.content
-                else None,
-                "status": response.status_code,
-                "response": response.json(),
-            }
-        )
+        report["calls"][-1].update(status=response.status_code, response=response.json())
 
     try:
         with httpx.Client(
             base_url="http://127.0.0.1:16433",
             timeout=20,
             trust_env=False,
-            event_hooks={"response": [capture]},
+            event_hooks={
+                "request": [
+                    lambda request: reserve_native_request(request, report["calls"], limit=20)
+                ],
+                "response": [capture],
+            },
         ) as client:
             assert client.get("/").json()["version"] == "1.19.2"
             index = QdrantSearchIndex("s2_frozen_parity_" + run_id, profile)

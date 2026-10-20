@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from backend.runtime_test import s2_runtime_guard
 from backend.runtime_test import test_s2_http_application as runtime
 
 
@@ -47,12 +48,93 @@ def application_row(root):
     }
 
 
+def storage_rows(root):
+    rows = []
+    for service, cpu, memory, internal, port, destination in (
+        ("postgres", 1, 1024, "5432/tcp", "15433", "/var/lib/postgresql/data"),
+        ("qdrant", 2, 2048, "6333/tcp", "16433", "/qdrant/storage"),
+    ):
+        volume = (
+            "knora-153-s2-" + ("pgdata-" if service == "postgres" else "qdrantdata-") + "c" * 32
+        )
+        rows.append(
+            {
+                "Id": ("c" if service == "postgres" else "d") * 64,
+                "Image": "sha256:" + "e" * 64,
+                "State": {"Running": True, "Restarting": False},
+                "Config": {
+                    "Labels": {
+                        "com.docker.compose.project": "knora-153-s2",
+                        "com.docker.compose.service": service,
+                        "com.docker.compose.project.working_dir": str(root),
+                        "com.docker.compose.project.config_files": str(
+                            root / "docker-compose.s2.yml"
+                        ),
+                    }
+                },
+                "HostConfig": {"NanoCpus": cpu * 1_000_000_000, "Memory": memory * 1024 * 1024},
+                "Mounts": [
+                    {"Type": "volume", "Name": volume, "Destination": destination, "RW": True}
+                ],
+                "NetworkSettings": {
+                    "Ports": {internal: [{"HostIp": "127.0.0.1", "HostPort": port}]}
+                },
+            }
+        )
+    return rows
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        None,
+        "historical",
+        "wrong_mount",
+        "project",
+        "source",
+        "public",
+        "memory",
+        "stopped",
+        "missing",
+    ],
+)
+def test_storage_admission_rejects_unowned_mounts_before_work(monkeypatch, change):
+    root = Path(__file__).resolve().parents[2]
+    rows = storage_rows(root)
+    monkeypatch.setenv("KNORA_S2_POSTGRES_VOLUME", rows[0]["Mounts"][0]["Name"])
+    monkeypatch.setenv("KNORA_S2_QDRANT_VOLUME", rows[1]["Mounts"][0]["Name"])
+    if change == "historical":
+        monkeypatch.setenv("KNORA_S2_POSTGRES_VOLUME", "knora-153-s2-pgdata")
+    elif change == "wrong_mount":
+        rows[1]["Mounts"][0]["Name"] = "knora-153-s2-qdrantdata"
+    elif change == "project":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project"] = "other"
+    elif change == "source":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project.working_dir"] = str(root / "other")
+    elif change == "public":
+        rows[1]["NetworkSettings"]["Ports"]["6333/tcp"][0]["HostIp"] = "0.0.0.0"
+    elif change == "memory":
+        rows[0]["HostConfig"]["Memory"] = 0
+    elif change == "stopped":
+        rows[0]["State"]["Running"] = False
+    elif change == "missing":
+        rows.pop()
+    if change:
+        with pytest.raises(ValueError):
+            s2_runtime_guard.require_owned_s2_storage(rows, root)
+    else:
+        s2_runtime_guard.require_owned_s2_storage(rows, root)
+
+
 @pytest.mark.parametrize(
     "change", [None, "project", "source", "port", "memory", "provider", "native", "objects"]
 )
 def test_application_admission_pins_local_daemon_and_owned_container(monkeypatch, change):
     root = Path(__file__).resolve().parents[2]
     row = deepcopy(application_row(root))
+    storage = storage_rows(root)
+    monkeypatch.setenv("KNORA_S2_POSTGRES_VOLUME", storage[0]["Mounts"][0]["Name"])
+    monkeypatch.setenv("KNORA_S2_QDRANT_VOLUME", storage[1]["Mounts"][0]["Name"])
     if change == "project":
         row["Config"]["Labels"]["com.docker.compose.project"] = "other-project"
     elif change == "source":
@@ -79,7 +161,7 @@ def test_application_admission_pins_local_daemon_and_owned_container(monkeypatch
         calls.append(command)
         assert command[:3] == ["docker", "--host", "npipe:////./pipe/dockerDesktopLinuxEngine"]
         assert not any(key.startswith(("DOCKER_", "COMPOSE_")) for key in kwargs["env"])
-        return SimpleNamespace(stdout=json.dumps([row]))
+        return SimpleNamespace(stdout=json.dumps([row, *storage]))
 
     monkeypatch.setattr(runtime.subprocess, "run", inspect)
     if change:

@@ -1,6 +1,11 @@
-export function figmaEnvironment() {
+export function figmaEnvironment(
+  ambient: Record<string, string | undefined> = process.env,
+) {
+  const project = ambient.FIGMA_TEST_PROJECT ?? "knora-figma-e2e";
+  if (!/^knora-figma-e2e(?:-[a-z0-9][a-z0-9-]{0,39})?$/.test(project))
+    throw new Error("Figma live E2E project must be an isolated test project.");
   return {
-    project: "knora-figma-e2e",
+    project,
     baseUrl: "http://127.0.0.1:3300",
     apiUrl: "http://127.0.0.1:8800",
     keycloakIssuer: "http://127.0.0.1:8380/realms/knora-dev",
@@ -11,8 +16,11 @@ export function figmaEnvironment() {
 
 export type FigmaEnvironment = ReturnType<typeof figmaEnvironment>;
 
-export function validateFigmaEnvironment(values: FigmaEnvironment) {
-  const expected = figmaEnvironment();
+export function validateFigmaEnvironment(
+  values: FigmaEnvironment,
+  ambient: Record<string, string | undefined> = process.env,
+) {
+  const expected = figmaEnvironment(ambient);
   for (const key of Object.keys(expected) as (keyof FigmaEnvironment)[]) {
     if (values[key] !== expected[key]) {
       throw new Error(`Figma live E2E must use the isolated ${key}.`);
@@ -25,7 +33,7 @@ export function figmaRuntimeEnvironment(
   values: FigmaEnvironment,
   ambient: Record<string, string | undefined> = process.env,
 ) {
-  validateFigmaEnvironment(values);
+  validateFigmaEnvironment(values, ambient);
   for (const name of Object.keys(ambient)) {
     if (
       /^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)/.test(

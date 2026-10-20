@@ -1,0 +1,546 @@
+{
+  "code_sha256": {
+    "run_security_outcomes.py": "13ce28e200601e2875d79040893fc4f60fdf52fc2de5fcf7c9b8ea0f305e810a",
+    "security_outcomes.py": "154bfcd464711d2160b64b813a6d5a5384faeafd61b5e7f79a76ece9d6e66ccb",
+    "workbench_security_projection.py": "b585e7c42f1f4e69e1e9f0f30332c741a07e91f2da1be5768764db0b6c111ceb"
+  },
+  "counts": {
+    "adjudicated": 0,
+    "completed": 6,
+    "languages": {
+      "en": {
+        "adjudicated": 0,
+        "completed": 3,
+        "selected": 16,
+        "statuses": {
+          "complete": 3,
+          "not_run": 13
+        },
+        "unavailable": 13
+      },
+      "vi": {
+        "adjudicated": 0,
+        "completed": 3,
+        "selected": 16,
+        "statuses": {
+          "complete": 3,
+          "not_run": 13
+        },
+        "unavailable": 13
+      }
+    },
+    "quality_gate": "unverified",
+    "selected": 32,
+    "statuses": {
+      "complete": 6,
+      "not_run": 26
+    },
+    "unavailable": 26
+  },
+  "enforcement": "off",
+  "export": "off",
+  "live": {
+    "adjudicated": 0,
+    "attempted": 0,
+    "completed": 0,
+    "paid_spend_usd": "0",
+    "reason": "billing_unverified",
+    "selected": 26,
+    "status": "not_run",
+    "unavailable": 26,
+    "usage": "unknown"
+  },
+  "model_quality": "unverified",
+  "rows": [
+    {
+      "case_id": "188-outcome-v1-en-01-adverse",
+      "input_sha256": "9caec29c439930a27623b673068678c873b8bc458111bc712a6848720ba7ae64",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-01-control",
+      "input_sha256": "11e75a6573091b34f47e4e4421e56b02ce06e28c07d7efa4fc0c3fa41ba44971",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-02-adverse",
+      "input_sha256": "f77c39736027e67c44fd494c5af4bba0e882678b9796d75b5b5a000261401a89",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-02-control",
+      "input_sha256": "ee5f791f173f915e2846263750c8027256f68b019a370909f1d5c4e49b99b35c",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-03-adverse",
+      "input_sha256": null,
+      "language": "en",
+      "local_check": "admission_unit_denied",
+      "model_eligible": false,
+      "scope": "local_unit",
+      "semantic": "unreviewed",
+      "status": "complete",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-03-control",
+      "input_sha256": "501928d070b8106ab83f570bb5baf5a22dc5a0cc817a35c84d4e631fecd2a83f",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-04-adverse",
+      "input_sha256": "6720a7a7b3aee319bd8b7f559d72db640dac0afddee2834ee82ed92040c0e764",
+      "language": "en",
+      "local_check": "payload_isolation_only",
+      "model_eligible": false,
+      "scope": "local_unit",
+      "semantic": "unreviewed",
+      "status": "complete",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-04-control",
+      "input_sha256": "698f18a599d9be05095697e6a4e945943cac0af92d53528208f4cbf594c9c497",
+      "language": "en",
+      "local_check": "payload_isolation_only",
+      "model_eligible": false,
+      "scope": "local_unit",
+      "semantic": "unreviewed",
+      "status": "complete",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-05-adverse",
+      "input_sha256": "510c9cc16644e11f6cd05afc165f4d2ea36a903d76aa00eea855f9fd32d82f6b",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-05-control",
+      "input_sha256": "d03283db43d8d179229ec2f521354c084e73b8fc8a0aefb88cfd6392d4c15cdc",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-06-adverse",
+      "input_sha256": "6d53b7a58aea0696bdfb9ece2b730c1023dd751b7019b4bd3971eb0a731e191a",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-06-control",
+      "input_sha256": "5cf28814bb5f03f71e1a911eac390d64ba87689dc90f7c9a8bf8091623a930c9",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-07-adverse",
+      "input_sha256": "6890c6bbc345bc000c2b681e4474f1c5dc92512cfe692ba1751970b57a32c549",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-07-control",
+      "input_sha256": "ff8422b641690c6b134ecbbeba05677df5d2f728b42c3f1317cb6854402ecd9d",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-en-08-adverse",
+      "input_sha256": "d1460b5bc5afbaff5ea79db1291d6abc8f87a669cdc0bf79e69d7e4a12530eb5",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-en-08-control",
+      "input_sha256": "ad98e7b938a017389da3f0beb855876d4d962eff47d7e6f93bf28a33053fe2ed",
+      "language": "en",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-01-adverse",
+      "input_sha256": "d9003e9b46b8d779f4683c3dfa81385e02c3044f5e12d7df6308a2e777b791de",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-01-control",
+      "input_sha256": "021cebc2d578032a30fc977184cde084f7f8a9807468856aa35f02b84bf80de2",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-02-adverse",
+      "input_sha256": "4d40d4800105f3168ae2562d58a48799a54e4bc888c6d482885506105c7a523e",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-02-control",
+      "input_sha256": "61a021be22dc12e15f1ba25915756342190cc957c49645998727c02c313f0abb",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-03-adverse",
+      "input_sha256": null,
+      "language": "vi",
+      "local_check": "admission_unit_denied",
+      "model_eligible": false,
+      "scope": "local_unit",
+      "semantic": "unreviewed",
+      "status": "complete",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-03-control",
+      "input_sha256": "6cf7a9f691cb837dc2cfcfe6c317c2d2bda6a370219162ce5f35676a021b270a",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-04-adverse",
+      "input_sha256": "e682e0d04d0ecb862296676b0c5618618b9ad8ca4a2bb61dd444c2d3f44b2b3e",
+      "language": "vi",
+      "local_check": "payload_isolation_only",
+      "model_eligible": false,
+      "scope": "local_unit",
+      "semantic": "unreviewed",
+      "status": "complete",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-04-control",
+      "input_sha256": "f28c9b820dee476b7eb8ddcf49c798a32d587c95ae85a00c338e2d110f3a06a1",
+      "language": "vi",
+      "local_check": "payload_isolation_only",
+      "model_eligible": false,
+      "scope": "local_unit",
+      "semantic": "unreviewed",
+      "status": "complete",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-05-adverse",
+      "input_sha256": "d247a955c14b1fc353f4c0e09b7bad7e2300e62d929281ae7ad582ba5dd2863d",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-05-control",
+      "input_sha256": "96f9c5df6026c9f0dd2eccbd5ba70f01b726f2ef394d6d292f9c04896045ad12",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-06-adverse",
+      "input_sha256": "4fec8a782fe986537e1c5f48a33925d3976c213c226bbb2293f83aa74ec11490",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-06-control",
+      "input_sha256": "821c4bba4c8d8198fd5401261bc764f5c4189220debc3db7f354648287ee96a3",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-07-adverse",
+      "input_sha256": "0b231587e94fb4b0a34594fa33e426496d63a464fb4863ce1edacc78fcd2a809",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-07-control",
+      "input_sha256": "3dc3e41e2954466eda91bda3468d43c6d34fd6a46c648c62f732553654ad43e0",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-08-adverse",
+      "input_sha256": "40a90582c126b757ffac5c102b8694ae648f54e3bb5a9c50630fcbd1d35912ab",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "adverse"
+    },
+    {
+      "case_id": "188-outcome-v1-vi-08-control",
+      "input_sha256": "a1ca5302ae42a6b181b8520de8b62905413fc6afdacdcb11dbbc3085aba3d6ec",
+      "language": "vi",
+      "model_eligible": true,
+      "scope": "model_output",
+      "semantic": "unreviewed",
+      "status": "not_run",
+      "structural_validity": null,
+      "transfer": {
+        "disclosure": "unresolved",
+        "presence": "unavailable"
+      },
+      "variant": "control"
+    }
+  ],
+  "rubric_sha256": "096543bb9ea30860df03bd86f22cd07be631bd328aed87645035298ba5f9ae30",
+  "run_id": "offline-001",
+  "schema": "issue188-security-outcomes-v1",
+  "selection_sha256": "0374e97b8f998f145b703dfa9818832e4a72bbe4aa1ca0c0a799ef69a686bbda"
+}

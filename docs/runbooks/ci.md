@@ -1,5 +1,81 @@
 # CI and Runtime Verification
 
+## Verification Contract
+
+Apply this loop to each code change. For documentation/tooling changes, verify the affected
+instructions or contract rather than inventing a production change. Keep commands, outcomes and
+work status in the relevant Issue/PR; this runbook owns the procedure, not a second evidence ledger.
+
+1. **Define:** name the expected observable behavior, changed surfaces/callers and acceptance
+   criteria before editing. For a bug, identify a reproducer or regression test that fails for
+   the original symptom before the fix; explain any limit to reproducing it.
+2. **Select:** inspect the owning tests, `frontend/package.json`, root `conftest.py` and the
+   applicable workflow under `.github/workflows/`. Choose the smallest set covering the behavior
+   and affected boundaries, including relevant failure, authorization or concurrency paths.
+   State why broader checks or runtime observation are required, unnecessary or blocked.
+3. **Run and read:** execute the selected checks on the intended checkout. Inspect exit codes,
+   selected/executed counts and actual assertions/reports, including failures, errors and skips.
+   A collected test, successful command launch or old report is not passing execution evidence.
+4. **Repair:** on failure, distinguish a product regression from test/environment/pre-existing
+   failure using the output. Fix within approved scope and rerun the failed checks plus affected
+   regressions. Preserve failed-attempt evidence. Missing tools, dependencies or unsafe targets
+   are blockers to report, not permission to install, skip, weaken gates or change another stack.
+5. **Observe:** for user-visible behavior, select an applicable journey from the
+   [Agent environment](agent-environment.md) and [Feature Map](../development/feature-map.md)
+   when feasible. Check the UI and authoritative response/projection; use owned, bounded logs
+   for diagnosis and verify owned cleanup. If the harness cannot exercise the behavior, report
+   the gap; fixture rendering or unrelated smoke cannot substitute for it.
+6. **Conclude:** compare evidence to every acceptance criterion after the final edit. Record the
+   tested full SHA (and dirty diff if any), working directory, reproducible commands, scope/counts,
+   exit/result and sanitized report/run references. Before publishing commands, replace token,
+   password and other secret values with `[REDACTED]`, including literal arguments and inline
+   environment assignments. Preserve executable/subcommands, flag and variable names, quoting and
+   non-secret arguments; supply real secrets only through authorized local configuration.
+   After later code edits, rerun affected checks
+   and refresh evidence. Separate verified scope from blockers and checks not run; with missing
+   required evidence, report partial progress, not completion.
+
+### Choosing the verification surface
+
+Use existing checks; command and partition definitions remain in package/config/workflow sources.
+Local targeted checks do not replace the unchanged full required PR CI.
+
+| Changed surface                  | Start with                                                                       | Expand when needed                                                                                                                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend/application              | Tests mirroring the owning module under `backend/test`; Python formatting/lint   | HTTP/provider contracts and real isolated database tests for changed boundaries, persistence or atomicity                                                                           |
+| Frontend/BFF                     | Owning Vitest tests, typecheck, lint and formatting from `frontend/package.json` | Build and relevant application Playwright journey for user-visible behavior; fixture mode proves rendering only                                                                     |
+| Launcher, evidence or CI tooling | Existing config/CLI regression tests, including refusal/failure/cleanup paths    | Compose configuration, supported OS checks and affected disposable application journeys when launch/ownership/browser behavior changes                                              |
+| Instructions/docs                | Link/command/source checks and applicable shared formatting                      | For changed agent instructions, a fresh agent exercising an existing task; a read-only trial is not proof of a bug-fix loop                                                         |
+| Model/retrieval quality          | Deterministic contracts for code behavior                                        | Separately authorized evaluation with approved inputs and provenance under the [Architecture Standard](../standards/architecture.md#evaluation-governance); no inference by default |
+
+Unit/integration PASS proves only the asserted seam. Offline Playwright fixtures do not prove a
+live backend. Application browser PASS proves only the executed journeys on that build/environment;
+deterministic providers do not establish AI semantic quality. A targeted smoke does not satisfy a
+broader release profile. Full E2E and model inference are not required for every Issue.
+
+### Reporting state and CI identity
+
+Report each applicable state with evidence, or explicitly as pending, blocked, not run or not
+applicable with a reason. These are independent facts, not an automatic promotion chain:
+
+| State            | Evidence required for the claim                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Implemented      | Requested code/instruction change exists in the diff; says nothing about execution                                                  |
+| Local Verified   | Named local checks actually passed on the reported checkout/diff; only that scope                                                   |
+| CI Verified      | `CI required` from GitHub Actions succeeded for the current PR head; link the run and full head SHA                                 |
+| Runtime Verified | Applicable real application journeys passed with fresh, scoped evidence tied to the tested build; identify smoke vs release profile |
+| Reviewed         | Actual review and its scope/findings; tests do not constitute review                                                                |
+| Merged           | GitHub merge record and resulting commit                                                                                            |
+| Deployed         | Deployment record and target/version observation; merge or runtime smoke is insufficient                                            |
+
+For CI, compare the current PR `headRefOid` with the run's head and the existing `ci-subject`
+artifact: `pr_head_sha` identifies the PR head, while `checkout_sha` records the tested synthetic
+merge checkout for `pull_request` runs. A push run has no PR head and tests its recorded checkout.
+Keep these identities distinct; a green old head, another PR or workflow-source SHA does not
+verify the current change. A new push invalidates the previous head's CI claim. A missing, failed,
+cancelled or skipped required result is not CI Verified. Runtime release profiles additionally
+use the exact subject-SHA validation below.
+
 ## Pull request checks
 
 The automatic workflow runs the existing backend, frontend, database and Keycloak contracts.
@@ -9,6 +85,36 @@ empty, failed, skipped or duplicate cases fail the job.
 
 No AI provider credentials, developer `.env` files, model benchmarks, or real application E2E
 services are used by pull request CI. Browser fixtures are synthetic and offline.
+
+Issue #188 remains research-only / archived. The independent, non-required
+`.github/workflows/security-shadow.yml` workflow owns the `Security shadow (offline unit)` and
+`Security shadow (offline integration)` jobs. It runs automatically for pull requests targeting
+`main` and pushes to `main` only when its `paths` filter matches Security Shadow code, tests, fixtures, dependencies, pytest hooks,
+or CI evidence/gate tooling. Documentation-only and unrelated application changes do not trigger it.
+`workflow_dispatch` permits manual execution on a selected ref, independently of path filters.
+GitHub requires the workflow to exist on the default branch before manual dispatch is available.
+
+The integration job retains its isolated runner, Python version, dependency pins, timeout,
+`pip check`, real local validator test, strict JUnit validation and always-run report upload.
+The separate unit job installs the existing `backend[dev]` dependencies without evaluation
+extras or Guardrails, then runs `evals/test` with `--ci-suite=security-shadow` and retains its
+strict JUnit report plus selected/deselected node manifest. Missing packages, dependency drift, test failure, skipped/empty/missing reports, or upload failure
+remain workflow failures; no `continue-on-error` or optional test skip is introduced.
+There is no model inference, provider credential, export, or production runtime integration.
+The seven Issue #188 unit modules stay at their existing paths, with assertions and fixtures
+unchanged. `SECURITY_SHADOW_FILES` in root `conftest.py` owns their explicit partition (plus
+the standalone integration file). Required Backend, Windows and Database partitions exclude
+these files before importing them; Shadow collection excludes unrelated modules before import.
+Default local pytest without `--ci-suite` still discovers all the existing unit modules.
+The required collection-conservation gate excludes research modules before import and checks
+all remaining Backend/Evaluation nodes belong to exactly one required or explicit runtime
+partition. Partition contract tests also prove each Shadow module routes independently and
+cross-surface imports cannot occur during collection; other tests keep their existing routes.
+CI gate tests remain required. Backend dependency declarations are unchanged.
+`CI required` requires only Frontend, Backend, Database and Keycloak; it does not depend on
+either Shadow job. Keep Security Shadow out of required branch/ruleset checks. Its failures
+remain visible in the separate workflow and its `security-shadow-report` and
+`security-shadow-unit-reports` artifacts; historical reports and evaluation evidence are preserved.
 
 Database PDF integration tests run in a disposable Linux container with a 2 GiB memory limit
 and a delegated cgroup memory controller. That container requires privileged execution on the

@@ -19,7 +19,7 @@ class PostgresOperatorReader:
         lexical_population: VerifiedLexicalPopulation | None = None,
     ) -> None:
         self._reader = PostgresEvaluationReader(
-            session_factory, lexical_population=lexical_population
+            session_factory, lexical_population=lexical_population, include_invalid_generation=True
         )
 
     def read_trace(self, *, trace_id: str, workspace_id: str) -> object:

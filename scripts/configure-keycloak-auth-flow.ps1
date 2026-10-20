@@ -2,7 +2,7 @@ param(
     [ValidateSet('Inspect', 'Diff', 'Apply', 'Rollback')][string]$Mode = 'Inspect',
     [string]$BaseUrl = 'http://127.0.0.1:8180',
     [string]$Realm = 'knora-dev',
-    [ValidateSet('knora-dev', 'knora-figma-e2e')][string]$Project = 'knora-dev',
+    [ValidatePattern('(?-i)^(knora-dev|knora-figma-e2e(?:-[a-z0-9][a-z0-9-]{0,39})?)$')][string]$Project = 'knora-dev',
     [string]$AdminUsername = $env:KNORA_DEV_KEYCLOAK_ADMIN_USERNAME,
     [string]$AdminPassword = $env:KNORA_DEV_KEYCLOAK_ADMIN_PASSWORD,
     [string]$SnapshotPath

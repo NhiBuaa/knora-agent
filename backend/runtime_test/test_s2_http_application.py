@@ -10,7 +10,12 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
-from backend.runtime_test.s2_runtime_guard import require_owned_s2_database, require_reference_file
+from backend.runtime_test.s2_runtime_guard import (
+    require_owned_s2_database,
+    require_owned_s2_storage,
+    require_reference_file,
+    selected_s2_volumes,
+)
 from sqlalchemy import select
 
 from knora.adapters.postgres.database import SessionFactory
@@ -21,6 +26,7 @@ from knora.infrastructure.lexical_configuration import load_lexical_population
 
 
 def _owned_application(root):
+    selected_s2_volumes()
     command = ["docker", "--host", "npipe:////./pipe/dockerDesktopLinuxEngine"]
     environment = {
         key: value
@@ -28,7 +34,13 @@ def _owned_application(root):
         if not key.upper().startswith(("DOCKER_", "COMPOSE_"))
     }
     inspected = subprocess.run(
-        command + ["inspect", "knora-153-s2-application-1"],
+        command
+        + [
+            "inspect",
+            "knora-153-s2-application-1",
+            "knora-153-s2-postgres-1",
+            "knora-153-s2-qdrant-1",
+        ],
         env=environment,
         capture_output=True,
         text=True,
@@ -36,7 +48,8 @@ def _owned_application(root):
         timeout=15,
     )
     rows = json.loads(inspected.stdout)
-    assert len(rows) == 1
+    assert len(rows) == 3
+    require_owned_s2_storage(rows[1:], root)
     row = rows[0]
     assert re.fullmatch(r"[a-f0-9]{64}", row["Id"])
     assert re.fullmatch(r"sha256:[a-f0-9]{64}", row["Image"])
