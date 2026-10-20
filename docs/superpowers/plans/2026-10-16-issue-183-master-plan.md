@@ -1,6 +1,10 @@
 # Issue #183 — Master Implementation Plan
 
-> **For agentic workers:** Use `executing-plans` for one explicitly approved phase at a time. A Codex Goal references this Master commit and phase, never another roadmap. Checkboxes track progress; they do not grant permission.
+> **For agentic workers:** Owner approved the reviewed section10 package on2026-10-20 with “tôi duyệt plan”. Execute its internal gates without renewed permission prompts; honor its finite budgets and actual stop boundaries. Read the approval record below before continuing. No historical window is reopened.
+
+**Current execution authority — 2026-10-20 10:07 Asia/Saigon:** Approval covers the reviewed section10 document SHA256 `72a4045fb129e9bc87921f146b332b483ecc5a9d4ba03dddf15992c12aa0a1c8` on base HEAD `c30df6093fec3fc79c371be1c87003d30ae8bfb0`. Offline preparation is starting; runtime clock NOT STARTED, preparation attempts0/3, live windows0/2, physical attempts0/12. Keep PR184 Draft and main unmerged. Expected first outcome: reviewed private helper copies implementing preparation denial, aggregate budgets, OAuth reconciliation and fresh-context admission. Scope is those copies/tests plus this Master; historical helpers/product/3000/#191 remain untouched. Verify mocked physical counts, denial before credential loading, restart/counter persistence, OAuth interruption/foreign-entry preservation and final candidate binding. No live operation precedes TaskB's final tests/review/CI.
+
+**Historical planning checkpoint — 2026-10-20, before package approval:** Owner paused implementation to remove avoidable permission interruptions. Verified worktree HEAD was `c30df6093fec3fc79c371be1c87003d30ae8bfb0`, initially clean. The continuation window closed0/6; separate supervised API diagnosis returned health200 but did not reproduce the original exit. Three live cases/browser acceptance remain NOT RUN/UNVERIFIED. Section10 was prepared and reviewed locally before the explicit approval above; historical approvals/results below remain evidence, not renewed allowance.
 
 **Status:** Owner approved section4.9 A and P2 code/tests/docs offline on2026-10-18. Docs CI39115464051 at a7955c6 passed every job; renewed191 ACK6248362063 preceded edits. Product implementation is7f189d3/v21; accepted main6db745a was merged into this feature branch and the approved three-file Security Shadow compatibility extension is applied at bd1c9de. RED reproduced both stale-contract failures; GREEN security unit170, integration1, provider62, frontend470 and full maintained Backend/evaluation2197 passed/16 skipped/26 warnings. Ruff, formatting, OpenAPI, Compose and independent review passed. Exact-head CI39144075420 and advisory Security Shadow39144075397 both SUCCESS. Historical windows remain closed; no inference/OAuth/production/PR merge authority. PR184 stays Draft/183 open/InProgress;191/PR200 separate.
 
@@ -1865,7 +1869,7 @@ Exact-head CI [39144075420](https://github.com/NhiBuaa/knora-agent/actions/runs/
 | AC6 | In-app real browser at1440×960 and390×844: readable bullets/bold/literal text, no clipping/overflow/raw markers/duplicate chips; inspect actual screenshots and DOM, open every citation. | Historical count screenshots/source opening are reusable facts, not final-candidate coverage. Mobile viewport is not a physical phone. |
 | AC7 | Preserve169/178 language/scroll/history/source excerpts, citation/refusal and Workspace isolation. Invalid generation stays error; no repair/fabricated content/refusal. | Existing negative integration/public-validator/access tests plus affected/full gates; no extra live refusal/ACL inference by default. |
 | AC8 | Pin code/prompt/schema/model/cap/config/source; correlate the **single final payload**→composer→Turn/trace→DOM, usage/latency/unknowns. Offline checks/review/required CI pass. | v21 is implemented offline; its checks/review/CI are recorded in4.9. Old two-stage logs remain historical. Test fixtures/prompt assertions do not prove provider compliance. |
-| AC9 | Separate authorized bounded ledger, fresh fail-closed account/Free/quota/paid-budget0USD, isolated runtime/OAuth, exact cleanup. | All historical windows closed; no current allowance. No actual-cost0USD assertion without evidence. |
+| AC9 | Separate authorized bounded ledger, fresh fail-closed account/Free/quota/paid-budget0USD, isolated runtime/OAuth, exact cleanup. | All historical windows closed; section10's new package is owner approved, but no live window has opened. No actual-cost0USD assertion without evidence. |
 
 Original PDF/digests/23chunks and three fixed questions are reused:
 
@@ -1878,6 +1882,9 @@ No re-ingestion or old prompt/model comparisons. Count/general-list/short real c
 Default-M1 evidence loss routes to153; source-sufficient generation omissions route to the proposed separate Answer Generation issue. Runtime containment needs its own approval and never implies rollout/M1 acceptance. No153/158/191 implementation is pulled into183.
 
 ## 6. Phase graph and current status
+
+**Package approval2026-10-20:** P0–P6 retain their outcomes and dependencies. The owner approved
+section10 to advance P3/P4/P5 through internal gates; its new windows remain unopened. P6 is excluded.
 
 ```text
 P0 baseline/Master -> owner approval -> P1 offline remediation decision
@@ -1894,7 +1901,7 @@ P4 failure -> close window/report; no automatic new code direction or live windo
 | P1 | Current4.9 design complete and owner approved A. | Actual PR/renderer/payload audit, options, exact five-path diff and revisedACs. Docs CI39115464051/all jobs SUCCESS and renewed191 ACK6248362063 precede P2. |
 | P2 | **Offline technical DoD complete** at `41b677c`; product7f189d3/v21 and approved Security Shadow compatibility extension verified. | Approved product/caller/tests/docs applied; RED/GREEN, preservation/refusal/alias negatives, one-call metadata/trace regressions, full applicable checks, independent review and exact-head CI/Security Shadow SUCCESS. Candidate handed to191; no port into200. P3 mock-only readiness is now separately complete; P4 runtime remains gated. |
 | P3 | **Offline mock-only readiness complete** in `p3-v21-offline/`; no live authority. | v21 single-generation derivative, fail-closed admission and safe capture; 95 focused tests, Ruff and child-import checks pass. Independent review checkpoint is recorded in §4.9. Submit a separate P4 envelope; no OAuth/inference from P3. |
-| P4 | No current authority; P3 and CI are complete, but separate owner approval is still required. | At most3 query+3 generation proposed, same source/three cases/in-app desktop+mobile. Compare full final→composer→Turn/trace→DOM; open sources, report scope-specific pass/fail, routed generation defects, ledger/unknown cost/exact cleanup. No retries or quota rollover. |
+| P4 | Section10 package approved; TaskA preparation and final candidate CI/helper review pending, no new live window opened. | Each new window at most3 query+3 generation under10.3, same source/three cases/in-app desktop+mobile. Compare full final→composer→Turn/trace→DOM; open sources, report scope-specific pass/fail, routed generation defects, ledger/unknown cost/exact cleanup. No retries or quota rollover. |
 | P5 | Pending revisedAC1–AC9 and final review. | Review actual PR diff, citation/refusal/access/preservation regressions and evidence packet; publish limitations/routed semantic defects. Owner acceptance/PR state decision is explicit, not CI-derived. |
 | P6 | Separate owner integration approval required. | Integrate approved184 only under repository gates, record actual main SHA/checks and191 handoff. No automatic200 merge, production change, closure/Done or branch deletion. |
 
@@ -2148,7 +2155,7 @@ Private artifact identities (SHA256; files stay ignored):
 
 ## 7. Permissions and Codex Goals contracts
 
-**Current authority (amended2026-10-19):** Owner chose continuous execution through the readiness-for-acceptance packet for existing PR184, without merge, and separately authorized starting exactly `knora-dev-keycloak-dev-db-1` and `knora-dev-keycloak-dev-1` with unchanged configuration/data. The continuous-execution contract at the end of this Master governs the new conditional preparation/P4 package. The previous4b2174b window remains permanently closed0/6; its allowance is never reused. Internal successful checks advance automatically; ownership, safety and the new finite-window stop rules remain binding. Product acceptance/PR-state change/merge/closure/production remain owner decisions.
+**Current authority (amended2026-10-20):** Owner explicitly approved the reviewed section10 package; its current approval/counters are recorded at the top. Internal successful gates now advance automatically within that package. The table below records the2026-10-19 package historically; its finite window and separate API diagnosis have completed. Product acceptance/PR-state change/merge/closure/production remain owner decisions.
 
 | Action | Permission now | Future gate |
 | --- | --- | --- |
@@ -2161,6 +2168,9 @@ Private artifact identities (SHA256; files stay ignored):
 | OAuth/runtime mutation/inference | New conditional six-request package approved in the continuous-execution contract below; two named shared-container starts explicitly approved. Old windows remain closed. | Exact subject/CI, reviewed offline denial checks, owned runtime and fresh account/Free/quota gates must pass before credentials/send. Any failed active-window gate closes that window; no automatic retry. |
 | Default retrieval/production/account/billing changes | None. | Separate proposal/approval; no containment rollout by inference. |
 | Product acceptance/Draft change/merge/closure/Done/deployment | None. | Explicit owner disposition at each applicable boundary. |
+
+The preceding historical permission table cannot override section10's current approval/limits.
+Its historical live package has no remaining allowance.
 
 Owner requested **one finite Codex Goal per approved phase**; the current API supports one unfinished Goal per thread and already holds the owner's complete P0–P6 objective. Preserve that unfinished objective without redefining completion as P1. This is a tool limitation, not authority to skip phase gates: each finite outcome below remains separately tracked here and starts only with its approved envelope. Do not create a duplicate thread/roadmap or falsely complete the overall objective to replace it. Set no token budget unless explicitly supplied.
 
@@ -2215,7 +2225,9 @@ Historical owner review decisions (current frontier is4.9):
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Execute the continuous-execution contract below without permission pauses at successful internal checks. The4b2174b P4 attempt is permanently closed0/6; do not reset its stop or carry unused allowance forward. Keep PR184 Draft, #183 In Progress and #191/PR200 separate; previous semantic failures and historical fixture collection limits remain visible.
+**Immediate next action:** Execute approved section10 TaskA, then candidate CI/final helper review
+and the remaining internal gates. The owner's2026-10-20 approval ends the planning pause.
+Keep every prior window closed, PR184 Draft, #183 In Progress and #191/PR200 separate.
 
 ### Read-only resumption and proposed P4 recovery — 2026-10-19
 
@@ -2601,3 +2613,384 @@ then owned cleanup/report/PR update. No re-ingest, retrieval expansion,3000/#191
 merge/Done or guaranteed semantic acceptance. Continued runtime uncertainty is disclosed;
 choosing to run again requires explicit new allowance, not interpreting diagnosis approval as it.
 All formal Skill Evals and live question/browser acceptance remain UNVERIFIED.
+
+## 10. Proposed uninterrupted execution handoff — 2026-10-20
+
+**Status: OWNER APPROVED — 2026-10-20.** The owner reviewed the corrected plan and explicitly replied
+“tôi duyệt plan”. The reviewed document hash and initial counters are recorded at the top.
+This package supersedes prior forward permission pointers; it does not reopen historical windows. Historical
+windows, grants, failures and hashes are immutable. No second Master, Skill, hook, framework or
+evidence store is introduced. Dates in this section use Asia/Saigon.
+
+### 10.1 Outcome, alternatives and the reason for repeated stops
+
+**Target:** deliver existing PR184 against main with AC1–AC9 evidenced, independent review, exact
+candidate CI, cleanup and a concise owner acceptance packet. Keep it Draft and unmerged. Technical
+readiness is the agent's conclusion; final product acceptance remains the owner's decision. If the
+finite package cannot meet an AC, deliver its precise failure and remaining work, never a forced PASS.
+
+The previous package allowed one six-request window and made startup failure close that window.
+It therefore required a new permission even after zero provider requests. The supervised diagnosis
+showed one startup can reach health200; the original exit remains unexplained. This proposal changes
+the orchestration and authority boundaries, not the v21 product design or acceptance criteria.
+
+| Approach | Consequence | Disposition |
+| --- | --- | --- |
+| Keep one6-request window and stop on any setup failure | Lowest allowance; another zero-call startup failure can require another approval. | Valid but does not address the owner's interruption concern. |
+| Separate preparation; approve two bounded6-request windows within one12-request package | Routine setup recovery and one evidenced correction can advance without another permission question; requires reviewed denial and aggregate-budget checks. | Recommended, proposed below. |
+| Retry without a finite limit until all cases pass | Unbounded calls, obscured instability and no reliable permission frontier. | Excluded. |
+
+**Changes requiring this one new approval:** zero-inference preparation/recovery outside a live
+window; at most two new windows and12 total physical calls; limited automatic repair/revalidation;
+exact named dependency starts, temporary OAuth/login and credential loading; feature-branch
+publication and independent review. None is implied by writing this section.
+
+### 10.2 Fixed scope and authority matrix
+
+| Area | Autonomous after package approval | Boundary that still requires owner input |
+| --- | --- | --- |
+| Worktree/product | Reuse `C:/Developer/Projects/knora-agent-worktree/issue-183-answer-lists`, branch `fix/issue-183-answer-lists`; preserve section4.9 one-call v21 behavior. Read code with CodeGraph in this worktree when tracing impact. | New design/prompt/schema/model/token cap/provider, frontend product behavior, retrieval changes or shared-code overlap without current191 ACK. |
+| Offline repair | Existing private preparation/capture/admission helpers and their tests; existing product regression tests; documentation. Fix reproducible implementation defects only within the already approved4.9 behavior and paths, subject to the191 overlap gate. | Semantic-generation tuning, weakening validation, reinstating selector, new algorithm/dependency, modifying frozen191/PR200. |
+| Dependencies | Start retained183 PostgreSQL after ID/storage/port verification, plus exactly `knora-dev-keycloak-dev-db-1` then `knora-dev-keycloak-dev-1`, unchanged config/data. | Docker Engine recovery, recreation/migration/reset, broader Compose actions, any other shared service. |
+| Runtime | Supervise owned API127.0.0.1:8183 and frontendlocalhost:3183; readiness and PID/start-time/command ownership evidence; IAB only. | Occupied foreign port, lost ownership, another browser surface, primary3000 or other stack mutation. |
+| OAuth/auth | Add only localhost3183 callback/origin/logout entries already specified in the prior package, preserving fresh representations; normal local PKCE login using already authorized existing credentials. | Credential creation/rotation, MFA bypass, new accounts, realm/client redesign or missing interactive access. |
+| Provider | Existing account, Workers Free Active, paid budget0USD; exact v21/20B/1024 and qwen3 embedding identities in the prior contract; containment runtime only; fixed source and questions in section5. | Paid fallback, uncertain account/quota, new credentials/permissions, re-ingestion/document embedding, extra inference. |
+| Git/review/report | Commit/push this feature branch, observe its CI, update PR184 and existing issue checkpoint; delegate bounded read-only independent review with existing tools/evidence. | main merge/rebase/integration, new PR, PR ready-state change, issue creation/closure/Done, deployment, branch/worktree removal, messages to another task without explicit authorization. |
+
+Private helper changes must be made as new run-local copies under the existing ignored183 evidence
+root. Preserve `p3-v21-offline/` and the closed `p4-v21-continuation/` artifacts byte for byte. A
+run-local subdirectory is an execution record in the existing store, not another planning/evidence
+system. Verify its unused path before creation. This Master defines helper roles and verification
+order. Store final helper paths/hashes in the existing run record and Issue checkpoint/PR; do not
+create another tracked commit merely to insert the hash of that commit or its final private helpers.
+
+Relevant maintained repair boundaries are the existing
+`backend/src/knora/providers/openai_compatible/generation.py`, `answer_blocks.py`,
+`backend/src/knora/providers/generation.py` and `backend/src/knora/answering/module.py` from4.9;
+the removed `presentation.py` stays removed. Their callers/fixtures are listed in4.9. No defect in
+these paths is currently established by the startup failure. Do not edit them speculatively. Before
+an actual shared hunk, verify191's ACK covers that exact change; an old ACK is not a blanket grant.
+An uncovered hunk is a genuine coordination boundary, not a routine phase gate.
+
+### 10.3 Finite budgets, validity and counters
+
+- **Validity:** package approval authorizes the scoped offline work; it does not start the
+  runtime clock. Finish TaskA and TaskB's candidate/CI/final-helper review first. Immediately before
+  the first dependency start, API/frontend start, OAuth mutation or runtime credential load, record
+  `runtime_started_at` and a24-hour deadline in the existing package record. This single deadline
+  covers all preparation attempts and both windows. Offline work and CI waiting before that moment
+  do not consume runtime validity; offline correction/CI waiting afterwards do not extend it.
+  Record approval text/time, this section's Git revision and cumulative counters. Context compaction,
+  process restart, “continue”, CI rerun or a new grant never resets the start/deadline/counters.
+  No scheduled/background continuation is implied. Reconcile approval, candidate and owned state on
+  resumption; honor any owner pause/revocation. After runtime expiry, scoped offline diagnosis/fixes,
+  verification, cleanup and reporting may finish, but no new runtime/send is permitted.
+- **Preparation:** at most3 complete attempts for the whole package, initial attempt included.
+  Per attempt: at most one start per named dependency if stopped,120s readiness per dependency;
+  one API start with90s readiness, one frontend start with180s readiness. Poll only read-only health;
+  each poll is not a new start. Each repeat requires an observed cause and recorded correction.
+  This is a ceiling, not permission to repeat an unchanged failure three times.
+- **Offline repair:** no arbitrary two-round ceiling. Fix scoped test/assertion/format/helper
+  defects autonomously while evidence supports progress. Record the failure, falsifiable cause,
+  smallest correction and verification result for every rerun; preserve failed/incomplete runs.
+  RED tests written to expose a defect and routine formatting do not consume a separate permission
+  budget. Do not repeat an unchanged failing command without new evidence or a diagnosed transient
+  cause. If investigation leaves no actionable in-scope hypothesis, report the precise blocker and
+  continue other independent work; do not invent a fix or ask merely because two checks failed.
+  New behavior/scope, missing ownership/access and the live stop rules still require disposition.
+  At most one unchanged-SHA CI rerun per candidate, only for a diagnosed infrastructure failure;
+  no rerunning a functional failure until it happens to pass.
+- **Inference:** at most2 new windows, each at most6 physical attempts:3 query embeddings and3
+  answer calls. Aggregate maximum12, including failures/indeterminate sends;0 document embeddings,
+  0 selectors,0 transport retries,0 within-window replay/re-ask. Every attempt consumes a reservation
+  before transport; an uncertain outcome is never refunded. No two dispatchers/windows run together.
+- **Window2 is a reserve:** allowed only after a demonstrated, deterministically repairable
+  preparation/capture/preservation defect, a scoped correction and fresh affected tests/review/CI.
+  It reruns the fixed three-case suite on its pinned candidate to establish coherent evidence.
+  It is not available for stochastic provider/schema/token failure, generation omissions or fishing
+  for better answers. Stop after window1 if it supplies sufficient passing evidence.
+- **No carryover:** a stopped window stays stopped; unused slots expire. Window2 has its own maximum6
+  within the aggregate12, not6 plus unused slots. A failure before opening a window consumes only a
+  preparation attempt. After a live window opens, its mandatory failure closes it even at0 calls.
+- **Safety:** any unknown in-flight request, broken accounting/denial, credential exposure, wrong
+  subject/account/source or lost isolation stops the entire live package. No reserve window may
+  bypass that stop. Known quota must be≤8000/10000 with observation age0–600s before each send;
+  expired observations may be refreshed before admission without consuming a physical call.
+  Failed/unknown observations close an already open window. Paid budget0 is authorization, not
+  evidence that actual request-specific cost is zero.
+
+### 10.4 Execution tasks and evidence gates
+
+These are automatic internal checks after approval, not individual permission prompts. Announce
+progress and changed findings; ask only at a boundary in10.6. Before each actual modification record
+expected outcome, affected paths/callers/fixtures/config, failure checks and remaining budget.
+Cleanup is mandatory on success, failure, expiry or interruption: deny further dispatch first,
+reconcile pending requests, then perform TaskD's owned-resource cleanup before waiting for a new
+decision. Readiness observations use short polling calls so progress can be reported at least once
+per minute. Neither cleanup nor safe reporting needs renewed live authority.
+
+**Task A — reconcile authority and prepare helper logic, with zero runtime/inference**
+
+- [x] Verify worktree/branch/HEAD/status, current Issue183/PR184/base,191 frozen state, approval and
+  runtime start/deadline if already set. Read4.9,5,7,9,10; use merged guidance1429d18001b4be17dab9dc108740482ed6efbb65 read-only
+  if absent from this branch. Do not merge/port the harness to obtain instructions. Verify actual
+  session Skill catalog; use `executing-plans`, diagnosis/TDD/review only where applicable and
+  `verification-before-completion` before claims. Do not install/activate additional Skills.
+- [ ] Reuse existing `p4_guard.py`, `runtime.py`, `oauth.py`, their three test files and `conftest.py`
+  from the closed continuation as read-only templates, plus supervised-diagnosis observations.
+  Their current runtime calls `guard._envelope()` even for API/frontend, so separating preparation
+  is an actual private-helper change, not merely rearranging launch commands. Keep live denial
+  intact; do not make an old grant valid or remove P3's MockTransport guard.
+- [ ] In the new copies, separate explicit preparation authorization from send authorization:
+  API/frontend carry dummy provider credentials and cannot dispatch; only the reviewed one-Turn
+  dispatcher can load provider credentials after live admission. Preserve local auth/DB/PDF access
+  required by UI. Deny unexpected external provider calls in preparation and document embedding in
+  all modes. Preserve child-import/no-side-effect behavior and exact worktree imports.
+- [ ] Extend existing mocked boundary tests for preparation without a live grant, credential/send
+  denial in preparation, valid/expired authorization, both per-window and aggregate budgets,
+  spent/pending/stopped state across restarts, duplicate dispatch, quota refresh/unknown, old-window
+  reuse and cleanup conflicts. Add pre-dispatch rejection of a reused/nonempty conversation and
+  nonempty context; assert denial occurs before credential loading or a physical provider call.
+  Assert physical mock handler counts; test optimized Python denial
+  as in the existing suite. No real network/credentials during these tests. Record actual counts.
+- [ ] Extend the new OAuth copy for the preparation lifecycle below. The old helper's one-shot
+  `prepared/applied/cleaned` handling is insufficient: add refuses an existing marker, and cleanup
+  refuses `prepared` even when the PUT may have succeeded. Keep old helper/evidence unchanged.
+  Keep executable helpers at the run-local root; use separate attempt-numbered directories only
+  for OAuth ownership records/snapshots, with package and attempt IDs. Never reset the parent
+  preparation/window/request counters by switching directories.
+  Before PUT, persist the exact client ID, before/desired snapshots and owned additions; record
+  dispatch intent, then record a successful PUT acknowledgement before attempting readback.
+  Reconcile after interruption using fresh reads and the following rules:
+  - Proven no PUT dispatched: retain the failed preparation record; no rollback is needed. A new
+    preparation attempt is permitted only after correcting its cause and checking the counters.
+  - Successful PUT acknowledgement recorded but readback interrupted: refresh the client read
+    without resending PUT. Confirm the owned additions and preserve unrelated concurrent entries;
+    only then finalize ownership and perform normal owned cleanup if ending the attempt.
+  - PUT outcome unknown, conflicting values or ownership not provable: record unresolved state,
+    stop dependent setup/live work and report it. Matching values alone do not prove ownership;
+    do not delete them, resend blindly or create a new attempt to bypass this state.
+  - Cleanup completed and confirmed: retain its marker/snapshots; a repeated cleanup is a read-only
+    confirmation. A later preparation gets a new attempt record after the previous attempt is
+    reconciled. Cleanup interrupted after a known acknowledged PUT may similarly finish by readback;
+    an unknown cleanup PUT outcome remains unresolved, never silently retried.
+  Test failure before PUT, successful PUT followed by failed readback, unknown PUT outcome,
+  interrupted cleanup, repeated completed cleanup, foreign-entry preservation and a second
+  preparation after confirmed cleanup. Assert no extra PUT or provider send in reconciliation.
+- [ ] Finish offline logic/denial tests, including OAuth recovery. Any early review is preliminary;
+  final execution readiness requires TaskB's independent review of the exact candidate-bound bytes.
+  Do not turn mock fixture identities or the old helper's hardcoded HEAD/CI identifiers into a grant.
+
+**Task B — publish and pin the candidate, then prepare environment without opening a live window**
+
+- [ ] Run applicable section8 checks; documentation-only changes use links/consistency/diff checks.
+  Commit/push a coherent candidate on the feature branch. Verify its own `CI required` and all
+  components; bind `ci-subject.json` PR-head/checkout/run/attempt to that candidate. Old93c3bdc,
+  500bd9b or c30df60 CI is only historical evidence for those subjects. Verify current Security
+  Shadow result under the runbook. Record the final SHA externally in the existing checkpoint/PR
+  rather than creating an endless series of commits to embed their own hashes.
+- [ ] With that candidate and CI fixed, bind the new private helper copies to the full candidate SHA,
+  CI checkout SHA/run/attempt and package/window identities. Replace every old literal binding,
+  including `HEAD`, `WINDOW`, approval identity and live CI assertions; leave the reviewed historical
+  P3 dependency hash intact. Do not weaken identity checks to make the new binding pass.
+  Run the mocked helper suite and child-import/format checks on these final bytes; assert rejection
+  of the old subject/run/grant, altered helper hashes and dirty maintained product files.
+- [ ] Independent review now covers these exact candidate-bound helpers, preparation/live denial,
+  aggregate accounting and OAuth recovery. Parent checks the diff, output and full hash manifest;
+  retain that manifest and candidate/CI binding in the existing run record and checkpoint/PR.
+  Freeze the helper bytes and maintained product tree before credentials/runtime. If reviewer
+  capacity is unavailable, continue independent offline work and retry assignment once; do not
+  self-award an independent PASS. A still-missing required review is reported as unavailable.
+  Any later helper edit invalidates its freeze and requires affected tests and renewed review.
+  A maintained candidate edit also returns through commit/CI/binding. Neither operation resets
+  runtime time, preparation attempts or request/window counters once those have started.
+- [ ] Snapshot exact dependency IDs/storage, foreign listeners and owned resource state. Verify
+  retained source/version/digest/23chunks/vectors and object bytes read-only. Recover only the
+  named stopped dependencies in10.2; no migration or corpus mutation. Before the first runtime
+  side effect, start the single24-hour clock under10.3 and reserve preparation attempt1. If the
+  retained DB must first be started to read the corpus, start only that verified dependency and
+  then complete the source checks before API/frontend/OAuth or any question. Fail a source mismatch.
+  Starting another owned runtime component in the same attempt does not start another clock.
+- [ ] Start the owned API with supervised stdout/stderr/exit capture and PID ownership; then start
+  frontend. Verify health and ordinary UI/auth reachability within10.3 readiness bounds. All of this
+  is preparation with provider sends denied. A vanished process gets a recorded exit/unknown,
+  cause investigation and a bounded preparation correction; no inference window exists to renew.
+- [ ] Fresh OAuth before/readback, additive three-entry mutation only if absent; local IAB login;
+  verify workspace/source/history access and desktop/mobile viewport control. Restore only additions
+  actually owned by this package. Use TaskA's attempt-specific OAuth records and reconcile the
+  preceding attempt before starting another; an unresolved mutation blocks that transition.
+  A failed login or viewport-tool limitation is resolved before a
+  live window, never by changing browser or bypassing authentication. Do not submit a question yet.
+
+**Task C — run the three real cases, inspect between admissions**
+
+- [ ] After all previous checks pass, take fresh account/Free/quota observations and create a new
+  exact-subject/window grant. Record full code/policy/schema/helper hashes, model/cap/config/source
+  identities, ledger and parent approval. Verify they match TaskB's frozen manifest; grant creation
+  is data recording and must not patch the helper code. Only now open window1 and allow credential loading into
+  the dispatcher. API/frontend still have no provider key. No polling may generate an answer.
+- [ ] Submit each of section5's questions once, in order, through the normal application flow.
+  Create a fresh conversation in the pinned workspace for each case, including reserve-window cases;
+  never reuse the prior case/window's conversation or erase its history. Before submitting, verify
+  that conversation has zero Turns. Before credential loading/dispatch, verify its only Turn is
+  this case's queued question and that the workspace has no other eligible queued Turn.
+  Use the existing context builder without overriding it; verify `selected_turn_ids` is empty,
+  transcript is empty, context token count is0 and `retrieval_query` equals the exact fixed question.
+  Record the context policy ID, those fields and package/window/case/conversation/Turn identities.
+  Bind the queued Turn to that question/workspace/source and dispatch it once; reject any drift
+  between precheck and claim. At most one query embedding then one answer call per question.
+  Preserve raw final content before parse, validated JSON or safe rejection, composed Markdown,
+  API result, stored Turn/trace and usage metadata. No raw reasoning, credentials or auth URLs in
+  public evidence.
+- [ ] After each case, compare every accepted before/items/after field and alias through
+  JSON→Markdown→API/Turn/trace→DOM. Inspect actual1440×960 and390×844 screenshots and DOM for
+  bullets/bold/literal order/clipping/overflow/unique citation chips. Open every rendered chip and
+  verify original document, version, PDF page and locator. Reuse the same answered Turn on mobile;
+  verify history reload on that same completed Turn without submitting another question. No second
+  model request for viewport changes, source opening or history reload.
+- [ ] Parent records criterion pass/fail/unknown and artifacts before admitting the next question.
+  If capture/preservation fails, close the window. Diagnose offline within budget; only the precise
+  reserve conditions in10.3 permit window2. Missing generated content is classified at generation
+  or retrieval boundary per4.9; do not manufacture it, relax AC1/4/5 or add full-PDF completeness.
+
+**Task D — review, clean up and deliver the acceptance packet**
+
+- [ ] Complete the matrix below, preserving failures and NOT RUN/UNVERIFIED. Reconcile both window
+  ledgers, physical attempts, usage/latency/unknown cost and all preparation/correction/CI reruns.
+  Independent reviewer checks the connected diff and evidence, including safety/negative cases;
+  parent validates cited artifacts. Review is read-only and does not consume inference authority.
+- [ ] Apply scoped deterministic findings under10.3's evidence-driven offline repair rules. Behavior-changing
+  repairs require affected tests, fresh candidate CI and new affected live evidence; no automatic
+  reuse of old screenshots against changed behavior. If no reserve remains, deliver the blocker.
+  A docs-only descendant can reuse live evidence with an explicit unchanged-product/runtime hash
+  comparison and its own CI; a helper/hash-only change still requires an impact determination.
+- [ ] Stop only owned dispatcher/API/frontend PID trees after identity recheck. Restore owned OAuth
+  additions against a fresh representation, preserving concurrent foreign entries. Reset only owned
+  viewport/session state. Verify listeners/cleanup and unchanged shared resources. Leave retained
+  DB and shared Keycloak running as previously agreed; no stack-wide cleanup or removal of evidence.
+- [ ] Update the existing Issue checkpoint and PR184 once with the final candidate/checks, acceptance
+  matrix, artifacts/hashes, commands/outputs/counts, review scope, cleanup and limitations. Redact
+  secrets as `[REDACTED]`, user-local paths as `<USER_HOME>` and reproducible work paths as
+  `<WORKTREE>`/`<PYTHON_ENV>`. Keep source/credential-bearing artifacts private. Read back publication.
+  Reuse PR184; do not create a second PR, merge main, mark ready, close/Done or deploy.
+- [ ] Deliver either “ready for owner acceptance” with every required criterion evidenced or a precise
+  failure packet. The final owner acceptance decision is a deliberate endpoint, not another internal
+  stage approval. P6 integration remains outside this package even if acceptance is granted.
+
+### 10.5 Acceptance and evidence mapping
+
+| Criterion | Required fresh evidence | Reuse / limit |
+| --- | --- | --- |
+| AC1 | Case1 real single answer: natural bold7-chapter lead and returned members as bullets. | No hardcoded answer; generated wrong count does not pass merely because DOM preserved it. |
+| AC2 | Every accepted text field/order/repetition/qualification correlated across all five layers for the three cases. | Existing preservation regressions support edge cases; missing JSON text is classified separately. |
+| AC3 | Every rendered chip maps to the correct original document/version/page/locator, no raw/duplicate marker. | Existing invalid-alias/access tests; fixture PASS alone cannot certify a real source click. |
+| AC4 | Case2 real ordered list with readable paragraph context. | No exhaustive frontmatter/PDF inventory added. |
+| AC5 | Case3 real natural prose, no forced list/unrelated outline. | An unrun short case remains NOT RUN. |
+| AC6 | Three answered Turns inspected at both sizes:6 case/viewport observations, screenshots plus DOM and citation checks. | Mobile emulation is not physical-device validation. |
+| AC7 | Applicable language/scroll/history/refusal/access/Workspace and malformed-generation regressions; observed UI history/source behavior. | No additional paid/live negative probes; state which checks are mocked/integration/runtime. |
+| AC8 | Exact subject/policy/schema/models/cap/source/config and fresh-conversation/empty-context identities per case; final-payload correlation, tests/review/CI, usage/latency unknowns. | No evidence transfer across a behavior change without new verification; no history carried into a reserve case. |
+| AC9 | Valid approval, preparation ownership, both bounded ledgers if used, fresh quota, original failures and cleanup. | Budget0USD does not prove billing0USD. |
+
+Use commands already specified in section8 and the existing helper test entry points; substitute
+only the verified run-local path/environment. Record the actual command and output rather than
+claiming projected counts. `npm --prefix frontend run test -- tests/answer-rendering.test.tsx`
+is the focused renderer command when affected. P3 and live-helper mocked suites remain distinctly
+labeled. No application startup, provider test or browser acceptance is performed by this draft.
+
+For the future run-local helper copies, the existing test entry points are
+`test_p4_guard.py`, `test_runtime.py`, `test_oauth.py`; the command is
+`<PYTHON_ENV>/python -X utf8 -B -m pytest --rootdir=. -p no:cacheprovider <RUN_LOCAL>/test_p4_guard.py <RUN_LOCAL>/test_runtime.py <RUN_LOCAL>/test_oauth.py -q --basetemp=<SHORT_OWNED_TEMP>/tmp --junitxml=<RUN_LOCAL>/junit.xml`.
+Run from the worktree root, using a fresh short owned temporary directory and the copied denial
+fixtures. `<RUN_LOCAL>` is the verified new subdirectory under the existing183 evidence root;
+it must not resolve to a historical window. This command is a planned mocked check, not a live run
+or an assertion that the unimplemented preparation/aggregate changes already pass.
+
+### 10.6 Recovery decisions without repeated small questions
+
+| Observed event | Agent action after approval | Stop asking / ask boundary |
+| --- | --- | --- |
+| Successful internal check | Record evidence and advance. | No permission question. |
+| Test/assertion/format failure in authorized scope | Preserve failure, diagnose and correct with evidence; rerun the relevant check under10.3. | No two-round permission cutoff; report a blocker only when progress lacks an actionable in-scope hypothesis or an actual authority/access boundary is reached. |
+| API/frontend exits during preparation, zero sends | Capture logs/exit, cleanup owned process, diagnose; next preparation attempt only with a concrete correction. | No new live approval within3-attempt ceiling; unknown cause after investigation is a blocker, not blind retry. |
+| OAuth readback/cleanup interrupted | Reconcile the attempt record against fresh client state under TaskA's rules; never infer ownership from matching values alone. | Known acknowledged effects can be verified without new permission; unknown mutation/ownership stops dependent work and is reported. |
+| Quota observation expired before admission | Refresh exact-account observation while dispatcher is denied; recheck every gate. | No question if refresh succeeds; no send with unknown quota. |
+| Screenshot/citation observation fails after a completed answer | Keep same Turn; retry the read-only observation once if a transient UI cause is shown. | Never regenerate the answer; persistent inability leaves criterion unverified and closes window. |
+| Known deterministic preservation/capture defect | Close current window; scoped offline fix/test/review; use reserve only if10.3 permits. | No new permission for that pre-approved reserve; original failure remains visible. |
+| Provider timeout/unknown send, token/schema failure, unsafe state or guard defect | Stop live package, reconcile and clean up; continue safe report/offline analysis. | New live authority requires owner decision; no reserve to bypass it. |
+| New product decision, uncovered191 overlap, unavailable credentials/reviewer/IAB or foreign-resource conflict | Finish independent safe work; present exact evidence and smallest remaining action. | One consolidated blocker request, no repeated small gate questions. |
+| All criteria pass | Finish review/cleanup/PR packet. | Ask for owner product acceptance only at the endpoint; no merge implied. |
+
+### 10.7 Handoff wording, self-verification and current planning evidence
+
+Proposed single owner instruction after reviewing this section:
+
+> Approve Master section10's execution package: scoped evidence-driven offline fixes without an
+> arbitrary round limit; preparation up to3 attempts and at most2 new windows/12 total physical calls.
+> The24-hour runtime deadline starts at the first runtime side effect after final helper review,
+> not at approval or during preceding offline/CI work; paid budget0USD.
+> Includes exact named dependency recovery, isolated8183/3183 IAB/OAuth/login, guarded credential loading,
+> independent review and feature-branch/PR184/checkpoint publication. Advance through internal gates
+> without asking. Preserve section4.9/AC1–AC9 and every historical stop. Deliver the acceptance packet;
+> keep PR Draft, do not merge/close/Done/deploy. Stop only at section10.6's actual boundaries.
+
+The quoted instruction records the proposed package wording, not a verbatim owner quote. The owner
+subsequently approved this reviewed plan with “tôi duyệt plan”; see the approval record at the top.
+
+Planning outcome: one existing Master, corrected current-authority pointers and one proposed
+execution contract. Scope of this edit is documentation only; no caller/test/config/export changes.
+Failure checks are stale execution instructions, contradictory authority, omitted ACs, unsupported
+budget/acceptance claims, bad local links and whitespace. No product suite is needed for this edit.
+Use `verification-before-completion` and inspect `git diff --check`, local-link results and the full
+diff before reporting. At planning close this draft had no new CI execution and inherited no CI
+PASS from c30df60; the approved execution candidate needs its own result.
+
+Initial planning checks actually run: `git diff --check` exit0;7 unique local Markdown links checked,
+0 missing;9/9 acceptance rows and4 task groups present; no unresolved planning placeholders found.
+Full documentation diff inspected. One initial patch failed because its context did not match a
+whole existing line; it made no change. The corrected patch was applied once. These checks establish
+document consistency only, not executable-helper, application, browser or model acceptance.
+
+**Review corrections — 2026-10-20:** The owner requested all four findings be corrected in this
+Master. TaskA now specifies attempt-specific OAuth records and acknowledged/unknown PUT recovery;
+TaskB binds the candidate/CI before final helper tests, independent review and byte freeze;
+section10.3 starts the single24-hour runtime clock after offline readiness and removes the arbitrary
+offline repair-round cutoff; TaskC pins a fresh conversation and empty context for each case,
+including the reserve, then reloads that same answered Turn for history/viewport checks.
+All four plan findings are addressed; implementing/testing these helper changes remains NOT RUN.
+One correction patch failed on context without changing a file; its corrected patch applied once.
+No test or runtime rerun occurred during this documentation correction.
+Post-correction checks: `git diff --check` exit0;7 unique local links,0 missing;9 acceptance rows,
+4 task groups; old offline repair-limit wording absent. Only this Master is modified; HEAD remains
+`c30df6093fec3fc79c371be1c87003d30ae8bfb0`. These are document checks, not a new CI result.
+
+Guidance selection: `using-superpowers`, `brainstorming` and `writing-plans` shape this process;
+the owner's single-Master and consolidated-approval instructions override generic new-spec and
+per-section approval ceremonies. `receiving-code-review` guides the four corrections above;
+`verification-before-completion` checks the documentation result.
+Hindsight183 pages read in this planning pass contain no substantive content; no memory fact is
+used as evidence. CodeGraph was first used in the prior supervised diagnosis, not retroactively
+claimed for earlier implementation; known-location documentation editing needs no new graph query.
+Record actual task quality, compliance and reasoned reruns in this existing section/checkpoint.
+Formal Skill Evals remain UNVERIFIED; no valid baseline supports a causal improvement claim.
+
+**Execution checkpoint — 2026-10-20, offline TaskA:** `git rev-parse --show-toplevel`, branch/status,
+`gh issue view 183`, `gh pr view 184` and `gh pr view 200` confirm the worktree/branch, Issue OPEN, PR184
+OPEN/Draft against main at base candidate c30df60 and frozen PR200 at17f1998. Read pinned guidance
+1429d180 read-only; no merge/port. `codegraph status --json <WORKTREE>` reports complete627files,
+11684nodes/34000edges, pending0, mismatch null; MCP `codegraph_explore` on
+`ConversationRunner._execute_claim build_context` confirms history is loaded and supports the
+empty-context pre-dispatch checks without changing the builder. This continues CodeGraph use from
+the earlier diagnosis; it is not retroactively attributed to the original implementation.
+Docker Engine29.7.2 is available. Read-only inspect confirms retained183 PostgreSQL
+`a9ca76520890`/volume `knora_issue183_postgres_data`/loopback15483 and the two authorized Keycloak
+containers `d5f8ab0c587a` then `f75ca82f4bd9`, unchanged storage/bindings and currently stopped.
+Selected ports3000/3183/8183/8180/15483 had no listening entry at observation; no resource was
+started/stopped. CUA inventory confirms this chat's IAB and its viewport capability; no tab opened,
+viewport changed or other browser claimed. Document checks:7 local links/0 missing,9 AC rows,
+`git diff --check` exit0. Independent implementer is preparing only the new private helper copies;
+final candidate-bound review remains pending. Runtime clock NOT STARTED; all package counters0.
+Initial focused RED:3 failed/32 deselected in0.44s, missing preparation/window APIs and OAuth ACK
+reconciliation. After the first private correction:3 passed/32 deselected in0.29s. Parent inspected
+both logs. Full helper behavior/denial coverage remains in progress, not PASS from this narrow run.
+The documentation candidate may run CI while the remaining offline helper checks finish; binding,
+final independent review and every runtime gate still wait for their actual completion.
