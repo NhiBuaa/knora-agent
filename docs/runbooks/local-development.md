@@ -2,6 +2,9 @@
 
 Use this workflow for day-to-day development with Cloudflare Workers AI. The stable offline Ollama demo/acceptance launcher remains separate from source-watching development behavior.
 
+For provider-free, disposable coding-agent browser verification, use the
+[agent environment](agent-environment.md) and its Feature Map instead of this daily runtime.
+
 ## Runtime layout
 
 ```text

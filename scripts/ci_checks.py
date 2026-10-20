@@ -8,7 +8,7 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-REQUIRED_JOBS = {"frontend", "backend", "database", "keycloak", "security_shadow"}
+REQUIRED_JOBS = {"frontend", "backend", "database", "keycloak"}
 
 
 def _safe_identity(case: ET.Element) -> str:

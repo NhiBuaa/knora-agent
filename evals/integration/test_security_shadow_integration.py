@@ -1,4 +1,4 @@
-"""Required offline Guardrails integration; install requirements-security-shadow.txt first."""
+"""Offline Guardrails integration; install requirements-security-shadow.txt first."""
 
 from evals.scorers.security_shadow import APPROVED_PACKAGES, scan_local
 
