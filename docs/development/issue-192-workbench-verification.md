@@ -974,3 +974,51 @@ build` exited0. Its 275 input hashes matched the maintained source and copy befo
 only to that invocation; the old worktree `.next` remains untouched. This is local build evidence,
 not browser or runtime acceptance. Final completion and source-pin receipts are retained with the
 same invocation; no new exact-head CI result is implied by them.
+
+### Finite shared-reader ACK applied — 20 October 2026
+
+The [finite peer ACK](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6287856135)
+authorizes the exact combined patch above on Workbench HEAD
+`f3a0d2dad6d9c481a9798300450c8f8778d853b9`; the unchanged reader base hash was verified before
+application. Only this worktree's reader and its normal-import regression were applied. PR #204's
+S2 reader was not changed. The final normalized-LF reader SHA256 is
+`2c50bbf12c4c84175cc2ae9dc371092698d9a66d7a5bc0c3df9b036b9674b5cd`; test SHA256 is
+`3e7cd04e10843269fe33a114d2189d8a0a6ac9a4042869fef64864c866632cc4`.
+
+Execution `reader-apply-46d2c0c1` first applied only the maintained regression to the actual old
+reader: **10 failures, 7 passes, exit1**, with zero blocked or successful external connections.
+After applying the pinned production hunk, the expanded reader/HTTP/lifecycle selection passes
+**20 tests, zero failures/errors/skips, pytest exit0 and strict report-validator exit0**. This
+imports the maintained adapter normally, without the earlier candidate-loader overlay. The
+existing independent candidate review and finite peer compatibility review apply to these exact
+unchanged source pins; the third branch finding is now repaired.
+
+The first expanded run had 19 passes and one HTTP-test setup failure: the offline socket guard
+blocked Windows asyncio's loopback implementation of `socketpair()`. That failed report is retained.
+Only the invocation runner was corrected to recognize calls inside its owned stdlib `socketpair`
+context; all other socket connects remain denied. The successful run records three owned asyncio
+IPC connections and zero external connection attempts. No product, dependency or test change was
+needed for that runner correction. SQLite query/write assertions and doubled projection boundaries
+still do not prove PostgreSQL locking, integration, provider or application runtime.
+
+Command structure and sanitized artifact location:
+
+```powershell
+git apply --check --whitespace=error-all <INVOCATION>/document-reader-ownership-with-regression.patch
+& <PYTHON_ENV>/Scripts/python.exe <INVOCATION>/run_owned_checks.py red
+& <PYTHON_ENV>/Scripts/python.exe <INVOCATION>/run_owned_checks.py green
+& <PYTHON_ENV>/Scripts/python.exe <INVOCATION>/run_owned_checks.py green-ipc
+& <PYTHON_ENV>/Scripts/python.exe scripts/ci_checks.py reports <INVOCATION>/green-ipc.xml
+```
+
+The exact patch is retained in the earlier `eval-fix-d25640ec` invocation; application logs,
+reports and source-pin receipts belong to
+`<USER_HOME>/AppData/Local/Temp/reader-apply-46d2c0c1/`. Fresh Ruff format/check/lint, OpenAPI,
+whitespace and Compose configuration checks exit0. Compose still warns about absent canonical
+MinIO credential variables. CI for the next commit must be verified separately; the earlier
+`f3a0d2d` CI result is not reused for this change. The backend-only reader repair requires no new
+Workbench browser claim.
+
+Actual continuation counts remain **0 real model calls, 0 corpus jobs/activations, 0 runtime stack
+startups, USD0 paid cost**. The ACK grants no live authority. Gold, FAILED source and history remain
+unchanged; the historical `COMPLETED / SEMANTIC_PENDING` ANSWER-to-REFUSAL result remains open.

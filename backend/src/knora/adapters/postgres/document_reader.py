@@ -6,6 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
+from knora.adapters.postgres.evaluation_datasets_tables import DatasetSourceTable
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
     ChunkSetTable,
@@ -30,6 +31,15 @@ from knora.ingestion.documents import (
     DocumentProjection,
 )
 from knora.providers.embedding import EmbeddingConfiguration
+
+
+def _not_builder_source():
+    return ~exists(
+        select(DatasetSourceTable.id).where(
+            DatasetSourceTable.document_id == DocumentTable.id,
+            DatasetSourceTable.workspace_id == DocumentTable.workspace_id,
+        )
+    )
 
 
 class PostgresDocumentReader:
@@ -259,7 +269,7 @@ class PostgresDocumentReader:
                 select(DocumentTable)
                 .where(
                     DocumentTable.workspace_id == workspace_id,
-                    ~DocumentTable.source_key.like("evaluation/%"),
+                    _not_builder_source(),
                 )
                 .order_by(DocumentTable.source_key)
             ).all()
@@ -276,7 +286,7 @@ class PostgresDocumentReader:
                 select(DocumentTable).where(
                     DocumentTable.id == document_id,
                     DocumentTable.workspace_id == workspace_id,
-                    ~DocumentTable.source_key.like("evaluation/%"),
+                    _not_builder_source(),
                 )
             )
             if row is None:
@@ -294,7 +304,7 @@ class PostgresDocumentReader:
                     .where(
                         DocumentTable.id == document_id,
                         DocumentTable.workspace_id == workspace_id,
-                        ~DocumentTable.source_key.like("evaluation/%"),
+                        _not_builder_source(),
                     )
                     .with_for_update()
                 )
@@ -356,7 +366,7 @@ class PostgresDocumentReader:
                 select(DocumentTable).where(
                     DocumentTable.id == document_id,
                     DocumentTable.workspace_id == workspace_id,
-                    ~DocumentTable.source_key.like("evaluation/%"),
+                    _not_builder_source(),
                 )
             )
             if document is None:
