@@ -4,7 +4,7 @@
 
 **Goal:** Make the approved email → six-digit OTP → native password update → fresh sign-in flow work in the owned isolated Keycloak runtime, retaining essential security requirements.
 
-**Spec:** [Approved Figma integration](../specs/2026-10-05-figma-ui-integration-design.md), [identity plan](2026-10-05-figma-ui-identity.md), [approved deferrals](../../development/figma-ui-deferred-work.md).
+**Spec:** [Approved Figma integration](../specs/2026-10-05-figma-ui-integration-design.md), [identity plan](2026-10-05-figma-ui-identity.md), [approved deferrals](../development/figma-ui-deferred-work.md).
 
 **Architecture:** Keycloak retains credential authority. The existing provider/service/JPA adapter owns recovery policy. A dedicated opt-in setup script prepares a new reset flow; ordinary harness, daily realm, built-in flows and production bindings remain unchanged. A separate test Compose override loads the production artifact and a stable file Vault secret.
 

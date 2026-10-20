@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker Compose overlay, Keycloak, Next.js 15, `@playwright/test`, TypeScript, existing FastAPI API, PostgreSQL, Vitest, pytest, Ruff.
 
-**Spec:** `docs/superpowers/specs/2026-09-19-m5-live-e2e-infrastructure-design.md`
+**Spec:** `docs/specs/2026-09-19-m5-live-e2e-infrastructure-design.md`
 
 ## Global Constraints
 

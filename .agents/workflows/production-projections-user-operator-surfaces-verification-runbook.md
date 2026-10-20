@@ -94,10 +94,10 @@ After design approval:
 
 Suggested locations:
 
-- docs/superpowers/plans/YYYY-MM-DD-m5-backend-projections.md
-- docs/superpowers/plans/YYYY-MM-DD-m5-user-surface.md
-- docs/superpowers/plans/YYYY-MM-DD-m5-operator-surface.md
-- docs/superpowers/plans/YYYY-MM-DD-m5-e2e-verification.md
+- docs/plans/YYYY-MM-DD-m5-backend-projections.md
+- docs/plans/YYYY-MM-DD-m5-user-surface.md
+- docs/plans/YYYY-MM-DD-m5-operator-surface.md
+- docs/plans/YYYY-MM-DD-m5-e2e-verification.md
 
 Every plan contains exact files, interfaces, dependencies, tests, RED/GREEN steps, acceptance criteria, commands, stop conditions, and commit boundaries.
 

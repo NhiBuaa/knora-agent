@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js, TypeScript, Tailwind CSS v4, Playwright, Keycloak, PostgreSQL.
 
-**Spec:** [Approved integration design](../specs/2026-10-05-figma-ui-integration-design.md); Documents edges in [dated inventory](../../design/figma-ui-inventory-2026-10-05.json) and [coverage ledger](../../development/figma-ui-visual-coverage.md).
+**Spec:** [Approved integration design](../specs/2026-10-05-figma-ui-integration-design.md); Documents edges in [dated inventory](../design/figma-ui-inventory-2026-10-05.json) and [coverage ledger](../development/figma-ui-visual-coverage.md).
 
 ## Global Constraints
 

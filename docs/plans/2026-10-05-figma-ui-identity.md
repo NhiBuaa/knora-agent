@@ -12,7 +12,7 @@ OIDC transactions and application sessions; it supplies safe error screens and a
 Vitest/Playwright.
 
 **Spec:** [Integration design](../specs/2026-10-05-figma-ui-integration-design.md).
-**Research:** [Pinned Keycloak findings](../../research/keycloak-email-otp-reset-2026-10-05.md).
+**Research:** [Pinned Keycloak findings](../research/keycloak-email-otp-reset-2026-10-05.md).
 
 **Directory structure:** Read the current/target tree, module responsibilities and dependency rules
 in [the workflow's directory analysis](2026-10-05-figma-ui-workflow.md#phân-tích-cấu-trúc-thư-mục-dự-kiến).
@@ -22,7 +22,7 @@ The task's file list and this structure must remain consistent throughout execut
 
 **Oct8 owner-approved follow-up:** The [native runtime plan](2026-10-08-figma-otp-native-runtime.md)
 implements the still-required functional recovery path under the
-[confirmed deferral boundary](../../development/figma-ui-deferred-work.md). Its explicit isolated
+[confirmed deferral boundary](../development/figma-ui-deferred-work.md). Its explicit isolated
 functional-testing gate supersedes this plan's physical-outage prerequisite for that test scope.
 Rejected outage operations remain prohibited; essential safety proof remains required and
 ordinary/daily/production recovery bindings remain unchanged.

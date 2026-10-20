@@ -8,7 +8,7 @@
 
 **Tech Stack:** FastAPI, existing `AnswerQuestion` SSE stream, Pydantic settings, pytest, Docker Compose, Next.js 15, Playwright Chromium, PowerShell virtual-environment tooling.
 
-**Spec:** `docs/superpowers/specs/2026-09-20-m5-live-e2e-fault-seam-design.md`
+**Spec:** `docs/specs/2026-09-20-m5-live-e2e-fault-seam-design.md`
 
 ## Global Constraints
 
