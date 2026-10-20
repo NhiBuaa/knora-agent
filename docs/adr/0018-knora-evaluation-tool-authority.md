@@ -24,7 +24,7 @@ Guardrails AI was scoped to Issue #188 in shadow mode; existing security gates r
 Disposition (2026-10-18): the owner [archived #188 as research-only](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6245695420).
 Preserve its code and evidence; Detection Completed = NO and Protection Enabled = NO.
 This does not approve runtime detector integration or reopen provider/activation permissions.
-See the [#188 master plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md)
+See the [#188 master plan](../plans/2026-10-16-issue-188-master-plan.md)
 and [CI runbook](../runbooks/ci.md) for the retained research boundary.
 
 The first DeepEval trial is conditional on verified zero paid cost and public/synthetic permission,

@@ -10,7 +10,7 @@ runtime/config/enforcement/export or Git publication is authorized.
 **Historical review material follows.** Its original pending wording, review question
 and “not applied” statements describe the pre-approval checkpoint. They are preserved
 with the reviewed diff, not current decisions or permission. The
-[Master](../superpowers/plans/2026-10-16-issue-188-master-plan.md) is current authority.
+[Master](../plans/2026-10-16-issue-188-master-plan.md) is current authority.
 Reviewed base SHA-256: `66f7c47e1298233a04124c43a695680df8ce67f4d92048c0a3cb92cf80eca7d3`.
 Frozen patch SHA-256: `4a6e64035f7a9c7348257c322754ab4f4693e7f4ed974eaad7bbaad0c0fcc2ff`.
 

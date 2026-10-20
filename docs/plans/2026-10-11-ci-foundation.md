@@ -8,7 +8,7 @@
 
 **Tech Stack:** GitHub Actions, Python 3.12, pytest/JUnit XML, Ruff, PostgreSQL 16/pgvector, Alembic, Node 22, Vitest, Playwright Chromium, Java 21/Maven, PowerShell and existing Compose profiles.
 
-**Spec:** `docs/superpowers/specs/2026-10-11-ci-foundation-design.md`
+**Spec:** `docs/specs/2026-10-11-ci-foundation-design.md`
 
 ## Global Constraints
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, SQLAlchemy/PostgreSQL, PowerShell Compose readiness, Keycloak realm JSON, Next.js, Playwright.
 
-**Spec:** `docs/superpowers/specs/2026-09-20-m5-live-e2e-bootstrap-design.md`
+**Spec:** `docs/specs/2026-09-20-m5-live-e2e-bootstrap-design.md`
 
 ## Global Constraints
 
