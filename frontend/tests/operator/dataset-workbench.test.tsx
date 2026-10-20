@@ -63,6 +63,106 @@ const extractedPage = {
   content_checksum: "d".repeat(64),
 };
 
+it("imports a generated proposal using the refreshed dataset revision", async () => {
+  let revision = 2;
+  let generated = false;
+  let imported = false;
+  const proposalCase = {
+    case_id: "generated-case",
+    question: "Generated question?",
+    expected: "ANSWER",
+    reference_answer: "Generated answer",
+    required_facts: ["first", "second"],
+    language: "en",
+    category: "multi-hop",
+    evidence_groups: [
+      {
+        alternatives: [
+          { document_version_id: "ver1", physical_page: 1, quote: "Evidence" },
+        ],
+      },
+    ],
+    context_dependencies: [],
+    no_answer_scope: null,
+  };
+  const batch = {
+    id: "generated-batch",
+    status: "COMPLETED",
+    result: {
+      drafts: [
+        {
+          draft_id: "draft-01",
+          status: "READY_FOR_REVIEW",
+          case: proposalCase,
+        },
+      ],
+    },
+  };
+  const requests: { expected_revision: number }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        if (input.includes("/preflight?")) {
+          return Response.json({
+            status: "READY",
+            input_digest: "a".repeat(64),
+          });
+        }
+        const body = JSON.parse(init.body as string);
+        requests.push(body);
+        if (body.expected_revision !== revision) {
+          return Response.json(
+            { code: "EVALUATION_DATASET_REVISION_CONFLICT" },
+            { status: 409 },
+          );
+        }
+        revision += 1;
+        if (input.includes("/import?")) imported = true;
+        else generated = true;
+        return Response.json({});
+      }
+      if (input.includes("/proposals?")) {
+        return Response.json({
+          profiles: [{ profile_id: "fixture", model: "offline" }],
+          batches: generated ? [batch] : [],
+        });
+      }
+      return Response.json({
+        ...dataset,
+        revision,
+        proposal_batches: generated ? [batch] : [],
+        cases: imported ? [proposalCase] : [],
+        reviews: [],
+      });
+    }),
+  );
+  render(<DatasetWorkbench workspaceId="w1" initialDatasetId="d1" />);
+  await userEvent.click(
+    await screen.findByRole("checkbox", { name: "guide.pdf" }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Check proposal readiness" }),
+  );
+  const generateButton = screen.getByRole("button", {
+    name: "Generate proposals",
+  });
+  await waitFor(() => expect(generateButton).toBeEnabled());
+  await userEvent.click(generateButton);
+  const importButton = await screen.findByRole("button", {
+    name: "Import as unreviewed case",
+  });
+  await waitFor(() => expect(importButton).toBeEnabled());
+  await userEvent.click(importButton);
+  await waitFor(() =>
+    expect(requests.map((request) => request.expected_revision)).toEqual([
+      2, 3,
+    ]),
+  );
+  expect(await screen.findByText("Generated question?")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
 it("downloads the selected original PDF in the current Workspace", async () => {
   vi.stubGlobal(
     "fetch",

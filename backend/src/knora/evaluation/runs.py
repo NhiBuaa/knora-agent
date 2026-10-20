@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
@@ -510,6 +511,7 @@ class EvaluationRunService:
             binding_digest=binding["approval"]["binding_digest"],
         )
         run["report"]["binding"] = binding
+        run["report"]["live_request_id"] = key
         run["report"]["source_preparation"] = self._pdf_sources(workspace_id, principal, frozen)
         run["quality_status"] = "SEMANTIC_PENDING"
         return self._store.create(run, key)
@@ -553,52 +555,69 @@ class EvaluationRunService:
             }
             self._store.finish(workspace_id, run_id, attempt_id, "BLOCKED", report)
             return True
-        by_id = {case.case_id: case for case in frozen.gold.cases}
-        readiness = {
-            item["case_id"]: item for item in pdf_case_readiness(frozen, selection, binding)
-        }
-        status = "COMPLETED"
-        observations = dict(run["observations"])
-        for case_id in selection.selected_case_ids:
-            ready = readiness[case_id]
-            uncertain = False
-            if ready["status"] == "BLOCKED":
-                observation = {"status": "BLOCKED", "failure_code": ";".join(ready["reasons"])}
-            else:
-                try:
-                    with binding_dispatch(profile, binding):
-                        observation = await profile.execute(
-                            by_id[case_id],
-                            {k: v for k, v in binding.items() if k != "live_admission"},
-                        )
-                    if observation.get("case_id") != case_id or observation.get("status") not in {
-                        "OBSERVED",
-                        "FAILED",
-                    }:
-                        raise ValueError("Invalid case observation")
-                except Exception:
-                    observation = {
-                        "status": "INDETERMINATE",
-                        "failure_code": "EVALUATION_OBSERVATION_INDETERMINATE",
-                    }
-                    uncertain = True
-            observations[case_id] = observation
-            self._store.checkpoint(workspace_id, run_id, attempt_id, case_id, observation)
-            if uncertain:
-                status = "INDETERMINATE"
-                break
-        report = score_pdf_run(
-            frozen,
-            selection,
-            binding["anchors"],
-            observations,
-            run_id=run_id,
-            binding_digest=binding["approval"]["binding_digest"],
-        )
-        report["binding"] = binding
-        report["source_preparation"] = run["report"]["source_preparation"]
-        self._store.finish(workspace_id, run_id, attempt_id, status, report)
-        return True
+        if profile.kind == "live":
+            profile.admission.bind_execution(
+                {
+                    "run_id": run_id,
+                    "case_id": selection.selected_case_ids[0],
+                    "request_id": run["report"]["live_request_id"],
+                    "attempt_id": attempt_id,
+                }
+            )
+        with profile.admission.operation() if profile.kind == "live" else nullcontext():
+            by_id = {case.case_id: case for case in frozen.gold.cases}
+            readiness = {
+                item["case_id"]: item for item in pdf_case_readiness(frozen, selection, binding)
+            }
+            status = "COMPLETED"
+            observations = dict(run["observations"])
+            for case_id in selection.selected_case_ids:
+                ready = readiness[case_id]
+                uncertain = False
+                if ready["status"] == "BLOCKED":
+                    observation = {"status": "BLOCKED", "failure_code": ";".join(ready["reasons"])}
+                else:
+                    try:
+                        with binding_dispatch(profile, binding):
+                            observation = await profile.execute(
+                                by_id[case_id],
+                                {k: v for k, v in binding.items() if k != "live_admission"},
+                            )
+                            if profile.kind == "live":
+                                profile.admission.validate_qa_observation(observation)
+                        if observation.get("case_id") != case_id or observation.get(
+                            "status"
+                        ) not in {
+                            "OBSERVED",
+                            "FAILED",
+                        }:
+                            raise ValueError("Invalid case observation")
+                    except Exception:
+                        if profile.kind == "live":
+                            profile.admission.stop()
+                        observation = {
+                            "status": "INDETERMINATE",
+                            "failure_code": "EVALUATION_OBSERVATION_INDETERMINATE",
+                        }
+                        uncertain = True
+                observations[case_id] = observation
+                self._store.checkpoint(workspace_id, run_id, attempt_id, case_id, observation)
+                if uncertain:
+                    status = "INDETERMINATE"
+                    break
+            report = score_pdf_run(
+                frozen,
+                selection,
+                binding["anchors"],
+                observations,
+                run_id=run_id,
+                binding_digest=binding["approval"]["binding_digest"],
+            )
+            report["binding"] = binding
+            report["live_request_id"] = run["report"].get("live_request_id")
+            report["source_preparation"] = run["report"]["source_preparation"]
+            self._store.finish(workspace_id, run_id, attempt_id, status, report)
+            return True
 
     @staticmethod
     def _partial_report(

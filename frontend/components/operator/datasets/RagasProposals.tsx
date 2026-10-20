@@ -154,6 +154,7 @@ export function RagasProposals({
         },
       );
       if (!response.ok) throw new Error("Proposal generation failed.");
+      await onChanged();
       await load();
       setReadiness(null);
     } catch (cause) {
@@ -166,7 +167,7 @@ export function RagasProposals({
   }
   async function importDraft(batchId: string, draft: Proposal) {
     if (!draft.case) return;
-    const edit = edits[draft.draft_id] ?? {
+    const edit = edits[JSON.stringify([batchId, draft.draft_id])] ?? {
       question: draft.case.question,
       reference: draft.case.reference_answer ?? "",
     };
@@ -348,7 +349,8 @@ export function RagasProposals({
                       {draft.draft_id} · {draft.reason ?? draft.status}
                     </p>
                   );
-                const edit = edits[draft.draft_id] ?? {
+                const editKey = JSON.stringify([batch.id, draft.draft_id]);
+                const edit = edits[editKey] ?? {
                   question: item.question,
                   reference: item.reference_answer ?? "",
                 };
@@ -372,7 +374,7 @@ export function RagasProposals({
                         onChange={(event) =>
                           setEdits((current) => ({
                             ...current,
-                            [draft.draft_id]: {
+                            [editKey]: {
                               ...edit,
                               question: event.target.value,
                             },
@@ -387,7 +389,7 @@ export function RagasProposals({
                         onChange={(event) =>
                           setEdits((current) => ({
                             ...current,
-                            [draft.draft_id]: {
+                            [editKey]: {
                               ...edit,
                               reference: event.target.value,
                             },

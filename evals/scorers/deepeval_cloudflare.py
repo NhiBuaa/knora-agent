@@ -30,6 +30,79 @@ class JudgeError(ValueError):
     pass
 
 
+def judge_request_body(prompt, schema, *, model, max_tokens):
+    body = {
+        "model": model,
+        "temperature": 0,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    if schema is not None:
+        body["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema.__name__,
+                "strict": True,
+                "schema": schema.model_json_schema(),
+            },
+        }
+    return body
+
+
+def next_capture_request(capture, responses, *, model, max_tokens):
+    """Replay pinned DeepEval builders without I/O, stopping before the next request."""
+
+    class NextRequest(BaseException):
+        pass
+
+    class ReplayJudge(DeepEvalBaseLLM):
+        def __init__(self):
+            super().__init__(model=model)
+            self.index = 0
+            self.ledger = self
+            self.max_output_tokens = max_tokens
+            self.next = None
+
+        def load_model(self):
+            return model
+
+        def get_model_name(self):
+            return model
+
+        def count(self):
+            return self.index
+
+        def generate(self, prompt, schema=None):
+            if self.index == len(responses):
+                self.next = (
+                    judge_request_body(prompt, schema, model=model, max_tokens=max_tokens),
+                    schema,
+                )
+                raise NextRequest()
+            content = responses[self.index]
+            self.index += 1
+            if schema is None:
+                raise JudgeError("JUDGE_SCHEMA_REQUIRED")
+            parsed = schema.model_validate_json(content, strict=True)
+            if parsed.model_dump(exclude_unset=True) != json.loads(content):
+                raise JudgeError("JUDGE_RESPONSE_INVALID")
+            return parsed
+
+        async def a_generate(self, prompt, schema=None):
+            return self.generate(prompt, schema)
+
+    judge = ReplayJudge()
+    try:
+        result = score_capture(capture, judge)
+    except NextRequest:
+        return judge.next
+    if judge.index != len(responses) or any(
+        m["status"] != "scored" for m in result["metrics"].values()
+    ):
+        raise JudgeError("JUDGE_CHAIN_INVALID")
+    return None, None
+
+
 class AttemptLedger:
     def __init__(self, path: Path, *, run_id: str, deadline: datetime, cap: int) -> None:
         now = datetime.now(UTC)
@@ -121,21 +194,9 @@ class CloudflareJudge(DeepEvalBaseLLM):
 
     def generate(self, prompt: str, schema: type[BaseModel] | None = None):
         self.ledger.reserve()
-        body = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": self.max_output_tokens,
-            "messages": [{"role": "user", "content": prompt}],
-        }
-        if schema is not None:
-            body["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": schema.__name__,
-                    "strict": True,
-                    "schema": schema.model_json_schema(),
-                },
-            }
+        body = judge_request_body(
+            prompt, schema, model=self.model, max_tokens=self.max_output_tokens
+        )
         try:
             response = self.client.post(
                 self.endpoint,

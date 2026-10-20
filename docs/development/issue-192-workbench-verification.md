@@ -836,3 +836,141 @@ the saved run `faacf17180f24a2bb5ab6c9e36917c6a` remains `COMPLETED / SEMANTIC_P
 ANSWER retrieval coverage `0/1`; DeepEval still lacks a compatible saved ANSWER; Ragas has not
 called a provider; embedded PDF rendering/download remains unproven. Historical Gold, thresholds,
 runs, Langfuse export and Guardrails enforcement remain unchanged.
+
+## Approved admission continuation — 19 October 2026
+
+The owner approved the [reviewed execution plan](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6267679308)
+in chat. The [approval record](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6268076220)
+limits this step to code, offline verification, review and the existing Draft PR #202. A concrete
+live decision remains separate; this code approval starts no live clock and renews no earlier
+corpus authority. The starting checkout was clean at `1b870a86a3c239f794bc6785d0ca4d5da2b8537f`.
+
+Execution `evaluation-admission-preflight-f432e305441548bd9efa269659692ecd` ran the existing
+ownership helper self-check and three missing/malformed/valid manifest cleanup cases, exit0,
+using invocation-owned temporary/cache paths and mocked subprocess/socket boundaries. It observed
+zero real HTTP/model calls, stack startups, jobs, activations or cleanup operations. This is helper
+logic evidence only, not Docker permission/readiness, PostgreSQL runtime or application acceptance.
+The closed L6 launcher has fixed ROOT/ALLOW-L6/STOP-L6/closeout paths and cannot be replayed for a
+new window. The future host must connect fresh invocation outputs and independent cleanup to the
+reviewed package startup reservation; its budget journal belongs to the package across windows.
+
+The saved deterministic run remains `COMPLETED / SEMANTIC_PENDING`: its expected ANSWER received
+REFUSAL, coverage `0/1`. No pipeline or helper result changes that semantic evidence.
+
+### Independent admission review checkpoint — 20 October 2026
+
+The continuation implements response-derived Q&A/judge requests and package/slot/startup counters
+in the existing admission journal. It also keeps the package operation open through durable
+application result writes. The local affected selection passed 239 tests before formatting and
+186 tests after formatting; Ruff format/check, lint, whitespace and OpenAPI checks passed.
+These are dirty-source offline results, not CI or PostgreSQL/provider runtime evidence.
+The wider backend run was interrupted at 76% without a completed XML report and remains unverified.
+
+Independent review found five blocking admission gaps: startup expiry while waiting for a database
+lock, missing ANSWER/REFUSAL slot-role separation, incomplete proposal/corpus ancestry, reviewed
+build/template/configuration pins not anchored to the package, and exact proposal requests missing
+the package chat envelope. They are being repaired and require scoped re-review before commit or
+any readiness claim. The [public checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6282527686)
+retains the current counts, failure history and scope correction. No real model call, corpus job,
+activation or stack startup occurred in this continuation; live approval and owner acceptance remain open.
+
+The separate [finite source ACK for #153](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6282439533)
+permits only the pinned Operator invalid-BM25 trace patch on its stated S2 base. No patch was applied
+to this checkout. Its 41 proposal-overlay tests are not actual-worktree or runtime proof.
+
+### Admission re-review and complete backend checkpoint — 20 October 2026
+
+The scoped admission re-review closed all five findings above against the exact fix diff
+`2c7dbb7052746f9291eb7c1d3b3a64d5cf5c80f30f3b33f72c50e33d19aacc97` and fourteen frozen
+source hashes. It found no new blocking defect in that fix. The affected selection's completed
+JUnit report contains 282 tests with zero failures, errors or skips. Its original process exit
+was lost during a worker usage-limit interruption; only the controller's separate strict report
+validation has a confirmed exit0. This does not invent an original pytest exit.
+
+The complete backend CI partition then passed **1,722 tests, 633 deselected, zero failures,
+errors or skips**, pytest exit0 and strict report-validation exit0, in 243.49 seconds. Execution
+`eval-backend-1c881660c0fd` records unchanged source at HEAD
+`1b870a86a3c239f794bc6785d0ca4d5da2b8537f`, dirty-diff SHA256
+`8918ae68d4f24aaadcb3bc05aade08324adad94e3fa85a4762ed0805a8c14e23`, and both actual exits.
+Database, Windows and real-runtime partitions excluded by `--ci-suite=backend` remain unverified.
+The earlier complete attempt's five failures and twenty setup errors were all `FileNotFoundError`
+at invocation-generated Windows paths of 272 characters. Its evidence is retained. The successful
+repeat used a fresh, shorter owned output path without changing product code or permissions.
+
+Command structure (invocation-specific paths and environment values are redacted):
+
+```powershell
+& <PYTHON_ENV>/Scripts/python.exe -m pytest -p no:deepeval -p no:cacheprovider --rootdir=. backend/test evals/test --ci-suite=backend --ci-selection=<INVOCATION>/selection.json --junitxml=<INVOCATION>/report.xml --basetemp=<INVOCATION>/tests -q
+& <PYTHON_ENV>/Scripts/python.exe scripts/ci_checks.py reports <INVOCATION>/report.xml
+```
+
+Reports, logs and completion receipts are under
+`<USER_HOME>/AppData/Local/Temp/eval-backend-1c881660c0fd/`. The
+[public checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6287202701)
+preserves the counts, failure history and source boundary. Fresh Ruff format-check/lint, OpenAPI
+and whitespace checks passed; Compose configuration still warns about absent canonical MinIO
+credential variables and is not runtime-readiness evidence.
+
+The final whole-branch review found three separate P2 integration defects: stale parent dataset
+revision after proposal generation, draft-edit collisions across batches, and document visibility
+based on an `evaluation/` source-key prefix. The two UI fixes are being completed with regression
+evidence. The document-reader proposal requires finite coordination with PR #204 before applying
+to the shared maintained file; no such patch has been applied at this checkpoint.
+
+These results establish local offline evidence only. No new exact-SHA CI, PostgreSQL/provider,
+watchdog or browser runtime result is claimed. Actual real model calls, corpus jobs/activations
+and runtime startups remain **0**. Owner binding/review, fresh live authority and AI-quality
+acceptance remain open; the historical ANSWER-to-REFUSAL run remains `SEMANTIC_PENDING`.
+
+### Final UI repair and shared-source proposal — 20 October 2026
+
+The two UI defects now have regression evidence in execution `eval-fix-d25640ec`. With the original
+product code, the two new cases fail: generate/import submits revisions `[2,2]` instead of `[2,3]`,
+and editing one batch overwrites another batch's same draft ID. The complete affected selection
+has 24 existing passes and two failures before the fix. The repaired selection passes **26 tests,
+exit0**, including the postformat run; strict JUnit validation also exits0. The actual parent
+Workbench refresh is exercised through a mocked HTTP boundary that increments dataset revision.
+Separate batch question/reference edits survive child reload and import independently.
+
+`RagasProposals.tsx` awaits its existing parent refresh after generation and keys edits by the
+batch/draft tuple at render, update and import. No new state store or dependency is added. Mandatory
+frontend format, format-check, typecheck and lint exit0. Lint retains three existing image warnings
+and the existing `load` effect-dependency warning; no warning suppression was added. These component
+tests use jsdom, not a browser or authenticated application runtime.
+
+The shared document-reader repair remains a proposal only, pending finite compatibility ACK with
+PR #204. It replaces the four name-prefix filters with the actual DatasetSource document/Workspace
+relation. Original-source regression: **10 failures, 7 passes, exit1**. Candidate-copy regression:
+**17 passes, exit0**, with strict report validation exit0. The tests exercise actual SQLite query
+predicates and archive/deletion writes; snapshot/retrieval projection uses doubles. They do not
+establish PostgreSQL locking, migrations, application rendering or runtime acceptance.
+
+Exact production patch SHA256 is
+`dfed7ad25b4d2fa4840536eff0e5f47760cb03e7f75f6cb2272f709dd0150e11`; the combined production and
+normal-import regression proposal is
+`4a9eabfcf685f79b5a16ead2ecb3de73914646c1d0bd3c005e5ab39f25e0cd93`. The proposed maintained test
+imports the actual adapter normally; only the invocation artifact contains the candidate loader.
+No shared source/test patch has been applied, and the third review finding remains open in the
+branch. Candidate artifacts and both failure/success reports are under
+`<USER_HOME>/AppData/Local/Temp/eval-fix-d25640ec/`.
+
+The scoped final re-review closes both UI findings and finds no new defect in this repair scope.
+It confirms the third candidate addresses the source defect while the branch still needs that fix.
+The exact [finite ACK request](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6287465990)
+and [peer coordination notice](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6287472687)
+were published and read back. Neither the controller's review nor publishing the request is a peer ACK.
+
+The pinned Feature Map and existing Operator browser suite have no Workbench proposal journey.
+The Operator application suite requires an owned authenticated runtime, unavailable under this
+code-only continuation. Browser verification therefore remains unverified. The old `.next` output
+was not adopted; an invocation-owned source-copy build is recorded separately from browser evidence.
+
+The first source-copy build compiled application code but exited1 because the copy lacked an
+imported design-inventory JSON. That incomplete invocation is retained. Adding the two existing
+external frontend inputs (design inventory and synthetic realm fixture) completed the pinned copy
+without a product/configuration change. The corrected `npm --prefix <INVOCATION>/frontend-build run
+build` exited0. Its 275 input hashes matched the maintained source and copy before and after build;
+`source_drift=[]` and `copy_drift=[]` are recorded in the invocation receipt. Build output belongs
+only to that invocation; the old worktree `.next` remains untouched. This is local build evidence,
+not browser or runtime acceptance. Final completion and source-pin receipts are retained with the
+same invocation; no new exact-head CI result is implied by them.

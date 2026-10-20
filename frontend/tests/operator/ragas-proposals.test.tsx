@@ -176,3 +176,84 @@ it("shows saved proposals to read-only users without mutation controls", async (
     screen.queryByRole("button", { name: "Check proposal readiness" }),
   ).not.toBeInTheDocument();
 });
+
+it("keeps edits separate for the same draft ID across batches and reloads", async () => {
+  const batches = ["first", "second"].map((id) => ({
+    id,
+    status: "COMPLETED",
+    result: {
+      drafts: [
+        {
+          draft_id: "draft-01",
+          status: "READY_FOR_REVIEW",
+          case: {
+            question: `${id} question?`,
+            reference_answer: `${id} answer`,
+            evidence_groups: [
+              {
+                alternatives: [
+                  {
+                    document_version_id: "v1",
+                    physical_page: 1,
+                    quote: `${id} evidence`,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  }));
+  const imports: { url: string; body: unknown }[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        imports.push({ url, body: JSON.parse(init.body as string) });
+        return Response.json({});
+      }
+      return Response.json({ profiles: [], batches });
+    }),
+  );
+  render(<RagasProposals {...props} />);
+  const questions = await screen.findAllByRole("textbox", {
+    name: "Proposal question",
+  });
+  const references = screen.getAllByRole("textbox", {
+    name: "Reference answer",
+  });
+  await userEvent.clear(questions[0]);
+  await userEvent.type(questions[0], "Edited first question?");
+  await userEvent.clear(references[0]);
+  await userEvent.type(references[0], "Edited first answer");
+  expect(questions[1]).toHaveValue("second question?");
+  expect(references[1]).toHaveValue("second answer");
+  const buttons = screen.getAllByRole("button", {
+    name: "Import as unreviewed case",
+  });
+  await userEvent.click(buttons[1]);
+  await waitFor(() => expect(buttons[0]).toBeEnabled());
+  expect(questions[0]).toHaveValue("Edited first question?");
+  expect(references[0]).toHaveValue("Edited first answer");
+  await userEvent.click(buttons[0]);
+  await waitFor(() => expect(buttons[0]).toBeEnabled());
+  expect(imports).toEqual([
+    {
+      url: expect.stringContaining("/proposals/second/drafts/draft-01/import?"),
+      body: {
+        expected_revision: 2,
+        question: "second question?",
+        reference_answer: "second answer",
+      },
+    },
+    {
+      url: expect.stringContaining("/proposals/first/drafts/draft-01/import?"),
+      body: {
+        expected_revision: 2,
+        question: "Edited first question?",
+        reference_answer: "Edited first answer",
+      },
+    },
+  ]);
+});

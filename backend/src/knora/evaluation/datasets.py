@@ -235,6 +235,8 @@ class DatasetService:
         if profile is not None:
             scope = live_scope("proposals", profile_id, workspace_id, payload)
             try:
+                if profile.kind == "live" and profile.admission is not None:
+                    profile.admission.validate_proposal_inputs(payload)
                 provenance = profile_authority(profile, scope)
                 if provenance is not None:
                     payload["live_admission"] = dict(scope=scope, provenance=provenance)
@@ -314,33 +316,44 @@ class DatasetService:
             from knora.evaluation.live_admission import profile_dispatch
 
             saved = preflight["input"].get("live_admission", {})
+            if profile.kind == "live":
+                profile.admission.bind_execution(
+                    {"dataset_id": dataset_id, "batch_id": batch["id"], "request_id": request_id}
+                )
             with profile_dispatch(profile, saved.get("scope"), saved.get("provenance")):
                 packet = await profile.generate(chunks, identity, language, count)
-            if not isinstance(packet, dict) or len(packet.get("drafts", [])) > count:
-                raise ValueError("DRAFT_LIMIT")
-            generator = packet.get("generator", {})
-            if (
-                generator.get("model", generator.get("declared_model")) != profile.model
-                or generator.get("prompt_version", generator.get("declared_prompt_version"))
-                != profile.prompt_version
-                or any(
-                    d.get("language") != language
-                    for d in packet.get("drafts", [])
-                    if isinstance(d, dict)
+                if not isinstance(packet, dict) or len(packet.get("drafts", [])) > count:
+                    raise ValueError("DRAFT_LIMIT")
+                generator = packet.get("generator", {})
+                if (
+                    generator.get("model", generator.get("declared_model")) != profile.model
+                    or generator.get("prompt_version", generator.get("declared_prompt_version"))
+                    != profile.prompt_version
+                    or any(
+                        d.get("language") != language
+                        for d in packet.get("drafts", [])
+                        if isinstance(d, dict)
+                    )
+                ):
+                    raise ValueError("GENERATOR_PROVENANCE_MISMATCH")
+                result = map_review_packet(
+                    packet,
+                    chunks,
+                    identity,
+                    batch_id=batch["id"],
+                    existing_questions=tuple(c.question for c in dataset.cases),
                 )
-            ):
-                raise ValueError("GENERATOR_PROVENANCE_MISMATCH")
-            result = map_review_packet(
-                packet,
-                chunks,
-                identity,
-                batch_id=batch["id"],
-                existing_questions=tuple(c.question for c in dataset.cases),
-            )
-            batch = {**batch, "status": "COMPLETED", "result": result}
+                if profile.kind == "live":
+                    profile.admission.record_proposal_result(result)
+                batch = {**batch, "status": "COMPLETED", "result": result}
+                return self._store.finish_proposal_batch(workspace_id, dataset_id, batch)
         except Exception:
             # A provider may have consumed the request; an uncertain batch is never replayed.
-            batch = {**batch, "reason": "GENERATION_UNAVAILABLE_OR_INVALID"}
+            batch = {
+                **batch,
+                "status": "INDETERMINATE",
+                "reason": "GENERATION_UNAVAILABLE_OR_INVALID",
+            }
         return self._store.finish_proposal_batch(workspace_id, dataset_id, batch)
 
     def import_proposal(

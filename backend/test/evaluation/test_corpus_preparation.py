@@ -167,3 +167,47 @@ def test_stop_request_is_durable_while_mutation_holds_journal_lock(tmp_path):
     assert errors == []
     restored, _, _ = corpus_gate(tmp_path)
     assert restored.snapshot()["stopped"] is True
+
+
+def test_corpus_progress_observes_own_inflight_request_without_allowing_mutation(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from contextvars import copy_context
+    from threading import Event
+
+    import httpx
+
+    admission, scope, payload = corpus_gate(tmp_path)
+    entered, release = Event(), Event()
+
+    def exchange(request):
+        entered.set()
+        assert release.wait(timeout=10)
+        return httpx.Response(
+            200,
+            json={"success": True, "result": {"shape": [1, 1024], "data": [[1.0] + [0.0] * 1023]}},
+        )
+
+    def send():
+        with (
+            admission.corpus_dispatch(scope, lambda: None),
+            admission.sync_client(mock=httpx.MockTransport(exchange)) as client,
+        ):
+            client.post(
+                admission._policy["providers"][0]["endpoint"],
+                json={"documents": ["The sky is blue."]},
+            )
+
+    with admission.corpus_operation(scope, payload), ThreadPoolExecutor(max_workers=1) as workers:
+        future = workers.submit(copy_context().run, send)
+        try:
+            assert entered.wait(timeout=10)
+            admission.check_corpus_progress(scope)
+            with (
+                pytest.raises(ValueError, match="LIVE_REQUEST_PENDING"),
+                admission.corpus_mutation(scope),
+            ):
+                pytest.fail("a pending provider request must not authorize data mutation")
+        finally:
+            release.set()
+            future.result(timeout=10)
+    assert admission.snapshot() == {"attempts": 1, "pending": None, "stopped": False}

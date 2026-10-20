@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from asyncio import to_thread
 from collections.abc import Callable
+from contextlib import nullcontext
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -259,51 +260,76 @@ class EvaluationScoringService:
         if not reserved:
             return batch
         profile = self._profiles[preflight["profile_id"]]
-        for item in payload["cases"]:
-            if item["capture"] is None:
-                continue
-            case_id = item["case_id"]
-            uncertain = {
-                **_pending(item),
-                "status": "INDETERMINATE",
-                "reason": "JUDGE_RESULT_UNAVAILABLE",
-                "metrics": {
-                    name: {
-                        "status": "indeterminate"
-                        if _applicable(name, item["capture"])
-                        else "not_applicable",
-                        "score": None,
+        try:
+            if profile.kind == "live":
+                case = next(item for item in payload["cases"] if item["capture"] is not None)
+                profile.admission.bind_execution(
+                    {
+                        "run_id": run_id,
+                        "case_id": case["case_id"],
+                        "batch_id": batch["id"],
+                        "request_id": request_id,
                     }
-                    for name in METRICS
-                },
-            }
-            batch = {**batch, "results": {**batch["results"], case_id: uncertain}}
-            self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
-            try:
-                saved = payload["scorer"].get("live_admission", {})
-                with profile_dispatch(profile, saved.get("scope"), saved.get("provenance")):
-                    result = deepcopy(await to_thread(profile.measure, deepcopy(item["capture"])))
-                self._validate_result(item["capture"], result, profile)
-                value = {
-                    **result,
-                    "status": "ERROR"
-                    if any(m["status"] == "error" for m in result["metrics"].values())
+                )
+            with profile.admission.operation() if profile.kind == "live" else nullcontext():
+                for item in payload["cases"]:
+                    if item["capture"] is None:
+                        continue
+                    case_id = item["case_id"]
+                    uncertain = {
+                        **_pending(item),
+                        "status": "INDETERMINATE",
+                        "reason": "JUDGE_RESULT_UNAVAILABLE",
+                        "metrics": {
+                            name: {
+                                "status": "indeterminate"
+                                if _applicable(name, item["capture"])
+                                else "not_applicable",
+                                "score": None,
+                            }
+                            for name in METRICS
+                        },
+                    }
+                    batch = {**batch, "results": {**batch["results"], case_id: uncertain}}
+                    self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
+                    try:
+                        saved = payload["scorer"].get("live_admission", {})
+                        with profile_dispatch(profile, saved.get("scope"), saved.get("provenance")):
+                            if profile.kind == "live":
+                                profile.admission.validate_capture(item["capture"])
+                            result = deepcopy(
+                                await to_thread(profile.measure, deepcopy(item["capture"]))
+                            )
+                            self._validate_result(item["capture"], result, profile)
+                            if profile.kind == "live":
+                                profile.admission.validate_scoring_result(result)
+                        value = {
+                            **result,
+                            "status": "ERROR"
+                            if any(m["status"] == "error" for m in result["metrics"].values())
+                            else "COMPLETED",
+                        }
+                    except Exception:
+                        if profile.kind == "live":
+                            profile.admission.stop()
+                        value = uncertain
+                    batch = {**batch, "results": {**batch["results"], case_id: value}}
+                    self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
+                    if value["status"] == "INDETERMINATE":
+                        return batch
+                batch = {
+                    **batch,
+                    "status": "COMPLETED_WITH_ERRORS"
+                    if any(r["status"] == "ERROR" for r in batch["results"].values())
                     else "COMPLETED",
+                    "finished_at": datetime.now(UTC).isoformat(),
                 }
-            except Exception:
-                value = uncertain
-            batch = {**batch, "results": {**batch["results"], case_id: value}}
-            self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
-            if value["status"] == "INDETERMINATE":
-                return batch
-        batch = {
-            **batch,
-            "status": "COMPLETED_WITH_ERRORS"
-            if any(r["status"] == "ERROR" for r in batch["results"].values())
-            else "COMPLETED",
-            "finished_at": datetime.now(UTC).isoformat(),
-        }
-        return self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
+                return self._store.checkpoint_scoring_batch(workspace_id, run_id, batch)
+        except Exception:
+            if profile.kind != "live":
+                raise
+            profile.admission.stop()
+            return {**batch, "status": "INDETERMINATE"}
 
     @staticmethod
     def _validate_result(capture, result, profile):

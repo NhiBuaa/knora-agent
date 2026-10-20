@@ -348,8 +348,12 @@ def derivation_handler(plan, provider):
     )
 
 
-def test_preparation_uses_actual_guard_handler_and_fenced_finalizer(corpus_db, tmp_path):
+@pytest.mark.parametrize("package_backed", [False, True])
+def test_preparation_uses_actual_guard_handler_and_fenced_finalizer(
+    corpus_db, tmp_path, package_backed
+):
     import json
+    from datetime import timedelta
 
     import httpx
     from test_corpus_preparation import corpus_gate
@@ -362,7 +366,44 @@ def test_preparation_uses_actual_guard_handler_and_fenced_finalizer(corpus_db, t
     seed, _, _ = corpus_gate(tmp_path)
     policy = {**seed._policy, "scope": plan.scope()}
     policy["providers"][0]["request_digests"] = [digest_json({"documents": ["The sky is blue."]})]
-    gate = LiveAdmission(policy, tmp_path / "actual.sqlite", clock=lambda: NOW)
+    package = None
+    if package_backed:
+        from test_live_admission import package_manifest, slot_inputs
+
+        from knora.evaluation.live_admission import LivePackage
+
+        manifest = package_manifest(tmp_path)
+        manifest["ownership"]["workspace_id"] = plan.frozen.reference.workspace_id
+        package = LivePackage.initialize(manifest, tmp_path / "package.sqlite", clock=lambda: NOW)
+        policy["approval_id"] = package.approval_id("corpus_prepare")
+        package.bind_slot(
+            "corpus_prepare",
+            policy,
+            slot_inputs(
+                package,
+                "corpus_prepare",
+                policy,
+                authority=plan.payload(),
+                request_id=plan.scope()["input_digest"],
+            ),
+        )
+        cleanup = {
+            "registration_id": "test-only",
+            "scope": manifest["ownership"],
+            "proof_digest": "e" * 64,
+            "deadline": (NOW + timedelta(minutes=15)).isoformat(),
+        }
+        window = package.window(
+            scope=manifest["ownership"], cleanup=cleanup, start=lambda: None, stop=lambda: None
+        )
+        window.__enter__()
+    gate = LiveAdmission(
+        policy,
+        tmp_path / ("package.sqlite" if package else "actual.sqlite"),
+        clock=lambda: NOW,
+        package=package,
+        slot="corpus_prepare" if package else None,
+    )
     exchanges = []
 
     def reply(request):
@@ -387,6 +428,32 @@ def test_preparation_uses_actual_guard_handler_and_fenced_finalizer(corpus_db, t
     assert len(result) == 2
     assert exchanges == [{"documents": ["The sky is blue."]}] * 2
     assert gate.snapshot() == {"attempts": 2, "pending": None, "stopped": False}
+    if package:
+        output = package.slot_result("corpus_prepare")
+        assert output["sources"] == {
+            "version-1": {
+                "document_id": "document-1",
+                "extraction_snapshot_id": "snapshot-1",
+                "configuration_sha256": "c" * 64,
+                "extraction_sha256": "d" * 64,
+                "raw_sha256": "a" * 64,
+                "chunk_digests": [
+                    "52ae4fd504d855f1dd094ab54e2da8402c96250ef75ef775a3cf20ff39d0cb2b"
+                ],
+            },
+            "version-2": {
+                "document_id": "document-2",
+                "extraction_snapshot_id": "snapshot-2",
+                "configuration_sha256": "c" * 64,
+                "extraction_sha256": "d" * 64,
+                "raw_sha256": "b" * 64,
+                "chunk_digests": [
+                    "52ae4fd504d855f1dd094ab54e2da8402c96250ef75ef775a3cf20ff39d0cb2b"
+                ],
+            },
+        }
+        assert output["embedding_configuration_id"] == plan.configuration.embedding_configuration.id
+        window.__exit__(None, None, None)
     with factory() as s:
         assert [s.get(IngestionJobTable, p.job_id).status for p in plan.sources] == [
             "succeeded",

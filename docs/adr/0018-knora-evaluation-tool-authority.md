@@ -71,3 +71,34 @@ existing fenced activation finalizer. Ordinary worker claim and expiry recovery 
 missing authority, drift, expiry, stop or an uncertain operation fails closed. This design is
 implemented and tested only with offline/mock I/O under the approved implementation scope; no
 runtime activation, real provider call, billing change, export or deployment follows from it.
+
+## Response-dependent admission and one bounded execution package
+
+The owner approved code implementation of the [reviewed continuation plan](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6267679308),
+recorded in [the code approval checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6268076220).
+Q&A generation depends on selected retrieval evidence, and later DeepEval prompts depend on earlier
+judge responses. Mock request hashes cannot authorize those real requests. The trusted host must
+derive each permitted request from pinned Knora input, code/template/schema identities and validated
+responses of the same case or saved capture, then journal its digest before dispatch. Corpus
+preparation and proposal requests retain exact-digest authorization. Browser payloads cannot supply
+or enlarge this authority; the default live registry remains denied.
+
+The same admission journal owns one immutable execution package and seven fixed operation slots:
+corpus preparation (2), Gold v1 ANSWER (2), Gold v1 REFUSAL (2), Ragas proposal (1), Ragas ANSWER (2),
+and two judge batches (12 each). The total is at most 33 HTTP attempts, with no retries or transfer of spare
+capacity. Package, slot and request reservation must be atomic. Input binding is one-time; missing
+or changed journal identity, pending/ambiguous operations, stop, error or expiry prevents further
+inference. A restart cannot reset consumed calls or replay a started slot.
+
+A separately approved live decision pins the reviewed code SHA, package identity, account/resources,
+journal and manifest. It starts the 24-hour first-start limit and 48-hour package deadline; code
+approval starts neither clock. At most three owned runtime windows, each at most 15 minutes, require
+startup reservation and independent cleanup before their deadline. Each slot requires fresh Free
+quota proof and immutable admission valid at most 5 minutes. No retained runtime or old envelope is
+adopted merely because files still exist. Binding review remains a separate authority.
+
+After reopening a draft, the owner reviews all current case digests again before freeze. Before
+judge scoring, the owner records independent correctness/relevancy/faithfulness assessments against
+the saved captures. The later comparison retains disagreements and missing evidence. Agreement on
+two pilot answers is neither judge calibration nor benchmark-wide quality acceptance. Implementation,
+offline tests, exact-SHA CI, actual PostgreSQL/provider execution and owner acceptance remain distinct.

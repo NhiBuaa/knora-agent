@@ -248,6 +248,34 @@ def prepare_corpus(
         for result in results:
             if not isinstance(result, FinalizationApplied) or result.outcome != "succeeded":
                 raise ValueError("CORPUS_ACTIVATION_FAILED")
+        admission.record_corpus_result(
+            {
+                claim.work.document_version_id: {
+                    "document_id": claim.work.document_id,
+                    "extraction_snapshot_id": next(
+                        p.snapshot_id
+                        for p in plan.sources
+                        if p.document_version_id == claim.work.document_version_id
+                    ),
+                    "configuration_sha256": next(
+                        p.snapshot_configuration_sha256
+                        for p in plan.sources
+                        if p.document_version_id == claim.work.document_version_id
+                    ),
+                    "extraction_sha256": next(
+                        p.snapshot_sha256
+                        for p in plan.sources
+                        if p.document_version_id == claim.work.document_version_id
+                    ),
+                    "raw_sha256": claim.work.source_sha256,
+                    "chunk_digests": [
+                        chunk.content_checksum for chunk in success.extraction.chunks
+                    ],
+                }
+                for claim, success in successes
+            },
+            plan.configuration.embedding_configuration.id,
+        )
     return tuple(results)
 
 
@@ -267,7 +295,7 @@ def _derive(handler, claim, admission, scope, runtime):
             runtime.monotonic_clock,
         )
         while True:
-            admission.check_mutation(scope)
+            admission.check_corpus_progress(scope)
             now = runtime.monotonic_clock.now()
             completion = running.completion()
             if now >= deadline:

@@ -244,6 +244,7 @@ async def test_pdf_live_binding_provenance_roundtrips_through_sqlite_run_store(t
     assert run["binding"]["live_admission"]["scope"] == scope
     await service.process_run(OWNER.workspace_id, run["run_id"])
     read = service.read_run(OWNER.workspace_id, OWNER, run["run_id"])
+    assert read["report"]["live_request_id"] == "once"
     assert read["execution_status"] == "COMPLETED"
     assert read["report"]["binding"]["live_admission"] == run["binding"]["live_admission"]
     assert len(sent) == admission.snapshot()["attempts"] == 1
@@ -251,10 +252,17 @@ async def test_pdf_live_binding_provenance_roundtrips_through_sqlite_run_store(t
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "package_backed", [False, True, "missing", "raw", "snapshot", "config", "document"]
+)
 async def test_proposals_live_approval_preserves_unreviewed_drafts_and_never_replays(
     tmp_path,
     builder,  # noqa: F811
+    package_backed,
+    monkeypatch,
 ):
+    from test_live_admission import MODEL
+
     from knora.evaluation.proposals import ProposalProfile
 
     service, dataset_id, source = prepared_builder(builder)
@@ -264,16 +272,106 @@ async def test_proposals_live_approval_preserves_unreviewed_drafts_and_never_rep
 
     async def generate(chunks, identity, language, count):
         await client.post(ENDPOINT, json=body())
-        return packet(chunks, identity)
+        result = packet(chunks, identity)
+        if package_backed:
+            result["generator"]["model"] = MODEL
+        return result
 
-    profile = ProposalProfile("live-ragas", "live", "offline-fixture", "v1", generate)
+    profile = ProposalProfile(
+        "live-ragas", "live", MODEL if package_backed else "offline-fixture", "v1", generate
+    )
     service._proposal_profiles = {profile.profile_id: profile}
     blocked = service.proposal_preflight(
         "w1", dataset_id, (source.id,), profile.profile_id, "vi", 1, BUILDER_OWNER
     )
     assert blocked["status"] == "BLOCKED"
     scope = live_scope("proposals", profile.profile_id, "w1", blocked["input"])
-    admission = authority(tmp_path, scope)
+    package = None
+    if package_backed:
+        from datetime import timedelta
+
+        from test_live_admission import package_manifest, slot_inputs
+
+        from knora.evaluation.live_admission import LivePackage
+
+        manifest = package_manifest(tmp_path)
+        exported = blocked["input"]["source"]["pdf_sources"]
+        manifest["gold_v1"]["dataset_id"] = dataset_id
+        manifest["gold_v1"]["sources"] = {
+            s["document_version_id"]: {
+                "document_id": s["document_id"],
+                "raw_sha256": s["raw_sha256"],
+            }
+            for s in exported
+        }
+        package = LivePackage.initialize(manifest, tmp_path / "package.sqlite", clock=lambda: NOW)
+        corpus = approval()
+        corpus["approval_id"] = package.approval_id("corpus_prepare")
+        corpus["scope"]["purpose"] = "corpus_prepare"
+        package.bind_slot("corpus_prepare", corpus, slot_inputs(package, "corpus_prepare", corpus))
+        package.bind_execution("corpus_prepare", {"request_id": "corpus_prepare"})
+        cleanup = {
+            "registration_id": "test-only",
+            "scope": manifest["ownership"],
+            "proof_digest": "e" * 64,
+            "deadline": (NOW + timedelta(minutes=15)).isoformat(),
+        }
+        window = package.window(
+            scope=manifest["ownership"], cleanup=cleanup, start=lambda: None, stop=lambda: None
+        )
+        window.__enter__()
+        with package.operation("corpus_prepare"):
+            sources = {
+                s["document_version_id"]: {
+                    k: s[k]
+                    for k in (
+                        "document_id",
+                        "raw_sha256",
+                        "extraction_snapshot_id",
+                        "configuration_sha256",
+                        "extraction_sha256",
+                    )
+                }
+                for s in exported
+            }
+            if package_backed == "missing":
+                sources = {}
+            elif isinstance(package_backed, str):
+                field = {
+                    "raw": "raw_sha256",
+                    "snapshot": "extraction_snapshot_id",
+                    "config": "configuration_sha256",
+                    "document": "document_id",
+                }[package_backed]
+                next(iter(sources.values()))[field] = "foreign"
+            package.record_result("corpus_prepare", {"sources": sources})
+        policy = {
+            **approval(),
+            "approval_id": package.approval_id("ragas_vi_draft"),
+            "scope": scope,
+            "max_attempts": 1,
+        }
+        package.bind_slot(
+            "ragas_vi_draft",
+            policy,
+            slot_inputs(
+                package,
+                "ragas_vi_draft",
+                policy,
+                authority=blocked["input"],
+                dataset_id=dataset_id,
+                request_id="once",
+            ),
+        )
+        admission = LiveAdmission(
+            policy,
+            tmp_path / "package.sqlite",
+            clock=lambda: NOW,
+            package=package,
+            slot="ragas_vi_draft",
+        )
+    else:
+        admission = authority(tmp_path, scope)
     client = admission.async_client(mock=httpx.MockTransport(success))
     service._proposal_profiles[profile.profile_id] = replace(
         profile, admission=admission, provider_client=client
@@ -281,6 +379,12 @@ async def test_proposals_live_approval_preserves_unreviewed_drafts_and_never_rep
     ready = service.proposal_preflight(
         "w1", dataset_id, (source.id,), profile.profile_id, "vi", 1, BUILDER_OWNER
     )
+    if isinstance(package_backed, str):
+        assert ready["status"] == "BLOCKED"
+        assert admission.snapshot()["attempts"] == 0
+        window.__exit__(None, None, None)
+        await client.aclose()
+        return
     assert ready["status"] == "READY"
     args = (
         "w1",
@@ -294,11 +398,24 @@ async def test_proposals_live_approval_preserves_unreviewed_drafts_and_never_rep
         "once",
         BUILDER_OWNER,
     )
+    if package:
+        original_finish = service._store.finish_proposal_batch
+
+        def finish(*args):
+            assert package.snapshot()["slots"]["ragas_vi_draft"]["status"] == "STARTED"
+            return original_finish(*args)
+
+        monkeypatch.setattr(service._store, "finish_proposal_batch", finish)
     batch = await service.generate_proposals(*args)
     assert batch["status"] == "COMPLETED"
     assert batch["input"]["live_admission"]["scope"] == scope
     assert service.get_dataset("w1", dataset_id, BUILDER_OWNER).reviews == ()
     assert service.get_dataset("w1", dataset_id, BUILDER_OWNER).cases == ()
+    if package:
+        assert package.slot_result("ragas_vi_draft")["case_ids"] == [
+            batch["result"]["drafts"][0]["case"]["case_id"]
+        ]
+        window.__exit__(None, None, None)
     admission.stop()
     assert await service.generate_proposals(*args) == batch
     assert admission.snapshot()["attempts"] == 1

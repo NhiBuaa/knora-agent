@@ -442,13 +442,20 @@ async def test_profile_config_remains_the_preflight_snapshot_when_callback_chang
 
 
 @pytest.mark.asyncio
-async def test_real_deepeval_adapter_scores_saved_pdf_only_through_mock_transport(saved, tmp_path):
+@pytest.mark.parametrize(
+    "authority", ["offline", "response_chain", "package", "package_error", "package_store_failure"]
+)
+async def test_real_deepeval_adapter_scores_saved_pdf_only_through_mock_transport(
+    saved, tmp_path, authority, monkeypatch
+):
     import json
     from datetime import UTC, datetime, timedelta
 
     import httpx
     from evals.scorers.deepeval_cloudflare import AttemptLedger, CloudflareJudge, score_capture
+    from test_live_admission import MODEL, approval
 
+    from knora.evaluation.live_admission import LiveAdmission, live_scope, response_authority_pins
     from knora.evaluation.scoring import EvaluationScoringService, ScoringProfile
 
     def schema_value(schema, definitions):
@@ -477,6 +484,8 @@ async def test_real_deepeval_adapter_scores_saved_pdf_only_through_mock_transpor
         return httpx.Response(
             200,
             json={
+                "model": MODEL,
+                "usage": {"completion_tokens": 8},
                 "choices": [
                     {
                         "finish_reason": "stop",
@@ -484,17 +493,136 @@ async def test_real_deepeval_adapter_scores_saved_pdf_only_through_mock_transpor
                             "content": json.dumps(schema_value(schema, schema.get("$defs", {})))
                         },
                     }
-                ]
+                ],
             },
         )
 
     runs, store, run, owner = saved
-    with httpx.Client(transport=httpx.MockTransport(endpoint)) as client:
+    profile = ScoringProfile(
+        "fixture",
+        "offline" if authority == "offline" else "live",
+        MODEL,
+        "direct-measure-v1",
+        {},
+        lambda _: None,
+    )
+    service = EvaluationScoringService(runs, store, (profile,))
+    payload, _ = service._input(owner.workspace_id, owner, run["run_id"], ("answer",), "fixture")
+    admission = None
+    package = None
+    window = None
+    if authority != "offline":
+        policy = approval()
+        policy["proof_observed_at"] = datetime.now(UTC).isoformat()
+        policy["deadline"] = (datetime.now(UTC) + timedelta(minutes=4)).isoformat()
+        policy["scope"] = live_scope("scoring", "fixture", owner.workspace_id, payload)
+        policy.update(max_attempts=12, quota_remaining_neurons=6144, max_neurons_per_attempt=512)
+        policy["providers"][0].update(
+            max_input_bytes=8192, max_output_tokens=2048, request_digests=[]
+        )
+        policy["response_chain"] = {
+            "kind": "deepeval",
+            "input_digest": digest_json(payload),
+            "pins": response_authority_pins("deepeval"),
+        }
+        path = tmp_path / "admission.sqlite"
+        if authority.startswith("package"):
+            from test_live_admission import package_manifest, slot_inputs
+
+            from knora.evaluation.live_admission import LivePackage
+
+            manifest = package_manifest(tmp_path)
+            manifest.update(
+                journal_path=str(path.resolve()),
+                ownership={"workspace_id": owner.workspace_id, "resource_id": "test-stack"},
+                live_approved_at=policy["proof_observed_at"],
+                package_deadline=(
+                    datetime.fromisoformat(policy["proof_observed_at"]) + timedelta(hours=48)
+                ).isoformat(),
+            )
+            manifest["gold_v1"]["dataset_digest"] = payload["dataset"]["digest"]
+            package = LivePackage.initialize(manifest, path)
+            cleanup = {
+                "registration_id": "test-only",
+                "scope": manifest["ownership"],
+                "proof_digest": "e" * 64,
+                "deadline": (datetime.now(UTC) + timedelta(minutes=15)).isoformat(),
+            }
+            window = package.window(
+                scope=manifest["ownership"], cleanup=cleanup, start=lambda: None, stop=lambda: None
+            )
+            window.__enter__()
+            capture = payload["cases"][0]["capture"]
+            identities = {
+                "request_id": "qa",
+                "dataset_digest": payload["dataset"]["digest"],
+                "selection_digest": payload["selection_digest"],
+                "binding_digest": "7" * 64,
+                "case_id": capture["case_id"],
+            }
+            for slot in ("corpus_prepare", "qa_gold_v1_answer"):
+                parent_policy = deepcopy(policy)
+                parent_policy.update(approval_id=package.approval_id(slot), max_attempts=2)
+                parent_policy["scope"]["purpose"] = (
+                    "corpus_prepare" if slot == "corpus_prepare" else "qa"
+                )
+                pins = {"request_id": slot} if slot == "corpus_prepare" else identities
+                package.bind_slot(
+                    slot, parent_policy, slot_inputs(package, slot, parent_policy, **pins)
+                )
+                execution = {**pins, "run_id": run["run_id"], "attempt_id": "attempt"}
+                package.bind_execution(slot, execution)
+                with package.operation(slot):
+                    if slot == "qa_gold_v1_answer":
+                        package.record_result(
+                            slot,
+                            {
+                                "identities": {**execution, "trace_id": capture["trace_id"]},
+                                "capture": capture,
+                            },
+                        )
+            policy["approval_id"] = package.approval_id("judge_gold_v1")
+            judge_pins = {
+                **identities,
+                "request_id": "native-sdk",
+                "run_id": run["run_id"],
+                "trace_id": capture["trace_id"],
+                "capture_digest": digest_json(capture),
+            }
+            package.bind_slot(
+                "judge_gold_v1",
+                policy,
+                slot_inputs(package, "judge_gold_v1", policy, authority=payload, **judge_pins),
+            )
+            original_save = store.checkpoint_scoring_batch
+
+            def save(*args):
+                assert package.snapshot()["slots"]["judge_gold_v1"]["status"] == "STARTED"
+                if authority == "package_store_failure" and args[-1]["status"] == "COMPLETED":
+                    raise OSError("isolated scoring commit failure")
+                return original_save(*args)
+
+            monkeypatch.setattr(store, "checkpoint_scoring_batch", save)
+        admission = LiveAdmission(
+            policy,
+            path,
+            response_inputs=payload,
+            package=package,
+            slot="judge_gold_v1" if package else None,
+        )
+    transport = (
+        admission.transport(mock=httpx.MockTransport(endpoint))
+        if admission
+        else httpx.MockTransport(endpoint)
+    )
+    with httpx.Client(transport=transport) as client:
+        if admission:
+            client._knora_live_admission = admission
         judge = CloudflareJudge(
             endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
             token="fixture-only",
             model="@cf/openai/gpt-oss-20b",
-            max_output_tokens=64,
+            max_output_tokens=2048 if admission else 64,
             client=client,
             ledger=AttemptLedger(
                 tmp_path / "attempts.sqlite3",
@@ -503,25 +631,54 @@ async def test_real_deepeval_adapter_scores_saved_pdf_only_through_mock_transpor
                 cap=24,
             ),
         )
+
+        def measure(capture):
+            result = score_capture(
+                {**capture, "data_classification": "synthetic", "egress_approved": True}, judge
+            )
+            if authority == "package_error":
+                result["metrics"]["correctness"] = {
+                    "status": "error",
+                    "score": None,
+                    "reason": "caught scorer error",
+                }
+            return result
+
         profile = ScoringProfile(
             "fixture",
-            "offline",
+            profile.kind,
             judge.get_model_name(),
             "direct-measure-v1",
             {},
-            lambda capture: score_capture(
-                {**capture, "data_classification": "synthetic", "egress_approved": True}, judge
-            ),
+            measure,
+            admission,
+            client if admission else None,
         )
         service = EvaluationScoringService(runs, store, (profile,))
-        ready = service.preflight(
-            owner.workspace_id, owner, run["run_id"], ("answer", "refusal"), "fixture"
-        )
+        ready = service.preflight(owner.workspace_id, owner, run["run_id"], ("answer",), "fixture")
         batch = await service.score(
             owner.workspace_id, owner, run["run_id"], ready["preflight_id"], "native-sdk"
         )
+        if authority in {"package_error", "package_store_failure"}:
+            assert batch["status"] == "INDETERMINATE"
+            assert package.snapshot()["stopped"]
+            assert package.snapshot()["slots"]["judge_gold_v1"]["status"] == "STARTED"
+            persisted = service.read(owner.workspace_id, owner, run["run_id"])["batches"][0]
+            assert persisted["status"] == "INDETERMINATE"
+            with pytest.raises(ValueError, match="LIVE_PACKAGE_STOPPED"):
+                window.__exit__(None, None, None)
+            return
         assert batch["status"] == "COMPLETED"
         assert {m["status"] for m in batch["results"]["answer"]["metrics"].values()} == {"scored"}
         assert batch["results"]["answer"]["http_attempts"] == len(requests) == judge.ledger.count()
         assert requests
+        if admission:
+            assert admission.snapshot() == {
+                "attempts": len(requests),
+                "pending": None,
+                "stopped": False,
+            }
         assert all("/questions" not in str(request) for request in requests)
+        if package:
+            assert package.snapshot()["slots"]["judge_gold_v1"]["status"] == "COMPLETED"
+            window.__exit__(None, None, None)

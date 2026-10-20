@@ -1,7 +1,7 @@
 """Same-process Q&A host proof: real application/providers, in-memory ports, no sockets."""
 
 import json
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, suppress
 from dataclasses import asdict
 from types import SimpleNamespace
 
@@ -107,7 +107,7 @@ def no_external_io(monkeypatch):
 
 
 @pytest_asyncio.fixture
-async def host(tmp_path, no_external_io):
+async def host(tmp_path, no_external_io, request):
     frozen = frozen_dataset()
     binding = binding_for(frozen)
     binding["embedding_configuration_id"] = EMBEDDING.id
@@ -156,7 +156,113 @@ async def host(tmp_path, no_external_io):
             "request_digests": [digest_json(query)],
         }
     )
-    admission = LiveAdmission(policy, tmp_path / "host.sqlite", clock=lambda: NOW)
+    port = MemoryAnsweringPort()
+    mode = getattr(request, "param", "exact")
+    dynamic = mode in {"dynamic", "package"}
+    package = None
+    max_tokens = 2048 if dynamic else 32
+    if dynamic:
+        import hashlib
+
+        from knora.evaluation.live_admission import response_authority_pins
+
+        binding["candidate_budget"] = 8
+        binding.pop("approval")
+        binding["approval"] = {
+            "owner_issuer": "issuer",
+            "owner_subject": "owner",
+            "binding_digest": digest_json(binding),
+        }
+        payload = dict(selection=selection, binding=binding)
+        inputs = {
+            "payload": payload,
+            "frozen": asdict(frozen),
+            "retrieval_configuration": asdict(RetrievalConfiguration.milestone_one()),
+            "chunk_digests": {
+                "chunk-1": hashlib.sha256(port.candidate.content.encode()).hexdigest()
+            },
+        }
+        policy["scope"] = live_scope("qa", "host-proof", WORKSPACE, payload)
+        policy["max_attempts"] = 2
+        policy["response_chain"] = {
+            "kind": "qa",
+            "input_digest": digest_json(inputs),
+            "pins": response_authority_pins("qa"),
+        }
+        for provider in policy["providers"]:
+            provider["request_digests"] = []
+        policy["providers"][0].update(max_input_bytes=8192, max_output_tokens=max_tokens)
+        path = tmp_path / "host.sqlite"
+        if mode == "package":
+            from datetime import timedelta
+
+            from test_live_admission import package_manifest, slot_inputs
+
+            from knora.evaluation.live_admission import LivePackage
+
+            manifest = package_manifest(tmp_path)
+            manifest.update(
+                journal_path=str(path.resolve()),
+                ownership={"workspace_id": WORKSPACE, "resource_id": "owned-stack"},
+            )
+            manifest["gold_v1"].update(
+                dataset_digest=frozen.reference.digest, dataset_id=frozen.reference.dataset_id
+            )
+            package = LivePackage.initialize(manifest, path, clock=lambda: NOW)
+            corpus = approval()
+            corpus.update(approval_id=package.approval_id("corpus_prepare"))
+            corpus["scope"].update(purpose="corpus_prepare", workspace_id=WORKSPACE)
+            package.bind_slot(
+                "corpus_prepare", corpus, slot_inputs(package, "corpus_prepare", corpus)
+            )
+            package.bind_execution("corpus_prepare", {"request_id": "corpus_prepare"})
+            cleanup = {
+                "registration_id": "test-only",
+                "scope": manifest["ownership"],
+                "proof_digest": "e" * 64,
+                "deadline": (NOW + timedelta(minutes=15)).isoformat(),
+            }
+            stack_window = package.window(
+                scope=manifest["ownership"], cleanup=cleanup, start=lambda: None, stop=lambda: None
+            )
+            stack_window.__enter__()
+            with package.operation("corpus_prepare"):
+                package.record_result(
+                    "corpus_prepare",
+                    {
+                        "sources": {
+                            "version-1": {
+                                "raw_sha256": "a" * 64,
+                                "chunk_digests": list(inputs["chunk_digests"].values()),
+                            }
+                        },
+                        "embedding_configuration_id": EMBEDDING.id,
+                    },
+                )
+            policy["approval_id"] = package.approval_id("qa_gold_v1_answer")
+            identities = {
+                "case_id": "answer",
+                "request_id": "dynamic-once",
+                "dataset_digest": frozen.reference.digest,
+                "selection_digest": digest_json(selection),
+                "binding_digest": binding["approval"]["binding_digest"],
+            }
+            package.bind_slot(
+                "qa_gold_v1_answer",
+                policy,
+                slot_inputs(package, "qa_gold_v1_answer", policy, authority=inputs, **identities),
+            )
+        admission = LiveAdmission(
+            policy,
+            path,
+            clock=lambda: NOW,
+            response_inputs=inputs,
+            qa_store=port,
+            package=package,
+            slot="qa_gold_v1_answer" if package else None,
+        )
+    else:
+        admission = LiveAdmission(policy, tmp_path / "host.sqlite", clock=lambda: NOW)
     sent = []
 
     def exchange(request):
@@ -193,7 +299,6 @@ async def host(tmp_path, no_external_io):
             },
         )
 
-    port = MemoryAnsweringPort()
     async with AsyncExitStack() as stack:
         sync = stack.enter_context(admission.sync_client(mock=httpx.MockTransport(exchange)))
         async_client = await stack.enter_async_context(
@@ -212,7 +317,7 @@ async def host(tmp_path, no_external_io):
                 pricing_version=None,
                 client=async_client,
                 provider_identity="cloudflare-workers-ai",
-                max_tokens=32,
+                max_tokens=max_tokens,
                 direct_json_schema=True,
             ),
             store=port,
@@ -268,8 +373,15 @@ async def host(tmp_path, no_external_io):
             sent=sent,
             sync=sync,
             async_client=async_client,
+            package=package,
         )
     assert qa.is_closed and sync.is_closed and async_client.is_closed
+    if package:
+        if package.snapshot()["stopped"]:
+            with pytest.raises(ValueError, match="LIVE_PACKAGE_STOPPED"):
+                stack_window.__exit__(None, None, None)
+        else:
+            stack_window.__exit__(None, None, None)
 
 
 @pytest.mark.asyncio
@@ -324,6 +436,27 @@ async def test_qa_outside_dispatch_cannot_consume_provider_attempt_or_save_trace
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["dynamic", "package"], indirect=True)
+async def test_response_dependent_qa_validates_actual_retrieval_and_saved_trace(host):
+    ready = host.service.preflight(
+        WORKSPACE, OWNER, "pdf-set", ("answer",), "host-proof", asdict(host.frozen.reference)
+    )
+    assert ready["status"] == "READY"
+    run = host.service.start_run(WORKSPACE, OWNER, ready["preflight_id"], "dynamic-once")
+    assert await host.service.process_run(WORKSPACE, run["run_id"])
+    assert run["execution_status"] == "COMPLETED", run["observations"]
+    assert run["observations"]["answer"]["generation_evidence"] == [["E1", "The sky is blue."]]
+    assert [url for url, _ in host.sent] == [EMBED_ENDPOINT, ENDPOINT]
+    assert host.admission.snapshot()["attempts"] == 2
+    if host.package:
+        output = host.package.slot_result("qa_gold_v1_answer")
+        assert output["capture"]["run_id"] == run["run_id"]
+        assert output["capture"]["trace_id"] == "host-trace"
+        assert output["capture"]["answer"] == "Blue [[E1]]"
+        assert host.package.snapshot()["attempts"] == 2
+
+
+@pytest.mark.asyncio
 async def test_foreign_qa_credential_is_denied_even_inside_admitted_dispatch(host):
     from knora.evaluation.live_admission import admitted_binding
 
@@ -339,3 +472,260 @@ async def test_foreign_qa_credential_is_denied_even_inside_admitted_dispatch(hos
     assert response.json() == {"error": {"code": "WORKSPACE_ACCESS_DENIED"}}
     assert host.admission.snapshot()["attempts"] == 0
     assert host.sent == [] and host.port.traces == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["package"], indirect=True)
+@pytest.mark.parametrize("failure", [None, "checkpoint", "finish"])
+async def test_package_qa_completes_only_after_run_store_saves(host, monkeypatch, failure):
+    saved_states = []
+    store = host.service._store
+    for method in ("checkpoint", "finish"):
+        original = getattr(store, method)
+
+        def save(*args, _method=method, _original=original):
+            state = host.package.snapshot()["slots"]["qa_gold_v1_answer"]["status"]
+            saved_states.append((_method, state))
+            if _method == failure:
+                raise OSError("isolated store failure")
+            return _original(*args)
+
+        monkeypatch.setattr(store, method, save)
+    ready = host.service.preflight(
+        WORKSPACE, OWNER, "pdf-set", ("answer",), "host-proof", asdict(host.frozen.reference)
+    )
+    run = host.service.start_run(WORKSPACE, OWNER, ready["preflight_id"], "dynamic-once")
+    if failure:
+        with suppress(OSError):
+            await host.service.process_run(WORKSPACE, run["run_id"])
+        assert host.package.snapshot()["stopped"]
+        assert host.package.snapshot()["slots"]["qa_gold_v1_answer"]["status"] == "STARTED"
+    else:
+        await host.service.process_run(WORKSPACE, run["run_id"])
+        assert saved_states == [("checkpoint", "STARTED"), ("finish", "STARTED")]
+        assert host.package.slot_result("qa_gold_v1_answer")["capture"]["trace_id"] == "host-trace"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["package"], indirect=True)
+@pytest.mark.parametrize("drift", ["case", "gold"])
+async def test_refusal_slot_cannot_rebind_the_approved_answer_case(host, drift):
+    from copy import deepcopy
+
+    from test_live_admission import slot_inputs
+
+    policy = deepcopy(host.admission._policy)
+    policy["approval_id"] = host.package.approval_id("qa_gold_v1_refusal")
+    inputs = slot_inputs(
+        host.package,
+        "qa_gold_v1_refusal",
+        policy,
+        **host.package.slot_binding("qa_gold_v1_answer")["identities"],
+    )
+    if drift == "gold":
+        inputs["identities"].update(case_id="refusal", dataset_digest="f" * 64)
+    with pytest.raises(ValueError, match="LIVE_SLOT_CASE"):
+        host.package.bind_slot("qa_gold_v1_refusal", policy, inputs)
+    assert host.package.snapshot()["attempts"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["package"], indirect=True)
+@pytest.mark.parametrize("drift", [None, "batch", "source", "original_digest"])
+async def test_ragas_qa_requires_saved_proposal_ancestry_and_allows_reviewed_edits(host, drift):
+    from copy import deepcopy
+    from dataclasses import replace
+
+    from test_live_admission import slot_inputs
+
+    from knora.evaluation.contracts import FreezeApproval, freeze_dataset
+    from knora.evaluation.live_admission import response_authority_pins
+
+    package = host.package
+    source = {
+        "dataset_id": "pdf-set",
+        "pdf_sources": [
+            {
+                "document_id": "document-1",
+                "document_version_id": "version-1",
+                "raw_sha256": "a" * 64,
+            }
+        ],
+    }
+    payload = {"source": source}
+    proposal_policy = approval()
+    proposal_policy.update(
+        approval_id=package.approval_id("ragas_vi_draft"),
+        max_attempts=1,
+        scope=live_scope("proposals", "proposal", WORKSPACE, payload),
+    )
+    package.bind_slot(
+        "ragas_vi_draft",
+        proposal_policy,
+        slot_inputs(
+            package,
+            "ragas_vi_draft",
+            proposal_policy,
+            authority=payload,
+            dataset_id="pdf-set",
+            request_id="proposal",
+        ),
+    )
+    execution = {"dataset_id": "pdf-set", "request_id": "proposal", "batch_id": "batch"}
+    package.bind_execution("ragas_vi_draft", execution)
+    generated = replace(host.frozen.gold.cases[0], case_id="ragas-batch-01")
+    result = {
+        "identities": execution,
+        "source": deepcopy(source),
+        "cases": {
+            generated.case_id: {
+                "case": asdict(generated),
+                "case_digest": digest_json(asdict(generated)),
+            }
+        },
+        "case_ids": [generated.case_id],
+    }
+    if drift == "batch":
+        result["identities"] = {**execution, "batch_id": "foreign"}
+    elif drift == "source":
+        result["source"]["pdf_sources"][0]["raw_sha256"] = "f" * 64
+    elif drift == "original_digest":
+        result["cases"][generated.case_id]["case_digest"] = "f" * 64
+    with package.operation("ragas_vi_draft"):
+        package.record_result("ragas_vi_draft", result)
+
+    # save_case permits editing the whole Case; each new digest needs owner review/freeze.
+    edited = replace(
+        generated,
+        question="Reviewed question?",
+        reference_answer="Reviewed answer",
+        required_facts=("Reviewed fact",),
+        category="multi-hop",
+        evidence_groups=(
+            replace(
+                generated.evidence_groups[0],
+                alternatives=(
+                    replace(generated.evidence_groups[0].alternatives[0], quote="sky is blue"),
+                ),
+            ),
+        ),
+    )
+    gold = replace(
+        host.frozen.gold, identity=replace(host.frozen.gold.identity, version=2), cases=(edited,)
+    )
+    frozen = freeze_dataset(gold, FreezeApproval("issuer", "owner", gold.digest))
+    inputs = deepcopy(host.admission._response_inputs)
+    inputs["frozen"] = asdict(frozen)
+    selection = json.loads(select_cases(frozen, (edited.case_id,)).to_json())
+    binding = deepcopy(host.binding)
+    binding["reference"] = asdict(frozen.reference)
+    binding["anchors"] = {
+        digest_json(asdict(a)): {"status": "READY", "chunk_ids": ["chunk-1"]}
+        for g in edited.evidence_groups
+        for a in g.alternatives
+    }
+    binding.pop("approval")
+    binding["approval"] = {
+        "owner_issuer": "issuer",
+        "owner_subject": "owner",
+        "binding_digest": digest_json(binding),
+    }
+    inputs["payload"] = {"selection": selection, "binding": binding}
+    policy = deepcopy(host.admission._policy)
+    policy.update(
+        approval_id=package.approval_id("qa_ragas_answer"),
+        scope=live_scope("qa", "host-proof", WORKSPACE, inputs["payload"]),
+    )
+    policy["response_chain"] = {
+        "kind": "qa",
+        "input_digest": digest_json(inputs),
+        "pins": response_authority_pins("qa"),
+    }
+    package.bind_slot(
+        "qa_ragas_answer",
+        policy,
+        slot_inputs(
+            package,
+            "qa_ragas_answer",
+            policy,
+            authority=inputs,
+            request_id="r3",
+            case_id=edited.case_id,
+            dataset_digest=frozen.reference.digest,
+            selection_digest=digest_json(selection),
+            binding_digest=binding["approval"]["binding_digest"],
+        ),
+    )
+    if drift:
+        with pytest.raises(ValueError, match="LIVE_SLOT_ANCESTRY"):
+            LiveAdmission(
+                policy,
+                package._path,
+                clock=lambda: NOW,
+                package=package,
+                slot="qa_ragas_answer",
+                response_inputs=inputs,
+                qa_store=host.port,
+            )
+    else:
+        admission = LiveAdmission(
+            policy,
+            package._path,
+            clock=lambda: NOW,
+            package=package,
+            slot="qa_ragas_answer",
+            response_inputs=inputs,
+            qa_store=host.port,
+        )
+        assert admission._case == edited
+    assert host.sent == []
+    assert package.snapshot()["attempts"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["package"], indirect=True)
+@pytest.mark.parametrize("boundary", ["bind", "dispatch"])
+async def test_package_rejects_source_drift_between_slots_before_egress(
+    host, monkeypatch, boundary
+):
+    from copy import deepcopy
+    from pathlib import Path
+
+    from test_live_admission import slot_inputs
+
+    original = Path.read_text
+
+    def changed(path, *args, **kwargs):
+        content = original(path, *args, **kwargs)
+        return (
+            content + "\n# changed schema\n"
+            if path.as_posix().endswith("providers/structured_generation.py")
+            else content
+        )
+
+    monkeypatch.setattr(Path, "read_text", changed)
+    with pytest.raises(ValueError, match="LIVE_PACKAGE_BUILD"):
+        if boundary == "dispatch":
+            with host.admission.dispatch(host.admission._policy["scope"]):
+                pytest.fail("source drift reached dispatch")
+        else:
+            policy = deepcopy(host.admission._policy)
+            policy["approval_id"] = host.package.approval_id("qa_gold_v1_refusal")
+            identities = {
+                **host.package.slot_binding("qa_gold_v1_answer")["identities"],
+                "case_id": "refusal",
+            }
+            host.package.bind_slot(
+                "qa_gold_v1_refusal",
+                policy,
+                slot_inputs(
+                    host.package,
+                    "qa_gold_v1_refusal",
+                    policy,
+                    authority=host.admission._response_inputs,
+                    **identities,
+                ),
+            )
+    monkeypatch.setattr(Path, "read_text", original)
+    assert host.sent == []
+    assert host.package.snapshot()["attempts"] == 0
