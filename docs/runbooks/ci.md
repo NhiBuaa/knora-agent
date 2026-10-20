@@ -7,11 +7,17 @@ instructions or contract rather than inventing a production change. Keep command
 work status in the relevant Issue/PR; this runbook owns the procedure, not a second evidence ledger.
 
 1. **Define:** name the expected observable behavior, changed surfaces/callers and acceptance
-   criteria before editing. For a bug, identify a reproducer or regression test that fails for
+   criteria before editing. Identify affected quality requirements using the Issue, approved
+   standards and existing contracts; for each, record an observable pass condition and planned
+   check in the Issue/PR. Use [quality evidence](#matching-quality-claims-to-evidence) below;
+   resolve material missing product criteria rather than inventing thresholds. For a bug,
+   identify a reproducer or regression test that fails for
    the original symptom before the fix; explain any limit to reproducing it.
 2. **Select:** inspect the owning tests, `frontend/package.json`, root `conftest.py` and the
    applicable workflow under `.github/workflows/`. Choose the smallest set covering the behavior
    and affected boundaries, including relevant failure, authorization or concurrency paths.
+   Cover successful behavior as well as these affected safety boundaries while implementing;
+   update the verification plan if new impacts emerge within the approved scope.
    State why broader checks or runtime observation are required, unnecessary or blocked.
 3. **Run and read:** execute the selected checks on the intended checkout. Inspect exit codes,
    selected/executed counts and actual assertions/reports, including failures, errors and skips.
@@ -25,7 +31,10 @@ work status in the relevant Issue/PR; this runbook owns the procedure, not a sec
    when feasible. Check the UI and authoritative response/projection; use owned, bounded logs
    for diagnosis and verify owned cleanup. If the harness cannot exercise the behavior, report
    the gap; fixture rendering or unrelated smoke cannot substitute for it.
-6. **Conclude:** compare evidence to every acceptance criterion after the final edit. Record the
+6. **Conclude:** compare evidence to every acceptance criterion after the final edit, including
+   the quality requirements identified in Define. State observed results, material trade-offs
+   and unverified claims; a green test suite alone does not establish every quality dimension.
+   Record the
    tested full SHA (and dirty diff if any), working directory, reproducible commands, scope/counts,
    exit/result and sanitized report/run references. Before publishing commands, replace token,
    password and other secret values with `[REDACTED]`, including literal arguments and inline
@@ -34,6 +43,29 @@ work status in the relevant Issue/PR; this runbook owns the procedure, not a sec
    After later code edits, rerun affected checks
    and refresh evidence. Separate verified scope from blockers and checks not run; with missing
    required evidence, report partial progress, not completion.
+
+### Matching quality claims to evidence
+
+Select only dimensions affected by the change or needed to support its claims. Scale checks to
+risk; this is not a requirement to run every row for every Issue. Keep the requirement, pass
+condition, planned check and eventual evidence together in the existing Issue/PR, not a new ledger.
+
+| Affected requirement or claim            | Evidence to select before editing                                                                                                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Correct behavior                         | Assertions for expected outcomes, relevant invalid input, failure and boundary cases through the owning public/application seam                                                |
+| Authorization or data safety             | Allowed and denied access, including cross-Workspace requests where relevant; verify rejection before protected lookup/side effects and safe error/log output                  |
+| Faster or less resource-intensive        | Before/after measurements with the same inputs, workload, environment and measurement method; record tested versions, repetitions/variation and resource or latency trade-offs |
+| User experience or accessibility         | The affected application journey, including relevant waiting, error/recovery and keyboard/accessibility behavior; link observations to the specific criterion                  |
+| Design, compatibility or maintainability | Inspect affected callers, component responsibilities and dependency direction against approved seams; run applicable contract/regression tests and state the design trade-off  |
+| Operation or recovery                    | Relevant failure, retry, concurrency, ownership and cleanup checks in an isolated owned environment; observe authoritative state and bounded logs                              |
+
+A working browser journey proves the exercised behavior, not that users find it easier. A usability
+improvement needs an appropriate comparison or user evaluation; without it, report only the observed
+behavior. Likewise, functional tests or shorter code do not prove speed, security or maintainability.
+If comparable measurements are unavailable, label the improvement unverified and do not claim a gain.
+Mark each applicable criterion passed, failed or unverified with its evidence or blocker; explain
+why omitted checks are unnecessary. Missing required evidence blocks completion. Optional follow-up
+must remain explicit and cannot replace an existing acceptance criterion or required CI check.
 
 ### Choosing the verification surface
 
