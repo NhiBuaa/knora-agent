@@ -1,8 +1,10 @@
 # Issue #183 — Master Implementation Plan
 
+**Latest planning checkpoint — 2026-10-21:** The owner requested offline diagnosis and a concrete recovery amendment. Section11 is **PROPOSED, NOT APPROVED FOR IMPLEMENTATION OR RUNTIME**. Unchanged-product provider/bootstrap checks returned76passed; three in-memory MockTransport replays preserved length/null rejection. No provider request, startup, OAuth or credential access occurred. The actual failure is generation ending at the1024 cap before an accepted final; its internal cause and success at higher caps remain unverified. Section10 remains STOPPED2/12. Read11 for the proposed2048→4096 experiment, one shared12-request ceiling and the single approval frontier; no earlier grant or pending marker is reset.
+
 **Latest execution checkpoint — 2026-10-20:** Section10's bounded package is **STOPPED; no live authority remains**. On runtime subject `66979bcf0ef43a74e890b81f0caba712d1068d97`, preparation3 reached authenticated isolated IAB/API/frontend and the first fixed question ran once. W1 remains closed0/6 after a deterministic preparation defect; W2 stopped2/6 after one query embedding and one generation. Generation HTTP200 returned `finish_reason=length`, completion1024 and final `content=null`; stored Turn failed, result null, trace count0. No answer was accepted, so five-layer/citation acceptance is unproven and cases2/3 are NOT RUN. Parent145mock tests and renewed exact-byte independent helper review passed before runtime; they do not establish model/browser acceptance. Owned processes/OAuth/IAB/session were cleaned; retained dependencies stay running. Original pending markers and clock/counters remain unchanged. See10.9. A new runtime or model/cap/policy change requires an owner decision under10.6; do not reopen either window. Earlier opening status lines below are historical.
 
-> **For agentic workers:** Owner approved the reviewed section10 package on2026-10-20 with “tôi duyệt plan”. Execute its internal gates without renewed permission prompts; honor its finite budgets and actual stop boundaries. Read the approval record below before continuing. No historical window is reopened.
+> **Historical section10 grant — STOPPED:** Owner approved that package on2026-10-20 with “tôi duyệt plan”; it subsequently reached its mandatory stop. The approval record below remains historical evidence, not remaining execution authority. Section11 is only a proposal pending a new owner decision. No historical window is reopened.
 
 The approved execution reached its mandatory stop in10.9. Continue only safe offline review/reporting under the existing scope; the quoted instruction does not renew inference authority.
 
@@ -2229,8 +2231,9 @@ Historical owner review decisions (current frontier is4.9):
 4. **Resolved:** P4 separately approved at78362ae, executed/stopped3/9 with AC2 FAIL and cleanup. No remaining allowance. New remediation design/behavior or inference needs owner disposition; do not reopen P4.
 5. After evidence/review, decide product acceptance, PR state, integration/merge/closure separately. Silence and green CI are not approval.
 
-**Immediate next action:** Execute approved section10 TaskA, then candidate CI/final helper review
-and the remaining internal gates. The owner's2026-10-20 approval ends the planning pause.
+**Immediate next action — updated2026-10-21:** Section10 reached its mandatory stop in10.9.
+Offline diagnosis is recorded in11.1; prepare/review the proposed amendment below for one owner
+decision. No implementation/runtime permission follows from the request to prepare it.
 Keep every prior window closed, PR184 Draft, #183 In Progress and #191/PR200 separate.
 
 ### Read-only resumption and proposed P4 recovery — 2026-10-19
@@ -3074,3 +3077,361 @@ Commands actually run from `<WORKTREE>`:
 Runtime commands are historical execution evidence, not permission to rerun. **Disposition:** deliver a failure packet, keep PR184 Draft/Issue183 OPEN, no merge/ready/Done/deploy. No live allowance remains; another runtime/send or generation tuning/model/cap change needs an explicit owner decision under10.6. Safe scoped offline analysis/reporting may continue. A report-only descendant requires its own CI and explicit unchanged-product comparison; its full SHA/checks belong in the existing checkpoint/PR after readback.
 
 **Selective lessons and workflow evaluation:** check the actual lazy UI sequence before opening a window; negative tests must exercise the selected reserve window and preserve terminal history; assign resource identity before an operation can raise. Keep evidence in these existing helper tests/report. CodeGraph MCP queries used this exact worktree and confirmed UI/service/store/runner/context paths; use began in the prior diagnosis, not retroactively in original implementation. Current-catalog workflow Skills were read/selected, and verification-before-completion supplied actual parent tests/hash/CI checks. Independent review exposed gaps despite mock PASS; no formal Skill Eval PASS, valid baseline or causal improvement claim. All reasoned RED/GREEN reruns and procedural deviations are retained. Hindsight searches for183 returned no useful decision content; no memory fact substitutes for current evidence. No Skill/hook/framework/evidence store was added.
+
+## 11. Proposed generation-token recovery package — 2026-10-21
+
+**Status: PROPOSED; one explicit owner approval is still required.** The request “thực hiện các
+phần đó cho tôi” authorized the preceding offline diagnosis and preparation of this amendment.
+It did not approve the still-unwritten cap/runtime proposal. This section is the reviewable
+proposal, in the sole existing Master. Do not relocate historical approvals or create a second plan.
+Until approval, only safe offline diagnosis/documentation/reporting may continue; section10 stays
+stopped, with its original requests, pending markers, counters and deadline unchanged.
+
+### 11.1 Verified diagnosis and remaining uncertainty
+
+Baseline checkout/PR184 head is `fe726b3c044dc234b858f42fd97c4899d1f9b7f9`, initially clean,
+OPEN/Draft against main. PR200 remains frozen at `17f199810970c40d2bcd060e68a03fc0aacc210b`.
+Its current changed-file list excludes bootstrap and the two owning test files proposed below.
+This is a read-only impact observation, not permission to modify191 or waive a later overlap.
+
+| Boundary | Evidence and conclusion |
+| --- | --- |
+| Request construction | `bootstrap._build_selected_generation` supplies literal `max_tokens=1024`; `_complete` serializes it unchanged. Saved request has exactly model/messages/response_format/max_tokens. No reasoning-effort field or selector call. |
+| Physical provider response | Existing W2 capture: HTTP200, finish `length`, prompt1238/completion1024/total2262, final content present but null. Query embedding succeeded. The response was received; generic guard wording does not make the wire outcome unknown. |
+| Adapter/composer | `_decode` deliberately raises `GENERATION_OUTPUT_INVALID` for Cloudflare `length` before JSON decoding/composition. Keeping this rejection is required even if truncated content happens to parse. No evidence of accepted text being lost by the composer or renderer in this attempt. |
+| Application/storage | Failed Turn, null result, trace0; the dispatcher's later exact-one-trace assertion is a downstream observation, not the cause of the null provider final. No automatic retry or fabricated refusal is justified. |
+| Root-cause limit | Exhaustion of the configured generation limit is observed. The internal model cause, allocation between reasoning/final tokens, reproducibility and a sufficient replacement cap are UNKNOWN. More generation capacity is a falsifiable hypothesis, not a proven fix. |
+
+CodeGraph CLI `codegraph status --json <WORKTREE>` reported complete627files, no pending changes,
+no worktree mismatch. Actual MCP `codegraph_explore`, with this exact worktree as `projectPath`,
+returned bootstrap→provider `_complete`→`_decode` and owning tests. This supports a construction-cap
+change while leaving validation/composition untouched. A broad test-symbol query also returned
+unrelated symbols; a filename-pinned follow-up supplied the relevant tests. Graph use continues
+from the earlier diagnosis; no historical usage is inferred and it does not replace execution.
+
+Fresh command on unchanged subject:
+
+```text
+<PYTHON_ENV>/python -X utf8 -B -m pytest --rootdir=. -p no:cacheprovider backend/test/providers/openai_compatible/test_generation.py backend/test/test_bootstrap.py -q --junitxml=<EXISTING_RUN>/generation-recovery-junit.xml
+```
+
+Result **76passed3.68s/exit0**, XML76tests/0failures/0errors/0skips. Existing coverage includes
+length-null, length-valid, malformed, timeout, one-call/no-retry and safe errors. Separate in-memory
+replay constructed the real provider with dummy credentials and MockTransport at1024/2048/4096:
+each request differed only in max_tokens, each replay of the historical length/null response was
+rejected after exactly one mock call. The replay retained original1024 usage: it does NOT test the
+future full-cap classifier, a successful larger-cap response or live provider support.
+Actual provider calls0; no retained product/test/runtime-helper mutation. First replay invocation
+failed on the guessed Settings import before construction; source-confirmed import correction
+passed once. No test-suite rerun was needed. Keep that failed attempt recorded.
+
+Artifacts reuse `<WORKTREE>/frontend/test-results/issue183/bounded-v21-acceptance-20261020/`:
+
+| Artifact | SHA256 |
+| --- | --- |
+| generation-recovery-diagnosis.json | `b0214121ad65658501a2f4b0cef170e342455e76036753cdc4487ef3245917ca` |
+| generation-recovery-junit.xml | `ea356ef2368ae935ff93a98c3b5207845098f7a6c300a4eb4c8acc75900c10b5` |
+| generation-recovery-tests.log | `81f912f1d1b52ab5a491190b16be55b008f86c71d273f95cd29fc60c161280d9` |
+
+All15historical packet hashes were checked unchanged before diagnosis. Raw reasoning is neither
+read nor retained. The saved request remains private; its SHA256 is
+`06056b66ba047c17c906dafa23a9b00e5321461562b57e80fb3e4f5c76f497f3`.
+Policy UTF-8 SHA remains `bf2db6c7f9a3491119affbf5554a0cf3cdc07cc573ae774a3274d98fa6279259`;
+schema canonical SHA remains `5070fcc0da0b203df9fb65b6fc94f6c8aaf49f891d112ee77446e61ffd8c8659`.
+
+### 11.2 Current documentation, options and proposed change
+
+Context7 resolved `/websites/developers_cloudflare_workers-ai` and was queried for this model's
+generation limit. Broad results mixed other models/Responses API with Chat Completions, so exact
+Cloudflare primary sources were checked on2026-10-21:
+
+- [GPT-OSS20B model](https://developers.cloudflare.com/workers-ai/models/gpt-oss-20b/) and
+  [synchronous input schema](https://developers.cloudflare.com/workers-ai/models/gpt-oss-20b/sync-input.json):
+  generation uses max_tokens; the model supports reasoning. Its128000 context window is not proof
+  of an output limit or of success at any proposed cap.
+- [OpenAI compatibility](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/):
+  the existing account-scoped `/ai/v1/chat/completions` surface is supported; no endpoint/API migration
+  is proposed.
+- [Pricing/Free allowance](https://developers.cloudflare.com/workers-ai/platform/pricing/):
+  Free allocation10000neurons/day; higher use requires Paid. This public policy does not verify
+  this account's current plan, remaining quota, request-specific charge or future latency.
+
+| Option | Benefit | Cost/limit and disposition |
+| --- | --- | --- |
+| Keep1024 and resubmit | No config change. | Repeats the failed condition without a correction; excluded from this proposal. |
+| **2048 first;4096 once after a proven full-cap length response** | One request field changes; keeps v21/schema/model and permits a bounded capacity experiment without another small approval. | More possible output/latency; neither value is proven sufficient. Recommended as the finite experiment below, not a guarantee. |
+| Change reasoning effort, prompt/schema, model or provider | Could alter generation behavior. | Adds variables/compatibility work and crosses the approved design; excluded. It requires a separate evidence-based proposal if the cap experiment fails. |
+
+After approval, change only the Cloudflare construction literal in
+`backend/src/knora/bootstrap.py` from1024 to2048. If and only if11.4's exact escalation predicate
+holds, change the same literal to4096 once, with new verification/CI/freeze. No runtime-only
+monkeypatch may make acceptance differ from the PR's construction path. The real product cap
+changes on the feature branch; this would affect selected Cloudflare generation after later
+integration/deployment, which this package does not authorize. Other provider construction and
+embedding dimensions stay unchanged. Do not replace every1024 literal across tests/configuration.
+
+Keep v21 policy bytes/version, fixed-slot schema, serializer, timeout, model20B, qwen embedding,
+retrieval/containment configuration, PDF/version/23chunks, questions/order and AC1–AC9 unchanged.
+In particular, never interpret reasoning as the final answer, synthesize missing JSON, accept
+`length`, trim content to fit, weaken alias/grounding/refusal checks, add a selector or retry inside
+the provider. No semantic-completeness or153 work is introduced.
+
+### 11.3 Proposed scope, ownership and finite budget
+
+Approval of this section would supersede10.2's cap prohibition,10.3's token-reserve prohibition
+and10.6's token-stop rule **only for the new package and the narrow transition in11.4**.
+All other10.2/10.3/10.4 safety, ownership,
+normal-login, account/quota, source and cleanup requirements continue to apply. No old window opens.
+
+- **New package identity:** `GENERATION-TOKEN-RECOVERY-20261021`; separate counters start only
+  after explicit approval. Old section10's2/12 stay consumed and stopped, not deducted/refunded.
+  Use new run-local copies under the existing ignored183 root at
+  `frontend/test-results/issue183/generation-token-recovery-20261021/`; its path was unused during
+  planning. Recheck before creation. Preserve every old helper/ledger/grant/pending byte; no mock
+  guard is switched into live mode and no new evidence store/framework is created.
+- **Physical requests:** maximum2 windows ×6 =12 new attempts, at most6 query embeddings and6
+  answer generations; failures/uncertain sends count. No document embedding, selector, transport
+  retry, extra probe, within-window re-ask or parallel dispatcher. Stop after a sufficient passing
+  first window. Unused slots expire; no carryover or third window.
+- **Cap:** W1 exactly2048. W2 is a single shared reserve:4096 only under11.4, or2048 after a
+  demonstrated deterministic capture/preservation defect repaired under10.6. These alternatives
+  consume the same reserve. A reserve used for capture cannot later create a third token window.
+  All three final cases must run at one cap on one candidate; never combine W1/W2 successes.
+- **Preparation:** at most3 complete attempts total across the new package, not3 per cap/window.
+  Same named dependency IDs/storage/ports, readiness limits and sequential API then frontend as10.2–10.3.
+  A known correction is required before a repeat. After changing a candidate, clean/restart owned
+  runtime and rebind/review/freeze; this consumes another preparation attempt.
+- **Time:** one24-hour clock begins immediately before this new package's first runtime side effect,
+  after offline readiness/review/CI. It covers both windows/preparations, including later correction
+  and CI waits. Continuation, cap change or a new SHA never extends it. After expiry only safe
+  offline work/cleanup/reporting may continue.
+- **Paid budget:**0USD, exact existing account, fresh Workers Free Active and known used quota≤8000/10000,
+  age0–600s before every send. Refresh while dispatch is denied. No plan change, paid fallback or
+  new credentials. Higher cap does not waive Free/quota checks or establish actual charge0USD.
+- **Resources:** only retained183 PostgreSQL and the two explicitly named Keycloak containers,
+  unchanged config/data; owned API8183/frontend3183, same isolated cookie/session/PKCE, IAB only,
+  same authorized existing local owner. Normal login may reuse the authorized fake credential,
+  value `[REDACTED]`. No credential creation/reset, auth bypass, Docker Engine recovery, primary3000,
+  foreign stack/resource or191/PR200 mutation. Occupancy/ownership loss blocks dependent work.
+- **Review/publication:** scoped independent read-only review, feature-branch commit/push/CI and
+  updates to existing PR184/checkpoint are included. No new PR/Issue, merge/rebase/main edit,
+  ready-state/closure/Done/deploy or cross-thread message is included. Check current191 file/hunk
+  overlap again before editing; if the proposal remains disjoint, do not invent a coordination
+  gate. Any newly necessary shared hunk needs its exact ACK/owner disposition before that hunk.
+
+### 11.4 Exact known-length recovery and mandatory stops
+
+The historical failure is not retroactively recoverable. In the new package a window may close
+while the package enters `awaiting-cap-escalation`, rather than stopping globally, **only when all
+of the following hold**:
+
+1. W1 is open at2048, on its frozen candidate/approved source/account/question with valid quota
+   and unchanged guards. Exactly one dispatcher and one uniquely reserved generation attempt
+   produced one fully received HTTP200 response, with no redirect/transport exception.
+2. A durable, digest-bound receipt identifies that exact reservation/request/candidate/window/case,
+   expected model and cap. Safe parsed metadata has observed model equal to the pinned request
+   model, exactly one choice with finish `length`, integer completion_tokens==2048, nonnegative
+   integer prompt tokens and integer total equal to prompt+completion; bool is invalid for every
+   usage field. Capture final-field presence/type and string/null before validation; never
+   retain raw reasoning. Missing/ambiguous metadata is not eligible.
+3. The ordinary adapter still rejects the response. Dispatcher exit and read-only DB prove this
+   exact Turn is failed, result null, trace0 and no eligible queued/processing work remains.
+   All physical admissions/receipts reconcile as known completed outcomes; no other uncertain
+   in-flight request, lock/process, lost ownership, secret exposure or guard defect exists.
+4. The new helper retains the failed reservation, receipt, window/pending history and physical
+   count. Any own-package in-flight slot is finalized as **known failed**, never refunded or
+   overwritten; an append-only reconciliation reference explains the transition. Do not edit an
+   old package or clear an unknown pending slot. Failure/crash between receipt and reconciliation
+   remains fail-closed; parent may reconcile exact durable known effects offline, never infer a
+   missing receipt or resend. Global safety stops outrank this exception.
+5. Close W1 permanently, deny dispatch and perform owned cleanup before changing the cap. Record
+   the hypothesis, exact2048→4096 diff, affected tests, independent review, fresh candidate CI and
+   frozen helpers/authority. Recheck clock, aggregate/preparation budgets, all source/auth/quota
+   gates, then use W2 for the whole fixed three-question suite in new zero-Turn conversations.
+   This is a separately approved bounded experiment at a changed cap, not a provider retry or
+   permission to press Try again on the failed Turn.
+
+Do not implement this by ignoring/catching a generic Denied or resetting a stopped guard. Current
+helpers treat length as a global stop and cannot distinguish this transition safely. The new
+copies must implement/test this explicit state transition before any live grant is possible.
+
+| Event | Automatic disposition within this proposed package |
+| --- | --- |
+| W1 full-cap known length satisfying all five conditions | Close/reconcile/cleanup; one offline cap escalation to4096; fresh review/CI/freeze/preflight; W2 without another owner question. |
+| Deterministic capture/preservation defect, all sends known | Close/reconcile/cleanup; scoped correction/tests/review; use the same reserve at2048 if available. Never regenerate within W1. |
+| Schema error, final null without proven full-cap length, unsupported claim or omitted required count/list/prose in generated content; other presentation/citation AC failure not proven to be the preceding deterministic preservation/capture defect | Stop live package, cleanup/report; no stochastic resampling, prompt change or cap escalation to seek a PASS. Only the preceding proven deterministic defect may use the capture reserve; safety/accounting stops always prevail. Separately classify full-PDF omissions under4.9. |
+| HTTP error, timeout, unknown send, accounting/guard defect, unsafe state, secret exposure, wrong source/account/subject or ownership loss | Stop live package; no reserve bypass. Reconcile known effects/cleanup; continue safe offline reporting only. |
+| W2 token or other mandatory failure, exhausted attempts/clock, unavailable access | Stop/report exact remaining work. No4096→higher cap, third window or budget reset. |
+| Internal test/format/review/CI check | Correct in scope with reasoned reruns; no small permission prompts. No unchanged functional CI rerun to fish for green. |
+| All ACs evidenced | Independent review, cleanup and acceptance packet; keep PR Draft/Issue OPEN pending owner product acceptance/integration decision. |
+
+### 11.5 Implementation and verification sequence after approval
+
+Before each actual edit record expected outcome, paths/callers/fixtures, failure checks and
+remaining budget. The tasks below are automatic internal gates, not further permission requests.
+
+**A — product cap and focused regressions, zero runtime.** Maintained product scope is one literal
+in `backend/src/knora/bootstrap.py`. Extend existing
+`backend/test/providers/openai_compatible/test_generation.py` length/malformed/timeout test to
+parameterize max_tokens1024/2048/4096; each case must still throw its current safe error after one
+mock call, even when a length response contains otherwise valid JSON. Keep explicit1024 fixtures
+and1024 embedding dimensions elsewhere, including PostgreSQL tests that instantiate their own provider.
+Add this construction-to-wire check in `backend/test/test_bootstrap.py` (imports shown locally):
+
+```python
+@pytest.mark.asyncio
+async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() -> None:
+    import json
+
+    import httpx
+
+    from knora.providers.generation import GenerationEvidence
+    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
+    from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="0123456789abcdef0123456789abcdef",
+            cloudflare_api_token="offline-dummy",
+        )
+    )
+    seen: list[dict] = []
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "REFUSAL",
+                                    "before": [],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                                }
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    provider = selected.generation_provider
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider._client = client
+        result = await provider.generate(
+            question="Unknown?", evidence=(GenerationEvidence("E1", "Fact."),)
+        )
+    assert len(seen) == 1
+    assert seen[0]["max_tokens"] == 2048
+    assert set(seen[0]) == {"model", "messages", "response_format", "max_tokens"}
+    assert seen[0]["model"] == "@cf/openai/gpt-oss-20b"
+    assert seen[0]["messages"][0]["content"] == CLOUDFLARE_SYSTEM_PROMPT
+    assert seen[0]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": ANSWER_BLOCK_SCHEMA,
+    }
+    assert result.decision == "REFUSAL"
+```
+
+Write the check first: current bootstrap1024 must fail its2048 assertion; preserve RED. Change the
+literal, then focused GREEN. A later permitted4096 candidate changes the literal and this expected
+wire value together; retain both candidates/results. New generalized setting/provider abstraction,
+prompt-version bump or production adapter edit is not needed for a construction-cap experiment.
+Run Python format→format-check→lint and affected provider/bootstrap/preservation/alias/refusal
+regressions; required PR CI supplies the unchanged full component/database/Windows/frontend gates.
+Inspect actual selection/counts/JUnit and exact PR-head/ci-subject identity; advisory Shadow remains
+separate and visible. Do not use baseline76 or oldCI as evidence for edited code.
+
+**B — new private helper copies and denial tests, zero runtime.** Reuse the existing runtime,
+OAuth and mock-only guard tests as sources, never weaken the immutable P3 mock guard. Bind cap,
+bootstrap source digest, policy/schema, package, exact subject/CI and both ledgers. Preserve normal
+UI lazy create→submit, owner authorization, zero-Turn/context capture, attempt-specific acknowledged
+OAuth reconciliation and known-response capture before parsing. Add tests to existing copied suites:
+
+- Positive known full-cap2048 receipt/failed Turn closes W1 and admits only4096 W2; repeat after
+  process reload; early W1 failure2+full W2six totals8, late failure6+six totals12. No thirteenth send.
+- At4096, partial usage2047, bool/string/missing usage, mismatched total/model/cap/receipt, missing
+  final field, extra choices, changed request/source/context/hash, lost dispatcher or nonterminal
+  Turn cannot authorize escalation. Use valid supported baselines and assert exact denial causes.
+- Length with valid JSON is rejected; raw reasoning/final substitution is impossible; timeout,
+  HTTP error, null-with-stop, schema failure and safety stop never use the token reserve.
+- Crash at receipt/reconciliation, concurrent stop/admission, restart, stale quota, third prep/window,
+  reserve already used for capture and cap>4096 deny credentials/send. Retain immutable failed-window
+  records, no request refund/replay, no dropped pending slot and no secondary worker.
+- Existing OAuth add/cleanup interrupted/unknown mutation and foreign-entry preservation tests,
+  source/owner/history/candidate drift and mock transport/credential denial remain green.
+
+Run full copied helper suites with caching disabled and unique temp outputs, explicit-file Ruff,
+Windows child-import checks and independent exact-byte review. Recheck current candidate/required
+CI after any product change, freeze all helper inputs only after final checks/review, then bind
+the parent approval and package identity. The parent reads actual output and review, not a self-claim.
+No implementation/helper test from A/B has run during this proposal preparation.
+
+**C — supervised preparation and bounded application acceptance.** Follow10.4 TaskC and the
+agent-environment/Feature Map pinned guidance, including actual ownership/health and lazy UI path.
+Freshly verify retained source/digests/23chunks/23vectors/queue, normal owner session and exact-account
+Free/quota before opening W1. Each fixed question gets a fresh zero-Turn conversation and empty
+context; claim/dispatch exactly its queued Turn. Track JSON→Markdown→API/result/Turn/trace→DOM,
+literal text/order/qualifications/repetitions, every chip's original PDF version/page/locator,
+desktop1440×960/mobile390×844 and same answered-Turn history reload. Admit the next case only
+after its predecessor's required checks. Do not substitute fixture/render success for this run.
+If11.4 applies, perform its complete transition before W2 and rerun all three cases at final cap/SHA.
+
+**D — cleanup, independent review and existing PR/checkpoint.** Deny dispatch first, reconcile
+physical outcomes, logout normally, restore exact owned OAuth additions using fresh readback,
+stop only PID/start/executable/script/ancestry-proven API/frontend trees, close/reset owned IAB
+surfaces and preserve retained dependencies. Unknown ownership is reported, never cleaned blindly.
+Publish full final candidate/report SHAs, own CI, commands/counts/hashes and AC1–AC9 outcomes in
+PR184/existing checkpoint. No new session-state ledger or formal Skill Eval gate. Preserve every
+failed attempt and distinguish mock, application runtime, semantic quality and actual-cost unknowns.
+If a report commit follows runtime, verify its unchanged product and its own CI separately.
+
+### 11.6 Single approval frontier and planning closeout
+
+**Approval wording for the owner to review:**
+
+> Duyệt gói phục hồi tại §11: cho phép thay riêng cap Cloudflare1024→2048; chỉ chuyển một lần lên4096
+> khi đáp ứng đủ điều kiện known full-cap length của11.4. Cho phép sửa/kiểm thử/review các đường dẫn
+> đã nêu, tối đa3 preparation và2 cửa sổ/12 requests mới trong một24 giờ tính từ side effect runtime
+> đầu tiên, ngân sách trả phí0USD. Bao gồm đúng dependencies/API8183/frontend3183/OAuth/IAB/login
+> đã pin, review độc lập và cập nhật nhánh/PR184/checkpoint. Tự đi qua các kiểm tra nội bộ và nhánh
+> phục hồi được duyệt; giữ nguyênAC1–AC9/phạm vi4.9, mọi gói cũ đã dừng,3000 và191/PR200. Dừng tại
+> các ranh giới an toàn hoặc khi hết gói; bàn giao kết quả nghiệm thu hoặc failure packet, giữ Draft,
+> không merge/Done/đóng Issue/deploy.
+
+This is proposed wording, not an owner quote or renewed allowance. Record the actual approval and
+reviewed revision before A/B implementation or any new runtime operation. The next safe action
+without that approval is document review/reporting, not changing bootstrap or opening a window.
+
+Planning self-verification must check links, exact scoped diff, all9AC references, cap transitions,
+shared budgets and stop/approval consistency, artifact hashes/redaction and unchanged product/old
+evidence. Do not rerun broad application suites for this Markdown edit. Keep progress/decisions in
+the existing Issue/PR; reuse executable denial tests after approval for the reusable lesson:
+distinguish a durable known failed response from an unknown send without weakening validation.
+No Skill/hook/framework/knowledge store is added. `systematic-debugging`, `writing-plans` and
+`verification-before-completion` were read/used from the current catalog; formal Skill Evals remain
+UNVERIFIED and no baseline supports causal improvement. Hindsight's relevant183 page had no content;
+no memory claim substitutes for the source, saved response or fresh offline execution.
+
+**Planning verification — 2026-10-21:** independent read-only review compared4.9/5/7/10,
+bootstrap/provider and current helper constraints. It found one P2 ambiguity between deterministic
+preservation recovery and presentation/citation AC stops; the table now gives only the proven
+deterministic exception precedence and keeps safety/accounting stops absolute. Reviewer reread the
+saved correction and reported no remaining actionable finding in that scope. Parent checked7local
+links, syntax of the one proposed Python example, all15historical hashes, three diagnostic hashes,
+JUnit76/0failures/0errors/0skips and `git diff --check`. No product/test/helper changed; this Markdown
+path is outside shared formatter scope. One focused suite and one corrected replay ran; no broad
+suite or live operation was repeated. The example's syntax is checked, not its future regression
+execution. Full documentation-commit SHA/own CI and publication readback belong in the existing
+PR/checkpoint after commit; old CI verifies only its own SHA. Proposal review is not Skill Eval
+PASS, runtime acceptance or owner approval of11.
