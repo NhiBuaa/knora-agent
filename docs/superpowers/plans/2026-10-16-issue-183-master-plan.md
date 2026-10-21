@@ -1,5 +1,13 @@
 # Issue #183 — Master Implementation Plan
 
+**Latest section13 execution — 2026-10-21:** Package `CONDITIONAL-LIST-20261021` is
+**STOPPED0/6**, preparation1/3, windows opened0; no remaining live authority. Offline helpers
+237/237 and own required CI39587990645/attempt2 passed. API preparation reached health200;
+automatic execution policy rejected the frontend startup command before it executed, returning
+`blocked by policy` without a specific reason. Owned API/OAuth cleanup and unchanged source,
+23vectors/dependencies are verified. All three new browser cases remain NOT RUN. See13.1;
+keep PR184 Draft/183 OPEN, no merge/Done/close/deploy. Do not reopen this stopped package.
+
 **Current execution authority — 2026-10-21:** Owner approved the single-window follow-up package
 with “thực hiện” after the explicit three-question/6-request proposal. Execute section13 with
 conditional list acceptance from12.5; preserve all old closed packages and their artifacts.
@@ -3978,3 +3986,100 @@ attempts/counts and unknowns; normal logout, owned-only process/tab/viewport/OAu
 retained dependencies/source/queue readback. Review the final packet and publish sanitized
 results to184/183. PR stays Draft for owner review; no merge/Done/close/deploy. An absent real
 list or an unrun case remains UNVERIFIED/NOT RUN, never a manufactured acceptance PASS.
+
+### 13.1 Executed preparation and policy rejection — 2026-10-21
+
+**Outcome:** The approved helper preparation and CI verification completed; application
+acceptance did not execute. `CONDITIONAL-LIST-20261021` remains permanently stopped0/6,
+unknown0/retry0, one preparation, no window/grant/admitted provider request, no UI submission
+or database write. Existing count-only evidence and12.5's conditional list interpretation
+remain unchanged; no formatting defect or successful new list sample was established.
+
+**Exact subject and offline checks:** HEAD `df1a3edb8aeef03c74d1dbb7236264d5955650ce`, tree
+`0684735b703396ccf32b6390b2db875d867cbe7c`. Copied helpers adapt only exact approved history/context
+and a single6-request window. The sole retained old Turn fingerprint matches; build_context
+selects that Turn, transcript119tokens, retrieval_query equals the approved follow-up unchanged.
+Cases2/3 still require zero-Turn conversations. No production/prompt/schema/retrieval/model/cap
+bytes changed. P3 mock guard remains pinned and unchanged. Independent read-only helper review
+found no remaining actionable issue and approved freeze, not product acceptance.
+
+Final copied suite: **237 passed,0 failed/errors/skips, exit0,50.38s**. Both child-import entrypoints
+also exited0 without credentials/requests; scoped Ruff format/check/lint passed on seven files.
+Retained attempts:128pass/107fail (Windows long paths and copied old assumptions),192/43 (short
+path plus remaining old assumptions/OAuth package),212/25 (shared stop assertion constructed W2),
+233/4 (legacy denial-message expectations), then237/0. Corrections kept W1 cap/expiry/stopped
+checks and independent W2/old-package/seventh-send/context/history/credential denials. Initial
+RED1fail and GREEN1pass were observed but no dedicated initial RED log was saved; do not claim
+an independently reproducible Skill PASS from that account. Failed full logs/XML remain private.
+
+**Own CI:** [39587990645](https://github.com/NhiBuaa/knora-agent/actions/runs/39587990645), attempt2,
+SUCCESS6/6 jobs including `CI required`. ci-subject checkout
+`a1216642c8fd94980509e4d28e79ab0187489310`, parents main
+`de7f97dac40823cc5b9da3e626522a05caa8b732` plus exact HEAD above; tree equals subject tree.
+Ten JUnit reports total3510tests/0failures/0errors/0skips. Successful component artifacts were
+retained from attempt1; latest successful Windows artifact12342630410 is attempt2. First attempt
+had251Windows passes and one `test_launcher_cleans_owned_descendants[ctrl-c-pwsh]` timeout waiting
+20s for DEV_READY. Its logs/failure remain; one justified failed-job rerun succeeded at unchanged
+subject. This does not establish the timeout's root cause or browser acceptance. ci-subject
+artifact12342175716 binds attempt2; separate Shadow39587990636 succeeded. Later report edits
+require their own CI and cannot be covered by this subject's CI.
+
+**Actual startup boundary:** First runtime side effect reserved preparation1 at11:26:18UTC;
+24-hour deadline was recorded. OAuth added/read back exactly the three owned localhost3183
+values; hidden API supervisor53644 started owned Python root40596, health200/knora-agent.
+The next combined health/frontend-supervisor command was rejected by automatic execution policy
+before execution: `rejected: blocked by policy`. No specific explanation was supplied. The
+frontend was not started; that command's health request did not execute either. A subsequent
+read-only health check observed the existing API. No retry, alternate browser, launcher bypass,
+frontend recovery, Cloudflare quota/login/credential/provider request or old-window reopening
+followed. Guard stop reason is `frontend-startup-policy-rejected`; unused slots expired.
+
+**Cleanup/readback:** OAuth removed/read back exactly its three owned additions. PID/start time/
+executable/six-argument command/script/mode were verified before taskkill of root40596's owned
+tree, exit0. Supervisor recorded exited=true but exit_code=null; do not invent an application
+exit code or classify forced teardown as a spontaneous runtime fault. API PID and3183/8183
+listeners absent,3000absent/untouched. No IAB tab/login/viewport mutation occurred; fresh IAB
+inventory is empty, logout not applicable. All three retained dependency IDs/images/start times/
+mounts/bindings match preflight. Six source projections/PDF/23chunks match;23vector COPY rows
+are byte-identical, SHA256 `44d60794c8db785e6ab14d5158332f39d52e0de65bebe438741bce030f32cb24`.
+DB remains16Turns/6traces, eligible0. All55old packet artifacts and their manifest hash match.
+
+**Acceptance:** new cases1/2/3 NOT RUN; five-layer transfer, desktop/mobile, citation/PDF locator,
+short prose and model quality remain UNVERIFIED for this package. Existing count/bold/prose
+preservation evidence remains reusable with its original subject and limits. Unit/mock and CI
+success are not application or semantic acceptance. Paid allowance0USD; no provider request,
+no assertion about account billing or current quota from this package.
+
+**Reviewable artifacts:** existing ignored child
+`<WORKTREE>/frontend/test-results/issue183/conditional-list-acceptance-20261021/`.
+`acceptance-packet-hashes.json` binds45selected artifacts, SHA256
+`16eb87dbd5f92ac0df5b523af2b4d4c0017e37f6dd71102fc3ed6c69921a8b5a`.
+Credentials, backup/source-bearing snapshots and user-local paths are excluded from publication;
+any secret must be `[REDACTED]`. Commands below are historical evidence, not new runtime authority:
+
+```text
+<PYTHON_ENV>/python -X utf8 -B -m pytest --rootdir=. -p no:cacheprovider <RUN>/test_p4_guard.py <RUN>/test_runtime.py <RUN>/test_oauth.py -q --tb=short --basetemp=<RUN>/t --junitxml=<RUN>/final-full2.xml
+<PYTHON_ENV>/python -X utf8 -B <RUN>/runtime.py child-check
+<PYTHON_ENV>/python -X utf8 -B <RUN>/oauth.py cleanup 1
+gh run view 39587990645 --json status,conclusion,attempt,headSha,jobs
+```
+
+**Guidance/task quality and next boundary:** Selected catalog Skills for execution, scoped helper
+TDD/diagnosis, verification and independent review; repository owners override generic ledger/
+workspace defaults. CodeGraph MCP was already used earlier in this session; this step additionally
+confirmed the store's chronological history and runner/context flow in this exact worktree. It
+supports keeping production context/retrieval unchanged. An earlier Hindsight refresh returned
+connection refused; a later search recovered but relevant Issue183 pages had no useful facts.
+No shared-service recovery was attempted. Parent corrected one
+read-only PowerShell HEAD^{tree} quoting error; no state mutation resulted. No causal improvement
+or formal Skill Eval PASS is claimed. No new Skill/hook/framework/knowledge store or reusable
+runbook policy change is justified by an unexplained execution-policy rejection.
+
+The next recovery must first resolve why approved frontend startup is blocked by the execution
+platform and name a permitted owned launch command. The denial supplied no cause, so do not
+claim a flag/configuration fix. Any new runtime/provider attempt needs a newly bounded owner
+approval and exact clean-subject CI/helper binding; this stopped package and old slots cannot
+be reset. Prepare that minimum envelope in this Master, retaining the same3questions/6requests,
+IAB/source/v21/20B/2048 and all cleanup/stop rules. No app3000/other-stack/191 mutation, product
+fix, extra inference, migration or re-ingestion follows from this operational failure. Publish
+this checkpoint for review;183 remains unaccepted and184 Draft, never merge/Done/close/deploy.
