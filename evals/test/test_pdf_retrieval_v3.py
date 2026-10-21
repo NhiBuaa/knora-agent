@@ -863,3 +863,57 @@ def test_build_report_with_ranking_dataset_computes_macro_ndcg_and_ranking_metri
     case_res = report["cases"][0]
     assert case_res["ranking"]["ndcg"] == 1.0
     assert case_res["ranking"]["hit_at_10"] == 1.0
+
+
+def test_replay_phrase_boost_comparator():
+    from evals.runners.pdf_retrieval_v3 import replay_phrase_boost_comparator
+
+    from knora.answering.stores import RetrievalCandidate
+
+    c1 = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id=None,
+        chunk_id="c1",
+        chunk_ordinal=0,
+        heading_path=(),
+        start_line=1,
+        end_line=1,
+        content="a b c",
+        content_checksum="chk-1",
+        token_count=3,
+        cosine_distance=None,
+        similarity=None,
+        bm25_score=2.0,
+    )
+    c2 = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id=None,
+        chunk_id="c2",
+        chunk_ordinal=1,
+        heading_path=(),
+        start_line=2,
+        end_line=2,
+        content="c b a",
+        content_checksum="chk-2",
+        token_count=3,
+        cosine_distance=None,
+        similarity=None,
+        bm25_score=4.0,
+    )
+    results = replay_phrase_boost_comparator(
+        {"q1": [c1, c2]},
+        {"q1": "a b c"},
+        lambda_param=0.75,
+    )
+    assert len(results["q1"]) == 2
+    assert results["q1"][0].candidate.chunk_id == "c1"
