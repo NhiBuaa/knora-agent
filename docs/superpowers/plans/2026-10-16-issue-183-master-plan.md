@@ -1,5 +1,11 @@
 # Issue #183 — Master Implementation Plan
 
+**Current authority — 2026-10-21:** Owner approved the five-part recovery described in this chat
+with “tôi duyệt cho thực hiện để có thể hoàn thành #183”. Execute section12 below, including
+feature-branch integration, diagnosed runtime recovery, explicit old-queue disposition and a new
+bounded acceptance package. Sections10/11 remain stopped with their original evidence/counts.
+PR184 stays Draft until owner acceptance; no merge into main, Issue closure or deployment.
+
 **Latest verified execution — 2026-10-21:** Section11's approved package is **STOPPED2/12; no live authority remains**. Candidate `4f9cc9d30c210f39cc59aa37a1ddd8e7700c6aa2` uses one v21 answer call at2048; own required CI39546281125 and separate Shadow39546281082 succeeded. Case1 returned a valid seven-chapter answer and was inspected at actual1440×960/390×844 with both citations/history. API/frontend then exited1 before case2 dispatch. Case2 remains queued, resultnull/trace0; case3 NOT RUN. Preparation1/3, W1 stopped2/6, W2 unused and unavailable under this stop. OAuth additions restored exactly; ports3183/8183 absent. Normal logout and full IAB cleanup remain UNVERIFIED. See11.7 for evidence/limits; PR184 stays Draft/183 OPEN, no merge/Done/deploy. All historical windows remain closed.
 
 **Latest execution checkpoint — 2026-10-20:** Section10's bounded package is **STOPPED; no live authority remains**. On runtime subject `66979bcf0ef43a74e890b81f0caba712d1068d97`, preparation3 reached authenticated isolated IAB/API/frontend and the first fixed question ran once. W1 remains closed0/6 after a deterministic preparation defect; W2 stopped2/6 after one query embedding and one generation. Generation HTTP200 returned `finish_reason=length`, completion1024 and final `content=null`; stored Turn failed, result null, trace count0. No answer was accepted, so five-layer/citation acceptance is unproven and cases2/3 are NOT RUN. Parent145mock tests and renewed exact-byte independent helper review passed before runtime; they do not establish model/browser acceptance. Owned processes/OAuth/IAB/session were cleaned; retained dependencies stay running. Original pending markers and clock/counters remain unchanged. See10.9. A new runtime or model/cap/policy change requires an owner decision under10.6; do not reopen either window. Earlier opening status lines below are historical.
@@ -3598,3 +3604,108 @@ existing PR184/checkpoint publication/readback can proceed offline. Runtime/serv
 recovery, queued-Turn disposition and any new three-case live window require a new explicit
 bounded owner decision. Keep all old stops/counts and the approved presentation scope; no need
 to reopen selector/two-stage, change cap again, broaden153 or repeat completed model comparisons.
+
+## 12. Approved environment and integration recovery — 2026-10-21
+
+### 12.1 Outcome, authority and boundaries
+
+The owner approved the immediately preceding five-part proposal: diagnose API/frontend exits,
+handle the old queued Turn/session without losing history, integrate current main into this
+feature branch and resolve conflicts, rerun all three fixed acceptance cases, then independently
+review and update existing PR184/checkpoint. This supersedes section11's merge/rebase prohibition
+only for integration **into `fix/issue-183-answer-lists`**, and its stop boundary only through a
+new package. It does not reset any old grant, ledger, receipt, helper or stop. No additional owner
+question is needed for the internal checks and finite recovery branches specified here.
+
+**Expected outcome:** compatible branch plus stable owned runtime and an honest AC1–AC9 packet.
+Keep one v21 answer call, schema/composer/citation behavior, cap2048, source/PDF/version/23chunks/
+23vectors, query order and retrieval identities. No selector, semantic-completeness work,153 work,
+191/PR200 edit, re-ingestion, credential reset, provider retry, dependency upgrade or cap escalation.
+Keep source-bearing/credential artifacts private; publish redacted commands and immutable hashes.
+
+**Scope:** sole Master; one integration merge from fetched main; minimal verified conflict
+resolution; new private copies of existing guarded runtime/OAuth helpers and their tests under
+the existing ignored183 root. No product source change is planned beyond integration. A proven
+environment/lifecycle defect may receive a minimal helper correction with focused regression
+and independent review. Product behavior changes beyond approved presentation require a separate
+decision. Keep main checkout/port3000, all other worktrees and frozen191 untouched.
+
+### 12.2 Finite new budget and safety rules
+
+- Package `APPLICATION-RECOVERY-20261021`; unused run path
+  `frontend/test-results/issue183/application-recovery-20261021/` must be checked before creation.
+  Old §11 remains2/12 and stopped. New counters start0, with no carryover/refund.
+- At most3 preparation attempts total: an API-only provider-denied diagnostic counts as one;
+  a full preparation starts API then frontend under supervision. Repeat only after a recorded
+  correction or a verified lifecycle hypothesis. No endless restart or Docker Engine recovery.
+- At most2 windows ×6 physical requests =12, cap2048 throughout; one query and one generation
+  per case, sequential, fixed questions from §10/11, fresh zero-Turn/empty-context Conversations.
+  Stop after the first complete passing suite. W2 is reserved solely for a proven deterministic
+  lifecycle/capture/preservation correction, all prior sends known, before repeating the whole
+  suite on one frozen subject. Runtime exit closes its window; it never silently resumes it.
+  No reserve for length/schema/semantic/provider failures or stochastic resampling.
+- One24-hour clock starts before the first new runtime/DB/OAuth side effect, including old-Turn
+  disposition. All preparation, CI waits and recovery share it. Offline planning/integration and
+  tests precede this clock. Exhaustion/expiry closes live authority; cleanup/reporting may continue.
+- Paid budget0USD; same existing account, fresh Free Active and used quota≤8000/10000 within600s
+  before every send, refreshed only with dispatch denied. Unknown send/accounting/ownership,
+  wrong source/identity, secret exposure or guard defect stops the package without reserve.
+- Same retained183 PostgreSQL and named Keycloak pair, unchanged IDs/storage/config; owned
+  API8183/frontend3183, isolated session/cookie/PKCE, normal approved fake-owner login, IAB only.
+  Recheck exact ownership/readiness. Never kill by reused PID/image, clean foreign resources,
+  bypass Browser Use URL policy, switch browser, or restart simply to fabricate cleanup proof.
+- Normal logout/session handling, exact owned OAuth restoration, owned process teardown, IAB
+  tab/viewport cleanup and dependency/source parity remain acceptance obligations. Report any
+  policy-denied or unobservable step as UNVERIFIED. No old stop is weakened by this grant.
+
+### 12.3 Execution sequence and checks
+
+- [ ] **A — integrate offline.** Read current instructions/acceptance; inspect clean HEAD and
+  fetched main. Preflight at64f2250 against main `de7f97dac40823cc5b9da3e626522a05caa8b732`
+  reports only CONTEXT.md conflicting. Preserve current v21 §4.9 vocabulary and upstream domain
+  additions; remove obsolete selector paragraphs when upstream removed them. Use one non-rewriting
+  feature-branch merge, inspect all resolutions and product prompt/schema/cap diffs, independently
+  review, push, and require exact-SHA PR CI/ci-subject before runtime. Main may advance later;
+  freeze the actual integrated base and report drift rather than chasing it during acceptance.
+- [ ] **B — diagnose and prepare helpers offline.** Read bounded old exit/log/owner records;
+  simultaneous exit1 during tool interruption is an observation, not an established root cause.
+  Compare supervised-launch behavior, use a provider-denied no-worker diagnostic if needed,
+  retain process/start/exit identities and test a single lifecycle hypothesis. Copy existing
+  helpers/tests into the new run only; bind new package/subject/current CI/source/bootstrap
+  hashes and disable token escalation. Add focused negative tests for any changed authority,
+  queue or lifecycle branch. Run existing copied suites with unique temp/cache-disabled outputs,
+  explicit-file Ruff and child imports; parent reads results and independent exact-byte review.
+- [ ] **C — disposition old queue and session.** Before any worker, deny all provider dispatch
+  and verify old Turn `babae5e4-e31d-43e7-9c18-2ae283b799c6` is exactly queued/resultnull/trace0,
+  the only eligible Turn in its pinned workspace, with its admission open and no active worker.
+  Preserve before snapshot. Establish one operator/dispatcher and quiescent queue ownership;
+  using existing store claim/finalize seams, claim only after that exact-match inventory.
+  Verify returned Turn ID/workspace/question/claim token against the snapshot before finalize;
+  mismatch stops without finalizing another Turn. Persist the exact claim token privately before
+  finalize for interrupted reconciliation; never claim again after an unresolved claim. Then
+  terminalize without running AnswerQuestion/provider, resultnull,
+  safe error `OPERATOR_CANCELLED_BEFORE_DISPATCH`; retain row/question/history and close admission.
+  Record actual failed terminal status as operator disposition, never a model result/PASS.
+  Reconcile partial disposition from exact durable state, never claim another Turn. If expected
+  identity/state differs, stop dependent work. Verify empty eligible queue and trace0 afterward.
+  Then use normal owner login/logout flow to reconcile prior session; no auth bypass/reset.
+- [ ] **D — supervised runtime.** Apply reviewed owned OAuth entries; record all3dependencies,
+  source23chunks/vectors/PDF parity, process trees/health and stable readiness before UI admission.
+  No background worker. Use normal IAB lazy create→Ask; exact gated one-Turn dispatcher only.
+  Capture raw safe HTTP result bodies when available in addition to JSON→Markdown→stored Turn/
+  trace→DOM; report projection-only gaps explicitly. For every answered case compare all literal
+  slots/order/bold/repetitions, both actual1440×960/390×844 viewports, every chip's original PDF
+  version/page/locator and history reload. Review each case before admitting the next. Distinguish
+  generation shortcomings under4.9 from preservation defects; never repair/regenerate for PASS.
+- [ ] **E — closeout.** Deny sends, reconcile known outcomes, logout normally, restore exact
+  owned OAuth additions with fresh readback, stop only proven owned processes, close/reset owned
+  IAB surfaces, verify retained dependencies/source unchanged. Independently review AC1–AC9,
+  counts/exits/hashes and all failures. Commit/report own CI and product parity; update/read back
+  existing PR184/checkpoint once coherent. No duplicate PR, ready/Done/close/main merge/deploy.
+
+**Regression/failure checks before edits:** valid alias/refusal and before/items/after preservation;
+no extra provider call; changed subject/hash/source/account/quota or old queue denies dispatch;
+unknown send/owner/crash remains fail-closed; same finite counters after process reload; no unsafe
+cleanup after PID reuse; no modified historical artifacts. Baseline/source/template hashes and
+commands belong in the existing Issue/PR, not a second Master or framework. Skill selection,
+actual checks and justified reruns are observations only; formal Skill Evals remain UNVERIFIED.
