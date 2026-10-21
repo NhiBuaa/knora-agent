@@ -72,20 +72,39 @@ function Invoke-DockerMetadata([string[]]$CommandArgs, [System.Diagnostics.Stopw
 
     $proc = New-Object System.Diagnostics.Process
     $proc.StartInfo = $psi
+    $cmdWatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         [void]$proc.Start()
         $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
         $stderrTask = $proc.StandardError.ReadToEndAsync()
 
-        $exited = $proc.WaitForExit($timeoutMs)
-        if (-not $exited) {
+        $rootExited = $proc.WaitForExit($timeoutMs)
+        $elapsed = $cmdWatch.ElapsedMilliseconds
+        $remainingMs = [int]($timeoutMs - $elapsed)
+
+        $tasksCompleted = $false
+        if ($rootExited -and $remainingMs -gt 0) {
+            $tasksCompleted = [System.Threading.Tasks.Task]::WaitAll(@($stdoutTask, $stderrTask), [Math]::Max(100, $remainingMs))
+        }
+
+        if (-not $rootExited -or -not $tasksCompleted) {
             try {
-                Start-Process -FilePath 'taskkill.exe' -ArgumentList @('/F', '/T', '/PID', [string]$proc.Id) -NoNewWindow -Wait -ErrorAction SilentlyContinue | Out-Null
+                $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($proc.Id)" -ErrorAction SilentlyContinue)
+                foreach ($c in $children) {
+                    try { Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue } catch { }
+                }
+            } catch { }
+            try {
+                $killProc = Start-Process -FilePath 'taskkill.exe' -ArgumentList @('/F', '/T', '/PID', [string]$proc.Id) -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+                if ($killProc) {
+                    $killProc.WaitForExit(3000) | Out-Null
+                    $killProc.Dispose()
+                }
             } catch { }
             try { $proc.Kill() } catch { }
             Fail "DOCKER_METADATA_TIMEOUT:$composeProject"
         }
-        [void][System.Threading.Tasks.Task]::WaitAll(@($stdoutTask, $stderrTask), 2000)
+
         $global:LASTEXITCODE = $proc.ExitCode
         if ($proc.ExitCode -ne 0) {
             return $null
@@ -104,6 +123,29 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
         $scanWatch = [System.Diagnostics.Stopwatch]::StartNew()
         $ids = @(Invoke-DockerMetadata @('ps', '-a', '--filter', "label=com.docker.compose.project=$composeProject", '--format', '{{.ID}}') $scanWatch)
         if ($LASTEXITCODE -ne 0) { return $false }
+
+        $expectedVolumeConfig = @{
+            "${composeProject}_knora_postgres_data" = @{
+                Service = 'postgres'
+                Destination = '/var/lib/postgresql/data'
+                Role = 'knora_postgres_data'
+            }
+            "${composeProject}_knora_minio_data" = @{
+                Service = 'minio'
+                Destination = '/data'
+                Role = 'knora_minio_data'
+            }
+            "${composeProject}_keycloak_dev_data" = @{
+                Service = 'keycloak-dev'
+                Destination = '/opt/keycloak/data'
+                Role = 'keycloak_dev_data'
+            }
+            "${composeProject}_keycloak_dev_database" = @{
+                Service = 'keycloak-dev-db'
+                Destination = '/var/lib/postgresql/data'
+                Role = 'keycloak_dev_database'
+            }
+        }
 
         $mountedVolumes = @{}
         $ownedPostgres = 0
@@ -144,33 +186,31 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
             foreach ($m in @($mounts)) {
                 if ($m -and $m.PSObject.Properties['Type'] -and $m.Type -eq 'volume' -and
                     $m.PSObject.Properties['Name'] -and $m.Name) {
-                    $mountedVolumes[$m.Name] = $service
+                    $mountedVolumes[$m.Name] = @{
+                        Service = $service
+                        Destination = if ($m.PSObject.Properties['Destination']) { [string]$m.Destination } else { $null }
+                    }
                 }
             }
         }
 
-        # Inspect project-scoped and expected volumes
-        $volumeNames = @()
+        # List all volume names from Docker daemon
+        $allVolumeNames = @(Invoke-DockerMetadata @('volume', 'ls', '--format', '{{.Name}}') $scanWatch)
+        if ($LASTEXITCODE -ne 0) { return $false }
+
+        # List project-filtered volume names
         $filtered = @(Invoke-DockerMetadata @('volume', 'ls', '--filter', "label=com.docker.compose.project=$composeProject", '--format', '{{.Name}}') $scanWatch)
         if ($LASTEXITCODE -ne 0) { return $false }
-        $volumeNames += $filtered
 
-        $expectedVolumes = @(
-            "${composeProject}_knora_postgres_data",
-            "${composeProject}_knora_minio_data",
-            "${composeProject}_keycloak_dev_data",
-            "${composeProject}_keycloak_dev_database"
-        )
-        foreach ($vol in $expectedVolumes) {
-            if ($vol -notin $volumeNames) {
-                $checkRaw = Invoke-DockerMetadata @('volume', 'inspect', $vol, '--format', '{{.Name}}') $scanWatch
-                $check = if ($checkRaw -is [array]) { $checkRaw -join '' } else { $checkRaw }
-                if ($LASTEXITCODE -eq 0 -and $check) {
-                    $volumeNames += $check.Trim()
-                }
+        $existingVolumes = @()
+        foreach ($v in $filtered) {
+            if ($v -and $v -notin $existingVolumes) { $existingVolumes += $v }
+        }
+        foreach ($vol in $expectedVolumeConfig.Keys) {
+            if ($vol -in $allVolumeNames -and $vol -notin $existingVolumes) {
+                $existingVolumes += $vol
             }
         }
-        $existingVolumes = @($volumeNames | Select-Object -Unique | Where-Object { $_ })
 
         # Path 1: Fresh project with no containers and no retained volumes
         if ($ids.Count -eq 0 -and $existingVolumes.Count -eq 0) {
@@ -185,21 +225,42 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
         # Path 2: All existing volumes must belong to this checkout and match mounted containers
         foreach ($v in $existingVolumes) {
             $rawVolLabels = Invoke-DockerMetadata @('volume', 'inspect', $v, '--format', '{{json .Labels}}') $scanWatch
-            $volLabelsJson = if ($rawVolLabels -is [array]) { $rawVolLabels -join '' } else { $rawVolLabels }
-            $volLabels = if ($volLabelsJson) { $volLabelsJson | ConvertFrom-Json } else { $null }
-            if ($LASTEXITCODE -ne 0) { return $false }
-            if ($volLabels -and $volLabels.PSObject.Properties['com.docker.compose.project'] -and
-                $volLabels.'com.docker.compose.project' -ne $composeProject) {
+            if ($LASTEXITCODE -ne 0 -or $null -eq $rawVolLabels) {
                 return $false
             }
+            $volLabelsJson = if ($rawVolLabels -is [array]) { $rawVolLabels -join '' } else { $rawVolLabels }
+            $volLabels = if ($volLabelsJson -and $volLabelsJson.Trim() -ne '') { $volLabelsJson | ConvertFrom-Json } else { $null }
+
+            if ($volLabels) {
+                if ($volLabels.PSObject.Properties['com.docker.compose.project'] -and
+                    $volLabels.'com.docker.compose.project' -ne $composeProject) {
+                    return $false
+                }
+                if ($expectedVolumeConfig.ContainsKey($v)) {
+                    $expectedRole = $expectedVolumeConfig[$v].Role
+                    if ($volLabels.PSObject.Properties['com.docker.compose.volume'] -and
+                        $volLabels.'com.docker.compose.volume' -ne $expectedRole) {
+                        return $false
+                    }
+                }
+            }
+
             if (-not $mountedVolumes.ContainsKey($v)) {
                 return $false
             }
-            $mountedService = $mountedVolumes[$v]
-            if ($v -like "*postgres*" -and $mountedService -ne 'postgres') { return $false }
-            if ($v -like "*minio*" -and $mountedService -ne 'minio') { return $false }
-            if ($v -like "*keycloak_dev_data*" -and $mountedService -ne 'keycloak-dev') { return $false }
-            if ($v -like "*keycloak_dev_database*" -and $mountedService -ne 'keycloak-dev-db') { return $false }
+
+            $mountInfo = $mountedVolumes[$v]
+            if ($expectedVolumeConfig.ContainsKey($v)) {
+                $expectedCfg = $expectedVolumeConfig[$v]
+                if ($mountInfo.Service -ne $expectedCfg.Service) {
+                    return $false
+                }
+                $destNorm = if ($mountInfo.Destination) { $mountInfo.Destination.TrimEnd('/').Replace('\', '/') } else { '' }
+                $expectedDestNorm = $expectedCfg.Destination.TrimEnd('/').Replace('\', '/')
+                if ($destNorm -ne $expectedDestNorm) {
+                    return $false
+                }
+            }
         }
 
         return (-not $PostgresPortInUse -or $ownedPostgres -eq 1)
@@ -250,6 +311,9 @@ Import-DotEnv $dotenvPath
 $reservation = $null
 $reservationPath = Join-Path ([IO.Path]::GetTempPath()) "knora-dev-reservation-$composeProject.lock"
 $cleanupFailed = $false
+$mutatingStarted = $false
+$steadyStateReached = $false
+$cleanShutdown = $false
 
 if (-not $PreflightOnly) {
     try {
@@ -259,6 +323,12 @@ if (-not $PreflightOnly) {
             [IO.FileAccess]::Write,
             [IO.FileShare]::None
         )
+        $writer = [System.IO.StreamWriter]::new($reservation, [System.Text.Encoding]::UTF8)
+        $writer.WriteLine("PID=$PID")
+        $writer.WriteLine("REPO=$repoRoot")
+        $writer.WriteLine("PROJECT=$composeProject")
+        $writer.WriteLine("TIMESTAMP=$([DateTime]::UtcNow.ToString('o'))")
+        $writer.Flush()
     } catch {
         Fail "DEV_PROJECT_RESERVED:$composeProject"
     }
@@ -472,6 +542,7 @@ $env:KNORA_OBJECT_STORE_S3_SECRET_KEY = $minioSecretKey
 if (-not $env:KNORA_OBJECT_STORE_S3_REGION) { $env:KNORA_OBJECT_STORE_S3_REGION = 'us-east-1' }
 
 Push-Location $repoRoot
+$mutatingStarted = $true
 try {
     $storageServices = @('postgres', 'minio')
     if ($useBundledKeycloak) { $storageServices += 'keycloak-dev' }
@@ -565,6 +636,7 @@ try {
         Write-Output "Press Ctrl+C to stop API, both workers and frontend. PostgreSQL/MinIO stay running."
         if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$FrontendPort" | Out-Null }
 
+        $steadyStateReached = $true
         while ($true) {
             Start-Sleep -Milliseconds 500
             if ($api.HasExited) {
@@ -594,6 +666,9 @@ try {
         try {
             if ($processJob) { $processJob.Dispose() }
             [Console]::WriteLine('DEV_STOPPED')
+            if ($steadyStateReached) {
+                $cleanShutdown = $true
+            }
         } catch {
             $cleanupFailed = $true
             [Console]::Error.WriteLine("DEV_CLEANUP_FAILED:$($_.Exception.Message)")
@@ -602,6 +677,7 @@ try {
         }
     }
 } catch {
+    $cleanShutdown = $false
     [Console]::Error.WriteLine($_.Exception.Message)
     Fail 'DEV_RUNTIME_FAILED'
 } finally {
@@ -612,8 +688,10 @@ try {
         try {
             $reservation.Dispose()
         } catch { }
-        if (-not $cleanupFailed) {
+        if (-not $cleanupFailed -and (-not $mutatingStarted -or $cleanShutdown)) {
             try { [IO.File]::Delete($reservationPath) } catch { }
+        } else {
+            [Console]::Error.WriteLine("DEV_RESERVATION_RETAINED:$reservationPath - Mutating startup or cleanup did not complete cleanly. Inspect and remove lock file manually after verifying container and process state.")
         }
     }
 }

@@ -663,6 +663,9 @@ def _ollama_server(
             self._respond({"models": models})
 
         def do_POST(self) -> None:
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length > 0:
+                self.rfile.read(content_length)
             if self.path == "/api/show":
                 self._respond({"details": {"family": "qwen3", "quantization_level": "Q8_0"}})
             elif self.path == "/api/embed":
@@ -1131,7 +1134,6 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
     if executable is None:
         pytest.skip(f"{shell} is unavailable")
     root, wrapper = launcher_runtime
-    api_port, frontend_port = _unused_port(), _unused_port()
     environment = {
         key: value
         for key, value in os.environ.items()
@@ -1144,9 +1146,6 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         FIXTURE_LAUNCHER=str(root / "scripts/start-dev.ps1"),
         FIXTURE_ENV=str(root / "empty.env"),
         FIXTURE_PYTHON=sys.executable,
-        FIXTURE_API_PORT=str(api_port),
-        FIXTURE_FRONTEND_PORT=str(frontend_port),
-        FIXTURE_POSTGRES_PORT=str(_unused_port()),
         SESSION_SECRET="synthetic-session-secret-000000000000",
         KNORA_CANONICAL_MINIO_ACCESS_KEY="synthetic-access",
         KNORA_CANONICAL_MINIO_SECRET_KEY="synthetic-secret",
@@ -1162,42 +1161,74 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
     launcher = None
+    api_port = None
+    frontend_port = None
     try:
         log_path = root / "launcher.log"
-        with log_path.open("w") as output:
-            launcher = subprocess.Popen(
-                [executable, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(wrapper)],
-                cwd=root,
-                env=environment,
-                stdout=output,
-                stderr=subprocess.STDOUT,
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-                startupinfo=startup,
+        for attempt in range(3):
+            api_port, frontend_port = _unused_port(), _unused_port()
+            postgres_port = _unused_port()
+            environment.update(
+                FIXTURE_API_PORT=str(api_port),
+                FIXTURE_FRONTEND_PORT=str(frontend_port),
+                FIXTURE_POSTGRES_PORT=str(postgres_port),
             )
-        owner = psutil.Process(launcher.pid)
+            if log_path.exists():
+                with suppress(OSError):
+                    log_path.unlink()
+            lock_file = root / "knora-dev-reservation-knora-dev.lock"
+            if lock_file.exists():
+                with suppress(OSError):
+                    lock_file.unlink()
 
-        def observe():
-            if launcher.poll() is None:
-                with suppress(psutil.NoSuchProcess):
-                    known.update(owner.children(recursive=True))
-            return log_path.read_text(errors="replace")
+            with log_path.open("w") as output:
+                launcher = subprocess.Popen(
+                    [executable, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(wrapper)],
+                    cwd=root,
+                    env=environment,
+                    stdout=output,
+                    stderr=subprocess.STDOUT,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    startupinfo=startup,
+                )
+            owner = psutil.Process(launcher.pid)
 
-        if scenario == "startup-failure":
-            _wait_until(lambda: observe() and launcher.poll() is not None)
-            assert "DEV_RUNTIME_FAILED" in observe()
-        else:
-            _wait_until(lambda: "DEV_READY" in observe())
-            if scenario == "exited-root":
-                frontend_pid = int(re.search(r"FRONTEND_PID=(\d+)", observe())[1])
-                frontend_root = next(process for process in known if process.pid == frontend_pid)
-                frontend_root.kill()
-                frontend_root.wait(5)
-            if scenario == "worker-restart":
-                (root / "restart-worker").touch()
-                _wait_until(lambda: "[worker] ready generation 2" in observe())
-            if launcher.poll() is None:
-                _console_ctrl_c(launcher.pid)
-            launcher.wait(15)
+            def observe(p=launcher, o=owner):
+                if p.poll() is None:
+                    with suppress(psutil.NoSuchProcess):
+                        known.update(o.children(recursive=True))
+                return log_path.read_text(errors="replace")
+
+            if scenario == "startup-failure":
+                _wait_until(lambda p=launcher: observe(p) and p.poll() is not None)
+                assert "DEV_RUNTIME_FAILED" in observe(launcher)
+                break
+            else:
+                _wait_until(
+                    lambda p=launcher: "DEV_READY" in observe(p) or p.poll() is not None,
+                    timeout=20,
+                )
+                if (
+                    launcher.poll() is not None
+                    and "PORT_IN_USE" in observe(launcher)
+                    and attempt < 2
+                ):
+                    continue
+                assert "DEV_READY" in observe(launcher)
+                if scenario == "exited-root":
+                    frontend_pid = int(re.search(r"FRONTEND_PID=(\d+)", observe(launcher))[1])
+                    frontend_root = next(
+                        process for process in known if process.pid == frontend_pid
+                    )
+                    frontend_root.kill()
+                    frontend_root.wait(5)
+                if scenario == "worker-restart":
+                    (root / "restart-worker").touch()
+                    _wait_until(lambda p=launcher: "[worker] ready generation 2" in observe(p))
+                if launcher.poll() is None:
+                    _console_ctrl_c(launcher.pid)
+                launcher.wait(15)
+                break
         assert outsider.poll() is None
         for marker in root.glob("process-*.json"):
             identity = json.loads(marker.read_text())
@@ -1644,6 +1675,202 @@ def test_launcher_retains_reservation_on_force_kill_and_allows_manual_cleanup(
         outsider.wait(timeout=10)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher reservation")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_launcher_retains_reservation_on_mutating_startup_uncertainty(launcher_runtime, shell: str):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    root, _ = launcher_runtime
+    shared_temp = root / "shared_temp"
+    shared_temp.mkdir(parents=True, exist_ok=True)
+    lock_file = shared_temp / "knora-dev-reservation-knora-dev.lock"
+
+    custom_wrapper = root / "uncertainty_wrapper.ps1"
+    custom_wrapper.write_text(
+        textwrap.dedent("""
+        param(
+            [string]$EnvFile,
+            [int]$PostgresPort,
+            [int]$ApiPort,
+            [int]$FrontendPort,
+            [string]$PythonExe,
+            [string]$EmbeddingProvider = 'deterministic-local'
+        )
+        $ErrorActionPreference = 'Stop'
+        function docker {
+            $global:LASTEXITCODE = 0
+            if ($args[0] -eq 'ps') { return }
+            if ($args[0] -eq 'volume' -and $args[1] -eq 'ls') { return }
+            if ($args[0] -eq 'volume' -and $args[1] -eq 'inspect') {
+                $global:LASTEXITCODE = 1
+                return
+            }
+            if ($args[0] -eq 'compose' -and $args -contains 'up') {
+                if ($env:KNORA_SIMULATE_MUTATING_FAILURE -eq '1') {
+                    $startInfo = New-Object Diagnostics.ProcessStartInfo
+                    $startInfo.FileName = 'powershell.exe'
+                    $startInfo.Arguments = '-NoProfile -Command Start-Sleep -Seconds 30'
+                    $startInfo.UseShellExecute = $false
+                    $startInfo.CreateNoWindow = $true
+                    $ownedChild = [Diagnostics.Process]::Start($startInfo)
+                    [Console]::WriteLine('OWNED_REVIEW_CHILD_PID=' + $ownedChild.Id)
+                    throw 'SIMULATED_MUTATING_STARTUP_UNCERTAIN'
+                }
+                return
+            }
+            if ($args -contains 'exec') { '1'; return }
+            return
+        }
+        if (-not $PSBoundParameters.ContainsKey('EmbeddingProvider')) {
+            $PSBoundParameters['EmbeddingProvider'] = 'deterministic-local'
+        }
+        $PSBoundParameters['NoBrowser'] = $true
+        $PSBoundParameters['GenerationProvider'] = 'deterministic-local'
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters
+        exit $LASTEXITCODE
+        """)
+    )
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    env_vars = {
+        **os.environ,
+        "TEMP": str(shared_temp),
+        "TMP": str(shared_temp),
+        "KNORA_TEST_SCRIPT": str(root / "scripts" / "start-dev.ps1"),
+        "KNORA_SIMULATE_MUTATING_FAILURE": "1",
+        "SESSION_SECRET": "synthetic-session-secret-000000000000",
+        "KNORA_CANONICAL_MINIO_ACCESS_KEY": "synthetic-access",
+        "KNORA_CANONICAL_MINIO_SECRET_KEY": "synthetic-secret",
+    }
+
+    child_proc = None
+    log_a = root / "proc_a.log"
+    try:
+        with log_a.open("w", encoding="utf-8") as out:
+            proc_a = subprocess.run(
+                [
+                    executable,
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(custom_wrapper),
+                    "-EnvFile",
+                    str(root / "empty.env"),
+                    "-PythonExe",
+                    sys.executable,
+                    "-PostgresPort",
+                    str(port_pg),
+                    "-ApiPort",
+                    str(port_api),
+                    "-FrontendPort",
+                    str(port_ui),
+                ],
+                cwd=str(root),
+                env=env_vars,
+                stdout=out,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=15,
+            )
+
+        output_a = log_a.read_text(encoding="utf-8", errors="replace")
+        assert proc_a.returncode == 2, output_a
+        assert "DEV_RUNTIME_FAILED" in output_a
+        assert "DEV_RESERVATION_RETAINED" in output_a
+
+        match = re.search(r"OWNED_REVIEW_CHILD_PID=(\d+)", output_a)
+        assert match is not None, f"Expected child PID marker in stdout: {proc_a.stdout}"
+        child_pid = int(match.group(1))
+        child_proc = psutil.Process(child_pid)
+        assert child_proc.is_running()
+
+        assert lock_file.exists(), (
+            "Reservation lock must be retained when mutating startup is uncertain"
+        )
+
+        # Subsequent invocation B must be rejected due to retained lock
+        env_vars_b = dict(env_vars)
+        env_vars_b["KNORA_SIMULATE_MUTATING_FAILURE"] = "0"
+        proc_b = subprocess.run(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(custom_wrapper),
+                "-EnvFile",
+                str(root / "empty.env"),
+                "-PythonExe",
+                sys.executable,
+                "-PostgresPort",
+                str(port_pg),
+                "-ApiPort",
+                str(port_api),
+                "-FrontendPort",
+                str(port_ui),
+            ],
+            cwd=str(root),
+            env=env_vars_b,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert proc_b.returncode == 2
+        assert "DEV_PROJECT_RESERVED:knora-dev" in proc_b.stderr
+
+        # Manual remediation cleans the child process and unlinks the lock
+        child_proc.kill()
+        child_proc.wait(timeout=5)
+        child_proc = None
+        lock_file.unlink()
+
+        # Invocation C can now proceed past reservation check
+        proc_c = subprocess.run(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(custom_wrapper),
+                "-EnvFile",
+                str(root / "empty.env"),
+                "-PythonExe",
+                sys.executable,
+                "-EmbeddingProvider",
+                "invalid",
+                "-PostgresPort",
+                str(port_pg),
+                "-ApiPort",
+                str(port_api),
+                "-FrontendPort",
+                str(port_ui),
+            ],
+            cwd=str(root),
+            env=env_vars_b,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert "DEV_PROJECT_RESERVED:knora-dev" not in proc_c.stderr
+        assert "INVALID_EMBEDDING_PROVIDER" in proc_c.stderr
+    finally:
+        if child_proc is not None:
+            with suppress(psutil.NoSuchProcess):
+                child_proc.kill()
+                child_proc.wait(timeout=5)
+        if lock_file.exists():
+            with suppress(OSError):
+                lock_file.unlink()
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
 @pytest.mark.parametrize("shell", ["powershell", "pwsh"])
 def test_daily_launcher_docker_metadata_timeout_aborts_and_cleans_reservation(tmp_path, shell):
@@ -1712,7 +1939,7 @@ def test_daily_launcher_docker_metadata_timeout_aborts_and_cleans_reservation(tm
         env=env_vars,
         capture_output=True,
         text=True,
-        timeout=18,
+        timeout=22,
     )
     elapsed = time.time() - start_time
 
@@ -1720,7 +1947,7 @@ def test_daily_launcher_docker_metadata_timeout_aborts_and_cleans_reservation(tm
         f"Expected returncode 2, got {result.returncode}. Stderr: {result.stderr}"
     )
     assert "DOCKER_METADATA_TIMEOUT:knora-dev" in result.stderr
-    assert 9 <= elapsed <= 16, (
+    assert 9 <= elapsed <= 19, (
         f"Elapsed time {elapsed}s was outside expected bounded timeout window"
     )
 
@@ -1802,3 +2029,279 @@ def test_daily_launcher_docker_metadata_pipe_buffer_and_spaced_path(tmp_path, sh
     # found unverified containers/volumes, and exited safely.
     assert result.returncode == 2
     assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher volume safety")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_launcher_refuses_when_volume_inspect_fails_on_existing_volume(tmp_path: Path, shell: str):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        textwrap.dedent("""
+        param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
+        $ErrorActionPreference = 'Stop'
+        function docker {
+            $global:LASTEXITCODE = 0
+            if ($args[0] -eq 'ps') { return }
+            if ($args[0] -eq 'volume' -and $args[1] -eq 'ls') {
+                # If filtered by label, volume has no labels so filter returns empty
+                if ($args -contains '--filter') { return @() }
+                # General volume ls lists the volume as existing on the daemon
+                return @('knora-dev_knora_postgres_data')
+            }
+            if ($args[0] -eq 'volume' -and $args[1] -eq 'inspect') {
+                $global:LASTEXITCODE = 1
+                return
+            }
+            throw "UNEXPECTED_DOCKER_CALL: $($args -join ' ')"
+        }
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid
+        exit $LASTEXITCODE
+        """)
+    )
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+
+    env_vars = {
+        **os.environ,
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "KNORA_TEST_SCRIPT": str(SCRIPT),
+    }
+
+    result = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        env=env_vars,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert result.returncode == 2, result.stderr
+    assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher metadata deadline")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline(
+    tmp_path: Path, shell: str
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_docker = fake_bin / "docker.cmd"
+    fake_docker.write_text(
+        "@echo off\r\n"
+        'start /b "" powershell.exe -NoProfile -Command "Start-Sleep -Seconds 16"\r\n'
+        "exit /b 0\r\n"
+    )
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        textwrap.dedent("""
+        param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
+        Set-StrictMode -Version Latest
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid
+        exit $LASTEXITCODE
+        """)
+    )
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+
+    env_vars = {
+        **os.environ,
+        "PATH": f"{fake_bin};{os.environ.get('PATH', '')}",
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "KNORA_TEST_SCRIPT": str(SCRIPT),
+    }
+
+    start_time = time.time()
+    result = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        env=env_vars,
+        capture_output=True,
+        text=True,
+        timeout=22,
+    )
+    elapsed = time.time() - start_time
+
+    assert result.returncode == 2, result.stderr
+    assert "DOCKER_METADATA_TIMEOUT:knora-dev" in result.stderr
+    assert 9 <= elapsed <= 19, f"Elapsed time {elapsed}s outside expected bounded timeout"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher mount/label verification")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+@pytest.mark.parametrize("fault", ["wrong-destination", "wrong-role-label", "valid"])
+def test_launcher_verifies_volume_destination_and_role_label(
+    tmp_path: Path, shell: str, fault: str
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    dest = (
+        "/var/lib/postgresql/wrong_data"
+        if fault == "wrong-destination"
+        else "/var/lib/postgresql/data"
+    )
+    role = "wrong_role_label" if fault == "wrong-role-label" else "knora_postgres_data"
+
+    repo_dir = str(SCRIPT.parents[1]).replace("\\", "/")
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        textwrap.dedent(f"""
+        param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
+        $ErrorActionPreference = 'Stop'
+        function docker {{
+            $global:LASTEXITCODE = 0
+            if ($args[0] -eq 'ps') {{
+                return @('fake-pg-id')
+            }}
+            if ($args[0] -eq 'inspect' -and $args[1] -eq 'fake-pg-id') {{
+                if ($args[-1] -like '*Config.Labels*') {{
+                    return @{{
+                        'com.docker.compose.project' = 'knora-dev'
+                        'com.docker.compose.service' = 'postgres'
+                        'com.docker.compose.project.working_dir' = (Resolve-Path '{repo_dir}').Path
+                    }} | ConvertTo-Json -Compress
+                }}
+                if ($args[-1] -like '*Mounts*') {{
+                    return @(@{{
+                        Type = 'volume'
+                        Name = 'knora-dev_knora_postgres_data'
+                        Destination = '{dest}'
+                    }}) | ConvertTo-Json -Depth 5 -Compress
+                }}
+                if ($args[-1] -like '*State*') {{
+                    return @{{ Running = $false }} | ConvertTo-Json -Compress
+                }}
+                return '{{}}'
+            }}
+            if ($args[0] -eq 'volume' -and $args[1] -eq 'ls') {{
+                return @('knora-dev_knora_postgres_data')
+            }}
+            if ($args[0] -eq 'volume' -and $args[1] -eq 'inspect') {{
+                if ($args[2] -ne 'knora-dev_knora_postgres_data') {{
+                    $global:LASTEXITCODE = 1
+                    return
+                }}
+                if ($args[-1] -like '*{{.Name}}*') {{
+                    return 'knora-dev_knora_postgres_data'
+                }}
+                if ($args[-1] -like '*Labels*') {{
+                    return @{{
+                        'com.docker.compose.project' = 'knora-dev'
+                        'com.docker.compose.volume' = '{role}'
+                    }} | ConvertTo-Json -Compress
+                }}
+                return @{{
+                    Name = 'knora-dev_knora_postgres_data'
+                    Labels = @{{
+                        'com.docker.compose.project' = 'knora-dev'
+                        'com.docker.compose.volume' = '{role}'
+                    }}
+                }} | ConvertTo-Json -Compress
+            }}
+            throw "UNEXPECTED_DOCKER_CALL: $($args -join ' ')"
+        }}
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid
+        exit $LASTEXITCODE
+        """)
+    )
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+
+    env_vars = {
+        **os.environ,
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "KNORA_TEST_SCRIPT": str(SCRIPT),
+    }
+
+    result = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        env=env_vars,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    if fault == "valid":
+        assert "INVALID_EMBEDDING_PROVIDER" in result.stderr
+        assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED" not in result.stderr
+    else:
+        assert result.returncode == 2, result.stderr
+        assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr

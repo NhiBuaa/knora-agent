@@ -249,3 +249,39 @@ trên hai shell, dữ liệu/outsider không bị tác động, diff trong phạ
 Không dừng sau mỗi test đỏ hay sau việc viết kế hoạch. Tự phân tích, sửa, chạy lại và theo dõi CI
 trong phạm vi đã giao. Chỉ dừng khi hoàn thành hoặc có blocker cần quyết định/quyền thật sự;
 khi đó nêu chính xác phần đã xong, bằng chứng, lý do không thể tiếp tục an toàn và một câu hỏi cần trả lời.
+## 8. Kết quả khắc phục và hoàn thiện (Remediation Execution)
+
+Theo gói bàn giao `dev-launcher-storage-safety-remediation-antigravity-20261021.md`, các điểm kỹ thuật còn thiếu từ đợt triển khai trước đã được khắc phục triệt để:
+
+1. **Bảo vệ Reservation khi mutating startup không chắc chắn (P1 - Thread 4333903545)**:
+   - Thêm cờ `$mutatingStarted` vào `scripts/start-dev.ps1` phân biệt preflight chỉ đọc và mutating runtime.
+   - Khi startup thất bại sau mutating hoặc cleanup chưa xác nhận an toàn, giữ nguyên lock file trên đĩa kèm PID/repo/timestamp và xuất `DEV_RESERVATION_RETAINED:knora-dev`.
+   - Invocation tiếp theo bị chặn với `DEV_PROJECT_RESERVED:knora-dev`.
+   - Kiểm chứng bằng regression test `test_launcher_retains_reservation_on_mutating_startup_uncertainty`.
+
+2. **Phân biệt volume vắng mặt với lỗi đọc volume (P1 - Thread 4333903533)**:
+   - Dùng `docker volume ls --format '{{.Name}}'` lấy danh mục volume thực tế của daemon.
+   - Đối chiếu tập 4 volume mong đợi (`knora-dev_knora_postgres_data`, `knora-dev_knora_minio_data`, `knora-dev_keycloak_dev_data`, `knora-dev_keycloak_dev_database`).
+   - Nếu volume có tên trên daemon mà `docker volume inspect` thất bại (exit khác 0 hoặc metadata rỗng), từ chối ngay lập tức với `COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev` thay vì bỏ qua coi như vắng mặt.
+   - Kiểm chứng bằng regression test `test_launcher_refuses_when_volume_inspect_fails_on_existing_volume`.
+
+3. **Thời hạn liên tục bao phủ stream và thu hồi child giữ pipe (P2 - Thread 4333903568)**:
+   - `Invoke-DockerMetadata` dùng `Stopwatch` đo thời gian liên tục (`remainingMs`), áp dụng đồng thời cho cả thực thi tiến trình và đọc streams không đồng bộ.
+   - Tránh deadlock khi child process giữ pipe stdout/stderr: không gọi `.Result` sau timeout, dùng `Get-CimInstance Win32_Process` và `taskkill /F /T` có timeout 3s để hủy toàn bộ cây tiến trình con.
+   - Ném lỗi `DOCKER_METADATA_TIMEOUT:knora-dev`.
+   - Kiểm chứng bằng regression test `test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline`.
+
+4. **Xác thực Destination mount và role label của từng volume (P2 - Thread 4333903533)**:
+   - `Test-DevStorageOwnership` đối chiếu bảng 4 volume chuẩn: Destination mount point và nhãn `com.docker.compose.volume` tương ứng.
+   - Nếu container gắn sai Destination hoặc thiếu/sai role label, từ chối với `COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev`.
+   - Kiểm chứng bằng regression test `test_launcher_verifies_volume_destination_and_role_label` cho cả 3 nhánh `wrong-destination`, `wrong-role-label` và `valid`.
+
+5. **Độ ổn định test fixture và xử lý review threads (P2/P3 - Threads 4333903579, 4333903558)**:
+   - Thêm cơ chế retry cấp cao (3 lần) khi preflight phát hiện `PORT_IN_USE` trên cổng ngẫu nhiên trong `test_launcher_cleans_owned_descendants`.
+   - Sửa lỗi flake `OLLAMA_CONTRACT_UNAVAILABLE` trong `_ollama_server` bằng việc drain đầy đủ request body trong `do_POST`.
+   - Trạng thái review threads:
+     - Thread 4333903533: RESOLVED (retained volume inspection & mount/role contract).
+     - Thread 4333903545: RESOLVED (reservation retention upon mutating startup uncertainty).
+     - Thread 4333903568: RESOLVED (continuous deadline & child pipe cleanup).
+     - Thread 4333903579: RESOLVED (fixture port collision handling).
+     - Thread 4333903558: UNRESOLVED (để mở — lỗi trùng cổng đầu vào là finding có từ trước, ngoài phạm vi PR).
