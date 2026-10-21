@@ -36,7 +36,7 @@ current frontend/BFF/Keycloak implementation and the three Figma pages.
 
 Scope: 41 final screen variants, 38 prototype frames, 89 prototype transitions, five panel layouts
 and five response states. Exact mappings are in
-[the inventory](../../design/figma-ui-inventory-2026-10-05.json).
+[the inventory](../design/figma-ui-inventory-2026-10-05.json).
 
 The requested OTP choice is confirmed. The remaining design choices are concrete proposals in the
 spec, including responsive behavior, search contract and truthful unavailable/deletion states.
@@ -261,8 +261,8 @@ docker-compose.figma-otp-proof.yml              [+ I2] test-only override, loopb
 docs/
 ├── design/figma-ui-inventory-2026-10-05.json      [đã tạo khi lập plan]
 ├── research/keycloak-email-otp-reset-2026-10-05.md [đã tạo]
-├── superpowers/specs/                          [design của workflow này]
-├── superpowers/plans/                          [workflow + năm slice plan]
+├── specs/                          [design của workflow này]
+├── plans/                          [workflow + năm slice plan]
 └── development/
     ├── keycloak-theme.md                       [~ I1/I2/Q2]
     ├── figma-ui-visual-coverage.md              [+ Q1]

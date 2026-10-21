@@ -25,7 +25,7 @@ The supplied node 124:140 is the Prototype Flows page. All three pages were insp
 | 02 · Interaction & Response States, 4:2 | Five panel layouts, five response cards, panel interaction rules |
 | 03 · Prototype Flows, 124:140 | 38 frames and 89 linked transitions |
 
-The [machine-readable inventory](../../design/figma-ui-inventory-2026-10-05.json) records exact
+The [machine-readable inventory](../design/figma-ui-inventory-2026-10-05.json) records exact
 node IDs, names, links, groups, transitions, tokens and asset references. The inventory is a dated
 capture; Figma may change. Refresh affected nodes at execution time and record substantive changes.
 

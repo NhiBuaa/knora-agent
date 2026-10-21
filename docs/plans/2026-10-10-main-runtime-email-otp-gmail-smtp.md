@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker Compose, Keycloak 26.3.3, Java provider JAR, PowerShell migration scripts, Gmail SMTP with STARTTLS, Mailpit for isolated tests, Playwright and provider integration tests.
 
-**Spec:** `docs/superpowers/specs/2026-10-10-main-runtime-email-otp-gmail-smtp-design.md`
+**Spec:** `docs/specs/2026-10-10-main-runtime-email-otp-gmail-smtp-design.md`
 
 ## Global Constraints
 

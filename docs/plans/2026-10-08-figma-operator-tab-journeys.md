@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js, TypeScript, Playwright, existing Tailwind CSS v4 frontend and isolated Figma services.
 
-**Spec:** [Approved integration design](../specs/2026-10-05-figma-ui-integration-design.md), Operator prototype edges in [coverage](../../development/figma-ui-visual-coverage.md).
+**Spec:** [Approved integration design](../specs/2026-10-05-figma-ui-integration-design.md), Operator prototype edges in [coverage](../development/figma-ui-visual-coverage.md).
 
 ## Global Constraints
 

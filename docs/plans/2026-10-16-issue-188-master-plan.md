@@ -53,7 +53,7 @@ again. The earlier Azure/P5 and replacement-canary/P6 packets were not selected.
 This approval records the Master only; it authorizes no code, account read,
 provider/detector call, config, runtime, enforcement, export or Git integration.
 Preserve every historical artifact. The
-[reviewed threat model and frozen diff](../../research/issue-188-threat-model-proposed-master-diff.md)
+[reviewed threat model and frozen diff](../research/issue-188-threat-model-proposed-master-diff.md)
 retain the exact proposal; pending-review wording inside that historical diff is
 superseded by this approval record. Section 12 now proposes one concrete envelope
 for all remaining phases instead of successive small packets.
@@ -68,9 +68,9 @@ confirmed 57 pure passes. The three-provider public comparison is complete: Azur
 Text PII is the recommended four-family VI/EN investigation candidate, but no candidate
 proves all six required families; CCCD/generic MRN and provider-specific VI gaps remain.
 Independent source review found no actionable findings. The next unapproved frontier
-is [P5 contract/gap preparation and P6 canary design](../../development/issue-188-p2-capability-investigation.md#next-owner-decisions--p5-contract-gaps-and-p6-canary-design).
+is [P5 contract/gap preparation and P6 canary design](../development/issue-188-p2-capability-investigation.md#next-owner-decisions--p5-contract-gaps-and-p6-canary-design).
 See
-[current approved work and verification](../../development/issue-188-p2-capability-investigation.md#alternative-pii-research-and-p6-pure-mapper-approved--october-17).
+[current approved work and verification](../development/issue-188-p2-capability-investigation.md#alternative-pii-research-and-p6-pure-mapper-approved--october-17).
 No account/credential, provider/detector, live canary, cloud config, runtime, Git
 publication, enforcement or export authority is current.
 
@@ -82,7 +82,7 @@ annotations. Dashboard displayed two restricted DLP profiles, both with zero ent
 enabled; no VN CCCD entry in the identifier profile. The three-view metadata allowance
 is closed; precise plan/entry UUIDs/current Gateway state remain unverified. No
 detector, inference, credential/API/config or runtime action occurred. See
-[preparation evidence and proposed next code/canary packet](../../development/issue-188-p2-capability-investigation.md#p5p6-preparation-approved-and-completed--october-17).
+[preparation evidence and proposed next code/canary packet](../development/issue-188-p2-capability-investigation.md#p5p6-preparation-approved-and-completed--october-17).
 Historical entries below describe their own grants, not current authority. Current
 frontier at that checkpoint was P5 candidate-gap/alternative-research disposition
 and P6 rubric/pure mapping-code preparation. The subsequent approval above authorizes
@@ -90,13 +90,13 @@ the finite offline branches; live execution still has no authority.
 
 > **For agentic workers:** Renewed P3 trial-002 used all 16 approved POSTs and is closed; Guardrails/DLP are OFF. Preserve trial-001 and trial-002; do not retry, replay or read credentials under either consumed grant. Read current findings and phase gates before continuing. Later-phase decisions and live/config/budget authority remain separate.
 
-**Latest owner decision and P4 checkpoint (October 17):** Owner retained P1 experimental/unaccepted and approved the exact P4 offline packet. P4 used all ten local detector invocations in 54.5 seconds; 16 pure tests and one real integration passed. Eight reviewed fixtures remain 3 TP/1 FN/1 FP/3 TN. The selected saved output completed `clear` but is unreviewed; missing evidence remains unavailable, with native failure preserved. Historical reports are unchanged; no scanner/label/package change or cloud access occurred. Secrets quality disposition is pending. The [P4 evidence and proposed P5/P6 source-only research bundle](../../development/issue-188-p2-capability-investigation.md#p4-offline-qualification-evidence--october-17) do not grant further execution or runtime adoption.
+**Latest owner decision and P4 checkpoint (October 17):** Owner retained P1 experimental/unaccepted and approved the exact P4 offline packet. P4 used all ten local detector invocations in 54.5 seconds; 16 pure tests and one real integration passed. Eight reviewed fixtures remain 3 TP/1 FN/1 FP/3 TN. The selected saved output completed `clear` but is unreviewed; missing evidence remains unavailable, with native failure preserved. Historical reports are unchanged; no scanner/label/package change or cloud access occurred. Secrets quality disposition is pending. The [P4 evidence and proposed P5/P6 source-only research bundle](../development/issue-188-p2-capability-investigation.md#p4-offline-qualification-evidence--october-17) do not grant further execution or runtime adoption.
 
 **Subsequent owner decision (October 17):** Secrets is explicitly retained experimental/unaccepted; its quality disposition is settled for this checkpoint. Owner approved the exact P5/P6 public source-only research bundle, now in progress. This permits one cited feasibility/decision note and progress updates, not fixtures, code, detector calls, credentials/account reads, cloud API/config/inference, runtime/export/enforcement or Git integration. P1 and Secrets qualification/adoption remain unaccepted.
 
-**Research completion (October 17):** The [P5/P6 source matrix](../../research/issue-188-cloudflare-pii-dangerous-output.md) is complete and independently reviewed. PII entitlement/VI entity gaps and negative-evidence gaps are explicit. Direct hosted Llama Guard is a documented classifier candidate, distinct from Gateway response checks; assistant-target semantics remain unproved. Current frontier is the [concrete P5/P6 target and offline-preparation decision packet](../../development/issue-188-p2-capability-investigation.md#next-decision-packet--p5p6-offline-preparation-not-approved). No additional account read, draft fixtures, code or execution is authorized by research completion.
+**Research completion (October 17):** The [P5/P6 source matrix](../research/issue-188-cloudflare-pii-dangerous-output.md) is complete and independently reviewed. PII entitlement/VI entity gaps and negative-evidence gaps are explicit. Direct hosted Llama Guard is a documented classifier candidate, distinct from Gateway response checks; assistant-target semantics remain unproved. Current frontier is the [concrete P5/P6 target and offline-preparation decision packet](../development/issue-188-p2-capability-investigation.md#next-decision-packet--p5p6-offline-preparation-not-approved). No additional account read, draft fixtures, code or execution is authorized by research completion.
 
-**Status (October 17):** P1 technical baseline remains `4f1a672`; exact annotations are accepted, detector quality unaccepted. Trial-001 remains an immutable indeterminate stopped attempt. Owner separately approved trial-002: the reproduced cp1252 credential-loader fault was repaired with UTF-8-sig and a regression test; 16/16 POSTs returned HTTP 200/success=true and 16 native logs were correlated. Eight P1 flags comprise six attacks and two quoted controls; eight Success-only logs remain unavailable, never clear. Full-population recall/FPR and full-segment coverage remain unverified. Dispatch is exhausted, Guardrails/DLP OFF, enforcement/export/runtime OFF. Full #188 remains incomplete; see [renewed P3 evidence](../../development/issue-188-p2-capability-investigation.md#renewed-p3-session--trial-002-october-17).
+**Status (October 17):** P1 technical baseline remains `4f1a672`; exact annotations are accepted, detector quality unaccepted. Trial-001 remains an immutable indeterminate stopped attempt. Owner separately approved trial-002: the reproduced cp1252 credential-loader fault was repaired with UTF-8-sig and a regression test; 16/16 POSTs returned HTTP 200/success=true and 16 native logs were correlated. Eight P1 flags comprise six attacks and two quoted controls; eight Success-only logs remain unavailable, never clear. Full-population recall/FPR and full-segment coverage remain unverified. Dispatch is exhausted, Guardrails/DLP OFF, enforcement/export/runtime OFF. Full #188 remains incomplete; see [renewed P3 evidence](../development/issue-188-p2-capability-investigation.md#renewed-p3-session--trial-002-october-17).
 
 **2026-10-16 owner decision:** [Approval record](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6199169575). Implement P1 offline runner, 16 VI/EN cases, tests and observation contract; autonomously test, review and repair within P1. No Cloudflare inference, Gateway configuration, costs, runtime activation, enforcement or merge. P1 completion must present evidence, acceptance status and missing P2 entry conditions; it grants no other phase.
 
@@ -117,7 +117,7 @@ Dashboard save. At approximately 14:21 UTC on 2026-10-16, Dashboard confirmed th
 update; View summary readback showed both added grants, existing Workers AI
 Edit/Read and the same account scope. IP/TTL fields were not edited. No secret,
 token roll, API retry, inference or Gateway change was involved. The pre-change
-snapshot remains immutable; [P2 records the follow-up](../../development/issue-188-p2-capability-investigation.md#q3--approved-token-policy-change-and-readback).
+snapshot remains immutable; [P2 records the follow-up](../development/issue-188-p2-capability-investigation.md#q3--approved-token-policy-change-and-readback).
 This approval is exhausted by that exact policy update and does not establish that
 either historical 403 is fixed.
 
@@ -128,7 +128,7 @@ Gateway-list returned HTTP 200, `success:true`, zero results. The checker then
 halted on its strict `errors == []` field check; subscriptions was not sent.
 No inference or configuration mutation occurred. Current Gateway-list access is
 verified at that checkpoint; historical cause and subscriptions access were not. See the [Q4 execution
-record](../../development/issue-188-p2-capability-investigation.md#q4--approved-bounded-api-recheck-stopped-after-first-request).
+record](../development/issue-188-p2-capability-investigation.md#q4--approved-bounded-api-recheck-stopped-after-first-request).
 No subsequent request is authorized by this halted sequence.
 
 **Q4b follow-up (this chat):** Owner explicitly approved the remaining subscriptions
@@ -139,7 +139,7 @@ exactly two external GETs were made; both endpoints' current access is verified.
 No raw Billing/Gateway details, credentials or headers were retained. Historical
 root cause/credential continuity, target Gateway config, P1 verdicts and cost are
 not established by these checks. Both one-time allowances are consumed; no further
-API/credential use is authorized. See the [Q4b record](../../development/issue-188-p2-capability-investigation.md#q4b--remaining-subscriptions-get-approved-and-completed).
+API/credential use is authorized. See the [Q4b record](../development/issue-188-p2-capability-investigation.md#q4b--remaining-subscriptions-get-approved-and-completed).
 
 **Completion vocabulary:** **Detection Completed** means the agreed detection scope has completed, reviewed evidence and explicit owner quality acceptance, including coverage and false positives. **Protection Enabled** additionally requires an approved enforcement policy, separate activation authority and verified runtime prevention/rollback evidence. With enforcement OFF, Protection Enabled is false: never claim that Knora prevents attacks. P1 technical completion alone establishes neither final status.
 
@@ -161,7 +161,7 @@ candidate and Knora application/trace/evaluation seams. No Azure or other new ve
 PII service, moderation model, scanner chain, policy engine, router or local model is
 selected by this revision. Candidate adoption still needs a concrete approved scope.
 
-**Spec and authority:** [Issue #188](https://github.com/NhiBuaa/knora-agent/issues/188) and explicit owner decisions are requirements; this file is the single forward implementation plan, including architecture and phase contracts. [ADR 0018](../../adr/0018-knora-evaluation-tool-authority.md) governs evaluation/data authority. Plan approval, phase implementation approval, live approval, enforcement approval and merge approval are distinct.
+**Spec and authority:** [Issue #188](https://github.com/NhiBuaa/knora-agent/issues/188) and explicit owner decisions are requirements; this file is the single forward implementation plan, including architecture and phase contracts. [ADR 0018](../adr/0018-knora-evaluation-tool-authority.md) governs evaluation/data authority. Plan approval, phase implementation approval, live approval, enforcement approval and merge approval are distinct.
 
 ## 1. Authority, precedence and existing plans
 
@@ -172,7 +172,7 @@ The owner's latest instruction takes precedence over older proposals. Issue disc
 | [Secrets plan at PR #199 head](https://github.com/NhiBuaa/knora-agent/blob/bd5f288da7822d81e99f17f97567ec5c3129d7bb/docs/superpowers/plans/2026-10-15-issue-188-secrets-shadow.md) | Historical implemented slice; reuse its code/tests/evidence, do not execute it again. Later approved CI repair supersedes its original no-CI-edit restriction for that completed repair only. |
 | [Secrets verification note](https://github.com/NhiBuaa/knora-agent/blob/bd5f288da7822d81e99f17f97567ec5c3129d7bb/docs/development/issue-188-security-shadow.md) | Measured baseline and known limitations, not four-group quality acceptance. |
 | [Earlier P1 proposal](2026-10-15-cloudflare-p1-shadow.md) | Superseded as executable plan by phases P1–P3 below. Its previous version remains in Git history. No inherited approval. |
-| [Cloudflare research](../../research/issue-188-cloudflare-p1.md) | Dated source/factual evidence; refresh contracts/pricing before live work, not a second plan. |
+| [Cloudflare research](../research/issue-188-cloudflare-p1.md) | Dated source/factual evidence; refresh contracts/pricing before live work, not a second plan. |
 | [#153 latest shared boundary](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6198637133), [#158 handoff](https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6193663699), [#192/R2 notice](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6198705418) | Upstream ownership and additive compatibility. Pin exact artifacts, not completion of the whole Workbench. |
 
 No change to #153's source gold, 16 PDFs/60 cases, parser/retrieval configuration or frozen Baseline B. Security labels are separately reviewed annotations in Knora, never inferred from a reference answer or LLM score. Security test fixtures do not become a second gold authority. No native issue blocker/dependency edge is created by this plan.
@@ -186,11 +186,11 @@ Read on 2026-10-16: full #188 body and all 16 discussion comments, PR #199 body/
 | Secrets baseline | Implemented in Draft/Open PR #199, head `bd5f288da7822d81e99f17f97567ec5c3129d7bb`; CI required SUCCESS in [run 38735531328](https://github.com/NhiBuaa/knora-agent/actions/runs/38735531328). Real Guardrails integration is in a separate required dependency environment; no silent skip or base-backend dependency addition. | Owner retains experimental implementation baseline only; security quality not accepted; PR unmerged and says `Refs #188`. |
 | Secrets pilot | `pilot-003.json`: **3 TP, 1 FN, 1 FP, 3 TN**, recall 0.75, FPR 0.25. FN is split key; FP is public checksum. Exact reviewed fixture SHA256 `09d64242c694abee6017723b73c1dabd468f6125a0816c003337e05c40954d4a`. | Freeze historical results and labels. Presence does not establish unauthorized leakage. |
 | Saved PDF smoke | `pdf-smoke-002.json`: execution `not_run`, 2 unavailable/unreviewed units; **no usable detector result**. | No clean-output or PDF-security claim. |
-| P1 | Offline runner, 16 VI/EN fixtures, draft label packet and observation contract implemented and technically complete at exact head `4f1a6729fd8b246b69c8bd6df93301206214c493`; [P1 evidence](../../development/issue-188-p1-offline.md), Draft [PR #205](https://github.com/NhiBuaa/knora-agent/pull/205), stacked on PR #199. Exact-head run [38787009474](https://github.com/NhiBuaa/knora-agent/actions/runs/38787009474) succeeded, including `CI required`; no live transport added. | Exact fixture annotations accepted October 17; detector quality remains unaccepted. Native verdict/log shape, segmentation/roles/threshold, Vietnamese accuracy and specific price remain unverified. |
+| P1 | Offline runner, 16 VI/EN fixtures, draft label packet and observation contract implemented and technically complete at exact head `4f1a6729fd8b246b69c8bd6df93301206214c493`; [P1 evidence](../development/issue-188-p1-offline.md), Draft [PR #205](https://github.com/NhiBuaa/knora-agent/pull/205), stacked on PR #199. Exact-head run [38787009474](https://github.com/NhiBuaa/knora-agent/actions/runs/38787009474) succeeded, including `CI required`; no live transport added. | Exact fixture annotations accepted October 17; detector quality remains unaccepted. Native verdict/log shape, segmentation/roles/threshold, Vietnamese accuracy and specific price remain unverified. |
 | Account preflight | Historical Gateway-list/subscriptions GETs returned 403/code 10000. Q3 added exactly Gateway Read and Billing Read. Q4 Gateway-list and Q4b subscriptions GETs returned HTTP 200 / success true, with zero and one result respectively. | Current access to both endpoints verified; historical credential linkage/root cause remain unproven. Target Gateway/config/log cohort, billing mode and combined P1 cost remain unknown. No inference or Gateway mutation performed. |
 | PII / Dangerous Output | Cloud candidates identified only; no detector implementation or real evaluation. | Entity coverage/taxonomy, labels, thresholds and candidate selection unapproved. |
 | Runtime / enforcement / export | No #188 runtime hook or enforcement; export OFF. | No runtime activation, enforcement, merge, deployment or security acceptance authorized. |
-| Current work | P1 technical handoff is complete. P2 public-document, historical-403 and approved read-only Dashboard capability investigation is recorded in [P2 capability investigation](../../development/issue-188-p2-capability-investigation.md); trial packet and offline admission checks are prepared. | P2 investigation is complete with a P3 entry blocker; no broader #188 acceptance. |
+| Current work | P1 technical handoff is complete. P2 public-document, historical-403 and approved read-only Dashboard capability investigation is recorded in [P2 capability investigation](../development/issue-188-p2-capability-investigation.md); trial packet and offline admission checks are prepared. | P2 investigation is complete with a P3 entry blocker; no broader #188 acceptance. |
 
 PR #199 remains Secrets-only and unchanged. P1 branch is explicitly stacked on its exact head `bd5f288da7822d81e99f17f97567ec5c3129d7bb`; research and Master-only commits were replayed as `c7852fc` and `ad9e596`. P1 reuses those existing helpers without modifying them. It does not contain unmerged Workbench implementations. Integration into main/merge order remains a future explicit decision; this stack is no claim that PR #199 is merged.
 
@@ -332,7 +332,7 @@ step retains its own permission, budget, data and ownership gates.
 | --- | --- | --- |
 | P0 | Architecture and Master v1 approved 2026-10-16 | Yes |
 | P1 | Technical DoD complete at exact head `4f1a672`; exact-head CI run `38787009474` succeeded; exact fixture annotations accepted October 17, detector quality unaccepted | Yes |
-| P2 | Investigation and [consolidated approval packet](../../development/issue-188-p2-capability-investigation.md#consolidated-p3-approval-packet--proposed-not-granted) complete; both metadata endpoints returned 200. October 17 owner login restored Dashboard access. Approved P3 setup and trial-002 subsequently verified the saved configuration and produced native observations; their grant is consumed. | Yes; investigation complete, subsequent live execution recorded under P3 |
+| P2 | Investigation and [consolidated approval packet](../development/issue-188-p2-capability-investigation.md#consolidated-p3-approval-packet--proposed-not-granted) complete; both metadata endpoints returned 200. October 17 owner login restored Dashboard access. Approved P3 setup and trial-002 subsequently verified the saved configuration and produced native observations; their grant is consumed. | Yes; investigation complete, subsequent live execution recorded under P3 |
 | P3 | Trial-001 preserved. Separately approved trial-002 completed 16 POSTs/16 correlated logs: 8 explicit flags (6 attack/2 control), 8 unavailable native negatives. Full-population recall/FPR unknown. Owner explicitly retained P1 experimental/unaccepted; completed-negative/coverage evidence required before qualification/adoption. Grant exhausted, Guardrails/DLP OFF. | Native observation gap and false positives prevent qualification/acceptance |
 | P4 | Exact approved offline follow-up executed: 10 local calls/54.5 seconds, 16 pure + 1 real integration PASS; eight reviewed fixtures 3 TP/1 FN/1 FP/3 TN; selected saved output clear/unreviewed, evidence unavailable. Historical artifacts unchanged. Owner explicitly retained Secrets experimental/unaccepted; run allowance consumed. | Yes for saved/synthetic local detector evidence; not application leak acceptance |
 | P5 | Retain six-family/VI-EN research, three-provider comparison and 30 unaccepted draft cases. Under this revised scope, prioritize recipient/data-flow policy and prohibited-disclosure scenarios; no Azure adoption or universal six-family release gate. No adapter/live trial. | Analysis yes; actual control/quality evidence requires its approved envelope |
@@ -385,10 +385,10 @@ permission ceilings, Bearer versus legacy-key syntax, TTL/not-before/expiry, IP
 filtering, and conditional Enterprise API access are the remaining historical-403
 hypotheses. Code `10000` alone is not diagnostic because it can appear in a successful
 token-verification informational message. Details and citations are in the [P2
-capability investigation](../../development/issue-188-p2-capability-investigation.md).
+capability investigation](../development/issue-188-p2-capability-investigation.md).
 
 The approved Dashboard read has now supplied safe current metadata, recorded in the
-[sanitized observation envelope](../../development/issue-188-p2-dashboard-observation.md)
+[sanitized observation envelope](../development/issue-188-p2-dashboard-observation.md)
 (`sha256:a7f46229574b0dbcb0350a18f7f312549ddaef60e7623b9d96c40165ebe1b609`): the selected
 account matches the primary checkout's allowlisted account setting; the selected
 active user token initially had only `Workers AI:Edit` and `Workers AI:Read`, with no displayed
@@ -407,7 +407,7 @@ and cannot serve as a completed negative or full trial population.
 
 **Dependencies:** P1 labels approved for exact synthetic fixture digest; P2 usable capability/cost/log packet with a feasible native observation contract; explicit Gateway creation/change + native log/retention/egress + inference/budget authorization. If a saved native capture is separately selected, require its exact case/run/attempt/trace/workspace identities and source/capture digest, plus a separate #188 consumer projection of ordered `[alias, content]` pairs under #192; existing object-input loaders do not prove pair compatibility. Native capture IDs are not a prerequisite for the synthetic fixture pilot. **Deliverables:** Config snapshot/readback, per-case raw native evaluation evidence retained under approved policy, digest-bound `knora-security-observation-v2` supplementary report and findings review. Canary/trial verdicts and the completed report are P3 outputs, not pre-entry evidence. **Files:** Existing P1 adapter/test/report paths only; parser corrected against observed native shape within approved code envelope.
 
-**Original trial proposal (approved October 17; session subsequently closed by stop):** Maximum 16 external generation requests total, serial, no retries/continuations, existing GPT-OSS 20B, `stream:false`, output cap 256 tokens, timeout 60 seconds/request, total 20 minutes (always within #188's 60-minute session bound); at most 3 read-only log inspections/case using the actual account cohort's surface. First two cases are `p1-vi-attack-1` and `p1-vi-control-1`, included in 16. Proceed with 14 only when routing, FLAG-only config and usable native completion/verdict correlation work; expected TP/TN is not a continuation condition, and FP/FN is recorded without tuning. Internal chunked evaluations can exceed 16. The October 17 [public refresh](../../research/issue-188-cloudflare-p1.md#2026-10-17-focused-refresh--bounded-capability-discovery) supports a conditional USD 0 paid-usage route: verify current Workers Free, standard Workers AI billing, no Unified Billing credit use/fallback, and free logging. Shared quota depletion remains a risk requiring approval. If those predicates fail, stop; no billing change or paid exploratory call. A paid alternative would require a conservative combined cost ceiling and separate authority; the historical USD 1 suggestion is neither a quote nor approval. Gateway spend limits alone do not bound internal checks. Unknown P1 unit price/segment count limits cost forecasting and coverage claims, but need not prevent the verified Free-only route.
+**Original trial proposal (approved October 17; session subsequently closed by stop):** Maximum 16 external generation requests total, serial, no retries/continuations, existing GPT-OSS 20B, `stream:false`, output cap 256 tokens, timeout 60 seconds/request, total 20 minutes (always within #188's 60-minute session bound); at most 3 read-only log inspections/case using the actual account cohort's surface. First two cases are `p1-vi-attack-1` and `p1-vi-control-1`, included in 16. Proceed with 14 only when routing, FLAG-only config and usable native completion/verdict correlation work; expected TP/TN is not a continuation condition, and FP/FN is recorded without tuning. Internal chunked evaluations can exceed 16. The October 17 [public refresh](../research/issue-188-cloudflare-p1.md#2026-10-17-focused-refresh--bounded-capability-discovery) supports a conditional USD 0 paid-usage route: verify current Workers Free, standard Workers AI billing, no Unified Billing credit use/fallback, and free logging. Shared quota depletion remains a risk requiring approval. If those predicates fail, stop; no billing change or paid exploratory call. A paid alternative would require a conservative combined cost ceiling and separate authority; the historical USD 1 suggestion is neither a quote nor approval. Gateway spend limits alone do not bound internal checks. Unknown P1 unit price/segment count limits cost forecasting and coverage claims, but need not prevent the verified Free-only route.
 
 **Acceptance:** Report all selected cases, real completed verdicts vs missing/error, per-language recall/FPR, latency/cost status and limitations. Partial runs remain partial. Show attack-in-evidence/quoted-control/long-boundary evidence; cannot claim complete PDF or VI robustness. **Tests:** Config drift, cache hit, cost/access/routing failure stops dispatch; ambiguous timeout consumes attempt and is never auto-replayed. **DoD:** Owner receives result/FP/FN review and accepts or rejects capability for further use. Execution success alone is not quality acceptance. Trial generated answers are disposable eval outputs, not replacements for saved Knora answers or end-to-end leak evidence.
 
@@ -587,7 +587,7 @@ OFF reported honestly even if the owner accepts a narrower Issue disposition.
    for review, not label acceptance or technical execution.
 
 **October 17 pre-execution decision packet (historical; current stop above supersedes its pending status):** The owner restored the authenticated in-app
-Dashboard session and resumed read-only work. [The consolidated P3 packet](../../development/issue-188-p2-capability-investigation.md#consolidated-p3-approval-packet--proposed-not-granted)
+Dashboard session and resumed read-only work. [The consolidated P3 packet](../development/issue-188-p2-capability-investigation.md#consolidated-p3-approval-packet--proposed-not-granted)
 proposes one dedicated `knora-issue188-p1-trial` Gateway and at most 16 synthetic
 requests, starting with two discovery canaries, under verified Free/Standard billing
 and USD 0 paid usage. It names the input/label digests, native payload retention,
@@ -700,7 +700,7 @@ remain preserved with their exact evidence. P1/Secrets are experimental, all 30/
 P5/P6 annotations are unaccepted; no quality or protection claim is upgraded.
 Owner approved this threat-model revision through Q1; the reviewed diff has been
 applied and its approval recorded in
-[the review artifact](../../research/issue-188-threat-model-proposed-master-diff.md).
+[the review artifact](../research/issue-188-threat-model-proposed-master-diff.md).
 Next is owner review of the complete section 12 package, not another P5a/P6a packet.
 No Azure or canary preparation,
 code, provider/detector/API, credential/account access, runtime/config, enforcement,
@@ -1264,15 +1264,15 @@ the shipped runner is deliberately offline for the selected D6 outcome.
 
 ### Frozen artifacts and #192 limitation
 
-- [Cases](../../../evals/test/fixtures/security_outcomes/cases.v1.json):
+- [Cases](../../evals/test/fixtures/security_outcomes/cases.v1.json):
   `0374e97b8f998f145b703dfa9818832e4a72bbe4aa1ca0c0a799ef69a686bbda`.
-- [Rubric](../../../evals/test/fixtures/security_outcomes/rubric.v1.json):
+- [Rubric](../../evals/test/fixtures/security_outcomes/rubric.v1.json):
   `096543bb9ea30860df03bd86f22cd07be631bd328aed87645035298ba5f9ae30`.
-- [Outcome report](../../../evals/reports/security_outcomes/offline-001/report.json),
-  [preflight](../../../evals/reports/security_outcomes/offline-001/preflight.json),
-  [selected artifact](../../../evals/reports/security_outcomes/offline-001/selected-artifact.json),
-  [local verification](../../../evals/reports/security_outcomes/offline-001/verification.json),
-  [independent review](../../../evals/reports/security_outcomes/offline-001/review.json).
+- [Outcome report](../../evals/reports/security_outcomes/offline-001/report.json),
+  [preflight](../../evals/reports/security_outcomes/offline-001/preflight.json),
+  [selected artifact](../../evals/reports/security_outcomes/offline-001/selected-artifact.json),
+  [local verification](../../evals/reports/security_outcomes/offline-001/verification.json),
+  [independent review](../../evals/reports/security_outcomes/offline-001/review.json).
 
 The separate pair consumer follows the selected #192 source commit
 `853513092979a16d8883e6ad78131255baecc8c6`: `read_run` has observations keyed by
