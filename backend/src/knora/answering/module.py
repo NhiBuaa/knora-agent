@@ -20,6 +20,7 @@ from knora.answering.lexical import (
     validate_dense_result,
     validate_hybrid_result,
 )
+from knora.answering.query_planning import QueryPlanner
 from knora.answering.reranking import combine_reranking_scores
 from knora.answering.reranking_configuration import (
     RerankingConfigurationResolver,
@@ -59,6 +60,7 @@ class AnswerQuestion:
         retrieval_configuration_resolver: RetrievalConfigurationResolver | None = None,
         reranking_provider: RerankingProvider | None = None,
         reranking_configuration_resolver: RerankingConfigurationResolver | None = None,
+        query_planner: QueryPlanner | None = None,
         clock: Callable[[], float] | None = None,
         clock_resolution_ms: float | None = None,
         admission_store: WorkspaceAdmissionStore | None = None,
@@ -73,6 +75,7 @@ class AnswerQuestion:
         self._retrieval_configuration_resolver = retrieval_configuration_resolver
         self._reranking_provider = reranking_provider
         self._reranking_configuration_resolver = reranking_configuration_resolver
+        self._query_planner = query_planner or QueryPlanner()
         self._clock = clock or perf_counter
         self._clock_resolution_ms = (
             get_clock_info("perf_counter").resolution * 1000
@@ -140,6 +143,9 @@ class AnswerQuestion:
             retrieval_configuration = self._retrieval_configuration_resolver.resolve(
                 workspace_id=command.workspace_id
             )
+
+        query_plan = self._query_planner.plan(command.question)
+        query_plan_observation = query_plan.to_observation()
 
         lexical = retrieval_configuration.strategy == "bm25-only"
         dense_or_hybrid_v3 = retrieval_configuration.strategy in {
@@ -411,6 +417,7 @@ class AnswerQuestion:
                     lexical_generations=lexical_generations,
                     sdm_observation=sdm_observation,
                     reranking_observation=reranking_observation,
+                    query_plan_observation=query_plan_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -483,6 +490,7 @@ class AnswerQuestion:
                     lexical_generations=lexical_generations,
                     sdm_observation=sdm_observation,
                     reranking_observation=reranking_observation,
+                    query_plan_observation=query_plan_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -528,6 +536,7 @@ class AnswerQuestion:
                 lexical_generations=lexical_generations,
                 sdm_observation=sdm_observation,
                 reranking_observation=reranking_observation,
+                query_plan_observation=query_plan_observation,
                 phase_timings=phase_timings,
             )
         )
@@ -671,6 +680,7 @@ class AnswerQuestion:
         lexical_generations: tuple[LexicalGeneration, ...] = (),
         sdm_observation: dict[str, object] | None = None,
         reranking_observation: dict[str, object] | None = None,
+        query_plan_observation: dict[str, object] | None = None,
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
@@ -688,6 +698,8 @@ class AnswerQuestion:
             },
             "timing": phase_timings or {},
         }
+        if query_plan_observation is not None:
+            provider_metadata["query_planning"] = query_plan_observation
         if sdm_observation is not None and (
             retrieval_configuration is not None
             and (
