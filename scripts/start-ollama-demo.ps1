@@ -83,7 +83,7 @@ if (-not $ObjectStoreBucket) {
     }
 }
 
-if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { Fail 'WINDOWS_RUNTIME_REQUIRED' }
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Fail 'WINDOWS_RUNTIME_REQUIRED' }
 if (-not $PythonExe) {
     $candidates = @(
         (Join-Path $repoRoot '.venv\Scripts\python.exe'),
