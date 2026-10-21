@@ -565,10 +565,12 @@ data, the daily launcher enforces three preflight safety guards:
   PostgreSQL and MinIO data across restarts.
 - **Docker metadata read timeout**: Preflight Docker metadata queries are bounded to
   10 seconds per command and 30 seconds for the entire ownership scan using a continuous
-  stopwatch deadline covering both process execution and asynchronous stream consumption.
-  If the Docker daemon hangs or child processes hold output pipes open, the launcher
-  aborts with `DOCKER_METADATA_TIMEOUT:knora-dev` and forcefully terminates the child
-  process tree without blocking on stream readers, hanging the shell, or freezing CI runners.
+  stopwatch deadline covering both process execution and file-buffered output consumption.
+  Each metadata process is launched directly inside a Windows Job Object (`Knora.Dev.ProcessJob`)
+  with breakaway disallowed (`JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0`). If the Docker daemon hangs
+  or child processes spawn long-lived descendants holding pipes or handles, closing the Job Object
+  upon timeout forcefully terminates the entire process tree without blocking on streams,
+  hanging the shell, freezing CI runners, or leaving orphaned descendant processes.
 
 The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and loads through PowerShell's `Add-Type`; it requires no additional dependency.

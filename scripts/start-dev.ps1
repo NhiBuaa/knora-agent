@@ -31,6 +31,10 @@ function Fail([string]$Code) {
 $dockerCommandTimeoutMs = 10000
 $dockerScanTimeoutMs = 30000
 
+if (-not ('Knora.Dev.ProcessJob' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot 'dev-process-job.cs')
+}
+
 function Invoke-DockerMetadata([string[]]$CommandArgs, [System.Diagnostics.Stopwatch]$ScanWatch) {
     if ($ScanWatch -and $ScanWatch.ElapsedMilliseconds -ge $dockerScanTimeoutMs) {
         Fail "DOCKER_METADATA_TIMEOUT:$composeProject"
@@ -55,66 +59,34 @@ function Invoke-DockerMetadata([string[]]$CommandArgs, [System.Diagnostics.Stopw
         return $null
     }
 
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $dockerApp.Source
-    $escapedArgs = @($CommandArgs | ForEach-Object {
-        if ($_ -match '[\s"]') {
-            '"' + ($_ -replace '(\\*)(")', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
-        } else {
-            $_
-        }
-    }) -join ' '
-    $psi.Arguments = $escapedArgs
-    $psi.UseShellExecute = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.CreateNoWindow = $true
-
-    $proc = New-Object System.Diagnostics.Process
-    $proc.StartInfo = $psi
-    $cmdWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $metaJob = New-Object Knora.Dev.ProcessJob
+    $tempDir = [System.IO.Path]::GetTempPath()
+    $outPath = Join-Path $tempDir ([System.IO.Path]::GetRandomFileName())
+    $errPath = Join-Path $tempDir ([System.IO.Path]::GetRandomFileName())
     try {
-        [void]$proc.Start()
-        $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
-        $stderrTask = $proc.StandardError.ReadToEndAsync()
-
-        $rootExited = $proc.WaitForExit($timeoutMs)
-        $elapsed = $cmdWatch.ElapsedMilliseconds
-        $remainingMs = [int]($timeoutMs - $elapsed)
-
-        $tasksCompleted = $false
-        if ($rootExited -and $remainingMs -gt 0) {
-            $tasksCompleted = [System.Threading.Tasks.Task]::WaitAll(@($stdoutTask, $stderrTask), [Math]::Max(100, $remainingMs))
-        }
-
-        if (-not $rootExited -or -not $tasksCompleted) {
-            try {
-                $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($proc.Id)" -ErrorAction SilentlyContinue)
-                foreach ($c in $children) {
-                    try { Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue } catch { }
-                }
-            } catch { }
-            try {
-                $killProc = Start-Process -FilePath 'taskkill.exe' -ArgumentList @('/F', '/T', '/PID', [string]$proc.Id) -NoNewWindow -PassThru -ErrorAction SilentlyContinue
-                if ($killProc) {
-                    $killProc.WaitForExit(3000) | Out-Null
-                    $killProc.Dispose()
-                }
-            } catch { }
-            try { $proc.Kill() } catch { }
+        $cmdArgsArray = [string[]]@($CommandArgs)
+        $proc = $metaJob.Start($dockerApp.Source, $cmdArgsArray, $repoRoot, $outPath, $errPath)
+        $completed = $metaJob.WaitForProcesses($timeoutMs)
+        if (-not $completed) {
+            $metaJob.Dispose()
             Fail "DOCKER_METADATA_TIMEOUT:$composeProject"
         }
-
+        if ($ScanWatch -and $ScanWatch.ElapsedMilliseconds -ge $dockerScanTimeoutMs) {
+            $metaJob.Dispose()
+            Fail "DOCKER_METADATA_TIMEOUT:$composeProject"
+        }
         $global:LASTEXITCODE = $proc.ExitCode
         if ($proc.ExitCode -ne 0) {
             return $null
         }
-        $rawOut = $stdoutTask.Result
+        $rawOut = if (Test-Path -LiteralPath $outPath) { [System.IO.File]::ReadAllText($outPath) } else { '' }
         if (-not $rawOut) { return @() }
         $lines = @($rawOut -split '\r?\n' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         return $lines
     } finally {
-        $proc.Dispose()
+        if ($metaJob) { $metaJob.Dispose() }
+        if (Test-Path -LiteralPath $outPath) { try { [System.IO.File]::Delete($outPath) } catch { } }
+        if (Test-Path -LiteralPath $errPath) { try { [System.IO.File]::Delete($errPath) } catch { } }
     }
 }
 
@@ -231,17 +203,18 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
             $volLabelsJson = if ($rawVolLabels -is [array]) { $rawVolLabels -join '' } else { $rawVolLabels }
             $volLabels = if ($volLabelsJson -and $volLabelsJson.Trim() -ne '') { $volLabelsJson | ConvertFrom-Json } else { $null }
 
-            if ($volLabels) {
-                if ($volLabels.PSObject.Properties['com.docker.compose.project'] -and
-                    $volLabels.'com.docker.compose.project' -ne $composeProject) {
+            if (-not $volLabels -or
+                -not $volLabels.PSObject.Properties['com.docker.compose.project'] -or
+                -not $volLabels.'com.docker.compose.project' -or
+                $volLabels.'com.docker.compose.project' -ne $composeProject) {
+                return $false
+            }
+            if ($expectedVolumeConfig.ContainsKey($v)) {
+                $expectedRole = $expectedVolumeConfig[$v].Role
+                if (-not $volLabels.PSObject.Properties['com.docker.compose.volume'] -or
+                    -not $volLabels.'com.docker.compose.volume' -or
+                    $volLabels.'com.docker.compose.volume' -ne $expectedRole) {
                     return $false
-                }
-                if ($expectedVolumeConfig.ContainsKey($v)) {
-                    $expectedRole = $expectedVolumeConfig[$v].Role
-                    if ($volLabels.PSObject.Properties['com.docker.compose.volume'] -and
-                        $volLabels.'com.docker.compose.volume' -ne $expectedRole) {
-                        return $false
-                    }
                 }
             }
 
@@ -312,8 +285,7 @@ $reservation = $null
 $reservationPath = Join-Path ([IO.Path]::GetTempPath()) "knora-dev-reservation-$composeProject.lock"
 $cleanupFailed = $false
 $mutatingStarted = $false
-$steadyStateReached = $false
-$cleanShutdown = $false
+$startupConfirmed = $false
 
 if (-not $PreflightOnly) {
     try {
@@ -605,6 +577,7 @@ try {
             'scripts/run_conversation_worker.py'
         ) -RedirectStandardOutput (Join-Path $logs 'conversation-worker.out.log') -RedirectStandardError (Join-Path $logs 'conversation-worker.err.log')
         $frontend = Start-DevProcess -FilePath $npm -ArgumentList @('--prefix','frontend','run','dev') -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError (Join-Path $logs 'frontend.err.log')
+        $startupConfirmed = $true
 
         $apiHealthy = $false
         $frontendHealthy = $false
@@ -636,8 +609,7 @@ try {
         Write-Output "Press Ctrl+C to stop API, both workers and frontend. PostgreSQL/MinIO stay running."
         if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$FrontendPort" | Out-Null }
 
-        $steadyStateReached = $true
-        while ($true) {
+                while ($true) {
             Start-Sleep -Milliseconds 500
             if ($api.HasExited) {
                 throw "API_EXITED:$($api.ExitCode)"
@@ -666,9 +638,6 @@ try {
         try {
             if ($processJob) { $processJob.Dispose() }
             [Console]::WriteLine('DEV_STOPPED')
-            if ($steadyStateReached) {
-                $cleanShutdown = $true
-            }
         } catch {
             $cleanupFailed = $true
             [Console]::Error.WriteLine("DEV_CLEANUP_FAILED:$($_.Exception.Message)")
@@ -677,7 +646,6 @@ try {
         }
     }
 } catch {
-    $cleanShutdown = $false
     [Console]::Error.WriteLine($_.Exception.Message)
     Fail 'DEV_RUNTIME_FAILED'
 } finally {
@@ -688,7 +656,7 @@ try {
         try {
             $reservation.Dispose()
         } catch { }
-        if (-not $cleanupFailed -and (-not $mutatingStarted -or $cleanShutdown)) {
+        if (-not $cleanupFailed -and (-not $mutatingStarted -or $startupConfirmed)) {
             try { [IO.File]::Delete($reservationPath) } catch { }
         } else {
             [Console]::Error.WriteLine("DEV_RESERVATION_RETAINED:$reservationPath - Mutating startup or cleanup did not complete cleanly. Inspect and remove lock file manually after verifying container and process state.")
