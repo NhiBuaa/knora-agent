@@ -1,5 +1,9 @@
 # Issue #183 — Master Implementation Plan
 
+**Current execution authority — 2026-10-21:** Owner approved the single-window follow-up package
+with “thực hiện” after the explicit three-question/6-request proposal. Execute section13 with
+conditional list acceptance from12.5; preserve all old closed packages and their artifacts.
+
 **Current acceptance clarification — 2026-10-21:** Owner confirms that list presentation is
 conditional on the answer enumerating members; a count-only response is allowed. Section12.5
 supersedes the unconditional list-generation interpretation and the current AC1FAIL conclusion
@@ -3913,3 +3917,64 @@ per-case calls/aggregate ceiling, quota/time and ownership/cleanup rules before 
 Keep one v21 answer call/20B/cap2048, existing source and IAB. No selector, cap escalation,
 generation remediation, new Skill or framework is justified by this observation. PR184 remains
 Draft and183 unaccepted pending the missing presentation evidence and owner acceptance.
+
+## 13. Approved conditional-list application acceptance
+
+**Approval:** Owner's “thực hiện” approves the immediately preceding proposal: prepare the
+existing helpers for the exact follow-up, then isolated startup/login/OAuth, one live window
+of at most6 physical requests, browser acceptance, cleanup and publication to existing PR184.
+No additional approval is required between those internal steps. This is a new package,
+`CONDITIONAL-LIST-20261021`; no earlier grant/stop/slot is reopened.
+
+**Expected outcome / scope / budget before edits:** obtain real list/other-list/short-prose
+observations through all five layers and1440×960/390×844 IAB, or report the exact remaining gap.
+Only this Master and private copies of existing runtime/guard/OAuth/supervisor/tests may change.
+Use the existing ignored evidence parent `frontend/test-results/issue183/`, new run child
+`conditional-list-acceptance-20261021`; preserve every previous directory. No product/prompt/
+schema/retrieval/model/cap change. Bind final clean HEAD and its required CI/ci-subject before
+provider admission. v21,20B,2048, existing pinned Workspace/PDF/version/23chunks/23vectors,
+containment configuration and IAB remain fixed. No selector, cap escalation, document embedding,
+re-ingestion, new migration, Docker recovery, primary3000 or191/PR200 mutation.
+
+**Cases in exact order, each submitted once via normal UI:**
+
+1. `Bao gồm những chương nào?` in Conversation `4e408253-ba2b-41b6-8daa-66cc69d99d7a`,
+   whose sole existing Turn `ade088d1-43bc-4942-bd89-03d3a9004337` is answered/final_validated
+   with the retained count-only result. Require that exact pre-submit history/result and
+   expected context selected_turn_ids/transcript/token count/retrieval query; this deliberately
+   supersedes fresh-context-only admission for this case, not for the other two. Do not alter
+   the question to trigger a different retrieval policy. The context is reference only, not
+   source evidence; record its actual effect rather than changing production context logic.
+2. `Báo cáo cần có những phần nào ngoài các chương nội dung?` in a new zero-Turn Conversation.
+3. `Mục tiêu chung của mọi báo cáo là gì?` in another new zero-Turn Conversation.
+
+**Finite execution:** one window, no reserve/retry/resample, total≤6 physical requests
+(one query embedding and one answer call per case), paid budget0USD; actual billing remains
+unknown unless observed. Inherit12's3-preparation/24-hour limits, fresh quota age0–600s and
+≤8000/10000, explicit account/Free/model checks and owned process/OAuth lifecycle. The shared
+clock starts at first approved runtime side effect, not offline editing. Startup failure,
+unknown outcome, timeout, truncation/null/schema error, unsupported claim, wrong source,
+ownership/isolation/credential/account/quota/guard failure closes the package and expires
+unused slots. No reserve or credential bypass. Count-only without enumeration is allowed;
+record list coverage UNVERIFIED and continue the other approved cases within the same budget.
+An enumerating response flattened/lost/reordered by formatting or with broken citations fails.
+
+**Helper verification:** reuse existing deny-network fixtures and import-safe entry points.
+Before changing admission, reproduce denial of the exact approved follow-up offline; then
+verify exact-history acceptance and denial of changed/extra/missing/foreign/refused history,
+wrong question/context, context drift after admission, old package reuse, second window,
+seventh request, concurrent/pending/restart bypass and credentials before final admission.
+Keep P3's mock guard intact. Independently review copied helper wiring and offline evidence;
+do not create another framework/ledger. Skills: executing-plans, scoped delegated helper
+implementation/review where required, TDD for helper behavior, verification-before-completion.
+Use this Master/Issue/PR for progress; generic Skill workspace defaults are overridden here.
+
+**Acceptance and delivery:** keep case-level literal JSON→Markdown→API projection/Turn/trace
+→DOM provenance, actual viewport/screenshot inspection/history and every citation's original
+PDF/version/page/locator. Clearly distinguish projection from raw HTTP capture and local/mock
+from application/model quality. No exhaustive-PDF semantic completeness gate. Reuse existing
+negative/refusal/access checks without extra live calls. Record current CI identities, all
+attempts/counts and unknowns; normal logout, owned-only process/tab/viewport/OAuth cleanup,
+retained dependencies/source/queue readback. Review the final packet and publish sanitized
+results to184/183. PR stays Draft for owner review; no merge/Done/close/deploy. An absent real
+list or an unrun case remains UNVERIFIED/NOT RUN, never a manufactured acceptance PASS.
