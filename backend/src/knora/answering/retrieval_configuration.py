@@ -40,6 +40,7 @@ def retrieval_configuration_for_id(configuration_id: str) -> RetrievalConfigurat
         ),
         "retrieval-dense-top8-v3": RetrievalConfiguration.dense_top8_v3(),
         "retrieval-hybrid-top8-v3": RetrievalConfiguration.hybrid_top8_v3(),
+        "retrieval-hybrid-sdm-top8-v3": RetrievalConfiguration.hybrid_sdm_top8_v3(),
     }
     try:
         return configurations[configuration_id]
@@ -71,6 +72,7 @@ def resolve_retrieval_configuration(
         "retrieval-bm25-upload-fixture-top8-v1",
         "retrieval-dense-top8-v3",
         "retrieval-hybrid-top8-v3",
+        "retrieval-hybrid-sdm-top8-v3",
     }:
         return retrieval_configuration_for_id(configuration_id)
     if configuration_id not in {"retrieval-m3-vector-v2", "retrieval-m3-rrf-v2"}:
