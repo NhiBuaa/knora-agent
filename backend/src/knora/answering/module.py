@@ -387,6 +387,7 @@ class AnswerQuestion:
                 )
                 else None
             ),
+            subquestions=query_plan.subquestions if query_plan is not None else None,
         )
         selection_ended = self._clock()
         retrieval_latency_ms = (selection_ended - retrieval_started) * 1000
@@ -418,6 +419,11 @@ class AnswerQuestion:
                     sdm_observation=sdm_observation,
                     reranking_observation=reranking_observation,
                     query_plan_observation=query_plan_observation,
+                    support_observation=(
+                        selection.support_assessment.to_observation()
+                        if selection.support_assessment is not None
+                        else None
+                    ),
                     phase_timings=phase_timings,
                 )
             )
@@ -491,6 +497,11 @@ class AnswerQuestion:
                     sdm_observation=sdm_observation,
                     reranking_observation=reranking_observation,
                     query_plan_observation=query_plan_observation,
+                    support_observation=(
+                        selection.support_assessment.to_observation()
+                        if selection.support_assessment is not None
+                        else None
+                    ),
                     phase_timings=phase_timings,
                 )
             )
@@ -681,6 +692,7 @@ class AnswerQuestion:
         sdm_observation: dict[str, object] | None = None,
         reranking_observation: dict[str, object] | None = None,
         query_plan_observation: dict[str, object] | None = None,
+        support_observation: dict[str, object] | None = None,
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
@@ -700,6 +712,8 @@ class AnswerQuestion:
         }
         if query_plan_observation is not None:
             provider_metadata["query_planning"] = query_plan_observation
+        if support_observation is not None:
+            provider_metadata["retrieval"]["evidence_support"] = support_observation
         if sdm_observation is not None and (
             retrieval_configuration is not None
             and (
