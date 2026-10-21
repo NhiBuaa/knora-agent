@@ -16,6 +16,7 @@ SCHEMA = "knora-runtime-verification-v1"
 PROFILES = {
     "application": ("identity", "documents", "conversations", "operator", "workspace"),
     "otp": ("storage", "native"),
+    "retrieval-v3": ("dense_hybrid", "reranking", "query_understanding", "recovery"),
 }
 EXCLUDED_SCENARIOS = {
     "application": (
@@ -39,6 +40,14 @@ EXCLUDED_SCENARIOS = {
             "limitation": (
                 "Outage, crash, activation and commit-reply cases require separate "
                 "acceptance evidence."
+            ),
+        },
+    ),
+    "retrieval-v3": (
+        {
+            "scenario": "local-ai-weights",
+            "limitation": (
+                "Cloudflare-only AI; local model weights are intentionally excluded ($0 AI budget)."
             ),
         },
     ),

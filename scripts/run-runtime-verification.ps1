@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$SubjectSha,
-    [Parameter(Mandatory)][ValidateSet('application', 'otp')][string]$Profile,
+    [Parameter(Mandatory)][ValidateSet('application', 'otp', 'retrieval-v3')][string]$Profile,
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$WorkflowSha,
     [string]$RunId = $env:GITHUB_RUN_ID,
     [string]$RunAttempt = $env:GITHUB_RUN_ATTEMPT,

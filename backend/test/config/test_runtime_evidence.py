@@ -16,6 +16,10 @@ SHA = "a" * 40
 WORKFLOW_SHA = "b" * 40
 
 
+def _powershell() -> str:
+    return shutil.which("pwsh") or shutil.which("powershell") or "pwsh"
+
+
 @pytest.mark.parametrize("profile", ["application", "otp"])
 def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
     tmp_path: Path, profile: str
@@ -26,7 +30,9 @@ def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
     shutil.copy(root / "scripts/run-runtime-verification.ps1", scripts)
     (scripts / "prepare-figma-e2e.ps1").write_text(
         """'KEYCLOAK_ROLLBACK_SNAPSHOT=owned-snapshot.json'
-& python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
+try {
+    & python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
+} catch { Write-Host $_ }
 throw 'FIGMA_START_FAILED'
 """,
         encoding="utf-8",
@@ -47,7 +53,7 @@ function global:docker { $global:LASTEXITCODE = 0 }
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -93,7 +99,7 @@ Assert-StorageCases $Report @('first','second')
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -179,7 +185,7 @@ if ($ReadyAfter -eq 0 -or -not $global:restored -or $global:probeCalls -lt 3) {
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -228,7 +234,7 @@ if ($result.Count -ne 0) { throw 'stdout returned as data' }
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -274,7 +280,7 @@ if ($report -isnot [string] -or $report -ne (Join-Path $Output 'identity.xml')) 
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
