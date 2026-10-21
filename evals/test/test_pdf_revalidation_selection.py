@@ -81,7 +81,10 @@ def dataset():
 
 
 @pytest.mark.asyncio
-async def test_reviewed_attempt_continues_follow_up_without_reanswering_or_rewriting(tmp_path):
+@pytest.mark.parametrize("reverse_captures", [False, True])
+async def test_reviewed_attempt_continues_follow_up_without_reanswering_or_rewriting(
+    tmp_path, monkeypatch, reverse_captures
+):
     capture, original, record = selection(tmp_path)
     before = capture.read_bytes()
     calls = []
@@ -108,10 +111,18 @@ async def test_reviewed_attempt_continues_follow_up_without_reanswering_or_rewri
     ]
     assert capture.read_bytes() == before
     assert not (tmp_path / "case-q1-attempt-2.json").exists()
+    glob = type(tmp_path).glob
+    monkeypatch.setattr(
+        type(tmp_path),
+        "glob",
+        lambda path, pattern: sorted(glob(path, pattern), reverse=reverse_captures),
+    )
     assert {r["case_id"]: r for r in runner.selected_observations(tmp_path, **options)}[
         "q1"
     ] == rows[0]
-    assert runner.selected_observations(tmp_path)[0]["failure_code"] == "CASE_FAILED_NO_RETRY"
+    assert {r["case_id"]: r for r in runner.selected_observations(tmp_path)}["q1"][
+        "failure_code"
+    ] == "CASE_FAILED_NO_RETRY"
 
 
 @pytest.mark.asyncio
