@@ -32,10 +32,12 @@ WINDOWS_FILES = {
     "backend/test/adapters/cli/test_ollama_launcher.py",
     "backend/test/config/test_keycloak_email_otp.py",
     "backend/test/adapters/pdf/test_pypdf.py",
+    "backend/test/ingestion/test_s2_upload_population.py",
     "evals/test/test_process_probe.py",
     "evals/test/test_ollama_process_probe.py",
 }
 WINDOWS_NODES = {
+    "backend/test/test_s2_http_admission.py::test_windows_worker_environment_uses_owned_endpoints_and_discards_ambient_settings",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_cli_preflight_proves_pdf_child_memory_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_rejects_missing_job_object_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_blocks_a_child_that_exceeds_256_mib",

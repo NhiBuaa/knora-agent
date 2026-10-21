@@ -25,10 +25,23 @@ ACCOUNT = "a" * 32
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
 @pytest.mark.parametrize("parameter", ["ApiPort", "FrontendPort"])
-def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path, parameter):
+def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path, parameter, shell):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
     env_file = tmp_path / ".env"
     env_file.write_text("# isolated\n")
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        "param([string]$EnvFile, [string]$PythonExe, [string]$OllamaBaseUrl, "
+        "[int]$ApiPort, [int]$FrontendPort)\n"
+        # Port safety must work even when the NetTCPIP/CIM provider is unavailable.
+        "function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }\n"
+        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters\n"
+        "exit $LASTEXITCODE\n"
+    )
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen()
@@ -39,12 +52,12 @@ def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path,
         other_parameter = "FrontendPort" if parameter == "ApiPort" else "ApiPort"
         result = subprocess.run(
             [
-                _powershell(),
+                executable,
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                str(SCRIPT),
+                str(wrapper),
                 "-EnvFile",
                 str(env_file),
                 "-PythonExe",
@@ -59,8 +72,9 @@ def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path,
             capture_output=True,
             text=True,
             timeout=20,
+            env={**os.environ, "KNORA_TEST_SCRIPT": str(SCRIPT)},
         )
-        assert result.returncode == 2
+        assert result.returncode == 2, result.stderr
         assert f"PORT_IN_USE:{parameter}:{port}" in result.stderr
         assert "DEV_READY" not in result.stdout
         # The pre-existing listener belongs to another session and must remain intact.
@@ -189,6 +203,49 @@ def _powershell() -> str:
     if executable is None:
         pytest.skip("PowerShell is unavailable")
     return executable
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+@pytest.mark.parametrize(
+    "launcher,python_available",
+    [("start-dev.ps1", False), ("start-dev.ps1", True), ("start-ollama-demo.ps1", False)],
+)
+def test_launcher_platform_check_supports_inherited_strict_mode(
+    tmp_path, shell, launcher, python_available
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    command = (
+        "$ErrorActionPreference = 'Stop'; Set-StrictMode -Version 3.0; "
+        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV_FILE "
+        "-PythonExe $env:TEST_PYTHON"
+    )
+    if launcher == "start-dev.ps1":
+        command += " -EmbeddingProvider deterministic-local -GenerationProvider deterministic-local"
+    command += "; exit $LASTEXITCODE"
+    result = subprocess.run(
+        [executable, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        env={
+            **os.environ,
+            "TEST_LAUNCHER": str(SCRIPT.parent / launcher),
+            "TEST_ENV_FILE": str(env_file),
+            "TEST_PYTHON": sys.executable
+            if python_available
+            else str(tmp_path / "missing-python.exe"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == (0 if python_available else 2), result.stderr
+    if python_available:
+        assert "PRECHECK_OK embedding-local-m1-v2" in result.stdout
+    else:
+        assert "PYTHON_RUNTIME_UNAVAILABLE" in result.stderr
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")

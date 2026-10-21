@@ -33,6 +33,10 @@ def retrieval_configuration_for_id(configuration_id: str) -> RetrievalConfigurat
         "retrieval-m1-v1": RetrievalConfiguration.milestone_one(),
         "retrieval-evidence-containment-v1": RetrievalConfiguration.evidence_containment_v1(),
         "retrieval-m3-rrf-v1": RetrievalConfiguration.milestone_three_hybrid(),
+        "retrieval-bm25-top8-v1": RetrievalConfiguration.bm25_top8_v1(),
+        "retrieval-bm25-upload-fixture-top8-v1": (
+            RetrievalConfiguration.bm25_upload_fixture_top8_v1()
+        ),
     }
     try:
         return configurations[configuration_id]
@@ -60,6 +64,8 @@ def resolve_retrieval_configuration(
         "retrieval-m1-v1",
         "retrieval-m3-rrf-v1",
         "retrieval-evidence-containment-v1",
+        "retrieval-bm25-top8-v1",
+        "retrieval-bm25-upload-fixture-top8-v1",
     }:
         return retrieval_configuration_for_id(configuration_id)
     if configuration_id not in {"retrieval-m3-vector-v2", "retrieval-m3-rrf-v2"}:

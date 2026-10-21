@@ -3657,6 +3657,15 @@ decision. Keep main checkout/port3000, all other worktrees and frozen191 untouch
 - Normal logout/session handling, exact owned OAuth restoration, owned process teardown, IAB
   tab/viewport cleanup and dependency/source parity remain acceptance obligations. Report any
   policy-denied or unobservable step as UNVERIFIED. No old stop is weakened by this grant.
+- **Explicit migration supplement:** after read-only inventory proved retained isolated DB
+  `knora_issue183_live` at4949b27855f4 lacks the integrated columns, the owner answered
+  “Cho phép 4 migration trên database thử #183”. Apply only the committed upgrade chain
+  20261016_0153→20261016_0154→20261016_0155→20261018_0156 to that exact database after a private
+  verified backup. This narrowly supersedes10.2's migration prohibition for that database only.
+  No migration editing/downgrade, foreign DB, source re-ingestion or source/vector/history deletion.
+  Record baseline and post-upgrade corpus/history parity, version, command/exit/hash; migration
+  begins the shared runtime clock and consumes no AI requests. A migration error stops dependent
+  runtime work; preserve backup/logs and do not automatically restore/drop a database.
 
 ### 12.3 Execution sequence and checks
 

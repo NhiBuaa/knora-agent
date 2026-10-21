@@ -19,7 +19,13 @@ public/synthetic inputs may leave the machine for Cloudflare; private inputs wit
 remain local. Langfuse Cloud Hobby in Tokyo receives only opaque IDs, approved metadata and numeric
 diagnostics, initially accessible only to the owner. Export stays off until its separate approval
 and data-policy verification, including deletion/readback for a seven-day retention target.
-Guardrails AI belongs to Issue #188 in shadow mode; existing security gates remain authoritative.
+Guardrails AI was scoped to Issue #188 in shadow mode; existing security gates remain authoritative.
+
+Disposition (2026-10-18): the owner [archived #188 as research-only](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6245695420).
+Preserve its code and evidence; Detection Completed = NO and Protection Enabled = NO.
+This does not approve runtime detector integration or reopen provider/activation permissions.
+See the [#188 master plan](../plans/2026-10-16-issue-188-master-plan.md)
+and [CI runbook](../runbooks/ci.md) for the retained research boundary.
 
 The first DeepEval trial is conditional on verified zero paid cost and public/synthetic permission,
 with at most 24 HTTP attempts and 60 minutes. An unknown or Paid Workers plan blocks that trial;

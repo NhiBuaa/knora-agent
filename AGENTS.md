@@ -27,10 +27,11 @@ The behavior-preserving `PostgresIngestionJobStore` decomposition is complete th
 
 ## Skill policy
 
-The canonical skill source is `C:/Users/NhiBuaa/.codex/skills`.
-Select skills from the current session's catalog and read their `SKILL.md` before use.
-Verify that the selected skill exists under this source; discover the current inventory rather
-than assuming a skill is installed because an older document mentions it.
+Use the current session's skill catalog to discover availability and the exact `SKILL.md`
+location, including user, system and installed-plugin skills. Read that source before use;
+do not restrict discovery to one directory or assume an old document proves installation.
+Repository-owned document paths and authority rules take precedence over generic skill
+output-path defaults; do not create a parallel glossary, plan ledger or knowledge store.
 
 Use the installed skills according to their actual scope:
 
@@ -48,13 +49,26 @@ Use the installed skills according to their actual scope:
 - `diagram-design` for standalone diagrams; `writing-skills` for authorized skill authoring.
 
 Repository domain, issue-tracker, acceptance and Git rules apply throughout these workflows.
-Record confirmed domain decisions in `CONTEXT.md` and relevant ADRs. Record session progress and
-next steps in repository documents when continuity is needed. These tasks do not require a
-separate skill. For Milestone 5, also follow
+Record confirmed domain vocabulary in `CONTEXT.md` and architectural decisions in relevant ADRs.
+Keep progress and next steps in the relevant Issue/PR, not a competing session-state document.
+At closeout, follow [selective learning](docs/agents/issue-tracker.md#selective-closeout).
+These tasks do not require a separate skill. For Milestone 5, also follow
 [the M5 runbook](.agents/workflows/production-projections-user-operator-surfaces-verification-runbook.md).
 
 Do not install, activate, trust, or grant permissions to additional skills without explicit user
 authorization.
+
+For skill evaluation, suspected stale/ineffective guidance, or a changed skill/model/runbook,
+follow [Skill Evals](docs/agents/skill-evals.md); keep run evidence and decisions in the Issue/PR.
+
+## Specification and plan locations
+
+Store specification documents in `docs/specs/` and implementation plans in `docs/plans/`;
+completed specifications remain in `docs/specs/done/`. These repository paths override
+Skill output-path defaults, including those of `brainstorming` and `writing-plans`.
+Keep technical decisions in their existing ADR/design owners and progress in the Issue/PR.
+When relocating documents, update current links while preserving commit-pinned URLs,
+frozen patches and approval records as historical evidence.
 
 ## Worktree location policy
 
@@ -93,10 +107,11 @@ The sole container for every future non-primary Git worktree is
 
 ## Verification
 
-Run from the repository root:
+For every code change and before a completion claim, follow the
+[Verification Contract](docs/runbooks/ci.md#verification-contract): select checks for the changed
+behavior, run and inspect them, and report evidence and unverified scope in the Issue/PR.
+Use `verification-before-completion` when available in the current catalog; if unavailable,
+report that limitation and follow the repository contract directly.
 
-```powershell
-.\.venv\Scripts\python -m pytest
-.\.venv\Scripts\ruff check .
-docker compose config --quiet
-```
+For browser startup, health/ownership checks, UI control, runtime evidence or cleanup, read
+[Agent environment](docs/runbooks/agent-environment.md) and its Feature Map before acting.

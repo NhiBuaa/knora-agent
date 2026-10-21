@@ -15,7 +15,7 @@ recorded below. No merge, push, deployment, branch disposition or worktree remov
 The stack includes Next.js15.5.24, React18.3.1, TypeScript and Tailwind CSS v4, with local fonts,
 semantic tokens, Vitest and Playwright. Canonical backend and Keycloak ownership remain binding.
 The approved workflow's folder responsibilities are in
-[the directory analysis](../superpowers/plans/2026-10-05-figma-ui-workflow.md#phân-tích-cấu-trúc-thư-mục-dự-kiến).
+[the directory analysis](../plans/2026-10-05-figma-ui-workflow.md#phân-tích-cấu-trúc-thư-mục-dự-kiến).
 
 ## Recent completed source slices
 
@@ -130,7 +130,7 @@ require their own covering evidence.
 
 ## Trace flow and active reset presentation
 
-The [Trace result/candidate plan](../superpowers/plans/2026-10-08-figma-trace-result-candidate-flow.md)
+The [Trace result/candidate plan](../plans/2026-10-08-figma-trace-result-candidate-flow.md)
 has passed independent review. Fresh complete direct MCP216:635 and its returned uncropped
 render are saved under Q1 `evidence/trace-content-source-2026-10-08`. Source structure drives
 result/citation/provenance positions and candidate text regions. Retained Retrieval details and
@@ -145,7 +145,7 @@ rather than300. All266 evidence hashes were independently checked, four expected
 changed and262 unchanged. The historical browser color-environment warning is a deferred minor
 for the next authorized browser run; no optional rerun was made solely for that warning.
 
-The [reset presentation plan](../superpowers/plans/2026-10-08-figma-reset-presentation.md) is active,
+The [reset presentation plan](../plans/2026-10-08-figma-reset-presentation.md) is active,
 with original task BASE86679dc. Fresh complete MCP242:272/333/389 and246:311 structures and returned
 renders are retained in its ignored SDD source directory. It changes existing template labels and
 server-derived countdown display only, with privacy, native POST and no-JS semantics retained.

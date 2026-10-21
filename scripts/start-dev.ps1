@@ -67,9 +67,10 @@ Import-DotEnv $dotenvPath
 # Check before provider calls, Compose changes, migrations, or truncating shared logs.
 # PreflightOnly checks provider configuration without claiming application ports.
 if (-not $PreflightOnly) {
+    # Avoid NetTCPIP/CIM cold-start latency for this read-only safety check.
+    $listeners = [Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()
     foreach ($binding in @(@('ApiPort', $ApiPort), @('FrontendPort', $FrontendPort))) {
-        $listeners = @(Get-NetTCPConnection -LocalPort $binding[1] -State Listen -ErrorAction SilentlyContinue)
-        if ($listeners.Count -gt 0) { Fail "PORT_IN_USE:$($binding[0]):$($binding[1])" }
+        if ($binding[1] -in $listeners.Port) { Fail "PORT_IN_USE:$($binding[0]):$($binding[1])" }
     }
 }
 
@@ -89,7 +90,7 @@ if ($GenerationProvider -eq 'ollama' -and $GenerationModel -notin @('qwen3:8b', 
 }
 if ($GenerationProvider -ne 'ollama' -and $PSBoundParameters.ContainsKey('GenerationModel')) { Fail 'INVALID_GENERATION_MODEL' }
 
-if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { Fail 'WINDOWS_RUNTIME_REQUIRED' }
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Fail 'WINDOWS_RUNTIME_REQUIRED' }
 if (-not $PythonExe) {
     $candidates = @(
         (Join-Path $repoRoot '.venv\Scripts\python.exe'),

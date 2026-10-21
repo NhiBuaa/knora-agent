@@ -518,7 +518,7 @@ def test_finalize_superseded_closes_a_stale_target_attempt_atomically() -> None:
         assert attempt.replacement_document_version_id == replacement_version_id
 
 
-def test_postgres_store_rejects_unimplemented_generic_success_without_mutating() -> None:
+def test_postgres_store_rejects_untyped_success_without_mutating() -> None:
     store, job_id = submit_queued_job()
     claim = store.claim_next_attempt(
         operation_id=ClaimOperationId(uuid4().hex),
@@ -527,7 +527,7 @@ def test_postgres_store_rejects_unimplemented_generic_success_without_mutating()
     )
     assert isinstance(claim, ClaimedAttempt)
 
-    with pytest.raises(CoordinationInvariantError, match="Issue #18"):
+    with pytest.raises(CoordinationInvariantError):
         store.finalize_success(
             operation_id=TransitionOperationId(uuid4().hex),
             claim=claim,

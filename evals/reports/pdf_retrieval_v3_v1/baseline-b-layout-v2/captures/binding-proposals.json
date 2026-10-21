@@ -1,0 +1,1140 @@
+{
+  "anchors": {
+    "c11": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+          ],
+          "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+          "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+          "end_offset": 106,
+          "page": 1,
+          "start_offset": 74
+        }
+      ],
+      "source_id": "columns-01",
+      "status": "proposed"
+    },
+    "c12": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+          ],
+          "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+          "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+          "end_offset": 166,
+          "page": 1,
+          "start_offset": 139
+        }
+      ],
+      "source_id": "columns-01",
+      "status": "proposed"
+    },
+    "c13": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+          ],
+          "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+          "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+          "end_offset": 244,
+          "page": 1,
+          "start_offset": 211
+        }
+      ],
+      "source_id": "columns-01",
+      "status": "proposed"
+    },
+    "c14": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+          ],
+          "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+          "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+          "end_offset": 138,
+          "page": 1,
+          "start_offset": 107
+        }
+      ],
+      "source_id": "columns-01",
+      "status": "proposed"
+    },
+    "c15": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+          ],
+          "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+          "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+          "end_offset": 210,
+          "page": 1,
+          "start_offset": 167
+        }
+      ],
+      "source_id": "columns-01",
+      "status": "proposed"
+    },
+    "c16": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+          ],
+          "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+          "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+          "end_offset": 289,
+          "page": 1,
+          "start_offset": 245
+        }
+      ],
+      "source_id": "columns-01",
+      "status": "proposed"
+    },
+    "c21": {
+      "matches": [],
+      "source_id": "columns-02",
+      "status": "missing"
+    },
+    "c22": {
+      "matches": [],
+      "source_id": "columns-02",
+      "status": "missing"
+    },
+    "c23": {
+      "matches": [],
+      "source_id": "columns-02",
+      "status": "missing"
+    },
+    "c24": {
+      "matches": [],
+      "source_id": "columns-02",
+      "status": "missing"
+    },
+    "c25": {
+      "matches": [],
+      "source_id": "columns-02",
+      "status": "missing"
+    },
+    "c26": {
+      "matches": [],
+      "source_id": "columns-02",
+      "status": "missing"
+    },
+    "g1": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 132,
+          "page": 1,
+          "start_offset": 81
+        }
+      ],
+      "source_id": "clean-02",
+      "status": "proposed"
+    },
+    "g2": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 182,
+          "page": 1,
+          "start_offset": 133
+        }
+      ],
+      "source_id": "clean-02",
+      "status": "proposed"
+    },
+    "g3": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 237,
+          "page": 1,
+          "start_offset": 183
+        }
+      ],
+      "source_id": "clean-02",
+      "status": "proposed"
+    },
+    "g4": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 296,
+          "page": 1,
+          "start_offset": 238
+        }
+      ],
+      "source_id": "clean-02",
+      "status": "proposed"
+    },
+    "g5": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 333,
+          "page": 1,
+          "start_offset": 297
+        },
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 370,
+          "page": 1,
+          "start_offset": 334
+        }
+      ],
+      "source_id": "clean-02",
+      "status": "ambiguous"
+    },
+    "g6": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 333,
+          "page": 1,
+          "start_offset": 297
+        },
+        {
+          "chunk_ids": [
+            "b75a9997-9248-4268-adea-7e6dc100e0b5"
+          ],
+          "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+          "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+          "end_offset": 370,
+          "page": 1,
+          "start_offset": 334
+        }
+      ],
+      "source_id": "clean-02",
+      "status": "ambiguous"
+    },
+    "h11": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2b8031ca-a049-43d7-a96e-70cac81c7710"
+          ],
+          "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+          "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+          "end_offset": 122,
+          "page": 1,
+          "start_offset": 79
+        }
+      ],
+      "source_id": "hierarchy-01",
+      "status": "proposed"
+    },
+    "h12": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2b8031ca-a049-43d7-a96e-70cac81c7710"
+          ],
+          "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+          "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+          "end_offset": 164,
+          "page": 1,
+          "start_offset": 123
+        }
+      ],
+      "source_id": "hierarchy-01",
+      "status": "proposed"
+    },
+    "h13": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2b8031ca-a049-43d7-a96e-70cac81c7710"
+          ],
+          "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+          "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+          "end_offset": 216,
+          "page": 1,
+          "start_offset": 165
+        }
+      ],
+      "source_id": "hierarchy-01",
+      "status": "proposed"
+    },
+    "h14": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2b8031ca-a049-43d7-a96e-70cac81c7710"
+          ],
+          "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+          "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+          "end_offset": 270,
+          "page": 1,
+          "start_offset": 217
+        }
+      ],
+      "source_id": "hierarchy-01",
+      "status": "proposed"
+    },
+    "h15": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2b8031ca-a049-43d7-a96e-70cac81c7710"
+          ],
+          "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+          "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+          "end_offset": 325,
+          "page": 1,
+          "start_offset": 271
+        }
+      ],
+      "source_id": "hierarchy-01",
+      "status": "proposed"
+    },
+    "h16": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2b8031ca-a049-43d7-a96e-70cac81c7710"
+          ],
+          "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+          "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+          "end_offset": 368,
+          "page": 1,
+          "start_offset": 326
+        }
+      ],
+      "source_id": "hierarchy-01",
+      "status": "proposed"
+    },
+    "h21": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+          ],
+          "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+          "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+          "end_offset": 114,
+          "page": 1,
+          "start_offset": 75
+        }
+      ],
+      "source_id": "hierarchy-02",
+      "status": "proposed"
+    },
+    "h22": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+          ],
+          "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+          "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+          "end_offset": 166,
+          "page": 1,
+          "start_offset": 115
+        }
+      ],
+      "source_id": "hierarchy-02",
+      "status": "proposed"
+    },
+    "h23": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+          ],
+          "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+          "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+          "end_offset": 225,
+          "page": 1,
+          "start_offset": 167
+        }
+      ],
+      "source_id": "hierarchy-02",
+      "status": "proposed"
+    },
+    "h24": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+          ],
+          "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+          "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+          "end_offset": 269,
+          "page": 1,
+          "start_offset": 226
+        }
+      ],
+      "source_id": "hierarchy-02",
+      "status": "proposed"
+    },
+    "h25": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+          ],
+          "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+          "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+          "end_offset": 315,
+          "page": 1,
+          "start_offset": 270
+        }
+      ],
+      "source_id": "hierarchy-02",
+      "status": "proposed"
+    },
+    "h26": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+          ],
+          "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+          "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+          "end_offset": 373,
+          "page": 1,
+          "start_offset": 316
+        }
+      ],
+      "source_id": "hierarchy-02",
+      "status": "proposed"
+    },
+    "h31": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+          ],
+          "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+          "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+          "end_offset": 120,
+          "page": 1,
+          "start_offset": 76
+        }
+      ],
+      "source_id": "hierarchy-03",
+      "status": "proposed"
+    },
+    "h32": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+          ],
+          "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+          "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+          "end_offset": 167,
+          "page": 1,
+          "start_offset": 121
+        }
+      ],
+      "source_id": "hierarchy-03",
+      "status": "proposed"
+    },
+    "h33": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+          ],
+          "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+          "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+          "end_offset": 213,
+          "page": 1,
+          "start_offset": 168
+        }
+      ],
+      "source_id": "hierarchy-03",
+      "status": "proposed"
+    },
+    "h34": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2f76e65f-99ff-473f-b508-47de0d74ca7c"
+          ],
+          "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+          "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+          "end_offset": 121,
+          "page": 2,
+          "start_offset": 76
+        }
+      ],
+      "source_id": "hierarchy-03",
+      "status": "proposed"
+    },
+    "h35": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2f76e65f-99ff-473f-b508-47de0d74ca7c"
+          ],
+          "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+          "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+          "end_offset": 168,
+          "page": 2,
+          "start_offset": 122
+        }
+      ],
+      "source_id": "hierarchy-03",
+      "status": "proposed"
+    },
+    "h36": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "2f76e65f-99ff-473f-b508-47de0d74ca7c"
+          ],
+          "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+          "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+          "end_offset": 223,
+          "page": 2,
+          "start_offset": 169
+        }
+      ],
+      "source_id": "hierarchy-03",
+      "status": "proposed"
+    },
+    "pb1": {
+      "matches": [],
+      "source_id": "academic-phobert",
+      "status": "missing"
+    },
+    "pb2": {
+      "matches": [],
+      "source_id": "academic-phobert",
+      "status": "missing"
+    },
+    "pn1": {
+      "matches": [],
+      "source_id": "academic-phonlp",
+      "status": "missing"
+    },
+    "pn2": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "66a3b490-0f34-4ff6-be7a-36eae9b14667"
+          ],
+          "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+          "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+          "end_offset": 1265,
+          "page": 1,
+          "start_offset": 1246
+        }
+      ],
+      "source_id": "academic-phonlp",
+      "status": "proposed"
+    },
+    "r1": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0"
+          ],
+          "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+          "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+          "end_offset": 106,
+          "page": 1,
+          "start_offset": 78
+        }
+      ],
+      "source_id": "clean-01",
+      "status": "proposed"
+    },
+    "r2": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0"
+          ],
+          "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+          "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+          "end_offset": 135,
+          "page": 1,
+          "start_offset": 107
+        }
+      ],
+      "source_id": "clean-01",
+      "status": "proposed"
+    },
+    "r3": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0"
+          ],
+          "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+          "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+          "end_offset": 164,
+          "page": 1,
+          "start_offset": 136
+        }
+      ],
+      "source_id": "clean-01",
+      "status": "proposed"
+    },
+    "r4": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "3caed1b0-823a-4d67-9cce-46d5fa71fd93"
+          ],
+          "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+          "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+          "end_offset": 107,
+          "page": 2,
+          "start_offset": 78
+        }
+      ],
+      "source_id": "clean-01",
+      "status": "proposed"
+    },
+    "r5": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "3caed1b0-823a-4d67-9cce-46d5fa71fd93"
+          ],
+          "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+          "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+          "end_offset": 136,
+          "page": 2,
+          "start_offset": 108
+        }
+      ],
+      "source_id": "clean-01",
+      "status": "proposed"
+    },
+    "r6": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "3caed1b0-823a-4d67-9cce-46d5fa71fd93"
+          ],
+          "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+          "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+          "end_offset": 165,
+          "page": 2,
+          "start_offset": 137
+        }
+      ],
+      "source_id": "clean-01",
+      "status": "proposed"
+    },
+    "s11": {
+      "matches": [],
+      "source_id": "scan-01",
+      "status": "missing"
+    },
+    "s12": {
+      "matches": [],
+      "source_id": "scan-01",
+      "status": "missing"
+    },
+    "s13": {
+      "matches": [],
+      "source_id": "scan-01",
+      "status": "missing"
+    },
+    "s14": {
+      "matches": [],
+      "source_id": "scan-01",
+      "status": "missing"
+    },
+    "s21": {
+      "matches": [],
+      "source_id": "scan-02",
+      "status": "missing"
+    },
+    "s22": {
+      "matches": [],
+      "source_id": "scan-02",
+      "status": "missing"
+    },
+    "s23": {
+      "matches": [],
+      "source_id": "scan-02",
+      "status": "missing"
+    },
+    "s24": {
+      "matches": [],
+      "source_id": "scan-02",
+      "status": "missing"
+    },
+    "s31": {
+      "matches": [],
+      "source_id": "scan-03",
+      "status": "missing"
+    },
+    "s32": {
+      "matches": [],
+      "source_id": "scan-03",
+      "status": "missing"
+    },
+    "s33": {
+      "matches": [],
+      "source_id": "scan-03",
+      "status": "missing"
+    },
+    "s34": {
+      "matches": [],
+      "source_id": "scan-03",
+      "status": "missing"
+    },
+    "t11": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 165,
+          "page": 1,
+          "start_offset": 160
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t12": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 168,
+          "page": 1,
+          "start_offset": 166
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t13": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 171,
+          "page": 1,
+          "start_offset": 169
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t14": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 174,
+          "page": 1,
+          "start_offset": 172
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t15": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 180,
+          "page": 1,
+          "start_offset": 175
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t16": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 182,
+          "page": 1,
+          "start_offset": 181
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t17": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 165,
+          "page": 1,
+          "start_offset": 164
+        },
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 184,
+          "page": 1,
+          "start_offset": 183
+        }
+      ],
+      "source_id": "table-01",
+      "status": "ambiguous"
+    },
+    "t18": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+          ],
+          "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+          "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+          "end_offset": 187,
+          "page": 1,
+          "start_offset": 185
+        }
+      ],
+      "source_id": "table-01",
+      "status": "proposed"
+    },
+    "t21": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 174,
+          "page": 1,
+          "start_offset": 169
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t22": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 177,
+          "page": 1,
+          "start_offset": 175
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t23": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 180,
+          "page": 1,
+          "start_offset": 178
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t24": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 183,
+          "page": 1,
+          "start_offset": 181
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t25": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 189,
+          "page": 1,
+          "start_offset": 184
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t26": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 192,
+          "page": 1,
+          "start_offset": 190
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t27": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 195,
+          "page": 1,
+          "start_offset": 193
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t28": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+          ],
+          "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+          "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+          "end_offset": 198,
+          "page": 1,
+          "start_offset": 196
+        }
+      ],
+      "source_id": "table-02",
+      "status": "proposed"
+    },
+    "t31": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 158,
+          "page": 1,
+          "start_offset": 153
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t32": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 162,
+          "page": 1,
+          "start_offset": 159
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t33": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 166,
+          "page": 1,
+          "start_offset": 163
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t34": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 170,
+          "page": 1,
+          "start_offset": 167
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t35": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 176,
+          "page": 1,
+          "start_offset": 171
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t36": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 180,
+          "page": 1,
+          "start_offset": 177
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t37": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 184,
+          "page": 1,
+          "start_offset": 181
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "t38": {
+      "matches": [
+        {
+          "chunk_ids": [
+            "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+          ],
+          "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+          "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+          "end_offset": 188,
+          "page": 1,
+          "start_offset": 185
+        }
+      ],
+      "source_id": "table-03",
+      "status": "proposed"
+    },
+    "v51": {
+      "matches": [],
+      "source_id": "academic-vit5",
+      "status": "missing"
+    },
+    "v52": {
+      "matches": [],
+      "source_id": "academic-vit5",
+      "status": "missing"
+    },
+    "v53": {
+      "matches": [],
+      "source_id": "academic-vit5",
+      "status": "missing"
+    },
+    "v54": {
+      "matches": [],
+      "source_id": "academic-vit5",
+      "status": "missing"
+    }
+  },
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "proposal_sha256": "3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d",
+  "schema_version": 1
+}

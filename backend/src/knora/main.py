@@ -2,8 +2,10 @@ from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
 from knora.access.keycloak import KeycloakAuthenticator
@@ -29,9 +31,12 @@ from knora.adapters.postgres.object_reconciliation import (
 )
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.adapters.postgres.operator_reader import PostgresOperatorReader
+from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
 from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
 from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
+from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
+from knora.adapters.qdrant.search_index import QdrantSearchIndex
 from knora.answering.module import AnswerQuestion
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
@@ -43,6 +48,7 @@ from knora.bootstrap import build_provider_selection
 from knora.conversations.runner import ConversationRunner
 from knora.conversations.service import ConversationService
 from knora.domain.errors import KnoraError
+from knora.infrastructure.lexical_configuration import load_lexical_population
 from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.job_processing import (
@@ -53,7 +59,11 @@ from knora.ingestion.job_processing import (
     SystemRandomSource,
     UuidOperationIds,
 )
-from knora.ingestion.jobs import IngestionJobs
+from knora.ingestion.jobs import (
+    IngestionJobs,
+    PdfExtractionSubmissionConfiguration,
+    PdfSubmissionConfiguration,
+)
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.object_lifecycle import (
     LifecycleClock,
@@ -75,6 +85,7 @@ from knora.ingestion.operational_observability import (
     OperationalTelemetry,
 )
 from knora.ingestion.processing import DocumentProcessor
+from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.tools import (
     CapabilityRegistry,
@@ -139,14 +150,40 @@ def create_app(
         _DEFAULT_WORKSPACE_ADMISSIONS
     ),
 ) -> FastAPI:
+    deployed_retrieval_configuration = resolve_retrieval_configuration(
+        settings.retrieval_configuration_id, vector_min_similarity=settings.vector_min_similarity
+    )
+    lexical_population = load_lexical_population(
+        deployed_retrieval_configuration, settings.lexical_population_manifest
+    )
+    if lexical_population is not None and (
+        not settings.lexical_qdrant_url or not settings.lexical_qdrant_collection
+    ):
+        raise ValueError("lexical runtime requires Qdrant URL and collection")
     providers = build_provider_selection(settings)
+    lexical_client = None
+    lexical_index = None
+    if lexical_population is not None:
+        lexical_client = httpx.Client(
+            base_url=settings.lexical_qdrant_url,
+            timeout=10,
+            trust_env=False,
+        )
+        lexical_index = NativeQdrantSearchIndex(
+            index=QdrantSearchIndex(settings.lexical_qdrant_collection, lexical_population.profile),
+            client=lexical_client,
+        )
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         del application
         try:
+            if lexical_index is not None:
+                await run_in_threadpool(lexical_index.ensure_collection)
             yield
         finally:
+            if lexical_client is not None:
+                lexical_client.close()
             close_embedding = getattr(providers.embedding_provider, "close", None)
             if close_embedding is not None:
                 close_embedding()
@@ -156,21 +193,37 @@ def create_app(
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
     selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
-    answering_store = PostgresAnsweringStore(SessionFactory)
+    dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
+        embedding_configuration=selected_embedding_configuration
+    )
+    application.state.pdf_submission_configuration = (
+        PdfExtractionSubmissionConfiguration(
+            parser_configuration_id=dense_pdf_configuration.parser_configuration_id,
+            normalizer_configuration_id=dense_pdf_configuration.normalizer_configuration_id,
+            chunking_configuration=dense_pdf_configuration.chunking_configuration,
+            lexical_profile=lexical_population.profile,
+        )
+        if lexical_population is not None
+        else dense_pdf_configuration
+    )
+    answering_store = PostgresAnsweringStore(
+        SessionFactory,
+        lexical_index=lexical_index,
+        lexical_population=lexical_population,
+    )
     workspace_admissions = (
         PostgresWorkspaceAdmissionStore(SessionFactory)
         if workspace_admission_store is _DEFAULT_WORKSPACE_ADMISSIONS
         else workspace_admission_store
     )
     application.state.workspace_admission_store = workspace_admissions
-    deployed_retrieval_configuration = resolve_retrieval_configuration(
-        settings.retrieval_configuration_id, vector_min_similarity=settings.vector_min_similarity
-    )
     application.state.answer_question = answer_question or AnswerQuestion(
-        embedding_provider=providers.embedding_provider,
+        embedding_provider=providers.embedding_provider if lexical_population is None else None,
         generation_provider=providers.generation_provider,
         store=answering_store,
-        embedding_configuration=selected_embedding_configuration,
+        embedding_configuration=selected_embedding_configuration
+        if lexical_population is None
+        else None,
         retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
             deployed_retrieval_configuration
         ),
@@ -207,7 +260,11 @@ def create_app(
         )
     if selected_object_store is None:
         raise ValueError("unsupported object_store_backend")
-    job_store = PostgresIngestionJobStore(SessionFactory)
+    job_store = PostgresIngestionJobStore(
+        SessionFactory,
+        retrieval_configuration=deployed_retrieval_configuration,
+        lexical_population=lexical_population,
+    )
     selected_lifecycle_maintenance = lifecycle_maintenance or job_store
     selected_lifecycle_clock = lifecycle_clock or PostgresClock(SessionFactory)
     application.state.ingestion_jobs = ingestion_jobs or IngestionJobs(
@@ -218,15 +275,27 @@ def create_app(
         admission_store=workspace_admissions,
         deployed_embedding_configuration=selected_embedding_configuration,
     )
+    pdf_handler = PdfDerivationHandler(
+        object_store=selected_object_store,
+        extractor=PypdfTextExtractor(),
+        embedding_provider=providers.embedding_provider,
+        profile_resolver=job_store.pdf_profile_for_work,
+        runtime_embedding_configuration=selected_embedding_configuration,
+        lexical_population=lexical_population,
+    )
+    handler = pdf_handler
+    if lexical_index is not None:
+        handler = DerivationJobHandler(
+            pdf_handler=pdf_handler,
+            index_handler=LexicalIndexHandler(
+                store=PostgresSearchIndexStore(SessionFactory),
+                index=lexical_index,
+                lexical_population=lexical_population,
+            ),
+        )
     application.state.ingestion_worker = ingestion_worker or ProcessIngestionJob(
         store=job_store,
-        handler=PdfDerivationHandler(
-            object_store=selected_object_store,
-            extractor=PypdfTextExtractor(),
-            embedding_provider=providers.embedding_provider,
-            profile_resolver=job_store.pdf_profile_for_work,
-            runtime_embedding_configuration=selected_embedding_configuration,
-        ),
+        handler=handler,
         operation_ids=UuidOperationIds(),
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(SystemRandomSource()),
@@ -273,7 +342,7 @@ def create_app(
         alert_policy=AlertPolicyV1() if selected_alert_configuration is not None else None,
         alert_configuration=selected_alert_configuration,
     )
-    operator_reader = PostgresOperatorReader(SessionFactory)
+    operator_reader = PostgresOperatorReader(SessionFactory, lexical_population=lexical_population)
     application.state.operator_observability = operator_observability or OperatorObservability(
         trace_reader=operator_reader,
         evaluation_reader=operator_reader,
@@ -286,6 +355,7 @@ def create_app(
         SessionFactory,
         deployed_embedding_configuration=selected_embedding_configuration,
         deployed_retrieval_configuration=deployed_retrieval_configuration,
+        lexical_population=lexical_population,
     )
     application.state.document_reader = selected_document_reader
     application.state.document_lifecycle = document_lifecycle or DocumentLifecycleService(
@@ -421,6 +491,7 @@ def create_app(
             "OBJECT_NOT_FOUND": 404,
             "PDF_RESOURCE_LIMIT_EXCEEDED": 413,
             "PDF_INGESTION_NOT_CONFIGURED": 503,
+            "LEXICAL_RETRIEVAL_UNAVAILABLE": 503,
             "INGESTION_JOB_NOT_FOUND": 404,
             "DOCUMENT_VERSION_NOT_FOUND": 404,
             "DOCUMENT_NOT_FOUND": 404,

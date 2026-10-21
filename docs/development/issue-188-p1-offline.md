@@ -16,7 +16,7 @@ acceptance and Detection Completed remain unestablished. See the
 [renewed P3 evidence](issue-188-p2-capability-investigation.md#renewed-p3-session--trial-002-october-17).
 
 Authority: [owner approval](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6199169575)
-and [single Master Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md), phase P1.
+and [single Master Plan](../plans/2026-10-16-issue-188-master-plan.md), phase P1.
 This is an implementation/evidence note, not another implementation plan.
 
 Review artifact: Draft [PR #205](https://github.com/NhiBuaa/knora-agent/pull/205), stacked on
@@ -144,7 +144,7 @@ not a detector quality result. No full local database/services/runtime activatio
 
 This P1 handoff recorded the state before the owner approved the P2 continuation.
 The current status and authority are now maintained in the [Master Implementation
-Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md) and [P2 capability
+Plan](../plans/2026-10-16-issue-188-master-plan.md) and [P2 capability
 investigation](issue-188-p2-capability-investigation.md). The following list remains
 useful as the original P1-to-P2 gate record; it must not be read as denying the
 approved P2 research/Dashboard-read envelope.

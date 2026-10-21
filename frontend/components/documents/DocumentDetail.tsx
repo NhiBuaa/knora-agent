@@ -13,6 +13,8 @@ import { routes } from "@/lib/navigation/routes";
 import {
   answerAvailability,
   documentStatus,
+  reprocessConfiguration,
+  derivationIsActive,
   jobIsActive,
   lastProcessed,
   servingExplanation,
@@ -78,7 +80,7 @@ export function DocumentDetail({
         const loaded = (await response.json()) as DocumentResponse;
         if (controller.signal.aborted) return;
         setDocument(loaded);
-        if (loaded.ingestion_job_id && jobIsActive(loaded.ingestion_status))
+        if (loaded.ingestion_job_id && derivationIsActive(loaded))
           setJobId(loaded.ingestion_job_id);
         else {
           setJobId(null);
@@ -138,7 +140,12 @@ export function DocumentDetail({
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (!active || controller.signal.aborted) return;
         setJobStatus(status);
-        if (jobIsActive(status.status))
+        if (
+          derivationIsActive({
+            ingestion_status: status.status,
+            indexing_status: status.indexing_status,
+          })
+        )
           timer = setTimeout(
             () => void poll(),
             Math.max(1000, (status.poll_after_seconds || 2) * 1000),
@@ -218,9 +225,13 @@ export function DocumentDetail({
       !controller ||
       !document?.current_document_version_id ||
       !document.reprocess_supported ||
+      reprocessConfiguration(document, "current") === null ||
       !canWrite ||
       document.archived ||
-      jobIsActive(jobStatus?.status ?? document.ingestion_status) ||
+      derivationIsActive({
+        ingestion_status: jobStatus?.status ?? document.ingestion_status,
+        indexing_status: jobStatus?.indexing_status ?? document.indexing_status,
+      }) ||
       !begin()
     )
       return;
@@ -232,7 +243,7 @@ export function DocumentDetail({
         {
           method: "POST",
           headers: { "Idempotency-Key": reprocessKey.current },
-          body: JSON.stringify({ config_mode: "current" }),
+          body: JSON.stringify(reprocessConfiguration(document, "current")),
           signal: controller.signal,
         },
       );
@@ -320,6 +331,8 @@ export function DocumentDetail({
       ? {
           ...document,
           ingestion_status: jobStatus.status,
+          indexing_status: jobStatus.indexing_status,
+          lexical_readiness: jobStatus.lexical_readiness,
           serving_state: jobStatus.serving_state ?? document.serving_state,
           served_document_version_id:
             jobStatus.served_document_version_id === undefined
@@ -578,9 +591,14 @@ export function DocumentDetail({
                       className={`${actionClass} h-[42px] min-h-[42px] !border-action !text-action-text`}
                       disabled={
                         busy ||
-                        jobIsActive(
-                          jobStatus?.status ?? document.ingestion_status,
-                        )
+                        reprocessConfiguration(document, "current") === null ||
+                        derivationIsActive({
+                          ingestion_status:
+                            jobStatus?.status ?? document.ingestion_status,
+                          indexing_status:
+                            jobStatus?.indexing_status ??
+                            document.indexing_status,
+                        })
                       }
                       onClick={() => void reprocess()}
                     >

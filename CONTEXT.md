@@ -482,64 +482,6 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
 ### Provider boundaries
 
 - A **Generation Provider** turns a Question and its Evidence Set into generated answer text.
-  Issue #183's approved answer policy keeps multi-item enumerations as separate
-  bullets and short facts as prose. Counts require source proof independently of
-  selected-member completeness; incomplete members require explicit disclosure.
-  Clear source order and important qualifications must be retained. Contiguous
-  content sharing evidence prefers a citation after its last block; every needed
-  source must remain cited. These are semantic obligations, not schema guarantees.
-  Q17's private Cloudflare contract uses fixed `before`, `items`, `after` arrays:
-  introductory paragraphs, at most one main list, and concluding paragraphs.
-  It carries supporting Evidence
-  Aliases for each paragraph or item. The adapter checks Evidence Set membership
-  and composes Markdown; it no longer checks literal quotes or source positions.
-  A valid alias does not prove semantic support, count completeness or source order.
-  Q12 adds a private Cloudflare presentation choice before generation, originally
-  without answer/member content in that choice. Master section 4.7 supersedes that
-  list/prose selection with strict `count_question` plus independent source conditions.
-  The answer step chooses whether to return items; a nonempty list requires at least
-  two items. Count
-  contracts require a lead paragraph with explicit nullable literal
-  emphasis. Q19 also requires every paragraph to declare `bold` as a literal
-  string or null in the wire schema and local model; omission is invalid in every
-  mode. The composer does not repair model Markdown or prove semantic support.
-  Zero/one known member permits count prose. Every contract permits
-  evidence refusal; malformed selection/output remains an error without retry.
-  Safe per-stage trace metadata and complete aggregate token fields account for
-  both requests. This adds quota/latency, not semantic guarantees or a shared
-  prompt-management architecture (#191). Q17 removes per-block kinds/unions and
-  advanced schema position constraints; the adapter maps validated slots to the
-  existing composer. Refusal requires all slots empty. This simplification does
-  not prove provider compatibility, completion within the token cap, or semantics.
-  #191 refactors separately from `67a149f`; #183 retains prompt/schema behavior
-  and acceptance ownership, without moving modules. Real-provider acceptance is pending.
-
-  The owner-approved #183 v18 policy adds only placement guidance for source
-  conditions: list-member conditions stay with the item, and shared conditions
-  not already stated in `before` or `items` go in `after` with their Evidence
-  Aliases. Conditions governing a count, member inclusion or listed-structure
-  applicability remain in scope. This does not prove model compliance or add a
-  semantic gate; schema, composer, citations, refusal, model and token cap remain
-  unchanged. #191's extraction remains separate until #183 acceptance/integration.
-  After v18 still omitted supplied shared conditions, the owner approved Master
-  section 4.4 for offline implementation: the selector also returns shared
-  conditions as literal text with Evidence Aliases, but no total/member collection.
-  The adapter validates these paragraphs before the second request, passes them as
-  separate user-message data alongside the original question/evidence, and appends
-  them after a valid answer's concluding paragraphs using the existing composer.
-  Valid refusal adds no selected notes; existing answer/list/count gates run first.
-  Section 4.7 permits relevant selected conditions for prose as well as lists; the
-  selector no longer restricts items or forces notes empty by presentation mode. The answer wire schema,
-  public validation and other providers remain unchanged; there are still two
-  Cloudflare requests with the existing model and per-request cap. The identities
-  become `cloudflare-count-conditions-v3` and
-  `cloudflare-gpt-oss-cited-answer-v20`. This guarantees transfer of validated
-  selected notes, not correct/complete selection or evidence entailment. Duplicates,
-  conflicts and omitted individual-item conditions remain acceptance failures;
-  there is no automatic semantic deduplication or repair. Live compatibility and
-  semantic acceptance remain pending separate runtime approval. Removing mode/items
-  agreement means an incorrect prose answer or unwanted list may pass structural
-  validation; the count flag is not evidence of a total or complete membership.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input
@@ -663,6 +605,59 @@ Semantic completeness against the PDF is outside #183. Missing evidence routes t
 despite sufficient evidence belong to a proposed separate Answer Generation issue. This policy is
 not a semantic guarantee or runtime acceptance. See the sole
 [Master Plan](docs/superpowers/plans/2026-10-16-issue-183-master-plan.md).
+
+## Retrieval V3 S2 approved design
+
+- **Lexical Generation** identifies one immutable Chunk Set/profile derivation. PostgreSQL
+  owns its desired revision, activation and eligibility; the search projection is replaceable.
+- **Extraction success** means retained chunks exist. **Lexical readiness** additionally
+  requires a verified index receipt and valid activation. Upload job identity/status and
+  indexing job identity/status remain distinct; neither implies the other's success.
+- **Derivation snapshot** captures Document and Workspace revisions at enqueue. Archive then
+  unarchive does not revive work accepted under an older snapshot.
+- **Reprocess configuration** is explicit: `same_as_job` retains the selected extraction
+  kind/profile; BM25 `current` selects valid desired B even while it is indexing and A is
+  active. An invalid desired configuration is unavailable, without fallback to A or dense.
+- **Lexical serving** is strategy-specific and does not create embedding readiness. Lexical
+  authority is checked before generation and again when persisting the trace before returning
+  citations. Invalidated authority is an operational failure, never empty evidence.
+- **Native lexical window** is one Top200 query: below 200, complete ties use score descending
+  then chunk ID ascending; at 200, preserve native order with unknown tie boundary. Primary
+  Top8 comes from the same window without refill or a second query.
+- **Index parent** is the actual extraction job, recorded atomically through
+  `parent_ingestion_job_id`; public indexing status follows this explicit link.
+- **BM25 retrieval identities** preserve `retrieval-bm25-diagnostic-v1` at Top200 and use
+  `retrieval-bm25-top8-v1` for primary Top8 from the same single native Top200 response.
+  A candidate-limit change requires a separate immutable configuration identity.
+  Primary Top8 binds the frozen47 profile; `retrieval-bm25-upload-fixture-top8-v1` separately
+  binds the measured upload fixture profile. Profile binding does not vary under one config ID.
+- **Verified lexical population** is an opt-in finite manifest binding source hashes and
+  ordered chunk checksums/native token counts to the selected profile. Changed or unknown
+  populations are unavailable until an explicit verified profile/rebuild. Repeated text in
+  distinct ordered chunks is valid. Automatic arbitrary-PDF profiles are outside S2.
+- **Stable lexical statistics** bind source SHA and ordered checksum/native-count pairs in a
+  new profile/digest. Historical profiles and evidence stay immutable; retained native counts
+  must be checked before creating the new pin and verified in the S2 runtime batch.
+- **Lexical retry identity** exposes read-only derivation kind. Before any desired generation,
+  failed extraction retries `same_as_job` with its exact upload job/profile. Once a desired
+  generation exists, retry uses `current` and its desired profile, including B while A serves.
+  Dense list/detail retry modes remain compatible. Upload and index job identities stay separate.
+- **Frozen S2 comparison context** uses each selected Baseline B retrieval query, including
+  the eight saved follow-up contexts. One native Top200 supplies primary Top8 and the existing
+  selector without generation. Fresh application/context verification remains separate.
+- **Lexical projection cleanup** is an explicit idempotent CLI operation. PostgreSQL lifecycle
+  locks must establish that neither active nor desired head references the generation before
+  deterministic point IDs are removed. Failure leaves a later explicit retry possible; cleanup
+  does not create another ingestion job or restore serving eligibility. Accepted runtime evidence
+  remains retained, with cleanup verification confined to a separate structural fixture.
+- **Lexical rollback** reprocesses an eligible historical extraction with its original profile
+  into a fresh extraction/index pair and generation. An enqueue revision CAS fences the previous
+  desired generation; completion must retain that reserved revision. Eligibility requires current
+  source/profile/lifecycle snapshots and excludes revoked derivations, but does not require the
+  historical active pointer or its physical projection to remain. It never creates another child
+  under the old extraction or reactivates a historical pointer.
+- These are accepted design decisions, not evidence that S2 is complete or runtime-verified.
+  Rationale: [ADR 0019](docs/adr/0019-lexical-derivation-and-serving-authority.md).
 
 ## Context Pointers
 

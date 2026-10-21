@@ -1,0 +1,16 @@
+{
+  "next_batch_max": 12,
+  "required_headroom": 8500,
+  "paid_budget_usd": 0,
+  "saved_generation_neurons_rate_estimate": 74.709838,
+  "remaining_queries": 48,
+  "checked_at": "2026-10-15T07:06:50.8678603+00:00",
+  "planning_prorated": 1500,
+  "daily_neurons_before": 202.67,
+  "daily_delta_is_not_run_usage": true,
+  "daily_neurons_after": 202.67,
+  "unknown_embedding_usage": true,
+  "checkpoint": 12,
+  "remaining_generation_allowance": 55,
+  "decision": "continue within previously approved allowance; no material overrun observed; conservatively retain full initial headroom"
+}

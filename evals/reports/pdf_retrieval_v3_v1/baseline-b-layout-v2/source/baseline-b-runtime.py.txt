@@ -1,0 +1,618 @@
+"""Owned, Free-only #153 Baseline B batch launcher; no ingestion or retries."""
+
+# ruff: noqa: E402 -- this ignored launcher adds the repository source roots before imports.
+import argparse
+import asyncio
+import hashlib
+import io
+import json
+import math
+import os
+import platform
+import secrets
+import subprocess
+import sys
+import time
+import unicodedata
+from contextlib import suppress
+from datetime import datetime, timedelta
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+
+import httpx
+from evals.runners.pdf_baseline_runtime import FreeOnlyGuard, build_evaluation_app
+from evals.runners.pdf_retrieval_v3 import (
+    PdfHttpExecutor,
+    collect_cases,
+    load_json,
+    validate_counter_identity,
+)
+from evals.runners.pdf_source_binding import (
+    chunk_record,
+    digest,
+    propose_bindings,
+    validate_binding_review,
+)
+
+RUN_ID = "s1-runtime-binding-20261015-01"
+WORKSPACE_ID = "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+PROPOSAL = "3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d"
+DERIVATION = "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2"
+REPORT = ROOT / "evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime"
+OUTPUT = ROOT / ".verification/issue153/run"
+OBJECTS = ROOT / ".verification/issue153/objects"
+PRIMARY_ENV = Path("C:/Developer/Projects/knora-agent/.env")
+BASELINE = "pypdf-layout-v2/qwen3-06b/gpt-oss20b/containment0.65"
+
+
+def checkpoint(path, value):
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+class BaselineBGuard(FreeOnlyGuard):
+    def __init__(self, path, *, run_identity, preflight, required_neurons=None, clock=None):
+        raw = preflight.get("raw_neurons_used")
+        if (
+            isinstance(raw, bool)
+            or not isinstance(raw, int | float)
+            or not math.isfinite(raw)
+            or not 0 <= raw < 10000
+            or preflight.get("neurons_used", math.ceil(raw)) != math.ceil(raw)
+            or preflight.get("paid_budget_usd") != 0
+            or preflight.get("quota_coordination_confirmed") is not True
+        ):
+            raise ValueError("FREE_PREFLIGHT_INVALID")
+        previous = load_json(path) if path.exists() else None
+        if previous and (previous.get("stop_reason") or previous.get("paused_until")):
+            raise ValueError("PERSISTED_STOP_REQUIRES_REVIEW")
+        first_batch = not previous or not previous.get("query_embedding_attempts")
+        threshold = 8500 if first_batch else required_neurons
+        if (
+            threshold is None
+            or isinstance(threshold, bool)
+            or not isinstance(threshold, int | float)
+            or not 0 < threshold <= 10000
+            or 10000 - raw < threshold
+        ):
+            raise ValueError("FREE_HEADROOM_INSUFFICIENT")
+        verified = preflight | {"neurons_used": math.ceil(raw)}
+        super().__init__(path, run_identity=run_identity, preflight=verified, clock=clock)
+        if previous and (
+            previous.get("embedding_http_attempts") != 14
+            or previous.get("embedding_inputs", 0) < 47
+            or previous.get("workspace_id") != WORKSPACE_ID
+        ):
+            raise ValueError("INGESTION_HISTORY_DRIFT")
+        if previous and (
+            previous["embedding_inputs"] != 47 + previous.get("query_embedding_attempts", 0)
+            or previous["generation_attempts"] != previous.get("baseline_b_generation_attempts", 0)
+        ):
+            raise ValueError("REQUEST_COUNTER_DRIFT")
+        self.state.setdefault("query_embedding_attempts", 0)
+        self.state.setdefault("baseline_b_generation_attempts", 0)
+        self.state.setdefault("baseline_b_case_requests", {})
+        self.active_case = None
+        self.expected_query = None
+        self.expected_generation = None
+        self.save()
+
+    def save(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        checkpoint(self.path, self.state)
+
+    def stop(self, reason):
+        with self.lock:
+            self.state["stop_reason"] = self.state["stop_reason"] or reason
+            self.save()
+        raise RuntimeError(self.state["stop_reason"])
+
+    def set_case(self, case_id):
+        if self.active_case is not None or not case_id:
+            self.stop("CASE_SCOPE_INVALID")
+        self.active_case = case_id
+        self.expected_query = None
+        self.expected_generation = None
+
+    def clear_case(self):
+        self.active_case = None
+        self.expected_query = None
+        self.expected_generation = None
+
+    def before_request(self, request):
+        from knora.providers.cloudflare.embedding import QUERY_INSTRUCTION
+        from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+        from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
+
+        if self.state["stop_reason"]:
+            raise RuntimeError(self.state["stop_reason"])
+        now = self.clock()
+        checked = datetime.fromisoformat(self.preflight["checked_at"])
+        if now.date() != checked.date() or not timedelta(0) <= now - checked <= timedelta(
+            minutes=15
+        ):
+            self.stop("FREE_PREFLIGHT_EXPIRED")
+        base = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai"
+        try:
+            payload = json.loads(request.content)
+        except (ValueError, UnicodeError):
+            self.stop("AI_REQUEST_INVALID")
+        if (
+            not self.active_case
+            or request.method != "POST"
+            or request.url.query
+            or any(key.startswith("cf-aig") for key in request.headers)
+            or request.headers.get("authorization") is None
+        ):
+            self.stop("AI_REQUEST_NOT_APPROVED")
+        if str(request.url) == f"{base}/run/@cf/qwen/qwen3-embedding-0.6b":
+            role = "query"
+            if (
+                set(payload) != {"queries", "instruction"}
+                or payload["queries"] != [self.expected_query]
+                or not self.expected_query
+                or payload["instruction"] != QUERY_INSTRUCTION
+            ):
+                self.stop("QUERY_REQUEST_INVALID")
+            key, legacy = "query_embedding_attempts", "embedding_inputs"
+        elif str(request.url) == f"{base}/v1/chat/completions":
+            role = "generation"
+            if (
+                set(payload) != {"model", "messages", "response_format", "max_tokens"}
+                or payload["model"] != "@cf/openai/gpt-oss-20b"
+                or type(payload["max_tokens"]) is not int
+                or payload["max_tokens"] != 1024
+                or not self.expected_generation
+                or payload["messages"]
+                != [
+                    {"role": "system", "content": CLOUDFLARE_SYSTEM_PROMPT},
+                    {"role": "user", "content": self.expected_generation},
+                ]
+                or payload["response_format"]
+                != {"type": "json_schema", "json_schema": STRUCTURED_RESULT_SCHEMA}
+                or not self.state["baseline_b_case_requests"].get(self.active_case, {}).get("query")
+            ):
+                self.stop("GENERATION_REQUEST_INVALID")
+            key, legacy = "baseline_b_generation_attempts", "generation_attempts"
+        else:
+            self.stop("AI_ENDPOINT_NOT_APPROVED")
+        with self.lock:
+            case = self.state["baseline_b_case_requests"].setdefault(self.active_case, {})
+            if case.get(role) or self.state[key] >= 60:
+                self.state["stop_reason"] = (
+                    "REQUEST_LIMIT" if self.state[key] >= 60 else "CASE_REQUEST_DUPLICATE"
+                )
+                self.save()
+                raise RuntimeError(self.state["stop_reason"])
+            case[role] = True
+            self.state[key] += 1
+            self.state[legacy] += 1
+            self.save()
+
+    def after_response(self, response):
+        if response.status_code >= 300:
+            with self.lock:
+                self.state["stop_reason"] = self.state["stop_reason"] or (
+                    "FREE_ACCESS_OR_QUOTA_DENIED"
+                    if response.status_code in {402, 403, 429}
+                    else "PROVIDER_HTTP_FAILED"
+                )
+                self.save()
+
+    async def before_async_request(self, request):
+        self.before_request(request)
+
+    async def after_async_response(self, response):
+        self.after_response(response)
+
+
+class QueryOnlyProvider:
+    def __init__(self, provider, guard):
+        self.provider, self.guard = provider, guard
+
+    def embed_queries(self, texts, configuration):
+        if not self.guard.active_case or len(texts) != 1 or not isinstance(texts[0], str):
+            self.guard.stop("QUERY_SCOPE_INVALID")
+        self.guard.expected_query = unicodedata.normalize("NFKC", texts[0])
+        try:
+            return self.provider.embed_queries(texts, configuration)
+        except Exception:
+            self.guard.stop("QUERY_PROVIDER_FAILED")
+
+    def embed_documents(self, *args, **kwargs):
+        self.guard.stop("DOCUMENT_EMBEDDING_FORBIDDEN")
+
+    def embed(self, *args, **kwargs):
+        self.guard.stop("UNTYPED_EMBEDDING_FORBIDDEN")
+
+
+class GenerationOnlyProvider:
+    def __init__(self, provider, guard):
+        self.provider, self.guard = provider, guard
+
+    async def generate(self, *, question, evidence):
+        from knora.providers.structured_generation import user_message
+
+        if not self.guard.active_case:
+            self.guard.stop("GENERATION_SCOPE_INVALID")
+        self.guard.expected_generation = user_message(question, evidence)
+        try:
+            return await self.provider.generate(question=question, evidence=evidence)
+        except Exception:
+            self.guard.stop("GENERATION_PROVIDER_FAILED")
+
+
+class BatchExecutor(PdfHttpExecutor):
+    def __init__(self, *, guard, output, initial_cases, batch_size, **kwargs):
+        super().__init__(**kwargs)
+        self.guard, self.output = guard, output
+        self.initial_cases, self.batch_size = initial_cases, batch_size
+        self.counters = guard.path
+
+    def assert_not_paused(self):
+        if self.guard.state["stop_reason"]:
+            raise RuntimeError(self.guard.state["stop_reason"])
+        for pending in self.output.glob("dispatch-*-attempt-*.json"):
+            case_path = self.output / pending.name.replace("dispatch-", "case-")
+            active_pending = f"dispatch-{self.guard.active_case}-attempt-"
+            if not case_path.exists() and not pending.name.startswith(active_pending):
+                self.guard.stop("PENDING_DISPATCH_REQUIRES_REVIEW")
+        current = {load_json(path)["case_id"] for path in self.output.glob("case-*-attempt-*.json")}
+        new_cases = current - self.initial_cases
+        if any(
+            load_json(path).get("failure_code")
+            for path in self.output.glob("case-*-attempt-*.json")
+            if load_json(path)["case_id"] in new_cases
+        ):
+            self.guard.stop("CASE_FAILED_NO_RETRY")
+        if len(new_cases) >= self.batch_size and self.guard.active_case is None:
+            raise RuntimeError("BATCH_REVIEW_NEEDED")
+
+    async def execute(self, case, **kwargs):
+        self.guard.set_case(case.id)
+        try:
+            row = await super().execute(case, **kwargs)
+            if row.get("failure_code"):
+                row["observation_failure_code"] = row["failure_code"]
+                self.guard.state["stop_reason"] = (
+                    self.guard.state["stop_reason"] or "CASE_FAILED_NO_RETRY"
+                )
+                self.guard.save()
+            return row
+        except Exception:
+            self.guard.state["stop_reason"] = (
+                self.guard.state["stop_reason"] or "CASE_EXECUTION_FAILED"
+            )
+            self.guard.save()
+            return {
+                "run_id": self.run_id,
+                "case_id": case.id,
+                "attempt_id": f"{self.run_id}:{case.id}:{kwargs.get('attempt', 1)}",
+                "attempt": kwargs.get("attempt", 1),
+                "workspace_id": self.workspace_id,
+                "conversation_id": kwargs.get("conversation_id"),
+                "turn_id": None,
+                "trace_id": None,
+                "failure_code": "CASE_EXECUTION_FAILED",
+            }
+        finally:
+            self.guard.clear_case()
+
+
+def validate_runtime_binding(dataset, reader):
+    snapshot = load_json(OUTPUT / "chunks.json")
+    chunks = reader.read_pdf_chunks(workspace_id=WORKSPACE_ID)
+    actual = [chunk_record(chunk) for chunk in chunks]
+    corpus = reader.read_active_corpus(workspace_id=WORKSPACE_ID)
+    if (
+        len(actual) != 47
+        or {row["workspace_id"] for row in actual} != {WORKSPACE_ID}
+        or len(corpus.documents) != 14
+        or any(
+            document.embedding_configuration_id != "embedding-cloudflare-qwen3-06b-v1"
+            for document in corpus.documents
+        )
+        or sum(len(document.chunk_references) for document in corpus.documents) != 47
+        or sorted(actual, key=lambda row: row["chunk_id"])
+        != sorted(snapshot["chunks"], key=lambda row: row["chunk_id"])
+    ):
+        raise ValueError("PERSISTED_DERIVATION_DRIFT")
+    proposal = propose_bindings(dataset, chunks)
+    saved = load_json(OUTPUT / "binding-proposals.json")
+    review = load_json(REPORT / "binding-review.json")
+    if (
+        proposal != saved
+        or proposal["proposal_sha256"] != PROPOSAL
+        or proposal["derivation_sha256"] != DERIVATION
+        or review.get("derivation_sha256") != DERIVATION
+        or review.get("workspace_id") != WORKSPACE_ID
+        or review.get("run_id") != RUN_ID
+    ):
+        raise ValueError("APPROVED_BINDING_DRIFT")
+    validate_binding_review(proposal, review)
+    return proposal, review
+
+
+def credentials():
+    from dotenv import dotenv_values
+
+    keys = {"KNORA_CLOUDFLARE_ACCOUNT_ID", "KNORA_CLOUDFLARE_API_TOKEN"}
+    with PRIMARY_ENV.open(encoding="utf-8-sig") as stream:
+        selected = "".join(line for line in stream if line.split("=", 1)[0].strip() in keys)
+    values = dotenv_values(stream=io.StringIO(selected), interpolate=False)
+    if set(values) != keys or not all(values.values()):
+        raise ValueError("CLOUDFLARE_CREDENTIALS_MISSING")
+    return values
+
+
+def prepare(args):
+    from evals.datasets.pdf_retrieval_v3_v1 import load_dataset, validate_approval
+
+    dataset = load_dataset(
+        ROOT / "evals/datasets/pdf_retrieval_v3_v1.manifest.json",
+        ROOT / "evals/datasets/pdf_retrieval_v3_v1.jsonl",
+    )
+    validate_approval(dataset, load_json(ROOT / "evals/datasets/pdf_retrieval_v3_v1.approval.json"))
+    if len(dataset.sources) != 16 or len(dataset.cases) != 60:
+        raise ValueError("FROZEN_DATASET_DRIFT")
+    database_url = os.environ["KNORA_DATABASE_URL"]
+    database = urlparse(database_url)
+    if (
+        database.scheme != "postgresql+psycopg"
+        or database.hostname != "127.0.0.1"
+        or database.port != 55453
+        or database.path != "/knora153s1_baseline"
+        or database.query
+        or database.fragment
+    ):
+        raise ValueError("OWNED_DATABASE_REQUIRED")
+    counter_path = OUTPUT / "counters.json"
+    existing = load_json(counter_path)
+    validate_counter_identity(existing, dataset, RUN_ID)
+    if any(load_json(path).get("failure_code") for path in OUTPUT.glob("case-*-attempt-*.json")):
+        raise ValueError("SAVED_CASE_FAILURE_REQUIRES_REVIEW")
+    if (
+        existing.get("identity_sha256")
+        != digest(
+            existing["run_identity"]
+            | {"cloudflare_account_id": existing["free_preflight"]["account_id"]}
+        )
+        or existing.get("embedding_http_attempts") != 14
+        or existing.get("embedding_inputs", 0) < 47
+        or existing.get("workspace_id") != WORKSPACE_ID
+        or len(existing.get("attempted_sources", [])) != 14
+        or sum(row["status"] == "succeeded" for row in existing["terminal_statuses"].values()) != 14
+    ):
+        raise ValueError("INGESTION_HISTORY_DRIFT")
+    preflight = load_json(args.free_preflight)
+    values = credentials()
+    if preflight.get("account_id") != values["KNORA_CLOUDFLARE_ACCOUNT_ID"]:
+        raise ValueError("FREE_ACCOUNT_MISMATCH")
+    guard = BaselineBGuard(
+        counter_path,
+        run_identity=existing["run_identity"],
+        preflight=preflight,
+        required_neurons=args.required_neurons,
+    )
+    try:
+        for key in list(os.environ):
+            if key.startswith(("KNORA_", "LANGFUSE_", "OTEL_")):
+                del os.environ[key]
+        os.environ.update(
+            KNORA_DATABASE_URL=database_url,
+            KNORA_PROVIDER_MODE="deterministic-local",
+            KNORA_EMBEDDING_PROVIDER="deterministic-local",
+            KNORA_GENERATION_PROVIDER="deterministic-local",
+            KNORA_EMBEDDING_DIMENSION="1536",
+            KNORA_OPENAI_EMBEDDING_MODEL="text-embedding-3-small",
+            KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID="embedding-local-m1-v2",
+        )
+        from knora.adapters.postgres.database import SessionFactory
+        from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
+
+        reader = PostgresEvaluationReader(SessionFactory)
+        _, review = validate_runtime_binding(dataset, reader)
+        guard.state["baseline_b_authorization"] = {
+            "owner_decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6185384722",
+            "paid_budget_usd": 0,
+            "query_embedding_attempt_limit": 60,
+            "generation_attempt_limit": 60,
+            "proposal_sha256": PROPOSAL,
+            "derivation_sha256": DERIVATION,
+            "binding_review_sha256": digest(review),
+        }
+        guard.state["baseline_b_runtime_provenance"] = {
+            "launcher_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "code_commit": subprocess.check_output(
+                ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True
+            ).strip(),
+            "python": platform.python_version(),
+            "database": "127.0.0.1:55453/knora153s1_baseline",
+            "http": "in-process ASGI transport",
+            "run_id": RUN_ID,
+            "workspace_id": WORKSPACE_ID,
+            "baseline": BASELINE,
+        }
+        guard.save()
+        return dataset, reader, guard, values
+    except Exception:
+        guard.state["stop_reason"] = guard.state["stop_reason"] or "PREPARE_FAILED_REQUIRES_REVIEW"
+        guard.save()
+        raise
+
+
+async def run_batch(args, dataset, reader, guard, values):
+    from knora.access.keycloak import KeycloakAuthenticator
+    from knora.domain.errors import KnoraError
+    from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
+    from knora.providers.embedding import EmbeddingConfiguration
+    from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
+
+    token = secrets.token_urlsafe(32)
+
+    def claims(value):
+        if not secrets.compare_digest(value, token):
+            raise KnoraError("UNAUTHENTICATED")
+        return {
+            "iss": "https://s1-evaluation.local",
+            "aud": "knora-api",
+            "sub": RUN_ID,
+            "exp": time.time() + 60,
+            "capabilities": ["questions:ask", "documents:read"],
+        }
+
+    authenticator = KeycloakAuthenticator(
+        issuer="https://s1-evaluation.local", audience="knora-api", token_validator=claims
+    )
+    initial = {load_json(path)["case_id"] for path in OUTPUT.glob("case-*-attempt-*.json")}
+    async with httpx.AsyncClient(
+        timeout=60,
+        trust_env=False,
+        follow_redirects=False,
+        transport=httpx.AsyncHTTPTransport(retries=0),
+        event_hooks={
+            "request": [guard.before_async_request],
+            "response": [guard.after_async_response],
+        },
+    ) as generation_client:
+        with httpx.Client(
+            timeout=60,
+            trust_env=False,
+            follow_redirects=False,
+            transport=httpx.HTTPTransport(retries=0),
+            event_hooks={"request": [guard.before_request], "response": [guard.after_response]},
+        ) as embedding_client:
+            embedding = QueryOnlyProvider(
+                CloudflareEmbeddingProvider(
+                    account_id=guard.account_id,
+                    api_token=values["KNORA_CLOUDFLARE_API_TOKEN"],
+                    client=embedding_client,
+                ),
+                guard,
+            )
+            generation = GenerationOnlyProvider(
+                OpenAICompatibleGenerationProvider(
+                    base_url=f"https://api.cloudflare.com/client/v4/accounts/{guard.account_id}/ai/v1",
+                    api_key=values["KNORA_CLOUDFLARE_API_TOKEN"],
+                    model="@cf/openai/gpt-oss-20b",
+                    input_cost_per_million_tokens=None,
+                    output_cost_per_million_tokens=None,
+                    pricing_version=None,
+                    provider_identity="cloudflare-workers-ai",
+                    max_tokens=1024,
+                    direct_json_schema=True,
+                    client=generation_client,
+                ),
+                guard,
+            )
+            app = build_evaluation_app(
+                embedding_provider=embedding,
+                generation_provider=generation,
+                embedding_configuration=EmbeddingConfiguration.cloudflare_qwen3_06b(),
+                objects_root=OBJECTS,
+                authenticator=authenticator,
+            )
+
+            async def conversation_worker():
+                while True:
+                    if guard.state["stop_reason"]:
+                        return
+                    try:
+                        await app.state.conversation_runner.run_once(worker_id=f"{RUN_ID}:turn")
+                    except Exception:
+                        guard.stop("CONVERSATION_WORKER_FAILED")
+                    await asyncio.sleep(0.2)
+
+            async with app.router.lifespan_context(app):
+                worker = asyncio.create_task(conversation_worker())
+                try:
+                    async with httpx.AsyncClient(
+                        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                        base_url="http://s1-evaluation.local",
+                        timeout=120,
+                    ) as client:
+                        executor = BatchExecutor(
+                            guard=guard,
+                            output=OUTPUT,
+                            initial_cases=initial,
+                            batch_size=args.batch_size,
+                            client=client,
+                            headers={"Authorization": f"Bearer {token}"},
+                            reader=reader,
+                            workspace_id=WORKSPACE_ID,
+                            run_id=RUN_ID,
+                            embedding_configuration_id="embedding-cloudflare-qwen3-06b-v1",
+                        )
+                        try:
+                            await collect_cases(
+                                dataset, executor, OUTPUT, derivation_sha256=DERIVATION
+                            )
+                        except RuntimeError as error:
+                            if str(error) != "BATCH_REVIEW_NEEDED":
+                                raise
+                finally:
+                    worker.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await worker
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--free-preflight", required=True, type=Path)
+    parser.add_argument("--batch-size", type=int, default=12)
+    parser.add_argument("--required-neurons", type=float)
+    args = parser.parse_args()
+    if not 1 <= args.batch_size <= 12:
+        parser.error("batch size must be 1..12")
+    try:
+        dataset, reader, guard, values = prepare(args)
+        initial_cases = {
+            load_json(path)["case_id"] for path in OUTPUT.glob("case-*-attempt-*.json")
+        }
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(OUTPUT)
+            asyncio.run(run_batch(args, dataset, reader, guard, values))
+        except BaseException:
+            guard.state["stop_reason"] = guard.state["stop_reason"] or "LAUNCHER_FAILURE_NO_RETRY"
+            guard.save()
+        finally:
+            os.chdir(original_cwd)
+        all_cases = {load_json(path)["case_id"] for path in OUTPUT.glob("case-*-attempt-*.json")}
+        executed = sorted(all_cases - initial_cases)
+        if any(
+            load_json(path).get("failure_code")
+            for path in OUTPUT.glob("case-*-attempt-*.json")
+            if load_json(path)["case_id"] in executed
+        ):
+            guard.state["stop_reason"] = guard.state["stop_reason"] or "CASE_FAILED_NO_RETRY"
+            guard.save()
+        summary = {
+            "batch_executed_case_ids": executed,
+            "query_embedding_attempts": guard.state["query_embedding_attempts"],
+            "generation_attempts": guard.state["baseline_b_generation_attempts"],
+            "stop_reason": guard.state["stop_reason"]
+            or ("COMPLETE" if len(all_cases) == len(dataset.cases) else "BATCH_REVIEW_NEEDED"),
+        }
+        checkpoint(OUTPUT / "baseline-b-stop-summary.json", summary)
+        print(json.dumps(summary, ensure_ascii=False))
+        if guard.state["stop_reason"]:
+            sys.exit(1)
+    except BaseException as error:
+        print(
+            f"STOPPED: {type(error).__name__}; inspect local counters/captures; do not retry",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

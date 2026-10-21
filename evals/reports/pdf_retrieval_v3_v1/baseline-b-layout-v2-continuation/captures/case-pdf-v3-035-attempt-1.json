@@ -1,0 +1,72 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-035:1",
+  "candidates": [],
+  "case_id": "pdf-v3-035",
+  "conversation_id": "ac7f663f-e058-461c-a998-2e6631686ee3",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 3180.0119999988965,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Trong số trang vừa hỏi có bao nhiêu trang ảnh?",
+      "selected_turn_ids": [
+        "9e73090c-cabb-48f6-a188-4c32c29731e5"
+      ]
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acff15d9df84e4-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 18.166100000598817
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 18.14150000063819,
+          "end_tick": 16324.083576,
+          "start_tick": 16324.0654345
+        },
+        "evidence_selection": {
+          "duration_ms": 0.024599999960628338,
+          "end_tick": 16324.0836006,
+          "start_tick": 16324.083576
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16324.0836006,
+          "start_tick": 16324.0836006
+        },
+        "query_embedding": {
+          "duration_ms": 1919.662899999821,
+          "end_tick": 16324.0654345,
+          "start_tick": 16322.1457716
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "c6942cd2-9050-41f6-b4e7-4d2348934c2f",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "c4b1bbe41c5eb12d87f38ba606a8684a99d64459ee21b981645d42835bb4350e",
+  "retrieval_latency_ms": 18.166100000598817,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "c6942cd2-9050-41f6-b4e7-4d2348934c2f",
+  "turn_id": "734a32db-18f7-438a-a913-c2dd359f70fe",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

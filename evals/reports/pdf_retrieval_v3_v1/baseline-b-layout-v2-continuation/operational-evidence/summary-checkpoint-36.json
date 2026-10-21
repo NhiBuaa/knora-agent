@@ -1,0 +1,19 @@
+{
+  "batch_executed_case_ids": [
+    "pdf-v3-025",
+    "pdf-v3-026",
+    "pdf-v3-027",
+    "pdf-v3-028",
+    "pdf-v3-029",
+    "pdf-v3-030",
+    "pdf-v3-031",
+    "pdf-v3-032",
+    "pdf-v3-033",
+    "pdf-v3-034",
+    "pdf-v3-035",
+    "pdf-v3-036"
+  ],
+  "query_embedding_attempts": 36,
+  "generation_attempts": 12,
+  "stop_reason": "BATCH_REVIEW_NEEDED"
+}

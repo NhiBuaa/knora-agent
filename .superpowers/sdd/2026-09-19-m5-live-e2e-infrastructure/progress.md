@@ -1,4 +1,4 @@
-# SDD ledger — plan: docs/superpowers/plans/2026-09-19-m5-live-e2e-infrastructure.md
+# SDD ledger — plan: docs/plans/2026-09-19-m5-live-e2e-infrastructure.md
 
 ## Pre-flight plan scan
 

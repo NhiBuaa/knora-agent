@@ -15,9 +15,11 @@ from knora.answering.interface import (
     QuestionEvent,
     QuestionResult,
 )
+from knora.answering.lexical import validate_bm25_result
 from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
 from knora.answering.stores import (
     AnsweringStore,
+    LexicalGeneration,
     QuestionTraceRecord,
     RetrievalConfiguration,
     RetrievalResult,
@@ -33,10 +35,10 @@ class AnswerQuestion:
     def __init__(
         self,
         *,
-        embedding_provider: EmbeddingProvider,
+        embedding_provider: EmbeddingProvider | None,
         generation_provider: GenerationProvider,
         store: AnsweringStore,
-        embedding_configuration: EmbeddingConfiguration,
+        embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration | None = None,
         retrieval_configuration_resolver: RetrievalConfigurationResolver | None = None,
         clock: Callable[[], float] | None = None,
@@ -111,9 +113,6 @@ class AnswerQuestion:
         retrieval_query = context.retrieval_query if context is not None else command.question
         generation_question = self._generation_question(command.question, context)
         started = self._clock()
-        self._store.require_compatible_corpus(
-            command.workspace_id, self._embedding_configuration.id
-        )
         if stage_callback is not None:
             stage_callback("retrieving")
         retrieval_configuration = self._retrieval_configuration
@@ -122,31 +121,49 @@ class AnswerQuestion:
                 workspace_id=command.workspace_id
             )
 
-        query_batch = await asyncio.to_thread(
-            getattr(self._embedding_provider, "embed_queries", self._embedding_provider.embed),
-            [retrieval_query],
-            self._embedding_configuration,
-        )
-        if len(query_batch.vectors) != 1 or any(
-            len(vector) != self._embedding_configuration.dimensions
-            for vector in query_batch.vectors
-        ):
-            raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
-        if (
-            query_batch.provider != self._embedding_configuration.provider
-            or query_batch.model != self._embedding_configuration.model
-        ):
-            raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
-
-        embedding_ended = self._clock()
+        lexical = retrieval_configuration.strategy == "bm25-only"
+        query_batch = None
+        if lexical:
+            self._store.require_lexical_corpus(
+                command.workspace_id, retrieval_configuration.lexical_policy_id
+            )
+            embedding_ended = started
+        else:
+            if self._embedding_configuration is None or self._embedding_provider is None:
+                raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
+            self._store.require_compatible_corpus(
+                command.workspace_id, self._embedding_configuration.id
+            )
+            query_batch = await asyncio.to_thread(
+                getattr(self._embedding_provider, "embed_queries", self._embedding_provider.embed),
+                [retrieval_query],
+                self._embedding_configuration,
+            )
+            if len(query_batch.vectors) != 1 or any(
+                len(vector) != self._embedding_configuration.dimensions
+                for vector in query_batch.vectors
+            ):
+                raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            if (
+                query_batch.provider != self._embedding_configuration.provider
+                or query_batch.model != self._embedding_configuration.model
+            ):
+                raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
+            embedding_ended = self._clock()
         retrieval_started = embedding_ended
         retrieval = self._store.retrieve_candidates(
             workspace_id=command.workspace_id,
             query_text=retrieval_query,
-            query_vector=query_batch.vectors[0],
-            embedding_configuration=self._embedding_configuration,
+            query_vector=query_batch.vectors[0] if query_batch is not None else None,
+            embedding_configuration=None if lexical else self._embedding_configuration,
             retrieval_configuration=retrieval_configuration,
         )
+        lexical_generations = ()
+        if lexical:
+            validate_bm25_result(
+                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
+            )
+            lexical_generations = retrieval.lexical_generations
         if isinstance(retrieval, RetrievalResult):
             candidates = retrieval.candidates
             branch_observations = tuple(item.as_mapping() for item in retrieval.branch_observations)
@@ -157,6 +174,15 @@ class AnswerQuestion:
             branch_observations = ()
             retrieval_embedding_set_ids = ()
             retrieval_chunk_set_ids = ()
+        if not lexical and any(
+            not c.embedding_set_id
+            or c.embedding_configuration_id != self._embedding_configuration.id
+            or c.bm25_score is not None
+            or c.bm25_rank is not None
+            or c.index_generation_id is not None
+            for c in candidates
+        ):
+            raise KnoraError("RETRIEVAL_PROVENANCE_INVALID")
         retrieval_ended = self._clock()
         if stage_callback is not None:
             stage_callback("selecting_evidence")
@@ -187,6 +213,7 @@ class AnswerQuestion:
                     branch_observations=branch_observations,
                     retrieval_embedding_set_ids=retrieval_embedding_set_ids,
                     retrieval_chunk_set_ids=retrieval_chunk_set_ids,
+                    lexical_generations=lexical_generations,
                     phase_timings=phase_timings,
                 )
             )
@@ -204,6 +231,10 @@ class AnswerQuestion:
         }
         if stage_callback is not None:
             stage_callback("generating")
+        if lexical:
+            self._store.revalidate_lexical_snapshot(
+                command.workspace_id, retrieval_configuration.lexical_policy_id, lexical_generations
+            )
         generation = await self._generation_provider.generate(
             question=generation_question,
             evidence=tuple(
@@ -252,6 +283,7 @@ class AnswerQuestion:
                     branch_observations=branch_observations,
                     retrieval_embedding_set_ids=retrieval_embedding_set_ids,
                     retrieval_chunk_set_ids=retrieval_chunk_set_ids,
+                    lexical_generations=lexical_generations,
                     phase_timings=phase_timings,
                 )
             )
@@ -294,6 +326,7 @@ class AnswerQuestion:
                 branch_observations=branch_observations,
                 retrieval_embedding_set_ids=retrieval_embedding_set_ids,
                 retrieval_chunk_set_ids=retrieval_chunk_set_ids,
+                lexical_generations=lexical_generations,
                 phase_timings=phase_timings,
             )
         )
@@ -423,7 +456,7 @@ class AnswerQuestion:
         answer: str | None,
         refusal_reason: str | None,
         generation_status: str,
-        embedding: EmbeddingBatch,
+        embedding: EmbeddingBatch | None,
         retrieval_latency_ms: float,
         started: float,
         alias_mapping: dict[str, str] | None = None,
@@ -434,13 +467,16 @@ class AnswerQuestion:
         branch_observations: tuple[dict[str, object], ...] = (),
         retrieval_embedding_set_ids: tuple[str, ...] = (),
         retrieval_chunk_set_ids: tuple[str, ...] = (),
+        lexical_generations: tuple[LexicalGeneration, ...] = (),
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
         retrieved = tuple(item.candidate for item in selection.decisions)
         provider_metadata: dict[str, object] = {
             "retrieval": {"latency_ms": retrieval_latency_ms},
-            "embedding": {
+            "embedding": {"status": "not_run"}
+            if embedding is None
+            else {
                 "provider": embedding.provider,
                 "model": embedding.model,
                 "provider_request_id": embedding.provider_request_id,
@@ -449,6 +485,30 @@ class AnswerQuestion:
             },
             "timing": phase_timings or {},
         }
+        lexical = retrieval_configuration.strategy == "bm25-only"
+        if lexical:
+            native_full_window = sorted(
+                observation["branch_rank"]
+                for observation in branch_observations
+                if observation["status"] != "NO_CONTRIBUTION"
+            ) == list(range(1, 201))
+            provider_metadata["retrieval"].update(
+                mode="bm25-only",
+                lexical_generations=[asdict(g) for g in lexical_generations],
+                score_policy={
+                    "id": "bm25-raw-no-cutoff-v1",
+                    "score_kind": "bm25",
+                    "numeric_cutoff": None,
+                    "cutoff_status": "not_calibrated",
+                    "candidate_limit": retrieval_configuration.candidate_k,
+                    "query_limit": 200,
+                    "observed_scope": "authorized_top_200",
+                    "tie_order": "native" if native_full_window else "score_desc_chunk_id_asc",
+                    "tie_boundary": "unknown" if native_full_window else "complete",
+                    "beyond_limit": "unknown" if native_full_window else "none",
+                },
+            )
+            provider_metadata["timing"]["phases"]["query_embedding"]["status"] = "not_run"
         if command.conversation_context is not None:
             provider_metadata["conversation_context"] = {
                 "policy_id": command.conversation_context.policy_id,
@@ -480,7 +540,7 @@ class AnswerQuestion:
                 {
                     "chunk_id": item.candidate.chunk_id,
                     "final_rank": index,
-                    "fusion_score": item.candidate.fusion_score,
+                    "fusion_score": None if lexical else item.candidate.fusion_score,
                     "final_decision": final_decision,
                     "decision_reason": decision_reason,
                     "budget_evidence": item.budget_evidence,
@@ -488,6 +548,12 @@ class AnswerQuestion:
                     "fts_contribution": item.candidate.fts_contribution,
                 }
             )
+            if lexical:
+                candidate_decisions[-1]["bm25_contribution"] = {
+                    "raw_score": item.candidate.bm25_score,
+                    "branch_rank": item.candidate.bm25_rank,
+                    "index_generation_id": item.candidate.index_generation_id,
+                }
         return QuestionTraceRecord(
             workspace_id=command.workspace_id,
             question=command.question,
@@ -496,12 +562,17 @@ class AnswerQuestion:
                 retrieval_configuration.fusion_policy_id
                 or retrieval_configuration.fusion_policy_version
             ),
-            embedding_configuration_id=self._embedding_configuration.id,
+            embedding_configuration_id=(
+                self._embedding_configuration.id if embedding is not None else None
+            ),
             candidate_decisions=tuple(candidate_decisions),
             retrieved_chunk_ids=tuple(candidate.chunk_id for candidate in retrieved),
             embedding_set_ids=tuple(
                 dict.fromkeys(
-                    (*retrieval_embedding_set_ids, *(c.embedding_set_id for c in retrieved))
+                    (
+                        *retrieval_embedding_set_ids,
+                        *(c.embedding_set_id for c in retrieved if c.embedding_set_id is not None),
+                    )
                 )
             ),
             chunk_set_ids=tuple(
@@ -518,6 +589,8 @@ class AnswerQuestion:
             latency_ms=((ended_at if ended_at is not None else self._clock()) - started) * 1000,
             branch_observations=branch_observations,
             conversation_turn_id=command.turn_id,
+            trace_schema_version=3 if lexical else 2,
+            branch_observation_schema_version=2 if lexical else 1,
         )
 
     def _phase_timings(

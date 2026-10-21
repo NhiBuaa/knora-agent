@@ -1,0 +1,705 @@
+{
+  "schema_version": 1,
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "denominators": {
+    "total": 60,
+    "attempted": 60,
+    "observed": 60,
+    "retrieval_evaluable": 35,
+    "extraction_or_mapping_missing": 17,
+    "not_run": 0,
+    "observation_failed": 0,
+    "provider_failed": 0
+  },
+  "candidate_pool_definition": "saved row.candidates: post-threshold candidate final-decision pool, not all vector branch hits",
+  "selected_pool_definition": "the same saved candidates where final_decision is SELECTED",
+  "evaluable_cases": 35,
+  "all_candidate_groups_covered": 8,
+  "all_selected_groups_covered": 8,
+  "candidate_coverage_rate": 0.22857142857142856,
+  "selected_coverage_rate": 0.22857142857142856,
+  "cases": {
+    "pdf-v3-001": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true
+      ],
+      "selected_group_coverage": [
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "selected_chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ]
+    },
+    "pdf-v3-002": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-003": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-004": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true
+      ],
+      "selected_group_coverage": [
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ],
+      "selected_chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ]
+    },
+    "pdf-v3-005": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true
+      ],
+      "selected_group_coverage": [
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "selected_chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ]
+    },
+    "pdf-v3-006": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-007": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-008": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-009": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-010": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-011": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-012": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true,
+        true
+      ],
+      "selected_group_coverage": [
+        true,
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "selected_chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ]
+    },
+    "pdf-v3-013": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-014": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-015": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-016": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-017": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-018": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-019": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-020": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-021": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-022": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-023": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-024": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-025": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-026": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-027": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-028": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-029": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true,
+        true
+      ],
+      "selected_group_coverage": [
+        true,
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "selected_chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ]
+    },
+    "pdf-v3-030": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-031": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-032": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true
+      ],
+      "selected_group_coverage": [
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ],
+      "selected_chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ]
+    },
+    "pdf-v3-033": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true,
+        true
+      ],
+      "selected_group_coverage": [
+        true,
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "selected_chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ]
+    },
+    "pdf-v3-034": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-035": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-036": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-037": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-038": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-039": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-040": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false
+      ],
+      "selected_group_coverage": [
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-041": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-042": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-043": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-044": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-045": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        true
+      ],
+      "selected_group_coverage": [
+        true
+      ],
+      "all_candidate_groups_covered": true,
+      "all_selected_groups_covered": true,
+      "candidate_chunk_ids": [
+        "75de1620-c8ce-434a-b031-ea46d8570c27",
+        "ab31322c-7555-498c-aa8b-7b2181201f91",
+        "66a3b490-0f34-4ff6-be7a-36eae9b14667"
+      ],
+      "selected_chunk_ids": [
+        "75de1620-c8ce-434a-b031-ea46d8570c27",
+        "ab31322c-7555-498c-aa8b-7b2181201f91",
+        "66a3b490-0f34-4ff6-be7a-36eae9b14667"
+      ]
+    },
+    "pdf-v3-046": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-047": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-048": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-049": {
+      "status": "extraction_or_mapping_missing"
+    },
+    "pdf-v3-050": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-051": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-052": {
+      "status": "evaluable",
+      "candidate_pool": "saved post-threshold candidates with final decisions",
+      "candidate_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "selected_group_coverage": [
+        false,
+        false,
+        false
+      ],
+      "all_candidate_groups_covered": false,
+      "all_selected_groups_covered": false,
+      "candidate_chunk_ids": [],
+      "selected_chunk_ids": []
+    },
+    "pdf-v3-053": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-054": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-055": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-056": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-057": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-058": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-059": {
+      "status": "not_evaluable"
+    },
+    "pdf-v3-060": {
+      "status": "not_evaluable"
+    }
+  }
+}
