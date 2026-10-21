@@ -71,6 +71,10 @@ from knora.ingestion.job_processing import (
     TransitionOperationId,
     WorkSuperseded,
 )
+from knora.ingestion.pdf_structure import (
+    CanonicalStructureValidationError,
+    validate_canonical_document,
+)
 from knora.ingestion.search_indexing import (
     LexicalChunk,
     LexicalGeneration,
@@ -966,7 +970,9 @@ class PostgresIngestionJobCoordinationStore:
                                 id=str(uuid4()),
                                 chunk_set_id=chunk_set.id,
                                 ordinal=chunk.ordinal,
-                                heading_path=[],
+                                heading_path=(
+                                    list(chunk.heading_path) if chunk.heading_path else []
+                                ),
                                 start_line=self._pdf_line_number(
                                     success.extraction.pages, chunk.page_number, chunk.start_offset
                                 ),
@@ -1303,7 +1309,9 @@ class PostgresIngestionJobCoordinationStore:
                                 id=str(uuid4()),
                                 chunk_set_id=chunk_set.id,
                                 ordinal=chunk.ordinal,
-                                heading_path=[],
+                                heading_path=(
+                                    list(chunk.heading_path) if chunk.heading_path else []
+                                ),
                                 start_line=self._pdf_line_number(
                                     success.extraction.pages, chunk.page_number, chunk.start_offset
                                 ),
@@ -1443,6 +1451,20 @@ class PostgresIngestionJobCoordinationStore:
             job=job, claim=claim, success=success
         )
         extraction = success.extraction
+        if extraction.structure is not None:
+            if extraction.structure.raw_source_hash != source_object.raw_sha256:
+                raise CoordinationInvariantError(
+                    "PDF extraction structure raw_source_hash does not match source object"
+                )
+            if not extraction.structure.is_complete:
+                raise CoordinationInvariantError("PDF extraction canonical structure is incomplete")
+            try:
+                validate_canonical_document(extraction.structure)
+            except CanonicalStructureValidationError as error:
+                raise CoordinationInvariantError(
+                    f"PDF extraction canonical structure invalid: {error}"
+                ) from error
+
         if (
             source_object.document_version_id != version.id
             or source_object.workspace_id != job.workspace_id
@@ -1484,6 +1506,10 @@ class PostgresIngestionJobCoordinationStore:
                 or chunk.content != page.text[chunk.start_offset : chunk.end_offset]
                 or chunk.content_checksum != hashlib.sha256(chunk.content.encode()).hexdigest()
                 or chunk.token_count <= 0
+                or (
+                    chunk.heading_path is not None
+                    and not all(isinstance(h, str) and h.strip() for h in chunk.heading_path)
+                )
             ):
                 raise CoordinationInvariantError("PDF extraction contains invalid chunk provenance")
 
@@ -1499,6 +1525,20 @@ class PostgresIngestionJobCoordinationStore:
         embedding_configuration: EmbeddingConfigurationTable,
     ) -> None:
         extraction = success.extraction
+        if extraction.structure is not None:
+            if extraction.structure.raw_source_hash != source_object.raw_sha256:
+                raise CoordinationInvariantError(
+                    "PDF success structure raw_source_hash does not match source object"
+                )
+            if not extraction.structure.is_complete:
+                raise CoordinationInvariantError("PDF success canonical structure is incomplete")
+            try:
+                validate_canonical_document(extraction.structure)
+            except CanonicalStructureValidationError as error:
+                raise CoordinationInvariantError(
+                    f"PDF success canonical structure invalid: {error}"
+                ) from error
+
         if (
             job.workspace_id != claim.work.workspace_id
             or job.document_id != claim.work.document_id
@@ -1552,6 +1592,10 @@ class PostgresIngestionJobCoordinationStore:
                 or chunk.content != page.text[chunk.start_offset : chunk.end_offset]
                 or chunk.content_checksum != hashlib.sha256(chunk.content.encode()).hexdigest()
                 or chunk.token_count <= 0
+                or (
+                    chunk.heading_path is not None
+                    and not all(isinstance(h, str) and h.strip() for h in chunk.heading_path)
+                )
             ):
                 raise CoordinationInvariantError("PDF success contains invalid chunk provenance")
             vector = success.vectors[ordinal]
@@ -1588,6 +1632,8 @@ class PostgresIngestionJobCoordinationStore:
                 or row.page_end != expected.page_end
                 or row.start_offset != expected.start_offset
                 or row.end_offset != expected.end_offset
+                or (row.heading_path or [])
+                != (list(expected.heading_path) if expected.heading_path else [])
             ):
                 raise CoordinationInvariantError("existing PDF Chunk Set is incompatible")
 
