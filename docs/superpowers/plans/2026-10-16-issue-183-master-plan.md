@@ -1,6 +1,6 @@
 # Issue #183 — Master Implementation Plan
 
-**Latest planning checkpoint — 2026-10-21:** The owner requested offline diagnosis and a concrete recovery amendment. Section11 is **PROPOSED, NOT APPROVED FOR IMPLEMENTATION OR RUNTIME**. Unchanged-product provider/bootstrap checks returned76passed; three in-memory MockTransport replays preserved length/null rejection. No provider request, startup, OAuth or credential access occurred. The actual failure is generation ending at the1024 cap before an accepted final; its internal cause and success at higher caps remain unverified. Section10 remains STOPPED2/12. Read11 for the proposed2048→4096 experiment, one shared12-request ceiling and the single approval frontier; no earlier grant or pending marker is reset.
+**Latest execution checkpoint — 2026-10-21:** Owner approved section11 at revision `4b8e3399c619cdfd37388ce8e37127a55c4b24bb` with “tôi duyệt, hãy tiếp tục triển khai theo plan cho tới khi có thể tạo pr cho tôi kiểm tra và nghiệm thu”. Execute11's internal gates and only its explicit recovery branches without renewed small permission prompts. Reuse existing PR184 Draft; no duplicate PR or merge. New package begins offline with preparation0/3, windows0/2, requests0/12 and runtime clock not started. Section10 stays STOPPED2/12; no old grant or pending marker resets. Higher-cap success and browser acceptance remain unverified until actual execution.
 
 **Latest execution checkpoint — 2026-10-20:** Section10's bounded package is **STOPPED; no live authority remains**. On runtime subject `66979bcf0ef43a74e890b81f0caba712d1068d97`, preparation3 reached authenticated isolated IAB/API/frontend and the first fixed question ran once. W1 remains closed0/6 after a deterministic preparation defect; W2 stopped2/6 after one query embedding and one generation. Generation HTTP200 returned `finish_reason=length`, completion1024 and final `content=null`; stored Turn failed, result null, trace count0. No answer was accepted, so five-layer/citation acceptance is unproven and cases2/3 are NOT RUN. Parent145mock tests and renewed exact-byte independent helper review passed before runtime; they do not establish model/browser acceptance. Owned processes/OAuth/IAB/session were cleaned; retained dependencies stay running. Original pending markers and clock/counters remain unchanged. See10.9. A new runtime or model/cap/policy change requires an owner decision under10.6; do not reopen either window. Earlier opening status lines below are historical.
 
@@ -3080,12 +3080,15 @@ Runtime commands are historical execution evidence, not permission to rerun. **D
 
 ## 11. Proposed generation-token recovery package — 2026-10-21
 
-**Status: PROPOSED; one explicit owner approval is still required.** The request “thực hiện các
-phần đó cho tôi” authorized the preceding offline diagnosis and preparation of this amendment.
-It did not approve the still-unwritten cap/runtime proposal. This section is the reviewable
-proposal, in the sole existing Master. Do not relocate historical approvals or create a second plan.
-Until approval, only safe offline diagnosis/documentation/reporting may continue; section10 stays
-stopped, with its original requests, pending markers, counters and deadline unchanged.
+**Status: OWNER APPROVED — 2026-10-21**, reviewed revision
+`4b8e3399c619cdfd37388ce8e37127a55c4b24bb`. Owner explicitly replied “tôi duyệt, hãy tiếp tục triển
+khai theo plan cho tới khi có thể tạo pr cho tôi kiểm tra và nghiệm thu”. This approves the scoped
+implementation and finite runtime package below. Existing PR184 is reused; no duplicate PR or
+merge is implied. The earlier request to prepare the proposal did not itself grant these rights.
+Keep this sole Master and all historical approvals; section10 stays stopped with original
+requests, pending markers, counters and deadline unchanged. Initial approval/counters and reviewed
+document hash are recorded in this package's `owner-approval.json`; runtime clock is not started
+by offline implementation or CI waiting.
 
 ### 11.1 Verified diagnosis and remaining uncertainty
 
@@ -3409,9 +3412,9 @@ If a report commit follows runtime, verify its unchanged product and its own CI 
 > các ranh giới an toàn hoặc khi hết gói; bàn giao kết quả nghiệm thu hoặc failure packet, giữ Draft,
 > không merge/Done/đóng Issue/deploy.
 
-This is proposed wording, not an owner quote or renewed allowance. Record the actual approval and
-reviewed revision before A/B implementation or any new runtime operation. The next safe action
-without that approval is document review/reporting, not changing bootstrap or opening a window.
+The block above was proposed wording, not an owner quote. Actual owner approval and reviewed
+revision are now recorded at this section's start and in `owner-approval.json`. Advance through
+A/B implementation and verification before runtime. No historical window or pending slot reopens.
 
 Planning self-verification must check links, exact scoped diff, all9AC references, cap transitions,
 shared budgets and stop/approval consistency, artifact hashes/redaction and unchanged product/old
@@ -3435,3 +3438,18 @@ suite or live operation was repeated. The example's syntax is checked, not its f
 execution. Full documentation-commit SHA/own CI and publication readback belong in the existing
 PR/checkpoint after commit; old CI verifies only its own SHA. Proposal review is not Skill Eval
 PASS, runtime acceptance or owner approval of11.
+
+
+**Task A execution — 2026-10-21:** Owner approved section11 at revision
+`4b8e3399c619cdfd37388ce8e37127a55c4b24bb`. Cloudflare construction now passes2048
+through the ordinary single-call adapter; no policy/schema/model/retrieval change. The new
+bootstrap-to-wire regression first failed its actual1024-vs2048 assertion, then the focused
+provider/bootstrap/preservation/alias/refusal suites returned142passed/0failed/0errors/0skips
+in4.53s. The earlier proxy/socksio setup failure remains recorded and is not counted as behavioral
+RED; only offline test-child proxy variables were removed for the corrected execution, without
+installing or changing shared environment. Ruff format404unchanged, format-check and lint passed.
+Independent read-only review found no actionable issue in the three changed product/test files;
+it read saved test evidence, rather than rerunning it. Commands, JUnit, review hashes and failed
+attempts are retained under the new run-local `generation-token-recovery-20261021/` directory.
+Helpers, current-candidate CI/freeze and AC1–AC9 application acceptance remain pending. Runtime
+clock NOT STARTED; preparation0/3, windows0/2, physical0/12. This is local/mock verification only.

@@ -339,7 +339,10 @@ async def test_cloudflare_chat_safely_normalizes_http_errors(status: int) -> Non
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["length-null", "length-valid", "malformed", "timeout"])
-async def test_cloudflare_chat_rejects_invalid_completion_without_retry(failure: str) -> None:
+@pytest.mark.parametrize("max_tokens", [1024, 2048, 4096])
+async def test_cloudflare_chat_rejects_invalid_completion_without_retry(
+    failure: str, max_tokens: int
+) -> None:
     calls = 0
     valid = json.dumps(
         {
@@ -354,6 +357,7 @@ async def test_cloudflare_chat_rejects_invalid_completion_without_retry(failure:
     async def endpoint(request: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
+        assert json.loads(request.content)["max_tokens"] == max_tokens
         if failure == "timeout":
             raise httpx.ReadTimeout("secret-canary-timeout", request=request)
         content = None if failure == "length-null" else valid if failure == "length-valid" else "{"
@@ -378,7 +382,7 @@ async def test_cloudflare_chat_rejects_invalid_completion_without_retry(failure:
         output_cost_per_million_tokens=None,
         pricing_version=None,
         provider_identity="cloudflare-workers-ai",
-        max_tokens=1024,
+        max_tokens=max_tokens,
         direct_json_schema=True,
         client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
     )
