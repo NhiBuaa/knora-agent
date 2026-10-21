@@ -389,6 +389,43 @@ class AnswerQuestion:
             ),
             subquestions=query_plan.subquestions if query_plan is not None else None,
         )
+        verification_observation: dict[str, object] | None = None
+        if (
+            query_plan is not None
+            and selection.support_assessment is not None
+            and not selection.support_assessment.all_required_supported
+        ):
+            from knora.answering.source_verification import verify_missing_sources
+
+            missing_sqs = [
+                sq
+                for sq in query_plan.subquestions
+                if sq.id in selection.support_assessment.missing_group_ids
+            ]
+            verification = await verify_missing_sources(
+                missing_subquestions=missing_sqs,
+                store=self._store,
+                workspace_id=command.workspace_id,
+                retrieval_configuration=retrieval_configuration,
+                all_known_candidates=candidates,
+            )
+            verification_observation = verification.to_observation()
+            if verification.recovered_candidates:
+                candidates = tuple(list(candidates) + list(verification.recovered_candidates))
+                selection = select_evidence(
+                    candidates,
+                    retrieval_configuration,
+                    reranking_configuration=(
+                        rerank_config
+                        if (
+                            retrieval_configuration.reranking_policy_id is not None
+                            and reranking_observation.get("status") == "completed"
+                        )
+                        else None
+                    ),
+                    subquestions=query_plan.subquestions,
+                )
+
         selection_ended = self._clock()
         retrieval_latency_ms = (selection_ended - retrieval_started) * 1000
         phase_timings = self._phase_timings(
@@ -398,7 +435,10 @@ class AnswerQuestion:
             selection_ended=selection_ended,
             generation_ended=selection_ended,
         )
-        if not selection.selected:
+        if not selection.selected or (
+            selection.support_assessment is not None
+            and not selection.support_assessment.all_required_supported
+        ):
             trace_id = self._store.persist_trace(
                 self._trace(
                     command=command,
@@ -424,6 +464,7 @@ class AnswerQuestion:
                         if selection.support_assessment is not None
                         else None
                     ),
+                    verification_observation=verification_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -464,6 +505,8 @@ class AnswerQuestion:
             validated = validate_generation(
                 generation,
                 available_evidence_ids=tuple(alias_to_candidate),
+                required_subquestions=query_plan.subquestions if query_plan is not None else None,
+                alias_to_candidate=alias_to_candidate,
             )
         except KnoraError:
             trace_ended = self._clock()
@@ -502,6 +545,7 @@ class AnswerQuestion:
                         if selection.support_assessment is not None
                         else None
                     ),
+                    verification_observation=verification_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -693,6 +737,7 @@ class AnswerQuestion:
         reranking_observation: dict[str, object] | None = None,
         query_plan_observation: dict[str, object] | None = None,
         support_observation: dict[str, object] | None = None,
+        verification_observation: dict[str, object] | None = None,
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
@@ -714,6 +759,8 @@ class AnswerQuestion:
             provider_metadata["query_planning"] = query_plan_observation
         if support_observation is not None:
             provider_metadata["retrieval"]["evidence_support"] = support_observation
+        if verification_observation is not None:
+            provider_metadata["retrieval"]["source_verification"] = verification_observation
         if sdm_observation is not None and (
             retrieval_configuration is not None
             and (
