@@ -1,6 +1,13 @@
 # Issue #183 — Master Implementation Plan
 
-**Current authority — 2026-10-21:** Owner approved the five-part recovery described in this chat
+**Current acceptance clarification — 2026-10-21:** Owner confirms that list presentation is
+conditional on the answer enumerating members; a count-only response is allowed. Section12.5
+supersedes the unconditional list-generation interpretation and the current AC1FAIL conclusion
+in12.4. It does not turn a count-only sample into list acceptance or reopen a stopped live package.
+Current status: count/emphasis/preservation observed; list coverage incomplete, not a demonstrated
+formatting defect. Keep PR184 Draft; no merge/Done/close/deploy.
+
+**Historical section12 recovery authority — 2026-10-21:** Owner approved the five-part recovery described in this chat
 with “tôi duyệt cho thực hiện để có thể hoàn thành #183”. Execute section12 below, including
 feature-branch integration, diagnosed runtime recovery, explicit old-queue disposition and a new
 bounded acceptance package. Sections10/11 remain stopped with their original evidence/counts.
@@ -1871,9 +1878,13 @@ Exact-head CI [39144075420](https://github.com/NhiBuaa/knora-agent/actions/runs/
 
 **Owner-amended scope2026-10-18:** This table replaces the old semantic-completeness AC2 and related PDF-condition gates. Previous criteria/results remain in Git atadc8bfa and dated sections4.1–4.8, explicitly historical. No prior FAIL is relabeled PASS. CandidateA is implemented offline; these criteria still require the separate final-candidate runtime evidence described below.
 
+**Owner clarification2026-10-21:** AC1 is conditional, as the original Issue states “khi liệt kê
+tên chương”. See12.5: count-only is allowed, while list coverage remains unverified until an
+actual enumerating answer is inspected. Historical failure records remain unchanged, not PASS.
+
 | ID | Required outcome | Evidence / remaining work |
 | --- | --- | --- |
-| AC1 | Count question without “hãy liệt kê”: natural lead with **7 chương** for the pinned example and each returned chapter as its own bullet. Generic policy; no hardcoded question/count/title. | Q20/P4v18 prove historical layout only; new one-call candidate needs its own runtime case. Count inference/unsupported totals remain subject to baseline grounding, not a new counting algorithm. |
+| AC1 | Count question without “hãy liệt kê”: natural lead with **7 chương** for the pinned example. If the answer enumerates chapters, each returned chapter must be its own bullet; count-only prose is allowed. Generic policy; no hardcoded question/count/title. | A count-only sample verifies count/emphasis, not list presentation. Obtain an actual enumerating answer, including an ordinary follow-up under a separately bounded live approval if needed, then inspect all five layers and both viewports. Unsupported totals remain subject to baseline grounding. |
 | AC2 | **No content loss by formatting/rendering:** all accepted before/items/after literal text, repeated content, qualifications and order survive composition→result→Turn/trace→DOM. Only existing whitespace/layout/escaping/emphasis/citation syntax transformations. Invalid fields fail visibly, never silently omitted. | Existing composer preserves supplied fields; add only missing focused regression/DOM coverage and compare exact final payload at runtime. Missing text already absent from generation JSON is classified separately, not renderer loss. |
 | AC3 | Preserve alias mapping/validation and every retained field's sources under the existing unique-marker/grouping rules; citation opens correct document/version/page/locator. | Reuse169/Q20 mapping and mixed/repeated-alias tests; verify every new chip. No raw marker or duplicate chip. This is not a new semantic-entailment checker. |
 | AC4 | Another multi-item answer is separate Markdown bullets in generated member order, with readable paragraph context; no question-specific list reconstruction. | Fixed question2 below remains unrun on the final candidate. Record source-fidelity omissions separately; no mandatory exhaustive frontmatter inventory in183. |
@@ -3856,3 +3867,49 @@ finding) within one-call/presentation-only scope before any implementation/new l
 No selector, question-specific count parser, PDF list reconstruction, cap increase,153 expansion
 or acceptance relaxation is authorized. Until that decision and successful new acceptance,
 PR184 stays Draft and183 remains unaccepted; no merge/Done/close/deploy.
+
+### 12.5 Owner clarification — conditional lists, not compulsory enumeration
+
+**Authority and correction.** The owner clarified in this chat that an LLM may answer only the
+count;183 requires a proper list when the answer enumerates members. An ordinary follow-up such
+as `Bao gồm những chương nào?` may elicit those members. The original Issue183 already says
+“từng chương thành một bullet riêng khi liệt kê tên chương”. This clarification supersedes
+the unconditional enumeration reading in10.5/11.4/12.4 and the claimed current AC1 product
+failure based solely on items=[]; it does not erase those historical decisions or promote them
+to PASS. Existing unsupported-claim, invalid-schema, citation, safety and accounting rules remain.
+
+**Expected outcome / scope / checks / budget, frozen before this correction:** edit this sole
+Master and the existing PR/Issue checkpoint; no product/prompt/test/helper/guard changes. Verify
+the conditional AC against the Issue body and saved case0 payload, preserve the entire12.4
+execution record and55-artifact packet, check the diff/links/redaction, commit/push once and read
+back both published surfaces. Zero provider requests, runtime starts, OAuth or database changes;
+no new test suite or evidence store. A failed local documentation check may be corrected and
+rerun with its reason retained. Existing CI applies only to its exact SHA; new-head CI is pending
+until independently observed.
+
+**Current evidence classification:** case0 supplied before1/items0/after0, count **7 chương**,
+with matching composed/stored/API-projection/desktop/mobile text and working citation targets.
+Count/emphasis and transfer of that prose were observed. No member text was lost by the
+formatter. A seven-member list was not supplied in this sample, so current list coverage is
+**UNVERIFIED**, not a demonstrated formatting failure and not list PASS. Cases2/3 remain NOT RUN;
+the three-case acceptance is incomplete. No change to source/PDF completeness or153 scope follows.
+
+**Next verification, not a generation repair.** No code defect or required prompt change follows
+from the count-only sample. In a newly approved bounded execution, ask the ordinary follow-up
+`Bao gồm những chương nào?` in that same conversation, retaining its count-only Turn as history;
+pin the actual context and request identities. This is a deliberate conversation follow-up,
+not a retry of the old request or a fresh-context claim. If it enumerates members, verify each
+generated member/order through JSON→Markdown→API/Turn/trace→desktop/mobile DOM and every chip's
+PDF version/locator. Record flattened enumerations, field loss or wrong source mapping as real
+failures. If no enumeration is generated, record list coverage as UNVERIFIED, retain the sample
+and stop at the finite budget; never resample until PASS or invent members. Verify the other-list
+and short-prose cases as well; count-only does not replace those observations.
+
+**Operational boundary:** APPLICATION-RECOVERY-20261021 remains permanently stopped2/12 with
+unknown0/retry0 and completed cleanup. No stop file, ledger, arm or old slot is reset. This message
+clarifies acceptance and the valid follow-up method; it is not an explicit new runtime/request
+envelope. Prepare the smallest proposal with that follow-up, the two unrun cases, exact context,
+per-case calls/aggregate ceiling, quota/time and ownership/cleanup rules before another live send.
+Keep one v21 answer call/20B/cap2048, existing source and IAB. No selector, cap escalation,
+generation remediation, new Skill or framework is justified by this observation. PR184 remains
+Draft and183 unaccepted pending the missing presentation evidence and owner acceptance.
