@@ -56,12 +56,15 @@ class NativeQdrantSearchIndex:
         return decoded
 
     def stage_generation(
-        self, generation: LexicalGeneration, chunk_texts: Mapping[str, str]
+        self,
+        generation: LexicalGeneration,
+        chunk_texts: Mapping[str, str],
+        chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> StageReceipt:
         response = self._request(
             "PUT",
             f"/collections/{self.index.collection_name}/points?wait=true",
-            self.index.stage_body(generation, chunk_texts),
+            self.index.stage_body(generation, chunk_texts, chunk_vectors),
         )
         self._require_completed(response)
         response = self._request(
@@ -103,9 +106,11 @@ class NativeQdrantSearchIndex:
         params = config.get("params") if isinstance(config, dict) else None
         sparse = params.get("sparse_vectors") if isinstance(params, dict) else None
         bm25 = sparse.get("bm25") if isinstance(sparse, dict) else None
+        expected_body = self.index.collection_body()
+        expected_vectors = expected_body.get("vectors", {})
+
         if (
             not isinstance(params, dict)
-            or params.get("vectors") != {}
             or params.get("shard_number") != 1
             or not isinstance(sparse, dict)
             or set(sparse) != {"bm25"}
@@ -113,6 +118,20 @@ class NativeQdrantSearchIndex:
             or bm25.get("modifier") != "idf"
         ):
             raise ProjectionResponseError("Qdrant collection configuration is incompatible")
+
+        vectors = params.get("vectors")
+        if not expected_vectors:
+            if vectors != {}:
+                raise ProjectionResponseError("Qdrant collection configuration is incompatible")
+        else:
+            if not isinstance(vectors, dict) or "dense" not in vectors:
+                raise ProjectionResponseError("Qdrant collection configuration is incompatible")
+            dense_params = vectors["dense"]
+            if (
+                not isinstance(dense_params, dict)
+                or dense_params.get("size") != expected_vectors["dense"]["size"]
+            ):
+                raise ProjectionResponseError("Qdrant collection configuration is incompatible")
         for body in self.index.payload_index_bodies():
             response = self._request(
                 "PUT",
@@ -137,3 +156,65 @@ class NativeQdrantSearchIndex:
         if not isinstance(result, dict) or not isinstance(result.get("points"), list):
             raise ProjectionResponseError("Qdrant query result is incomplete")
         return self.index.parse_response(snapshot, result, limit=limit)
+
+    def query_dense(
+        self,
+        snapshot: AuthorizedLexicalSnapshot,
+        query_vector: tuple[float, ...] | list[float],
+        *,
+        limit: int = 200,
+        hnsw_ef: int = 256,
+        rescore: bool = True,
+        oversampling: float = 2.0,
+    ) -> tuple[dict[str, Any], ...]:
+        response = self._request(
+            "POST",
+            f"/collections/{self.index.collection_name}/points/query",
+            self.index.dense_query_body(
+                snapshot,
+                query_vector,
+                limit=limit,
+                hnsw_ef=hnsw_ef,
+                rescore=rescore,
+                oversampling=oversampling,
+            ),
+        )
+        result = response.get("result")
+        if not isinstance(result, dict) or not isinstance(result.get("points"), list):
+            raise ProjectionResponseError("Qdrant dense query result is incomplete")
+        return self.index.parse_response(
+            snapshot, result, limit=limit, score_kind="cosine_similarity"
+        )
+
+    def query_hybrid(
+        self,
+        snapshot: AuthorizedLexicalSnapshot,
+        query_text: str,
+        query_vector: tuple[float, ...] | list[float],
+        *,
+        dense_limit: int = 200,
+        sparse_limit: int = 200,
+        final_limit: int = 100,
+        hnsw_ef: int = 256,
+        rescore: bool = True,
+        oversampling: float = 2.0,
+    ) -> tuple[dict[str, Any], ...]:
+        response = self._request(
+            "POST",
+            f"/collections/{self.index.collection_name}/points/query",
+            self.index.hybrid_query_body(
+                snapshot,
+                query_text,
+                query_vector,
+                dense_limit=dense_limit,
+                sparse_limit=sparse_limit,
+                final_limit=final_limit,
+                hnsw_ef=hnsw_ef,
+                rescore=rescore,
+                oversampling=oversampling,
+            ),
+        )
+        result = response.get("result")
+        if not isinstance(result, dict) or not isinstance(result.get("points"), list):
+            raise ProjectionResponseError("Qdrant hybrid query result is incomplete")
+        return self.index.parse_response(snapshot, result, limit=final_limit, score_kind="dbsf")

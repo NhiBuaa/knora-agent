@@ -17,6 +17,7 @@ from knora.ingestion.search_indexing import (
     LexicalGeneration,
     LexicalProfile,
     LexicalProjectionUnavailable,
+    lexical_point_id,
 )
 
 
@@ -406,3 +407,217 @@ def test_remove_generation_requires_completed_response(wire, generation, status)
         index = NativeQdrantSearchIndex(index=wire, client=client)
         with pytest.raises(ProjectionResponseError):
             index.remove_generation(generation)
+
+
+def test_query_dense_calls_native_wire_and_parses_cosine_scores(wire) -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    dense_wire = QdrantSearchIndex(
+        "knora_v3_dense",
+        wire.profile,
+        embedding_configuration=cf_config,
+    )
+    snapshot = AuthorizedLexicalSnapshot(
+        "workspace", ("generation",), wire.profile.id, wire.profile.digest()
+    )
+    requests = []
+
+    def serve(request):
+        requests.append(request)
+        assert request.url.path == "/collections/knora_v3_dense/points/query"
+        body = json.loads(request.content)
+        assert body["using"] == "dense"
+        assert body["limit"] == 200
+        return httpx.Response(
+            200,
+            json={
+                "status": "ok",
+                "result": {
+                    "points": [
+                        {
+                            "id": lexical_point_id("generation", "chunk"),
+                            "score": 0.88,
+                            "payload": {
+                                "workspace_id": "workspace",
+                                "generation_id": "generation",
+                                "chunk_id": "chunk",
+                                "profile_digest": wire.profile.digest(),
+                            },
+                        }
+                    ]
+                },
+            },
+        )
+
+    with httpx.Client(
+        base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(serve)
+    ) as client:
+        adapter = NativeQdrantSearchIndex(index=dense_wire, client=client)
+        points = adapter.query_dense(snapshot, [0.05] * 1024, limit=200)
+        assert len(points) == 1
+        assert points[0]["score"] == 0.88
+        assert points[0]["score_kind"] == "cosine_similarity"
+    assert len(requests) == 1
+
+
+def test_query_hybrid_calls_native_wire_with_dbsf_fusion(wire) -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    hybrid_wire = QdrantSearchIndex(
+        "knora_v3_hybrid",
+        wire.profile,
+        embedding_configuration=cf_config,
+    )
+    snapshot = AuthorizedLexicalSnapshot(
+        "workspace", ("generation",), wire.profile.id, wire.profile.digest()
+    )
+    requests = []
+
+    def serve(request):
+        requests.append(request)
+        assert request.url.path == "/collections/knora_v3_hybrid/points/query"
+        body = json.loads(request.content)
+        assert body["query"] == {"fusion": "dbsf"}
+        assert len(body["prefetch"]) == 2
+        assert body["prefetch"][0]["using"] == "bm25"
+        assert body["prefetch"][1]["using"] == "dense"
+        assert body["limit"] == 100
+        return httpx.Response(
+            200,
+            json={
+                "status": "ok",
+                "result": {
+                    "points": [
+                        {
+                            "id": lexical_point_id("generation", "chunk"),
+                            "score": 0.95,
+                            "payload": {
+                                "workspace_id": "workspace",
+                                "generation_id": "generation",
+                                "chunk_id": "chunk",
+                                "profile_digest": wire.profile.digest(),
+                            },
+                        }
+                    ]
+                },
+            },
+        )
+
+    with httpx.Client(
+        base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(serve)
+    ) as client:
+        adapter = NativeQdrantSearchIndex(index=hybrid_wire, client=client)
+        points = adapter.query_hybrid(snapshot, "hạn mức", [0.05] * 1024, final_limit=100)
+        assert len(points) == 1
+        assert points[0]["score"] == 0.95
+        assert points[0]["score_kind"] == "dbsf"
+    assert len(requests) == 1
+
+
+def test_ensure_collection_validates_dense_named_vector(wire) -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    dense_wire = QdrantSearchIndex(
+        "knora_v3_dense",
+        wire.profile,
+        embedding_configuration=cf_config,
+    )
+
+    def serve_compatible(request):
+        if request.url.path == "/collections/knora_v3_dense/exists":
+            return httpx.Response(200, json={"status": "ok", "result": {"exists": True}})
+        if request.url.path == "/collections/knora_v3_dense":
+            return httpx.Response(
+                200,
+                json={
+                    "status": "ok",
+                    "result": {
+                        "config": {
+                            "params": {
+                                "shard_number": 1,
+                                "vectors": {"dense": {"size": 1024, "distance": "Cosine"}},
+                                "sparse_vectors": {"bm25": {"modifier": "idf"}},
+                            }
+                        }
+                    },
+                },
+            )
+        if "/index" in request.url.path:
+            return httpx.Response(200, json={"status": "ok", "result": {"status": "completed"}})
+        raise AssertionError(f"Unexpected path: {request.url.path}")
+
+    with httpx.Client(
+        base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(serve_compatible)
+    ) as client:
+        adapter = NativeQdrantSearchIndex(index=dense_wire, client=client)
+        adapter.ensure_collection()
+
+    # Incompatible: missing dense vector in server response
+    def serve_missing_dense(request):
+        if request.url.path == "/collections/knora_v3_dense/exists":
+            return httpx.Response(200, json={"status": "ok", "result": {"exists": True}})
+        return httpx.Response(
+            200,
+            json={
+                "status": "ok",
+                "result": {
+                    "config": {
+                        "params": {
+                            "shard_number": 1,
+                            "vectors": {},
+                            "sparse_vectors": {"bm25": {"modifier": "idf"}},
+                        }
+                    }
+                },
+            },
+        )
+
+    with (
+        httpx.Client(
+            base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(serve_missing_dense)
+        ) as client,
+        pytest.raises(ProjectionResponseError, match="incompatible"),
+    ):
+        adapter = NativeQdrantSearchIndex(index=dense_wire, client=client)
+        adapter.ensure_collection()
+
+
+def test_stage_generation_with_dense_vectors(wire, generation) -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    hybrid_wire = QdrantSearchIndex(
+        "knora_v3_hybrid",
+        wire.profile,
+        embedding_configuration=cf_config,
+    )
+    requests = []
+
+    def serve(request):
+        requests.append(request)
+        if request.method == "PUT":
+            assert request.url.params["wait"] == "true"
+            body = json.loads(request.content)
+            assert "dense" in body["points"][0]["vector"]
+            assert len(body["points"][0]["vector"]["dense"]) == 1024
+            return httpx.Response(200, json={"status": "ok", "result": {"status": "completed"}})
+        assert request.method == "POST"
+        points = hybrid_wire.stage_body(generation, {"chunk": "hạn mức"}, {"chunk": [0.01] * 1024})[
+            "points"
+        ]
+        for point in points:
+            point.pop("vector")
+        return httpx.Response(200, json={"status": "ok", "result": points})
+
+    with httpx.Client(
+        base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(serve)
+    ) as client:
+        adapter = NativeQdrantSearchIndex(index=hybrid_wire, client=client)
+        receipt = adapter.stage_generation(
+            generation, {"chunk": "hạn mức"}, {"chunk": [0.01] * 1024}
+        )
+        receipt.validate(generation)
+        assert len(requests) == 2

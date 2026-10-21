@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from knora.answering.stores import RetrievalConfiguration
+from knora.providers.embedding import EmbeddingConfiguration
 
 
 class RetrievalConfigurationResolver(Protocol):
@@ -37,6 +38,8 @@ def retrieval_configuration_for_id(configuration_id: str) -> RetrievalConfigurat
         "retrieval-bm25-upload-fixture-top8-v1": (
             RetrievalConfiguration.bm25_upload_fixture_top8_v1()
         ),
+        "retrieval-dense-top8-v3": RetrievalConfiguration.dense_top8_v3(),
+        "retrieval-hybrid-top8-v3": RetrievalConfiguration.hybrid_top8_v3(),
     }
     try:
         return configurations[configuration_id]
@@ -66,6 +69,8 @@ def resolve_retrieval_configuration(
         "retrieval-evidence-containment-v1",
         "retrieval-bm25-top8-v1",
         "retrieval-bm25-upload-fixture-top8-v1",
+        "retrieval-dense-top8-v3",
+        "retrieval-hybrid-top8-v3",
     }:
         return retrieval_configuration_for_id(configuration_id)
     if configuration_id not in {"retrieval-m3-vector-v2", "retrieval-m3-rrf-v2"}:
@@ -126,3 +131,25 @@ def resolve_qwen_retrieval_configuration(
     return RetrievalConfiguration.qwen_vietnamese_v1(
         min_similarity=threshold, artifact_sha256=digest
     )
+
+
+def validate_retrieval_embedding_compatibility(
+    retrieval_config: RetrievalConfiguration,
+    embedding_config: EmbeddingConfiguration | None,
+) -> None:
+    """Validate retrieval and embedding configuration compatibility before query execution."""
+    if retrieval_config.strategy == "bm25-only":
+        return
+    if embedding_config is None:
+        raise ValueError(
+            f"strategy '{retrieval_config.strategy}' requires an embedding configuration"
+        )
+    if embedding_config.dimensions <= 0:
+        raise ValueError(f"invalid embedding dimensions: {embedding_config.dimensions}")
+    if embedding_config.distance_metric.lower() not in {"cosine"}:
+        metric = embedding_config.distance_metric
+        raise ValueError(f"unsupported distance metric '{metric}' for {retrieval_config.strategy}")
+    if retrieval_config.min_similarity is None:
+        raise ValueError(
+            f"strategy '{retrieval_config.strategy}' requires a vector min_similarity threshold"
+        )

@@ -17,6 +17,7 @@ from knora.ingestion.search_indexing import (
     StageReceipt,
     lexical_point_id,
 )
+from knora.providers.embedding import EmbeddingConfiguration
 
 
 class ProjectionResponseError(LexicalGenerationError):
@@ -33,6 +34,8 @@ class AuthorizedLexicalSnapshot:
     generation_ids: tuple[str, ...]
     profile_id: str
     profile_digest: str
+    embedding_configuration_id: str | None = None
+    embedding_set_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not all((self.workspace_id, self.profile_id, self.profile_digest, self.generation_ids)):
@@ -43,12 +46,17 @@ class AuthorizedLexicalSnapshot:
             raise ProjectionResponseError("authorized generation IDs must be unique")
 
 
+AuthorizedSearchSnapshot = AuthorizedLexicalSnapshot
+
+
 @dataclass(frozen=True, slots=True)
 class QdrantSearchIndex:
     """Build and validate wire data; runtime compatibility is a separate gate."""
 
     collection_name: str
     profile: LexicalProfile
+    embedding_configuration: EmbeddingConfiguration | None = None
+    turbo_quant: bool = True
 
     def _document(self, text: str) -> dict[str, Any]:
         return {
@@ -67,8 +75,29 @@ class QdrantSearchIndex:
         }
 
     def collection_body(self) -> dict[str, Any]:
+        vectors: dict[str, Any] = {}
+        if self.embedding_configuration is not None:
+            dense_cfg: dict[str, Any] = {
+                "size": self.embedding_configuration.dimensions,
+                "distance": self.embedding_configuration.distance_metric.capitalize(),
+                "on_disk": True,
+                "hnsw_config": {
+                    "m": 16,
+                    "ef_construct": 100,
+                },
+            }
+            if self.turbo_quant:
+                dense_cfg["quantization_config"] = {
+                    "turbo": {
+                        "bits": "bits4",
+                        "always_ram": True,
+                        "rescore": True,
+                        "oversampling": 2.0,
+                    }
+                }
+            vectors["dense"] = dense_cfg
         return {
-            "vectors": {},
+            "vectors": vectors,
             "sparse_vectors": {"bm25": {"modifier": "idf"}},
             "shard_number": 1,
         }
@@ -105,14 +134,22 @@ class QdrantSearchIndex:
         }
 
     def stage_body(
-        self, generation: LexicalGeneration, chunk_texts: Mapping[str, str]
+        self,
+        generation: LexicalGeneration,
+        chunk_texts: Mapping[str, str],
+        chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> dict[str, Any]:
-        """Build one native batch from PostgreSQL-authoritative chunk text."""
+        """Build one native batch from authoritative chunk text and optional dense vectors."""
         self._validate_generation(generation)
         if not isinstance(chunk_texts, Mapping) or set(chunk_texts) != {
             chunk.chunk_id for chunk in generation.chunks
         }:
             raise LexicalGenerationError("authoritative texts differ from generation manifest")
+        if chunk_vectors is not None and (
+            not isinstance(chunk_vectors, Mapping)
+            or set(chunk_vectors) != {chunk.chunk_id for chunk in generation.chunks}
+        ):
+            raise LexicalGenerationError("authoritative vectors differ from generation manifest")
         points = []
         content_digest = generation.content_digest()
         for chunk in generation.chunks:
@@ -123,10 +160,30 @@ class QdrantSearchIndex:
                 or hashlib.sha256(text.encode("utf-8")).hexdigest() != chunk.content_checksum
             ):
                 raise LexicalGenerationError("authoritative chunk text checksum is invalid")
+            vector_entry: dict[str, Any] = {"bm25": self._document(text)}
+            if chunk_vectors is not None:
+                vec = chunk_vectors[chunk.chunk_id]
+                if (
+                    not isinstance(vec, (tuple, list))
+                    or not vec
+                    or not all(
+                        isinstance(v, (int, float)) and not isinstance(v, bool) and isfinite(v)
+                        for v in vec
+                    )
+                ):
+                    raise LexicalGenerationError(
+                        "chunk vector contains invalid or nonfinite values"
+                    )
+                if (
+                    self.embedding_configuration
+                    and len(vec) != self.embedding_configuration.dimensions
+                ):
+                    raise LexicalGenerationError("chunk vector dimension mismatch")
+                vector_entry["dense"] = list(vec)
             points.append(
                 {
                     "id": lexical_point_id(generation.generation_id, chunk.chunk_id),
-                    "vector": {"bm25": self._document(text)},
+                    "vector": vector_entry,
                     "payload": self._point_payload(generation, chunk, content_digest),
                 }
             )
@@ -174,6 +231,16 @@ class QdrantSearchIndex:
         ):
             raise ProjectionResponseError("profile differs from authorized snapshot")
 
+    @staticmethod
+    def _build_scope(snapshot: AuthorizedLexicalSnapshot) -> dict[str, Any]:
+        return {
+            "must": [
+                {"key": "workspace_id", "match": {"value": snapshot.workspace_id}},
+                {"key": "generation_id", "match": {"any": list(snapshot.generation_ids)}},
+                {"key": "profile_digest", "match": {"value": snapshot.profile_digest}},
+            ]
+        }
+
     def query_body(
         self,
         snapshot: AuthorizedLexicalSnapshot,
@@ -186,13 +253,7 @@ class QdrantSearchIndex:
             raise ValueError("query text is required")
         if type(limit) is not int or not 1 <= limit <= 200:
             raise ValueError("native BM25 limit must be between one and two hundred")
-        scope = {
-            "must": [
-                {"key": "workspace_id", "match": {"value": snapshot.workspace_id}},
-                {"key": "generation_id", "match": {"any": list(snapshot.generation_ids)}},
-                {"key": "profile_digest", "match": {"value": snapshot.profile_digest}},
-            ]
-        }
+        scope = self._build_scope(snapshot)
         return {
             "using": "bm25",
             "query": self._document(query_text),
@@ -202,12 +263,114 @@ class QdrantSearchIndex:
             "with_payload": True,
         }
 
+    def dense_query_body(
+        self,
+        snapshot: AuthorizedLexicalSnapshot,
+        query_vector: tuple[float, ...] | list[float],
+        *,
+        limit: int = 200,
+        hnsw_ef: int = 256,
+        rescore: bool = True,
+        oversampling: float = 2.0,
+    ) -> dict[str, Any]:
+        self._validate_snapshot(snapshot)
+        if not query_vector or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) and isfinite(v)
+            for v in query_vector
+        ):
+            raise ValueError("query vector is required and must contain finite numbers")
+        if (
+            self.embedding_configuration
+            and len(query_vector) != self.embedding_configuration.dimensions
+        ):
+            raise ValueError("query vector dimension differs from embedding configuration")
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("native dense limit must be between one and two hundred")
+        scope = self._build_scope(snapshot)
+        return {
+            "using": "dense",
+            "query": list(query_vector),
+            "filter": scope,
+            "params": {
+                "hnsw_ef": hnsw_ef,
+                "quantization": {
+                    "rescore": rescore,
+                    "oversampling": oversampling,
+                },
+            },
+            "limit": limit,
+            "with_payload": True,
+        }
+
+    def hybrid_query_body(
+        self,
+        snapshot: AuthorizedLexicalSnapshot,
+        query_text: str,
+        query_vector: tuple[float, ...] | list[float],
+        *,
+        dense_limit: int = 200,
+        sparse_limit: int = 200,
+        final_limit: int = 100,
+        hnsw_ef: int = 256,
+        rescore: bool = True,
+        oversampling: float = 2.0,
+    ) -> dict[str, Any]:
+        self._validate_snapshot(snapshot)
+        if not isinstance(query_text, str) or not query_text.strip():
+            raise ValueError("query text is required")
+        if not query_vector or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) and isfinite(v)
+            for v in query_vector
+        ):
+            raise ValueError("query vector is required and must contain finite numbers")
+        if (
+            self.embedding_configuration
+            and len(query_vector) != self.embedding_configuration.dimensions
+        ):
+            raise ValueError("query vector dimension differs from embedding configuration")
+        if type(final_limit) is not int or not 1 <= final_limit <= 100:
+            raise ValueError("hybrid final limit must be between one and one hundred")
+        if type(dense_limit) is not int or not 1 <= dense_limit <= 200:
+            raise ValueError("dense prefetch limit must be between one and two hundred")
+        if type(sparse_limit) is not int or not 1 <= sparse_limit <= 200:
+            raise ValueError("sparse prefetch limit must be between one and two hundred")
+        scope = self._build_scope(snapshot)
+        return {
+            "prefetch": [
+                {
+                    "using": "bm25",
+                    "query": self._document(query_text),
+                    "filter": scope,
+                    "params": {"idf": {"corpus": scope}},
+                    "limit": sparse_limit,
+                },
+                {
+                    "using": "dense",
+                    "query": list(query_vector),
+                    "filter": scope,
+                    "params": {
+                        "hnsw_ef": hnsw_ef,
+                        "quantization": {
+                            "rescore": rescore,
+                            "oversampling": oversampling,
+                        },
+                    },
+                    "limit": dense_limit,
+                },
+            ],
+            "query": {"fusion": "dbsf"},
+            "filter": scope,
+            "limit": final_limit,
+            "with_payload": True,
+        }
+
     def parse_response(
         self,
         snapshot: AuthorizedLexicalSnapshot,
         response: dict[str, Any],
         *,
         limit: int = 200,
+        score_kind: str = "bm25",
     ) -> tuple[dict[str, Any], ...]:
         self._validate_snapshot(snapshot)
         if type(limit) is not int or not 1 <= limit <= 200:
@@ -242,16 +405,17 @@ class QdrantSearchIndex:
                 raise ProjectionResponseError("Qdrant identity, uniqueness or rank is invalid")
             seen.add(chunk_id)
             previous_score = score
-            parsed.append(
-                {
-                    "point_id": point_id,
-                    "score": float(score),
-                    "rank": rank,
-                    "generation_id": generation_id,
-                    "chunk_id": chunk_id,
-                    "score_policy_digest": snapshot.profile_digest,
-                }
-            )
+            item: dict[str, Any] = {
+                "point_id": point_id,
+                "score": float(score),
+                "rank": rank,
+                "generation_id": generation_id,
+                "chunk_id": chunk_id,
+                "score_policy_digest": snapshot.profile_digest,
+            }
+            if score_kind != "bm25":
+                item["score_kind"] = score_kind
+            parsed.append(item)
         if len(parsed) < limit:
             parsed.sort(key=lambda hit: (-hit["score"], hit["chunk_id"]))
             for rank, hit in enumerate(parsed, start=1):

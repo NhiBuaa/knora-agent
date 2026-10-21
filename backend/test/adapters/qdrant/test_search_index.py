@@ -467,3 +467,211 @@ def test_stage_readback_fails_closed_without_complete_persisted_manifest(mutatio
         points[0]["payload"][mutation] = "foreign"
     with pytest.raises(ProjectionResponseError):
         index().parse_stage_response(generation(), points)
+
+
+def test_collection_body_with_dense_turboquant() -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    dense_index = QdrantSearchIndex(
+        collection_name="knora_v3_hybrid",
+        profile=index().profile,
+        embedding_configuration=cf_config,
+        turbo_quant=True,
+    )
+    body = dense_index.collection_body()
+
+    assert body["shard_number"] == 1
+    assert body["sparse_vectors"] == {"bm25": {"modifier": "idf"}}
+    assert "dense" in body["vectors"]
+    dense = body["vectors"]["dense"]
+    assert dense["size"] == 1024
+    assert dense["distance"] == "Cosine"
+    assert dense["on_disk"] is True
+    assert dense["hnsw_config"] == {"m": 16, "ef_construct": 100}
+    assert dense["quantization_config"] == {
+        "turbo": {
+            "bits": "bits4",
+            "always_ram": True,
+            "rescore": True,
+            "oversampling": 2.0,
+        }
+    }
+    assert "datatype" not in dense
+
+
+def test_collection_body_float32_rollback() -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    float32_index = QdrantSearchIndex(
+        collection_name="knora_v3_float32",
+        profile=index().profile,
+        embedding_configuration=cf_config,
+        turbo_quant=False,
+    )
+    body = float32_index.collection_body()
+    assert "dense" in body["vectors"]
+    assert "quantization_config" not in body["vectors"]["dense"]
+
+
+def test_dense_query_body_structure_and_validation() -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    dense_index = QdrantSearchIndex(
+        collection_name="knora_v3_dense",
+        profile=index().profile,
+        embedding_configuration=cf_config,
+    )
+    query_vector = [0.05] * 1024
+    body = dense_index.dense_query_body(snapshot(), query_vector, limit=200)
+
+    assert body["using"] == "dense"
+    assert body["query"] == query_vector
+    assert body["limit"] == 200
+    assert body["with_payload"] is True
+    assert body["params"] == {
+        "hnsw_ef": 256,
+        "quantization": {
+            "rescore": True,
+            "oversampling": 2.0,
+        },
+    }
+    assert body["filter"]["must"][0] == {
+        "key": "workspace_id",
+        "match": {"value": "workspace-1"},
+    }
+
+    # Rejects dimension mismatch
+    with pytest.raises(ValueError, match="dimension differs"):
+        dense_index.dense_query_body(snapshot(), [0.1] * 768)
+
+    # Rejects nonfinite / invalid vector
+    with pytest.raises(ValueError, match="finite numbers"):
+        dense_index.dense_query_body(snapshot(), [float("nan")] * 1024)
+
+    with pytest.raises(ValueError, match="finite numbers"):
+        dense_index.dense_query_body(snapshot(), [])
+
+    # Rejects invalid limit
+    with pytest.raises(ValueError, match="between one and two hundred"):
+        dense_index.dense_query_body(snapshot(), query_vector, limit=0)
+
+    with pytest.raises(ValueError, match="between one and two hundred"):
+        dense_index.dense_query_body(snapshot(), query_vector, limit=201)
+
+
+def test_hybrid_query_body_structure_and_validation() -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    hybrid_index = QdrantSearchIndex(
+        collection_name="knora_v3_hybrid",
+        profile=index().profile,
+        embedding_configuration=cf_config,
+    )
+    query_vector = [0.05] * 1024
+    body = hybrid_index.hybrid_query_body(snapshot(), "hạn mức tín dụng", query_vector)
+
+    assert body["limit"] == 100
+    assert body["with_payload"] is True
+    assert body["query"] == {"fusion": "dbsf"}
+    assert len(body["prefetch"]) == 2
+
+    sparse_pf = body["prefetch"][0]
+    assert sparse_pf["using"] == "bm25"
+    assert sparse_pf["limit"] == 200
+    assert sparse_pf["query"]["text"] == "hạn mức tín dụng"
+    assert sparse_pf["filter"] == body["filter"]
+    assert sparse_pf["params"] == {"idf": {"corpus": body["filter"]}}
+
+    dense_pf = body["prefetch"][1]
+    assert dense_pf["using"] == "dense"
+    assert dense_pf["limit"] == 200
+    assert dense_pf["query"] == query_vector
+    assert dense_pf["filter"] == body["filter"]
+    assert dense_pf["params"] == {
+        "hnsw_ef": 256,
+        "quantization": {
+            "rescore": True,
+            "oversampling": 2.0,
+        },
+    }
+
+    # Rejects blank query text
+    with pytest.raises(ValueError, match="query text is required"):
+        hybrid_index.hybrid_query_body(snapshot(), "", query_vector)
+
+    # Rejects invalid vector
+    with pytest.raises(ValueError, match="finite numbers"):
+        hybrid_index.hybrid_query_body(snapshot(), "hạn mức", [float("inf")] * 1024)
+
+    # Rejects final limit > 100
+    with pytest.raises(ValueError, match="between one and one hundred"):
+        hybrid_index.hybrid_query_body(snapshot(), "hạn mức", query_vector, final_limit=101)
+
+
+def test_stage_body_with_dense_vectors_and_validation() -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    cf_config = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    hybrid_index = QdrantSearchIndex(
+        collection_name="knora_v3_hybrid",
+        profile=index().profile,
+        embedding_configuration=cf_config,
+    )
+    gen = generation()
+    texts = chunk_texts()
+    vectors = {
+        "chunk-1": [0.01] * 1024,
+        "chunk-2": [0.02] * 1024,
+    }
+    body = hybrid_index.stage_body(gen, texts, vectors)
+    assert len(body["points"]) == 2
+    for pt in body["points"]:
+        assert "bm25" in pt["vector"]
+        assert "dense" in pt["vector"]
+        assert len(pt["vector"]["dense"]) == 1024
+
+    # Dimension mismatch rejected
+    bad_vectors = {
+        "chunk-1": [0.01] * 512,
+        "chunk-2": [0.02] * 512,
+    }
+    with pytest.raises(LexicalGenerationError, match="dimension mismatch"):
+        hybrid_index.stage_body(gen, texts, bad_vectors)
+
+    # Nonfinite values rejected
+    nan_vectors = {
+        "chunk-1": [float("nan")] * 1024,
+        "chunk-2": [0.02] * 1024,
+    }
+    with pytest.raises(LexicalGenerationError, match="invalid or nonfinite"):
+        hybrid_index.stage_body(gen, texts, nan_vectors)
+
+
+def test_parse_response_with_score_kind_preserves_contract() -> None:
+    response = {
+        "points": [
+            {
+                "id": lexical_point_id("generation-1", "chunk-1"),
+                "score": 0.89,
+                "payload": {
+                    "workspace_id": "workspace-1",
+                    "generation_id": "generation-1",
+                    "chunk_id": "chunk-1",
+                    "profile_digest": index().profile.digest(),
+                },
+            }
+        ]
+    }
+    dense_res = index().parse_response(snapshot(), response, score_kind="cosine_similarity")
+    assert len(dense_res) == 1
+    assert dense_res[0]["score"] == 0.89
+    assert dense_res[0]["score_kind"] == "cosine_similarity"
+
+    dbsf_res = index().parse_response(snapshot(), response, score_kind="dbsf")
+    assert len(dbsf_res) == 1
+    assert dbsf_res[0]["score"] == 0.89
+    assert dbsf_res[0]["score_kind"] == "dbsf"
