@@ -28,6 +28,35 @@ function Fail([string]$Code) {
     exit 2
 }
 
+function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
+    try {
+        # Compose can recreate stopped or non-Postgres services even when the new port is free.
+        $ids = @(docker ps -a --filter "label=com.docker.compose.project=$composeProject" --format '{{.ID}}' 2>$null)
+        if ($LASTEXITCODE -ne 0) { return $false }
+        $ownedPostgres = 0
+        foreach ($id in $ids) {
+            $labels = docker inspect $id --format '{{json .Config.Labels}}' 2>$null | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or
+                $labels.'com.docker.compose.project' -ne $composeProject -or
+                -not $labels.'com.docker.compose.project.working_dir' -or
+                [IO.Path]::GetFullPath($labels.'com.docker.compose.project.working_dir') -ne $repoRoot) {
+                return $false
+            }
+            if ($PostgresPortInUse -and $labels.'com.docker.compose.service' -eq 'postgres') {
+                $ports = docker inspect $id --format '{{json .NetworkSettings.Ports}}' 2>$null | ConvertFrom-Json
+                if ($LASTEXITCODE -ne 0) { return $false }
+                $bindings = @($ports.'5432/tcp')
+                if ($bindings.Count -eq 1 -and $bindings[0].HostIp -eq '127.0.0.1' -and
+                    $bindings[0].HostPort -eq [string]$PostgresPort) { $ownedPostgres++ }
+            }
+        }
+        return (-not $PostgresPortInUse -or $ownedPostgres -eq 1)
+    } catch {
+        # Unknown ownership is not permission to reuse or stop another session's service.
+        return $false
+    }
+}
+
 function Import-DotEnv([string]$Path) {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
     $lineNumber = 0
@@ -71,6 +100,20 @@ if (-not $PreflightOnly) {
     $listeners = [Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()
     foreach ($binding in @(@('ApiPort', $ApiPort), @('FrontendPort', $FrontendPort))) {
         if ($binding[1] -in $listeners.Port) { Fail "PORT_IN_USE:$($binding[0]):$($binding[1])" }
+    }
+    $postgresPortInUse = $PostgresPort -in $listeners.Port
+    if (-not (Test-DevStorageOwnership $postgresPortInUse)) {
+        if (-not $postgresPortInUse) { Fail "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:$composeProject. Existing services were not changed." }
+        $owner = 'unverified'
+        try {
+            $ownerIds = @(Get-NetTCPConnection -State Listen -LocalPort $PostgresPort -ErrorAction Stop |
+                Select-Object -ExpandProperty OwningProcess -Unique)
+            $owner = ($ownerIds | ForEach-Object {
+                $process = Get-Process -Id $_ -ErrorAction Stop
+                "$($process.Id)/$($process.ProcessName)"
+            }) -join ','
+        } catch { }
+        Fail "PORT_IN_USE:PostgresPort:$PostgresPort owner=$owner; choose a free port with -PostgresPort. Existing services were not changed."
     }
 }
 

@@ -99,6 +99,143 @@ def isolate_generation_environment(monkeypatch):
         monkeypatch.delenv(key, raising=False)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+@pytest.mark.parametrize("occupied", [True, False])
+@pytest.mark.parametrize(
+    "ownership",
+    [
+        "owned",
+        "foreign-project",
+        "foreign-service",
+        "foreign-directory",
+        "stopped-foreign-directory",
+        "foreign-minio-directory",
+        "wrong-port",
+        "wildcard-binding",
+        "missing-labels",
+        "inspect-failed",
+        "docker-unavailable",
+        "no-container",
+    ],
+)
+def test_daily_launcher_checks_postgres_ownership_before_side_effects(
+    tmp_path, shell, occupied, ownership
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    calls_file = tmp_path / "docker-calls.txt"
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        "param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)\n"
+        "Set-StrictMode -Version Latest\n"
+        "function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }\n"
+        "function docker {\n"
+        "  Add-Content -LiteralPath $env:KNORA_TEST_CALLS -Value ($args -join ' ')\n"
+        "  if ($args[0] -eq 'ps') {\n"
+        "    if ($env:KNORA_TEST_OWNERSHIP -eq 'docker-unavailable') { throw 'unavailable' }\n"
+        "    $global:LASTEXITCODE = 0\n"
+        "    if ($env:KNORA_TEST_OWNERSHIP -eq 'stopped-foreign-directory' "
+        "-and $args -notcontains '-a') { return }\n"
+        "    if ($env:KNORA_TEST_OWNERSHIP -ne 'no-container') { 'synthetic-container' }\n"
+        "  } elseif ($args[0] -eq 'inspect') {\n"
+        "    $global:LASTEXITCODE = 0\n"
+        "    if ($env:KNORA_TEST_OWNERSHIP -eq 'inspect-failed') { $global:LASTEXITCODE = 1 }\n"
+        "    $data = $env:KNORA_TEST_CONTAINER | ConvertFrom-Json\n"
+        "    if ($args[-1] -like '*Config.Labels*') { $data.labels | ConvertTo-Json -Compress }\n"
+        "    else { $data.ports | ConvertTo-Json -Depth 5 -Compress }\n"
+        "  } else { throw 'COMPOSE_MUTATION_ATTEMPTED' }\n"
+        "}\n"
+        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid\n"
+        "exit $LASTEXITCODE\n"
+    )
+    with socket.socket() as listener, socket.socket() as unused_api, socket.socket() as unused_ui:
+        listener.bind(("127.0.0.1", 0))
+        if occupied:
+            listener.listen()
+        unused_api.bind(("127.0.0.1", 0))
+        unused_ui.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+        labels = {
+            "com.docker.compose.project": "knora-dev",
+            "com.docker.compose.service": "postgres",
+            "com.docker.compose.project.working_dir": str(SCRIPT.parents[1]),
+        }
+        for variant, key, value in (
+            ("foreign-project", "project", "another-session"),
+            ("foreign-service", "service", "minio"),
+            ("foreign-directory", "project.working_dir", str(tmp_path)),
+            ("stopped-foreign-directory", "project.working_dir", str(tmp_path)),
+            ("foreign-minio-directory", "project.working_dir", str(tmp_path)),
+        ):
+            if ownership == variant:
+                labels[f"com.docker.compose.{key}"] = value
+        if ownership == "foreign-minio-directory":
+            labels["com.docker.compose.service"] = "minio"
+        container = {
+            "labels": {} if ownership == "missing-labels" else labels,
+            "ports": {
+                "5432/tcp": [
+                    {
+                        "HostIp": "0.0.0.0" if ownership == "wildcard-binding" else "127.0.0.1",
+                        "HostPort": str(port + 1 if ownership == "wrong-port" else port),
+                    }
+                ]
+            },
+        }
+        result = subprocess.run(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(wrapper),
+                "-EnvFile",
+                str(env_file),
+                "-PostgresPort",
+                str(port),
+                "-ApiPort",
+                str(unused_api.getsockname()[1]),
+                "-FrontendPort",
+                str(unused_ui.getsockname()[1]),
+            ],
+            env={
+                **os.environ,
+                "KNORA_TEST_SCRIPT": str(SCRIPT),
+                "KNORA_TEST_CALLS": str(calls_file),
+                "KNORA_TEST_OWNERSHIP": ownership,
+                "KNORA_TEST_CONTAINER": json.dumps(container),
+            },
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 2, result.stderr
+        reusable = ownership == "owned" or (
+            not occupied
+            and ownership in {"foreign-service", "wrong-port", "wildcard-binding", "no-container"}
+        )
+        if reusable:
+            # The guard allows reuse and reaches the next validation, not service startup.
+            assert "INVALID_EMBEDDING_PROVIDER" in result.stderr
+        else:
+            if occupied:
+                assert f"PORT_IN_USE:PostgresPort:{port}" in result.stderr
+                assert "-PostgresPort" in result.stderr
+            else:
+                assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr
+        calls = calls_file.read_text(encoding="utf-8-sig").splitlines()
+        assert all(call.startswith(("ps ", "inspect ")) for call in calls)
+        assert "COMPOSE_MUTATION_ATTEMPTED" not in result.stderr
+        if occupied:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                pass
+
+
 def test_daily_dev_compose_reuses_dev_keycloak_without_e2e_faults() -> None:
     root = SCRIPT.parents[1]
     daily_environment = os.environ.copy()
@@ -797,7 +934,7 @@ def launcher_runtime(tmp_path: Path):
         "& $env:FIXTURE_LAUNCHER -NoBrowser -EnvFile $env:FIXTURE_ENV "
         "-PythonExe $env:FIXTURE_PYTHON -EmbeddingProvider deterministic-local "
         "-GenerationProvider deterministic-local -ApiPort $env:FIXTURE_API_PORT "
-        "-FrontendPort $env:FIXTURE_FRONTEND_PORT\n"
+        "-FrontendPort $env:FIXTURE_FRONTEND_PORT -PostgresPort $env:FIXTURE_POSTGRES_PORT\n"
     )
     return root, wrapper
 
@@ -864,6 +1001,7 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         FIXTURE_PYTHON=sys.executable,
         FIXTURE_API_PORT=str(api_port),
         FIXTURE_FRONTEND_PORT=str(frontend_port),
+        FIXTURE_POSTGRES_PORT=str(_unused_port()),
         SESSION_SECRET="synthetic-session-secret-000000000000",
         KNORA_CANONICAL_MINIO_ACCESS_KEY="synthetic-access",
         KNORA_CANONICAL_MINIO_SECRET_KEY="synthetic-secret",
