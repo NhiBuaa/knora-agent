@@ -126,16 +126,23 @@ class SequentialDependenceScorer:
         return count
 
     def _count_unordered_pair(
-        self, doc_tokens: Sequence[str], t1: str, t2: str, window_size: int
+        self,
+        doc_tokens: Sequence[str],
+        t1: str,
+        t2: str,
+        window_size: int,
+        pos1: Sequence[int] | None = None,
+        pos2: Sequence[int] | None = None,
     ) -> int:
-        # Collect positions of t1 and t2
-        pos1 = [idx for idx, tok in enumerate(doc_tokens) if tok == t1]
-        pos2 = [idx for idx, tok in enumerate(doc_tokens) if tok == t2]
+        if pos1 is None:
+            pos1 = [idx for idx, tok in enumerate(doc_tokens) if tok == t1]
+        if pos2 is None:
+            pos2 = [idx for idx, tok in enumerate(doc_tokens) if tok == t2]
 
         if not pos1 or not pos2:
             return 0
 
-        # Build candidate matching intervals [min(p1, p2), max(p1, p2)] where span <= window_size
+        # Build candidate matching intervals where span <= window_size
         intervals = []
         if t1 == t2:
             for i in range(len(pos1)):
@@ -146,9 +153,12 @@ class SequentialDependenceScorer:
         else:
             for p1 in pos1:
                 for p2 in pos2:
-                    start, end = min(p1, p2), max(p1, p2)
-                    if (end - start + 1) <= window_size:
-                        intervals.append((start, end))
+                    if p1 < p2:
+                        if (p2 - p1 + 1) <= window_size:
+                            intervals.append((p1, p2))
+                    else:
+                        if (p1 - p2 + 1) <= window_size:
+                            intervals.append((p2, p1))
 
         if not intervals:
             return 0
@@ -164,7 +174,10 @@ class SequentialDependenceScorer:
         return count
 
     def score_candidates(
-        self, query: str, candidates: Sequence[RetrievalCandidate]
+        self,
+        query: str,
+        candidates: Sequence[RetrievalCandidate],
+        positions_by_chunk: Mapping[str, object] | None = None,
     ) -> list[SDMScoringResult]:
         """Score and rerank candidates according to Sequential Dependence Model."""
         if not candidates:
@@ -172,11 +185,23 @@ class SequentialDependenceScorer:
 
         query_tokens = tokenize_lexical_text(query)
         n = len(query_tokens)
+        query_set = set(query_tokens)
+        query_pairs = (
+            [(query_tokens[i], query_tokens[i + 1]) for i in range(n - 1)] if n >= 2 else ()
+        )
 
-        # Pre-tokenize all candidate contents
+        # Pre-tokenize or resolve positional tokens for all candidate contents
         parsed = []
         for cand in candidates:
-            doc_tokens = tokenize_lexical_text(cand.content)
+            if positions_by_chunk and cand.chunk_id in positions_by_chunk:
+                deriv = positions_by_chunk[cand.chunk_id]
+                tokens_attr = getattr(deriv, "tokens", None)
+                if tokens_attr:
+                    doc_tokens = [t.token for t in tokens_attr]
+                else:
+                    doc_tokens = tokenize_lexical_text(cand.content)
+            else:
+                doc_tokens = tokenize_lexical_text(cand.content)
             doc_len = cand.token_count if cand.token_count > 0 else len(doc_tokens)
             parsed.append((cand, doc_tokens, doc_len))
 
@@ -195,11 +220,17 @@ class SequentialDependenceScorer:
                 scored_items.append((cand, 0.0, 0.0, 0.0, 0.0, 0, 0, 0))
                 continue
 
+            # 1-pass term position indexing for query terms
+            pos: dict[str, list[int]] = {q: [] for q in query_set}
+            for idx, tok in enumerate(doc_tokens):
+                if tok in query_set:
+                    pos[tok].append(idx)
+
             # 1. Unigram score f_T
             s_t = 0.0
             unigram_match_count = 0
             for q_term in query_tokens:
-                c_t = doc_tokens.count(q_term)
+                c_t = len(pos[q_term])
                 if c_t > 0:
                     unigram_match_count += c_t
                 p_c = self._background_unigram_prob(q_term)
@@ -212,16 +243,28 @@ class SequentialDependenceScorer:
             unordered_match_count = 0
 
             if n >= 2:
-                for i in range(n - 1):
-                    t1, t2 = query_tokens[i], query_tokens[i + 1]
+                for t1, t2 in query_pairs:
+                    p1 = pos[t1]
+                    p2 = pos[t2]
+
                     # Ordered
-                    c_o = self._count_ordered_pair(doc_tokens, t1, t2)
+                    if p1 and p2:
+                        c_o = sum(
+                            1 for p in p1 if p + 1 < len(doc_tokens) and doc_tokens[p + 1] == t2
+                        )
+                    else:
+                        c_o = 0
                     ordered_match_count += c_o
                     p_o = self._background_ordered_prob(t1, t2)
                     s_o += math.log((c_o + mu * p_o) / denom)
 
                     # Unordered
-                    c_u = self._count_unordered_pair(doc_tokens, t1, t2, self.config.window_size)
+                    if p1 and p2:
+                        c_u = self._count_unordered_pair(
+                            doc_tokens, t1, t2, self.config.window_size, pos1=p1, pos2=p2
+                        )
+                    else:
+                        c_u = 0
                     unordered_match_count += c_u
                     p_u = self._background_unordered_prob(t1, t2)
                     s_u += math.log((c_u + mu * p_u) / denom)
