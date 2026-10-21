@@ -1,7 +1,7 @@
 """Transactional generation requests and activation; no projection I/O."""
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
 
 from sqlalchemy import select
@@ -318,6 +318,120 @@ class PostgresSearchIndexStore:
         row.status = "active"
         head.active_generation_id = row.id
 
+    def stage_corpus_transition(self, generations: Sequence[LexicalGeneration]) -> None:
+        """Stage generations for a corpus snapshot transition without disrupting active serving."""
+        with self._sessions.begin() as session:
+            self.stage_corpus_transition_in_transaction(session, generations)
+
+    def stage_corpus_transition_in_transaction(
+        self, session: Session, generations: Sequence[LexicalGeneration]
+    ) -> None:
+        if not generations:
+            raise StaleGenerationError("corpus transition batch cannot be empty")
+        profile_digests = {g.lexical_profile.digest() for g in generations}
+        if len(profile_digests) != 1:
+            raise StaleGenerationError("corpus transition contains mixed profile digests")
+        ordered = sorted(generations, key=lambda g: g.document_id)
+        for generation in ordered:
+            workspace, document = self._lock_document(
+                session, generation.workspace_id, generation.document_id
+            )
+            existing = session.get(LexicalGenerationTable, generation.generation_id)
+            if existing is not None:
+                if (
+                    existing.content_digest != generation.content_digest()
+                    or existing.status == "revoked"
+                ):
+                    raise StaleGenerationError("generation identity cannot be reused")
+                continue
+            if document.current_document_version_id != generation.document_version_id:
+                raise StaleGenerationError("generation targets an obsolete source version")
+            chunk_set = session.get(ChunkSetTable, generation.chunk_set_id)
+            if (
+                chunk_set is None
+                or chunk_set.document_version_id != generation.document_version_id
+                or chunk_set.status != "completed"
+            ):
+                raise StaleGenerationError("generation targets an incomplete chunk set")
+            chunks = session.scalars(
+                select(ChunkTable)
+                .where(ChunkTable.chunk_set_id == generation.chunk_set_id)
+                .order_by(ChunkTable.ordinal)
+            ).all()
+            if [(c.id, c.ordinal, c.content_checksum) for c in chunks] != [
+                (c.chunk_id, c.ordinal, c.content_checksum) for c in generation.chunks
+            ]:
+                raise StaleGenerationError("generation manifest differs from authoritative chunks")
+            head = session.get(LexicalHeadTable, document.id)
+            if head is None:
+                head = LexicalHeadTable(document_id=document.id, revision=0)
+                session.add(head)
+            if generation.revision != head.revision + 1:
+                raise StaleGenerationError("desired generation compare-and-set failed")
+            row = LexicalGenerationTable(
+                id=generation.generation_id,
+                workspace_id=generation.workspace_id,
+                document_id=document.id,
+                document_version_id=generation.document_version_id,
+                chunk_set_id=generation.chunk_set_id,
+                revision=generation.revision,
+                source_revision=document.revision,
+                workspace_revision=workspace.revision,
+                profile_digest=generation.lexical_profile.digest(),
+                content_digest=generation.content_digest(),
+                expected_count=len(generation.chunks),
+                manifest=asdict(generation),
+                status="requested",
+            )
+            session.add(row)
+            session.flush()
+            head.revision = generation.revision
+            head.desired_generation_id = generation.generation_id
+
+    def commit_corpus_transition(
+        self, items: Sequence[tuple[LexicalGeneration, StageReceipt]]
+    ) -> None:
+        """Atomically transition serving generations to a new consistent corpus profile."""
+        with self._sessions.begin() as session:
+            self.commit_corpus_transition_in_transaction(session, items)
+
+    def commit_corpus_transition_in_transaction(
+        self, session: Session, items: Sequence[tuple[LexicalGeneration, StageReceipt]]
+    ) -> None:
+        if not items:
+            raise StaleGenerationError("corpus transition batch cannot be empty")
+        profile_digests = {g.lexical_profile.digest() for g, _ in items}
+        if len(profile_digests) != 1:
+            raise StaleGenerationError("corpus transition contains mixed profile digests")
+        for generation, receipt in items:
+            receipt.validate(generation)
+        ordered_items = sorted(items, key=lambda pair: pair[0].document_id)
+        for generation, receipt in ordered_items:
+            workspace, document = self._lock_document(
+                session, generation.workspace_id, generation.document_id
+            )
+            head = session.get(LexicalHeadTable, document.id)
+            row = session.get(LexicalGenerationTable, generation.generation_id)
+            if (
+                head is None
+                or row is None
+                or head.desired_generation_id != row.id
+                or head.revision != generation.revision
+                or row.revision != generation.revision
+                or row.status == "revoked"
+                or row.source_revision != document.revision
+                or row.workspace_revision != workspace.revision
+                or document.current_document_version_id != row.document_version_id
+                or row.content_digest != receipt.content_digest
+                or row.expected_count != receipt.point_count
+            ):
+                raise StaleGenerationError("transition compare-and-set failed")
+            if row.acknowledged_count not in (None, receipt.point_count):
+                raise StaleGenerationError("conflicting acknowledgement replay")
+            row.acknowledged_count = receipt.point_count
+            row.status = "active"
+            head.active_generation_id = row.id
+
     def revoke(self, *, workspace_id: str, document_id: str) -> None:
         with self._sessions.begin() as session:
             self.revoke_in_transaction(session, workspace_id=workspace_id, document_id=document_id)
@@ -347,7 +461,7 @@ class PostgresSearchIndexStore:
         try:
             profile_data = manifest["lexical_profile"]
             chunks_data = manifest["chunks"]
-            if not isinstance(profile_data, Mapping) or not isinstance(chunks_data, list):
+            if not isinstance(profile_data, Mapping) or not isinstance(chunks_data, (list, tuple)):
                 raise TypeError
             generation = LexicalGeneration(
                 generation_id=manifest["generation_id"],
