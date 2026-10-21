@@ -206,6 +206,49 @@ def _powershell() -> str:
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+@pytest.mark.parametrize(
+    "launcher,python_available",
+    [("start-dev.ps1", False), ("start-dev.ps1", True), ("start-ollama-demo.ps1", False)],
+)
+def test_launcher_platform_check_supports_inherited_strict_mode(
+    tmp_path, shell, launcher, python_available
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+    command = (
+        "$ErrorActionPreference = 'Stop'; Set-StrictMode -Version 3.0; "
+        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV_FILE "
+        "-PythonExe $env:TEST_PYTHON"
+    )
+    if launcher == "start-dev.ps1":
+        command += " -EmbeddingProvider deterministic-local -GenerationProvider deterministic-local"
+    command += "; exit $LASTEXITCODE"
+    result = subprocess.run(
+        [executable, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        env={
+            **os.environ,
+            "TEST_LAUNCHER": str(SCRIPT.parent / launcher),
+            "TEST_ENV_FILE": str(env_file),
+            "TEST_PYTHON": sys.executable
+            if python_available
+            else str(tmp_path / "missing-python.exe"),
+        },
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == (0 if python_available else 2), result.stderr
+    if python_available:
+        assert "PRECHECK_OK embedding-local-m1-v2" in result.stdout
+    else:
+        assert "PYTHON_RUNTIME_UNAVAILABLE" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
 def test_daily_cloudflare_preflight_needs_no_ollama_and_pins_profile(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     template = (SCRIPT.parents[1] / ".env.example").read_text(encoding="utf-8")

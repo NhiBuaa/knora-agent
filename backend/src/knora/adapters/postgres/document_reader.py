@@ -1,3 +1,4 @@
+from dataclasses import replace
 from uuid import uuid4
 
 from sqlalchemy import exists, func, select
@@ -6,6 +7,8 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
+from knora.adapters.postgres.lexical_retrieval import validate_population_in_transaction
+from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
     ChunkSetTable,
@@ -15,6 +18,7 @@ from knora.adapters.postgres.tables import (
     DocumentVersionTable,
     EmbeddingSetTable,
     IngestionJobTable,
+    LexicalHeadTable,
     OriginalSourceObjectTable,
     RetrievalV2CutoverTable,
     WorkspaceTable,
@@ -29,6 +33,7 @@ from knora.ingestion.documents import (
     DocumentListProjection,
     DocumentProjection,
 )
+from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 from knora.providers.embedding import EmbeddingConfiguration
 
 
@@ -38,8 +43,10 @@ class PostgresDocumentReader:
         session_factory: sessionmaker,
         deployed_embedding_configuration: EmbeddingConfiguration | None = None,
         deployed_retrieval_configuration: RetrievalConfiguration | None = None,
+        lexical_population: VerifiedLexicalPopulation | None = None,
     ) -> None:
         self._session_factory = session_factory
+        self._lexical_population = lexical_population
         self._deployed_embedding_configuration = (
             deployed_embedding_configuration or EmbeddingConfiguration.milestone_one_local()
         )
@@ -161,9 +168,22 @@ class PostgresDocumentReader:
             .where(
                 IngestionJobTable.workspace_id == row.workspace_id,
                 IngestionJobTable.document_id == row.id,
+                IngestionJobTable.derivation_kind != "lexical_index",
             )
             .order_by(IngestionJobTable.created_at.desc(), IngestionJobTable.id.desc())
             .limit(1)
+        )
+        indexing_job = (
+            session.scalar(
+                select(IngestionJobTable).where(
+                    IngestionJobTable.parent_ingestion_job_id == latest_job.id,
+                    IngestionJobTable.workspace_id == row.workspace_id,
+                    IngestionJobTable.document_id == row.id,
+                    IngestionJobTable.derivation_kind == "lexical_index",
+                )
+            )
+            if latest_job is not None and latest_job.derivation_kind == "pdf_extraction"
+            else None
         )
         last_processed_at = (
             session.scalar(
@@ -224,7 +244,7 @@ class PostgresDocumentReader:
         reprocess_supported = bool(
             source_object_id and not row.archived and workspace_archived is False
         )
-        return DocumentProjection(
+        projection = DocumentProjection(
             document_id=row.id,
             workspace_id=row.workspace_id,
             source_key=row.source_key,
@@ -235,6 +255,9 @@ class PostgresDocumentReader:
             serving_state=serving_state,
             ingestion_job_id=latest_job.id if latest_job is not None else None,
             ingestion_status=latest_job.status if latest_job is not None else None,
+            derivation_kind=latest_job.derivation_kind if latest_job is not None else None,
+            indexing_job_id=indexing_job.id if indexing_job is not None else None,
+            indexing_status=indexing_job.status if indexing_job is not None else None,
             active_embedding_configuration_id=active_embedding_configuration_id,
             embedding_readiness=embedding_readiness,
             reprocess_supported=reprocess_supported,
@@ -246,6 +269,63 @@ class PostgresDocumentReader:
             )
             if deletion is not None
             else None,
+        )
+        if self._deployed_retrieval_configuration.strategy == "bm25-only":
+            return self._lexical_projection(session, row, projection)
+        return projection
+
+    def _lexical_projection(self, session, row, projection):
+        authority = PostgresSearchIndexStore(self._session_factory)
+        policy = self._deployed_retrieval_configuration.lexical_policy_id
+        head = session.get(LexicalHeadTable, row.id)
+        projection = replace(
+            projection, desired_lexical_generation_id=head.desired_generation_id if head else None
+        )
+        try:
+            active = authority.read_active_generation_in_snapshot(
+                session, row.workspace_id, row.id, policy
+            )
+        except KnoraError as error:
+            if error.code != "LEXICAL_RETRIEVAL_UNAVAILABLE":
+                raise
+            return replace(
+                projection,
+                served_document_version_id=None,
+                serving_state="unavailable",
+                answer_availability="unavailable",
+                last_processed_at=None,
+                lexical_readiness="reindex_required"
+                if head and head.active_generation_id
+                else "not_indexed",
+            )
+        try:
+            current = authority.read_active_generations_in_snapshot(
+                session, row.workspace_id, policy
+            )
+            validate_population_in_transaction(
+                session, row.workspace_id, current, self._lexical_population
+            )
+            availability = "available"
+        except KnoraError as error:
+            if error.code != "LEXICAL_RETRIEVAL_UNAVAILABLE":
+                raise
+            availability = "unavailable"
+        processed_at = session.scalar(
+            select(func.max(IngestionJobTable.terminal_at)).where(
+                IngestionJobTable.workspace_id == row.workspace_id,
+                IngestionJobTable.document_id == row.id,
+                IngestionJobTable.lexical_generation_id == active.generation_id,
+                IngestionJobTable.derivation_kind == "lexical_index",
+                IngestionJobTable.status == "succeeded",
+            )
+        )
+        return replace(
+            projection,
+            served_document_version_id=active.document_version_id,
+            serving_state="current",
+            answer_availability=availability,
+            lexical_readiness="ready",
+            last_processed_at=processed_at,
         )
 
     def list_documents(

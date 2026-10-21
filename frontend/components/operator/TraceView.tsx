@@ -4,6 +4,7 @@ import {
   presentMetric,
   projectedAccounting,
   projectedTiming,
+  safeNumber,
 } from "../../lib/operator/presentation";
 import { ToolObservationView } from "./ToolObservationView";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -212,8 +213,15 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                     <span>
                       Lines {candidate.start_line}-{candidate.end_line}
                     </span>{" "}
-                    · Rank {candidate.final_rank} · Fusion{" "}
-                    {presentMetric(candidate.fusion_score).value}
+                    · Rank {candidate.final_rank} ·{" "}
+                    {candidate.bm25_contribution ? "BM25 raw" : "Fusion"}{" "}
+                    {
+                      presentMetric(
+                        candidate.bm25_contribution
+                          ? safeNumber(candidate.bm25_contribution.raw_score)
+                          : candidate.fusion_score,
+                      ).value
+                    }
                   </p>
                   <p className="mt-2.5 mb-0 min-h-5 max-w-[610px] text-[13px] leading-[18px] [overflow-wrap:anywhere]">
                     {candidate.content}
@@ -230,9 +238,30 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
                       <ContextRow label="Chunk Set">
                         <code>{candidate.chunk_set_id}</code>
                       </ContextRow>
-                      <ContextRow label="Fusion score">
-                        {presentMetric(candidate.fusion_score).value}
+                      <ContextRow
+                        label={
+                          candidate.bm25_contribution
+                            ? "BM25 raw score"
+                            : "Fusion score"
+                        }
+                      >
+                        {
+                          presentMetric(
+                            candidate.bm25_contribution
+                              ? safeNumber(
+                                  candidate.bm25_contribution.raw_score,
+                                )
+                              : candidate.fusion_score,
+                          ).value
+                        }
                       </ContextRow>
+                      {candidate.bm25_contribution && (
+                        <ContextRow label="BM25 contribution">
+                          <code>
+                            {JSON.stringify(candidate.bm25_contribution)}
+                          </code>
+                        </ContextRow>
+                      )}
                       <ContextRow label="Decision reason">
                         {candidate.decision_reason ?? "Unavailable"}
                       </ContextRow>
@@ -310,7 +339,7 @@ export function TraceView({ trace }: { trace: OperatorTraceResponse }) {
               </ContextRow>
               <ContextRow label="Embedding configuration">
                 <span className="font-medium">
-                  {trace.embedding_configuration_id}
+                  {trace.embedding_configuration_id ?? "Not run"}
                 </span>
               </ContextRow>
               <ContextRow label="Trace schema">

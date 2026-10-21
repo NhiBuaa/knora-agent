@@ -1,0 +1,128 @@
+{
+  "files": [
+    {
+      "path": "captures/baseline-b-stop-summary.json",
+      "sha256": "1c3981ff87d488677474abeae45cd0cb862ee305d11ad3518c4d4d504739a5d9"
+    },
+    {
+      "path": "captures/binding-proposals.json",
+      "sha256": "23502f38ed8a720d27b489ef2811838697063f953effad07587df76480e6559f"
+    },
+    {
+      "path": "captures/case-pdf-v3-001-attempt-1.json",
+      "sha256": "6daa50d8876efa79663ae433c7a0b2b8028a6f0091a8602d4fdd080dc7224729"
+    },
+    {
+      "path": "captures/chunks.json",
+      "sha256": "46093ced1a44ce05c7b7b67c95d5dde487bec11529d57ff3e01b7bd7627ff918"
+    },
+    {
+      "path": "captures/counters.json",
+      "sha256": "6dcfe55df345c39523d741c76806fcc743c14c4c081bfdfc7d291af6f4925e1e"
+    },
+    {
+      "path": "captures/dispatch-pdf-v3-001-attempt-1.json",
+      "sha256": "fcfa162a78978c52e74c8662938bfb83b0bcf8c89474b1737b30deebf62fc371"
+    },
+    {
+      "path": "captures/source-academic-phobert.json",
+      "sha256": "06e5e434037f8c3054825ecd9ace1f9802fe56b415c0dcbcc9d2b7af53bfb6c3"
+    },
+    {
+      "path": "captures/source-academic-phonlp.json",
+      "sha256": "4b3e57073161004eb408d982ed704de42cf095ae510fd6d9e61c6c5d6cc9529e"
+    },
+    {
+      "path": "captures/source-academic-vit5.json",
+      "sha256": "b7656242951f5b8fe109639b2191122d34b3c5280accea522d83ee6103da232f"
+    },
+    {
+      "path": "captures/source-clean-01.json",
+      "sha256": "859b18aa3c12ccedc16b6b7f750b636c37a6d2a82219809a6d226e337b97a58a"
+    },
+    {
+      "path": "captures/source-clean-02.json",
+      "sha256": "b99d395d60f2d46a0ffd146de9732e27517f37083e93ed8c0c6bf9895fb08657"
+    },
+    {
+      "path": "captures/source-columns-01.json",
+      "sha256": "468cddb8879cb4cad2706145c537da5fec9c0f553696a486b954ed8fab043341"
+    },
+    {
+      "path": "captures/source-columns-02.json",
+      "sha256": "8c939b107093b546d34207bb7dc255f6b1b59de419d462454379252eda2c1b68"
+    },
+    {
+      "path": "captures/source-hierarchy-01.json",
+      "sha256": "d441f5feb622008e5af5ff126d8a827415d9c607bc9284e4cc4821226d12fcc1"
+    },
+    {
+      "path": "captures/source-hierarchy-02.json",
+      "sha256": "eb6fcc556e0ea9fe25a0ba53a66d02bb802c29d25cf5486138f1cb221704ac30"
+    },
+    {
+      "path": "captures/source-hierarchy-03.json",
+      "sha256": "5a463a5cb2a2f1fa9e95f666f8dcd9a16a60c46b340ccb05ff500fe0c89ac657"
+    },
+    {
+      "path": "captures/source-scan-01.json",
+      "sha256": "cdb3472d2de19f9eab5584b0adaa7a87e44c16898a79123815a171cfd167df9b"
+    },
+    {
+      "path": "captures/source-scan-02.json",
+      "sha256": "b37b4af4abe5be0241dd9fb97ec3579ef17021c248eca3e578f557c8018ad271"
+    },
+    {
+      "path": "captures/source-scan-03.json",
+      "sha256": "c58e12f27ba786155f91aa2d323eda09eacd08605715b7bafd36cdefe95179ab"
+    },
+    {
+      "path": "captures/source-table-01.json",
+      "sha256": "57399a3bd53cdb802f4c76a68c2a89b2360f18b958aa1a801220991a6b35b979"
+    },
+    {
+      "path": "captures/source-table-02.json",
+      "sha256": "9fb702df32a202591bd7f035b923d3c5c1f62a0304b4a74af55c2bcb27130f33"
+    },
+    {
+      "path": "captures/source-table-03.json",
+      "sha256": "6bb221c1e589b7a007cdd1275999640d7495c84a747f1f67b32c69d41f1cb657"
+    },
+    {
+      "path": "operational-evidence/citation-preview-diagnosis.json",
+      "sha256": "6527a4b7fc8de847a612f404683e1457e2d2171e270e88d3dca53c671ce79e67"
+    },
+    {
+      "path": "operational-evidence/free-before-batch-01.json",
+      "sha256": "247a290ae8ef889d39307f422287a4fceb074c1279f767be8f3ee7964fa062be"
+    },
+    {
+      "path": "operational-evidence/persistence-after-stop.json",
+      "sha256": "568494dd398627df02d254b72a035e9ff3abf79871a741f84c72ba340564b73e"
+    },
+    {
+      "path": "operational-evidence/persistence-before-b.json",
+      "sha256": "f63c1248705077bc6ab2fd022f2779de6c8d9632b40a8205d33fe042f8deadb8"
+    },
+    {
+      "path": "operational-evidence/trace-pdf-v3-001.json",
+      "sha256": "ebc181c6d4bde03a6c99321d06f0c92d705201d5fc603ed33728aa9c8959d119"
+    },
+    {
+      "path": "operational-evidence/usage-after-stop.json",
+      "sha256": "258cc5ffef4392017f17653a719cd2eb657bf81d2854fb5bde80209b4c2c7217"
+    },
+    {
+      "path": "source/baseline-b-runtime.py.txt",
+      "sha256": "bd52c232a655d31701ac115fb87c735b930a00033e69e31a35cca018946ce771"
+    },
+    {
+      "path": "source/baseline-b-runtime-selfcheck.py.txt",
+      "sha256": "007760ea464dd03222513e2a87f01c14c5a6b207c3b2be631a5c69d3daff0d61"
+    },
+    {
+      "path": "source/baseline-b-build-report.py.txt",
+      "sha256": "24efd4a91a5700ff6032e6571a77b153fa4335337e63637dd80bfa4fab3d5878"
+    }
+  ]
+}

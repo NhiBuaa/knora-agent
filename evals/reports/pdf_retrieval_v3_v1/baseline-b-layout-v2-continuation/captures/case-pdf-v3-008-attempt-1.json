@@ -1,0 +1,70 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-008:1",
+  "candidates": [],
+  "case_id": "pdf-v3-008",
+  "conversation_id": "f7dd00c9-4870-440f-b0ef-c37e9bd2b5c8",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 1083.2045999995898,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "RX-03 có sai số tối đa bao nhiêu?",
+      "selected_turn_ids": []
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acf95dfa6f8622-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 19.804200001090067
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 19.779899999775807,
+          "end_tick": 16088.2136418,
+          "start_tick": 16088.1938619
+        },
+        "evidence_selection": {
+          "duration_ms": 0.024300001314259134,
+          "end_tick": 16088.2136661,
+          "start_tick": 16088.2136418
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16088.2136661,
+          "start_tick": 16088.2136661
+        },
+        "query_embedding": {
+          "duration_ms": 296.67890000018815,
+          "end_tick": 16088.1938619,
+          "start_tick": 16087.897183
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "01659831-2785-4bc1-ad94-841c58eb0cb4",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "a76cb984989de5e9bb9028fdfa3a71e2e38421e79abbe561694d03fea4a8ff13",
+  "retrieval_latency_ms": 19.804200001090067,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "01659831-2785-4bc1-ad94-841c58eb0cb4",
+  "turn_id": "3916ccc1-de92-413a-9630-ab1fa5e51459",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

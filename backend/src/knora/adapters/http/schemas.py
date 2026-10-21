@@ -55,12 +55,22 @@ class IngestionJobStatusResponse(BaseModel):
     replacement_document_version_id: str | None = None
     replacement_ingestion_job_id: str | None = None
     reprocess_of_job_id: str | None = None
+    indexing_job_id: str | None = None
+    indexing_status: (
+        Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
+        | None
+    ) = None
+    lexical_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
+    derivation_kind: Literal["dense", "pdf_extraction", "lexical_index"] | None = None
+    desired_lexical_generation_id: str | None = None
+    lexical_revision: int | None = None
     poll_after_seconds: int
 
 
 class ReprocessRequest(BaseModel):
     config_mode: Literal["same_as_job", "current", "deployed"]
     config_source_job_id: str | None = None
+    expected_lexical_revision: int | None = Field(default=None, strict=True, ge=0)
 
 
 class ReprocessResponse(BaseModel):
@@ -95,6 +105,14 @@ class DocumentResponse(BaseModel):
     last_processed_at: datetime | None = None
     answer_availability: Literal["available", "unavailable", "unknown"] = "unknown"
     deletion_request: DocumentDeletionRequestResponse | None = None
+    indexing_job_id: str | None = None
+    indexing_status: (
+        Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
+        | None
+    ) = None
+    lexical_readiness: Literal["ready", "reindex_required", "not_indexed"] = "not_indexed"
+    derivation_kind: Literal["dense", "pdf_extraction", "lexical_index"] | None = None
+    desired_lexical_generation_id: str | None = None
 
 
 class DocumentListResponse(BaseModel):
@@ -115,18 +133,19 @@ class OperatorCandidateResponse(BaseModel):
     start_line: int
     end_line: int
     final_rank: int
-    fusion_score: float
+    fusion_score: float | None
     final_decision: str
     decision_reason: str | None = None
     vector_contribution: dict[str, JsonValue] | None = None
     fts_contribution: dict[str, JsonValue] | None = None
+    bm25_contribution: dict[str, JsonValue] | None = None
 
 
 class OperatorTraceResponse(BaseModel):
     trace_id: str
     workspace_id: str
     retrieval_configuration_id: str
-    embedding_configuration_id: str
+    embedding_configuration_id: str | None
     candidates: list[OperatorCandidateResponse]
     alias_mapping: dict[str, str]
     provider_metadata: dict[str, JsonValue]

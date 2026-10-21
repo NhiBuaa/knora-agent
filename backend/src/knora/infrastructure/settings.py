@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     embedding_dimension: int = 1536
     retrieval_configuration_id: str = "retrieval-m1-v1"
     vector_min_similarity: float | None = None
+    lexical_population_manifest: str | None = None
+    lexical_qdrant_url: str | None = None
+    lexical_qdrant_collection: str | None = None
     api_credentials_json: str = "[]"
     keycloak_issuer: str | None = None
     keycloak_audience: str | None = None

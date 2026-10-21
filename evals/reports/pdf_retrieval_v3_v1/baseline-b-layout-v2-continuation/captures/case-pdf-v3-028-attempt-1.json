@@ -1,0 +1,100 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-028:1",
+  "candidates": [
+    {
+      "chunk_id": "4d6df350-fe8d-418f-a82a-49aa8a911a00",
+      "chunk_set_id": "7d5627c8-9152-46cd-851a-46d2c85e50dd",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "Biên bản kiểm MX-11\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nPDF page 1 | CC BY 4.0 | Knora evaluation fixture",
+      "content_checksum": "2db0a03ee50c3af7984ae65cf194ab2e56cb7e0b7e6465712015e91dc0272d4e",
+      "document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e",
+      "end_offset": 127,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8",
+      "source_key": "scan-02",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-028",
+  "conversation_id": null,
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 4711.35890000005,
+  "failure_code": null,
+  "provider_metadata": {
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acfe8408ff84e4-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792048128107",
+      "usage": {
+        "completion_tokens": 191,
+        "prompt_tokens": 472,
+        "total_tokens": 663
+      }
+    },
+    "retrieval": {
+      "latency_ms": 19.860099999277736
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 19.84429999902204,
+          "end_tick": 16301.3104357,
+          "start_tick": 16301.2905914
+        },
+        "evidence_selection": {
+          "duration_ms": 0.015800000255694613,
+          "end_tick": 16301.3104515,
+          "start_tick": 16301.3104357
+        },
+        "generation": {
+          "duration_ms": 2165.5855999997584,
+          "end_tick": 16303.4760371,
+          "start_tick": 16301.3104515
+        },
+        "query_embedding": {
+          "duration_ms": 2479.2692000009993,
+          "end_tick": 16301.2905914,
+          "start_tick": 16298.8113222
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "489137e7-36b3-4a27-b4a4-f006e4040633",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "f26a57ea36ca0ffd9c0e4aa5d525e631f3440ecfd7269afb8f3a0eec08d09359",
+  "retrieval_latency_ms": 19.860099999277736,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "4d6df350-fe8d-418f-a82a-49aa8a911a00"
+  ],
+  "trace_id": "489137e7-36b3-4a27-b4a4-f006e4040633",
+  "turn_id": null,
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

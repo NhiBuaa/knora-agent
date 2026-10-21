@@ -1,0 +1,28 @@
+{
+  "checked_at": "2026-10-15T07:12:37.2093771+00:00",
+  "plan": "Workers Free",
+  "account_id": "0815469773bb9f83177a1303be9a90f3",
+  "raw_neurons_used": 202.67,
+  "neurons_used": 203,
+  "daily_limit": 10000,
+  "models_free_eligible": true,
+  "no_paid_gateway": true,
+  "paid_budget_usd": 0,
+  "quota_coordination_confirmed": true,
+  "ci_required": {
+    "conclusion": "success",
+    "url": "https://github.com/NhiBuaa/knora-agent/actions/runs/38695387159",
+    "code_commit": "2787eb910b8183c264506b5fc31b051208f70f8f"
+  },
+  "evidence": {
+    "other_session": "#183 Q17 permits no inference; latest coordination6186608013",
+    "source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/ai/workers-ai/usage",
+    "limits": "Remaining24queries<=48generation, total60/60; next12; paid0USD",
+    "coordination": "https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6186472275",
+    "plan": "Fresh Workers plans UI: Free $0 Current plan; 10000 neurons/day",
+    "plan_source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/workers/plans",
+    "usage": "Fresh daily202.67/10k aftercheckpoint36; counter lag retained, not zero consumption.",
+    "pricing": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+    "checkpoint_review": "36query/12generation,10775input+2908output=>275.220934generationneurons rateestimate vs4500prorated; embeddingunknown. Conservatively subtract all275.23 as unsettled from dailyremaining9797.33 =>9522.10 still above8500 admission and3000remainingplanning. No errors/drift."
+  }
+}

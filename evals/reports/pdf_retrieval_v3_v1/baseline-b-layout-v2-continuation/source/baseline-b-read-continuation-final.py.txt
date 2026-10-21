@@ -1,0 +1,152 @@
+"""Read only the owned persisted derivation after continuation; no model/runtime."""
+
+# ruff: noqa: E402 -- repository imports follow path and owned environment setup.
+
+import json
+import os
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from urllib.parse import quote
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+from evals.datasets.pdf_retrieval_v3_v1 import load_dataset, validate_approval
+from evals.runners.pdf_source_binding import digest, propose_bindings, validate_binding_review
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
+
+def read(path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+info = json.loads(
+    subprocess.check_output(["docker", "inspect", "knora153s1-postgres-1"], text=True)
+)[0]
+assert info["State"]["Running"]
+assert info["Config"]["Labels"]["com.docker.compose.project"] == "knora153s1"
+assert Path(info["Config"]["Labels"]["com.docker.compose.project.working_dir"]).resolve() == ROOT
+assert info["HostConfig"]["PortBindings"]["5432/tcp"] == [
+    {"HostIp": "127.0.0.1", "HostPort": "55453"}
+]
+values = dict(item.split("=", 1) for item in info["Config"]["Env"] if "=" in item)
+url = (
+    f"postgresql+psycopg://{quote(values['POSTGRES_USER'], safe='')}:"
+    f"{quote(values['POSTGRES_PASSWORD'], safe='')}@127.0.0.1:55453/knora153s1_baseline"
+)
+engine = create_engine(
+    url, connect_args={"options": "-c default_transaction_read_only=on -c statement_timeout=15000"}
+)
+output = ROOT / ".verification/issue153/baseline-b"
+output.mkdir(exist_ok=True)
+for key in list(os.environ):
+    if key.startswith(("KNORA_", "LANGFUSE_", "OTEL_")):
+        del os.environ[key]
+os.environ.update(KNORA_DATABASE_URL=url, KNORA_PROVIDER_MODE="deterministic-local")
+os.chdir(output)
+from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
+
+dataset = load_dataset(
+    ROOT / "evals/datasets/pdf_retrieval_v3_v1.manifest.json",
+    ROOT / "evals/datasets/pdf_retrieval_v3_v1.jsonl",
+)
+validate_approval(dataset, read(ROOT / "evals/datasets/pdf_retrieval_v3_v1.approval.json"))
+packet = ROOT / "evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime"
+review, expected = read(packet / "binding-review.json"), read(packet / "proposals.json")
+reader = PostgresEvaluationReader(sessionmaker(bind=engine))
+actual = propose_bindings(dataset, reader.read_pdf_chunks(workspace_id=review["workspace_id"]))
+assert actual == expected
+bindings = validate_binding_review(actual, review)
+with engine.connect() as db:
+    assert db.scalar(text("SHOW transaction_read_only")) == "on"
+    counts = {
+        table: db.scalar(text(f"SELECT count(*) FROM {table}"))
+        for table in (
+            "workspaces",
+            "documents",
+            "document_versions",
+            "chunks",
+            "question_traces",
+            "conversations",
+            "conversation_turns",
+            "ingestion_job_attempts",
+        )
+    }
+    profiles = list(
+        db.execute(
+            text(
+                "SELECT ec.id,ec.model,ec.dimensions,es.status,count(*) AS vectors,"
+                "min(vector_dims(ce.embedding)) AS min_dimensions,"
+                "max(vector_dims(ce.embedding)) AS max_dimensions FROM chunk_embeddings ce "
+                "JOIN embedding_sets es ON es.id=ce.embedding_set_id "
+                "JOIN embedding_configurations ec ON ec.id=es.embedding_configuration_id "
+                "GROUP BY ec.id,ec.model,ec.dimensions,es.status"
+            )
+        ).mappings()
+    )
+    original_trace = read(output / "trace-pdf-v3-001.json")
+    actual_trace = db.scalar(
+        text(
+            "SELECT row_to_json(t) FROM question_traces t WHERE id=:id AND workspace_id=:workspace"
+        ),
+        {"id": original_trace["id"], "workspace": review["workspace_id"]},
+    )
+    assert actual_trace == original_trace
+rows = [read(path) for path in (ROOT / ".verification/issue153/run").glob("case-*-attempt-*.json")]
+assert len(rows) == 60
+trace_ids = {row["trace_id"] for row in rows}
+conversation_ids = {row["conversation_id"] for row in rows if row["conversation_id"]}
+turn_ids = {row["turn_id"] for row in rows if row["turn_id"]}
+assert len(trace_ids) == 60 and len(conversation_ids) == 8 and len(turn_ids) == 16
+with engine.connect() as db:
+    for table, expected_ids in (
+        ("question_traces", trace_ids),
+        ("conversations", conversation_ids),
+        ("conversation_turns", turn_ids),
+    ):
+        actual_ids = {str(value) for value in db.scalars(text(f"SELECT id FROM {table}"))}
+        assert actual_ids == expected_ids, f"{table} capture identities drift"
+assert counts == {
+    "workspaces": 1,
+    "documents": 16,
+    "document_versions": 16,
+    "chunks": 47,
+    "question_traces": 60,
+    "conversations": len(conversation_ids),
+    "conversation_turns": len(turn_ids),
+    "ingestion_job_attempts": 16,
+}
+(profile,) = profiles
+assert (
+    profile["id"] == "embedding-cloudflare-qwen3-06b-v1"
+    and profile["model"] == "@cf/qwen/qwen3-embedding-0.6b"
+)
+assert profile["dimensions"] == profile["min_dimensions"] == profile["max_dimensions"] == 1024
+assert profile["status"] == "completed" and profile["vectors"] == 47
+record = {
+    "checked_at": datetime.now(UTC).isoformat(),
+    "read_only": True,
+    "counts": counts,
+    "embedding_profiles": [dict(p) for p in profiles],
+    "proposal_sha256": actual["proposal_sha256"],
+    "derivation_sha256": actual["derivation_sha256"],
+    "binding_review_sha256": digest(review),
+    "mapped": sum(bool(ids) for ids in bindings.values()),
+    "missing": sum(not ids for ids in bindings.values()),
+    "paid_budget_usd": 0,
+    "model_calls": 0,
+    "original_trace_unchanged": True,
+    "all_capture_trace_conversation_turn_ids_match_db": True,
+    "count_diagnostic": (
+        "Initial assertion expected every case to use conversation API; "
+        + "8 parents + 8 followups use it, 44 others use direct Q&A. "
+        + "Captured IDs reconcile exactly; no provider retry or data change."
+    ),
+}
+path = output / "persistence-after-continuation.json"
+assert not path.exists()
+path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+print(json.dumps(record))
+engine.dispose()

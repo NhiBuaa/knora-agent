@@ -90,7 +90,7 @@ if ($GenerationProvider -eq 'ollama' -and $GenerationModel -notin @('qwen3:8b', 
 }
 if ($GenerationProvider -ne 'ollama' -and $PSBoundParameters.ContainsKey('GenerationModel')) { Fail 'INVALID_GENERATION_MODEL' }
 
-if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { Fail 'WINDOWS_RUNTIME_REQUIRED' }
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Fail 'WINDOWS_RUNTIME_REQUIRED' }
 if (-not $PythonExe) {
     $candidates = @(
         (Join-Path $repoRoot '.venv\Scripts\python.exe'),
