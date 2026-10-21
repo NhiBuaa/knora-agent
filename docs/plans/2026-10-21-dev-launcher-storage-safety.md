@@ -259,14 +259,16 @@ Theo các gói bàn giao `dev-launcher-storage-safety-remediation-antigravity-20
    - Mở rộng `test_launcher_verifies_volume_destination_and_role_label` kiểm thử toàn diện 10 trường hợp nhãn (null-labels, empty-labels, missing-project, missing-role, empty-project, empty-role, wrong-project, wrong-role) và mount destination (wrong-destination, valid).
 
 2. **Dọn sạch sau lỗi khởi động và giải phóng reservation (Finding 2 / P2 - Thread 4333903545)**:
-   - Phân biệt rõ ràng giữa mutating startup bất định / dọn dẹp lỗi (giữ lại lock file kèm PID, repo, timestamp và cảnh báo `DEV_RESERVATION_RETAINED:knora-dev`) với lỗi khởi động đã xác định kết thúc và dọn sạch (`startupConfirmed = $true`, `cleanupFailed = $false`): tự động giải phóng khóa để cho phép lần khởi chạy tiếp theo thành công bình thường.
-   - Kiểm chứng bằng nhánh `startup-failure` trong `test_launcher_cleans_owned_descendants` và `test_launcher_retains_reservation_on_mutating_startup_uncertainty`.
+   - Phân biệt rõ ràng giữa mutating startup bất định / dọn dẹp lỗi (giữ lại lock file kèm PID, repo, timestamp và cảnh báo `DEV_RESERVATION_RETAINED:knora-dev`) với lỗi tạo ứng dụng đồng bộ khi các thao tác storage/migration đã hoàn tất (`$storageStartupConfirmed = $true`, `$cleanupFailed = $false`): tự động giải phóng khóa để cho phép lần khởi chạy tiếp theo thành công bình thường.
+   - Mốc `$storageStartupConfirmed` được đặt ngay sau khi `alembic upgrade head` thành công và trước giai đoạn khởi tạo tiến trình ứng dụng; gỡ bỏ gán sau frontend.
+   - Trong `test_launcher_cleans_owned_descendants`: mở rộng kiểm thử 4 ca lỗi đồng bộ (`startup-failure`, `api-log-open-failure`, `worker-log-open-failure`, `frontend-log-open-failure`) xác nhận giải phóng khóa và lần gọi kế tiếp lấy được quyền (bỏ `-PreflightOnly`), cùng ca bảo vệ synthetic `cleanup-failure` (chèn lỗi sau `Dispose()` thực của fixture) xác nhận giữ khóa và chặn lần gọi kế tiếp với `DEV_PROJECT_RESERVED:knora-dev`.
+   - Trong fixture wrapper `launcher_runtime`: bổ sung thiết lập lại `SetConsoleCtrlHandler(NULL, FALSE)` để ngăn PowerShell con kế thừa cờ bỏ qua Ctrl-C từ môi trường test headless/task, và trả về đúng `$LASTEXITCODE`.
 
 3. **Thu hồi toàn bộ cây tiến trình metadata bằng Windows Job Object (Finding 3 / P2 - Thread 4333903568)**:
    - Nạp sớm `scripts/dev-process-job.cs` trong `scripts/start-dev.ps1`; mở rộng hỗ trợ file batch `.bat` và bổ sung phương thức `WaitForProcesses` kiểm tra `ActiveProcesses == 0` qua `QueryInformationJobObject`.
    - `Invoke-DockerMetadata` tạo và quản lý tiến trình query trực tiếp trong Windows Job Object (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, cấm breakaway), chuyển hướng stdout/stderr ra file tạm trong `%TEMP%` để tránh deadlock anonymous pipe trên Windows.
    - Khi timeout (10s command, 30s scan), Job Object đóng lại và bảo đảm hạt nhân Windows hủy toàn bộ cây tiến trình (gồm cả con, cháu holding pipe).
-   - Kiểm chứng bằng regression test `test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline` với cây tiến trình 3 cấp (root -> middle -> leaf).
+   - Kiểm chứng bằng regression test `test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline`: sửa phân loại mode C# (chỉ `middle` và `leaf` là mode con, các lệnh Docker như `ps` thuộc `root`), lưu identity PID kèm thời điểm tạo UTC, bắt buộc tồn tại đủ 3 marker (`root.pid`, `middle.pid`, `leaf.pid`), assert cả 3 identity đã bị hủy sau deadline và dọn dẹp fixture an toàn trong `finally`.
 
 4. **Loại bỏ tranh chấp cổng trong fixture và kiểm chứng ổn định (Finding 4 / P2 - Thread 4333903579)**:
    - Trong nhánh `startup-failure` của `test_launcher_cleans_owned_descendants`, dùng socket PostgreSQL đã bind (không listen) giữ cổng độc quyền suốt vòng đời test, loại bỏ hoàn toàn vòng lặp retry cấp cao.

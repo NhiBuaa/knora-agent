@@ -285,7 +285,7 @@ $reservation = $null
 $reservationPath = Join-Path ([IO.Path]::GetTempPath()) "knora-dev-reservation-$composeProject.lock"
 $cleanupFailed = $false
 $mutatingStarted = $false
-$startupConfirmed = $false
+$storageStartupConfirmed = $false
 
 if (-not $PreflightOnly) {
     try {
@@ -531,6 +531,7 @@ try {
     }
     & $PythonExe -m alembic -c backend/alembic.ini upgrade head | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'DATABASE_MIGRATION_FAILED' }
+    $storageStartupConfirmed = $true
 
     $logs = Join-Path $env:TEMP 'knora-dev-runtime'
     New-Item -ItemType Directory -Path $logs -Force | Out-Null
@@ -577,7 +578,6 @@ try {
             'scripts/run_conversation_worker.py'
         ) -RedirectStandardOutput (Join-Path $logs 'conversation-worker.out.log') -RedirectStandardError (Join-Path $logs 'conversation-worker.err.log')
         $frontend = Start-DevProcess -FilePath $npm -ArgumentList @('--prefix','frontend','run','dev') -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError (Join-Path $logs 'frontend.err.log')
-        $startupConfirmed = $true
 
         $apiHealthy = $false
         $frontendHealthy = $false
@@ -656,7 +656,7 @@ try {
         try {
             $reservation.Dispose()
         } catch { }
-        if (-not $cleanupFailed -and (-not $mutatingStarted -or $startupConfirmed)) {
+        if (-not $cleanupFailed -and (-not $mutatingStarted -or $storageStartupConfirmed)) {
             try { [IO.File]::Delete($reservationPath) } catch { }
         } else {
             [Console]::Error.WriteLine("DEV_RESERVATION_RETAINED:$reservationPath - Mutating startup or cleanup did not complete cleanly. Inspect and remove lock file manually after verifying container and process state.")

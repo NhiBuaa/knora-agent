@@ -1078,11 +1078,21 @@ def launcher_runtime(tmp_path: Path):
     (root / "npm.cmd").write_text(f'@echo off\n"{sys.executable}" service.py frontend\n')
     wrapper = root / "invoke.ps1"
     wrapper.write_text(
+        "Add-Type @'\n"
+        "using System;\n"
+        "using System.Runtime.InteropServices;\n"
+        "public class CtrlReset {\n"
+        '    [DllImport("kernel32.dll", SetLastError = true)]\n'
+        "    public static extern bool SetConsoleCtrlHandler(IntPtr handler, bool add);\n"
+        "}\n"
+        "'@\n"
+        "[CtrlReset]::SetConsoleCtrlHandler([IntPtr]::Zero, $false) | Out-Null\n"
         "function docker { $global:LASTEXITCODE = 0; if ($args -contains 'exec') { '1' } }\n"
         "& $env:FIXTURE_LAUNCHER -NoBrowser -EnvFile $env:FIXTURE_ENV "
         "-PythonExe $env:FIXTURE_PYTHON -EmbeddingProvider deterministic-local "
         "-GenerationProvider deterministic-local -ApiPort $env:FIXTURE_API_PORT "
         "-FrontendPort $env:FIXTURE_FRONTEND_PORT -PostgresPort $env:FIXTURE_POSTGRES_PORT\n"
+        "exit $LASTEXITCODE\n"
     )
     return root, wrapper
 
@@ -1128,7 +1138,19 @@ def _console_ctrl_c(pid: int) -> None:
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows launcher process ownership")
 @pytest.mark.parametrize("shell", ["powershell", "pwsh"])
-@pytest.mark.parametrize("scenario", ["ctrl-c", "exited-root", "startup-failure", "worker-restart"])
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "ctrl-c",
+        "exited-root",
+        "startup-failure",
+        "worker-restart",
+        "api-log-open-failure",
+        "worker-log-open-failure",
+        "frontend-log-open-failure",
+        "cleanup-failure",
+    ],
+)
 def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenario: str):
     executable = shutil.which(shell)
     if executable is None:
@@ -1139,6 +1161,23 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         for key, value in os.environ.items()
         if not key.startswith(("KNORA_", "KEYCLOAK_", "SESSION_"))
     }
+    startup_log_failures = {
+        "api-log-open-failure": "api.out.log",
+        "worker-log-open-failure": "worker-1.out.log",
+        "frontend-log-open-failure": "frontend.out.log",
+    }
+    if scenario in startup_log_failures:
+        (root / "knora-dev-runtime" / startup_log_failures[scenario]).mkdir(parents=True)
+
+    if scenario == "cleanup-failure":
+        fixture_script = root / "scripts/start-dev.ps1"
+        s_text = fixture_script.read_text(encoding="utf-8")
+        s_target = "if ($processJob) { $processJob.Dispose() }"
+        s_replacement = (
+            "if ($processJob) { $processJob.Dispose(); throw 'SYNTHETIC_CLEANUP_FAILURE' }"
+        )
+        assert s_target in s_text, "Dispose call not found in fixture launcher"
+        fixture_script.write_text(s_text.replace(s_target, s_replacement), encoding="utf-8")
     environment.update(
         PATH=f"{root};{environment['PATH']}",
         TEMP=str(root),
@@ -1190,12 +1229,23 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                         known.update(o.children(recursive=True))
                 return log_path.read_text(errors="replace")
 
-            if scenario == "startup-failure":
+            is_early_failure = scenario in (
+                "startup-failure",
+                "api-log-open-failure",
+                "worker-log-open-failure",
+                "frontend-log-open-failure",
+            )
+            if is_early_failure:
                 _wait_until(lambda p=launcher: observe(p) and p.poll() is not None)
-                assert "DEV_RUNTIME_FAILED" in observe(launcher)
+                combined_obs = observe(launcher)
+                assert "DEV_RUNTIME_FAILED" in combined_obs
+                assert "DEV_STOPPED" in combined_obs
+                assert "DEV_CLEANUP_FAILED" not in combined_obs
+                if scenario in startup_log_failures:
+                    assert "OPEN_STANDARD_STREAM" in combined_obs
                 lock_file = root / "knora-dev-reservation-knora-dev.lock"
                 assert not lock_file.exists(), (
-                    "Reservation lock must be released on clean startup failure"
+                    f"Reservation lock must be released on clean failure for {scenario}"
                 )
                 res_check = subprocess.run(
                     [
@@ -1205,7 +1255,6 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                         "Bypass",
                         "-File",
                         str(wrapper),
-                        "-PreflightOnly",
                     ],
                     cwd=root,
                     env=environment,
@@ -1213,7 +1262,45 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                     text=True,
                     timeout=15,
                 )
-                assert "DEV_PROJECT_RESERVED" not in res_check.stderr
+                combined_check = res_check.stdout + res_check.stderr
+                assert res_check.returncode == 2, combined_check
+                assert "DEV_PROJECT_RESERVED" not in combined_check
+                assert "DEV_RUNTIME_FAILED" in combined_check
+                assert "DEV_STOPPED" in combined_check
+                assert not lock_file.exists()
+                if scenario in startup_log_failures:
+                    assert "OPEN_STANDARD_STREAM" in combined_check
+            elif scenario == "cleanup-failure":
+                _wait_until(
+                    lambda p=launcher: "DEV_READY" in observe(p),
+                    timeout=20,
+                )
+                if launcher.poll() is None:
+                    _console_ctrl_c(launcher.pid)
+                _wait_until(lambda p=launcher: observe(p) and p.poll() is not None)
+                combined_obs = observe(launcher)
+                assert "DEV_CLEANUP_FAILED" in combined_obs
+                assert "SYNTHETIC_CLEANUP_FAILURE" in combined_obs
+                lock_file = root / "knora-dev-reservation-knora-dev.lock"
+                assert lock_file.exists(), "Reservation lock must be retained when cleanup fails"
+                res_check = subprocess.run(
+                    [
+                        executable,
+                        "-NoProfile",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        str(wrapper),
+                    ],
+                    cwd=root,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                combined_check = res_check.stdout + res_check.stderr
+                assert res_check.returncode == 2, combined_check
+                assert "DEV_PROJECT_RESERVED:knora-dev" in combined_check
             else:
                 _wait_until(
                     lambda p=launcher: "DEV_READY" in observe(p),
@@ -1239,7 +1326,8 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                 process = psutil.Process(identity["pid"])
                 if process.create_time() == identity["created"]:
                     known.add(process)
-        assert "DEV_STOPPED" in observe()
+        if scenario != "cleanup-failure":
+            assert "DEV_STOPPED" in observe()
         # Console hosts can outlive their launcher briefly while attachments close.
         _, remaining = psutil.wait_procs(list(known), timeout=10)
         assert not remaining, f"Owned processes survived cleanup: {remaining}\n{observe()}"
@@ -1248,6 +1336,10 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", frontend_port))
     finally:
+        lock_cleanup = root / "knora-dev-reservation-knora-dev.lock"
+        if scenario == "cleanup-failure" and lock_cleanup.exists():
+            with suppress(Exception):
+                lock_cleanup.unlink()
         if launcher is not None and launcher.poll() is None:
             known.update(psutil.Process(launcher.pid).children(recursive=True))
             launcher.kill()
@@ -2156,9 +2248,11 @@ def test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline(
     public class FakeDockerNestedPipe {
         public static void Main(string[] args) {
             string folder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string mode = args.Length == 0 ? "root" : args[0];
+            string mode = args.Length > 0 && (args[0] == "middle" || args[0] == "leaf")
+                ? args[0] : "root";
+            var cur = Process.GetCurrentProcess();
             string pidFile = Path.Combine(folder, mode + ".pid");
-            File.WriteAllText(pidFile, Process.GetCurrentProcess().Id.ToString());
+            File.WriteAllText(pidFile, cur.Id + ":" + cur.StartTime.ToFileTimeUtc());
             if (mode == "leaf") { Thread.Sleep(30000); return; }
             string targetMode = mode == "root" ? "middle" : "leaf";
             var start = new ProcessStartInfo(Assembly.GetExecutingAssembly().Location, targetMode);
@@ -2209,8 +2303,27 @@ def test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline(
         "KNORA_TEST_SCRIPT": str(SCRIPT),
     }
 
-    middle_pid = None
-    leaf_pid = None
+    def _parse_marker(marker_file: Path) -> tuple[int | None, int | None]:
+        if not marker_file.exists():
+            return None, None
+        raw = marker_file.read_text(encoding="utf-8").strip()
+        if ":" in raw:
+            parts = raw.split(":", 1)
+            return int(parts[0]), int(parts[1])
+        return int(raw), None
+
+    def _is_matching_process_alive(pid: int | None, file_time_utc: int | None) -> bool:
+        if pid is None or not psutil.pid_exists(pid):
+            return False
+        if file_time_utc is None:
+            return True
+        try:
+            proc = psutil.Process(pid)
+            proc_file_time = int((proc.create_time() + 11644473600) * 10000000)
+            return abs(proc_file_time - file_time_utc) < 20000000
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return False
+
     try:
         start_time = time.time()
         result = subprocess.run(
@@ -2241,20 +2354,27 @@ def test_launcher_docker_metadata_terminates_child_holding_pipe_within_deadline(
         assert "DOCKER_METADATA_TIMEOUT:knora-dev" in result.stderr
         assert 9 <= elapsed <= 19, f"Elapsed time {elapsed}s outside expected bounded timeout"
 
+        root_pid_file = fake_bin / "root.pid"
         middle_pid_file = fake_bin / "middle.pid"
         leaf_pid_file = fake_bin / "leaf.pid"
-        if middle_pid_file.exists():
-            middle_pid = int(middle_pid_file.read_text().strip())
-            assert not psutil.pid_exists(middle_pid), (
-                f"Middle process {middle_pid} must be terminated"
+        assert root_pid_file.exists(), "Root marker file must exist"
+        assert middle_pid_file.exists(), "Middle marker file must exist"
+        assert leaf_pid_file.exists(), "Leaf marker file must exist"
+
+        for mode, marker_file in [
+            ("root", root_pid_file),
+            ("middle", middle_pid_file),
+            ("leaf", leaf_pid_file),
+        ]:
+            pid, ft = _parse_marker(marker_file)
+            assert not _is_matching_process_alive(pid, ft), (
+                f"{mode.capitalize()} descendant {pid} must be terminated"
             )
-        if leaf_pid_file.exists():
-            leaf_pid = int(leaf_pid_file.read_text().strip())
-            assert not psutil.pid_exists(leaf_pid), f"Leaf descendant {leaf_pid} must be terminated"
     finally:
-        for pid in (middle_pid, leaf_pid):
-            if pid and psutil.pid_exists(pid):
-                with suppress(psutil.NoSuchProcess):
+        for mode in ("root", "middle", "leaf"):
+            pid, ft = _parse_marker(fake_bin / f"{mode}.pid")
+            if pid and _is_matching_process_alive(pid, ft):
+                with suppress(psutil.NoSuchProcess, psutil.AccessDenied):
                     psutil.Process(pid).kill()
 
 
