@@ -101,6 +101,10 @@ class PreparedPdfChunk:
     content: str
     content_checksum: str
     token_count: int
+    heading_path: tuple[str, ...] = ()
+    block_ids: tuple[str, ...] = ()
+    table_ids: tuple[str, ...] = ()
+    search_context: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
