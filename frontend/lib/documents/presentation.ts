@@ -1,4 +1,7 @@
-import type { DocumentResponse } from "@/generated/knora-openapi";
+import type {
+  DocumentResponse,
+  ReprocessRequest,
+} from "@/generated/knora-openapi";
 
 export type DocumentStatusView = {
   label: string;
@@ -12,6 +15,31 @@ export function jobIsActive(status: string | null | undefined) {
     status === "processing" ||
     status === "retry_scheduled"
   );
+}
+
+export function derivationIsActive(document: {
+  ingestion_status?: string | null;
+  indexing_status?: string | null;
+}) {
+  return (
+    jobIsActive(document.ingestion_status) ||
+    jobIsActive(document.indexing_status)
+  );
+}
+
+export function reprocessConfiguration(
+  document: DocumentResponse,
+  denseMode: "current" | "deployed",
+): ReprocessRequest | null {
+  if (document.derivation_kind !== "pdf_extraction")
+    return { config_mode: denseMode };
+  if (document.desired_lexical_generation_id) return { config_mode: "current" };
+  return document.ingestion_job_id
+    ? {
+        config_mode: "same_as_job",
+        config_source_job_id: document.ingestion_job_id,
+      }
+    : null;
 }
 
 export function deletionReason(reason: string | null | undefined) {
@@ -46,6 +74,18 @@ export function documentStatus(document: DocumentResponse): DocumentStatusView {
     return { label: "Processing…", tone: "normal", detail: null };
   if (document.ingestion_status === "retry_scheduled")
     return { label: "Retry scheduled", tone: "normal", detail: null };
+  if (document.indexing_status === "failed")
+    return { label: "Indexing failed", tone: "error", detail: null };
+  if (document.indexing_status === "queued")
+    return { label: "Index queued", tone: "normal", detail: null };
+  if (document.indexing_status === "processing")
+    return { label: "Indexing…", tone: "normal", detail: null };
+  if (document.indexing_status === "retry_scheduled")
+    return { label: "Index retry scheduled", tone: "normal", detail: null };
+  if (document.lexical_readiness === "reindex_required")
+    return { label: "Needs re-index", tone: "warning", detail: null };
+  if (document.lexical_readiness === "ready")
+    return { label: "Ready", tone: "success", detail: null };
   if (document.embedding_readiness === "reindex_required")
     return { label: "Needs re-index", tone: "warning", detail: null };
   if (document.embedding_readiness === "ready")

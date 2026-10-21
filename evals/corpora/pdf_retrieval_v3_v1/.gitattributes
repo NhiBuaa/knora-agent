@@ -1,0 +1,3 @@
+# Keep original PDF and captured license bytes hash-stable across Windows checkouts.
+*.pdf binary
+licenses/*.html -text

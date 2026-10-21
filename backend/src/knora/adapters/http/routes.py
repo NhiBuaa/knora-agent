@@ -29,6 +29,7 @@ from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.interface import IngestDocumentCommand
 from knora.ingestion.jobs import (
     IngestionJobs,
+    PdfExtractionSubmissionConfiguration,
     PdfSubmissionCommand,
     PdfSubmissionConfiguration,
     ReprocessDocumentVersionCommand,
@@ -52,6 +53,19 @@ def get_authenticator(request: Request):
 
 def get_embedding_configuration(request: Request) -> EmbeddingConfiguration:
     return request.app.state.embedding_configuration
+
+
+def get_pdf_submission_configuration(
+    request: Request,
+    embedding_configuration: Annotated[
+        EmbeddingConfiguration, Depends(get_embedding_configuration)
+    ],
+) -> PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration:
+    return getattr(
+        request.app.state, "pdf_submission_configuration", None
+    ) or PdfSubmissionConfiguration.layout_preserving(
+        embedding_configuration=embedding_configuration
+    )
 
 
 def get_ingestion_jobs(request: Request) -> IngestionJobs | None:
@@ -203,6 +217,10 @@ async def ingest_document(
     embedding_configuration: Annotated[
         EmbeddingConfiguration, Depends(get_embedding_configuration)
     ],
+    pdf_configuration: Annotated[
+        PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration,
+        Depends(get_pdf_submission_configuration),
+    ],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> IngestionResponse | PdfSubmissionResponse:
     filename = safe_source_name(file.filename or "")
@@ -226,9 +244,7 @@ async def ingest_document(
                 media_type=media_type,
                 stream=file.file,
                 idempotency_key=idempotency_key,
-                configuration=PdfSubmissionConfiguration.layout_preserving(
-                    embedding_configuration=embedding_configuration,
-                ),
+                configuration=pdf_configuration,
             ),
             principal,
         )
@@ -515,8 +531,17 @@ def _job_status_payload(projection) -> dict[str, object]:
         "replacement_document_version_id": projection.replacement_document_version_id,
         "replacement_ingestion_job_id": projection.replacement_ingestion_job_id,
         "reprocess_of_job_id": projection.reprocess_of_job_id,
+        "derivation_kind": projection.derivation_kind,
+        "indexing_job_id": projection.indexing_job_id,
+        "indexing_status": projection.indexing_status,
+        "lexical_readiness": projection.lexical_readiness,
+        "desired_lexical_generation_id": projection.desired_lexical_generation_id,
+        "lexical_revision": projection.lexical_revision,
         "poll_after_seconds": (
-            5 if projection.status in {"queued", "processing", "retry_scheduled"} else 0
+            5
+            if {projection.status, projection.indexing_status}
+            & {"queued", "processing", "retry_scheduled"}
+            else 0
         ),
     }
     if projection.next_attempt_at is not None:
@@ -581,6 +606,7 @@ async def reprocess_document_version(
             config_mode=payload.config_mode,
             config_source_job_id=payload.config_source_job_id,
             idempotency_key=idempotency_key or "",
+            expected_lexical_revision=payload.expected_lexical_revision,
         ),
         principal,
     )

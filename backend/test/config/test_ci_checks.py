@@ -169,6 +169,18 @@ def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:
         ("backend/test/adapters/cli/test_ollama_launcher.py::test_launcher", "windows"),
         ("backend/test/config/test_keycloak_email_otp.py::test_acl", "windows"),
         ("backend/test/adapters/pdf/test_pypdf.py::test_child_eof", "windows"),
+        (
+            "backend/test/ingestion/test_s2_upload_population.py::test_upload_manifest_matches_the_real_pdf_and_measured_counter_evidence",
+            "windows",
+        ),
+        (
+            "backend/test/test_s2_http_admission.py::test_windows_worker_environment_uses_owned_endpoints_and_discards_ambient_settings",
+            "windows",
+        ),
+        (
+            "backend/test/test_s2_http_admission.py::test_application_admission_pins_local_daemon_and_owned_container[None]",
+            "backend",
+        ),
         ("evals/test/test_process_probe.py::test_probe", "windows"),
         ("evals/test/test_ollama_process_probe.py::test_probe", "windows"),
         (

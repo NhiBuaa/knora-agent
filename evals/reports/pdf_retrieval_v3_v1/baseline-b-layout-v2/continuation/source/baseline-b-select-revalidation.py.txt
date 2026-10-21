@@ -1,0 +1,113 @@
+"""Select the approved saved replay; reuses historical offline assertions, no live calls."""
+
+# ruff: noqa: E402 -- ignored operational script adds the repository source roots.
+import asyncio
+import hashlib
+import importlib.util
+import io
+import json
+import sys
+from contextlib import redirect_stdout
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+
+from evals.runners.pdf_retrieval_v3 import (
+    load_json,
+    load_revalidation_selection,
+    publish_json,
+    revalidation_evaluator_sha256,
+)
+from evals.runners.pdf_source_binding import digest
+
+PACKET = ROOT / "evals/reports/pdf_retrieval_v3_v1/baseline-b-layout-v2"
+OUTPUT = ROOT / ".verification/issue153/run"
+TARGET = PACKET / "continuation"
+
+
+async def main():
+    spec = importlib.util.spec_from_file_location(
+        "historical_offline_revalidation", PACKET / "offline-revalidation/revalidate.py"
+    )
+    replay = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(replay)
+    rows = []
+
+    class RecordingExecutor(replay.PdfHttpExecutor):
+        async def execute(self, *args, **kwargs):
+            row = await super().execute(*args, **kwargs)
+            rows.append(row)
+            return row
+
+    # Observe the existing MockTransport replay, including its nine negative probes.
+    replay.PdfHttpExecutor = RecordingExecutor
+    captured = io.StringIO()
+    with redirect_stdout(captured):
+        await replay.main()
+    proof = json.loads(captured.getvalue())
+    assert len(rows) == 10 and rows[0]["failure_code"] is None
+    path = OUTPUT / "case-pdf-v3-001-attempt-1.json"
+    original = load_json(path)
+    assert path.read_bytes() == (PACKET / "captures" / path.name).read_bytes()
+    mutable = (
+        "failure_code",
+        "decision",
+        "selected_chunk_ids",
+        "candidates",
+        "provider_metadata",
+        "retrieval_latency_ms",
+    )
+    observation = original | {key: rows[0][key] for key in mutable}
+    identity_keys = (
+        "run_id",
+        "case_id",
+        "attempt_id",
+        "attempt",
+        "workspace_id",
+        "conversation_id",
+        "turn_id",
+        "trace_id",
+        "response_sha256",
+        "corpus_sha256",
+        "dataset_sha256",
+        "derivation_sha256",
+    )
+    record = {
+        "schema_version": 1,
+        "status": "approved",
+        "reviewer": "NhiBuaa",
+        "decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6186149890",
+        "original_capture_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "identity": {key: original[key] for key in identity_keys},
+        "proposal_sha256": proof["proposal_sha256"],
+        "evaluator_sha256": revalidation_evaluator_sha256(),
+        "observation": observation,
+        "observation_sha256": digest(observation),
+    }
+    TARGET.mkdir(exist_ok=True)
+    record_path = TARGET / "revalidation-selection.json"
+    publish_json(record_path, record)
+    selected = load_revalidation_selection(
+        OUTPUT,
+        record_path,
+        proposal_sha256=record["proposal_sha256"],
+        derivation_sha256=original["derivation_sha256"],
+    )
+    assert selected == {original["case_id"]: observation}
+    proof.update(
+        collection_promotion="approved_same_original_attempt",
+        owner_decision_url=record["decision_url"],
+        selection_sha256=digest(record),
+        evaluator_sha256=record["evaluator_sha256"],
+        original_latency_retained=observation["end_to_end_latency_ms"],
+        original_capture_unchanged=True,
+    )
+    publish_json(TARGET / "selection-validation.json", proof)
+    print(
+        json.dumps({"selection_sha256": digest(record), "validation": "accepted", "model_calls": 0})
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

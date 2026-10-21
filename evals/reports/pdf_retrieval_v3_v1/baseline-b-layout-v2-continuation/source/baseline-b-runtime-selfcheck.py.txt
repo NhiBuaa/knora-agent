@@ -1,0 +1,392 @@
+"""Mock-only checks for the ignored Baseline B launcher."""
+
+# ruff: noqa: E402 -- the ignored launcher and production sources load after path setup.
+import asyncio
+import importlib.util
+import json
+import sys
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+
+import httpx
+from evals.runners.pdf_retrieval_v3 import collect_cases
+
+from knora.providers.cloudflare.embedding import QUERY_INSTRUCTION, CloudflareEmbeddingProvider
+from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
+
+LAUNCHER = Path(__file__).with_name("baseline-b-runtime.py")
+spec = importlib.util.spec_from_file_location("baseline_b_runtime", LAUNCHER)
+runtime = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runtime)
+
+
+def denied(call):
+    try:
+        call()
+    except RuntimeError:
+        return
+    raise AssertionError("forbidden request admitted")
+
+
+def check():
+    preflight = {
+        "checked_at": datetime.now(UTC).isoformat(),
+        "plan": "Workers Free",
+        "account_id": "a" * 32,
+        "raw_neurons_used": 100.25,
+        "daily_limit": 10000,
+        "models_free_eligible": True,
+        "no_paid_gateway": True,
+        "paid_budget_usd": 0,
+        "quota_coordination_confirmed": True,
+        "evidence": {"mock": True},
+    }
+    identity = {"run_id": "mock", "corpus_sha256": "c", "dataset_sha256": "d", "baseline": "b"}
+    base = f"https://api.cloudflare.com/client/v4/accounts/{'a' * 32}/ai"
+    query_url = base + "/run/@cf/qwen/qwen3-embedding-0.6b"
+    configuration = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    response_body = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "decision": "REFUSAL",
+                            "answer": None,
+                            "cited_evidence_ids": [],
+                            "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                        }
+                    )
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "model": "@cf/openai/gpt-oss-20b",
+    }
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        path = root / "counters.json"
+        guard = runtime.BaselineBGuard(path, run_identity=identity, preflight=preflight)
+        sent = []
+
+        def query_transport(request):
+            sent.append(request)
+            state = json.loads(path.read_text())
+            count = len([r for r in sent if r.url.path.endswith("0.6b")])
+            assert state["query_embedding_attempts"] == count
+            return httpx.Response(
+                200, json={"result": {"data": [[0.0] * 1024], "shape": [1, 1024]}}
+            )
+
+        def generation_transport(request):
+            sent.append(request)
+            state = json.loads(path.read_text())
+            count = len([r for r in sent if r.url.path.endswith("completions")])
+            assert state["baseline_b_generation_attempts"] == count
+            return httpx.Response(200, json=response_body)
+
+        async def limits():
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(generation_transport),
+                event_hooks={
+                    "request": [guard.before_async_request],
+                    "response": [guard.after_async_response],
+                },
+            ) as async_client:
+                with httpx.Client(
+                    transport=httpx.MockTransport(query_transport),
+                    event_hooks={
+                        "request": [guard.before_request],
+                        "response": [guard.after_response],
+                    },
+                ) as sync_client:
+                    query = runtime.QueryOnlyProvider(
+                        CloudflareEmbeddingProvider(
+                            account_id="a" * 32, api_token="mock", client=sync_client
+                        ),
+                        guard,
+                    )
+                    generation = runtime.GenerationOnlyProvider(
+                        OpenAICompatibleGenerationProvider(
+                            base_url=base + "/v1",
+                            api_key="mock",
+                            model="@cf/openai/gpt-oss-20b",
+                            input_cost_per_million_tokens=None,
+                            output_cost_per_million_tokens=None,
+                            pricing_version=None,
+                            provider_identity="cloudflare-workers-ai",
+                            max_tokens=1024,
+                            direct_json_schema=True,
+                            client=async_client,
+                        ),
+                        guard,
+                    )
+                    for index in range(60):
+                        guard.set_case(f"case-{index}")
+                        assert query.embed_queries([f"question-{index}"], configuration).vectors
+                        await generation.generate(question="question", evidence=())
+                        guard.clear_case()
+                    assert len(sent) == 120
+                    saved = json.loads(path.read_text())
+                    assert saved["query_embedding_attempts"] == 60
+                    assert saved["baseline_b_generation_attempts"] == 60
+                    guard.set_case("case-61")
+                    denied(lambda: query.embed_queries(["extra"], configuration))
+                    assert len(sent) == 120
+
+        asyncio.run(limits())
+        assert json.loads(path.read_text())["stop_reason"] == "REQUEST_LIMIT"
+        generation_cap = runtime.BaselineBGuard(
+            root / "generation-cap.json", run_identity=identity, preflight=preflight
+        )
+        generation_cap.state["baseline_b_generation_attempts"] = 60
+        generation_cap.state["generation_attempts"] = 60
+        generation_cap.state["baseline_b_case_requests"]["case-61"] = {"query": True}
+        generation_cap.save()
+        generation_cap.set_case("case-61")
+        generation_sent = []
+
+        async def blocked_generation():
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(
+                    lambda request: generation_sent.append(request) or httpx.Response(200)
+                ),
+                event_hooks={"request": [generation_cap.before_async_request]},
+            ) as client:
+                provider = runtime.GenerationOnlyProvider(
+                    OpenAICompatibleGenerationProvider(
+                        base_url=base + "/v1",
+                        api_key="mock",
+                        model="@cf/openai/gpt-oss-20b",
+                        input_cost_per_million_tokens=None,
+                        output_cost_per_million_tokens=None,
+                        pricing_version=None,
+                        provider_identity="cloudflare-workers-ai",
+                        max_tokens=1024,
+                        direct_json_schema=True,
+                        client=client,
+                    ),
+                    generation_cap,
+                )
+                try:
+                    await provider.generate(question="extra", evidence=())
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError("generation 61 dispatched")
+
+        asyncio.run(blocked_generation())
+        assert not generation_sent
+        assert json.loads(generation_cap.path.read_text())["generation_attempts"] == 60
+        for status in (402, 403, 429, "network"):
+            failing = runtime.BaselineBGuard(
+                root / f"failure-{status}.json", run_identity=identity, preflight=preflight
+            )
+            failing.set_case("case")
+            calls = []
+
+            def fail(request, calls=calls, status=status):
+                calls.append(request)
+                if status == "network":
+                    raise httpx.ConnectError("mock", request=request)
+                return httpx.Response(status)
+
+            with httpx.Client(
+                transport=httpx.MockTransport(fail),
+                event_hooks={
+                    "request": [failing.before_request],
+                    "response": [failing.after_response],
+                },
+            ) as client:
+                provider = runtime.QueryOnlyProvider(
+                    CloudflareEmbeddingProvider(
+                        account_id="a" * 32, api_token="mock", client=client
+                    ),
+                    failing,
+                )
+                denied(
+                    lambda provider=provider: provider.embed_queries(["question"], configuration)
+                )
+            assert len(calls) == 1
+            assert json.loads(failing.path.read_text())["query_embedding_attempts"] == 1
+            assert json.loads(failing.path.read_text())["stop_reason"]
+        for index, (url, payload) in enumerate(
+            (
+                (query_url, {"documents": ["x"]}),
+                (query_url, {"queries": ["x"]}),
+                (
+                    query_url.replace("api.cloudflare.com", "example.org"),
+                    {"queries": ["x"], "instruction": QUERY_INSTRUCTION},
+                ),
+                (query_url + "?gateway=paid", {"queries": ["x"], "instruction": QUERY_INSTRUCTION}),
+                (base + "/v1/chat/completions", {"model": "other", "max_tokens": 1024}),
+                (
+                    base + "/v1/chat/completions",
+                    {"model": "@cf/openai/gpt-oss-20b", "max_tokens": 2048},
+                ),
+            )
+        ):
+            other = runtime.BaselineBGuard(
+                root / f"invalid-{index}.json", run_identity=identity, preflight=preflight
+            )
+            other.set_case("case")
+            other.expected_query = "x"
+            request = httpx.Request(
+                "POST", url, json=payload, headers={"Authorization": "Bearer mock"}
+            )
+            denied(lambda other=other, request=request: other.before_request(request))
+            assert other.state["query_embedding_attempts"] == 0
+            assert other.state["baseline_b_generation_attempts"] == 0
+        duplicate = runtime.BaselineBGuard(
+            root / "duplicate.json", run_identity=identity, preflight=preflight
+        )
+        duplicate.set_case("case")
+        duplicate.expected_query = "x"
+        request = httpx.Request(
+            "POST",
+            query_url,
+            json={"queries": ["x"], "instruction": QUERY_INSTRUCTION},
+            headers={"Authorization": "Bearer mock"},
+        )
+        duplicate.before_request(request)
+        denied(lambda: duplicate.before_request(request))
+        assert json.loads(duplicate.path.read_text())["query_embedding_attempts"] == 1
+        try:
+            runtime.BaselineBGuard(duplicate.path, run_identity=identity, preflight=preflight)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("sticky stop was cleared")
+
+        dataset = SimpleNamespace(
+            corpus_sha256="c",
+            dataset_sha256="d",
+            cases=[SimpleNamespace(id=f"case-{i}", parent_case_id=None) for i in range(13)],
+        )
+        captures = root / "captures"
+        captures.mkdir()
+        batch_guard = runtime.BaselineBGuard(
+            root / "batch.json", run_identity=identity, preflight=preflight
+        )
+
+        class FakeExecutor(runtime.BatchExecutor):
+            async def execute(self, case, **kwargs):
+                return {
+                    "run_id": "mock",
+                    "workspace_id": "workspace",
+                    "case_id": case.id,
+                    "attempt": 1,
+                    "conversation_id": None,
+                    "turn_id": None,
+                    "failure_code": None,
+                }
+
+        executor = FakeExecutor(
+            guard=batch_guard,
+            output=captures,
+            initial_cases=set(),
+            batch_size=12,
+            client=None,
+            headers={},
+            reader=None,
+            workspace_id="workspace",
+            run_id="mock",
+            embedding_configuration_id="embedding-cloudflare-qwen3-06b-v1",
+        )
+        try:
+            asyncio.run(collect_cases(dataset, executor, captures, derivation_sha256="d"))
+        except RuntimeError as error:
+            assert str(error) == "BATCH_REVIEW_NEEDED"
+        else:
+            raise AssertionError("batch boundary was missed")
+        assert len(list(captures.glob("case-*.json"))) == 12
+        assert not (captures / "dispatch-case-12-attempt-1.json").exists()
+        executor.initial_cases = {f"case-{i}" for i in range(12)}
+        asyncio.run(collect_cases(dataset, executor, captures, derivation_sha256="d"))
+        assert len(list(captures.glob("case-*.json"))) == 13
+        executor.initial_cases = {"case-0", "case-1"}
+        batch_guard.set_case("active-12")
+        active_pending = captures / "dispatch-active-12-attempt-1.json"
+        active_pending.write_text("{}")
+        executor.assert_not_paused()  # Active case polling must continue at the boundary.
+        batch_guard.clear_case()
+        active_pending.unlink()
+        failed = root / "failed-captures"
+        failed.mkdir()
+        failure_guard = runtime.BaselineBGuard(
+            root / "failure-batch.json", run_identity=identity, preflight=preflight
+        )
+
+        class FailingExecutor(FakeExecutor):
+            async def execute(self, case, **kwargs):
+                row = await super().execute(case, **kwargs)
+                row["failure_code"] = "MOCK_FAILURE"
+                return row
+
+        failing_executor = FailingExecutor(
+            guard=failure_guard,
+            output=failed,
+            initial_cases=set(),
+            batch_size=12,
+            client=None,
+            headers={},
+            reader=None,
+            workspace_id="workspace",
+            run_id="mock",
+            embedding_configuration_id="embedding-cloudflare-qwen3-06b-v1",
+        )
+        try:
+            asyncio.run(collect_cases(dataset, failing_executor, failed, derivation_sha256="d"))
+        except RuntimeError as error:
+            assert str(error) == "CASE_FAILED_NO_RETRY"
+        else:
+            raise AssertionError("failure did not stop next case")
+        assert len(list(failed.glob("case-*.json"))) == 1
+        assert not (failed / "dispatch-case-1-attempt-1.json").exists()
+        last_failed = root / "last-failed-captures"
+        last_failed.mkdir()
+        last_guard = runtime.BaselineBGuard(
+            root / "last-failure-batch.json", run_identity=identity, preflight=preflight
+        )
+
+        class LastFailingExecutor(FakeExecutor):
+            async def execute(self, case, **kwargs):
+                row = await super().execute(case, **kwargs)
+                if case.id == "case-11":
+                    row["failure_code"] = "MOCK_FAILURE"
+                return row
+
+        last_executor = LastFailingExecutor(
+            guard=last_guard,
+            output=last_failed,
+            initial_cases=set(),
+            batch_size=12,
+            client=None,
+            headers={},
+            reader=None,
+            workspace_id="workspace",
+            run_id="mock",
+            embedding_configuration_id="embedding-cloudflare-qwen3-06b-v1",
+        )
+        try:
+            asyncio.run(collect_cases(dataset, last_executor, last_failed, derivation_sha256="d"))
+        except RuntimeError as error:
+            assert str(error) == "CASE_FAILED_NO_RETRY"
+        else:
+            raise AssertionError("last-case failure misclassified as batch boundary")
+        assert len(list(last_failed.glob("case-*.json"))) == 12
+        assert not (last_failed / "dispatch-case-12-attempt-1.json").exists()
+    print(
+        "SELF-CHECK PASS: real adapters 60/60; both 61st blocked; "
+        "request shape, sticky failures, durable counters, batch 12/13"
+    )
+
+
+if __name__ == "__main__":
+    check()

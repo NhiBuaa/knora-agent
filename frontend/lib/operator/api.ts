@@ -64,7 +64,8 @@ export function isOperatorTrace(
     typeof value.workspace_id === "string" &&
     typeof value.decision === "string" &&
     typeof value.retrieval_configuration_id === "string" &&
-    typeof value.embedding_configuration_id === "string" &&
+    (typeof value.embedding_configuration_id === "string" ||
+      value.embedding_configuration_id === null) &&
     typeof value.validation_outcome === "string" &&
     isRecord(value.provider_metadata) &&
     isRecord(value.alias_mapping) &&

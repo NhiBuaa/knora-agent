@@ -85,11 +85,16 @@ export type DocumentResponse = {
   archived: boolean;
   current_document_version_id?: string | null;
   deletion_request?: DocumentDeletionRequestResponse | null;
+  derivation_kind?: "dense" | "pdf_extraction" | "lexical_index" | null;
+  desired_lexical_generation_id?: string | null;
   document_id: string;
   embedding_readiness?: "ready" | "reindex_required" | "not_indexed";
+  indexing_job_id?: string | null;
+  indexing_status?: "queued" | "processing" | "retry_scheduled" | "succeeded" | "superseded" | "failed" | null;
   ingestion_job_id?: string | null;
   ingestion_status?: string | null;
   last_processed_at?: string | null;
+  lexical_readiness?: "ready" | "reindex_required" | "not_indexed";
   reprocess_supported?: boolean;
   revision: number;
   served_document_version_id?: string | null;
@@ -109,9 +114,15 @@ export type IngestionJobStatusResponse = {
   attempt_count: number;
   created_at: string;
   current_document_version_id: string | null;
+  derivation_kind?: "dense" | "pdf_extraction" | "lexical_index" | null;
+  desired_lexical_generation_id?: string | null;
   error_code?: string | null;
   failure_reason?: "retry_exhausted" | "terminal_input" | "terminal_config" | "resource_limit" | null;
+  indexing_job_id?: string | null;
+  indexing_status?: "queued" | "processing" | "retry_scheduled" | "succeeded" | "superseded" | "failed" | null;
   ingestion_job_id: string;
+  lexical_readiness?: "ready" | "reindex_required" | "not_indexed";
+  lexical_revision?: number | null;
   max_attempts: number;
   next_attempt_at?: string | null;
   poll_after_seconds: number;
@@ -139,6 +150,7 @@ export type IngestionResponse = {
   outcome: "created" | "reused";
 };
 export type OperatorCandidateResponse = {
+  bm25_contribution?: Record<string, unknown> | null;
   chunk_id: string;
   chunk_ordinal: number;
   chunk_set_id: string;
@@ -149,7 +161,7 @@ export type OperatorCandidateResponse = {
   final_decision: string;
   final_rank: number;
   fts_contribution?: Record<string, unknown> | null;
-  fusion_score: number;
+  fusion_score: number | null;
   source_key: string;
   start_line: number;
   vector_contribution?: Record<string, unknown> | null;
@@ -181,7 +193,7 @@ export type OperatorTraceResponse = {
   candidates: Array<OperatorCandidateResponse>;
   chunk_set_ids: Array<string>;
   decision: string;
-  embedding_configuration_id: string;
+  embedding_configuration_id: string | null;
   embedding_set_ids: Array<string>;
   fusion_policy_version?: string | null;
   parsed_markers: Array<string>;
@@ -224,6 +236,7 @@ export type QuestionResultResponse = {
 export type ReprocessRequest = {
   config_mode: "same_as_job" | "current" | "deployed";
   config_source_job_id?: string | null;
+  expected_lexical_revision?: number | null;
 };
 export type ReprocessResponse = {
   document_version_id: string;

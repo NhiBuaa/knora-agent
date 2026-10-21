@@ -592,6 +592,59 @@ natively blocked by R1 and R2. Historical approval, seal and evaluation artifact
 rewritten; missing, self-authored/self-approved, mutated, subset, or same-shaped-wrong-digest
 evidence fails closed.
 
+## Retrieval V3 S2 approved design
+
+- **Lexical Generation** identifies one immutable Chunk Set/profile derivation. PostgreSQL
+  owns its desired revision, activation and eligibility; the search projection is replaceable.
+- **Extraction success** means retained chunks exist. **Lexical readiness** additionally
+  requires a verified index receipt and valid activation. Upload job identity/status and
+  indexing job identity/status remain distinct; neither implies the other's success.
+- **Derivation snapshot** captures Document and Workspace revisions at enqueue. Archive then
+  unarchive does not revive work accepted under an older snapshot.
+- **Reprocess configuration** is explicit: `same_as_job` retains the selected extraction
+  kind/profile; BM25 `current` selects valid desired B even while it is indexing and A is
+  active. An invalid desired configuration is unavailable, without fallback to A or dense.
+- **Lexical serving** is strategy-specific and does not create embedding readiness. Lexical
+  authority is checked before generation and again when persisting the trace before returning
+  citations. Invalidated authority is an operational failure, never empty evidence.
+- **Native lexical window** is one Top200 query: below 200, complete ties use score descending
+  then chunk ID ascending; at 200, preserve native order with unknown tie boundary. Primary
+  Top8 comes from the same window without refill or a second query.
+- **Index parent** is the actual extraction job, recorded atomically through
+  `parent_ingestion_job_id`; public indexing status follows this explicit link.
+- **BM25 retrieval identities** preserve `retrieval-bm25-diagnostic-v1` at Top200 and use
+  `retrieval-bm25-top8-v1` for primary Top8 from the same single native Top200 response.
+  A candidate-limit change requires a separate immutable configuration identity.
+  Primary Top8 binds the frozen47 profile; `retrieval-bm25-upload-fixture-top8-v1` separately
+  binds the measured upload fixture profile. Profile binding does not vary under one config ID.
+- **Verified lexical population** is an opt-in finite manifest binding source hashes and
+  ordered chunk checksums/native token counts to the selected profile. Changed or unknown
+  populations are unavailable until an explicit verified profile/rebuild. Repeated text in
+  distinct ordered chunks is valid. Automatic arbitrary-PDF profiles are outside S2.
+- **Stable lexical statistics** bind source SHA and ordered checksum/native-count pairs in a
+  new profile/digest. Historical profiles and evidence stay immutable; retained native counts
+  must be checked before creating the new pin and verified in the S2 runtime batch.
+- **Lexical retry identity** exposes read-only derivation kind. Before any desired generation,
+  failed extraction retries `same_as_job` with its exact upload job/profile. Once a desired
+  generation exists, retry uses `current` and its desired profile, including B while A serves.
+  Dense list/detail retry modes remain compatible. Upload and index job identities stay separate.
+- **Frozen S2 comparison context** uses each selected Baseline B retrieval query, including
+  the eight saved follow-up contexts. One native Top200 supplies primary Top8 and the existing
+  selector without generation. Fresh application/context verification remains separate.
+- **Lexical projection cleanup** is an explicit idempotent CLI operation. PostgreSQL lifecycle
+  locks must establish that neither active nor desired head references the generation before
+  deterministic point IDs are removed. Failure leaves a later explicit retry possible; cleanup
+  does not create another ingestion job or restore serving eligibility. Accepted runtime evidence
+  remains retained, with cleanup verification confined to a separate structural fixture.
+- **Lexical rollback** reprocesses an eligible historical extraction with its original profile
+  into a fresh extraction/index pair and generation. An enqueue revision CAS fences the previous
+  desired generation; completion must retain that reserved revision. Eligibility requires current
+  source/profile/lifecycle snapshots and excludes revoked derivations, but does not require the
+  historical active pointer or its physical projection to remain. It never creates another child
+  under the old extraction or reactivates a historical pointer.
+- These are accepted design decisions, not evidence that S2 is complete or runtime-verified.
+  Rationale: [ADR 0019](docs/adr/0019-lexical-derivation-and-serving-authority.md).
+
 ## Context Pointers
 
 - Normative rules: [Architecture Standard](docs/standards/architecture.md)

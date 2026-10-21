@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.embedding_configuration import configuration_from_row
+from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
     ChunkingConfigurationTable,
     ChunkSetTable,
@@ -21,14 +24,18 @@ from knora.adapters.postgres.tables import (
     EmbeddingSetTable,
     IdempotencyRecordTable,
     IngestionJobTable,
+    LexicalGenerationTable,
+    LexicalHeadTable,
     OriginalSourceObjectTable,
     ReprocessAuditTable,
     WorkspaceAdmissionTable,
     WorkspaceTable,
 )
+from knora.answering.stores import RetrievalConfiguration
 from knora.domain.errors import KnoraError
 from knora.ingestion.jobs import (
     JobStatusProjection,
+    PdfExtractionSubmissionConfiguration,
     PdfSubmissionConfiguration,
     PdfSubmissionResult,
     PdfSubmissionStore,
@@ -38,7 +45,9 @@ from knora.ingestion.jobs import (
     ReprocessContext,
     ReprocessResult,
 )
+from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 from knora.ingestion.object_store import ObjectMetadata
+from knora.ingestion.search_indexing import LexicalProfile
 
 _PUBLIC_FAILURE_REASONS = frozenset(
     {"retry_exhausted", "terminal_input", "terminal_config", "resource_limit"}
@@ -51,9 +60,18 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         self,
         session_factory: sessionmaker,
         database_now: Callable[[Session], datetime],
+        retrieval_configuration: RetrievalConfiguration | None = None,
+        lexical_population: VerifiedLexicalPopulation | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._database_now = database_now
+        self._retrieval_configuration = retrieval_configuration
+        self._lexical_population = lexical_population
+        self._document_reader = PostgresDocumentReader(
+            session_factory,
+            deployed_retrieval_configuration=retrieval_configuration,
+            lexical_population=lexical_population,
+        )
 
     def authorize_workspace(self, *, workspace_id: str) -> None:
         with self._session_factory() as session:
@@ -120,6 +138,12 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             )
         )
         with self._session_factory() as session:
+            lexical = (
+                self._retrieval_configuration is not None
+                and self._retrieval_configuration.strategy == "bm25-only"
+            )
+            if lexical:
+                self._document_reader._begin_snapshot(session)
             row = session.execute(statement).first()
             if row is None:
                 return None
@@ -132,6 +156,22 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 serving_state = "current"
             else:
                 serving_state = "previous"
+            projection = self._document_reader._projection(session, document) if lexical else None
+            indexing_job = (
+                session.scalar(
+                    select(IngestionJobTable).where(
+                        IngestionJobTable.parent_ingestion_job_id == job.id,
+                        IngestionJobTable.workspace_id == workspace_id,
+                        IngestionJobTable.document_id == document.id,
+                        IngestionJobTable.derivation_kind == "lexical_index",
+                    )
+                )
+                if job.derivation_kind == "pdf_extraction"
+                else job
+                if job.derivation_kind == "lexical_index"
+                else None
+            )
+            lexical_head = session.get(LexicalHeadTable, document.id) if lexical else None
             failure_reason = (
                 job.failure_reason if job.failure_reason in _PUBLIC_FAILURE_REASONS else None
             )
@@ -153,8 +193,18 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 terminal_at=job.terminal_at,
                 target_document_version_id=job.target_document_version_id,
                 current_document_version_id=current_id,
-                served_document_version_id=served_id,
-                serving_state=serving_state,
+                served_document_version_id=(
+                    projection.served_document_version_id if projection else served_id
+                ),
+                serving_state=projection.serving_state if projection else serving_state,
+                derivation_kind=job.derivation_kind,
+                indexing_job_id=indexing_job.id if indexing_job else None,
+                indexing_status=indexing_job.status if indexing_job else None,
+                lexical_readiness=projection.lexical_readiness if projection else "not_indexed",
+                desired_lexical_generation_id=(
+                    projection.desired_lexical_generation_id if projection else None
+                ),
+                lexical_revision=lexical_head.revision if lexical_head else None,
                 failure_reason=failure_reason,
                 error_code=error_code,
                 result_document_version_id=(
@@ -305,6 +355,11 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         self, prepared: PreparedReprocess, *, admission_id: str | None = None
     ) -> ReprocessResult:
         with self._session_factory.begin() as session:
+            workspace = session.scalar(
+                select(WorkspaceTable)
+                .where(WorkspaceTable.id == prepared.workspace_id)
+                .with_for_update()
+            )
             document = session.scalar(
                 select(DocumentTable)
                 .where(
@@ -319,7 +374,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                     DocumentVersionTable.document_id == prepared.document_id,
                 )
             )
-            if document is None or version is None:
+            if workspace is None or document is None or version is None:
                 raise KnoraError("DOCUMENT_VERSION_NOT_FOUND")
             if document.current_document_version_id != version.id:
                 raise KnoraError("DOCUMENT_VERSION_NOT_CURRENT")
@@ -373,7 +428,18 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             self._get_or_create_chunking_configuration(session, prepared)
             self._get_or_create_embedding_configuration(session, prepared)
             config = prepared.configuration
-            job = session.scalar(
+            lexical = isinstance(config, PdfExtractionSubmissionConfiguration)
+            content_fingerprint = (
+                self._lexical_job_fingerprint(
+                    prepared.request_fingerprint,
+                    config,
+                    source_revision=document.revision,
+                    workspace_revision=workspace.revision,
+                )
+                if lexical
+                else prepared.request_fingerprint
+            )
+            job_query = (
                 select(IngestionJobTable)
                 .where(
                     IngestionJobTable.workspace_id == prepared.workspace_id,
@@ -382,34 +448,117 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                     IngestionJobTable.normalizer_configuration_id
                     == config.normalizer_configuration_id,
                     IngestionJobTable.chunking_configuration_id == config.chunking_configuration.id,
-                    IngestionJobTable.embedding_configuration_id
-                    == config.embedding_configuration.id,
-                    IngestionJobTable.status.in_(("processing", "succeeded")),
+                    IngestionJobTable.derivation_kind == ("pdf_extraction" if lexical else "dense"),
+                    IngestionJobTable.status.in_(
+                        ("queued", "processing", "retry_scheduled", "succeeded")
+                        if lexical
+                        else ("processing", "succeeded")
+                    ),
                 )
                 .order_by(IngestionJobTable.created_at, IngestionJobTable.id)
                 .limit(1)
             )
+            if lexical:
+                job_query = job_query.where(
+                    IngestionJobTable.lexical_profile["id"].as_string()
+                    == config.lexical_profile.id,
+                    IngestionJobTable.lexical_profile["digest"].as_string()
+                    == config.lexical_profile.digest(),
+                    IngestionJobTable.source_revision == document.revision,
+                    IngestionJobTable.workspace_revision == workspace.revision,
+                )
+            else:
+                job_query = job_query.where(
+                    IngestionJobTable.embedding_configuration_id
+                    == config.embedding_configuration.id
+                )
+            rollback_revision = self._reserve_lexical_rollback(
+                session, prepared, workspace, document, source_object
+            )
+            if rollback_revision is not None:
+                job = None
+            elif lexical:
+                head = session.get(LexicalHeadTable, document.id)
+                job = session.scalar(
+                    job_query.where(
+                        IngestionJobTable.status.in_(("queued", "processing", "retry_scheduled")),
+                        or_(
+                            IngestionJobTable.lexical_head_revision.is_(None),
+                            IngestionJobTable.lexical_head_revision
+                            == (head.revision if head else None),
+                        ),
+                    )
+                )
+                if job is None and head is not None and head.desired_generation_id is not None:
+                    generation = session.get(LexicalGenerationTable, head.desired_generation_id)
+                    child = session.scalar(
+                        select(IngestionJobTable).where(
+                            IngestionJobTable.workspace_id == document.workspace_id,
+                            IngestionJobTable.derivation_kind == "lexical_index",
+                            IngestionJobTable.lexical_generation_id == head.desired_generation_id,
+                            IngestionJobTable.status.in_(
+                                ("queued", "processing", "retry_scheduled", "succeeded")
+                            ),
+                        )
+                    )
+                    if (
+                        generation is not None
+                        and generation.status in {"requested", "active"}
+                        and generation.revision == head.revision
+                        and generation.workspace_id == document.workspace_id
+                        and generation.document_id == document.id
+                        and generation.document_version_id == prepared.document_version_id
+                        and generation.source_revision == document.revision
+                        and generation.workspace_revision == workspace.revision
+                        and generation.profile_digest == config.lexical_profile.digest()
+                        and child is not None
+                    ):
+                        job = session.scalar(
+                            job_query.where(
+                                IngestionJobTable.id == child.parent_ingestion_job_id,
+                                IngestionJobTable.status == "succeeded",
+                            )
+                        )
+            else:
+                job = session.scalar(job_query)
             outcome = "reused"
             database_now = self._database_now(session)
             if job is None:
+                job_id = str(uuid4())
+                if lexical:
+                    content_fingerprint += "\nlexical-reprocess-job-v1\n" + job_id
                 job = IngestionJobTable(
-                    id=str(uuid4()),
+                    id=job_id,
                     workspace_id=prepared.workspace_id,
                     operation=prepared.idempotency_operation,
                     document_id=prepared.document_id,
                     target_document_version_id=prepared.document_version_id,
                     source_object_id=source_object.id,
-                    content_fingerprint=prepared.request_fingerprint,
+                    content_fingerprint=content_fingerprint,
                     parser_configuration_id=config.parser_configuration_id,
                     normalizer_configuration_id=config.normalizer_configuration_id,
                     chunking_configuration_id=config.chunking_configuration.id,
-                    embedding_configuration_id=config.embedding_configuration.id,
+                    derivation_kind="pdf_extraction" if lexical else "dense",
+                    embedding_configuration_id=(
+                        None if lexical else config.embedding_configuration.id
+                    ),
+                    lexical_profile=(
+                        {
+                            **asdict(config.lexical_profile),
+                            "digest": config.lexical_profile.digest(),
+                        }
+                        if lexical
+                        else None
+                    ),
+                    source_revision=document.revision if lexical else None,
+                    workspace_revision=workspace.revision if lexical else None,
                     status="queued",
                     attempt_count=0,
                     max_attempts=4,
                     created_at=database_now,
                     updated_at=database_now,
                     reprocess_of_job_id=(prepared.config_source_job_id or prepared.prior_job_id),
+                    lexical_head_revision=rollback_revision,
                 )
                 session.add(job)
                 session.flush()
@@ -468,6 +617,94 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 audit_id=audit.id,
             )
 
+    def _reserve_lexical_rollback(
+        self,
+        session: Session,
+        prepared: PreparedReprocess,
+        workspace: WorkspaceTable,
+        document: DocumentTable,
+        source: OriginalSourceObjectTable,
+    ) -> int | None:
+        expected = prepared.expected_lexical_revision
+        if expected is None:
+            return None
+        config = prepared.configuration
+        if (
+            type(expected) is not int
+            or expected < 0
+            or prepared.requested_config_mode != "same_as_job"
+            or prepared.resolved_config_mode != "same_as_job"
+            or not isinstance(config, PdfExtractionSubmissionConfiguration)
+            or self._retrieval_configuration is None
+            or self._retrieval_configuration.strategy != "bm25-only"
+            or self._lexical_population is None
+            or self._lexical_population.profile != config.lexical_profile
+            or workspace.archived
+            or document.archived
+            or source.deleted_at is not None
+        ):
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        head = session.scalar(
+            select(LexicalHeadTable)
+            .where(LexicalHeadTable.document_id == document.id)
+            .with_for_update()
+        )
+        if head is None or head.revision != expected:
+            raise KnoraError("REVISION_CONFLICT")
+        parent = session.get(IngestionJobTable, prepared.config_source_job_id)
+        child = session.scalar(
+            select(IngestionJobTable).where(
+                IngestionJobTable.parent_ingestion_job_id == prepared.config_source_job_id,
+                IngestionJobTable.derivation_kind == "lexical_index",
+                IngestionJobTable.status == "succeeded",
+            )
+        )
+        row = session.get(LexicalGenerationTable, child.lexical_generation_id) if child else None
+        if (
+            parent is None
+            or parent.derivation_kind != "pdf_extraction"
+            or parent.status != "succeeded"
+            or parent.workspace_id != workspace.id
+            or parent.document_id != document.id
+            or parent.target_document_version_id != prepared.document_version_id
+            or parent.source_object_id != source.id
+            or parent.source_revision != document.revision
+            or parent.workspace_revision != workspace.revision
+            or row is None
+            or row.status != "active"
+            or row.workspace_id != workspace.id
+            or row.document_id != document.id
+            or row.document_version_id != prepared.document_version_id
+            or row.source_revision != document.revision
+            or row.workspace_revision != workspace.revision
+            or row.acknowledged_count != row.expected_count
+        ):
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        try:
+            generation = PostgresSearchIndexStore._decode_generation(row)
+            if (
+                generation.lexical_profile != config.lexical_profile
+                or self._configuration_from_job(session, parent) != config
+            ):
+                raise ValueError("rollback profile is no longer available")
+        except (TypeError, ValueError, OverflowError) as error:
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE") from error
+        chunk_set = session.get(ChunkSetTable, generation.chunk_set_id)
+        if (
+            chunk_set is None
+            or chunk_set.document_version_id != prepared.document_version_id
+            or chunk_set.status != "completed"
+            or chunk_set.parser_configuration_id != config.parser_configuration_id
+            or chunk_set.normalizer_configuration_id != config.normalizer_configuration_id
+            or chunk_set.chunking_configuration_id != config.chunking_configuration.id
+        ):
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        # Reserve a new request revision now, so B cannot activate during extraction.
+        head.revision += 1
+        head.desired_generation_id = None
+        session.flush()
+        return head.revision
+
     def read_reprocess_audit(
         self, *, workspace_id: str, audit_event_id: str
     ) -> ReprocessAuditProjection | None:
@@ -524,33 +761,61 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
     @staticmethod
     def _configuration_from_job(
         session: Session, job: IngestionJobTable
-    ) -> PdfSubmissionConfiguration:
+    ) -> PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration:
         chunking = session.get(ChunkingConfigurationTable, job.chunking_configuration_id)
-        embedding = session.get(EmbeddingConfigurationTable, job.embedding_configuration_id)
-        if chunking is None or embedding is None:
+        if chunking is None:
             raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
         from knora.ingestion.processing import ChunkingConfiguration
 
+        chunking_configuration = ChunkingConfiguration(
+            id=chunking.id,
+            parser_version=chunking.parser_version,
+            chunker_version=chunking.chunker_version,
+            tokenizer_name=chunking.tokenizer_name,
+            tokenizer_version=chunking.tokenizer_version,
+            target_tokens=chunking.target_tokens,
+            overlap_tokens=chunking.overlap_tokens,
+            max_tokens=chunking.max_tokens,
+        )
+        if job.derivation_kind == "pdf_extraction":
+            if not isinstance(job.lexical_profile, dict):
+                raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+            try:
+                profile_payload = dict(job.lexical_profile)
+                persisted_digest = profile_payload.pop("digest", None)
+                profile = LexicalProfile(**profile_payload)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise KnoraError("CONFIGURATION_NOT_AVAILABLE") from error
+            if persisted_digest != profile.digest():
+                raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+            return PdfExtractionSubmissionConfiguration(
+                parser_configuration_id=job.parser_configuration_id,
+                normalizer_configuration_id=job.normalizer_configuration_id,
+                chunking_configuration=chunking_configuration,
+                lexical_profile=profile,
+            )
+        if job.derivation_kind != "dense":
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        embedding = session.get(EmbeddingConfigurationTable, job.embedding_configuration_id)
+        if embedding is None:
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
         return PdfSubmissionConfiguration(
             parser_configuration_id=job.parser_configuration_id,
             normalizer_configuration_id=job.normalizer_configuration_id,
-            chunking_configuration=ChunkingConfiguration(
-                id=chunking.id,
-                parser_version=chunking.parser_version,
-                chunker_version=chunking.chunker_version,
-                tokenizer_name=chunking.tokenizer_name,
-                tokenizer_version=chunking.tokenizer_version,
-                target_tokens=chunking.target_tokens,
-                overlap_tokens=chunking.overlap_tokens,
-                max_tokens=chunking.max_tokens,
-            ),
+            chunking_configuration=chunking_configuration,
             embedding_configuration=configuration_from_row(embedding),
         )
 
-    @classmethod
     def _current_configuration_for_document(
-        cls, *, session: Session, document: DocumentTable, document_version_id: str
-    ) -> PdfSubmissionConfiguration:
+        self, *, session: Session, document: DocumentTable, document_version_id: str
+    ) -> PdfSubmissionConfiguration | PdfExtractionSubmissionConfiguration:
+        if (
+            self._retrieval_configuration is not None
+            and self._retrieval_configuration.strategy == "bm25-only"
+        ):
+            return self._current_lexical_configuration(
+                session=session, document=document, document_version_id=document_version_id
+            )
         active_set = None
         if document.active_embedding_set_id is not None:
             active_set = session.get(EmbeddingSetTable, document.active_embedding_set_id)
@@ -561,13 +826,14 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                     IngestionJobTable.document_id == document.id,
                     IngestionJobTable.target_document_version_id == document_version_id,
                     IngestionJobTable.status == "succeeded",
+                    IngestionJobTable.derivation_kind == "dense",
                 )
                 .order_by(IngestionJobTable.created_at.desc(), IngestionJobTable.id.desc())
                 .limit(1)
             )
             if job is None:
                 raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
-            return cls._configuration_from_job(session, job)
+            return self._configuration_from_job(session, job)
         chunk_set = session.get(ChunkSetTable, active_set.chunk_set_id)
         if chunk_set is None or chunk_set.document_version_id != document_version_id:
             raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
@@ -584,12 +850,13 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 == chunk_set.normalizer_configuration_id,
                 IngestionJobTable.chunking_configuration_id == chunk_set.chunking_configuration_id,
                 IngestionJobTable.embedding_configuration_id == embedding.id,
+                IngestionJobTable.derivation_kind == "dense",
             )
             .order_by(IngestionJobTable.created_at.desc(), IngestionJobTable.id.desc())
             .limit(1)
         )
         if job is not None:
-            return cls._configuration_from_job(session, job)
+            return self._configuration_from_job(session, job)
         chunking = session.get(ChunkingConfigurationTable, chunk_set.chunking_configuration_id)
         if chunking is None or chunk_set.parser_configuration_id is None:
             raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
@@ -610,6 +877,69 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             ),
             embedding_configuration=configuration_from_row(embedding),
         )
+
+    def _current_lexical_configuration(
+        self, *, session: Session, document: DocumentTable, document_version_id: str
+    ) -> PdfExtractionSubmissionConfiguration:
+        workspace = session.get(WorkspaceTable, document.workspace_id)
+        head = session.get(LexicalHeadTable, document.id)
+        desired = (
+            session.get(LexicalGenerationTable, head.desired_generation_id)
+            if head is not None and head.desired_generation_id is not None
+            else None
+        )
+        if (
+            workspace is None
+            or workspace.archived
+            or document.archived
+            or document.current_document_version_id != document_version_id
+            or desired is None
+            or desired.status not in {"requested", "active"}
+            or desired.workspace_id != document.workspace_id
+            or desired.document_id != document.id
+            or desired.document_version_id != document_version_id
+            or desired.revision != head.revision
+            or desired.source_revision != document.revision
+            or desired.workspace_revision != workspace.revision
+        ):
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        try:
+            generation = PostgresSearchIndexStore._decode_generation(desired)
+        except (TypeError, ValueError, OverflowError) as error:
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE") from error
+        chunk_set = session.get(ChunkSetTable, generation.chunk_set_id)
+        if (
+            chunk_set is None
+            or chunk_set.document_version_id != document_version_id
+            or chunk_set.status != "completed"
+        ):
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        job = session.scalar(
+            select(IngestionJobTable)
+            .where(
+                IngestionJobTable.workspace_id == document.workspace_id,
+                IngestionJobTable.document_id == document.id,
+                IngestionJobTable.target_document_version_id == document_version_id,
+                IngestionJobTable.derivation_kind == "pdf_extraction",
+                IngestionJobTable.status == "succeeded",
+                IngestionJobTable.parser_configuration_id == chunk_set.parser_configuration_id,
+                IngestionJobTable.normalizer_configuration_id
+                == chunk_set.normalizer_configuration_id,
+                IngestionJobTable.chunking_configuration_id == chunk_set.chunking_configuration_id,
+                IngestionJobTable.lexical_profile["digest"].as_string() == desired.profile_digest,
+            )
+            .order_by(IngestionJobTable.created_at.desc(), IngestionJobTable.id.desc())
+            .limit(1)
+        )
+        if job is None:
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        configuration = self._configuration_from_job(session, job)
+        if (
+            not isinstance(configuration, PdfExtractionSubmissionConfiguration)
+            or configuration.lexical_profile != generation.lexical_profile
+        ):
+            raise KnoraError("CONFIGURATION_NOT_AVAILABLE")
+        return configuration
 
     def commit_pdf_submission(
         self,
@@ -662,7 +992,12 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         admission_id: str | None = None,
     ) -> PdfSubmissionResult:
         with self._session_factory.begin() as session:
-            if session.get(WorkspaceTable, prepared.workspace_id) is None:
+            workspace = session.scalar(
+                select(WorkspaceTable)
+                .where(WorkspaceTable.id == prepared.workspace_id)
+                .with_for_update()
+            )
+            if workspace is None:
                 raise KnoraError("WORKSPACE_ACCESS_DENIED")
 
             replay = session.scalar(
@@ -703,6 +1038,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 )
                 .with_for_update()
             )
+            config = prepared.configuration
+            lexical = isinstance(config, PdfExtractionSubmissionConfiguration)
             if document is None:
                 document = DocumentTable(
                     id=str(uuid4()),
@@ -764,16 +1101,32 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
 
             self._get_or_create_chunking_configuration(session, prepared)
             self._get_or_create_embedding_configuration(session, prepared)
-            job = session.scalar(
-                select(IngestionJobTable).where(
-                    IngestionJobTable.workspace_id == prepared.workspace_id,
-                    IngestionJobTable.operation == prepared.idempotency_operation,
-                    IngestionJobTable.content_fingerprint == prepared.content_fingerprint,
+            content_fingerprint = (
+                self._lexical_job_fingerprint(
+                    prepared.content_fingerprint,
+                    config,
+                    source_revision=document.revision,
+                    workspace_revision=workspace.revision,
                 )
+                if lexical
+                else prepared.content_fingerprint
             )
+            job_query = select(IngestionJobTable).where(
+                IngestionJobTable.workspace_id == prepared.workspace_id,
+                IngestionJobTable.operation == prepared.idempotency_operation,
+                IngestionJobTable.content_fingerprint == content_fingerprint,
+            )
+            if lexical:
+                job_query = job_query.where(
+                    IngestionJobTable.derivation_kind == "pdf_extraction",
+                    IngestionJobTable.lexical_profile["digest"].as_string()
+                    == config.lexical_profile.digest(),
+                    IngestionJobTable.source_revision == document.revision,
+                    IngestionJobTable.workspace_revision == workspace.revision,
+                )
+            job = session.scalar(job_query)
             submission_outcome = "deduplicated"
             if job is None:
-                config = prepared.configuration
                 database_now = self._database_now(session)
                 job = IngestionJobTable(
                     id=str(uuid4()),
@@ -782,11 +1135,24 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                     document_id=document.id,
                     target_document_version_id=version.id,
                     source_object_id=source_object.id,
-                    content_fingerprint=prepared.content_fingerprint,
+                    content_fingerprint=content_fingerprint,
                     parser_configuration_id=config.parser_configuration_id,
                     normalizer_configuration_id=config.normalizer_configuration_id,
                     chunking_configuration_id=config.chunking_configuration.id,
-                    embedding_configuration_id=config.embedding_configuration.id,
+                    derivation_kind="pdf_extraction" if lexical else "dense",
+                    embedding_configuration_id=(
+                        None if lexical else config.embedding_configuration.id
+                    ),
+                    lexical_profile=(
+                        {
+                            **asdict(config.lexical_profile),
+                            "digest": config.lexical_profile.digest(),
+                        }
+                        if lexical
+                        else None
+                    ),
+                    source_revision=document.revision if lexical else None,
+                    workspace_revision=workspace.revision if lexical else None,
                     status="queued",
                     attempt_count=0,
                     max_attempts=4,
@@ -831,6 +1197,25 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
                 job,
                 submission_outcome=submission_outcome,
             )
+
+    @staticmethod
+    def _lexical_job_fingerprint(
+        request_fingerprint: str,
+        configuration: PdfExtractionSubmissionConfiguration,
+        *,
+        source_revision: int,
+        workspace_revision: int,
+    ) -> str:
+        # Job uniqueness follows the enqueue snapshot; idempotency retains the original request.
+        return "\n".join(
+            (
+                request_fingerprint,
+                "lexical-job-snapshot-v1",
+                configuration.lexical_profile.digest(),
+                str(source_revision),
+                str(workspace_revision),
+            )
+        )
 
     @staticmethod
     def _result(
@@ -905,6 +1290,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         session: Session,
         prepared: PreparedPdfSubmission,
     ) -> None:
+        if isinstance(prepared.configuration, PdfExtractionSubmissionConfiguration):
+            return
         config = prepared.configuration.embedding_configuration
         row = session.get(EmbeddingConfigurationTable, config.id)
         values = (

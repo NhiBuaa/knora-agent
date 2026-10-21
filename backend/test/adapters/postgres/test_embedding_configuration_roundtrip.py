@@ -107,6 +107,7 @@ def test_persisted_profile_roundtrips_through_job_and_worker(layout_preserving: 
             "ClaimedWork",
             (),
             {
+                "derivation_kind": job.derivation_kind,
                 "parser_configuration_id": job.parser_configuration_id,
                 "normalizer_configuration_id": job.normalizer_configuration_id,
                 "chunking_configuration_id": job.chunking_configuration_id,

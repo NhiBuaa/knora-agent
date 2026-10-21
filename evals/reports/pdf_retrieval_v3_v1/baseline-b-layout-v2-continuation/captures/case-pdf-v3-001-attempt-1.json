@@ -1,0 +1,42 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-001:1",
+  "case_id": "pdf-v3-001",
+  "conversation_id": "d2adebf7-d1c6-4dca-b18a-c0255a7294de",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 8287.240200001179,
+  "failure_code": "CASE_FAILED_NO_RETRY",
+  "observation_failure_code": "CITATION_STRUCTURAL_ERROR",
+  "public_response": {
+    "answer": "Phiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ. [[E1]]",
+    "citations": [
+      {
+        "content_checksum": "a59e008f514818311fe90970e1b6fbb0398df49bda3beb7fca3a2a3be9d1e68c",
+        "document_id": "73242722-0442-4f57-91c9-aff70d77cd32",
+        "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+        "end_line": 9,
+        "end_offset": 420,
+        "evidence_id": "E1",
+        "excerpt": "Hướng dẫn phiếu hỗ trợ\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nPhiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ.\nPhiếu hỗ trợ khẩn phải được xác nhận trong 2 giờ.\nGiờ xác nhận không phải thời gian giải quyết hoàn tất.\nHạn xác nhận được tính theo giờ liên tục, kể cả cuối tuần.\nKhông thu phí xác nhận phiếu hỗ trợ.\nKhông thu phí xác nhận phiếu hỗ trợ.\nPDF page 1 | CC BY 4.0 | Knora evaluation …",
+        "heading_path": [],
+        "page_end": 1,
+        "page_start": 1,
+        "source_key": "clean-02",
+        "source_name": "clean-02.pdf",
+        "start_line": 1,
+        "start_offset": 0
+      }
+    ],
+    "decision": "ANSWER",
+    "refusal_reason": null,
+    "trace_id": "1540271b-3946-4565-bbe6-aec3a901eb73",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "771c285f4bc78ddbfcba89c5d4e181673e322c5a91ba0a9417773d59d0513c9f",
+  "run_id": "s1-runtime-binding-20261015-01",
+  "trace_id": "1540271b-3946-4565-bbe6-aec3a901eb73",
+  "turn_id": "4dd3c00a-072a-4985-b69d-843feeaf0eae",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}
