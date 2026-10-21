@@ -3669,14 +3669,14 @@ decision. Keep main checkout/port3000, all other worktrees and frozen191 untouch
 
 ### 12.3 Execution sequence and checks
 
-- [ ] **A — integrate offline.** Read current instructions/acceptance; inspect clean HEAD and
+- [x] **A — integrate offline.** Read current instructions/acceptance; inspect clean HEAD and
   fetched main. Preflight at64f2250 against main `de7f97dac40823cc5b9da3e626522a05caa8b732`
   reports only CONTEXT.md conflicting. Preserve current v21 §4.9 vocabulary and upstream domain
   additions; remove obsolete selector paragraphs when upstream removed them. Use one non-rewriting
   feature-branch merge, inspect all resolutions and product prompt/schema/cap diffs, independently
   review, push, and require exact-SHA PR CI/ci-subject before runtime. Main may advance later;
   freeze the actual integrated base and report drift rather than chasing it during acceptance.
-- [ ] **B — diagnose and prepare helpers offline.** Read bounded old exit/log/owner records;
+- [x] **B — diagnose and prepare helpers offline.** Read bounded old exit/log/owner records;
   simultaneous exit1 during tool interruption is an observation, not an established root cause.
   Compare supervised-launch behavior, use a provider-denied no-worker diagnostic if needed,
   retain process/start/exit identities and test a single lifecycle hypothesis. Copy existing
@@ -3684,7 +3684,7 @@ decision. Keep main checkout/port3000, all other worktrees and frozen191 untouch
   hashes and disable token escalation. Add focused negative tests for any changed authority,
   queue or lifecycle branch. Run existing copied suites with unique temp/cache-disabled outputs,
   explicit-file Ruff and child imports; parent reads results and independent exact-byte review.
-- [ ] **C — disposition old queue and session.** Before any worker, deny all provider dispatch
+- [x] **C — disposition old queue and session.** Before any worker, deny all provider dispatch
   and verify old Turn `babae5e4-e31d-43e7-9c18-2ae283b799c6` is exactly queued/resultnull/trace0,
   the only eligible Turn in its pinned workspace, with its admission open and no active worker.
   Preserve before snapshot. Establish one operator/dispatcher and quiescent queue ownership;
@@ -3718,3 +3718,141 @@ unknown send/owner/crash remains fail-closed; same finite counters after process
 cleanup after PID reuse; no modified historical artifacts. Baseline/source/template hashes and
 commands belong in the existing Issue/PR, not a second Master or framework. Skill selection,
 actual checks and justified reruns are observations only; formal Skill Evals remain UNVERIFIED.
+
+### 12.4 Execution result — required list missing; package permanently stopped
+
+**Current outcome:** environment/integration recovery executed, but **AC1 failed** on the first
+new case. `APPLICATION-RECOVERY-20261021` is permanently stopped at **2/12 physical requests**,
+one query embedding and one answer generation, both known; unknown0, retry0, document embeddings0.
+Preparation1/3; W1stopped2/6; W2NOTOPENED. Questions2/3 were not submitted or dispatched. The
+remaining allowances do not authorize another sample. PR184 remains OPEN/Draft; Issue183 remains
+open and unaccepted. D's required three-case acceptance and E's owner acceptance are incomplete.
+
+**Integrated subject and offline evidence.** Feature merge
+`1fcdbd3c792dcbc0dd181f358e3895745e24bc86` integrates main
+`de7f97dac40823cc5b9da3e626522a05caa8b732` without rewriting history. The sole conflict was
+CONTEXT.md: retain upstream vocabulary and current4.9 v21 definitions, remove obsolete selector
+paragraphs already removed upstream. The five product paths keep one v21 answer call/cap2048;
+no product remediation was added during this package. Focused merged-product checks142passed,
+zero failures/errors/skips, exit0. Copied private helpers234passed, zero failures/errors/skips,
+exit0; explicit-file Ruff format/check/lint and three child imports exited0. Independent review
+of the final helper bytes found no remaining actionable code finding; real owned-process checks
+also passed before credentials/dispatch. This does not establish model compliance.
+
+[Required CI39577977684](https://github.com/NhiBuaa/knora-agent/actions/runs/39577977684), attempt1,
+SUCCESS6/6, binds that exact PR head. Downloaded ci-subject artifact12335991025 identifies synthetic
+checkout `ffcf02b93d0072d7f549540316b6572485c448b4`; its verified parents are the integrated main
+and subject above. Ten downloaded XML reports contain3510tests, zero failures/errors/skips:
+Ubuntu1894/Database685/Frontend487/browser fixtures147/Keycloak45/Windows252. Advisory
+[Security Shadow39577977740](https://github.com/NhiBuaa/knora-agent/actions/runs/39577977740)
+separately succeeded2/2. These runs establish that subject's component checks, not live
+acceptance or this later documentation commit's CI. No unchanged CI rerun was requested.
+
+**Migration and old Turn.** Verified private `pg_dump -Fc` backup315448bytes,
+SHA256 `cebeb3000863f14fa04b81a1788d00ae3fc323d7a261187c7020412c7293b826`, with readable TOC,
+preceded the one approved upgrade invocation. Exit0; version20261018_0156; all33 original
+non-version table projections retained their original counts/hashes; two new lexical tables
+empty. The explicitly approved Keycloak pair was started with existing IDs/config/storage.
+The shared clock began2026-10-21 09:58:06.725UTC, deadline2026-10-22 09:58:06.725UTC; it was not
+reset. Old Turn `babae5e4-e31d-43e7-9c18-2ae283b799c6` matched the sole eligible queued Turn
+before claim. Existing store claim/finalize seams terminalized only that Turn as failed with
+`OPERATOR_CANCELLED_BEFORE_DISPATCH`, resultnull/trace0; history/question/source identity retained,
+admission closed, no AnswerQuestion/provider execution. It is operator disposition, not PASS.
+
+**Actual new case.** Fresh Conversation `4e408253-ba2b-41b6-8daa-66cc69d99d7a`, Turn
+`ade088d1-43bc-4942-bd89-03d3a9004337`, trace `6fc23467-445c-44b1-95b5-198e246012c1`.
+Normal IAB create/Ask captured zero prior Turns and empty context. Dispatcher exited0;
+answered/final_validated, one trace, completed/valid. Query HTTP200 in2.215s, shape1×1024;
+generation HTTP200 in7.368s, finish=stop, usage1238prompt+428completion=1666tokens. Account/Workers
+Free Active/daily72.45of10000 were freshly observed before both sends; paid-budget0USD is an
+authority limit, **actual request-specific billed cost remains UNVERIFIED**.
+
+Final JSON is before1/items0/after0. It supplies only the natural count sentence with literal
+bold **7 chương** and E1/E2; no chapter list. That exact sentence/order/bold/aliases survives
+composition, stored Turn/trace, maintained HTTP serialization and real history DOM. API evidence
+is a stored projection plus actual browser history, **not an independently intercepted raw HTTP
+body**. No generated text was lost, reconstructed, repaired or regenerated.
+
+Both chips were opened at measured desktop1440×960 and mobile390×844, including provenance:
+same original Document `06541705-cf19-4377-a94c-e6b1fa180883`, Version
+`b9c52a63-185d-4078-956c-ec42bdd807af`, page1; E1lines1–19/offset0–1266 and
+E2lines15–34/offset1098–2266. Request-content checksums match source/citation records; E2 actually
+contains all seven chapters. No retrieval shortage is established. Current=Served source UI and
+the PDF digest remain pinned. Actual screenshots and DOM were inspected; count text/bold/chips
+readable without horizontal overflow/raw markers/duplicate chips, history reload unchanged.
+The default desktop screenshot cropped at1248pixels despite DOM1440; retained full/explicit
+screenshots are actually1440×960. A premature second mobile inspector read was corrected by
+closing/reopening the specific chip and checking fresh state. Neither attempt consumed AI.
+
+**Decision correction, retained for audit.** Parent initially classified items=[] as an independent
+generation omission, recorded acceptance and armed question2. Independent review identified the
+retained11.4 stop rule for omitted required count/list/prose, consistent with4.9/AC1/12. Parent
+appended `case-0-review-correction.json` (acceptedfalse, supersedes `external-review-0.json` and
+`review-0.json`) and permanently stopped with `required-count-list-presentation-missing` before
+any question2 submission. The earlier records and unused arm remain historical, not authority.
+Missing merge/split qualifications are separately a4.9 generation limitation; they do not waive
+the required chapter-list presentation. Independent review confirmed AC1FAIL and case-level
+preservation/source evidence, not whole-suite PASS. No reserve applies to this model omission.
+
+**Cleanup verified.** Normal account-menu logout completed and a second protected tab required
+sign-in. The development indicator intercepted pointer access to Account; keyboard Enter on the
+accessible Account button opened the normal menu without configuration changes/auth bypass.
+OAuth helper removed exactly its3owned values and fresh readback matched. Proven owned trees
+rooted at17400/66844 were terminated after PID/start/executable/script checks, taskkill exits0;
+supervisors recorded exit1 caused by this intentional teardown, not a spontaneous runtime fault.
+No listeners8183/3183 remained;3000absent/untouched. IAB viewport reset and all4owned tabs closed;
+IAB inventory empty. Three retained dependencies remain running with unchanged IDs/images/storage/
+configured bindings; Keycloak start-time changes are the explicitly approved starts. Final source
+projections/PDF/23chunks match, and23vector COPY rows exactly match the pre-migration backup;
+vector data SHA256 `34c214337780f2b20cda95fcaa7c3b842d2bc0d8ce83ce069abac52c4f049d04`.
+Final DB has16Turns/6traces and eligible queued/processing0. No history/source/vector deletion.
+
+| Criterion | Current package evidence |
+| --- | --- |
+| AC1 | **FAIL:** bold count present, required chapter list absent from generation. |
+| AC2 | Case1 literal transfer verified; whole three-case criterion incomplete. |
+| AC3 | Case1 both original-version chips/page/locators verified at both sizes; later cases NOT RUN. |
+| AC4 | Question2 NOT SUBMITTED/NOT RUN. |
+| AC5 | Question3 NOT SUBMITTED/NOT RUN. |
+| AC6 | Case1 two actual viewport observations; required suite incomplete. |
+| AC7 | Existing component negatives plus current login/history/source/logout observed; no extra live refusal/ACL calls. |
+| AC8 | Exact subject/CI/payload/known2calls/usage/latency correlated for case1; suite incomplete, actual billed cost UNVERIFIED. |
+| AC9 | Finite authorization/stop/counts and owned OAuth/process/browser/source cleanup verified; no acceptance promotion. |
+
+**Review artifacts/commands.** Existing ignored run root is
+`<WORKTREE>/frontend/test-results/issue183/application-recovery-20261021/`.
+`acceptance-packet-hashes.json` binds55selected artifacts, SHA256
+`460fcfa4c8f85ff8c38a365f3ea9917e83ec12472b34c25b59cc82adf7b8450f`.
+Backup/claim/auth/body/source-bearing material stays private; publication omits user-local paths
+and redacts credentials as `[REDACTED]`. Commands are historical evidence, not another grant:
+
+```text
+<PYTHON_ENV>/python -X utf8 -B -m alembic -c <WORKTREE>/backend/alembic.ini upgrade 20261018_0156
+<PYTHON_ENV>/python -X utf8 -B <RUN>/runtime.py turn 0
+<PYTHON_ENV>/python -X utf8 -B <RUN>/oauth.py cleanup 1
+codegraph status --json <WORKTREE>
+```
+
+CodeGraph MCP `codegraph_explore`, exact worktree projectPath, confirmed
+generate→_complete→_decode→compose_answer and existing explicit count/list prompt instructions;
+index complete/pending0/no worktree mismatch. CodeGraph had already been used in this session;
+this is an additional actual query, not a claim about earlier unseen history. No renderer defect
+or absent prompt instruction was established. Hindsight183 page was empty and supplied no fact.
+
+**Selective closeout and next boundary.** Keep operational facts in the existing runbook/Master/
+Issue/PR. No new Skill/hook/framework/evidence store. Skills were selected from the actual catalog,
+read and used for execution, diagnosis, verification, review and PR writing. Helper negative tests
+and reasoned RED/GREEN runs remain recorded; parent fixed one import-sort lint failure before its
+final234-pass run. Final read-only inventory needed two corrections: actual column names and
+stopped-versus-running Keycloak port projections; no runtime restart/provider retry followed.
+Premature acceptance was a task-quality/compliance error, corrected before another submission;
+do not self-award Skill PASS. Formal Skill Evals and causal improvement remain UNVERIFIED.
+
+The authorized recovery/reporting is exhausted at a real product acceptance failure, not a small
+internal gate. Keep this package closed. Current prompt already instructs the missing behavior;
+another identical prompt reminder or unchanged live sample is not a justified fix. A next design
+decision must provide a bounded offline assessment and an exact reviewable change (or a negative
+finding) within one-call/presentation-only scope before any implementation/new live allowance.
+No selector, question-specific count parser, PDF list reconstruction, cap increase,153 expansion
+or acceptance relaxation is authorized. Until that decision and successful new acceptance,
+PR184 stays Draft and183 remains unaccepted; no merge/Done/close/deploy.
