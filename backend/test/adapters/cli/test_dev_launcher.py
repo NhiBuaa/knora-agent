@@ -117,6 +117,10 @@ def isolate_generation_environment(monkeypatch):
         "inspect-failed",
         "docker-unavailable",
         "no-container",
+        "orphan-volume",
+        "stopped-owned-postgres",
+        "unverified-volume",
+        "wrong-label-volume",
     ],
 )
 def test_daily_launcher_checks_postgres_ownership_before_side_effects(
@@ -130,27 +134,99 @@ def test_daily_launcher_checks_postgres_ownership_before_side_effects(
     calls_file = tmp_path / "docker-calls.txt"
     wrapper = tmp_path / "invoke.ps1"
     wrapper.write_text(
-        "param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)\n"
-        "Set-StrictMode -Version Latest\n"
-        "function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }\n"
-        "function docker {\n"
-        "  Add-Content -LiteralPath $env:KNORA_TEST_CALLS -Value ($args -join ' ')\n"
-        "  if ($args[0] -eq 'ps') {\n"
-        "    if ($env:KNORA_TEST_OWNERSHIP -eq 'docker-unavailable') { throw 'unavailable' }\n"
-        "    $global:LASTEXITCODE = 0\n"
-        "    if ($env:KNORA_TEST_OWNERSHIP -eq 'stopped-foreign-directory' "
-        "-and $args -notcontains '-a') { return }\n"
-        "    if ($env:KNORA_TEST_OWNERSHIP -ne 'no-container') { 'synthetic-container' }\n"
-        "  } elseif ($args[0] -eq 'inspect') {\n"
-        "    $global:LASTEXITCODE = 0\n"
-        "    if ($env:KNORA_TEST_OWNERSHIP -eq 'inspect-failed') { $global:LASTEXITCODE = 1 }\n"
-        "    $data = $env:KNORA_TEST_CONTAINER | ConvertFrom-Json\n"
-        "    if ($args[-1] -like '*Config.Labels*') { $data.labels | ConvertTo-Json -Compress }\n"
-        "    else { $data.ports | ConvertTo-Json -Depth 5 -Compress }\n"
-        "  } else { throw 'COMPOSE_MUTATION_ATTEMPTED' }\n"
-        "}\n"
-        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid\n"
-        "exit $LASTEXITCODE\n"
+        textwrap.dedent("""
+        param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
+        Set-StrictMode -Version Latest
+        function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }
+        function docker {
+          Add-Content -LiteralPath $env:KNORA_TEST_CALLS -Value ($args -join ' ')
+          if ($args[0] -eq 'ps') {
+            if ($env:KNORA_TEST_OWNERSHIP -eq 'docker-unavailable') { throw 'unavailable' }
+            $global:LASTEXITCODE = 0
+            if ($env:KNORA_TEST_OWNERSHIP -eq 'stopped-foreign-directory' -and
+                $args -notcontains '-a') { return }
+            if ($env:KNORA_TEST_OWNERSHIP -notin @('no-container', 'orphan-volume')) {
+              'synthetic-container'
+            }
+          } elseif ($args[0] -eq 'volume') {
+            $global:LASTEXITCODE = 0
+            if ($env:KNORA_TEST_OWNERSHIP -eq 'docker-unavailable') { throw 'unavailable' }
+            if ($env:KNORA_TEST_VOLUMES) {
+              $vols = (ConvertFrom-Json -InputObject $env:KNORA_TEST_VOLUMES)
+              if ($args[1] -eq 'ls') {
+                if (($args -join ' ') -like '*label=com.docker.compose.project=*') {
+                  foreach ($v in $vols) {
+                    if ($v.PSObject.Properties['labels'] -and $v.labels -and
+                        $v.labels.PSObject.Properties['com.docker.compose.project'] -and
+                        $v.labels.'com.docker.compose.project' -eq 'knora-dev') {
+                      if ($v.PSObject.Properties['name']) { $v.name }
+                    }
+                  }
+                } else {
+                  foreach ($v in $vols) {
+                    if ($v.PSObject.Properties['name']) { $v.name }
+                  }
+                }
+              } elseif ($args[1] -eq 'inspect') {
+                if ($env:KNORA_TEST_OWNERSHIP -eq 'inspect-failed') {
+                  $global:LASTEXITCODE = 1
+                  return
+                }
+                $targetName = $args[2]
+                $found = $null
+                foreach ($v in $vols) {
+                  if ($v.PSObject.Properties['name'] -and $v.name -eq $targetName) { $found = $v }
+                }
+                if (-not $found) { $global:LASTEXITCODE = 1; return }
+                if ($args[-1] -like '*Labels*') {
+                  if ($found.PSObject.Properties['labels'] -and $found.labels) {
+                    $found.labels | ConvertTo-Json -Compress
+                  } else {
+                    '{}'
+                  }
+                } else {
+                  if ($found.PSObject.Properties['name']) { $found.name }
+                }
+              }
+            }
+          } elseif ($args[0] -eq 'inspect') {
+            $global:LASTEXITCODE = 0
+            if ($env:KNORA_TEST_OWNERSHIP -eq 'inspect-failed') { $global:LASTEXITCODE = 1 }
+            $data = $env:KNORA_TEST_CONTAINER | ConvertFrom-Json
+            if ($args[-1] -like '*Config.Labels*') {
+              if ($data.PSObject.Properties['labels'] -and $data.labels) {
+                $data.labels | ConvertTo-Json -Compress
+              } else {
+                '{}'
+              }
+            }
+            elseif ($args[-1] -like '*Mounts*') {
+              if ($data.PSObject.Properties['mounts'] -and $data.mounts) {
+                $data.mounts | ConvertTo-Json -Depth 5 -Compress
+              } else {
+                '[]'
+              }
+            }
+            elseif ($args[-1] -like '*State*') {
+              if ($data.PSObject.Properties['state'] -and $data.state) {
+                $data.state | ConvertTo-Json -Compress
+              } else {
+                '{"Running":true}'
+              }
+            }
+            else {
+              if ($data.PSObject.Properties['ports'] -and $data.ports) {
+                $data.ports | ConvertTo-Json -Depth 5 -Compress
+              } else {
+                '{}'
+              }
+            }
+          } else { throw 'COMPOSE_MUTATION_ATTEMPTED' }
+        }
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid
+        exit $LASTEXITCODE
+        """).strip()
+        + "\n"
     )
     with socket.socket() as listener, socket.socket() as unused_api, socket.socket() as unused_ui:
         listener.bind(("127.0.0.1", 0))
@@ -175,8 +251,71 @@ def test_daily_launcher_checks_postgres_ownership_before_side_effects(
                 labels[f"com.docker.compose.{key}"] = value
         if ownership == "foreign-minio-directory":
             labels["com.docker.compose.service"] = "minio"
+
+        volumes = []
+        if ownership == "orphan-volume":
+            volumes = [
+                {
+                    "name": "knora-dev_knora_postgres_data",
+                    "labels": {
+                        "com.docker.compose.project": "knora-dev",
+                        "com.docker.compose.volume": "knora_postgres_data",
+                    },
+                }
+            ]
+        elif ownership == "unverified-volume":
+            volumes = [
+                {
+                    "name": "knora-dev_knora_postgres_data",
+                    "labels": {
+                        "com.docker.compose.project": "knora-dev",
+                        "com.docker.compose.volume": "knora_postgres_data",
+                    },
+                },
+                {
+                    "name": "knora-dev_knora_minio_data",
+                    "labels": {
+                        "com.docker.compose.project": "knora-dev",
+                        "com.docker.compose.volume": "knora_minio_data",
+                    },
+                },
+            ]
+        elif ownership == "wrong-label-volume":
+            volumes = [
+                {
+                    "name": "knora-dev_knora_postgres_data",
+                    "labels": {
+                        "com.docker.compose.project": "another-session",
+                        "com.docker.compose.volume": "knora_postgres_data",
+                    },
+                }
+            ]
+        elif ownership == "owned":
+            volumes = [
+                {
+                    "name": "knora-dev_knora_postgres_data",
+                    "labels": {
+                        "com.docker.compose.project": "knora-dev",
+                        "com.docker.compose.volume": "knora_postgres_data",
+                    },
+                }
+            ]
+
+        container_mounts = []
+        if ownership in {"owned", "unverified-volume", "stopped-owned-postgres"}:
+            container_mounts = [
+                {
+                    "Type": "volume",
+                    "Name": "knora-dev_knora_postgres_data",
+                    "Destination": "/var/lib/postgresql/data",
+                }
+            ]
+
+        is_running = ownership != "stopped-owned-postgres"
         container = {
             "labels": {} if ownership == "missing-labels" else labels,
+            "state": {"Running": is_running},
+            "mounts": container_mounts,
             "ports": {
                 "5432/tcp": [
                     {
@@ -209,15 +348,21 @@ def test_daily_launcher_checks_postgres_ownership_before_side_effects(
                 "KNORA_TEST_CALLS": str(calls_file),
                 "KNORA_TEST_OWNERSHIP": ownership,
                 "KNORA_TEST_CONTAINER": json.dumps(container),
+                "KNORA_TEST_VOLUMES": json.dumps(volumes),
             },
             capture_output=True,
             text=True,
             timeout=20,
         )
         assert result.returncode == 2, result.stderr
-        reusable = ownership == "owned" or (
-            not occupied
-            and ownership in {"foreign-service", "wrong-port", "wildcard-binding", "no-container"}
+        reusable = (
+            ownership == "owned"
+            or (not occupied and ownership == "stopped-owned-postgres")
+            or (
+                not occupied
+                and ownership
+                in {"foreign-service", "wrong-port", "wildcard-binding", "no-container"}
+            )
         )
         if reusable:
             # The guard allows reuse and reaches the next validation, not service startup.
@@ -229,7 +374,7 @@ def test_daily_launcher_checks_postgres_ownership_before_side_effects(
             else:
                 assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr
         calls = calls_file.read_text(encoding="utf-8-sig").splitlines()
-        assert all(call.startswith(("ps ", "inspect ")) for call in calls)
+        assert all(call.startswith(("ps ", "inspect ", "volume ")) for call in calls)
         assert "COMPOSE_MUTATION_ATTEMPTED" not in result.stderr
         if occupied:
             with socket.create_connection(("127.0.0.1", port), timeout=1):
@@ -1184,3 +1329,488 @@ def test_process_job_retains_pdf_child_memory_enforcement(tmp_path, shell):
     """,
     )
     assert result.returncode == 0, result.stderr + (tmp_path / "pdf.err").read_text()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher reservation")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_concurrent_launchers_serialize_via_project_reservation(tmp_path: Path, shell: str):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    shared_temp = tmp_path / "shared_temp"
+    shared_temp.mkdir(parents=True)
+
+    def setup_checkout(name: str) -> tuple[Path, Path]:
+        checkout = tmp_path / name
+        scripts = checkout / "scripts"
+        scripts.mkdir(parents=True)
+        shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+        native = SCRIPT.with_name("dev-process-job.cs")
+        if native.exists():
+            shutil.copy2(native, scripts / native.name)
+        env_file = checkout / ".env"
+        env_file.write_text("# isolated\n")
+        return checkout, env_file
+
+    checkout_a, env_a = setup_checkout("checkout_a")
+    checkout_b, env_b = setup_checkout("checkout_b")
+
+    signal_a_ready = shared_temp / "a_ready.signal"
+    signal_a_release = shared_temp / "a_release.signal"
+
+    wrapper_a = checkout_a / "invoke_a.ps1"
+    wrapper_a.write_text(
+        "param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)\n"
+        "function docker {\n"
+        "  if ($args[0] -eq 'ps') {\n"
+        "    [IO.File]::WriteAllText($env:KNORA_SIGNAL_READY, 'ready')\n"
+        "    $deadline = [DateTime]::UtcNow.AddSeconds(15)\n"
+        "    while (-not (Test-Path -LiteralPath $env:KNORA_SIGNAL_RELEASE)) {\n"
+        "      if ([DateTime]::UtcNow -gt $deadline) { throw 'TIMEOUT_WAITING_FOR_RELEASE' }\n"
+        "      Start-Sleep -Milliseconds 50\n"
+        "    }\n"
+        "    $global:LASTEXITCODE = 0\n"
+        "    return\n"
+        "  }\n"
+        "  throw 'COMPOSE_MUTATION_ATTEMPTED'\n"
+        "}\n"
+        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid\n"
+        "exit $LASTEXITCODE\n"
+    )
+
+    calls_b = checkout_b / "docker_calls_b.txt"
+    wrapper_b = checkout_b / "invoke_b.ps1"
+    wrapper_b.write_text(
+        "param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)\n"
+        "function docker {\n"
+        "  Add-Content -LiteralPath $env:KNORA_CALLS_B -Value ($args -join ' ')\n"
+        "  $global:LASTEXITCODE = 0\n"
+        "  throw 'COMPOSE_MUTATION_ATTEMPTED'\n"
+        "}\n"
+        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid\n"
+        "exit $LASTEXITCODE\n"
+    )
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    env_vars = {
+        **os.environ,
+        "TEMP": str(shared_temp),
+        "TMP": str(shared_temp),
+    }
+
+    proc_a = subprocess.Popen(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper_a),
+            "-EnvFile",
+            str(env_a),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        cwd=str(checkout_a),
+        env={
+            **env_vars,
+            "KNORA_TEST_SCRIPT": str(checkout_a / "scripts" / "start-dev.ps1"),
+            "KNORA_SIGNAL_READY": str(signal_a_ready),
+            "KNORA_SIGNAL_RELEASE": str(signal_a_release),
+        },
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        _wait_until(lambda: signal_a_ready.exists() or proc_a.poll() is not None, timeout=15)
+        assert signal_a_ready.exists(), f"A failed to reach preflight: {proc_a.poll()}"
+
+        proc_b = subprocess.run(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(wrapper_b),
+                "-EnvFile",
+                str(env_b),
+                "-PostgresPort",
+                str(port_pg),
+                "-ApiPort",
+                str(port_api),
+                "-FrontendPort",
+                str(port_ui),
+            ],
+            cwd=str(checkout_b),
+            env={
+                **env_vars,
+                "KNORA_TEST_SCRIPT": str(checkout_b / "scripts" / "start-dev.ps1"),
+                "KNORA_CALLS_B": str(calls_b),
+            },
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+
+        assert proc_b.returncode == 2, proc_b.stderr
+        assert "DEV_PROJECT_RESERVED:knora-dev" in proc_b.stderr
+        assert not calls_b.exists() or calls_b.read_text().strip() == ""
+        assert "COMPOSE_MUTATION_ATTEMPTED" not in proc_b.stderr
+    finally:
+        signal_a_release.write_text("release")
+        out_a, err_a = proc_a.communicate(timeout=15)
+
+    lock_file = shared_temp / "knora-dev-reservation-knora-dev.lock"
+    assert not lock_file.exists(), "Lock file was not cleaned up after A exited cleanly"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher reservation")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_launcher_retains_reservation_on_force_kill_and_allows_manual_cleanup(
+    tmp_path: Path, shell: str
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    shared_temp = tmp_path / "shared_temp"
+    shared_temp.mkdir(parents=True)
+
+    checkout = tmp_path / "checkout"
+    scripts = checkout / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+    native = SCRIPT.with_name("dev-process-job.cs")
+    if native.exists():
+        shutil.copy2(native, scripts / native.name)
+    env_file = checkout / ".env"
+    env_file.write_text("# isolated\n")
+
+    signal_ready = shared_temp / "a_ready.signal"
+    signal_release = shared_temp / "a_release.signal"
+
+    wrapper = checkout / "invoke.ps1"
+    wrapper.write_text(
+        "param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)\n"
+        "function docker {\n"
+        "  if ($args[0] -eq 'ps') {\n"
+        "    [IO.File]::WriteAllText($env:KNORA_SIGNAL_READY, 'ready')\n"
+        "    $deadline = [DateTime]::UtcNow.AddSeconds(15)\n"
+        "    while (-not (Test-Path -LiteralPath $env:KNORA_SIGNAL_RELEASE)) {\n"
+        "      if ([DateTime]::UtcNow -gt $deadline) { throw 'TIMEOUT_WAITING_FOR_RELEASE' }\n"
+        "      Start-Sleep -Milliseconds 50\n"
+        "    }\n"
+        "    $global:LASTEXITCODE = 0\n"
+        "    return\n"
+        "  }\n"
+        "  throw 'COMPOSE_MUTATION_ATTEMPTED'\n"
+        "}\n"
+        "& $env:KNORA_TEST_SCRIPT @PSBoundParameters -EmbeddingProvider invalid\n"
+        "exit $LASTEXITCODE\n"
+    )
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    env_vars = {
+        **os.environ,
+        "TEMP": str(shared_temp),
+        "TMP": str(shared_temp),
+    }
+
+    outsider = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(120)"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+    try:
+        proc_a = subprocess.Popen(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(wrapper),
+                "-EnvFile",
+                str(env_file),
+                "-PostgresPort",
+                str(port_pg),
+                "-ApiPort",
+                str(port_api),
+                "-FrontendPort",
+                str(port_ui),
+            ],
+            cwd=str(checkout),
+            env={
+                **env_vars,
+                "KNORA_TEST_SCRIPT": str(checkout / "scripts" / "start-dev.ps1"),
+                "KNORA_SIGNAL_READY": str(signal_ready),
+                "KNORA_SIGNAL_RELEASE": str(signal_release),
+            },
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        _wait_until(lambda: signal_ready.exists() or proc_a.poll() is not None, timeout=15)
+        assert signal_ready.exists()
+
+        proc_a.kill()
+        proc_a.wait(timeout=10)
+
+        assert outsider.poll() is None
+
+        lock_file = shared_temp / "knora-dev-reservation-knora-dev.lock"
+        assert lock_file.exists(), "Lock file was deleted on abnormal termination"
+
+        proc_b = subprocess.run(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(wrapper),
+                "-EnvFile",
+                str(env_file),
+                "-PostgresPort",
+                str(port_pg),
+                "-ApiPort",
+                str(port_api),
+                "-FrontendPort",
+                str(port_ui),
+            ],
+            cwd=str(checkout),
+            env={
+                **env_vars,
+                "KNORA_TEST_SCRIPT": str(checkout / "scripts" / "start-dev.ps1"),
+                "KNORA_SIGNAL_READY": str(shared_temp / "b_ready.signal"),
+                "KNORA_SIGNAL_RELEASE": str(shared_temp / "b_release.signal"),
+            },
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert proc_b.returncode == 2
+        assert "DEV_PROJECT_RESERVED:knora-dev" in proc_b.stderr
+
+        lock_file.unlink()
+
+        signal_release.write_text("release")
+        proc_c = subprocess.run(
+            [
+                executable,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(wrapper),
+                "-EnvFile",
+                str(env_file),
+                "-PostgresPort",
+                str(port_pg),
+                "-ApiPort",
+                str(port_api),
+                "-FrontendPort",
+                str(port_ui),
+            ],
+            cwd=str(checkout),
+            env={
+                **env_vars,
+                "KNORA_TEST_SCRIPT": str(checkout / "scripts" / "start-dev.ps1"),
+                "KNORA_SIGNAL_READY": str(shared_temp / "c_ready.signal"),
+                "KNORA_SIGNAL_RELEASE": str(signal_release),
+            },
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert "DEV_PROJECT_RESERVED:knora-dev" not in proc_c.stderr
+    finally:
+        outsider.kill()
+        outsider.wait(timeout=10)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_daily_launcher_docker_metadata_timeout_aborts_and_cleans_reservation(tmp_path, shell):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    fake_bin = tmp_path / "bin with spaces"
+    fake_bin.mkdir()
+    fake_docker = fake_bin / "docker.cmd"
+    # The fake docker CLI hangs for 30s when asked for metadata
+    fake_docker.write_text(
+        '@echo off\r\npowershell.exe -NoProfile -Command "Start-Sleep -Seconds 30"\r\n'
+    )
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        textwrap.dedent("""
+        param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
+        Set-StrictMode -Version Latest
+        function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }
+        $launcherArgs = @(
+            '-EnvFile', $EnvFile,
+            '-PostgresPort', $PostgresPort,
+            '-ApiPort', $ApiPort,
+            '-FrontendPort', $FrontendPort
+        )
+        . $env:KNORA_TEST_SCRIPT @launcherArgs
+        exit $LASTEXITCODE
+        """)
+    )
+
+    with socket.socket() as s1, socket.socket() as s2, socket.socket() as s3:
+        s1.bind(("127.0.0.1", 0))
+        s2.bind(("127.0.0.1", 0))
+        s3.bind(("127.0.0.1", 0))
+        port_pg = s1.getsockname()[1]
+        port_api = s2.getsockname()[1]
+        port_ui = s3.getsockname()[1]
+
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+    env_vars = {
+        **os.environ,
+        "PATH": f"{fake_bin};{os.environ.get('PATH', '')}",
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "KNORA_TEST_SCRIPT": str(SCRIPT),
+    }
+
+    start_time = time.time()
+    result = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        env=env_vars,
+        capture_output=True,
+        text=True,
+        timeout=18,
+    )
+    elapsed = time.time() - start_time
+
+    assert result.returncode == 2, (
+        f"Expected returncode 2, got {result.returncode}. Stderr: {result.stderr}"
+    )
+    assert "DOCKER_METADATA_TIMEOUT:knora-dev" in result.stderr
+    assert 9 <= elapsed <= 16, (
+        f"Elapsed time {elapsed}s was outside expected bounded timeout window"
+    )
+
+    lock_file = temp_dir / "knora-dev-reservation-knora-dev.lock"
+    assert not lock_file.exists(), "Reservation lock must be released when metadata times out"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_daily_launcher_docker_metadata_pipe_buffer_and_spaced_path(tmp_path, shell):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    fake_bin = tmp_path / "bin with spaces"
+    fake_bin.mkdir()
+    fake_docker = fake_bin / "docker.cmd"
+    # Emits large stdout exceeding 64KB pipe buffer and returns invalid ownership
+    fake_docker.write_text(
+        "@echo off\r\n"
+        "powershell.exe -NoProfile -Command \"1..1000 | ForEach-Object { 'x' * 80 }\"\r\n"
+    )
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n")
+
+    wrapper = tmp_path / "invoke.ps1"
+    wrapper.write_text(
+        textwrap.dedent("""
+        param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
+        Set-StrictMode -Version Latest
+        function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }
+        $launcherArgs = @(
+            '-EnvFile', $EnvFile,
+            '-PostgresPort', $PostgresPort,
+            '-ApiPort', $ApiPort,
+            '-FrontendPort', $FrontendPort
+        )
+        . $env:KNORA_TEST_SCRIPT @launcherArgs
+        exit $LASTEXITCODE
+        """)
+    )
+
+    with socket.socket() as s1, socket.socket() as s2, socket.socket() as s3:
+        s1.bind(("127.0.0.1", 0))
+        s2.bind(("127.0.0.1", 0))
+        s3.bind(("127.0.0.1", 0))
+        port_pg = s1.getsockname()[1]
+        port_api = s2.getsockname()[1]
+        port_ui = s3.getsockname()[1]
+
+    temp_dir = tmp_path / "temp"
+    temp_dir.mkdir()
+    env_vars = {
+        **os.environ,
+        "PATH": f"{fake_bin};{os.environ.get('PATH', '')}",
+        "TEMP": str(temp_dir),
+        "TMP": str(temp_dir),
+        "KNORA_TEST_SCRIPT": str(SCRIPT),
+    }
+
+    result = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(wrapper),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        env=env_vars,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    # The launcher successfully consumed large pipe buffer without deadlock,
+    # found unverified containers/volumes, and exited safely.
+    assert result.returncode == 2
+    assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr

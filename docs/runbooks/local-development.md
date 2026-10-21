@@ -535,6 +535,32 @@ reports a termination, accounting or timeout failure. PostgreSQL, MinIO and
 bundled Keycloak remain running, and processes from other invocations stay outside
 the group. A port occupied by another session still fails the preflight check.
 
+### Multi-launcher safety and storage protection
+
+To prevent concurrent development sessions from colliding or corrupting persistent
+data, the daily launcher enforces three preflight safety guards:
+
+- **Project reservation lock**: Before verifying storage or starting services, the
+  launcher acquires an exclusive file lock at
+  `%TEMP%\knora-dev-reservation-knora-dev.lock`. A concurrent second launcher on
+  the same machine and user immediately aborts with `DEV_PROJECT_RESERVED:knora-dev`
+  before inspecting or altering shared Docker resources. Normal shutdown (Ctrl+C)
+  and clean preflight aborts release the lock automatically. If a launcher process is
+  force-killed abnormally, the lock remains retained as a safety guard; after confirming
+  no orphaned processes remain, delete the lock file manually to resume.
+- **Storage ownership verification**: The launcher inspects existing Compose containers
+  and retained volumes (`knora-dev_knora_postgres_data`, `knora-dev_knora_minio_data`,
+  `knora-dev_keycloak_dev_data`, `knora-dev_keycloak_dev_database`). If volumes exist
+  from another checkout or cannot be proven to belong to the current repository root,
+  the launcher refuses to start with `COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev`.
+  Existing storage is never modified or reset; `down --volumes` is never invoked by
+  the daily launcher, preserving development PostgreSQL and MinIO data across restarts.
+- **Docker metadata read timeout**: Preflight Docker metadata queries are bounded to
+  10 seconds per command and 30 seconds for the entire ownership scan using concurrent
+  asynchronous stream readers. If the local Docker daemon freezes, the launcher terminates
+  the specific query process and aborts with `DOCKER_METADATA_TIMEOUT:knora-dev` without
+  hanging the shell, freezing CI runners, or affecting other Docker workloads.
+
 The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 
