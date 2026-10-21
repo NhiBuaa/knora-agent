@@ -36,6 +36,7 @@ evaluation-langfuse = ["langfuse==4.17.0"]
 
 [project.scripts]
 knora-ingest = "knora.adapters.cli.ingest:main"
+knora-reindex-search = "knora.adapters.cli.reindex_search:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/knora"]

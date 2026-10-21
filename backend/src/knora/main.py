@@ -235,7 +235,12 @@ def create_app(
     application.state.ingest_document = ingest_document or IngestDocument(
         processor=DocumentProcessor(),
         embedding_provider=providers.embedding_provider,
-        store=PostgresIngestionStore(SessionFactory),
+        store=PostgresIngestionStore(
+            SessionFactory,
+            search_index_store=PostgresSearchIndexStore(SessionFactory),
+            lexical_population=lexical_population,
+            lexical_profile=lexical_population.profile if lexical_population is not None else None,
+        ),
         admission_store=workspace_admissions,
     )
     runtime_object_store_settings = ObjectStoreSettings.from_runtime(settings)

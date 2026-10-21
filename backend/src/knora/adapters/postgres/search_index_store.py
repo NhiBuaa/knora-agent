@@ -582,8 +582,13 @@ class PostgresSearchIndexStore:
             version.document_id != document.id
             or source.workspace_id != workspace.id
             or source.document_version_id != version.id
-            or source.raw_sha256 != version.raw_sha256
-            or source.media_type != version.media_type
+            or source.raw_sha256
+            != (
+                version.raw_sha256
+                if version.raw_sha256 is not None
+                else version.normalized_content_checksum
+            )
+            or (version.media_type is not None and source.media_type != version.media_type)
             or source.object_key != work.source_object_key
             or source.media_type != work.source_media_type
             or source.raw_sha256 != work.source_sha256
@@ -597,8 +602,14 @@ class PostgresSearchIndexStore:
             chunk_set is None
             or chunking is None
             or chunk_set.document_version_id != version.id
-            or chunk_set.parser_configuration_id != job.parser_configuration_id
-            or chunk_set.normalizer_configuration_id != job.normalizer_configuration_id
+            or (
+                chunk_set.parser_configuration_id is not None
+                and chunk_set.parser_configuration_id != job.parser_configuration_id
+            )
+            or (
+                chunk_set.normalizer_configuration_id is not None
+                and chunk_set.normalizer_configuration_id != job.normalizer_configuration_id
+            )
             or chunk_set.chunking_configuration_id != job.chunking_configuration_id
         ):
             raise LexicalGenerationError("lexical chunk set provenance differs from its job")
