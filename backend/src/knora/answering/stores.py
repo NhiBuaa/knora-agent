@@ -317,6 +317,9 @@ class RetrievalCandidate:
     sdm_score: float | None = None
     sdm_rank: int | None = None
     sdm_contribution: dict[str, object] | None = None
+    rerank_score: float | None = None
+    rerank_rank: int | None = None
+    rerank_contribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)

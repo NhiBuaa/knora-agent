@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -42,14 +43,27 @@ def _is_redundant(candidate: RetrievalCandidate, selected: RetrievalCandidate, p
 
 
 def select_evidence(
-    candidates: tuple[RetrievalCandidate, ...],
+    candidates: tuple[RetrievalCandidate, ...] | Sequence[RetrievalCandidate],
     configuration: RetrievalConfiguration,
+    reranking_configuration: Any | None = None,
 ) -> EvidenceSelection:
     if configuration.overlap_policy not in {
         "adjacent-token-overlap-v1",
         "adjacent-content-containment-v1",
     }:
         raise ValueError("unsupported overlap policy")
+
+    if reranking_configuration is not None and getattr(
+        reranking_configuration, "mmr_enabled", False
+    ):
+        from knora.answering.reranking import select_evidence_mmr
+
+        return select_evidence_mmr(
+            candidates,
+            reranking_configuration,
+            overlap_policy=configuration.overlap_policy,
+        )
+
     selected: list[CandidateDecision] = []
     decisions: list[CandidateDecision] = []
     selected_tokens = 0
