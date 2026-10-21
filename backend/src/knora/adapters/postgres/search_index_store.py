@@ -8,11 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
+    ChunkEmbeddingTable,
     ChunkingConfigurationTable,
     ChunkSetTable,
     ChunkTable,
     DocumentTable,
     DocumentVersionTable,
+    EmbeddingSetTable,
     IngestionJobTable,
     LexicalGenerationTable,
     LexicalHeadTable,
@@ -631,7 +633,31 @@ class PostgresSearchIndexStore:
             for chunk in chunks
         ):
             raise LexicalGenerationError("authoritative chunk text checksum is invalid")
+        chunk_vectors: tuple[tuple[str, tuple[float, ...]], ...] | None = None
+        try:
+            emb_set = session.scalar(
+                select(EmbeddingSetTable)
+                .where(
+                    EmbeddingSetTable.chunk_set_id == generation.chunk_set_id,
+                    EmbeddingSetTable.status == "completed",
+                )
+                .order_by(EmbeddingSetTable.id.desc())
+            )
+            if emb_set is not None:
+                chunk_embs = session.scalars(
+                    select(ChunkEmbeddingTable)
+                    .where(ChunkEmbeddingTable.embedding_set_id == emb_set.id)
+                    .order_by(ChunkEmbeddingTable.id)
+                ).all()
+                if chunk_embs:
+                    chunk_vectors = tuple(
+                        (ce.chunk_id, tuple(float(x) for x in ce.embedding)) for ce in chunk_embs
+                    )
+        except (KeyError, TypeError):
+            chunk_vectors = None
+
         return LexicalIndexInput(
             generation,
             tuple((chunk.id, chunk.content) for chunk in chunks),
+            chunk_vectors=chunk_vectors,
         )

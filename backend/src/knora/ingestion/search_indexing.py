@@ -205,6 +205,7 @@ class StageReceipt:
 class LexicalIndexInput:
     generation: LexicalGeneration
     chunk_texts: tuple[tuple[str, str], ...]
+    chunk_vectors: tuple[tuple[str, tuple[float, ...]], ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,7 +225,10 @@ class LexicalIndexStore(Protocol):
 
 class LexicalIndexPort(Protocol):
     def stage_generation(
-        self, generation: LexicalGeneration, chunk_texts: Mapping[str, str]
+        self,
+        generation: LexicalGeneration,
+        chunk_texts: Mapping[str, str],
+        chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> StageReceipt: ...
 
 
@@ -287,7 +291,13 @@ class LexicalIndexHandler:
                 ),
                 generation.lexical_profile,
             )
-            receipt = self._index.stage_generation(generation, texts)
+            chunk_vectors = dict(loaded.chunk_vectors) if loaded.chunk_vectors is not None else None
+            try:
+                receipt = self._index.stage_generation(
+                    generation, texts, chunk_vectors=chunk_vectors
+                )
+            except TypeError:
+                receipt = self._index.stage_generation(generation, texts)
             if not isinstance(receipt, StageReceipt):
                 raise LexicalGenerationError("projection receipt is missing")
             return WorkSucceeded(LexicalIndexSuccess(generation, receipt))

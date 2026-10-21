@@ -278,8 +278,8 @@ def test_worker_can_load_and_stage_text_lexical_generation() -> None:
     staged_payloads = []
 
     class MockIndexPort:
-        def stage_generation(self, gen, texts):
-            staged_payloads.append((gen, texts))
+        def stage_generation(self, gen, texts, chunk_vectors=None):
+            staged_payloads.append((gen, texts, chunk_vectors))
             return StageReceipt(
                 generation_id=gen.generation_id,
                 point_count=len(gen.chunks),
