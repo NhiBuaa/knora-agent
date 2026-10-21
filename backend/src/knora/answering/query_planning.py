@@ -276,6 +276,15 @@ class QueryPlanner:
                 )
             )
 
+        # Check typo hypotheses and generate correction variants if needed
+        from knora.answering.query_correction import generate_typo_hypotheses
+
+        typo_res = generate_typo_hypotheses(question)
+        if typo_res.has_typos and typo_res.corrected_query:
+            for v in typo_res.variants:
+                if v.query.casefold() not in {var.query.casefold() for var in variants}:
+                    variants.append(v)
+
         # Enforce finite limits
         subquestions = subquestions[: self.max_subquestions]
         variants = variants[: self.max_variants]
