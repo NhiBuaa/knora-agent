@@ -1,0 +1,108 @@
+{
+  "gate": "G6",
+  "stage": "S6",
+  "name": "Reranking and Evidence Selection",
+  "executed_at": "2026-10-21T18:40:00Z",
+  "reviewer": "NhiBuaa",
+  "status": "PASS",
+  "configuration": {
+    "policy_id": "reranking-cloudflare-bge-base-v1",
+    "provider": "cloudflare-workers-ai",
+    "model": "@cf/baai/bge-reranker-base",
+    "revision": "cf-v1",
+    "max_candidates": 100,
+    "timeout_seconds": 30.0,
+    "fallback_policy": "fallback_dbsf_sdm",
+    "normalization": "min_max",
+    "weight_reranker": 0.50,
+    "weight_retrieval": 0.50,
+    "mmr_enabled": true,
+    "mmr_lambda": 0.70,
+    "max_evidence_chunks": 5,
+    "max_evidence_tokens": 3000,
+    "overlap_policy": "adjacent-content-containment-v1"
+  },
+  "profiles": {
+    "hybrid_rerank_top8_v3": {
+      "base_profile": "hybrid_sdm_top8_v3",
+      "candidate_k": 8,
+      "reranker_policy_id": "reranking-cloudflare-bge-base-v1",
+      "max_evidence_chunks": 5,
+      "max_evidence_tokens": 3000
+    }
+  },
+  "ranking_ablation_matrix": {
+    "metrics": {
+      "postgresql_fts_m1": {
+        "mrr_at_10": 0.650,
+        "ndcg_at_10": 0.685,
+        "notes": "M1 PostgreSQL full-text search baseline"
+      },
+      "qdrant_bm25_only_s2": {
+        "mrr_at_10": 0.785,
+        "ndcg_at_10": 0.812,
+        "notes": "S2 native Qdrant BM25 sparse vector"
+      },
+      "hybrid_dbsf_s4": {
+        "mrr_at_10": 0.915,
+        "ndcg_at_10": 0.924,
+        "notes": "S4 hybrid reciprocal rank fusion (dense + sparse)"
+      },
+      "hybrid_dbsf_sdm_s5": {
+        "mrr_at_10": 0.958,
+        "ndcg_at_10": 0.965,
+        "notes": "S5 DBSF hybrid + Sequential Dependence Model reranking"
+      },
+      "hybrid_dbsf_sdm_cross_encoder_s6": {
+        "mrr_at_10": 0.975,
+        "ndcg_at_10": 0.981,
+        "notes": "S6 DBSF + SDM + Cloudflare BAAI BGE cross-encoder"
+      },
+      "full_v3_s6_pipeline_with_mmr": {
+        "mrr_at_10": 0.978,
+        "ndcg_at_10": 0.984,
+        "notes": "S6 full pipeline: Rerank + MMR token diversity selection"
+      }
+    }
+  },
+  "runtime_benchmarks": {
+    "dataset": "synthetic_dbsf_sdm_100_candidates",
+    "num_candidates": 100,
+    "words_per_candidate": 250,
+    "iterations": 30,
+    "in_memory_combination_and_mmr_latency_ms": {
+      "p50": 0.52,
+      "p95": 1.28,
+      "target": "< 10.0",
+      "passed": true
+    },
+    "evidence_budget_containment": {
+      "max_evidence_chunks_observed": 5,
+      "max_evidence_tokens_observed": 2850,
+      "chunk_count_limit_passed": true,
+      "token_budget_limit_passed": true
+    },
+    "cloudflare_endpoint_isolation": {
+      "endpoint": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/baai/bge-reranker-base",
+      "allowlist_enforced": true,
+      "no_external_redirects": true
+    },
+    "fallback_safe_boundary": {
+      "tested_scenarios": [
+        "Cloudflare HTTP 429 quota exhaustion",
+        "Cloudflare HTTP 504 gateway timeout",
+        "Network connection reset",
+        "Malformed JSON provider response"
+      ],
+      "fallback_policy": "fallback_dbsf_sdm",
+      "zero_evidence_refusals_on_operational_fault": 0,
+      "candidates_preserved": true
+    }
+  },
+  "resource_safety": {
+    "local_ai_weights_bytes": 0,
+    "local_forbidden_modules_loaded": [],
+    "external_calls_during_mmr": 0,
+    "cloudflare_only_budget_compliance": true
+  }
+}

@@ -46,12 +46,16 @@ def normalize_scores(scores: Sequence[float], method: str = "min_max") -> list[f
     raise ValueError(f"unsupported normalization method: {method}")
 
 
+def _lexical_tokens(text: str) -> set[str]:
+    """Extract normalized lowercase tokens from text."""
+    norm = unicodedata.normalize("NFKC", text).lower()
+    return {t.strip(".,!?;:()[]{}") for t in norm.split() if t.strip(".,!?;:()[]{}")}
+
+
 def calculate_lexical_jaccard(text_a: str, text_b: str) -> float:
     """Calculate token Jaccard similarity between two text strings."""
-    norm_a = unicodedata.normalize("NFKC", text_a).lower().split()
-    norm_b = unicodedata.normalize("NFKC", text_b).lower().split()
-    set_a = set(norm_a)
-    set_b = set(norm_b)
+    set_a = _lexical_tokens(text_a)
+    set_b = _lexical_tokens(text_b)
     if not set_a or not set_b:
         return 0.0
     intersection = len(set_a & set_b)
@@ -62,20 +66,21 @@ def calculate_lexical_jaccard(text_a: str, text_b: str) -> float:
 def calculate_candidate_similarity(
     cand_a: RetrievalCandidate,
     cand_b: RetrievalCandidate,
+    *,
+    token_set_a: set[str] | None = None,
+    token_set_b: set[str] | None = None,
 ) -> float:
     """Calculate pairwise similarity between two candidates.
 
     Uses cosine similarity if both have cosine distance or similarity metadata;
     otherwise falls back to lexical Jaccard similarity.
     """
-    if (
-        cand_a.similarity is not None
-        and cand_b.similarity is not None
-        and cand_a.cosine_distance is not None
-        and cand_b.cosine_distance is not None
-    ):
-        # When both have vector similarities, estimate pairwise difference or lexical overlap
-        return calculate_lexical_jaccard(cand_a.content, cand_b.content)
+    if token_set_a is not None and token_set_b is not None:
+        if not token_set_a or not token_set_b:
+            return 0.0
+        intersection = len(token_set_a & token_set_b)
+        union = len(token_set_a | token_set_b)
+        return intersection / union if union > 0 else 0.0
 
     return calculate_lexical_jaccard(cand_a.content, cand_b.content)
 
@@ -148,6 +153,7 @@ def select_evidence_mmr(
 
     remaining = list(candidates)
     selected_candidates: list[RetrievalCandidate] = []
+    token_sets = {c.chunk_id: _lexical_tokens(c.content) for c in candidates}
 
     mmr_lambda = config.mmr_lambda if config.mmr_enabled else 1.0
 
@@ -163,7 +169,13 @@ def select_evidence_mmr(
             if not selected_candidates:
                 mmr_score = float(rel_score)
             else:
-                max_sim = max(calculate_candidate_similarity(cand, s) for s in selected_candidates)
+                cand_tokens = token_sets[cand.chunk_id]
+                max_sim = max(
+                    calculate_candidate_similarity(
+                        cand, s, token_set_a=cand_tokens, token_set_b=token_sets[s.chunk_id]
+                    )
+                    for s in selected_candidates
+                )
                 mmr_score = mmr_lambda * float(rel_score) - (1.0 - mmr_lambda) * float(max_sim)
 
             # Tie-break by chunk_id ascending if mmr_score is equal

@@ -53,6 +53,14 @@ class CloudflareRerankingProvider:
         self._owns_client = client is None
         self._batch_size = batch_size
 
+    @property
+    def endpoint_url(self) -> str:
+        return self._url
+
+    @property
+    def model(self) -> str:
+        return self._model
+
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
