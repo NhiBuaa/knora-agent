@@ -26,7 +26,7 @@ PLANNER_TIMEOUT_SECONDS = 15.0
 _IDENTIFIER_PATTERN = re.compile(r"\b[A-Z0-9_]{2,}(?:-[A-Z0-9_]+)+\b|\b[A-Z]{2,}_[A-Z0-9_]+\b")
 _SECTION_PATTERN = re.compile(
     r"\b(?:chương|mục|điều|khoản|phần|chapter|section|clause|article|part)\s*"
-    r"(?:\d+(?:\.\d+)*|[ivxlcdm]+|[a-z0-9_-]+|một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười)\b",
+    r"(?:\d+(?:\.\d+)*|[ivxlcdm]+|một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười)\b",
     re.IGNORECASE,
 )
 _NUMBER_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)?\b")
