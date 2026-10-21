@@ -42,13 +42,12 @@ class RetrievalConfiguration:
         ):
             raise ValueError("dense-only retrieval requires no lexical policy or fusion policy")
         if self.strategy == "hybrid" and (
-            self.lexical_policy_id is None and self.fts_policy_version is None
+            self.lexical_policy_id is not None or self.fusion_policy_id is not None
         ):
-            raise ValueError("hybrid retrieval requires a lexical policy or FTS policy version")
-        if self.strategy == "hybrid" and (
-            self.fusion_policy_id is None and self.fusion_policy_version is None
-        ):
-            raise ValueError("hybrid retrieval requires a fusion policy")
+            if self.lexical_policy_id is None:
+                raise ValueError("hybrid retrieval requires a lexical policy")
+            if self.fusion_policy_id is None:
+                raise ValueError("hybrid retrieval requires a fusion policy")
 
     @classmethod
     def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":
@@ -305,7 +304,7 @@ class BranchObservation:
             "normalized_lexemes": list(self.normalized_lexemes),
             "omitted_lexemes": list(self.omitted_lexemes),
         }
-        if self.branch in {"bm25", "dense"}:
+        if self.branch in {"bm25", "dense", "fused"}:
             mapping.update(
                 schema_version=2,
                 raw_score=self.raw_score,
