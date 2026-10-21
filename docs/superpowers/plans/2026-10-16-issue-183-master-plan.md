@@ -1,6 +1,6 @@
 # Issue #183 — Master Implementation Plan
 
-**Latest execution checkpoint — 2026-10-21:** Owner approved section11 at revision `4b8e3399c619cdfd37388ce8e37127a55c4b24bb` with “tôi duyệt, hãy tiếp tục triển khai theo plan cho tới khi có thể tạo pr cho tôi kiểm tra và nghiệm thu”. Execute11's internal gates and only its explicit recovery branches without renewed small permission prompts. Reuse existing PR184 Draft; no duplicate PR or merge. New package begins offline with preparation0/3, windows0/2, requests0/12 and runtime clock not started. Section10 stays STOPPED2/12; no old grant or pending marker resets. Higher-cap success and browser acceptance remain unverified until actual execution.
+**Latest verified execution — 2026-10-21:** Section11's approved package is **STOPPED2/12; no live authority remains**. Candidate `4f9cc9d30c210f39cc59aa37a1ddd8e7700c6aa2` uses one v21 answer call at2048; own required CI39546281125 and separate Shadow39546281082 succeeded. Case1 returned a valid seven-chapter answer and was inspected at actual1440×960/390×844 with both citations/history. API/frontend then exited1 before case2 dispatch. Case2 remains queued, resultnull/trace0; case3 NOT RUN. Preparation1/3, W1 stopped2/6, W2 unused and unavailable under this stop. OAuth additions restored exactly; ports3183/8183 absent. Normal logout and full IAB cleanup remain UNVERIFIED. See11.7 for evidence/limits; PR184 stays Draft/183 OPEN, no merge/Done/deploy. All historical windows remain closed.
 
 **Latest execution checkpoint — 2026-10-20:** Section10's bounded package is **STOPPED; no live authority remains**. On runtime subject `66979bcf0ef43a74e890b81f0caba712d1068d97`, preparation3 reached authenticated isolated IAB/API/frontend and the first fixed question ran once. W1 remains closed0/6 after a deterministic preparation defect; W2 stopped2/6 after one query embedding and one generation. Generation HTTP200 returned `finish_reason=length`, completion1024 and final `content=null`; stored Turn failed, result null, trace count0. No answer was accepted, so five-layer/citation acceptance is unproven and cases2/3 are NOT RUN. Parent145mock tests and renewed exact-byte independent helper review passed before runtime; they do not establish model/browser acceptance. Owned processes/OAuth/IAB/session were cleaned; retained dependencies stay running. Original pending markers and clock/counters remain unchanged. See10.9. A new runtime or model/cap/policy change requires an owner decision under10.6; do not reopen either window. Earlier opening status lines below are historical.
 
@@ -3453,3 +3453,148 @@ it read saved test evidence, rather than rerunning it. Commands, JUnit, review h
 attempts are retained under the new run-local `generation-token-recovery-20261021/` directory.
 Helpers, current-candidate CI/freeze and AC1–AC9 application acceptance remain pending. Runtime
 clock NOT STARTED; preparation0/3, windows0/2, physical0/12. This is local/mock verification only.
+
+
+### 11.7 Generation-cap execution and stopped application packet — 2026-10-21
+
+**Disposition:** partial application evidence, not ready for owner acceptance. The owner approved11
+at revision `4b8e3399c619cdfd37388ce8e37127a55c4b24bb`; parent advanced internal checks without
+small permission prompts. The mandatory runtime-exit boundary ended the package. No restart,
+second window, token escalation or unchanged replay is authorized by unused counters.
+
+**Candidate and offline gates.** Product/runtime subject is
+`4f9cc9d30c210f39cc59aa37a1ddd8e7700c6aa2`, bootstrap SHA256
+`9133f4e7abde78425343dd3f2e98aa4a279b1686e463e99720f03235072aa23f`, cap2048.
+Policy/schema remain the v21 hashes in11.5; source version
+`b9c52a63-185d-4078-956c-ec42bdd807af`, original PDF SHA256
+`219b5a71a5de2d909421a1bbb984664eaae2495958467b32c4e04325f2ef32d6`.
+Retained23chunks/23vectors/dim1024 and containment configuration were freshly checked before
+opening W1; no re-ingestion. TaskA actual RED1024!=2048 then142passed/0failures/0errors/0skips;
+TaskB final copied-helper208passed/0failures/0errors/0skips in38.33s. Existing safe length/malformed/
+timeout rejection remains one mock call at1024/2048/4096. Final seven frozen helper hashes were
+rechecked after runtime; old evidence/helpers were preserved.
+
+Required [CI39546281125](https://github.com/NhiBuaa/knora-agent/actions/runs/39546281125), attempt1,
+completed6/6jobs SUCCESS; separate advisory
+[Shadow39546281082](https://github.com/NhiBuaa/knora-agent/actions/runs/39546281082) completed2/2 SUCCESS.
+Downloaded ci-subject artifact12322070793 binds PR head4f9cc9d above to synthetic checkout
+`401402c7c1ecb04de33a803f4382d15d40405098`, parents main
+`2ccbf178779ee3fdb488609548f51a52cdfe4720` and that PR head. Actual reports: Backend Ubuntu1448,
+Database376, Frontend unit474, browser fixtures147, Keycloak45 and Windows244; zero failures/
+errors/skips in the inspected reports. These are component/fixture checks, not live-provider
+acceptance. CI was not rerun to seek green. A later sole-Master report commit needs its own CI;
+this runtime evidence remains bound to4f9cc9d with an unchanged-product comparison.
+
+**Preparation and accounting.** First runtime effect/preparation1 began12:10:40 Asia/Saigon
+(05:10:40UTC),21October; deadline22October12:10:40. Both retained databases and Keycloak were
+already running and were not restarted. Supervised owned API8183 and frontend3183 reached
+health200; normal IAB login used the approved fake owner, with zero-Turn/empty-context capture.
+W1 opened at2048 after exact-account Workers Free Active/daily quota0/10000 observations.
+Two physical requests occurred: one query embedding HTTP200 in18.026s (1×1024), then one answer
+HTTP200 in16.300s, finish=stop, usage1238prompt+1148completion=2386tokens. No selector/document
+embedding/retry/replay occurred; unknown provider outcomes0. A later dashboard refresh observed
+53.85/10000 today, separately from rolling24h figures. Request-specific billed cost remains
+UNVERIFIED; the approved paid-budget0USD is not proof of a measured0USD charge.
+
+**Case1 accepted presentation observation.** Fresh Conversation
+`788bc289-58be-4a60-a335-d901a5a7d121`, Turn `8164c619-44a1-4f8d-90b9-9df8b3295a2d`,
+trace `e19fc751-9a29-4c1a-be08-c58394feb6fe`: answered/final_validated, exactly one stored trace,
+generation completed/validation valid. Final JSON before1/items7/after1 composes to a suggested
+seven-chapter lead, bold **7 chương**, seven bullets in generated order and concluding prose.
+Parent compared every literal field/order against desktop/mobile DOM, stored Turn/trace and
+maintained HTTP response serialization. Real UI history GETs returned200 and the same answered
+Turn reloaded on mobile without another submission. Independent raw HTTP-body interception was
+not performed; `case-0-stored-api-projection.json` explicitly records that limit rather than
+claiming such a capture. No data fixture substitutes for the actual rendered answer.
+
+Actual desktop1440×960 and mobile390×844 were measured from DOM and screenshots inspected; no
+horizontal clipping/overflow/raw marker/duplicate chip was observed. A viewport request on the
+older tab did not apply (measured1440×960); parent did not count it as mobile. A new same-Turn IAB
+tab plus measured390×844 supplied the real mobile observation. Both chips were opened on desktop
+and mobile: E1 maps to PDFp.1 lines1–19/offset0–1266; E2 to p.1 lines15–34/offset1098–2266,
+same original document/version above. The source page showed Current=Served for that version.
+
+**Generation quality remains separate.** JSON item2–6 claim supportE1 even though E1 truncates
+inside chapter2's title; E2 contains all seven chapters. Both aliases and the existing grouped
+unique-marker mapping survive unchanged. Independent read-only review concluded this observed
+per-item support inadequacy does not add a new semantic-entailment gate to AC3; no total/title is
+outside the supplied Evidence Set. The generated JSON also omits source merge/split qualifications.
+Both are retained generation limitations, not composer/renderer loss or semantic quality PASS.
+Route sufficient-evidence qualification/attribution defects to the existing4.9 Answer Generation
+proposal; do not create a new Issue or repair payload/regenerate. Any claim unsupported by the
+whole supplied Evidence Set or wrong document/version/locator would still require a stop.
+
+**Mandatory runtime stop.** At12:25:07.98–08.00 Asia/Saigon both owned frontend launcher23196
+and API launcher62012 exited1; their terminal supervisor records are retained. Their logs contain
+no established application exception explaining this simultaneous exit. The next dispatcher tool
+invocation was aborted; fresh DB/process/file reconciliation proves case2 dispatcher did not
+start and no case2 physical reservation exists. Do not infer a provider failure or exact host
+cause. The existing guard stopped W1 as runtime-startup-or-exit-failure; parent added a permanent
+package safety stop `runtime-exited-during-case1-before-dispatch` before cleanup. No reserve
+exception in11.4 applies to this runtime failure.
+
+Case2's normal UI submission created Conversation `1576d799-a732-401d-949a-ec468a042b67`, Turn
+`babae5e4-e31d-43e7-9c18-2ae283b799c6`; fresh read-only reconciliation found queued/resultnull,
+trace0, the only eligible Turn in the isolated workspace. History was preserved, not cancelled,
+deleted or relabeled. **Do not restart a worker against this queued Turn.** A future approved
+recovery must explicitly disposition it and create the newly approved fresh cases. Case3 has no
+submission. Final counts: preparation1/3; W1stopped2/6; aggregate2/12, unknown0; W2NOTOPENED.
+Unused allowances do not reopen this package.
+
+**Cleanup and remaining exposure.** Dispatcher case1 exited0 before the stop. No owned API/
+frontend listener remained on8183/3183;3000 remained absent/untouched. Former owned PID53168 had
+been reused by an unrelated conhost.exe; it was not killed. No broad process/stack cleanup ran.
+The reviewed OAuth helper removed exactly its redirect/origin/post-logout additions and fresh
+readback matched; concurrent foreign values were preserved. Retained three dependency IDs,
+images/start times/storage/bindings match preparation and remain running (mount arrays compared
+by destination after an order-only assertion failure). PR200 remains frozen at
+`17f199810970c40d2bcd060e68a03fc0aacc210b`.
+
+Normal application logout could not run after frontend exit: session invalidation is UNVERIFIED.
+After tool-session state loss, the original IAB app tab showed connection refused as a `data:`
+error URL. Browser Use URL policy rejected observation, viewport reset and that tab's close;
+no alternate browser/protocol/workaround was used. The owned Cloudflare tab closed normally.
+The error tab may remain and viewport reset/full browser cleanup is UNVERIFIED. No service was
+restarted merely to obtain cleanup evidence. These limits prevent full AC9 acceptance.
+
+| Criterion | Actual outcome at this stopped package |
+| --- | --- |
+| AC1 | Case1 natural bold7-chapter lead and seven bullets observed. Case-level presentation evidence only. |
+| AC2 | Case1 literal before/items/after/order preserved through composer/stored Turn/trace/HTTP projection/real history DOM; raw HTTP-body interception not done. Cases2/3 incomplete. |
+| AC3 | Case1 alias union/grouping and both chip document/version/page/locator checked at both sizes. Per-item model attribution limitation explicitly retained; cases2/3 not checked. |
+| AC4 | Case2 queued but no dispatcher/provider execution. NOT RUN for required answer/list. |
+| AC5 | Case3 NOT RUN. |
+| AC6 | Two actual answered-Turn viewport observations, not required six; whole criterion incomplete. |
+| AC7 | Applicable offline/CI negatives plus actual owner login/history/source/mobile observed. No additional live refusal/access probes; remaining cases incomplete. |
+| AC8 | Exact candidate/helpers/CI/source/context/known2requests/usage/latency recorded; whole three-case correlation incomplete, actual cost UNVERIFIED. |
+| AC9 | Finite approval/ledger/permanent stop and OAuth/process/dependency reconciliation evidenced; normal logout/error-tab/viewport cleanup UNVERIFIED. Not accepted. |
+
+Artifacts reuse `<WORKTREE>/frontend/test-results/issue183/generation-token-recovery-20261021/`.
+`acceptance-packet-hashes.json` binds34selected artifacts; full PDF/source/credential-bearing
+records remain private/ignored. No raw reasoning is published. Final/current authority is the
+permanent stop, not the earlier preflight's optimistic state. Commands below are historical
+execution evidence with user-local paths redacted; they do not authorize another run:
+
+```text
+<PYTHON_ENV>/python -X utf8 -B -m pytest --rootdir=. -p no:cacheprovider <RUN>/test_p4_guard.py <RUN>/test_runtime.py <RUN>/test_oauth.py -q --basetemp=<UNIQUE_OWNED_TEMP>/tmp --junitxml=<RUN>/helper-parent-full-attempt2.xml
+<PYTHON_ENV>/python -X utf8 -B <RUN>/runtime.py turn 0
+<PYTHON_ENV>/python -X utf8 -B <RUN>/oauth.py cleanup 1
+gh run view 39546281125 --json status,conclusion,headSha,jobs
+```
+
+**Selective closeout.** Use measured viewport dimensions and durable PID/start/exit records;
+never count requested emulation or a reused PID as proof. Existing run-local helpers/tests and
+this Master remain the owners; no Skill/hook/framework/evidence store is added. Skills selected
+from the current catalog were read at their actual paths, with explicit authorized scope taking
+precedence over generic workflow defaults. TaskA had one unrelated proxy setup failure before
+actual behavioral RED; TaskB fixed independently verified boundary findings with reasoned
+RED/GREEN runs, retaining failed attempts. Quota page needed one read-only reload after loading
+stalled, without a dispatcher. No live reask or CI rerun occurred. These are task-quality and
+compliance observations, not a formal Skill Eval PASS or a causal improvement claim. Relevant
+Hindsight183 page still had no content; it supplies no acceptance fact.
+
+**Remaining frontier:** independent failure-packet review, docs-only report own CI and exact
+existing PR184/checkpoint publication/readback can proceed offline. Runtime/service/session
+recovery, queued-Turn disposition and any new three-case live window require a new explicit
+bounded owner decision. Keep all old stops/counts and the approved presentation scope; no need
+to reopen selector/two-stage, change cap again, broaden153 or repeat completed model comparisons.
