@@ -7,7 +7,7 @@ for current architecture, phases, dependencies, permissions and Definition of Do
 The original proposal is preserved in local Git commit
 `5c580a313d17e1b75b130337bc036943319a00e7` (this research branch was not pushed
 when that proposal was recorded). Its source findings remain in the
-[research note](../../research/issue-188-cloudflare-p1.md).
+[research note](../research/issue-188-cloudflare-p1.md).
 
 This proposal grants no authority. Consult the Master for the current owner decision
 and P1 offline evidence; inference, Gateway, budget, enforcement, export and merge

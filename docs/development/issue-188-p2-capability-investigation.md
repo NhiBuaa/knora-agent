@@ -13,7 +13,7 @@ activation, enforcement, merge or deployment is authorized.
 
 ## Authority and boundary
 
-The controlling sequence is the [Issue #188 Master Implementation Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md).
+The controlling sequence is the [Issue #188 Master Implementation Plan](../plans/2026-10-16-issue-188-master-plan.md).
 P1 remains the exact offline fixture and `generation_evidence` envelope approved in
 the [#192 ACK](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6200725822):
 selected immutable inputs, native identities/digests, a separate consumer projection
@@ -1248,7 +1248,7 @@ authority. No live permission is being requested at this checkpoint.
 
 Owner explicitly approved applying the risk-based threat-model revision and reviewed
 P0–P10 diff to the existing Master. The
-[Master](../superpowers/plans/2026-10-16-issue-188-master-plan.md) now records that
+[Master](../plans/2026-10-16-issue-188-master-plan.md) now records that
 adopted direction and the
 [review artifact](../research/issue-188-threat-model-proposed-master-diff.md) retains
 the exact frozen proposal and approval receipt.
@@ -1272,7 +1272,7 @@ Full Issue #188 is incomplete; Detection Completed: no; Protection Enabled: no.
 ## Approved risk-based E/G/L execution — October 18
 
 Owner approved Master section 12 Q1+Q2+Q3 / E+G+L. The single authoritative
-execution/claim matrix is now [Master section 13](../superpowers/plans/2026-10-16-issue-188-master-plan.md#13-approved-egl-execution--october-18).
+execution/claim matrix is now [Master section 13](../plans/2026-10-16-issue-188-master-plan.md#13-approved-egl-execution--october-18).
 Historical P1–P4 bytes/dispositions and P5/P6 drafts remain unchanged.
 
 The new [offline supplement](../../evals/reports/security_outcomes/offline-001/report.json)

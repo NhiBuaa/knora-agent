@@ -2,7 +2,7 @@
 
 Researched: **2026-10-17**. Status: public-source findings and candidate decisions for
 review; **no candidate acceptance, implementation or execution authority**.
-The [Master Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md) controls
+The [Master Plan](../plans/2026-10-16-issue-188-master-plan.md) controls
 phase state. This note satisfies only the approved P5/P6 public-source research
 bundle described in the [capability investigation](../development/issue-188-p2-capability-investigation.md).
 

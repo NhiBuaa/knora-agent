@@ -1,7 +1,7 @@
 # Issue #188 — Cloudflare P1 research
 
 Current implementation sequencing and approval state belong only to the
-[Issue #188 Master Implementation Plan](../superpowers/plans/2026-10-16-issue-188-master-plan.md).
+[Issue #188 Master Implementation Plan](../plans/2026-10-16-issue-188-master-plan.md).
 This file preserves dated source findings, not a parallel implementation plan.
 
 Researched: 2026-10-15. Status: proposal evidence, no inference or account modification.

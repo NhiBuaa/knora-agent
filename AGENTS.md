@@ -61,6 +61,15 @@ authorization.
 For skill evaluation, suspected stale/ineffective guidance, or a changed skill/model/runbook,
 follow [Skill Evals](docs/agents/skill-evals.md); keep run evidence and decisions in the Issue/PR.
 
+## Specification and plan locations
+
+Store specification documents in `docs/specs/` and implementation plans in `docs/plans/`;
+completed specifications remain in `docs/specs/done/`. These repository paths override
+Skill output-path defaults, including those of `brainstorming` and `writing-plans`.
+Keep technical decisions in their existing ADR/design owners and progress in the Issue/PR.
+When relocating documents, update current links while preserving commit-pinned URLs,
+frozen patches and approval records as historical evidence.
+
 ## Worktree location policy
 
 The sole container for every future non-primary Git worktree is
