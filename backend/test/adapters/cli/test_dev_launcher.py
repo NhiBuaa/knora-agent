@@ -1668,13 +1668,7 @@ def test_daily_launcher_docker_metadata_timeout_aborts_and_cleans_reservation(tm
         param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
         Set-StrictMode -Version Latest
         function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }
-        $launcherArgs = @(
-            '-EnvFile', $EnvFile,
-            '-PostgresPort', $PostgresPort,
-            '-ApiPort', $ApiPort,
-            '-FrontendPort', $FrontendPort
-        )
-        . $env:KNORA_TEST_SCRIPT @launcherArgs
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters
         exit $LASTEXITCODE
         """)
     )
@@ -1759,13 +1753,7 @@ def test_daily_launcher_docker_metadata_pipe_buffer_and_spaced_path(tmp_path, sh
         param([string]$EnvFile, [int]$PostgresPort, [int]$ApiPort, [int]$FrontendPort)
         Set-StrictMode -Version Latest
         function Get-NetTCPConnection { throw 'CIM_QUERY_UNAVAILABLE' }
-        $launcherArgs = @(
-            '-EnvFile', $EnvFile,
-            '-PostgresPort', $PostgresPort,
-            '-ApiPort', $ApiPort,
-            '-FrontendPort', $FrontendPort
-        )
-        . $env:KNORA_TEST_SCRIPT @launcherArgs
+        & $env:KNORA_TEST_SCRIPT @PSBoundParameters
         exit $LASTEXITCODE
         """)
     )
