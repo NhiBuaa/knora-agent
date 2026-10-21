@@ -914,3 +914,34 @@ def test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy() -> Non
     assert PypdfTextExtractor().extract(BytesIO(source), configuration).pages[0].text == (
         "ordinary parent follow-up"
     )
+
+
+def test_pypdf_plain_and_layout_parity_and_canonical_structure() -> None:
+    raw = pdf_with_pages("Page 1 paragraph 1.\n\nPage 1 paragraph 2.", "Page 2 text.")
+    expected_hash = hashlib.sha256(raw).hexdigest()
+
+    for config in (
+        PdfExtractionConfiguration.milestone_two(),
+        PdfExtractionConfiguration.layout_preserving(),
+    ):
+        result = PypdfTextExtractor().extract(BytesIO(raw), config)
+
+        # Legacy fields parity
+        assert len(result.pages) == 2
+        assert len(result.chunks) >= 2
+        assert result.derivation_identity == config.derivation_identity
+
+        # Canonical structure presence & validation
+        assert result.structure is not None
+        assert result.structure.raw_source_hash == expected_hash
+        assert result.structure.derivation_identity == config.derivation_identity
+        assert result.structure.parser_version == config.parser_version
+        assert len(result.structure.pages) == 2
+
+        for page, canonical_page in zip(result.pages, result.structure.pages, strict=True):
+            assert page.page_number == canonical_page.page_number
+            assert page.text == canonical_page.text
+            assert page.content_checksum == canonical_page.content_checksum
+            assert len(canonical_page.blocks) > 0
+            for block in canonical_page.blocks:
+                assert canonical_page.text[block.start_offset : block.end_offset] == block.text
