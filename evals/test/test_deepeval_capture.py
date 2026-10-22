@@ -1,3 +1,4 @@
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -38,6 +39,45 @@ def _capture(**overrides):
     }
 
 
+def _preflight(digest):
+    now = datetime.now(UTC)
+    return {
+        "run_id": "run-1",
+        "capture_sha256": digest,
+        "account_id": "b" * 32,
+        "plan": "Workers Free",
+        "observed_at_utc": now.isoformat(),
+        "trial_started_at_utc": now.isoformat(),
+        "quota_resets_at_utc": (now + timedelta(hours=1)).isoformat(),
+        "reviewed_by": "owner",
+        "used_neurons_today": 0,
+        "remaining_neurons_today": 1000,
+        "zero_paid_budget_confirmed": True,
+        "approved_data_classification": "synthetic",
+        "max_output_tokens": 64,
+    }
+
+
+def _schema_value(schema, defs):
+    if "$ref" in schema:
+        return _schema_value(defs[schema["$ref"].split("/")[-1]], defs)
+    if "anyOf" in schema:
+        return _schema_value(
+            next(item for item in schema["anyOf"] if item.get("type") != "null"), defs
+        )
+    if schema.get("type") == "object":
+        return {
+            key: _schema_value(spec, defs) for key, spec in schema.get("properties", {}).items()
+        }
+    if schema.get("type") == "array":
+        return [_schema_value(schema["items"], defs)]
+    if schema.get("type") in ("number", "integer"):
+        return 1
+    if "enum" in schema:
+        return schema["enum"][0]
+    return "supported"
+
+
 def test_attempt_ledger_persists_timeout_attempts_and_enforces_cap(tmp_path) -> None:
     path = tmp_path / "attempts.sqlite3"
     deadline = datetime.now(UTC) + timedelta(minutes=60)
@@ -71,6 +111,7 @@ def test_schema_aware_judge_rejects_truncation_and_counts_attempts(tmp_path) -> 
         endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
         token="secret",
         model="@cf/openai/gpt-oss-20b",
+        max_output_tokens=64,
         ledger=ledger,
         client=httpx.Client(transport=httpx.MockTransport(endpoint)),
     )
@@ -79,6 +120,29 @@ def test_schema_aware_judge_rejects_truncation_and_counts_attempts(tmp_path) -> 
     assert ledger.count() == 1
     assert requests[0]["response_format"]["type"] == "json_schema"
     assert requests[0]["model"] == "@cf/openai/gpt-oss-20b"
+    assert requests[0]["max_tokens"] == 64
+
+
+@pytest.mark.parametrize("limit", [None, 0, -1, True, 1.5, "64"])
+def test_judge_rejects_invalid_output_limit_before_http(tmp_path, limit) -> None:
+    ledger = AttemptLedger(
+        tmp_path / "attempts.sqlite3",
+        run_id="run-1",
+        deadline=datetime.now(UTC) + timedelta(minutes=1),
+        cap=1,
+    )
+    with pytest.raises(JudgeError, match="JUDGE_CONFIGURATION_INVALID"):
+        CloudflareJudge(
+            endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
+            token="fixture-only",
+            model="@cf/openai/gpt-oss-20b",
+            max_output_tokens=limit,
+            ledger=ledger,
+            client=httpx.Client(
+                transport=httpx.MockTransport(lambda _request: pytest.fail("unexpected HTTP"))
+            ),
+        )
+    assert ledger.count() == 0
 
 
 def test_timeout_reserves_attempt_before_transport(tmp_path) -> None:
@@ -95,6 +159,7 @@ def test_timeout_reserves_attempt_before_transport(tmp_path) -> None:
         endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
         token="secret",
         model="@cf/openai/gpt-oss-20b",
+        max_output_tokens=64,
         ledger=ledger,
         client=httpx.Client(transport=httpx.MockTransport(endpoint)),
     )
@@ -108,6 +173,7 @@ def test_private_capture_is_rejected_before_http(tmp_path) -> None:
         endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
         token="secret",
         model="@cf/openai/gpt-oss-20b",
+        max_output_tokens=64,
         ledger=AttemptLedger(
             tmp_path / "attempts.sqlite3",
             run_id="run-1",
@@ -135,6 +201,7 @@ def test_judge_rejects_non_cloudflare_endpoint_before_http(tmp_path) -> None:
             endpoint="https://judge.example/chat/completions",
             token="secret",
             model="@cf/openai/gpt-oss-20b",
+            max_output_tokens=64,
             ledger=ledger,
         )
     assert ledger.count() == 0
@@ -246,23 +313,17 @@ def test_capture_derives_answer_and_exact_context_only_from_report() -> None:
     assert derive_captures(source, [case], run_id="run-1")[0]["trace_id"] is None
 
 
-def test_free_preflight_requires_fresh_bound_approval() -> None:
+@pytest.mark.parametrize("limit", [64, None, 0, -1, True, 1.5, "64", "missing"])
+def test_free_preflight_requires_fresh_bound_approval_and_output_limit(limit) -> None:
     digest = "sha256:" + "a" * 64
-    now = datetime.now(UTC)
-    record = {
-        "run_id": "run-1",
-        "capture_sha256": digest,
-        "account_id": "b" * 32,
-        "plan": "Workers Free",
-        "observed_at_utc": now.isoformat(),
-        "trial_started_at_utc": now.isoformat(),
-        "quota_resets_at_utc": (now + timedelta(hours=1)).isoformat(),
-        "reviewed_by": "owner",
-        "used_neurons_today": 0,
-        "remaining_neurons_today": 1000,
-        "zero_paid_budget_confirmed": True,
-        "approved_data_classification": "synthetic",
-    }
+    record = {**_preflight(digest), "max_output_tokens": limit}
+    now = datetime.fromisoformat(record["observed_at_utc"])
+    if limit == "missing":
+        record.pop("max_output_tokens")
+    if type(limit) is not int or limit < 1:
+        with pytest.raises(JudgeError, match="FREE_PREFLIGHT_UNVERIFIED"):
+            validate_free_preflight(record, run_id="run-1", capture_sha256=digest)
+        return
     assert validate_free_preflight(record, run_id="run-1", capture_sha256=digest) == "b" * 32
     record["trial_started_at_utc"] = (now + timedelta(microseconds=1)).isoformat()
     with pytest.raises(JudgeError, match="FREE_PREFLIGHT_UNVERIFIED"):
@@ -293,23 +354,9 @@ def test_real_deepeval_metrics_use_only_mocked_cloudflare_transport(
     )
     prompts = []
 
-    def value(schema, defs):
-        if "$ref" in schema:
-            return value(defs[schema["$ref"].split("/")[-1]], defs)
-        if "anyOf" in schema:
-            return value(next(item for item in schema["anyOf"] if item.get("type") != "null"), defs)
-        if schema.get("type") == "object":
-            return {key: value(spec, defs) for key, spec in schema.get("properties", {}).items()}
-        if schema.get("type") == "array":
-            return [value(schema["items"], defs)]
-        if schema.get("type") in ("number", "integer"):
-            return 1
-        if "enum" in schema:
-            return schema["enum"][0]
-        return "supported"
-
     def endpoint(request):
         payload = json.loads(request.content)
+        assert payload["max_tokens"] == 64
         prompts.append(payload["messages"][0]["content"])
         schema = payload["response_format"]["json_schema"]["schema"]
         return httpx.Response(
@@ -318,7 +365,9 @@ def test_real_deepeval_metrics_use_only_mocked_cloudflare_transport(
                 "choices": [
                     {
                         "finish_reason": "stop",
-                        "message": {"content": json.dumps(value(schema, schema.get("$defs", {})))},
+                        "message": {
+                            "content": json.dumps(_schema_value(schema, schema.get("$defs", {})))
+                        },
                     }
                 ]
             },
@@ -328,6 +377,7 @@ def test_real_deepeval_metrics_use_only_mocked_cloudflare_transport(
         endpoint="https://api.cloudflare.com/client/v4/accounts/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ai/v1/chat/completions",
         token="secret",
         model="@cf/openai/gpt-oss-20b",
+        max_output_tokens=64,
         ledger=AttemptLedger(
             tmp_path / "attempts.sqlite3",
             run_id="run-1",
@@ -341,7 +391,74 @@ def test_real_deepeval_metrics_use_only_mocked_cloudflare_transport(
     assert {item["status"] for item in result["metrics"].values()} == {"scored"}
     assert judge.ledger.count() == len(prompts)
     assert result["http_attempts"] == len(prompts)
+    assert result["requested_max_output_tokens"] == 64
     assert prompts
+
+
+def test_runner_sends_reviewed_output_limit_on_nested_judge_requests(tmp_path, monkeypatch) -> None:
+    case = SimpleNamespace(
+        id="case-1",
+        question="What is the refund window?",
+        answer_expectations=SimpleNamespace(reference_answer="Thirty days."),
+    )
+    source = {
+        "observations": [
+            {
+                "case_id": "case-1",
+                "status": "observed",
+                "trace_id": "trace-1",
+                "decision": "ANSWER",
+                "public_answer": "Thirty days.",
+            }
+        ],
+    }
+    captures = derive_captures(source, [case], run_id="run-1")
+    digest = (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(captures, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+    )
+    preflight = {**_preflight(digest), "max_output_tokens": 48}
+    requests = []
+
+    def endpoint(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        assert payload["max_tokens"] == 48
+        schema = payload["response_format"]["json_schema"]["schema"]
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(_schema_value(schema, schema.get("$defs", {})))
+                        },
+                    }
+                ]
+            },
+        )
+
+    client_type = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: client_type(**kwargs, transport=httpx.MockTransport(endpoint)),
+    )
+    report = run_capture(
+        source,
+        [case],
+        run_id="run-1",
+        output=tmp_path / "supplement.json",
+        preflight=preflight,
+        token="fixture-only",
+        ledger_path=tmp_path / "attempts.sqlite3",
+    )
+    assert requests
+    assert report["cases"][0]["requested_max_output_tokens"] == 48
+    assert report["cases"][0]["metrics"]["answer_relevancy"]["status"] == "scored"
 
 
 def test_runner_defaults_to_offline_and_immutable_supplement(tmp_path) -> None:
