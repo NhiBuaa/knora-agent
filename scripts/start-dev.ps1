@@ -302,6 +302,21 @@ if (-not $PreflightOnly) {
         $writer.WriteLine("TIMESTAMP=$([DateTime]::UtcNow.ToString('o'))")
         $writer.Flush()
     } catch {
+        [Console]::Error.WriteLine("DEV_RESERVATION_PATH:$reservationPath")
+        [Console]::Error.WriteLine("DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services")
+        try {
+            if ([IO.File]::Exists($reservationPath)) {
+                $lines = [IO.File]::ReadAllLines($reservationPath)
+                $ownerPid = $null
+                $ownerTs = $null
+                foreach ($line in $lines) {
+                    if ($line -match '^PID=(\d+)$') { $ownerPid = $Matches[1] }
+                    elseif ($line -match '^TIMESTAMP=([0-9T:.Z+-]+)$') { $ownerTs = $Matches[1] }
+                }
+                if ($ownerPid) { [Console]::Error.WriteLine("DEV_RESERVATION_OWNER_PID:$ownerPid") }
+                if ($ownerTs) { [Console]::Error.WriteLine("DEV_RESERVATION_TIMESTAMP:$ownerTs") }
+            }
+        } catch { }
         Fail "DEV_PROJECT_RESERVED:$composeProject"
     }
 }

@@ -71,10 +71,10 @@ Daily development includes registration, sign-in, sign-out and Forgot Password
 through real email OTP. Fill the blank values in the root
 [`.env.example`](../../.env.example), then save it as the ignored `.env`:
 
-| Group | Values to supply |
-| --- | --- |
+| Group                   | Values to supply                                                          |
+| ----------------------- | ------------------------------------------------------------------------- |
 | AI, storage and session | Cloudflare account/token, local MinIO access/secret, and `SESSION_SECRET` |
-| Email OTP | `KNORA_OTP_HMAC_KEY`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD` |
+| Email OTP               | `KNORA_OTP_HMAC_KEY`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`  |
 
 The template already sets the local OTP switch to true and supplies Gmail
 host/port/TLS/auth settings. The sender and SMTP user usually use the same Gmail
@@ -94,21 +94,21 @@ restart its runtime.
 
 ### Defaults and values supplied by the launcher
 
-| Variable | Usage / default |
-| --- | --- |
-| `KNORA_EMBEDDING_PROVIDER`, `KNORA_GENERATION_PROVIDER` | The daily launcher defaults both to `cloudflare-workers-ai`; select both as `ollama` for offline use or `deterministic-local` for simulation. Direct backend invocation requires both selectors to be set or both unset. |
-| `KNORA_PROVIDER_MODE` | Direct backend/CI defaults to `deterministic-local` when the selector pair is absent; compatibility modes remain available for evaluation. The daily launcher selects the pair independently, so this variable does not select its provider. |
-| `KNORA_DATABASE_URL` | Settings defaults to `postgresql+psycopg://knora:knora@localhost:5432/knora`; the daily launcher derives it from `-DatabaseName` (default `knora_dev`) and `-PostgresPort` (5432). Set an explicit URL only for direct backend invocation or `start-ollama-demo.ps1 -UseExistingStorage` with a verified target. |
-| `KNORA_EMBEDDING_DIMENSION`, `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID`, `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` | The launcher resolves and pins these values; do not enter them manually when using it. Direct backend invocation defaults to dimension 1536; Cloudflare/Ollama require 1024 and the matching profile; Ollama generation requires a verified real digest. |
-| `KNORA_API_URL`, `KNORA_BACKEND_URL`, `NEXT_PUBLIC_APP_ORIGIN` | The daily launcher derives these from the API/frontend ports, defaulting to 8000/3000. Never put provider secrets in `NEXT_PUBLIC_` variables. |
-| `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`, `KEYCLOAK_ISSUER` | The daily launcher supplies endpoints for `http://127.0.0.1:8180/realms/knora-dev` when unset. An external issuer requires a running realm; endpoints follow that issuer unless explicitly overridden. |
-| `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, `KNORA_KEYCLOAK_AUDIENCE` | The bundled client is `knora-web`; the backend audience defaults to the frontend audience. For an external client, configure the client ID and both audiences to match the realm. |
-| `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_JWKS_URL` | The daily launcher takes these from frontend OIDC settings when unset. Frontend/backend issuers must match; direct backend invocation does not enable bearer validation automatically when configuration is missing. |
-| `KEYCLOAK_CLIENT_SECRET` | Required only for an external confidential client; the bundled public client does not need it. |
-| `KEYCLOAK_REDIRECT_URI`, `KEYCLOAK_POST_LOGOUT_REDIRECT_URI` | Daily launcher defaults are `http://127.0.0.1:3000/api/auth/callback` and `http://127.0.0.1:3000/`; `-FrontendPort` updates both. They must match the client's allowlist. |
-| `KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS` | Backend default: 300 seconds; override only when needed. |
-| `KNORA_API_CREDENTIALS_JSON` | Backend default: `[]`; used only for API-key CLI/integration, not required for the browser bearer flow. Contains `key_id`, hash, Workspace and enabled fields as defined in [architecture](../standards/architecture.md#authentication-and-workspace-authorization); never store raw API keys in this JSON. |
-| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY` | Default: `retrieval-m1-v1`, without a threshold override. Opt-in containment uses `retrieval-evidence-containment-v1`; rollback uses `retrieval-m1-v1`. See the [acceptance runbook](evidence-containment-acceptance.md). V2 accepts only its calibrated threshold/profile; do not use it for Cloudflare merely because dimensions or scores appear compatible. |
+| Variable                                                                                                           | Usage / default                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KNORA_EMBEDDING_PROVIDER`, `KNORA_GENERATION_PROVIDER`                                                            | The daily launcher defaults both to `cloudflare-workers-ai`; select both as `ollama` for offline use or `deterministic-local` for simulation. Direct backend invocation requires both selectors to be set or both unset.                                                                                                                                        |
+| `KNORA_PROVIDER_MODE`                                                                                              | Direct backend/CI defaults to `deterministic-local` when the selector pair is absent; compatibility modes remain available for evaluation. The daily launcher selects the pair independently, so this variable does not select its provider.                                                                                                                    |
+| `KNORA_DATABASE_URL`                                                                                               | Settings defaults to `postgresql+psycopg://knora:knora@localhost:5432/knora`; the daily launcher derives it from `-DatabaseName` (default `knora_dev`) and `-PostgresPort` (5432). Set an explicit URL only for direct backend invocation or `start-ollama-demo.ps1 -UseExistingStorage` with a verified target.                                                |
+| `KNORA_EMBEDDING_DIMENSION`, `KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID`, `KNORA_EXPECTED_GENERATION_MODEL_DIGEST` | The launcher resolves and pins these values; do not enter them manually when using it. Direct backend invocation defaults to dimension 1536; Cloudflare/Ollama require 1024 and the matching profile; Ollama generation requires a verified real digest.                                                                                                        |
+| `KNORA_API_URL`, `KNORA_BACKEND_URL`, `NEXT_PUBLIC_APP_ORIGIN`                                                     | The daily launcher derives these from the API/frontend ports, defaulting to 8000/3000. Never put provider secrets in `NEXT_PUBLIC_` variables.                                                                                                                                                                                                                  |
+| `KEYCLOAK_AUTHORIZATION_URL`, `KEYCLOAK_TOKEN_URL`, `KEYCLOAK_JWKS_URL`, `KEYCLOAK_ISSUER`                         | The daily launcher supplies endpoints for `http://127.0.0.1:8180/realms/knora-dev` when unset. An external issuer requires a running realm; endpoints follow that issuer unless explicitly overridden.                                                                                                                                                          |
+| `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_AUDIENCE`, `KNORA_KEYCLOAK_AUDIENCE`                                               | The bundled client is `knora-web`; the backend audience defaults to the frontend audience. For an external client, configure the client ID and both audiences to match the realm.                                                                                                                                                                               |
+| `KNORA_KEYCLOAK_ISSUER`, `KNORA_KEYCLOAK_JWKS_URL`                                                                 | The daily launcher takes these from frontend OIDC settings when unset. Frontend/backend issuers must match; direct backend invocation does not enable bearer validation automatically when configuration is missing.                                                                                                                                            |
+| `KEYCLOAK_CLIENT_SECRET`                                                                                           | Required only for an external confidential client; the bundled public client does not need it.                                                                                                                                                                                                                                                                  |
+| `KEYCLOAK_REDIRECT_URI`, `KEYCLOAK_POST_LOGOUT_REDIRECT_URI`                                                       | Daily launcher defaults are `http://127.0.0.1:3000/api/auth/callback` and `http://127.0.0.1:3000/`; `-FrontendPort` updates both. They must match the client's allowlist.                                                                                                                                                                                       |
+| `KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS`                                                                            | Backend default: 300 seconds; override only when needed.                                                                                                                                                                                                                                                                                                        |
+| `KNORA_API_CREDENTIALS_JSON`                                                                                       | Backend default: `[]`; used only for API-key CLI/integration, not required for the browser bearer flow. Contains `key_id`, hash, Workspace and enabled fields as defined in [architecture](../standards/architecture.md#authentication-and-workspace-authorization); never store raw API keys in this JSON.                                                     |
+| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY`                                                  | Default: `retrieval-m1-v1`, without a threshold override. Opt-in containment uses `retrieval-evidence-containment-v1`; rollback uses `retrieval-m1-v1`. See the [acceptance runbook](evidence-containment-acceptance.md). V2 accepts only its calibrated threshold/profile; do not use it for Cloudflare merely because dimensions or scores appear compatible. |
 
 ### Optional providers
 
@@ -122,12 +122,12 @@ embedding space requires an approved new configuration and controlled re-indexin
 For offline Ollama, use [Provider selection](#provider-selection-and-explicit-simulation)
 and the [stable offline runbook](local-ollama.md). Supported overrides:
 
-| Variable | Default |
-| --- | --- |
-| `KNORA_OLLAMA_BASE_URL` | Launcher: `http://127.0.0.1:11434`; direct Settings: `http://localhost:11434`. The launcher accepts only loopback endpoints. |
-| `KNORA_OLLAMA_EMBEDDING_MODEL` | `qwen3-embedding:0.6b`, fixed profile; the launcher resolves its digest/metadata. |
-| `KNORA_OLLAMA_GENERATION_MODEL` | `qwen3:8b`; an already pulled `qwen3:4b` or `gpt-oss:20b` can also be selected. Template cleanup does not change the default. |
-| `KNORA_OLLAMA_TIMEOUT_SECONDS`, `KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS` | 60 and 120 seconds; overrides must be positive numbers. |
+| Variable                                                                  | Default                                                                                                                       |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `KNORA_OLLAMA_BASE_URL`                                                   | Launcher: `http://127.0.0.1:11434`; direct Settings: `http://localhost:11434`. The launcher accepts only loopback endpoints.  |
+| `KNORA_OLLAMA_EMBEDDING_MODEL`                                            | `qwen3-embedding:0.6b`, fixed profile; the launcher resolves its digest/metadata.                                             |
+| `KNORA_OLLAMA_GENERATION_MODEL`                                           | `qwen3:8b`; an already pulled `qwen3:4b` or `gpt-oss:20b` can also be selected. Template cleanup does not change the default. |
+| `KNORA_OLLAMA_TIMEOUT_SECONDS`, `KNORA_OLLAMA_GENERATION_TIMEOUT_SECONDS` | 60 and 120 seconds; overrides must be positive numbers.                                                                       |
 
 Gemini, OpenAI-compatible and the semantic scorer retain compatibility/evaluation
 callers; see [provider/scorer variables](../evaluation.md#provider-and-scorer-configuration).
@@ -136,16 +136,16 @@ daily use does not select a judge or change the model-backed evaluation contract
 
 ### Storage, Compose, operations and OTP
 
-| Variable | Usage / default |
-| --- | --- |
-| `KNORA_OBJECT_STORE_BACKEND`, `KNORA_OBJECT_STORE_ROOT` | Direct backend defaults: `filesystem`, root `.knora-objects`. The daily launcher selects `s3_compatible` with local MinIO. |
-| `KNORA_OBJECT_STORE_S3_ENDPOINT`, `KNORA_OBJECT_STORE_S3_BUCKET`, `KNORA_OBJECT_STORE_S3_REGION` | No direct backend defaults; S3 requires a bucket, credentials and the service endpoint. The daily launcher uses `http://127.0.0.1:9000`, bucket `knora` (or `-ObjectStoreBucket`/environment), and region `us-east-1` when unset. The stable launcher supports `-ObjectStoreEndpoint` and `-UseExistingStorage`; see the [offline runbook](local-ollama.md). |
-| `KNORA_CANONICAL_MINIO_ACCESS_KEY`, `KNORA_CANONICAL_MINIO_SECRET_KEY` | Compose credential names; the launcher prefers this pair, then falls back to `KNORA_OBJECT_STORE_S3_ACCESS_KEY`/`KNORA_OBJECT_STORE_S3_SECRET_KEY` from the template. Do not fill both pairs. Direct Compose invocation requires the canonical pair in the process environment or `.env`; preserve credentials for existing volumes. |
-| `KNORA_PROVIDER_TEST_ACCESS_KEY`, `KNORA_PROVIDER_TEST_SECRET_KEY` | Only for the `provider-test` profile in `docker-compose.dev.yml`, with credentials separate from daily use. Not required for normal startup. |
-| `KNORA_OBJECT_INVENTORY_MANIFEST`, `KNORA_OBJECT_INVENTORY_MINIMUM_AGE_SECONDS` | Operations: optional JSONL inventory path; minimum age defaults to 86400 seconds. An inventory scanner is not supplied automatically when the manifest is unset. |
-| `KNORA_OPERATIONAL_ALERT_CONFIGURATION_JSON`, `KNORA_OPERATIONAL_METRICS_RETRY_WINDOW_SECONDS` | Optional versioned alert configuration; retry metric window defaults to 300 seconds. See [operational observability](../standards/architecture.md#asynchronous-pdf-ingestion). |
-| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY` | The daily template explicitly sets the local switch to true; Compose still defaults to false when it is unset. The key must be canonical Base64 containing at least 32 decoded bytes and must persist across restarts. Production uses Vault/secret manager when the switch is off. |
-| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Required for daily Forgot Password; apply once through guarded SMTP setup. Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, and sender/user/password from an authorized development account. Leaving them unset does not configure SMTP automatically. Mailpit is only for isolated tests/CI. |
+| Variable                                                                                                               | Usage / default                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `KNORA_OBJECT_STORE_BACKEND`, `KNORA_OBJECT_STORE_ROOT`                                                                | Direct backend defaults: `filesystem`, root `.knora-objects`. The daily launcher selects `s3_compatible` with local MinIO.                                                                                                                                                                                                                                   |
+| `KNORA_OBJECT_STORE_S3_ENDPOINT`, `KNORA_OBJECT_STORE_S3_BUCKET`, `KNORA_OBJECT_STORE_S3_REGION`                       | No direct backend defaults; S3 requires a bucket, credentials and the service endpoint. The daily launcher uses `http://127.0.0.1:9000`, bucket `knora` (or `-ObjectStoreBucket`/environment), and region `us-east-1` when unset. The stable launcher supports `-ObjectStoreEndpoint` and `-UseExistingStorage`; see the [offline runbook](local-ollama.md). |
+| `KNORA_CANONICAL_MINIO_ACCESS_KEY`, `KNORA_CANONICAL_MINIO_SECRET_KEY`                                                 | Compose credential names; the launcher prefers this pair, then falls back to `KNORA_OBJECT_STORE_S3_ACCESS_KEY`/`KNORA_OBJECT_STORE_S3_SECRET_KEY` from the template. Do not fill both pairs. Direct Compose invocation requires the canonical pair in the process environment or `.env`; preserve credentials for existing volumes.                         |
+| `KNORA_PROVIDER_TEST_ACCESS_KEY`, `KNORA_PROVIDER_TEST_SECRET_KEY`                                                     | Only for the `provider-test` profile in `docker-compose.dev.yml`, with credentials separate from daily use. Not required for normal startup.                                                                                                                                                                                                                 |
+| `KNORA_OBJECT_INVENTORY_MANIFEST`, `KNORA_OBJECT_INVENTORY_MINIMUM_AGE_SECONDS`                                        | Operations: optional JSONL inventory path; minimum age defaults to 86400 seconds. An inventory scanner is not supplied automatically when the manifest is unset.                                                                                                                                                                                             |
+| `KNORA_OPERATIONAL_ALERT_CONFIGURATION_JSON`, `KNORA_OPERATIONAL_METRICS_RETRY_WINDOW_SECONDS`                         | Optional versioned alert configuration; retry metric window defaults to 300 seconds. See [operational observability](../standards/architecture.md#asynchronous-pdf-ingestion).                                                                                                                                                                               |
+| `KNORA_OTP_LOCAL_DEV_ENABLED`, `KNORA_OTP_HMAC_KEY`                                                                    | The daily template explicitly sets the local switch to true; Compose still defaults to false when it is unset. The key must be canonical Base64 containing at least 32 decoded bytes and must persist across restarts. Production uses Vault/secret manager when the switch is off.                                                                          |
+| `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_FROM`, `KC_SMTP_USER`, `KC_SMTP_PASSWORD`, `KC_SMTP_STARTTLS`, `KC_SMTP_AUTH` | Required for daily Forgot Password; apply once through guarded SMTP setup. Gmail host `smtp.gmail.com`, port 587, STARTTLS/auth true, and sender/user/password from an authorized development account. Leaving them unset does not configure SMTP automatically. Mailpit is only for isolated tests/CI.                                                      |
 
 OTP/SMTP requires the procedure in [Daily auth setup](#daily-auth-setup-one-time)
 and the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration).
@@ -177,6 +177,7 @@ For a fresh environment:
 
    Put the result in the HMAC field. Never generate replacement values for an
    existing configured environment.
+
 3. Open Docker Desktop, then run `.\scripts\start-dev.ps1` from the repository root.
    Keep that terminal open. Once startup finishes, Keycloak is running, but entering
    SMTP values in `.env` alone has not configured the realm's reset flow or SMTP.
@@ -202,6 +203,7 @@ For a fresh environment:
    Existing SMTP changes may require the previous password for rollback; follow
    the [guarded migration](../development/keycloak-theme.md#primary-email-otp-migration)
    rather than bypassing its checks.
+
 5. Open `http://127.0.0.1:3000`, register a dedicated development account using an
    inbox you control, sign out, then use Forgot Password. Receive the OTP, set a new
    disposable password and sign in with it. Only observed delivery and successful
@@ -265,6 +267,7 @@ existing SMTP/App Password and HMAC key; do not generate a replacement key for t
    Resolved Compose configuration and full container inspection contain secrets; do not print
    or retain them. Coordinate this restart with anyone sharing the runtime; it interrupts active
    authentication sessions. No other project's containers or volumes need changing.
+
 3. Open `http://127.0.0.1:3000`, choose sign in, then **Forgot password**. Submit the dedicated
    account's email and confirm an OTP arrives in its real inbox (also check spam).
 4. Enter one incorrect code and confirm rejection. Then enter the received code before expiry,
@@ -544,11 +547,14 @@ data, the daily launcher enforces three preflight safety guards:
   launcher acquires an exclusive file lock at
   `%TEMP%\knora-dev-reservation-knora-dev.lock`. A concurrent second launcher on
   the same machine and user immediately aborts with `DEV_PROJECT_RESERVED:knora-dev`
-  before inspecting or altering shared Docker resources. Normal shutdown (Ctrl+C)
-  and clean preflight aborts release the lock automatically. If startup fails after
-  mutating operations begin or cleanup cannot be verified cleanly, the lock file is
-  intentionally retained on disk with process and timestamp metadata, printing
-  `DEV_RESERVATION_RETAINED:knora-dev`. Subsequent invocations are blocked until
+  before inspecting or altering shared Docker resources. The refusal diagnostics print
+  `DEV_RESERVATION_PATH` and the recovery runbook reference; if the lock file is readable
+  on disk, the recorded owner PID (`DEV_RESERVATION_OWNER_PID`) and timestamp
+  (`DEV_RESERVATION_TIMESTAMP`) are output without dumping arbitrary content or secrets.
+  Normal shutdown (Ctrl+C) and clean preflight aborts release the lock automatically.
+  If startup fails after mutating operations begin or cleanup cannot be verified cleanly,
+  the lock file is intentionally retained on disk with process and timestamp metadata,
+  printing `DEV_RESERVATION_RETAINED:knora-dev`. Subsequent invocations are blocked until
   an operator inspects for orphaned processes/containers and manually removes the file.
 - **Storage ownership verification**: The launcher queries the Docker daemon volume
   catalog (`docker volume ls`) and reconciles expected storage volumes
@@ -597,11 +603,17 @@ docker volume inspect knora-dev_knora_postgres_data --format '{{.Name}} {{index 
 
 Require successful command exits and compare the creating checkout, service, labels,
 mount type/name/destination and bindings with the guard above. The PostgreSQL role is
-`knora_postgres_data`, mounted at `/var/lib/postgresql/data`; its internal port stays
-5432. Inspect the other expected volumes too if implicated. Do not publish user-local
+`knora_postgres_data`, mounted at `/var/lib/postgresql/data`; its internal port stays 5432. Inspect the other expected volumes too if implicated. Do not publish user-local
 paths or secret output in evidence.
 
 **Retained reservation file.** Inspect the recorded owner locally:
+
+When a launcher is refused with `DEV_PROJECT_RESERVED:knora-dev`, diagnostics report:
+
+- `DEV_RESERVATION_PATH:<path>`: filesystem path to the reservation lock file.
+- `DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services`: reference to this recovery procedure.
+- If readable on disk (orphaned or retained lock from an exited process), `DEV_RESERVATION_OWNER_PID:<pid>` and `DEV_RESERVATION_TIMESTAMP:<timestamp>` report the recorded holder.
+- If the file is currently held exclusively by an active launcher process, owner metadata is omitted so unverified or concurrent writes are not read.
 
 ```powershell
 $devLock = Join-Path ([IO.Path]::GetTempPath()) 'knora-dev-reservation-knora-dev.lock'
