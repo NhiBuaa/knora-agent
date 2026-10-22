@@ -578,3 +578,45 @@ and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
 
 An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.
+
+
+## Referencing a shared `.env` from an isolated Git worktree
+
+When developing or verifying an Issue branch in an isolated Git worktree (e.g., `C:\Developer\Projects\knora-agent-worktree\<issue-slug>`), developers and autonomous agents can share the local `.env` located at the primary checkout (`C:\Developer\Projects\knora-agent\.env`) without merging code into temporary testing branches or copying secrets across directories.
+
+### Worktree and environment boundaries
+
+1. **`.env` is a local filesystem path, not a Git branch property**:
+   The primary checkout `.env` resides at an uncommitted, gitignored filesystem location. Loading it from a worktree does not execute code from the primary checkout or require the primary checkout to be on `main` or any specific commit.
+2. **Execute code and dependencies from the active worktree**:
+   Always invoke the launcher script directly from the active worktree root (e.g. `.\scripts\start-dev.ps1`). The launcher automatically binds `$env:PYTHONPATH` to the active worktree (`$repoRoot\backend\src;$repoRoot`) and uses dependencies matching the worktree's lockfiles. The virtual environment interpreter is discovered from the worktree `.venv` or the primary checkout `.venv`.
+3. **Verification of ownership and resource safety before invocation**:
+   Passing `-EnvFile` or setting configuration variables does **not** grant execution permissions or create isolated backend services. The daily development launcher targets the shared `knora-dev` Docker Compose project and `knora_dev` database. Before launching:
+   - Verify that ports 5432, 8180, 8000, 3000, and 9000 are not occupied by foreign or active developer sessions.
+   - Never override ownership guards, remove reservation locks (`%TEMP%\knora-dev-reservation-knora-dev.lock`), or run mutating commands (`docker compose down -v`) against an active or unverified stack.
+   - If isolated databases, buckets, or providers are unavailable, stop before service mutation and report the runtime gap honestly.
+4. **Configuration precedence and issue overrides**:
+   Configuration values resolve in strict hierarchical order:
+   ```text
+   explicit launcher CLI parameters (-EnvFile, -FrontendPort, etc.)
+           >
+   caller process environment variables ($env:KEY)
+           >
+   loaded .env file (-EnvFile or root .env)
+           >
+   application defaults
+   ```
+   Never modify the shared primary `.env` to tune or test an individual Issue. Any issue-specific temporary settings must be passed as explicit launcher CLI arguments or set in the isolated caller process.
+5. **AI credentials and simulation separation**:
+   Having API tokens or account IDs in `.env` does not grant authorization to execute real or paid AI inference. Synthetic smoke harnesses (such as the [agent environment](agent-environment.md)) use deterministic providers to prove wiring and layout, which must never be cited as evidence of real AI generation quality. Real AI runs require explicit provider authorization, approved model targets, request budgets, and clean teardown procedures.
+
+### Invocation example
+
+Run the launcher from the active worktree root in a dedicated PowerShell process, supplying the absolute path to the shared `.env`:
+
+```powershell
+# From the worktree root: C:\Developer\Projects\knora-agent-worktree\<issue-slug>
+.\scripts\start-dev.ps1 -EnvFile C:\Developer\Projects\knora-agent\.env -PreflightOnly
+```
+
+Use `-PreflightOnly` to validate configuration, profile compatibility, and PDF memory limits safely without launching Docker services or modifying persistent data.

@@ -2543,3 +2543,117 @@ def test_launcher_verifies_volume_destination_and_role_label(tmp_path: Path, she
     else:
         assert result.returncode == 2, result.stderr
         assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_launcher_rejects_missing_env_file(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.env"
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(missing),
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 2
+    assert "ENV_FILE_UNAVAILABLE" in result.stderr
+    assert "PRECHECK_OK" not in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_launcher_rejects_malformed_dotenv_without_echoing_content(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    secret_marker = "do-not-print-this-secret"
+    env_file.write_text(f"BROKEN {secret_marker}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 2
+    assert "INVALID_DOTENV_ENTRY:1" in result.stderr
+    assert secret_marker not in result.stdout + result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_launcher_loads_dotenv_from_spaced_path_and_preserves_caller(
+    tmp_path: Path,
+) -> None:
+    spaced_dir = tmp_path / "shared env directory with spaces"
+    spaced_dir.mkdir()
+    env_file = spaced_dir / ".env"
+    issuer_val = "http://127.0.0.1:8180/realms/custom?param=a=b=c"
+    env_file.write_text(
+        "KNORA_EMBEDDING_PROVIDER=deterministic-local\n"
+        "KNORA_GENERATION_PROVIDER=deterministic-local\n"
+        f"KEYCLOAK_ISSUER={issuer_val}\n"
+        f"KNORA_KEYCLOAK_ISSUER={issuer_val}\n",
+        encoding="utf-8",
+    )
+    initial_bytes = env_file.read_bytes()
+    initial_stat = env_file.stat()
+
+    child = tmp_path / "child.py"
+    child.write_text(
+        "import os\n"
+        "for key in ('KNORA_EMBEDDING_PROVIDER', 'KNORA_GENERATION_PROVIDER', 'KEYCLOAK_ISSUER'):\n"
+        "    print(key + '=' + os.environ.get(key, 'unset'))\n",
+        encoding="utf-8",
+    )
+
+    command = (
+        "$env:CALLER_GUARD = 'caller-preserved'; "
+        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV "
+        "-PythonExe $env:TEST_PYTHON; "
+        "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; "
+        "& $env:TEST_PYTHON $env:TEST_CHILD; "
+        "if ($env:CALLER_GUARD -ne 'caller-preserved') { throw 'Caller leaked' }; "
+        "Write-Output 'CALLER_GUARD_OK'"
+    )
+
+    result = subprocess.run(
+        [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True,
+        text=True,
+        timeout=25,
+        env={
+            **os.environ,
+            "TEST_LAUNCHER": str(SCRIPT),
+            "TEST_ENV": str(env_file),
+            "TEST_PYTHON": sys.executable,
+            "TEST_CHILD": str(child),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK" in result.stdout
+    assert "KNORA_EMBEDDING_PROVIDER=deterministic-local" in result.stdout
+    assert "KNORA_GENERATION_PROVIDER=deterministic-local" in result.stdout
+    assert f"KEYCLOAK_ISSUER={issuer_val}" in result.stdout
+    assert "CALLER_GUARD_OK" in result.stdout
+    assert env_file.read_bytes() == initial_bytes
+    assert env_file.stat().st_mtime_ns == initial_stat.st_mtime_ns

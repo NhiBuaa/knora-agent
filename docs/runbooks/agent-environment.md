@@ -12,6 +12,9 @@ Keycloak and synthetic Mailpit realm. No worker is started: Markdown ingestion i
 synchronous; PDF jobs and submitted Turns do not reach terminal results on their own.
 Deterministic providers prove structure, not answer quality or real email delivery.
 
+> [!NOTE]
+> This browser verification harness does not load the shared local `.env` or invoke live AI providers. Do not evaluate AI provider behavior or generation quality using this deterministic smoke environment; for day-to-day development with Cloudflare or Ollama providers, see [local development](local-development.md) and [worktree environment sharing](local-development.md#referencing-a-shared-env-from-an-isolated-git-worktree).
+
 ## Launch
 
 Run PowerShell from an isolated checkout of the intended commit. Required tools are
