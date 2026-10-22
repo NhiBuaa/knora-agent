@@ -240,6 +240,10 @@ def test_shadow_nodes_have_an_independent_partition(file: str) -> None:
 @pytest.mark.parametrize("suite", ("backend", "windows", "database", "security-shadow"))
 def test_ci_partition_never_imports_other_surface(tmp_path: Path, suite: str) -> None:
     (tmp_path / "conftest.py").write_bytes((ROOT / "conftest.py").read_bytes())
+    (tmp_path / "pytest.ini").write_bytes((ROOT / "pytest.ini").read_bytes())
+    package = tmp_path / "backend/src/knora"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
     ordinary = {
         "backend": "backend/test/answering/test_module.py",
         "windows": "evals/test/test_process_probe.py",
