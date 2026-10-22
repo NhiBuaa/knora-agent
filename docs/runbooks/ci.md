@@ -227,7 +227,8 @@ ownership checks remain active; other workflow steps run as the normal runner ac
    python scripts/runtime_evidence.py validate $sha `
      .verification/runtime/application/evidence.json `
      .verification/runtime/otp/evidence.json `
-     --profile application --profile otp
+     .verification/runtime/retrieval-v3/evidence.json `
+     --profile application --profile otp --profile retrieval-v3
    ```
 
    A failed, cancelled, skipped, missing, empty or differently hashed report fails validation.
@@ -244,7 +245,7 @@ changes to the related capability.
 
 Future Qdrant, OCR, DeepEval and Langfuse checks must follow the extension rule in the CI design:
 cheap deterministic contracts belong in required CI; real multi-service or model checks require a
-named profile, pinned inputs and an explicit release mapping. Empty jobs and pass-through evidence
+named profile (`application`, `otp`, `retrieval-v3`), pinned inputs and an explicit release mapping. Empty jobs and pass-through evidence
 are not valid extensions.
 
 Java configuration follows [Spotless Maven documentation](https://github.com/diffplug/spotless/tree/main/plugin-maven#google-java-format).
