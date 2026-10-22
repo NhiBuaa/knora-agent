@@ -64,10 +64,14 @@ def test_cloudflare_provider_parses_tomarkdown_response() -> None:
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
-        "result": {
-            "format": "markdown",
-            "content": "# Document Title\n\nFirst paragraph.",
-        }
+        "success": True,
+        "result": [
+            {
+                "name": "document.pdf",
+                "format": "markdown",
+                "data": "# Document Title\n\nFirst paragraph.",
+            }
+        ],
     }
     mock_response.headers = {"cf-ray": "ray_123"}
     mock_client.post.return_value = mock_response
@@ -158,3 +162,118 @@ def test_selective_ocr_only_triggers_on_scanned_or_insufficient_pages() -> None:
     assert scanned_page.blocks[0].source_origin == SourceOrigin.OCR
     assert "Scanned text recovered" in scanned_page.text
     mock_provider.ocr_page_image.assert_called_once()
+
+
+def _create_test_pdf(*pages: str) -> bytes:
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    writer = PdfWriter()
+    for text in pages:
+        page = writer.add_blank_page(width=612, height=792)
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
+        )
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+        )
+        commands = ["BT /F1 12 Tf"]
+        for index, line in enumerate(text.splitlines()):
+            line = line or " "
+            escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            commands.append(f"1 0 0 1 72 {720 - index * 18} Tm ({escaped}) Tj")
+        commands.append("ET")
+        stream = DecodedStreamObject()
+        stream.set_data("\n".join(commands).encode("latin-1"))
+        page[NameObject("/Contents")] = writer._add_object(stream)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def test_docling_extractor_multi_page_physical_extraction() -> None:
+    pdf_bytes = _create_test_pdf(
+        "Page 1 native text with information.\n\n# Section 1",
+        "Page 2 independent text with another topic.\n\n# Section 2",
+    )
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+
+    assert len(result.pages) == 2
+    assert result.structure is not None
+    assert len(result.structure.pages) == 2
+
+    page1 = result.structure.pages[0]
+    page2 = result.structure.pages[1]
+    assert page1.page_number == 1
+    assert "Page 1 native text" in page1.text
+    assert page2.page_number == 2
+    assert "Page 2 independent text" in page2.text
+
+    # Chunks on page 2 must have page_number 2 and never reference page 1
+    p2_chunks = [c for c in result.chunks if c.page_number == 2]
+    assert len(p2_chunks) >= 1
+    for c in p2_chunks:
+        assert c.page_start == 2
+        assert c.page_end == 2
+        assert "Page 1" not in c.content
+
+
+def test_docling_resource_limits_max_raw_bytes() -> None:
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration(
+        parser_version="docling-test",
+        extraction_options_version="test",
+        normalizer_version="test",
+        tokenizer_name="cl100k_base",
+        tokenizer_version="tiktoken-0.12.0",
+        chunking_policy_version="page-block-v1",
+        target_tokens=500,
+        overlap_tokens=75,
+        max_tokens=650,
+        max_raw_bytes=100,  # small limit
+        max_pages=500,
+        max_page_stream_bytes=4 * 1024 * 1024,
+        max_total_stream_bytes=64 * 1024 * 1024,
+        extraction_timeout_seconds=30.0,
+        extractor_memory_bytes=256 * 1024 * 1024,
+        minimum_extracted_characters=1,
+    )
+    large_stream = BytesIO(b"x" * 200)
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(large_stream, config)
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason == "RAW_FILE_SIZE"
+
+
+def test_docling_resource_limits_max_pages() -> None:
+    pdf_bytes = _create_test_pdf("P1 text", "P2 text", "P3 text")
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration(
+        parser_version="docling-test",
+        extraction_options_version="test",
+        normalizer_version="test",
+        tokenizer_name="cl100k_base",
+        tokenizer_version="tiktoken-0.12.0",
+        chunking_policy_version="page-block-v1",
+        target_tokens=500,
+        overlap_tokens=75,
+        max_tokens=650,
+        max_raw_bytes=25 * 1024 * 1024,
+        max_pages=2,  # Limit is 2, but PDF has 3 pages
+        max_page_stream_bytes=4 * 1024 * 1024,
+        max_total_stream_bytes=64 * 1024 * 1024,
+        extraction_timeout_seconds=30.0,
+        extractor_memory_bytes=256 * 1024 * 1024,
+        minimum_extracted_characters=1,
+    )
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(pdf_bytes), config)
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason == "PAGE_COUNT"

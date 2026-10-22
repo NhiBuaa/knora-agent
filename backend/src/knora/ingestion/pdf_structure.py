@@ -246,3 +246,184 @@ def validate_canonical_document(document: CanonicalDocument) -> None:
                 )
             visited.add(current)
             current = heading_parents.get(current)
+
+
+def bbox_to_dict(b: BoundingBox | None) -> dict | None:
+    if b is None:
+        return None
+    return {"left": b.left, "top": b.top, "right": b.right, "bottom": b.bottom}
+
+
+def bbox_from_dict(d: dict | None) -> BoundingBox | None:
+    if not d:
+        return None
+    return BoundingBox(
+        left=float(d["left"]),
+        top=float(d["top"]),
+        right=float(d["right"]),
+        bottom=float(d["bottom"]),
+    )
+
+
+def canonical_document_to_dict(doc: CanonicalDocument) -> dict:
+    return {
+        "raw_source_hash": doc.raw_source_hash,
+        "derivation_identity": doc.derivation_identity,
+        "parser_version": doc.parser_version,
+        "document_version": doc.document_version,
+        "is_complete": doc.is_complete,
+        "completeness_status": doc.completeness_status,
+        "unprocessed_pages": list(doc.unprocessed_pages),
+        "pages": [
+            {
+                "page_number": p.page_number,
+                "text": p.text,
+                "content_checksum": p.content_checksum,
+                "width": p.width,
+                "height": p.height,
+                "completeness": {
+                    "is_complete": p.completeness.is_complete,
+                    "status": p.completeness.status,
+                    "reason": p.completeness.reason,
+                    "unprocessed_regions": [
+                        bbox_to_dict(r) for r in p.completeness.unprocessed_regions
+                    ],
+                },
+                "blocks": [
+                    {
+                        "block_id": b.block_id,
+                        "page_number": b.page_number,
+                        "block_type": (
+                            b.block_type.value
+                            if hasattr(b.block_type, "value")
+                            else str(b.block_type)
+                        ),
+                        "start_offset": b.start_offset,
+                        "end_offset": b.end_offset,
+                        "text": b.text,
+                        "heading_id": b.heading_id,
+                        "heading_level": b.heading_level,
+                        "parent_heading_id": b.parent_heading_id,
+                        "heading_path": list(b.heading_path),
+                        "bbox": bbox_to_dict(b.bbox),
+                        "source_origin": (
+                            b.source_origin.value
+                            if hasattr(b.source_origin, "value")
+                            else str(b.source_origin)
+                        ),
+                        "confidence": b.confidence,
+                    }
+                    for b in p.blocks
+                ],
+                "tables": [
+                    {
+                        "table_id": t.table_id,
+                        "page_number": t.page_number,
+                        "num_rows": t.num_rows,
+                        "num_columns": t.num_columns,
+                        "caption": t.caption,
+                        "bbox": bbox_to_dict(t.bbox),
+                        "start_offset": t.start_offset,
+                        "end_offset": t.end_offset,
+                        "cells": [
+                            {
+                                "row_index": c.row_index,
+                                "column_index": c.column_index,
+                                "text": c.text,
+                                "row_span": c.row_span,
+                                "col_span": c.col_span,
+                                "is_header": c.is_header,
+                                "bbox": bbox_to_dict(c.bbox),
+                            }
+                            for c in t.cells
+                        ],
+                    }
+                    for t in p.tables
+                ],
+            }
+            for p in doc.pages
+        ],
+    }
+
+
+def canonical_document_from_dict(d: dict) -> CanonicalDocument:
+    pages = []
+    for p in d.get("pages", []):
+        comp_d = p.get("completeness", {})
+        unproc = tuple(
+            bbox_from_dict(r) for r in comp_d.get("unprocessed_regions", []) if r is not None
+        )
+        comp = PageCompleteness(
+            is_complete=comp_d.get("is_complete", True),
+            status=comp_d.get("status", "COMPLETE"),
+            reason=comp_d.get("reason"),
+            unprocessed_regions=unproc,
+        )
+        blocks = []
+        for b in p.get("blocks", []):
+            blocks.append(
+                CanonicalBlock(
+                    block_id=b["block_id"],
+                    page_number=b["page_number"],
+                    block_type=BlockType(b["block_type"]),
+                    start_offset=b["start_offset"],
+                    end_offset=b["end_offset"],
+                    text=b["text"],
+                    heading_id=b.get("heading_id"),
+                    heading_level=b.get("heading_level"),
+                    parent_heading_id=b.get("parent_heading_id"),
+                    heading_path=tuple(b.get("heading_path", [])),
+                    bbox=bbox_from_dict(b.get("bbox")),
+                    source_origin=SourceOrigin(b.get("source_origin", "native_text")),
+                    confidence=b.get("confidence"),
+                )
+            )
+        tables = []
+        for t in p.get("tables", []):
+            cells = [
+                CanonicalTableCell(
+                    row_index=c["row_index"],
+                    column_index=c["column_index"],
+                    text=c.get("text", ""),
+                    row_span=c.get("row_span", 1),
+                    col_span=c.get("col_span", 1),
+                    is_header=c.get("is_header", False),
+                    bbox=bbox_from_dict(c.get("bbox")),
+                )
+                for c in t.get("cells", [])
+            ]
+            tables.append(
+                CanonicalTable(
+                    table_id=t["table_id"],
+                    page_number=t["page_number"],
+                    num_rows=t["num_rows"],
+                    num_columns=t["num_columns"],
+                    cells=tuple(cells),
+                    caption=t.get("caption"),
+                    bbox=bbox_from_dict(t.get("bbox")),
+                    start_offset=t.get("start_offset"),
+                    end_offset=t.get("end_offset"),
+                )
+            )
+        pages.append(
+            CanonicalPage(
+                page_number=p["page_number"],
+                text=p["text"],
+                content_checksum=p["content_checksum"],
+                blocks=tuple(blocks),
+                tables=tuple(tables),
+                completeness=comp,
+                width=p.get("width"),
+                height=p.get("height"),
+            )
+        )
+    return CanonicalDocument(
+        raw_source_hash=d["raw_source_hash"],
+        derivation_identity=d["derivation_identity"],
+        parser_version=d["parser_version"],
+        pages=tuple(pages),
+        document_version=d.get("document_version"),
+        is_complete=d.get("is_complete", True),
+        completeness_status=d.get("completeness_status", "COMPLETE"),
+        unprocessed_pages=tuple(d.get("unprocessed_pages", ())),
+    )

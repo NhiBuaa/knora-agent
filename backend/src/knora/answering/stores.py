@@ -105,6 +105,7 @@ class RetrievalConfiguration:
     def hybrid_top8_v3(
         cls,
         *,
+        candidate_k: int = 100,
         min_similarity: float = 0.65,
         lexical_policy_id: str = "bm25-word-frozen47-population-v1",
         fusion_policy_id: str = "dbsf-v1",
@@ -117,7 +118,7 @@ class RetrievalConfiguration:
             raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
         return cls(
             id="retrieval-hybrid-top8-v3",
-            candidate_k=8,
+            candidate_k=candidate_k,
             min_similarity=float(min_similarity),
             max_evidence_chunks=5,
             max_evidence_tokens=3000,
@@ -376,6 +377,7 @@ class LexicalGeneration:
     chunk_set_id: str
     index_generation_id: str
     lexical_policy_id: str
+    statistics_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -455,6 +457,12 @@ class AnsweringStore(Protocol):
         embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult: ...
+
+    def read_corpus_statistics(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+    ) -> object | None: ...
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
 

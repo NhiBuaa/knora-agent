@@ -56,7 +56,7 @@ class CloudflarePdfUnderstandingProvider:
     def convert_to_markdown(self, file_bytes: bytes) -> CloudflareToMarkdownResponse:
         """Call Cloudflare /ai/tomarkdown endpoint with multipart/form-data."""
         headers = {"Authorization": f"Bearer {self._api_token}"}
-        files = {"file": ("document.pdf", file_bytes, "application/pdf")}
+        files = {"files": ("document.pdf", file_bytes, "application/pdf")}
         data = {"conversionOptions": '{"output":{"format":"markdown"},"pdf":{"metadata":true}}'}
 
         try:
@@ -68,9 +68,43 @@ class CloudflarePdfUnderstandingProvider:
             )
             response.raise_for_status()
             payload = response.json()
-            result = payload.get("result", {})
-            content = result.get("content", "")
-            fmt = result.get("format", "markdown")
+            if not isinstance(payload, dict):
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_MALFORMED_OUTPUT",
+                    retryable=False,
+                )
+            if payload.get("success") is False:
+                errors = payload.get("errors") or []
+                err_msg = str(errors[0]) if errors else "UNKNOWN_ERROR"
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason=f"CLOUDFLARE_API_ERROR: {err_msg}",
+                    retryable=True,
+                )
+            result = payload.get("result")
+            content = ""
+            fmt = "markdown"
+            if isinstance(result, list):
+                if not result:
+                    raise PdfExtractionError(
+                        "PDF_TEXT_INSUFFICIENT",
+                        reason="EMPTY_CONVERSION_RESULT",
+                        retryable=False,
+                    )
+                item = result[0]
+                content = item.get("data") or item.get("content") or ""
+                fmt = item.get("format", "markdown")
+            elif isinstance(result, dict):
+                content = result.get("data") or result.get("content") or ""
+                fmt = result.get("format", "markdown")
+            else:
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_MALFORMED_OUTPUT",
+                    retryable=False,
+                )
+
             request_id = response.headers.get("cf-ray") or response.headers.get("x-request-id")
             return CloudflareToMarkdownResponse(content=content, format=fmt, request_id=request_id)
         except httpx.HTTPStatusError as error:
@@ -98,6 +132,14 @@ class CloudflarePdfUnderstandingProvider:
                 reason=f"CLOUDFLARE_HTTP_{status_code}",
                 retryable=True,
             ) from error
+        except httpx.TimeoutException as error:
+            raise PdfExtractionError(
+                "PDF_EXTRACTOR_UNAVAILABLE",
+                reason="TIMEOUT",
+                retryable=True,
+            ) from error
+        except PdfExtractionError:
+            raise
         except Exception as error:
             raise PdfExtractionError(
                 "PDF_EXTRACTOR_UNAVAILABLE",

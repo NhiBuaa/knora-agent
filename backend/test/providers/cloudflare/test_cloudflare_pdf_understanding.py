@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+import httpx
+import pytest
+
+from knora.ingestion.pdf import PdfExtractionError
+from knora.providers.cloudflare.pdf_understanding import (
+    CloudflarePdfUnderstandingProvider,
+)
+
+
+def test_tomarkdown_parses_real_envelope() -> None:
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        assert b'name="files"' in request.content
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": [
+                    {
+                        "name": "document.pdf",
+                        "format": "markdown",
+                        "data": "# Policy Document\n\nContent here.",
+                    }
+                ],
+            },
+            headers={"cf-ray": "ray_abc123"},
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(endpoint), trust_env=False) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        resp = provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert resp.content == "# Policy Document\n\nContent here."
+        assert resp.format == "markdown"
+        assert resp.request_id == "ray_abc123"
+
+
+def test_tomarkdown_handles_dict_envelope_fallback() -> None:
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": {
+                    "format": "markdown",
+                    "data": "# Fallback Dict Content",
+                },
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(endpoint), trust_env=False) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        resp = provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert resp.content == "# Fallback Dict Content"
+
+
+def test_tomarkdown_handles_api_errors_and_malformed() -> None:
+    def error_endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": False,
+                "errors": ["Document processing failed"],
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(error_endpoint), trust_env=False) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert "CLOUDFLARE_API_ERROR" in exc_info.value.reason
+
+
+def test_tomarkdown_handles_rate_limit_and_bad_request() -> None:
+    def rate_limit_endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"success": False, "errors": ["Rate limited"]})
+
+    with httpx.Client(
+        transport=httpx.MockTransport(rate_limit_endpoint), trust_env=False
+    ) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert exc_info.value.code == "PDF_EXTRACTOR_UNAVAILABLE"
+        assert exc_info.value.reason == "CLOUDFLARE_RATE_LIMIT"
+        assert exc_info.value.retryable is True

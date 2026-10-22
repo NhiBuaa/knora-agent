@@ -23,26 +23,60 @@ from knora.providers.openai_compatible.generation import OpenAICompatibleGenerat
 @dataclass(frozen=True, slots=True)
 class ProviderSelection:
     embedding_provider: EmbeddingProvider
+
     generation_provider: GenerationProvider
+
     embedding_configuration: EmbeddingConfiguration
 
 
 def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
+
+    is_v3 = runtime_settings.retrieval_configuration_id in {
+        "retrieval-dense-top8-v3",
+        "retrieval-hybrid-top8-v3",
+    } or (
+        bool(runtime_settings.retrieval_configuration_id)
+        and runtime_settings.retrieval_configuration_id.endswith("-v3")
+    )
+
+    if is_v3:
+        if runtime_settings.embedding_provider not in {"cloudflare", "deterministic-local"}:
+            raise ValueError(
+                "V3 retrieval requires Cloudflare AI providers exclusively "
+                f"(got embedding_provider={runtime_settings.embedding_provider})"
+            )
+
+        if runtime_settings.generation_provider not in {"cloudflare", "deterministic-local"}:
+            raise ValueError(
+                "V3 retrieval requires Cloudflare AI providers exclusively "
+                f"(got generation_provider={runtime_settings.generation_provider})"
+            )
+
     embedding_choice = runtime_settings.embedding_provider
+
     generation_choice = runtime_settings.generation_provider
+
     if (embedding_choice is None) != (generation_choice is None):
         raise ValueError("invalid provider configuration: both selectors are required")
+
     if embedding_choice is not None and generation_choice is not None:
         embedding, configuration = _build_selected_embedding(runtime_settings, embedding_choice)
+
         try:
             _validate_embedding_dimension(runtime_settings, configuration)
+
             _require_expected_profile(runtime_settings, configuration)
+
             generation = _build_selected_generation(runtime_settings, generation_choice)
+
         except Exception:
             close_embedding = getattr(embedding, "close", None)
+
             if close_embedding is not None:
                 close_embedding()
+
             raise
+
         return ProviderSelection(embedding, generation, configuration)
 
     return _build_legacy_provider_selection(runtime_settings)
@@ -51,6 +85,7 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
 def _validate_embedding_dimension(
     runtime_settings: Settings, configuration: EmbeddingConfiguration
 ) -> None:
+
     if runtime_settings.embedding_dimension != configuration.dimensions:
         raise ValueError(
             "invalid provider configuration: Milestone 1 embedding configuration expected "
@@ -61,7 +96,9 @@ def _validate_embedding_dimension(
 def _require_expected_profile(
     runtime_settings: Settings, configuration: EmbeddingConfiguration
 ) -> None:
+
     expected = runtime_settings.expected_embedding_configuration_id
+
     if expected is not None and configuration.id != expected:
         raise ValueError("invalid provider configuration: embedding profile mismatch")
 
@@ -69,9 +106,12 @@ def _require_expected_profile(
 def _build_selected_embedding(
     runtime_settings: Settings, choice: str
 ) -> tuple[EmbeddingProvider, EmbeddingConfiguration]:
+
     if choice == "cloudflare-workers-ai":
         account_id, api_token = _cloudflare_credentials(runtime_settings)
+
         configuration = EmbeddingConfiguration.cloudflare_qwen3_06b()
+
         if (
             runtime_settings.cloudflare_embedding_model != configuration.model
             or runtime_settings.cloudflare_embedding_configuration_id != configuration.id
@@ -79,6 +119,7 @@ def _build_selected_embedding(
             raise ValueError(
                 "invalid provider configuration: unsupported Cloudflare embedding profile"
             )
+
         return (
             CloudflareEmbeddingProvider(
                 account_id=account_id,
@@ -87,15 +128,19 @@ def _build_selected_embedding(
             ),
             configuration,
         )
+
     if choice == "ollama":
         if runtime_settings.ollama_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
+
         if runtime_settings.ollama_embedding_model != "qwen3-embedding:0.6b":
             raise ValueError("invalid provider configuration: unsupported Ollama embedding model")
+
         provider = OllamaEmbeddingProvider(
             base_url=runtime_settings.ollama_base_url,
             timeout_seconds=runtime_settings.ollama_timeout_seconds,
         )
+
         try:
             with httpx.Client(
                 base_url=runtime_settings.ollama_base_url,
@@ -104,23 +149,32 @@ def _build_selected_embedding(
                 configuration = resolve_ollama_embedding_configuration(
                     client, runtime_settings.ollama_embedding_model
                 )
+
         except Exception:
             provider.close()
+
             raise
+
         return provider, configuration
+
     if choice == "deterministic-local":
         if runtime_settings.openai_embedding_model != "text-embedding-3-small":
             raise ValueError(
                 "invalid provider configuration: Milestone 1 embedding configuration for "
                 "deterministic-local expected text-embedding-3-small"
             )
+
         return DeterministicEmbeddingProvider(), EmbeddingConfiguration.milestone_one_local()
+
     if choice == "google-gemini-api":
         api_key = runtime_settings.gemini_api_key
+
         if api_key is None or not api_key.get_secret_value():
             raise ValueError("invalid provider configuration: missing gemini_api_key")
+
         if runtime_settings.gemini_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
+
         return (
             GeminiEmbeddingProvider(
                 api_key=api_key.get_secret_value(),
@@ -128,6 +182,7 @@ def _build_selected_embedding(
             ),
             EmbeddingConfiguration.gemini_m3(),
         )
+
     if choice == "openai-compatible":
         required = {
             "openai_base_url": runtime_settings.openai_base_url,
@@ -138,21 +193,31 @@ def _build_selected_embedding(
                 runtime_settings.openai_embedding_input_cost_per_million_tokens
             ),
         }
+
         api_key = runtime_settings.openai_api_key
+
         missing = [name for name, value in required.items() if value is None or value == ""]
+
         if api_key is None or not api_key.get_secret_value():
             missing.append("openai_api_key")
+
         if missing:
             raise ValueError(
                 "invalid provider configuration: missing " + ", ".join(sorted(missing))
             )
+
         cost = runtime_settings.openai_embedding_input_cost_per_million_tokens
+
         assert cost is not None
+
         assert api_key is not None
+
         if cost < 0:
             raise ValueError("invalid provider configuration: costs must be non-negative")
+
         if runtime_settings.openai_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
+
         return (
             OpenAICompatibleEmbeddingProvider(
                 base_url=str(runtime_settings.openai_base_url),
@@ -166,16 +231,20 @@ def _build_selected_embedding(
                 model=runtime_settings.openai_embedding_model,
             ),
         )
+
     raise ValueError("invalid provider configuration: unsupported embedding_provider")
 
 
 def _build_selected_generation(runtime_settings: Settings, choice: str) -> GenerationProvider:
+
     if choice == "cloudflare-workers-ai":
         account_id, api_token = _cloudflare_credentials(runtime_settings)
+
         if runtime_settings.cloudflare_generation_model != "@cf/openai/gpt-oss-20b":
             raise ValueError(
                 "invalid provider configuration: unsupported Cloudflare generation model"
             )
+
         return OpenAICompatibleGenerationProvider(
             base_url=(f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"),
             api_key=api_token,
@@ -188,22 +257,29 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
             max_tokens=1024,
             direct_json_schema=True,
         )
+
     if choice == "deterministic-local":
         return DeterministicGenerationProvider()
+
     if choice == "ollama":
         if runtime_settings.ollama_generation_model not in {"qwen3:8b", "qwen3:4b", "gpt-oss:20b"}:
             raise ValueError("invalid provider configuration: unsupported Ollama generation model")
+
         if runtime_settings.ollama_generation_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
+
         digest = runtime_settings.expected_generation_model_digest
+
         if digest is None or re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest) is None:
             raise ValueError("invalid provider configuration: generation model digest required")
+
         return OllamaGenerationProvider(
             base_url=runtime_settings.ollama_base_url,
             model=runtime_settings.ollama_generation_model,
             expected_digest=digest,
             timeout_seconds=runtime_settings.ollama_generation_timeout_seconds,
         )
+
     if choice == "openai-compatible":
         if any(
             cost is not None and cost < 0
@@ -213,21 +289,28 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
             )
         ):
             raise ValueError("invalid provider configuration: costs must be non-negative")
+
         return _build_openai_generation(runtime_settings)
+
     raise ValueError("invalid provider configuration: unsupported generation_provider")
 
 
 def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSelection:
+
     if runtime_settings.provider_mode == "google-gemini-api":
         legacy_configuration = EmbeddingConfiguration.gemini_m3()
+
     elif runtime_settings.provider_mode == "openai-compatible":
         legacy_configuration = EmbeddingConfiguration.openai_compatible(
             configuration_id=runtime_settings.openai_embedding_configuration_id,
             model=runtime_settings.openai_embedding_model,
         )
+
     else:
         legacy_configuration = EmbeddingConfiguration.milestone_one_local()
+
     _validate_embedding_dimension(runtime_settings, legacy_configuration)
+
     _require_expected_profile(runtime_settings, legacy_configuration)
 
     if (
@@ -238,21 +321,29 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
             "invalid provider configuration: Milestone 1 embedding configuration for "
             "deterministic-local expected text-embedding-3-small"
         )
+
     if runtime_settings.provider_mode == "deterministic-local":
         configuration = EmbeddingConfiguration.milestone_one_local()
+
         return ProviderSelection(
             embedding_provider=DeterministicEmbeddingProvider(),
             generation_provider=DeterministicGenerationProvider(),
             embedding_configuration=configuration,
         )
+
     if runtime_settings.provider_mode == "google-gemini-api":
         api_key = runtime_settings.gemini_api_key
+
         if api_key is None or not api_key.get_secret_value():
             raise ValueError("invalid provider configuration: missing gemini_api_key")
+
         if runtime_settings.gemini_timeout_seconds <= 0:
             raise ValueError("invalid provider configuration: timeout must be positive")
+
         generation = _build_openai_generation(runtime_settings)
+
         configuration = EmbeddingConfiguration.gemini_m3()
+
         return ProviderSelection(
             embedding_provider=GeminiEmbeddingProvider(
                 api_key=api_key.get_secret_value(),
@@ -261,6 +352,7 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
             generation_provider=generation,
             embedding_configuration=configuration,
         )
+
     if runtime_settings.provider_mode != "openai-compatible":
         raise ValueError("invalid provider configuration: unsupported provider_mode")
 
@@ -271,6 +363,7 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
         "openai_generation_model": runtime_settings.openai_generation_model,
         "openai_pricing_version": runtime_settings.openai_pricing_version,
     }
+
     costs = {
         "openai_embedding_input_cost_per_million_tokens": (
             runtime_settings.openai_embedding_input_cost_per_million_tokens
@@ -282,36 +375,56 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
             runtime_settings.openai_generation_output_cost_per_million_tokens
         ),
     }
+
     api_key = runtime_settings.openai_api_key
+
     missing = [name for name, value in required_text.items() if not value]
+
     if api_key is None or not api_key.get_secret_value():
         missing.append("openai_api_key")
+
     missing.extend(name for name, value in costs.items() if value is None)
+
     if missing:
         raise ValueError("invalid provider configuration: missing " + ", ".join(sorted(missing)))
+
     if any(value is not None and value < 0 for value in costs.values()):
         raise ValueError("invalid provider configuration: costs must be non-negative")
+
     if runtime_settings.openai_timeout_seconds <= 0:
         raise ValueError("invalid provider configuration: timeout must be positive")
 
     assert api_key is not None
+
     base_url = runtime_settings.openai_base_url
+
     generation_model = runtime_settings.openai_generation_model
+
     pricing_version = runtime_settings.openai_pricing_version
+
     embedding_cost = runtime_settings.openai_embedding_input_cost_per_million_tokens
+
     generation_input_cost = runtime_settings.openai_generation_input_cost_per_million_tokens
+
     generation_output_cost = runtime_settings.openai_generation_output_cost_per_million_tokens
+
     assert base_url is not None
+
     assert generation_model is not None
+
     assert pricing_version is not None
+
     assert embedding_cost is not None
+
     assert generation_input_cost is not None
+
     assert generation_output_cost is not None
 
     configuration = EmbeddingConfiguration.openai_compatible(
         configuration_id=runtime_settings.openai_embedding_configuration_id,
         model=runtime_settings.openai_embedding_model,
     )
+
     return ProviderSelection(
         embedding_provider=OpenAICompatibleEmbeddingProvider(
             base_url=base_url,
@@ -334,6 +447,7 @@ def _build_legacy_provider_selection(runtime_settings: Settings) -> ProviderSele
 
 
 def _build_openai_generation(runtime_settings: Settings) -> GenerationProvider:
+
     required = {
         "openai_base_url": runtime_settings.openai_base_url,
         "openai_generation_model": runtime_settings.openai_generation_model,
@@ -345,15 +459,22 @@ def _build_openai_generation(runtime_settings: Settings) -> GenerationProvider:
             runtime_settings.openai_generation_output_cost_per_million_tokens
         ),
     }
+
     api_key = runtime_settings.openai_api_key
+
     missing = [name for name, value in required.items() if value is None or value == ""]
+
     if api_key is None or not api_key.get_secret_value():
         missing.append("openai_api_key")
+
     if missing:
         raise ValueError("invalid provider configuration: missing " + ", ".join(sorted(missing)))
+
     if runtime_settings.openai_timeout_seconds <= 0:
         raise ValueError("invalid provider configuration: timeout must be positive")
+
     assert api_key is not None
+
     return OpenAICompatibleGenerationProvider(
         base_url=str(runtime_settings.openai_base_url),
         api_key=api_key.get_secret_value(),
@@ -366,15 +487,21 @@ def _build_openai_generation(runtime_settings: Settings) -> GenerationProvider:
 
 
 def _cloudflare_credentials(runtime_settings: Settings) -> tuple[str, str]:
+
     account_id = runtime_settings.cloudflare_account_id
+
     api_token = runtime_settings.cloudflare_api_token
+
     if account_id is None or re.fullmatch(r"[0-9a-fA-F]{32}", account_id) is None:
         raise ValueError("invalid provider configuration: invalid cloudflare_account_id")
+
     if api_token is None or not api_token.get_secret_value():
         raise ValueError("invalid provider configuration: missing cloudflare_api_token")
+
     if (
         not math.isfinite(runtime_settings.cloudflare_timeout_seconds)
         or runtime_settings.cloudflare_timeout_seconds <= 0
     ):
         raise ValueError("invalid provider configuration: timeout must be finite and positive")
+
     return account_id, api_token.get_secret_value()
